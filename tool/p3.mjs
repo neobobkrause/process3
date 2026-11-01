@@ -2,9 +2,12 @@
 // Process3 tool: one program, a fresh process per command, run from the pinned clone.
 // Usage: node <clone>/tool/p3.mjs <command> [args]
 import { writeFileSync } from 'node:fs';
+import { jobBlock, jobComplete, jobStart } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
+import { appendRow, report as metricsReport } from './lib/metrics.mjs';
+import { status } from './lib/status.mjs';
 import { recordCheck } from './lib/record.mjs';
-import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot } from './lib/util.mjs';
+import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -14,7 +17,49 @@ export function report(findings, out, extra = {}) {
   return findings.length ? 1 : 0;
 }
 
+const one = (a, what) => a._[0] || fail(`name the ${what}`);
+const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
+
 const commands = {
+  // status [--role job --module <id>] [--offline]
+  status: (a, root) => { status(root, { role: a.role, module: a.module, offline: !!a.offline }); return 0; },
+
+  // job start <id> --coordinator <session> [--model <m>]: BOB opens a job.
+  'job start': (a, root) => { jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model }); return 0; },
+
+  // job complete <id> [--not-verified "..."]... [--exempt-revert "<why>"] [--no-suite]
+  'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
+    notVerified: list(a['not-verified']).filter((x) => x !== true), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
+  }).ok ? 0 : 1),
+
+  // block <id> --reason "<why>"
+  block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason }).ok ? 0 : 1),
+
+  // metrics add <id> --attempt n --session s [--tokens n] [--cost-usd x] [--denials n]
+  //   [--refusal "<act>|<depth>|<channel>"]... [--decline "<act>|<depth>"]... [--outcome o]
+  // metrics report: the two health metrics and their figures, as JSON.
+  metrics: (a, root) => {
+    const sub = a._.shift();
+    if (sub === 'add') {
+      const id = one(a, 'module');
+      const split = (v, keys) => list(v).map((x) => Object.fromEntries(String(x).split('|').map((p, i) => [keys[i], p])));
+      const row = appendRow(root, id, {
+        row: 'attempt', event: 'measured', role: a.role || 'job', attempt: Number(a.attempt || 1), session: a.session || null,
+        tokens: num(a.tokens), cost_usd: a['cost-usd'] === undefined ? 'unmeasured' : Number(a['cost-usd']),
+        denials: Number(a.denials || 0), refusals: split(a.refusal, ['act', 'depth', 'channel']),
+        declines: split(a.decline, ['act', 'depth']), outcome: a.outcome || null,
+      });
+      console.log(JSON.stringify(row));
+      return 0;
+    }
+    if (sub === 'report') {
+      const cfg = loadConfig(root);
+      console.log(JSON.stringify(metricsReport(root, repoSlug(root), a.branch || `origin/${cfg.tranche}`), null, 2));
+      return 0;
+    }
+    fail('metrics add | metrics report');
+  },
+
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
   'ledger check': (a, root) => report(checkLedger(root, { base: a.base, branch: a.branch }), a.out),
 

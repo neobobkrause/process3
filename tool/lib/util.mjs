@@ -9,8 +9,10 @@ export const fail = (msg) => { throw new Fail(msg); };
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
 export function run(cmd, args = [], opts = {}) {
   const t0 = Date.now();
+  const env = { ...process.env, ...(opts.env || {}) };
+  for (const k of opts.unset || []) delete env[k];
   const r = spawnSync(cmd, args, {
-    cwd: opts.cwd, env: { ...process.env, ...(opts.env || {}) }, encoding: 'utf8',
+    cwd: opts.cwd, env, encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024, input: opts.input, timeout: opts.timeout,
   });
   return {
