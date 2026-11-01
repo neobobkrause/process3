@@ -1,0 +1,37 @@
+# The record check for pull requests, judged entirely by the base: under pull_request_target
+# this workflow file and the tool both come from the base branch, and the head is fetched only
+# as git data. No code from the head runs here, so a pull request cannot remove or rewrite the
+# check that judges it. Whether this check can be the required one is measured on its first
+# pull requests (a check from pull_request_target must attach to the head commit).
+name: record-pr
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+permissions:
+  contents: read
+concurrency:
+  group: record-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: record check of the head, by the base's tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git fetch -q origin "+refs/pull/$PR/head:refs/remotes/pr/head"
+          test "$(git rev-parse refs/remotes/pr/head)" = "$HEAD_SHA" || echo "::warning::the head moved since the event; checking the event's head"
+          node tool/p3.mjs record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out "$RUNNER_TEMP/record-findings.json"
