@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, markReady } from './github.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
-import { appendRow, metricsFile, nextAttempt } from './metrics.mjs';
+import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck } from './record.mjs';
 import { runSuite } from './suite.mjs';
 import { fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -80,10 +80,13 @@ export function jobStart(root, id, { coordinator, model, push = true, open = cre
 
   if (push && remoteTip(root, branch)) {
     if (find(slug, branch)) fail(`${branch} already has an open pull request; restarting a job is a Phase 2 command`);
-    // Resume: the branch was pushed but the PR was never opened.
+    // Resume: the branch was pushed but the PR was never opened. Only for an unfinished start:
+    // WORKING, and nothing on the branch but its start commit.
     fetchRef(root, branch);
     const entryText = git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root });
     const entry = JSON.parse(entryText);
+    const ahead = Number(git(['rev-list', '--count', `${from}..origin/${branch}`], { cwd: root }));
+    if (entry.status?.state !== 'WORKING' || ahead !== 1) fail(`${branch} exists and is not an unfinished start (${entry.status?.state}, ${ahead} commits); restarting a job is a Phase 2 command`);
     const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root }).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.event === 'start').pop();
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry) });
     const launch = launchFor(slug, branch, id, start, model);
@@ -162,7 +165,14 @@ export function jobComplete(root, id, opts = {}) {
   if (push && !pr) fail(`no open pull request from ${branch}`);
   const entry = readEntry(root, id);
 
-  if (entry.status.state === 'COMPLETE') return finish(root, { id, slug, pr, branch, push, io, log, receipt: null });
+  if (entry.status.state === 'COMPLETE') {
+    // Resume: the receipt was saved in the COMPLETE commit's row; its SHA is that commit.
+    const row = readRows(root, id).filter((r) => r.event === 'complete').pop();
+    const at = git(['log', '-1', '--format=%H', '--', metricsFile(id)], { cwd: root });
+    if (!row?.receipt) fail(`${id} is COMPLETE but no receipt was saved; ask your coordinator`);
+    if (at !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`${id} is COMPLETE, but commits were added after it; ask your coordinator`);
+    return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at } });
+  }
   if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
 
   const commands = [];
@@ -189,19 +199,19 @@ export function jobComplete(root, id, opts = {}) {
     return { ok: false, commands };
   }
   const attempt = nextAttempt(root, id) - 1;
-  let sha;
+  // The receipt is saved in the COMPLETE commit, so a rerun after a failed push can post it.
+  const receipt = {
+    kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
+    commands, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
+  };
   try {
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null });
-    sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
+    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt });
+    receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
   } catch (e) {
     restore(root, [entryFile(id), metricsFile(id)]);
     throw e;
   }
-  const receipt = {
-    kind: 'receipt', module: id, attempt, sha, base, branch, tool: toolPin(), at: now(),
-    commands, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
-  };
   return finish(root, { id, slug, pr, branch, push, io, log, receipt });
 }
 
@@ -210,12 +220,14 @@ export function jobComplete(root, id, opts = {}) {
 function finish(root, { id, slug, pr, branch, push, io, log, receipt }) {
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
   if (!push) return { ok: true, receipt };
-  if (remoteTip(root, branch) !== sha) git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root });
+  if (remoteTip(root, branch) !== sha) {
+    const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
+    if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again`);
+  }
   if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
   const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number));
   let url = posted?.comment?.html_url;
   if (posted?.data?.sha !== sha) {
-    if (!receipt) fail(`${id} is COMPLETE at ${sha.slice(0, 10)} but its receipt is missing; ask your coordinator`);
     const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
     url = c.html_url;
   }
