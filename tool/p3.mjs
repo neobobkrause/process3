@@ -2,9 +2,11 @@
 // Process3 tool: one program, a fresh process per command, run from the pinned clone.
 // Usage: node <clone>/tool/p3.mjs <command> [args]
 import { writeFileSync } from 'node:fs';
+import { gate } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
+import { merge } from './lib/merge.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -61,6 +63,23 @@ const commands = {
       return 0;
     }
     fail('metrics add | metrics report');
+  },
+
+  // merge <pr> (--reviewed "<what>" | --no-review "<why>") [--minutes 30]: BOB merges a job.
+  merge: (a, root) => {
+    const n = Number(one(a, 'pull request number'));
+    return merge(root, n, { reviewed: a.reviewed, noReview: a['no-review'], minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
+  },
+
+  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]
+  // Run only by the gate workflow, with the base's process pin.
+  gate: (a, root) => {
+    const { run: r, findings } = gate(root, {
+      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null,
+      draft: a.draft === 'true' || a.draft === true, started: a.started ? Number(a.started) * 1000 : Date.now(),
+    });
+    console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
+    return report(findings, a.out, { run: r });
   },
 
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
