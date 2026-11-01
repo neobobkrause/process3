@@ -1,0 +1,37 @@
+# Process3 record check on every push to any branch (REC-10), at the tranche's process pin,
+# from the merge-base with the tranche (or main). Not a required check.
+# Copied into a product as .github/workflows/process-record.yml.
+name: process-record
+on:
+  push:
+permissions:
+  contents: read
+concurrency:
+  group: process-record-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  record-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: the tranche's process pin
+        run: |
+          tranche=$(jq -r '.tranche // "tranche"' process/config.json 2>/dev/null || echo tranche)
+          echo "TRANCHE=$tranche" >> "$GITHUB_ENV"
+          pin=$(git rev-parse "origin/$tranche:.process" 2>/dev/null || git rev-parse "HEAD:.process")
+          git clone -q --filter=blob:none https://github.com/neobobkrause/process3 "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: record check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          onto="origin/$TRANCHE"
+          [ "$GITHUB_REF_NAME" = "$TRANCHE" ] && onto=origin/main
+          node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --head "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --onto "$onto" --onto origin/main --out "$RUNNER_TEMP/record.json"
