@@ -1,12 +1,14 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, block, createPR, findPR, markReady } from './github.mjs';
+import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, markReady } from './github.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt } from './metrics.mjs';
 import { recordCheck } from './record.mjs';
 import { runSuite } from './suite.mjs';
 import { fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
+
+const MINUTE = 60000;
 
 export const TOOL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const toolPin = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_ROOT, allowFail: true }).stdout.trim() || 'unknown';
@@ -28,7 +30,6 @@ const DEFAULT_ACTS = (id) => [
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 export function startText({ entry, slug, branch, tranche, coordinator, attempt, reading }) {
   const id = entry.id;
-  const suite = `cd ${entry.suite.cwd} && ${entry.suite.command.join(' ')} <test files under ${entry.tests.join(', ')}>`;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}`, '');
   L.push(`You are the job session for module \`${id}\` (${entry.title}) in ${slug}.`);
@@ -41,8 +42,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   L.push('', '## Commands, in order', '');
   L.push(`1. \`git submodule update --init .process\` (the pinned process clone arrives empty).`);
   L.push(`2. \`${P3} status --role job --module ${id}\``);
-  L.push(`3. Do the work. Run the module's suite with \`${suite}\`. Commit and \`git push origin ${branch}\` before every turn ends, so nothing is lost (JOB-9).`);
-  L.push(`4. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>"\`. It runs the fast checks and the suite, posts your receipt, marks the pull request ready and pushes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`3. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends, so nothing is lost (JOB-9).`);
+  L.push(`4. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>"\`. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`5. End your turn when it prints the receipt link.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   L.push('', '## Acts you may take', '');
@@ -51,87 +52,132 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   return L.join('\n') + '\n';
 }
 
-const commitAll = (root, paths, msg) => {
+
+const commitFiles = (root, paths, msg) => {
   git(['add', '--', ...paths], { cwd: root });
-  git(['commit', '-q', '-m', msg], { cwd: root });
+  git(['commit', '-q', '-m', msg, '--', ...paths], { cwd: root });
   return git(['rev-parse', 'HEAD'], { cwd: root });
 };
+const fetchRef = (root, branch) => git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+const remoteTip = (root, branch) => (git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.split('\t')[0] || '').trim();
+const restore = (root, paths) => git(['checkout', 'HEAD', '--', ...paths], { cwd: root, allowFail: true });
+
+function launchFor(slug, branch, id, start, model) {
+  return { title: `job ${id}`, source_url: `https://github.com/${slug}`, source_revision: branch, ...(model ? { model } : {}), prompt: start };
+}
 
 // BOB: branch, status WORKING, START, draft pull request; prints what to start the session with.
-export function jobStart(root, id, { coordinator, model, push = true, open = createPR, log = console.log } = {}) {
+// Safe to run again: when the branch is pushed but has no pull request, it opens the PR.
+export function jobStart(root, id, { coordinator, model, push = true, open = createPR, find = findPR, log = console.log } = {}) {
   const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
   const branch = `job/${id}`;
   coordinator ||= cfg.coordinator;
+  model ||= cfg.roles?.job?.model;
   if (!coordinator) fail('no coordinator: pass --coordinator <session id> or set it in process/config.json');
-  if (push) git(['fetch', '-q', 'origin', cfg.tranche], { cwd: root });
-  if (git(['ls-remote', '--heads', 'origin', branch], { cwd: root, allowFail: true }).stdout.trim()) {
-    fail(`${branch} already exists; restarting a job is a Phase 2 command`);
+  if (push) fetchRef(root, cfg.tranche);
+  const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
+
+  if (push && remoteTip(root, branch)) {
+    if (find(slug, branch)) fail(`${branch} already has an open pull request; restarting a job is a Phase 2 command`);
+    // Resume: the branch was pushed but the PR was never opened.
+    fetchRef(root, branch);
+    const entryText = git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root });
+    const entry = JSON.parse(entryText);
+    const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root }).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.event === 'start').pop();
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry) });
+    const launch = launchFor(slug, branch, id, start, model);
+    log(start);
+    log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
+    const pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
+    log(`draft pull request: ${pr.html_url}`);
+    return { start, pr, launch, attempt: startRow?.attempt || 1, resumed: true };
   }
+
+  // Validate from the tranche before touching the checkout.
+  const t = git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (t.code !== 0) fail(`no ledger entry ${entryFile(id)} on ${from}`);
+  const entry0 = JSON.parse(t.stdout);
+  const errs = validate(entry0);
+  if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
+  if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) fail(`${id} is ${entry0.status.state}, not OPEN`);
+  if (git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0) fail(`a local branch ${branch} exists; remove it first`);
   if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
-  const from = git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
-  git(['checkout', '-q', '-b', branch, push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
+
+  const sym = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true });
+  const back = sym.code === 0 ? sym.stdout.trim() : git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', branch, from], { cwd: root });
+  let result;
+  let committed = false;
   try {
     const entry = readEntry(root, id);
-    const errs = validate(entry);
-    if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
-    if (!['OPEN', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}, not OPEN`);
     const attempt = nextAttempt(root, id);
     const reading = readingSet(root, entry);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt, reading });
     writeStatus(root, id, { state: 'WORKING', at: now() });
     appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin() });
-    commitAll(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
-    let pr = null;
+    commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
+    committed = true;
+    const launch = launchFor(slug, branch, id, start, model);
+    log(start);
+    log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
+    result = { start, launch, attempt, pr: null };
     if (push) {
       git(['push', '-q', '-u', 'origin', branch], { cwd: root });
-      pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
+      if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
+      result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });
+      log(`draft pull request: ${result.pr.html_url}`);
     }
-    const launch = {
-      title: `job ${id}`,
-      source_url: `https://github.com/${slug}`,
-      source_revision: branch,
-      ...(model || cfg.roles?.job?.model ? { model: model || cfg.roles.job.model } : {}),
-      prompt: start,
-    };
-    log(start);
-    log(pr ? `draft pull request: ${pr.html_url}` : '(not pushed)');
-    log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
-    return { start, pr, launch, attempt };
-  } finally {
-    git(['checkout', '-q', from], { cwd: root });
+  } catch (e) {
+    if (!committed) restore(root, [entryFile(id), metricsFile(id)]);
+    git(['checkout', '-q', back], { cwd: root, allowFail: true });
+    // Nothing reached GitHub: drop the local branch so the command can run again.
+    if (!remoteTip(root, branch)) git(['branch', '-q', '-D', branch], { cwd: root, allowFail: true });
+    throw e;
   }
+  git(['checkout', '-q', back], { cwd: root });
+  return result;
 }
 
 const onBranch = (root, id) => {
-  const b = git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
-  if (b !== `job/${id}`) fail(`run this on branch job/${id}, not ${b}`);
+  const b = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
+  if (b !== `job/${id}`) fail(`run this on branch job/${id}, not ${b || 'a detached HEAD'}`);
   return b;
 };
 
-// The job: fast checks and the suite, then COMPLETE, the receipt, ready, push (JOB-5, JOB-7).
+// The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
+// Safe to run again: on an entry already COMPLETE it only finishes the steps still missing.
 export function jobComplete(root, id, opts = {}) {
   const { notVerified = [], exemptRevert, noSuite, push = true, log = console.log } = opts;
-  const gh = { findPR, addComment, markReady, ...(opts.gh || {}) };
-  const cfg = loadConfig(root);
+  const io = { findPR, addComment, markReady, comments, ...(opts.gh || {}) };
+  if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
-  if (git(['status', '--porcelain'], { cwd: root })) fail('commit your work first: the working tree has changes');
-  if (push) git(['fetch', '-q', 'origin', cfg.tranche], { cwd: root });
+  if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('commit your work first: tracked files have changes');
+  const cfg = loadConfig(root);
+  const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
+  if (push) fetchRef(root, cfg.tranche);
   const base = git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
+  const slug = push ? repoSlug(root) : 'local/local';
+  const pr = push ? io.findPR(slug, branch) : null;
+  if (push && !pr) fail(`no open pull request from ${branch}`);
   const entry = readEntry(root, id);
+
+  if (entry.status.state === 'COMPLETE') return finish(root, { id, slug, pr, branch, push, io, log, receipt: null });
+  if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
+
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
-  const rec = recordCheck(root, cfg, { base });
+  const rec = recordCheck(root, loadConfig(root, base), { base });
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   for (const c of entry.checks || []) {
-    const r = run(c[0], c.slice(1), { cwd: root });
+    const r = run(c[0], c.slice(1), { cwd: root, timeout });
     commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
   }
   const notv = [...notVerified];
   if (noSuite) notv.push('the module suite was not run by job complete');
   else {
-    const s = runSuite(root, entry);
+    const s = runSuite(root, entry, undefined, { timeout });
     commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
     if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
   }
@@ -142,33 +188,66 @@ export function jobComplete(root, id, opts = {}) {
     log('not complete: fix these and run job complete again, or block.');
     return { ok: false, commands };
   }
-  writeStatus(root, id, { state: 'COMPLETE', at: now() });
   const attempt = nextAttempt(root, id) - 1;
-  const slug = push ? repoSlug(root) : 'local/local';
-  const pr = push ? gh.findPR(slug, branch) : null;
-  if (push && !pr) fail(`no open pull request from ${branch}`);
-  appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null });
-  const sha = commitAll(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
+  let sha;
+  try {
+    writeStatus(root, id, { state: 'COMPLETE', at: now() });
+    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null });
+    sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
+  } catch (e) {
+    restore(root, [entryFile(id), metricsFile(id)]);
+    throw e;
+  }
   const receipt = {
     kind: 'receipt', module: id, attempt, sha, base, branch, tool: toolPin(), at: now(),
     commands, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
   };
-  if (!push) return { ok: true, receipt };
-  const c = gh.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt for job \`${id}\`, attempt ${attempt}, at \`${sha.slice(0, 10)}\`.`));
-  gh.markReady(slug, pr.number);
-  git(['push', '-q', 'origin', branch], { cwd: root });
-  log(`receipt: ${c.html_url}`);
-  return { ok: true, receipt, comment: c };
+  return finish(root, { id, slug, pr, branch, push, io, log, receipt });
 }
 
-// The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed.
+// Push, confirm the push landed (REC-5), post the receipt once, mark ready. Each step is
+// skipped when it is already done, so a half-finished job complete can simply run again.
+function finish(root, { id, slug, pr, branch, push, io, log, receipt }) {
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  if (!push) return { ok: true, receipt };
+  if (remoteTip(root, branch) !== sha) git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root });
+  if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
+  const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number));
+  let url = posted?.comment?.html_url;
+  if (posted?.data?.sha !== sha) {
+    if (!receipt) fail(`${id} is COMPLETE at ${sha.slice(0, 10)} but its receipt is missing; ask your coordinator`);
+    const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
+    url = c.html_url;
+  }
+  if (pr.draft) io.markReady(slug, pr.number);
+  log(`receipt: ${url}`);
+  return { ok: true, receipt: receipt || posted?.data };
+}
+
+// The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed. Commits only
+// the entry, and can run again to finish a push that failed.
 export function jobBlock(root, id, { reason, push = true, log = console.log } = {}) {
   if (!reason || reason === true) fail('block needs --reason "<why>"');
   const branch = onBranch(root, id);
-  writeStatus(root, id, { state: 'BLOCKED', reason, at: now() });
-  git(['add', '--', entryFile(id)], { cwd: root });
-  git(['commit', '-q', '-m', `block ${id}: ${reason}`], { cwd: root });
-  if (push) git(['push', '-q', 'origin', branch], { cwd: root });
+  const e = readEntry(root, id);
+  if (e.status.state === 'COMPLETE') fail(`${id} is COMPLETE; it cannot be blocked`);
+  if (!(e.status.state === 'BLOCKED' && e.status.reason === reason)) {
+    writeStatus(root, id, { state: 'BLOCKED', reason, at: now() });
+    try { commitFiles(root, [entryFile(id)], `block ${id}: ${reason}`); } catch (err) { restore(root, [entryFile(id)]); throw err; }
+  }
+  if (push) {
+    git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root });
+    if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail('the push did not land; run block again');
+  }
   log(`${id} is BLOCKED: ${reason}`);
   return { ok: true };
+}
+
+// The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
+export function jobTest(root, id, { log = console.log } = {}) {
+  const cfg = loadConfig(root);
+  const s = runSuite(root, readEntry(root, id), undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
+  log(s.output.split('\n').slice(-60).join('\n'));
+  log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
+  return { ok: s.exit === 0, ...s };
 }

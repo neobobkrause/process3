@@ -25,7 +25,8 @@ export function findPR(slug, head, { state = 'open' } = {}) {
 export const getPR = (slug, n) => gh(['api', `repos/${slug}/pulls/${n}`]);
 
 export function openPRs(slug, base) {
-  return gh(['api', `repos/${slug}/pulls?state=open&base=${encodeURIComponent(base)}&per_page=100`], { allowFail: true });
+  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=open&base=${encodeURIComponent(base)}&per_page=100`], { allowFail: true });
+  return Array.isArray(pages) ? pages.flat() : null;
 }
 
 export function createPR(slug, { head, base, title, body, draft = true }) {
@@ -37,7 +38,8 @@ export function createPR(slug, { head, base, title, body, draft = true }) {
 }
 
 export function comments(slug, n) {
-  return gh(['api', '--paginate', `repos/${slug}/issues/${n}/comments?per_page=100`]) || [];
+  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/comments?per_page=100`]);
+  return Array.isArray(pages) ? pages.flat() : [];
 }
 
 export function addComment(slug, n, body) {

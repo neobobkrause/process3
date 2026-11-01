@@ -8,9 +8,11 @@ import { git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
+// BOB's measured figures go in a file of their own, so each file keeps one writer (REC-2).
+export const bobMetricsFile = (id) => `${METRICS_DIR}/${id}.bob.jsonl`;
 
-export function readRows(root, id) {
-  const p = join(root, metricsFile(id));
+export function readRows(root, id, file = metricsFile(id)) {
+  const p = join(root, file);
   if (!existsSync(p)) return [];
   return readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
@@ -18,13 +20,13 @@ export function readRows(root, id) {
 export function allRows(root) {
   const dir = join(root, METRICS_DIR);
   if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((n) => n.endsWith('.jsonl')).flatMap((n) => readRows(root, n.replace(/\.jsonl$/, '')));
+  return readdirSync(dir).filter((n) => n.endsWith('.jsonl')).flatMap((n) => readRows(root, null, `${METRICS_DIR}/${n}`));
 }
 
-export function appendRow(root, id, row) {
+export function appendRow(root, id, row, file = metricsFile(id)) {
   mkdirSync(join(root, METRICS_DIR), { recursive: true });
   const full = { at: now(), module: id, ...row };
-  appendFileSync(join(root, metricsFile(id)), JSON.stringify(full) + '\n');
+  appendFileSync(join(root, file), JSON.stringify(full) + '\n');
   return full;
 }
 
@@ -37,7 +39,7 @@ export function survival(root, merge, branch, today = Date.now()) {
   if (!merge?.merge_sha) return { state: 'not merged' };
   const due = new Date(Date.parse(merge.merged_at) + 14 * DAY).toISOString().slice(0, 10);
   const on = git(['merge-base', '--is-ancestor', merge.merge_sha, branch], { cwd: root, allowFail: true }).code === 0;
-  const reverts = git(['log', '--format=%H', `--grep=${merge.merge_sha.slice(0, 7)}`, branch], { cwd: root, allowFail: true }).stdout.trim();
+  const reverts = git(['log', '--format=%H', `--grep=${merge.merge_sha}`, branch], { cwd: root, allowFail: true }).stdout.trim();
   if (!on || reverts) return { state: 'reverted', due };
   return { state: today >= Date.parse(merge.merged_at) + 14 * DAY ? 'survived' : 'pending', due };
 }
@@ -53,7 +55,9 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
   const gates = [];
   for (const c of completes) {
     if (!c.pr) continue;
-    const g = latestBlock(slug, c.pr, GATE, read.comments(slug, c.pr));
+    let all = [];
+    try { all = read.comments(slug, c.pr) || []; } catch { all = []; }
+    const g = latestBlock(slug, c.pr, GATE, all);
     const runs = g?.data?.runs || [];
     gates.push({ pr: c.pr, runs: runs.length });
     gateMinutes += runs.reduce((s, r) => s + (r.minutes || 0), 0);
@@ -64,7 +68,8 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
   const cost = measured.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
   const tokens = measured.some((r) => typeof r.tokens === 'number') ? measured.reduce((s, r) => s + (Number(r.tokens) || 0), 0) : 'unmeasured';
   const surv = merges.map((m) => {
-    const pr = read.getPR(slug, m.pr);
+    let pr = null;
+    try { pr = read.getPR(slug, m.pr); } catch { pr = null; }
     const merged = pr?.merged_at ? { merge_sha: pr.merge_commit_sha, merged_at: pr.merged_at } : null;
     return { module: m.module, pr: m.pr, ...survival(root, merged, branch) };
   });

@@ -85,14 +85,15 @@ export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => f === r || f.startsWith(r));
 
-// --key value and --flag; repeated keys become arrays; the rest are positional.
+// --key value, --key=value (for a value that starts with --) and --flag; repeated keys become arrays; the rest are positional.
 export function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith('--')) { out._.push(a); continue; }
-    const k = a.slice(2);
-    const v = i + 1 < argv.length && !argv[i + 1].startsWith('--') ? argv[++i] : true;
+    const eq = a.indexOf('=');
+    const k = eq > 0 ? a.slice(2, eq) : a.slice(2);
+    const v = eq > 0 ? a.slice(eq + 1) : i + 1 < argv.length && !argv[i + 1].startsWith('--') ? argv[++i] : true;
     if (k in out) out[k] = [].concat(out[k], v); else out[k] = v;
   }
   return out;

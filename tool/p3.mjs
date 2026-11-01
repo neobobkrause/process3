@@ -2,9 +2,9 @@
 // Process3 tool: one program, a fresh process per command, run from the pinned clone.
 // Usage: node <clone>/tool/p3.mjs <command> [args]
 import { writeFileSync } from 'node:fs';
-import { jobBlock, jobComplete, jobStart } from './lib/job.mjs';
+import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
-import { appendRow, report as metricsReport } from './lib/metrics.mjs';
+import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -32,6 +32,9 @@ const commands = {
     notVerified: list(a['not-verified']).filter((x) => x !== true), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
   }).ok ? 0 : 1),
 
+  // test <id>: the module's own suite, as the gate runs it.
+  test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
+
   // block <id> --reason "<why>"
   block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason }).ok ? 0 : 1),
 
@@ -48,7 +51,7 @@ const commands = {
         tokens: num(a.tokens), cost_usd: a['cost-usd'] === undefined ? 'unmeasured' : Number(a['cost-usd']),
         denials: Number(a.denials || 0), refusals: split(a.refusal, ['act', 'depth', 'channel']),
         declines: split(a.decline, ['act', 'depth']), outcome: a.outcome || null,
-      });
+      }, bobMetricsFile(id));
       console.log(JSON.stringify(row));
       return 0;
     }

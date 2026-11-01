@@ -109,3 +109,78 @@ test('metrics report counts a refuted COMPLETE claim and gate minutes', () => {
   assert.equal(r.denials, 2);
   assert.match(r.cost_per_surviving_pr, /PR 7 not merged/);
 });
+
+// Findings from the review of PR 2.
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+
+function withOrigin() {
+  const root = product();
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'origin.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
+  return root;
+}
+import { join } from 'node:path';
+
+function fakeGitHub() {
+  const state = { comments: [], ready: 0, prs: 0, failReady: true };
+  return {
+    state,
+    open: (slug, p) => { state.prs++; return { number: 9, html_url: 'pr', draft: true, ...p }; },
+    find: () => null,
+    gh: {
+      findPR: () => ({ number: 9, draft: state.ready === 0 }),
+      comments: () => state.comments,
+      addComment: (s, n, body) => { state.comments.push({ body, html_url: `c${state.comments.length}` }); return { html_url: 'c' }; },
+      markReady: () => { if (state.failReady) { state.failReady = false; throw new Error('network'); } state.ready++; },
+    },
+  };
+}
+
+test('job start validates before branching and leaves no branch behind when it refuses', () => {
+  const root = product();
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'process/ledger/alpha.json': entry('alpha', { status: { state: 'COMPLETE' } }) });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /COMPLETE, not OPEN/);
+  assert.equal(git(['branch', '--list', 'job/alpha'], { cwd: root }), '');
+});
+
+test('job start restores a detached HEAD', () => {
+  const root = product();
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '--detach'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), sha);
+});
+
+test('job complete pushes before the receipt, and a rerun finishes without a second receipt', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /network/);
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed before the receipt');
+  assert.equal(f.state.comments.length, 1);
+  assert.equal(parseBlock(f.state.comments[0].body, 'p3:receipt').sha, tip);
+  const again = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(again.ok, true);
+  assert.equal(f.state.comments.length, 1, 'no second receipt');
+  assert.equal(f.state.ready, 1);
+  assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'complete').length, 1);
+});
+
+test('block commits only its entry and can run again', () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  write(root, { 'src/alpha/wip.mjs': 'x' });
+  git(['add', '-A'], { cwd: root });
+  jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
+  assert.equal(git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }), 'process/ledger/alpha.json');
+  jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
+});

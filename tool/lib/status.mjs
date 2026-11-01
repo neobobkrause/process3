@@ -22,8 +22,9 @@ export function status(root, { role, module, offline = false, log = console.log 
     const row = { id: e.id, tranche: e.status?.state };
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
-      const s = t.code === 0 ? JSON.parse(t.stdout).status : {};
-      row.branch = s.state + (s.reason ? ` (${s.reason})` : '');
+      let s = {};
+      try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
+      row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
       const ahead = haveTranche ? Number(git(['rev-list', '--count', `${tranche}..${branch}`], { cwd: root })) : null;
       row.ahead = ahead;
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
