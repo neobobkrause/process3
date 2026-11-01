@@ -184,3 +184,21 @@ test('block commits only its entry and can run again', () => {
   assert.equal(git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }), 'process/ledger/alpha.json');
   jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
 });
+
+test('after a failed push, a rerun posts the saved receipt for the COMPLETE commit', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  f.state.failReady = false;
+  jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  git(['config', 'remote.origin.pushurl', '/nonexistent/origin.git'], { cwd: root });
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /run job complete again/);
+  assert.equal(f.state.comments.length, 0);
+  git(['config', '--unset', 'remote.origin.pushurl'], { cwd: root });
+  assert.equal(jobComplete(root, 'alpha', { gh: f.gh, log: quiet }).ok, true);
+  assert.equal(f.state.comments.length, 1);
+  const r = parseBlock(f.state.comments[0].body, 'p3:receipt');
+  assert.equal(r.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
+  assert.equal(r.commands.find((c) => c.suite).exit, 0);
+});
