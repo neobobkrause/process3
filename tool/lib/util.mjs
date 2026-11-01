@@ -60,11 +60,23 @@ export const DEFAULTS = {
   coordinator: null,
 };
 
-// process/config.json in the product; every field optional.
-export function loadConfig(root) {
-  const p = join(root, 'process', 'config.json');
-  const c = existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {};
-  return { ...DEFAULTS, ...c, approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) } };
+export const CONFIG_FILE = 'process/config.json';
+
+// process/config.json in the product; every field optional. With a ref, read from that commit:
+// a check reads its config from the trusted base, never from the change it judges.
+export function loadConfig(root, ref) {
+  let text = null;
+  if (ref) {
+    const r = git(['show', `${ref}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
+    if (r.code === 0) text = r.stdout;
+  } else if (existsSync(join(root, CONFIG_FILE))) text = readFileSync(join(root, CONFIG_FILE), 'utf8');
+  const c = text ? JSON.parse(text) : {};
+  const slash = (a) => a.map((x) => (x.endsWith('/') ? x : `${x}/`));
+  return {
+    ...DEFAULTS, ...c,
+    transient: slash(c.transient || DEFAULTS.transient),
+    approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
+  };
 }
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => f === r || f.startsWith(r));

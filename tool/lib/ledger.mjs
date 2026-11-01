@@ -29,7 +29,7 @@ export function validate(value, schema = SCHEMA, path = '') {
   if (t === 'object') {
     for (const k of schema.required || []) if (!(k in value)) errs.push(`${path ? path + '.' : ''}${k}: required`);
     for (const [k, v] of Object.entries(value)) {
-      const sub = schema.properties?.[k];
+      const sub = schema.properties && Object.hasOwn(schema.properties, k) ? schema.properties[k] : undefined;
       if (sub) errs.push(...validate(v, sub, path ? `${path}.${k}` : k));
       else if (schema.additionalProperties === false) errs.push(`${path ? path + '.' : ''}${k}: not a ledger field`);
     }

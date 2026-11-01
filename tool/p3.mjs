@@ -4,7 +4,7 @@
 import { writeFileSync } from 'node:fs';
 import { checkLedger } from './lib/ledger.mjs';
 import { recordCheck } from './lib/record.mjs';
-import { Fail, git, loadConfig, parseArgs, repoRoot } from './lib/util.mjs';
+import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -18,18 +18,26 @@ const commands = {
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
   'ledger check': (a, root) => report(checkLedger(root, { base: a.base, branch: a.branch }), a.out),
 
-  // record-check [--base <sha>] [--head <sha>]: run by the record check workflow on every push.
+  // record-check --base <sha> --head <sha> [--branch <head branch>] [--onto <ref>]... [--out f]
+  // Run by CI with the base's own tool. A missing or all-zero base (a new branch) becomes the
+  // merge-base with the first --onto ref that exists (default: the tranche, then main).
   'record-check': (a, root) => {
-    const cfg = loadConfig(root);
-    let base = a.base;
-    if (!base || /^0+$/.test(base)) {
-      const onto = a.onto || `origin/${cfg.tranche}`;
-      const r = git(['merge-base', a.head || 'HEAD', onto], { cwd: root, allowFail: true });
-      base = r.code === 0 ? r.stdout.trim() : undefined;
+    const head = a.head || 'HEAD';
+    const onto = list(a.onto).length ? list(a.onto) : [`origin/${loadConfig(root).tranche}`, 'origin/main'];
+    let base = a.base && !/^0+$/.test(a.base) ? a.base : null;
+    if (!base) {
+      for (const o of onto) {
+        const r = git(['merge-base', head, o], { cwd: root, allowFail: true });
+        if (r.code === 0) { base = r.stdout.trim(); break; }
+      }
+      if (!base) fail(`no base: none of ${onto.join(', ')} shares history with ${head}`);
     }
-    const { commits, findings } = recordCheck(root, cfg, { base, head: a.head || 'HEAD' });
-    console.log(`checked ${commits} commit(s)${base ? ` after ${base.slice(0, 10)}` : ''}`);
-    return report(findings, a.out, { commits });
+    const ledgerBase = git(['merge-base', head, base], { cwd: root });
+    const cfg = loadConfig(root, base);
+    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase });
+    console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}`);
+    for (const n of notices) console.log(`notice: ${n.file}: ${n.message}`);
+    return report(findings, a.out, { commits, base, notices });
   },
 };
 
@@ -46,7 +54,11 @@ export async function main(argv) {
   try {
     return (await fn(a, repoRoot())) ?? 0;
   } catch (e) {
-    if (e instanceof Fail) { console.error(`p3 ${name}: ${e.message}`); return 1; }
+    if (e instanceof Fail) {
+      console.error(`p3 ${name}: ${e.message}`);
+      if (a.out) writeFileSync(a.out, JSON.stringify({ error: e.message, findings: [{ check: 'tool', file: '(tool)', line: 1, message: e.message }] }, null, 2) + '\n');
+      return 1;
+    }
     throw e;
   }
 }

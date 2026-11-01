@@ -1,14 +1,15 @@
-# Process3's own check: the tool's tests and the record check (REC-9, REC-10, approvals).
-# Runs on every pull request and on every push to any branch. The job name "ci" is the
-# check the tranche branch rule requires.
+# Process3's own required check, "ci", on every pull request: the tool's tests on Node 22 and
+# 26, then the record check (REC-9, REC-10, approvals). The record check runs the BASE's tool
+# against the head, so a change cannot rewrite the check that judges it. Retargeting a pull
+# request (edited) runs it again.
 name: ci
 on:
   pull_request:
-  push:
+    types: [opened, synchronize, reopened, edited]
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 jobs:
   ci:
@@ -21,11 +22,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: tool tests
+      - name: tool tests, Node 22
         run: node --test 'tool/test/*.test.mjs'
-      - name: record check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: tool tests, Node 26
+        run: node --test 'tool/test/*.test.mjs'
+      - name: record check, by the base's tool
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: node tool/p3.mjs record-check --base "$BASE" --head "$HEAD_SHA" --onto origin/main --out record-findings.json
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git worktree add -q --detach "$RUNNER_TEMP/base" "$BASE"
+          tool="$RUNNER_TEMP/base/tool/p3.mjs"
+          if [ ! -f "$tool" ]; then echo "notice: the base has no tool yet; the head's tool runs (bootstrap)"; tool=tool/p3.mjs; fi
+          node "$tool" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out record-findings.json
