@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RECEIPT, checkRun, comments, gateRuns, getPR, latestBlock } from './github.mjs';
-import { entryFile } from './ledger.mjs';
+import { checkLedger, entryFile } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
@@ -29,7 +29,7 @@ export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = che
 
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = 30, log = console.log } = opts;
-  const io = { getPR, comments, checkRun, mergePR, ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, mergePR, getRun, ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
@@ -46,18 +46,25 @@ export function merge(root, n, opts = {}) {
   const all = io.comments(slug, n);
   const receipt = latestBlock(slug, n, RECEIPT, all)?.data;
   if (!receipt) fail(`pull request ${n} has no receipt`);
-  const agreed = gateRuns(all).some((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt);
-  if (!agreed) fail(`no green gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it`);
+  // Each row names its Actions run; the run must be the process gate, on this tip, and green,
+  // so a row posted from any other workflow, or one that claims more than its run did, fails.
+  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
+    .find((r) => { const a = r.run_id && io.getRun(slug, r.run_id); return a && /process-gate\.yml$/.test(a.path || '') && a.head_sha === pr.head.sha && a.conclusion === 'success'; });
+  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it`);
 
   const branch = `job/${id}`;
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
   if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
 
-  // ARC-2, held here by BOB's tool: the job changed only its own module and records.
-  const entryText = git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root, allowFail: true });
-  if (entryText.code !== 0) fail(`${branch} has no ledger entry`);
-  const own = ownPaths(JSON.parse(entryText.stdout));
+  // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
+  // module and records, and nothing in the ledger but its own status. The paths come from the
+  // tranche's copy of the entry, never from the job's branch.
   const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
+  const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
+  const own = ownPaths(JSON.parse(entryText.stdout));
+  const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
+  if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
   const outside = git(['diff', '--name-only', '-z', mb, `origin/${branch}`], { cwd: root }).split('\0').filter(Boolean).filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
 
@@ -84,6 +91,8 @@ export function merge(root, n, opts = {}) {
     log(`pushed ${tip.slice(0, 10)} to ${branch}; the gate runs on the merged result`);
     const run = waitForGate(slug, tip, { minutes, read: io.checkRun, log });
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
+    const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
+    if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
     const r = io.mergePR(slug, n, tip);
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
@@ -93,6 +102,8 @@ export function merge(root, n, opts = {}) {
     rmSync(wt, { recursive: true, force: true });
   }
 }
+
+export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
 
 // The merge itself, guarded by the tip the gate passed (a current tip only).
 export function mergePR(slug, n, sha) {

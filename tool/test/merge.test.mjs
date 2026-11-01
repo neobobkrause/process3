@@ -32,10 +32,11 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
       getPR: () => ({ state: 'open', draft: false, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
       comments: () => [
         { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'neobobkrause' } },
-        { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt, receipt_attempt: 1 }] }), user: { login: BOT } },
+        { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
         { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'present', receipt_attempt: 1 }] }), user: { login: BOT } },
       ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
+      getRun: (slug, id) => (id === 11 ? { path: '.github/workflows/process-gate.yml', head_sha: head, conclusion: 'success' } : null),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -70,4 +71,19 @@ test('merge refuses without a review decision, a green gate, or a checked receip
   assert.throws(() => merge(root, 3, { ...q, io: io(head).io }), /--reviewed/);
   assert.throws(() => merge(root, 3, { ...q, io: io(head, { gateGreen: false }).io, noReview: 'x' }), /not green/);
   assert.throws(() => merge(root, 3, { ...q, io: io(head, { receipt: 'none' }).io, noReview: 'x' }), /checked receipt attempt 1/);
+  const other = io(head).io;
+  other.getRun = () => ({ path: '.github/workflows/side.yml', head_sha: head, conclusion: 'success' });
+  assert.throws(() => merge(root, 3, { ...q, io: other, noReview: 'x' }), /process-gate run/);
+});
+
+test('merge takes the job\'s paths from the tranche, so a job cannot widen its own entry', () => {
+  const { root } = setup();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const head = commit(root, {
+    'process/ledger/alpha.json': entry('alpha', { paths: ['src/alpha/', '.github/'] }),
+    '.github/workflows/process-gate.yml': 'jobs: {}',
+  });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: io(head).io, noReview: 'x', log: () => {} }), /ledger: .*only the status field|outside its module/);
 });

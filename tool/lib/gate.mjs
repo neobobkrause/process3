@@ -35,7 +35,7 @@ export function gate(root, opts) {
   const mb = git(['merge-base', head, base], { cwd: root });
   const changed = diffNames(root, mb, head);
   const findings = [];
-  const runRow = { sha: head, base, at: now(), trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
+  const runRow = { sha: head, base, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   const all = pr ? io.comments(slug, pr) : [];
   const prior = gateRuns(all);
   const receipt = pr ? latestBlock(slug, pr, RECEIPT, all)?.data : null;
