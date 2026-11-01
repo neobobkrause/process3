@@ -4,9 +4,10 @@
 // config it uses is read from the base, never from the change it judges.
 import { basename } from 'node:path';
 import { checkLedger } from './ledger.mjs';
-import { CONFIG_FILE, gh, git, repoSlug } from './util.mjs';
+import { CONFIG_FILE, gh, git, repoSlug, underPath } from './util.mjs';
 
-const HEADING = /^#{1,6}\s*standing approvals/i;
+const HEADING = /^#{1,6}\s.*approv/i;
+const APPROVAL_WORDS = /approv/i;
 
 // The approvals block: from its heading to the next "## " heading or the end of the file.
 export function approvalsBlock(text, heading) {
@@ -59,6 +60,8 @@ function introduced(root, sha, parents) {
 
 const isInstructionFile = (f) => ['CLAUDE.md', 'CLAUDE.local.md'].includes(basename(f)) || (f.startsWith('.claude/') && f.endsWith('.md'));
 const PROTECTED = ['.github/workflows/', '.claude/settings.json', '.process', CONFIG_FILE, 'tool/', 'schema/'];
+// Files the checks themselves stand on: removing one is a finding, not a notice.
+const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml'];
 
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup } = {}) {
   const findings = [];
@@ -79,27 +82,31 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       const approvalsTouched = [];
       for (const file of files) {
         const ls = git(['ls-tree', '-z', sha, '--', file], { cwd: root });
-        if (!ls) continue; // deleted
-        const [mode, , blob] = ls.split('\t')[0].split(' ');
-        if (PROTECTED.some((p) => (p.endsWith('/') ? file.startsWith(p) : file === p))) {
+        if (PROTECTED.some((p) => underPath(file, p))) {
           notices.push({ check: 'protected', file, line: 1, message: `commit ${short} changes a protected path; it needs the fresh-context review (rule 5)` });
         }
+        if (!ls) { // deleted
+          if (KEEP.includes(file)) findings.push({ check: 'path', file, line: 1, message: `commit ${short} removes ${file}, which the checks stand on` });
+          continue;
+        }
+        const [mode, , blob] = ls.split('\t')[0].split(' ');
         if (mode === '160000') continue; // a submodule pin has no blob
         const size = Number(git(['cat-file', '-s', blob], { cwd: root }));
         if (size > cfg.max_file_bytes) {
           findings.push({ check: 'size', file, line: 1, message: `commit ${short} writes ${size} bytes, over the ${cfg.max_file_bytes}-byte limit` });
         }
-        const t = cfg.transient.find((p) => file.startsWith(p));
+        const t = cfg.transient.find((p) => underPath(file, p));
         if (t) findings.push({ check: 'path', file, line: 1, message: `commit ${short} writes under transient path ${t}` });
         if (file === afile) {
           const text = show(root, sha, file) || '';
           const now = approvalsBlock(text, heading);
           const was = parents.length ? parents.map((p) => approvalsBlock(show(root, p, file), heading)) : [''];
           if (!was.includes(now)) approvalsTouched.push({ file, line: Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1) });
-        } else if (isInstructionFile(file)) {
+        }
+        if (isInstructionFile(file)) {
           const before = parents.length ? parents.map((p) => show(root, p, file) || '') : [''];
-          const added = (show(root, sha, file) || '').split('\n').filter((l) => /standing approval/i.test(l) && !before.some((b) => b.split('\n').includes(l)));
-          if (added.length) approvalsTouched.push({ file, line: 1 });
+          const added = (show(root, sha, file) || '').split('\n').filter((l) => APPROVAL_WORDS.test(l) && !before.some((b) => b.split('\n').includes(l)));
+          if (added.length && !approvalsTouched.some((t2) => t2.file === file)) approvalsTouched.push({ file, line: 1 });
         } else if (file === CONFIG_FILE) {
           const ap = (t2) => { try { return JSON.stringify(JSON.parse(t2 || '{}').approvals ?? null); } catch { return 'unreadable'; } };
           const now = ap(show(root, sha, file));

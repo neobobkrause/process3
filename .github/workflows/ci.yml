@@ -38,5 +38,5 @@ jobs:
         run: |
           git worktree add -q --detach "$RUNNER_TEMP/base" "$BASE"
           tool="$RUNNER_TEMP/base/tool/p3.mjs"
-          if [ ! -f "$tool" ]; then echo "notice: the base has no tool yet; the head's tool runs (bootstrap)"; tool=tool/p3.mjs; fi
+          if [ ! -f "$tool" ]; then echo "::warning::the base has no tool yet; the head's tool runs (bootstrap only: removing the tool is a finding)"; tool=tool/p3.mjs; fi
           node "$tool" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out record-findings.json

@@ -70,14 +70,16 @@ export function loadConfig(root, ref) {
     const r = git(['show', `${ref}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
     if (r.code === 0) text = r.stdout;
   } else if (existsSync(join(root, CONFIG_FILE))) text = readFileSync(join(root, CONFIG_FILE), 'utf8');
-  const c = text ? JSON.parse(text) : {};
-  const slash = (a) => a.map((x) => (x.endsWith('/') ? x : `${x}/`));
+  let c = {};
+  try { c = text ? JSON.parse(text) : {}; } catch (e) { fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not JSON: ${e.message}`); }
   return {
     ...DEFAULTS, ...c,
-    transient: slash(c.transient || DEFAULTS.transient),
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
   };
 }
+
+// A path entry ending in / is a directory; any other names a file or a directory.
+export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('/') ? p : `${p}/`);
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => f === r || f.startsWith(r));
 

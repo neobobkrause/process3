@@ -16,7 +16,10 @@ export function report(findings, out, extra = {}) {
 
 const commands = {
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
-  'ledger check': (a, root) => report(checkLedger(root, { base: a.base, branch: a.branch }), a.out),
+  'ledger check': (a, root) => {
+    const base = a.base ? git(['merge-base', 'HEAD', a.base], { cwd: root }) : undefined;
+    return report(checkLedger(root, { base, branch: a.branch }), a.out);
+  },
 
   // record-check --base <sha> --head <sha> [--branch <head branch>] [--onto <ref>]... [--out f]
   // Run by CI with the base's own tool. A missing or all-zero base (a new branch) becomes the
@@ -36,7 +39,8 @@ const commands = {
     const cfg = loadConfig(root, base);
     const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase });
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}`);
-    for (const n of notices) console.log(`notice: ${n.file}: ${n.message}`);
+    // Annotations, so a notice shows on the pull request and not only in the log.
+    for (const n of notices) console.log(`::warning file=${n.file}::${n.message}`);
     return report(findings, a.out, { commits, base, notices });
   },
 };
