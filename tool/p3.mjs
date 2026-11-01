@@ -40,7 +40,9 @@ const commands = {
     const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase });
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}`);
     // Annotations, so a notice shows on the pull request and not only in the log.
-    for (const n of notices) console.log(`::warning file=${n.file}::${n.message}`);
+    const esc = (x, prop) => String(x).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
+      .replace(prop ? /[:,]/g : /$^/, (c) => (c === ':' ? '%3A' : '%2C'));
+    for (const n of notices) console.log(`::warning file=${esc(n.file, true)}::${esc(n.message)}`);
     return report(findings, a.out, { commits, base, notices });
   },
 };
