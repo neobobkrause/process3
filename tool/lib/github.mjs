@@ -1,5 +1,8 @@
 // GitHub acts and reads, all through gh (platform rows 13, 14). Every remote act is recorded
 // only from its result (REC-5): callers use the returned objects, never their own intent.
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fail, gh } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
@@ -59,6 +62,44 @@ export function latestBlock(slug, n, marker, all = comments(slug, n)) {
     if (data) return { comment: c, data };
   }
   return null;
+}
+
+// Gate runs, each its own comment written by GitHub Actions and never edited since. A session
+// can post a comment that looks like one, or (as the owner) edit one, so only the bot's
+// unedited comments count.
+export const BOT = 'github-actions[bot]';
+export function gateRuns(all) {
+  return all
+    .filter((c) => c.user?.login === BOT && (!c.updated_at || c.updated_at === c.created_at))
+    .flatMap((c) => parseBlock(c.body, GATE)?.runs || []);
+}
+
+// A gate row is trusted only when its Actions run is the process gate on the row's commit,
+// finished green or red as the row says, and the run's own artifact holds the same row: a
+// side workflow can post a bot comment, but it cannot upload into another workflow's run.
+export const GATE_WORKFLOW = '.github/workflows/process-gate.yml';
+export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
+export function runArtifactRow(slug, id) {
+  const dir = mkdtempSync(join(tmpdir(), 'p3-row-'));
+  try {
+    if (gh(['run', 'download', String(id), '-R', slug, '-n', 'gate-row', '-D', dir], { allowFail: true }) === null && !existsSync(join(dir, 'gate.json'))) return null;
+    return JSON.parse(readFileSync(join(dir, 'gate.json'), 'utf8')).run || null;
+  } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert'];
+export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifactRow }) {
+  if (!row?.run_id) return false;
+  const a = io.getRun(slug, row.run_id);
+  if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
+  // The run must be this pull request's own, into the tranche: not a second PR on the same
+  // commit into a branch that carries a workflow of its own.
+  // (Every pull request GitHub lists for the run must be into the tranche, in case it lists
+  // all open PRs that share the head branch.)
+  const prs = a.pull_requests || [];
+  if (a.event !== 'pull_request' || !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)) return false;
+  if (row.ok && a.conclusion !== 'success') return false;
+  const art = io.runArtifactRow(slug, row.run_id);
+  return !!art && SAME.every((k) => JSON.stringify(art[k] ?? null) === JSON.stringify(row[k] ?? null));
 }
 
 export function markReady(slug, n) {

@@ -157,3 +157,18 @@ test('removing the tool is a finding', () => {
   git(['commit', '-q', '-m', 'drop'], { cwd: root });
   assert.match(recordCheck(root, cfg, { base, lookup: session }).findings[0].message, /removes tool\/p3.mjs/);
 });
+
+import { verifyRow } from '../lib/github.mjs';
+test('a gate row is trusted only when its run is the process gate on that commit and its artifact matches', () => {
+  const row = { sha: 'c1', base: 'b', trigger: 'code', ok: true, receipt: 'agrees', receipt_attempt: 1, suite: 'pass', revert: 'pass', run_id: 5 };
+  const run = { path: '.github/workflows/process-gate.yml', head_sha: 'c1', status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 4, base: { ref: 'tranche' } }] };
+  const ctx = { pr: 4, baseRef: 'tranche' };
+  const io = (r, art) => ({ getRun: () => r, runArtifactRow: () => art });
+  assert.equal(verifyRow('o/r', row, ctx, io(run, { ...row, minutes: 1 })), true);
+  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, path: '.github/workflows/x-process-gate.yml' }, row)), false);
+  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, head_sha: 'c2' }, row)), false);
+  assert.equal(verifyRow('o/r', row, ctx, io(run, { ...row, trigger: 'draft', receipt: 'not checked' })), false, 'a real run cited for a row it did not write');
+  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
+  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
+  assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
+});

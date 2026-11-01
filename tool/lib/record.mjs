@@ -61,7 +61,7 @@ function introduced(root, sha, parents) {
 const isInstructionFile = (f) => ['CLAUDE.md', 'CLAUDE.local.md'].includes(basename(f)) || (f.startsWith('.claude/') && f.endsWith('.md'));
 const PROTECTED = ['.github/workflows/', '.claude/settings.json', '.process', CONFIG_FILE, 'tool/', 'schema/'];
 // Files the checks themselves stand on: removing one is a finding, not a notice.
-const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml'];
+const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml', '.github/workflows/process-record.yml'];
 
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup } = {}) {
   const findings = [];

@@ -1,0 +1,77 @@
+# Process3 gate (GAT-1): the required check "gate" on every pull request tip. The tool runs at
+# the BASE's process pin, so a pull request that moves the pin is judged by the old one. The
+# checkout is GitHub's merge of the head into the base: the suite runs on the merged result.
+# The record check runs here too: a pull_request_target workflow runs only from the default
+# branch (measured 1 Nov on process3), so a check judged wholly by the base cannot run from a
+# tranche. The workflow file itself still comes from the pull request, so merge (BOB's own
+# tool) repeats the ownership and receipt checks, and Bob's ruleset pins the check's source.
+# Copied into a product as .github/workflows/process-gate.yml.
+name: process-gate
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+concurrency:
+  group: process-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: start the clock
+        run: echo "STARTED=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: the base's process pin
+        id: pin
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # The judge is the base's pin. Only a base with no Process3 at all (the setup pull
+          # request) falls back to the head's pin; removing the pin later is a record finding.
+          if pin=$(git rev-parse -q --verify "$BASE:.process"); then :;
+          elif ! git cat-file -e "$BASE:process/config.json" 2>/dev/null && pin=$(git rev-parse -q --verify "HEAD:.process"); then
+            echo "::warning::bootstrap: the base has no Process3; the head's pin judges this pull request"
+          else
+            echo "::error::the base has no process pin"; exit 1
+          fi
+          cfg=$(git show "$BASE:process/config.json" 2>/dev/null || git show "HEAD:process/config.json" 2>/dev/null || echo '{}')
+          repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
+          git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.pin.outputs.node }}
+      - name: record check (size, paths, approvals, ledger), by the base's pin, before any product code runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out "$RUNNER_TEMP/record.json"
+      - name: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR: ${{ github.event.pull_request.number }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --out "$RUNNER_TEMP/gate.json"
+      - name: the run's own record of its row (merge trusts a row only when this artifact matches it)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-row
+          path: ${{ runner.temp }}/gate.json
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 90
