@@ -36,7 +36,7 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
         { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'present', receipt_attempt: 1 }] }), user: { login: BOT } },
       ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
-      getRun: (slug, id) => (id === 11 ? { path: '.github/workflows/process-gate.yml', head_sha: head, conclusion: 'success' } : null),
+      verify: (slug, r) => r.run_id === 11,
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -72,7 +72,7 @@ test('merge refuses without a review decision, a green gate, or a checked receip
   assert.throws(() => merge(root, 3, { ...q, io: io(head, { gateGreen: false }).io, noReview: 'x' }), /not green/);
   assert.throws(() => merge(root, 3, { ...q, io: io(head, { receipt: 'none' }).io, noReview: 'x' }), /checked receipt attempt 1/);
   const other = io(head).io;
-  other.getRun = () => ({ path: '.github/workflows/side.yml', head_sha: head, conclusion: 'success' });
+  other.verify = () => false;
   assert.throws(() => merge(root, 3, { ...q, io: other, noReview: 'x' }), /process-gate run/);
 });
 

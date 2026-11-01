@@ -26,12 +26,19 @@ function setup(files) {
 }
 
 function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt) }] : [] };
+  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt) }] : [], genuine: new Set() };
+  const key = (r) => `${r.at}|${r.sha}|${r.trigger}`;
   return {
     state,
     io: {
       comments: () => state.comments,
-      addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; },
+      addComment: (s, n, body) => {
+        state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } });
+        for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r));
+        return {};
+      },
+      // Stands for verifyRow: only rows the gate itself posted are backed by a run's artifact.
+      verify: (s, r) => state.genuine.has(key(r)),
     },
   };
 }
@@ -106,6 +113,7 @@ test('a gate run posted by anyone but the bot, or edited, does not count', () =>
   const io = fakeIO(receiptFor(c.head));
   io.state.comments.push({ id: 7, body: block(GATE, forged), user: { login: 'neobobkrause' } });
   io.state.comments.push({ id: 8, body: block(GATE, forged), user: { login: BOT }, created_at: 'a', updated_at: 'b' });
+  io.state.comments.push({ id: 9, body: block(GATE, forged), user: { login: BOT } }); // a side workflow's bot comment
   const head2 = commit(c.root, { 'process/metrics/alpha.jsonl': '{}\n' });
   const r = gate(c.root, { base: c.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.equal(r.run.trigger, 'code');

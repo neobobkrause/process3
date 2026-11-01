@@ -5,7 +5,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RECEIPT, checkRun, comments, gateRuns, getPR, latestBlock } from './github.mjs';
+import { RECEIPT, checkRun, comments, gateRuns, getPR, latestBlock, verifyRow } from './github.mjs';
 import { checkLedger, entryFile } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
@@ -29,7 +29,7 @@ export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = che
 
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = 30, log = console.log } = opts;
-  const io = { getPR, comments, checkRun, mergePR, getRun, ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, mergePR, verify: (slug, r) => verifyRow(slug, r), ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
@@ -46,10 +46,10 @@ export function merge(root, n, opts = {}) {
   const all = io.comments(slug, n);
   const receipt = latestBlock(slug, n, RECEIPT, all)?.data;
   if (!receipt) fail(`pull request ${n} has no receipt`);
-  // Each row names its Actions run; the run must be the process gate, on this tip, and green,
-  // so a row posted from any other workflow, or one that claims more than its run did, fails.
+  // Each row names its Actions run; the row counts only when that run is the process gate on
+  // this tip, green, and its own artifact holds the same row (verifyRow).
   const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
-    .find((r) => { const a = r.run_id && io.getRun(slug, r.run_id); return a && /process-gate\.yml$/.test(a.path || '') && a.head_sha === pr.head.sha && a.conclusion === 'success'; });
+    .find((r) => io.verify(slug, r));
   if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it`);
 
   const branch = `job/${id}`;
@@ -102,8 +102,6 @@ export function merge(root, n, opts = {}) {
     rmSync(wt, { recursive: true, force: true });
   }
 }
-
-export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
 
 // The merge itself, guarded by the tip the gate passed (a current tip only).
 export function mergePR(slug, n, sha) {
