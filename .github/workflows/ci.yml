@@ -1,0 +1,31 @@
+# Process3's own check: the tool's tests and the record check (REC-9, REC-10, approvals).
+# Runs on every pull request and on every push to any branch. The job name "ci" is the
+# check the tranche branch rule requires.
+name: ci
+on:
+  pull_request:
+  push:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: tool tests
+        run: node --test 'tool/test/*.test.mjs'
+      - name: record check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node tool/p3.mjs record-check --base "$BASE" --head "$HEAD_SHA" --onto origin/main --out record-findings.json
