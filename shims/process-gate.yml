@@ -73,4 +73,5 @@ jobs:
           name: gate-row
           path: ${{ runner.temp }}/gate.json
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 90

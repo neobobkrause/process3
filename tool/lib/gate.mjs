@@ -9,7 +9,7 @@ import { metricsFile } from './metrics.mjs';
 import { runSuite, suffixOf, testFiles } from './suite.mjs';
 import { git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
-const ghIO = { comments, addComment, verify: (slug, r) => verifyRow(slug, r) };
+const ghIO = { comments, addComment, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token.
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
@@ -53,7 +53,7 @@ export function gate(root, opts) {
 
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
-  const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r));
+  const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     && diffNames(root, lastGreen.sha, head).every((f) => isRecordPath(cfg, f));
 

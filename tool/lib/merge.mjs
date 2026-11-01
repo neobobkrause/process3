@@ -29,7 +29,7 @@ export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = che
 
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = 30, log = console.log } = opts;
-  const io = { getPR, comments, checkRun, mergePR, verify: (slug, r) => verifyRow(slug, r), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
@@ -49,7 +49,7 @@ export function merge(root, n, opts = {}) {
   // Each row names its Actions run; the row counts only when that run is the process gate on
   // this tip, green, and its own artifact holds the same row (verifyRow).
   const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
-    .find((r) => io.verify(slug, r));
+    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
   if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it`);
 
   const branch = `job/${id}`;

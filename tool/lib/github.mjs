@@ -87,10 +87,16 @@ export function runArtifactRow(slug, id) {
   } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert'];
-export function verifyRow(slug, row, io = { getRun, runArtifactRow }) {
+export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
   if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
+  // The run must be this pull request's own, into the tranche: not a second PR on the same
+  // commit into a branch that carries a workflow of its own.
+  // (Every pull request GitHub lists for the run must be into the tranche, in case it lists
+  // all open PRs that share the head branch.)
+  const prs = a.pull_requests || [];
+  if (a.event !== 'pull_request' || !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)) return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);
   return !!art && SAME.every((k) => JSON.stringify(art[k] ?? null) === JSON.stringify(row[k] ?? null));
