@@ -3,7 +3,7 @@
 // comment (written by the gate workflow) and are read from GitHub.
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GATE, comments, getPR, latestBlock } from './github.mjs';
+import { comments, gateRuns, getPR } from './github.mjs';
 import { git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
@@ -57,8 +57,7 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
     if (!c.pr) continue;
     let all = [];
     try { all = read.comments(slug, c.pr) || []; } catch { all = []; }
-    const g = latestBlock(slug, c.pr, GATE, all);
-    const runs = g?.data?.runs || [];
+    const runs = gateRuns(all);
     gates.push({ pr: c.pr, runs: runs.length });
     gateMinutes += runs.reduce((s, r) => s + (r.minutes || 0), 0);
     // A COMPLETE claim is refuted when a gate run that checked that attempt's receipt failed

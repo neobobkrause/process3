@@ -3,7 +3,8 @@
 # checkout is GitHub's merge of the head into the base: the suite runs on the merged result.
 # The record check runs here too: a pull_request_target workflow runs only from the default
 # branch (measured 1 Nov on process3), so a check judged wholly by the base cannot run from a
-# tranche. The workflow file itself still comes from the pull request; see the report.
+# tranche. The workflow file itself still comes from the pull request, so merge (BOB's own
+# tool) repeats the ownership and receipt checks, and Bob's ruleset pins the check's source.
 # Copied into a product as .github/workflows/process-gate.yml.
 name: process-gate
 on:
@@ -32,14 +33,29 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          pin=$(git rev-parse "$BASE:.process" 2>/dev/null || git rev-parse "HEAD:.process")
-          repo=$( (git show "$BASE:process/config.json" 2>/dev/null || echo '{}') | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
+          # The judge is the base's pin. Only a base with no Process3 at all (the setup pull
+          # request) falls back to the head's pin; removing the pin later is a record finding.
+          if pin=$(git rev-parse -q --verify "$BASE:.process"); then :;
+          elif ! git cat-file -e "$BASE:process/config.json" 2>/dev/null && pin=$(git rev-parse -q --verify "HEAD:.process"); then
+            echo "::warning::bootstrap: the base has no Process3; the head's pin judges this pull request"
+          else
+            echo "::error::the base has no process pin"; exit 1
+          fi
+          cfg=$(git show "$BASE:process/config.json" 2>/dev/null || git show "HEAD:process/config.json" 2>/dev/null || echo '{}')
+          repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
-          echo "node=$( (git show "$BASE:process/config.json" 2>/dev/null || echo '{}') | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ steps.pin.outputs.node }}
+      - name: record check (size, paths, approvals, ledger), by the base's pin, before any product code runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out "$RUNNER_TEMP/record.json"
       - name: gate
         env:
           GH_TOKEN: ${{ github.token }}
@@ -49,11 +65,3 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           DRAFT: ${{ github.event.pull_request.draft }}
         run: node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --out "$RUNNER_TEMP/gate.json"
-      - name: record check (size, paths, approvals, ledger), by the base's pin
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out "$RUNNER_TEMP/record.json"

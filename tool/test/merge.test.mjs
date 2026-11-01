@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { GATE, block } from '../lib/github.mjs';
+import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
@@ -30,7 +30,11 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
     calls,
     io: {
       getPR: () => ({ state: 'open', draft: false, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
-      comments: () => [{ id: 1, body: block(GATE, { runs: [{ sha: head, ok: true, receipt }] }) }],
+      comments: () => [
+        { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'neobobkrause' } },
+        { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt, receipt_attempt: 1 }] }), user: { login: BOT } },
+        { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'present', receipt_attempt: 1 }] }), user: { login: BOT } },
+      ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
@@ -48,6 +52,16 @@ test('merge brings the branch up to the tranche, writes the merge row, and merge
   git(['checkout', '-q', tip], { cwd: root });
   assert.equal(readRows(root, 'alpha').at(-1).row, 'merge');
   git(['checkout', '-q', 'main'], { cwd: root });
+  assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left');
+});
+
+test('merge refuses a job that changed files outside its module', () => {
+  const { root } = setup();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const head = commit(root, { '.github/workflows/process-gate.yml': 'jobs: {}' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: io(head).io, noReview: 'x', log: () => {} }), /outside its module: .github\/workflows/);
 });
 
 test('merge refuses without a review decision, a green gate, or a checked receipt', () => {
@@ -55,5 +69,5 @@ test('merge refuses without a review decision, a green gate, or a checked receip
   const q = { slug: 'o/r', log: () => {} };
   assert.throws(() => merge(root, 3, { ...q, io: io(head).io }), /--reviewed/);
   assert.throws(() => merge(root, 3, { ...q, io: io(head, { gateGreen: false }).io, noReview: 'x' }), /not green/);
-  assert.throws(() => merge(root, 3, { ...q, io: io(head, { receipt: 'none' }).io, noReview: 'x' }), /checked the receipt/);
+  assert.throws(() => merge(root, 3, { ...q, io: io(head, { receipt: 'none' }).io, noReview: 'x' }), /checked receipt attempt 1/);
 });

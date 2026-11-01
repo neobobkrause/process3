@@ -1,19 +1,28 @@
 // merge (GAT-8, INT-1): BOB brings a job's branch up to the tranche, writes the merge row, waits
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
-import { GATE, checkRun, comments, getPR, latestBlock } from './github.mjs';
+// merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
+// could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { RECEIPT, checkRun, comments, gateRuns, getPR, latestBlock } from './github.mjs';
+import { entryFile } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
-import { fail, gh, git, loadConfig, now, repoSlug } from './util.mjs';
+import { ownPaths } from './gate.mjs';
+import { fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
 
+// Waits for a completed gate run on the commit; a cancelled run (superseded by another event on
+// the same tip) is waited past.
 export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = checkRun, log = console.log } = {}) {
   const until = Date.now() + minutes * MINUTE;
   for (;;) {
     const run = read(slug, sha, 'gate');
-    if (run?.status === 'completed') return run;
+    if (run?.status === 'completed' && run.conclusion !== 'cancelled') return run;
     if (Date.now() > until) fail(`the gate on ${sha.slice(0, 10)} did not finish within ${minutes} min`);
-    log(`waiting for the gate on ${sha.slice(0, 10)} (${run ? run.status : 'not started'})`);
+    log(`waiting for the gate on ${sha.slice(0, 10)} (${run ? run.conclusion || run.status : 'not started'})`);
     sleep(every);
   }
 }
@@ -31,37 +40,47 @@ export function merge(root, n, opts = {}) {
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
   if (!id) fail(`pull request ${n} is not from a job branch`);
 
-  // The receipt must have been checked against a green gate run on the job's own tip.
+  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
   const first = io.checkRun(slug, pr.head.sha, 'gate');
   if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
-  const runs = latestBlock(slug, n, GATE, io.comments(slug, n))?.data?.runs || [];
-  const checked = runs.filter((r) => r.sha === pr.head.sha && r.ok).pop();
-  if (!checked || checked.receipt !== 'agrees') fail(`no green gate run on ${pr.head.sha.slice(0, 10)} checked the receipt (${checked ? checked.receipt : 'no run recorded'})`);
+  const all = io.comments(slug, n);
+  const receipt = latestBlock(slug, n, RECEIPT, all)?.data;
+  if (!receipt) fail(`pull request ${n} has no receipt`);
+  const agreed = gateRuns(all).some((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt);
+  if (!agreed) fail(`no green gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it`);
 
   const branch = `job/${id}`;
-  const back = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim() || git(['rev-parse', 'HEAD'], { cwd: root });
-  if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
-  git(['checkout', '-q', '-B', `p3-merge/${id}`, `origin/${branch}`], { cwd: root });
+  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
+
+  // ARC-2, held here by BOB's tool: the job changed only its own module and records.
+  const entryText = git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (entryText.code !== 0) fail(`${branch} has no ledger entry`);
+  const own = ownPaths(JSON.parse(entryText.stdout));
+  const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
+  const outside = git(['diff', '--name-only', '-z', mb, `origin/${branch}`], { cwd: root }).split('\0').filter(Boolean).filter((f) => !own.some((p) => underPath(f, p)));
+  if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
+
+  // Work in a worktree of its own, so the caller's checkout is never moved.
+  const wt = join(mkdtempSync(join(tmpdir(), 'p3-merge-')), id);
+  git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
   try {
-    if (git(['rev-parse', 'HEAD'], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
-    // Bring it up to the tranche (a merge commit: the job's history is never rewritten).
-    if (git(['merge-base', '--is-ancestor', `origin/${cfg.tranche}`, 'HEAD'], { cwd: root, allowFail: true }).code !== 0) {
-      const m = git(['merge', '-q', '--no-ff', '--no-edit', `origin/${cfg.tranche}`, '-m', `Bring ${branch} up to ${cfg.tranche}`], { cwd: root, allowFail: true });
+    if (git(['merge-base', '--is-ancestor', `origin/${cfg.tranche}`, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
+      const m = git(['merge', '-q', '--no-ff', '--no-edit', `origin/${cfg.tranche}`, '-m', `Bring ${branch} up to ${cfg.tranche}`], { cwd: wt, allowFail: true });
       if (m.code !== 0) {
-        git(['merge', '--abort'], { cwd: root, allowFail: true });
+        git(['merge', '--abort'], { cwd: wt, allowFail: true });
         fail(`${branch} conflicts with ${cfg.tranche}; the job must bring itself up to date`);
       }
     }
-    const done = readRows(root, id).filter((r) => r.event === 'complete').pop();
-    appendRow(root, id, {
+    const done = readRows(wt, id).filter((r) => r.event === 'complete').pop();
+    appendRow(wt, id, {
       row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview,
       minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
     });
-    git(['add', '--', metricsFile(id)], { cwd: root });
-    git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: root });
-    const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-    git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root });
+    git(['add', '--', metricsFile(id)], { cwd: wt });
+    git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
+    const tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+    git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: wt });
     log(`pushed ${tip.slice(0, 10)} to ${branch}; the gate runs on the merged result`);
     const run = waitForGate(slug, tip, { minutes, read: io.checkRun, log });
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
@@ -70,8 +89,8 @@ export function merge(root, n, opts = {}) {
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
     return { merged: true, sha: r.sha, tip };
   } finally {
-    git(['checkout', '-q', back], { cwd: root, allowFail: true });
-    git(['branch', '-q', '-D', `p3-merge/${id}`], { cwd: root, allowFail: true });
+    git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
+    rmSync(wt, { recursive: true, force: true });
   }
 }
 

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { gate } from '../lib/gate.mjs';
-import { GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
+import { BOT, GATE, RECEIPT, block, gateRuns, parseBlock } from '../lib/github.mjs';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -29,8 +31,7 @@ function fakeIO(receipt) {
     state,
     io: {
       comments: () => state.comments,
-      addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body }); return {}; },
-      editComment: (s, id, body) => { state.comments.find((c) => c.id === id).body = body; return {}; },
+      addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; },
     },
   };
 }
@@ -45,8 +46,7 @@ test('a real change with a real test passes, and the receipt agrees', () => {
   assert.deepEqual(r.findings, []);
   assert.deepEqual([r.run.trigger, r.run.suite, r.run.revert, r.run.receipt], ['code', 'pass', 'pass', 'agrees']);
   assert.equal(git(['diff', '--stat'], { cwd: s.root }), '', 'the revert check restores the tree');
-  const g = parseBlock(io.state.comments.at(-1).body, GATE);
-  assert.equal(g.runs.length, 1);
+  assert.equal(gateRuns(io.state.comments).length, 1);
 });
 
 test('a test that passes with the change reverted is inert', () => {
@@ -96,5 +96,42 @@ test('record-only changes end in seconds: a records PR, and records since the la
   const head2 = commit(c.root, { 'process/metrics/alpha.jsonl': '{"row":"merge"}\n' });
   const r2 = gate(c.root, { base: c.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.deepEqual([r2.run.trigger, r2.run.after, r2.findings.length], ['record-since-green', c.head, 0]);
-  assert.equal(parseBlock(io.state.comments.find((x) => x.body.includes('p3:gate')).body, GATE).runs.length, 2);
+  assert.equal(gateRuns(io.state.comments).length, 2);
+});
+
+// Findings from the review of PR 3.
+test('a gate run posted by anyone but the bot, or edited, does not count', () => {
+  const c = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
+  const forged = { runs: [{ sha: c.head, base: c.base, trigger: 'code', ok: true, receipt: 'agrees' }] };
+  const io = fakeIO(receiptFor(c.head));
+  io.state.comments.push({ id: 7, body: block(GATE, forged), user: { login: 'neobobkrause' } });
+  io.state.comments.push({ id: 8, body: block(GATE, forged), user: { login: BOT }, created_at: 'a', updated_at: 'b' });
+  const head2 = commit(c.root, { 'process/metrics/alpha.jsonl': '{}\n' });
+  const r = gate(c.root, { base: c.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
+  assert.equal(r.run.trigger, 'code');
+  assert.equal(r.run.suite, 'fail');
+});
+
+test('the revert check restores the tree when the job deleted a file', () => {
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+    'src/alpha/index.mjs': 'export const x = 1;\n',
+    'src/alpha/old.mjs': 'export const old = 1;\n',
+    'test/alpha/old.test.mjs': inertTest,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
+  git(['rm', '-q', 'src/alpha/old.mjs'], { cwd: root });
+  const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receiptFor(head)).io, log: quiet });
+  assert.equal(r.run.revert, 'pass');
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '');
+  assert.equal(existsSync(join(root, 'src/alpha/old.mjs')), false);
+});
+
+test('a non-job pull request runs the suite of every module it touches', () => {
+  const s = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = gate(s.root, { base: s.base, head: s.head, branch: 'bob/setup', pr: 5, slug: 'o/r', io: fakeIO().io, log: quiet });
+  assert.deepEqual([r.run.scope, r.run.suite], [['alpha'], 'fail']);
 });

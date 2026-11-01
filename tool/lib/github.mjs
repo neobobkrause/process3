@@ -61,6 +61,16 @@ export function latestBlock(slug, n, marker, all = comments(slug, n)) {
   return null;
 }
 
+// Gate runs, each its own comment written by GitHub Actions and never edited since. A session
+// can post a comment that looks like one, or (as the owner) edit one, so only the bot's
+// unedited comments count.
+export const BOT = 'github-actions[bot]';
+export function gateRuns(all) {
+  return all
+    .filter((c) => c.user?.login === BOT && (!c.updated_at || c.updated_at === c.created_at))
+    .flatMap((c) => parseBlock(c.body, GATE)?.runs || []);
+}
+
 export function markReady(slug, n) {
   gh(['pr', 'ready', String(n), '-R', slug]);
   const pr = getPR(slug, n);

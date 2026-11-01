@@ -99,7 +99,7 @@ test('metrics report counts a refuted COMPLETE claim and gate minutes', () => {
   appendRow(root, 'alpha', { row: 'attempt', event: 'measured', attempt: 1, cost_usd: 2.5, tokens: 1000, denials: 2, refusals: [{ act: 'archive', depth: '2', channel: 'START' }] });
   appendRow(root, 'alpha', { row: 'merge', pr: 7 });
   const gate = block(GATE, { runs: [{ minutes: 2, receipt_attempt: 1, suite: 'fail' }, { minutes: 1.5, receipt_attempt: 1, suite: 'pass', revert: 'pass' }] });
-  const read = { comments: () => [{ body: gate }], getPR: () => ({ merged_at: null }) };
+  const read = { comments: () => [{ body: gate, user: { login: 'github-actions[bot]' } }], getPR: () => ({ merged_at: null }) };
   const r = report(root, 'o/r', 'HEAD', { read });
   assert.equal(r.complete_claims, 1);
   assert.equal(r.refuted, 1);

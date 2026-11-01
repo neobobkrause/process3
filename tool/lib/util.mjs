@@ -83,7 +83,7 @@ export function loadConfig(root, ref) {
 // A path entry ending in / is a directory; any other names a file or a directory.
 export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('/') ? p : `${p}/`);
 
-export const isRecordPath = (cfg, f) => cfg.records.some((r) => f === r || f.startsWith(r));
+export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r));
 
 // --key value, --key=value (for a value that starts with --) and --flag; repeated keys become arrays; the rest are positional.
 export function parseArgs(argv) {

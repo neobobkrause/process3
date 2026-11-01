@@ -34,7 +34,7 @@ export function runSuite(root, entry, files = testFiles(root, entry), opts = {})
   const shown = [entry.suite.command[0], ...args].join(' ');
   if (!files.length) return { cmd: shown, cwd: entry.suite.cwd, exit: 1, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, output: 'no test files' };
   // A suite run from inside another test run must not report to the outer runner.
-  const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, unset: ['NODE_TEST_CONTEXT'] });
+  const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, unset: ['NODE_TEST_CONTEXT', ...(opts.unset || [])] });
   const output = r.stdout + r.stderr;
   return { cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output };
 }
