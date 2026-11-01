@@ -1,0 +1,34 @@
+# The record check on every push to any branch (REC-10), by the tranche's tool. The base is the
+# merge-base with the tranche (or main), so every commit the branch adds is checked on every
+# push, even when an earlier run was cancelled. Not a required check; pull requests run "ci".
+name: record
+on:
+  push:
+permissions:
+  contents: read
+concurrency:
+  group: record-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  record-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: record check, by the tranche's tool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tool=tool/p3.mjs
+          if git rev-parse -q --verify origin/tranche >/dev/null && git cat-file -e origin/tranche:tool/p3.mjs 2>/dev/null; then
+            git worktree add -q --detach "$RUNNER_TEMP/tranche" origin/tranche
+            tool="$RUNNER_TEMP/tranche/tool/p3.mjs"
+          fi
+          onto=origin/tranche
+          [ "$GITHUB_REF_NAME" = tranche ] && onto=origin/main
+          node "$tool" record-check --head "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --onto "$onto" --onto origin/main --out record-findings.json
