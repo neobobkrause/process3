@@ -57,8 +57,8 @@
     },
     {
       "id": "deny-list",
-      "what": "The tranche's .claude/settings.json denies force-push, branch deletion, writing files through GitHub, and every merge route but the tool; it does not deny every push.",
-      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob, 2 Nov). The rule Bash(git push origin :*) matches every push, so sessions could not push their own branches. Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
+      "what": "The tranche's .claude/settings.json denies force-push, branch deletion, writing files through GitHub, and every merge route but the tool; and no rule in it blocks a session's push of its own branch.",
+      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob, 2 Nov). A rule such as Bash(git push origin :*) matches every push, so sessions could not push their own branches; each Bash rule is matched against the START's push as Claude Code matches it. Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
       "value": {
         "deny": [
           "Bash(git push --force *)",
@@ -73,12 +73,13 @@
           "Bash(gh pr merge *)",
           "Bash(gh api *pulls/*/merge*)"
         ],
-        "not": [
-          "Bash(git push origin :*)"
+        "push_commands": [
+          "git push origin job/x",
+          "git push -u origin job/x"
         ]
       },
       "who": "the developer, committing it on the tranche through GitHub's website; a session cannot edit its own settings file",
-      "read": "the file on origin/<tranche>, through git: permissions.deny"
+      "read": "the file on origin/<tranche>, through git: permissions.deny, each Bash rule matched against the push commands"
     },
     {
       "id": "artifact-retention",
@@ -113,6 +114,14 @@
       "value": "CLOUDFLARE_ACCOUNT_ID equals process/config.json cloudflare_account; not configured when the config names none",
       "who": "the developer (the Claude cloud environment's settings)",
       "read": "the environment of the session running the check: a match, yes or no; only the configured account is printed; Cloudflare's API is not called"
+    },
+    {
+      "id": "ruleset-bypass",
+      "what": "Every ruleset's bypass list is empty: no app, no deploy key, no role.",
+      "why": "A session can read only whether its own account may bypass a ruleset; an app, deploy key or role in the list could carry a change around the rules.",
+      "value": "bypass list empty on every ruleset",
+      "who": "the developer (Settings, Rules)",
+      "read": "confirmed once on the onboarding page"
     },
     {
       "id": "actions-settings",

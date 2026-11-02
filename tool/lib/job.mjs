@@ -96,7 +96,9 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   const branch = `job/${id}`;
   coordinator ||= cfg.coordinator;
   model ||= cfg.roles?.job?.model;
-  if (!coordinator) fail('no coordinator: pass --coordinator <session id> or set it in process/config.json');
+  // The coordinator is named in the tranche's config, which setup check requires; --coordinator
+  // overrides it for one start (confirming review of PR 15).
+  if (!coordinator) fail('no coordinator: name it in process/config.json on the tranche, as p3 setup check requires (--coordinator <session id> overrides it for one start)');
   if (push) fetchRef(root, cfg.tranche);
   const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
 

@@ -62,7 +62,7 @@ test('every condition is listed with what, why, value, who and how it is read, a
   const cs = loadConditions();
   for (const c of cs) for (const k of ['id', 'what', 'why', 'value', 'who', 'read']) assert.ok(c[k] !== undefined && c[k] !== '', `${c.id}: ${k}`);
   assert.deepEqual(cs.filter((c) => c.read !== CONFIRMED).map((c) => c.id).sort(), [...READERS].sort());
-  assert.deepEqual(cs.filter((c) => c.read === CONFIRMED).map((c) => c.id), ['actions-settings', 'secrets', 'collaborators', 'environments']);
+  assert.deepEqual(cs.filter((c) => c.read === CONFIRMED).map((c) => c.id), ['ruleset-bypass', 'actions-settings', 'secrets', 'collaborators', 'environments']);
 });
 
 test('a complete setup is all set, and the four unreadable conditions are confirmed, never read', () => {
@@ -143,7 +143,7 @@ test('the deny list must hold the safety, file-write and merge-route rules, and 
   w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY.filter((d) => !/merge/.test(d)), 'Bash(git push origin :*)'] } });
   const d = state(check(w), 'deny-list');
   assert.equal(d.state, 'missing');
-  for (const m of ['lacks mcp__github__merge_pull_request', 'lacks Bash(gh pr merge *)', 'lacks Bash(gh api *pulls/*/merge*)', 'holds Bash(git push origin :*), which blocks every push']) assert.ok(d.detail.includes(m), `${m} in ${d.detail}`);
+  for (const m of ['lacks mcp__github__merge_pull_request', 'lacks Bash(gh pr merge *)', 'lacks Bash(gh api *pulls/*/merge*)', 'holds Bash(git push origin :*), which blocks a session\'s push of its own branch']) assert.ok(d.detail.includes(m), `${m} in ${d.detail}`);
   const w2 = world();
   delete w2.files['.claude/settings.json'];
   assert.match(state(check(w2), 'deny-list').detail, /no .claude\/settings.json on tranche/);
@@ -203,38 +203,25 @@ test('job start runs the setup check first and starts nothing while a condition 
   assert.equal(seen.length, 1);
 });
 
-// The developer's steps (Bob, 2 Nov): setup/DEVELOPER.md holds only the owner's acts.
+// The developer's steps (Bob, 2 Nov): setup/DEVELOPER.md holds only the owner's acts, checked
+// against the list by the real checker.
 import { readFileSync } from 'node:fs';
-import { CONDITIONS } from '../lib/setup.mjs';
-function developerSteps(text) {
-  return text.split(/^## /m).slice(1).filter((s) => /^Step \d+\./.test(s)).map((s) => ({
-    title: s.split('\n')[0],
-    parts: ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => new RegExp(`^${p}`, 'm').test(s)),
-    sets: [...(s.match(/^Sets:(.*)$/m)?.[1] || '').matchAll(/`([^`]+)`/g)].map((m) => m[1]),
-  }));
-}
+import { DEVELOPER, bashRuleMatches, checkDeveloperSteps } from '../lib/setup.mjs';
 
-test('every condition the developer sets has a step, and every step names only conditions in the list', () => {
-  const text = readFileSync(join(CONDITIONS, '..', 'DEVELOPER.md'), 'utf8');
-  const steps = developerSteps(text);
-  assert.ok(steps.length > 0);
-  for (const s of steps) assert.deepEqual(s.parts, ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'], s.title);
-  const ids = loadConditions().map((c) => c.id);
-  const named = steps.flatMap((s) => s.sets);
-  assert.deepEqual(named.filter((id) => !ids.includes(id)), [], 'a step names a condition not in the list');
-  const developer = loadConditions().filter((c) => /^the developer\b/.test(c.who)).map((c) => c.id);
-  assert.ok(developer.length >= 9);
-  assert.deepEqual(developer.filter((id) => !named.includes(id)), [], 'a developer condition with no step');
-  assert.ok(!/\u2014/.test(text), 'no em-dashes');
+test('DEVELOPER.md: every step complete, every developer condition covered, only theirs named, the deny lines the list\'s', () => {
+  assert.deepEqual(checkDeveloperSteps(readFileSync(DEVELOPER, 'utf8')), []);
 });
 
-test('the step check fails on a missing step and on an unknown condition', () => {
-  const steps = developerSteps('## Step 1. A\n\nWhy: x\n\nClicks: y\n\nHow BOB confirms: z\n\nSets: `account`, `no-such-id`.\n');
-  assert.deepEqual(steps[0].sets, ['account', 'no-such-id']);
-  const ids = loadConditions().map((c) => c.id);
-  assert.deepEqual(steps[0].sets.filter((id) => !ids.includes(id)), ['no-such-id']);
-  const developer = loadConditions().filter((c) => /^the developer\b/.test(c.who)).map((c) => c.id);
-  assert.ok(developer.filter((id) => !steps[0].sets.includes(id)).includes('deny-list'));
+test('the step checker fails on a missing step, an unknown or non-developer condition, drifted deny lines, and an em-dash', () => {
+  const text = readFileSync(DEVELOPER, 'utf8');
+  const step = (sets, extra = '') => `## Step 99. X\n\nWhy: x\n\nClicks: y${extra}\n\nHow BOB confirms: z\n\nSets: ${sets}.\n`;
+  assert.ok(checkDeveloperSteps(text + step('`no-such-id`')).some((p) => /names no-such-id, which is not in the list/.test(p)));
+  assert.ok(checkDeveloperSteps(text + step('`coordinator`')).some((p) => /names coordinator, which is not the developer's/.test(p)));
+  assert.ok(checkDeveloperSteps(text.replace('Sets: `deny-list`.', 'Sets: none.')).includes('deny-list is the developer\'s and has no step'));
+  assert.ok(checkDeveloperSteps(text.replace('"Bash(gh pr merge *)",\n', '')).includes('the deny lines on the page differ from the deny-list condition'));
+  assert.ok(checkDeveloperSteps(text.replace('Why: every other step', 'Why: — every other step')).includes('an em-dash'));
+  assert.ok(checkDeveloperSteps(text.replace(/^How BOB confirms: `p3 setup check` shows `merge-settings` set\.$/m, '')).some((p) => /Step 5\. .*lacks How BOB confirms/.test(p)));
+  assert.doesNotMatch(text, /civicsmith/i, 'the page names no product or account');
 });
 
 // Deploy tokens are a standard condition (Bob, 2 Nov): present by name, the account matching.
@@ -269,4 +256,33 @@ test('deploy-account: CLOUDFLARE_ACCOUNT_ID must be the configured account, repo
   assert.doesNotMatch(out.join('\n'), /other-account-999/, 'only the configured account is printed');
   delete w.env.CLOUDFLARE_ACCOUNT_ID;
   assert.match(state(check(w), 'deploy-account').detail, /CLOUDFLARE_ACCOUNT_ID is not in this session's environment \(configured: acc123\)/);
+});
+
+// Confirming review of PR 15.
+test('the bypass check fails closed: a ruleset without current_user_can_bypass does not count', () => {
+  const w = world();
+  delete w.sets[1].current_user_can_bypass;
+  delete w.sets[2].current_user_can_bypass;
+  const r = check(w);
+  assert.deepEqual(r.missing.sort(), ['ruleset-all-branches', 'ruleset-main-tranche']);
+  assert.match(state(r, 'ruleset-main-tranche').detail, /can bypass ruleset "process3"/);
+});
+
+test('any deny rule that would block the START\'s push is found, matched as Claude Code matches it', () => {
+  for (const rule of ['Bash(git push origin :*)', 'Bash(git push *)', 'Bash(git push:*)', 'Bash(git *)', 'Bash(git push -u origin *)', 'Bash']) {
+    const w = world();
+    w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY, rule] } });
+    assert.match(state(check(w), 'deny-list').detail, new RegExp(`holds ${rule.replace(/[()*]/g, '\\$&')}, which blocks`), rule);
+  }
+  assert.equal(bashRuleMatches('Bash(git push origin --delete *)', 'git push origin job/x'), false);
+  assert.equal(bashRuleMatches('Bash(git push -f *)', 'git push -u origin job/x'), false);
+  assert.equal(bashRuleMatches('Bash(git push origin main)', 'git push origin job/x'), false);
+  assert.equal(bashRuleMatches('Bash(git push origin :*)', 'git push -u origin job/x'), false, 'a prefix match only');
+  assert.equal(bashRuleMatches('Bash(ls *)', 'ls'), true, 'a trailing " *" matches the bare command');
+});
+
+test('job start names the config as the coordinator\'s home', () => {
+  const r = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
+  git(['branch', 'tranche'], { cwd: r });
+  assert.throws(() => jobStart(r, 'alpha', { push: false, log: quiet }), /no coordinator: name it in process\/config.json on the tranche, as p3 setup check requires \(--coordinator <session id> overrides it for one start\)/);
 });

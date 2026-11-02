@@ -26,7 +26,22 @@ function tranche(root, name, fetch = true) {
 const set = (detail) => ({ state: 'set', detail });
 const missing = (detail) => ({ state: 'missing', detail });
 const unread = (what) => missing(`could not read ${what}`);
-const noBypass = (rs) => !rs.current_user_can_bypass || rs.current_user_can_bypass === 'never';
+// Fails closed: a ruleset counts only when GitHub says the session account can never bypass it
+// (confirming review of PR 15).
+const noBypass = (rs) => rs.current_user_can_bypass === 'never';
+
+// A deny rule as Claude Code matches a Bash command: a bare Bash denies every command; a
+// trailing ":*" is a prefix match; otherwise "*" is a wildcard over the whole command, and a
+// trailing " *" also matches the command without arguments.
+export function bashRuleMatches(rule, cmd) {
+  if (rule === 'Bash') return true;
+  const m = String(rule).match(/^Bash\((.*)\)$/s);
+  if (!m) return false;
+  const pat = m[1];
+  if (pat.endsWith(':*')) return cmd.startsWith(pat.slice(0, -2));
+  const re = new RegExp(`^${pat.split('*').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 's');
+  return re.test(cmd) || (pat.endsWith(' *') && cmd === pat.slice(0, -2));
+}
 
 // One reader per condition that can be read; each returns { state, detail }.
 const readers = {
@@ -87,7 +102,7 @@ const readers = {
     try { deny = JSON.parse(text).permissions?.deny || []; } catch { return missing(`.claude/settings.json on ${x.cfg.tranche} is not JSON`); }
     const gaps = [
       ...c.value.deny.filter((d) => !deny.includes(d)).map((d) => `lacks ${d}`),
-      ...c.value.not.filter((d) => deny.includes(d)).map((d) => `holds ${d}, which blocks every push`),
+      ...deny.filter((d) => c.value.push_commands.some((cmd) => bashRuleMatches(d, cmd))).map((d) => `holds ${d}, which blocks a session's push of its own branch`),
     ];
     return gaps.length ? missing(gaps.join('; ')) : set(`${deny.length} deny rules on ${x.cfg.tranche}`);
   },
@@ -161,4 +176,42 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
   return { ok: !gaps.length, results, missing: gaps.map((r) => r.id) };
+}
+
+// The developer's steps (setup/DEVELOPER.md) against this list: each step complete, naming only
+// conditions that are the developer's; every developer condition with a step; the deny lines
+// the page prints equal to the deny-list condition's. Returns the problems.
+export const DEVELOPER = join(dirname(CONDITIONS), 'DEVELOPER.md');
+export const isDeveloper = (c) => /^the developer\b/.test(c.who);
+export function developerSteps(text) {
+  return text.split(/^## /m).slice(1).filter((s) => /^Step \d+\./.test(s)).map((s) => ({
+    title: s.split('\n')[0],
+    body: s,
+    parts: ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => new RegExp(`^${p}`, 'm').test(s)),
+    sets: [...(s.match(/^Sets:(.*)$/m)?.[1] || '').matchAll(/`([^`]+)`/g)].map((m) => m[1]),
+  }));
+}
+export function checkDeveloperSteps(text, conditions = loadConditions()) {
+  const problems = [];
+  const steps = developerSteps(text);
+  const byId = new Map(conditions.map((c) => [c.id, c]));
+  if (!steps.length) problems.push('no steps');
+  for (const s of steps) {
+    const lack = ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => !s.parts.includes(p));
+    if (lack.length) problems.push(`${s.title}: lacks ${lack.join(', ')}`);
+    for (const id of s.sets) {
+      if (!byId.has(id)) problems.push(`${s.title}: names ${id}, which is not in the list`);
+      else if (!isDeveloper(byId.get(id))) problems.push(`${s.title}: names ${id}, which is not the developer's`);
+    }
+  }
+  const named = new Set(steps.flatMap((s) => s.sets));
+  for (const c of conditions.filter(isDeveloper)) if (!named.has(c.id)) problems.push(`${c.id} is the developer's and has no step`);
+  const deny = byId.get('deny-list')?.value?.deny;
+  const step = steps.find((s) => s.sets.includes('deny-list'));
+  if (deny && step) {
+    const shown = (step.body.match(/```\n([\s\S]*?)```/)?.[1] || '').split('\n').map((l) => l.trim().replace(/,$/, '')).filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return l; } });
+    if (JSON.stringify(shown) !== JSON.stringify(deny)) problems.push('the deny lines on the page differ from the deny-list condition');
+  }
+  if (/\u2014/.test(text)) problems.push('an em-dash');
+  return problems;
 }
