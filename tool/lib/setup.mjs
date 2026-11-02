@@ -3,7 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { exists, fail, gh, git, loadConfig } from './util.mjs';
+import { approvalsBlock, webCommitByOwner } from './record.mjs';
+import { DEFAULTS, exists, fail, gh, git, loadConfig, run } from './util.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
 export const loadConditions = (file = CONDITIONS) => JSON.parse(readFileSync(file, 'utf8')).conditions;
@@ -21,6 +22,47 @@ function tranche(root, name, fetch = true) {
     if (git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code !== 0 || !exists(root, ref, file)) return null;
     return git(['show', `${ref}:${file}`], { cwd: root });
   };
+}
+
+// The tranche's last commit that changed the approvals block, read through git: walking the
+// file's history newest first, the first commit whose block differs from every parent's.
+function lastApprovalsChange(root, name, file, heading) {
+  const ref = `origin/${name}`;
+  const blockAt = (rev) => (exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
+  const log = git(['log', '--format=%H %P', ref, '--', file], { cwd: root, allowFail: true });
+  if (log.code !== 0) return null;
+  for (const line of log.stdout.split('\n').filter(Boolean)) {
+    const [sha, ...parents] = line.split(' ');
+    const now = blockAt(sha);
+    if (!parents.length ? now !== '' : !parents.map(blockAt).includes(now)) return sha;
+  }
+  return null;
+}
+
+// Is this session's own checkout the tranche? Set when HEAD descends from the tranche's tip, or
+// is a commit the tranche already holds (the session started from it and the tranche moved on).
+function sessionOnTranche(root, name) {
+  const ref = `origin/${name}`;
+  const tip = git(['rev-parse', '-q', '--verify', `${ref}^{commit}`], { cwd: root, allowFail: true });
+  if (tip.code !== 0) return { ok: false, why: `${ref} is not here` };
+  const head = git(['rev-parse', '-q', '--verify', 'HEAD^{commit}'], { cwd: root, allowFail: true });
+  if (head.code !== 0) return { ok: false, why: 'this checkout has no commit' };
+  const anc = (a, b) => git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
+  if (anc(ref, 'HEAD')) return { ok: true, why: `${branch} descends from the tip of ${name}` };
+  if (anc('HEAD', ref)) return { ok: true, why: `${branch} is a commit ${name} holds` };
+  return { ok: false, why: `${branch} is neither ${name} nor a branch from its tip` };
+}
+
+// A harmless Cloudflare read with the session's token: the token goes to curl on stdin, never on
+// a command line, in a log or in a message. Returns the HTTP status and Cloudflare's success.
+function cloudflareRead(path, env) {
+  const r = run('curl', ['-sS', '--max-time', '20', '-H', '@-', '-w', '\n%{http_code}', `https://api.cloudflare.com/client/v4/${path}`], { input: `Authorization: Bearer ${env.CLOUDFLARE_API_TOKEN}\n` });
+  const lines = r.stdout.split('\n');
+  const status = Number(lines.pop());
+  let success = false;
+  try { success = JSON.parse(lines.join('\n')).success === true; } catch { /* not JSON */ }
+  return { status: r.code === 0 ? status : 0, success };
 }
 
 const set = (detail) => ({ state: 'set', detail });
@@ -134,6 +176,60 @@ const readers = {
     return x.env.CLOUDFLARE_ACCOUNT_ID === String(want) ? set(`CLOUDFLARE_ACCOUNT_ID matches ${want}: yes`) : missing(`CLOUDFLARE_ACCOUNT_ID matches ${want}: no`);
   },
 
+  // Classic branch protection on main or the tranche (Bob, 2 Nov: an older rule was missed). A
+  // branch's "protected" is true for rulesets too; its protection.enabled, and the protection
+  // endpoint where it can be read, tell a classic rule. Any classic rule is to be removed.
+  'classic-protection': (c, x) => {
+    const found = [];
+    for (const b of [x.main, x.cfg.tranche]) {
+      const enc = b.split('/').map(encodeURIComponent).join('/');
+      const br = x.api(`repos/${x.slug}/branches/${enc}`);
+      if (!br || typeof br !== 'object' || typeof br.protected !== 'boolean') { found.push(`${b}: could not read the branch`); continue; }
+      if (!br.protected) continue;
+      const p = x.api(`repos/${x.slug}/branches/${enc}/protection`);
+      if (p && typeof p === 'object' && p.url) found.push(`${b}: a classic branch protection rule, to remove`);
+      else if (br.protection?.enabled === true) found.push(`${b}: a classic branch protection rule, to remove`);
+      else if (br.protection?.enabled !== false) found.push(`${b}: protected, and whether by a classic rule could not be read`);
+    }
+    return found.length ? missing(found.join('; ')) : set(`no classic branch protection rule on ${x.main} or ${x.cfg.tranche}`);
+  },
+
+  // The approvals (Bob, 2 Nov): one block in CLAUDE.md on the tranche, last changed by the
+  // owner's own commit through GitHub's website, judged as the record check judges it.
+  approvals: (c, x) => {
+    const { file, heading, owner } = x.cfg.approvals;
+    const text = x.file(file);
+    if (text === null) return missing(`no ${file} on ${x.cfg.tranche}`);
+    const count = text.split('\n').filter((l) => /^#{1,6}\s.*approv/i.test(l.trim())).length;
+    if (!approvalsBlock(text, heading)) return missing(`${file} on ${x.cfg.tranche} has no "${heading}" block`);
+    if (count > 1) return missing(`${file} on ${x.cfg.tranche} has ${count} approvals headings; only one block may exist`);
+    const sha = x.lastChange(file, heading);
+    if (!sha) return missing(`could not find the commit that last changed the approvals on ${x.cfg.tranche}`);
+    const v = x.ownerCommit(sha, owner);
+    return v.ok ? set(`one block, last changed by ${owner}'s website commit ${sha.slice(0, 10)}`)
+      : missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
+  },
+
+  // The session's own checkout (Bob, 2 Nov): a session acts on the approvals only when CLAUDE.md
+  // is on the branch it started from, so every session starts from the tranche.
+  'session-branch': (c, x) => {
+    const r = x.onTranche();
+    return r.ok ? set(r.why) : missing(`${r.why}. Start the session from the ${x.cfg.tranche} branch`);
+  },
+
+  // The deploy token's scopes, by harmless reads in the configured account; never the token.
+  'deploy-token': (c, x) => {
+    const acct = x.cfg.cloudflare_account;
+    if (acct === undefined) return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (!x.env.CLOUDFLARE_API_TOKEN) return missing("CLOUDFLARE_API_TOKEN is not in this session's environment");
+    const res = c.value.map((s) => {
+      const r = x.cf(s.read.replace('{account}', encodeURIComponent(String(acct))));
+      return { s, ok: r.status === 200 && r.success, status: r.status };
+    });
+    const line = res.map(({ s, ok, status }) => `${s.scope}: ${ok ? 'present' : `missing (${status || 'no answer'})`}`).join('; ');
+    return res.every((r) => r.ok) ? set(line) : missing(line);
+  },
+
   coordinator: (c, x) => {
     const text = x.file('process/config.json');
     if (text === null) return missing(`no process/config.json on ${x.cfg.tranche}`);
@@ -153,8 +249,12 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   // The tranche's own config, when it has one, names the tranche and the required check.
   let cfg = local;
   try { const t = x.file('process/config.json'); if (t) cfg = { ...local, ...JSON.parse(t) }; } catch { /* the coordinator reader reports it */ }
-  x.cfg = cfg;
-  x.required = [].concat(cfg.required_check || 'gate');
+  x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(local.approvals || {}), ...(cfg.approvals || {}) } };
+  x.lastChange = io.lastChange || ((file, heading) => lastApprovalsChange(root, x.cfg.tranche, file, heading));
+  x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
+  x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche));
+  x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
+  x.required = [].concat(x.cfg.required_check || 'gate');
   let repo;
   x.repo = () => (repo === undefined ? (repo = x.api(`repos/${slug}`)) : repo);
   x.main = 'main';
@@ -172,7 +272,7 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
     return { id: c.id, what: c.what, ...r };
   });
   const gaps = results.filter((r) => r.state === 'missing');
-  log(`setup check for ${slug}, tranche ${cfg.tranche}:`);
+  log(`setup check for ${slug}, tranche ${x.cfg.tranche}:`);
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
   return { ok: !gaps.length, results, missing: gaps.map((r) => r.id) };
@@ -199,6 +299,10 @@ export function checkDeveloperSteps(text, conditions = loadConditions()) {
   for (const s of steps) {
     const lack = ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => !s.parts.includes(p));
     if (lack.length) problems.push(`${s.title}: lacks ${lack.join(', ')}`);
+    // A step that names no condition says why (Bob, 2 Nov): "Sets: none, because ..." or "none; ...".
+    if (s.parts.includes('Sets:') && !s.sets.length && !/^Sets: none[,;:]?\s+(because\b|\S.*\S)/m.test(s.body)) problems.push(`${s.title}: names no condition and does not say why`);
+    // Every website edit that may become a pull request says to set its base to the tranche.
+    if (/\*\*Commit changes/.test(s.body) && !/set \*\*base\*\* to the tranche, not `main`/.test(s.body)) problems.push(`${s.title}: a website commit that does not say to set base to the tranche, not main`);
     for (const id of s.sets) {
       if (!byId.has(id)) problems.push(`${s.title}: names ${id}, which is not in the list`);
       else if (!isDeveloper(byId.get(id))) problems.push(`${s.title}: names ${id}, which is not the developer's`);
@@ -206,12 +310,19 @@ export function checkDeveloperSteps(text, conditions = loadConditions()) {
   }
   const named = new Set(steps.flatMap((s) => s.sets));
   for (const c of conditions.filter(isDeveloper)) if (!named.has(c.id)) problems.push(`${c.id} is the developer's and has no step`);
+  // The deny step shows the whole .claude/settings.json, as valid JSON, its deny list the list's.
   const deny = byId.get('deny-list')?.value?.deny;
   const step = steps.find((s) => s.sets.includes('deny-list'));
   if (deny && step) {
-    const shown = (step.body.match(/```\n([\s\S]*?)```/)?.[1] || '').split('\n').map((l) => l.trim().replace(/,$/, '')).filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return l; } });
-    if (JSON.stringify(shown) !== JSON.stringify(deny)) problems.push('the deny lines on the page differ from the deny-list condition');
+    let shown;
+    try { shown = JSON.parse(step.body.match(/```json\n([\s\S]*?)```/)?.[1] ?? ''); } catch { shown = undefined; }
+    if (!shown || typeof shown !== 'object') problems.push('the deny step does not show the whole .claude/settings.json as valid JSON');
+    else if (JSON.stringify(shown.permissions?.deny) !== JSON.stringify(deny)) problems.push('the deny lines on the page differ from the deny-list condition');
   }
+  // The number of steps stated at the top is the number of steps.
+  const stated = text.match(/^There are (\d+) steps\b/m)?.[1];
+  if (Number(stated) !== steps.length) problems.push(`the page says ${stated ?? 'no number of'} steps, and has ${steps.length}`);
+  steps.forEach((s, i) => { if (!s.title.startsWith(`Step ${i + 1}.`)) problems.push(`${s.title}: out of order, expected Step ${i + 1}`); });
   if (/\u2014/.test(text)) problems.push('an em-dash');
   return problems;
 }

@@ -23,10 +23,9 @@ export function approvalsBlock(text, heading) {
 
 // Did this commit come from the owner through GitHub's website? GitHub signs web edits as
 // web-flow; the author must be the owner. Not verifiable: API commits made with the owner's
-// token look the same. Injectable for tests.
-export function webCommitByOwner(root, sha, owner, lookup = gh) {
-  let slug;
-  try { slug = repoSlug(root); } catch { slug = '(no origin)'; }
+// token look the same. Injectable for tests. setup check passes the slug it reads.
+export function webCommitByOwner(root, sha, owner, lookup = gh, slug = null) {
+  if (!slug) try { slug = repoSlug(root); } catch { slug = '(no origin)'; }
   const c = lookup(['api', `repos/${slug}/commits/${sha}`], { allowFail: true });
   if (!c || typeof c !== 'object') return { ok: false, why: 'could not read the commit from GitHub' };
   const ok = c.committer?.login === 'web-flow' && c.commit?.verification?.verified === true && c.author?.login === owner;

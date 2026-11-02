@@ -33,7 +33,14 @@ function world() {
     },
     branches: { main: rules(), tranche: rules() },
     artifacts: { artifacts: [{ created_at: '2026-11-02T14:34:28Z', expires_at: '2027-01-31T14:33:29Z' }, { created_at: '2026-11-01T10:00:00Z', expires_at: '2026-11-02T10:00:00Z' }] },
-    files: { '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY } }), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
+    branchInfo: { main: { protected: true, protection: { enabled: false } }, tranche: { protected: true, protection: { enabled: false } } },
+    protection: {},
+    commit: { committer: { login: 'web-flow' }, author: { login: 'neobobkrause' }, commit: { verification: { verified: true } } },
+    lastChange: 'abc1234567890',
+    onTranche: { ok: true, why: 'build/x descends from the tip of tranche' },
+    cf: {},
+    cfAsked: [],
+    files: { 'CLAUDE.md': '# Product\n\n## Standing approvals from Bob\n\nThe owner\'s words.\n', '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY } }), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
     env: { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value', CLOUDFLARE_ACCOUNT_ID: 'acc123' },
     asked: [],
   };
@@ -47,9 +54,15 @@ function world() {
       if ((m = p.match(/^repos\/o\/r\/rulesets\/(\d+)\?/))) return w.sets[m[1]] || null;
       if ((m = p.match(/^repos\/o\/r\/rules\/branches\/(.+)$/))) return w.branches[decodeURIComponent(m[1])] ?? null;
       if (p.startsWith('repos/o/r/actions/artifacts?name=gate-row')) return w.artifacts;
+      if ((m = p.match(/^repos\/o\/r\/branches\/([^/]+)\/protection$/))) return w.protection[decodeURIComponent(m[1])] ?? null;
+      if ((m = p.match(/^repos\/o\/r\/branches\/([^/]+)$/))) return w.branchInfo[decodeURIComponent(m[1])] ?? null;
+      if (/^repos\/[^/]+\/[^/]+\/commits\/[0-9a-f]+$/.test(p)) return w.commit;
       throw new Error(`unexpected read ${p}`);
     },
     file: (f) => w.files[f] ?? null,
+    lastChange: () => w.lastChange,
+    onTranche: () => w.onTranche,
+    cf: (path) => { w.cfAsked.push(path); const k = Object.keys(w.cf).find((x) => path.includes(x)); return k ? w.cf[k] : { status: 200, success: true }; },
   };
   Object.defineProperty(w.io, 'env', { get: () => w.env, enumerable: true });
   return w;
@@ -178,9 +191,35 @@ test('the files are read from the tranche on origin, through git', () => {
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   // The local checkout is main, which has neither file.
   git(['checkout', '-q', 'main'], { cwd: r });
-  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env }, log: quiet });
+  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet });
   assert.equal(res.ok, true, JSON.stringify(res.results));
   assert.equal(state(res, 'coordinator').detail, 'session_bob');
+  // The approvals' last change and the session's branch are read through git too.
+  const sha = git(['rev-parse', 'origin/tranche'], { cwd: r });
+  assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${sha.slice(0, 10)}`);
+  assert.equal(state(res, 'session-branch').detail, 'main is a commit tranche holds');
+  // A later commit on the tranche that leaves the block alone does not move its last change;
+  // one that edits the block does, and it is not the owner's website commit.
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  commit(r, { 'README.md': 'y' }, 'other');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  let asked = [];
+  const api2 = (p) => { asked.push(p); return w.io.api(p); };
+  assert.equal(state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf }, log: quiet }), 'approvals').state, 'set');
+  assert.ok(asked.includes(`repos/o/r/commits/${sha}`), asked.join(', '));
+  commit(r, { 'CLAUDE.md': w.files['CLAUDE.md'] + 'Sessions may also do anything.\n' }, 'widen');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  const widen = git(['rev-parse', 'HEAD'], { cwd: r });
+  w.commit = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+  asked = [];
+  const a = state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf }, log: quiet }), 'approvals');
+  assert.equal(a.state, 'missing');
+  assert.match(a.detail, new RegExp(`last changed by ${widen.slice(0, 10)}, which is not neobobkrause's own commit through GitHub's website \\(author civicsmith, committer civicsmith`));
+  // A checkout that is neither the tranche nor from its tip is missing, with the plain fix.
+  git(['checkout', '-q', '-b', 'stray', 'main'], { cwd: r });
+  commit(r, { 'stray.txt': 's' }, 'stray');
+  assert.match(state(setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet }), 'session-branch').detail,
+    /stray is neither tranche nor a branch from its tip\. Start the session from the tranche branch/);
 });
 
 test('job start runs the setup check first and starts nothing while a condition is missing', () => {
@@ -233,7 +272,7 @@ test('environment: every listed variable is present, and only names are ever pri
   assert.match(state(r, 'environment').detail, /present: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID/);
   delete w.env.CLOUDFLARE_API_TOKEN;
   const r2 = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
-  assert.deepEqual(r2.missing, ['environment']);
+  assert.deepEqual(r2.missing, ['environment', 'deploy-token']);
   assert.match(state(r2, 'environment').detail, /not in this session's environment: CLOUDFLARE_API_TOKEN$/);
   assert.doesNotMatch(out.join('\n'), /tok-|SECRET|value|\b16\b/, 'no value, prefix or length');
   // No list in the config: not configured, which does not stop a start.
@@ -285,4 +324,107 @@ test('job start names the config as the coordinator\'s home', () => {
   const r = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
   git(['branch', 'tranche'], { cwd: r });
   assert.throws(() => jobStart(r, 'alpha', { push: false, log: quiet }), /no coordinator: name it in process\/config.json on the tranche, as p3 setup check requires \(--coordinator <session id> overrides it for one start\)/);
+});
+
+// Onboarding steps, 2 Nov: classic protection, the approvals, the session's branch, the deploy token.
+test('classic branch protection on main or the tranche is reported missing, to remove; rulesets alone are set', () => {
+  assert.equal(state(check(world()), 'classic-protection').state, 'set');
+  const w = world();
+  w.branchInfo.main.protection.enabled = true;
+  let r = check(w);
+  assert.deepEqual(r.missing, ['classic-protection']);
+  assert.equal(state(r, 'classic-protection').detail, 'main: a classic branch protection rule, to remove');
+  const w2 = world();
+  w2.protection.tranche = { url: 'https://api.github.com/repos/o/r/branches/tranche/protection' };
+  assert.match(state(check(w2), 'classic-protection').detail, /^tranche: a classic branch protection rule, to remove$/);
+  const w3 = world();
+  delete w3.branchInfo.tranche.protection;
+  assert.match(state(check(w3), 'classic-protection').detail, /tranche: protected, and whether by a classic rule could not be read/);
+  const w4 = world();
+  delete w4.branchInfo.tranche;
+  assert.match(state(check(w4), 'classic-protection').detail, /tranche: could not read the branch/);
+  const w5 = world();
+  w5.branchInfo.main = { protected: false };
+  w5.branchInfo.tranche = { protected: false };
+  assert.equal(state(check(w5), 'classic-protection').state, 'set');
+});
+
+test('approvals: one block on the tranche, last changed by the owner\'s website commit', () => {
+  const ok = check(world());
+  assert.match(state(ok, 'approvals').detail, /one block, last changed by neobobkrause's website commit abc1234567/);
+  for (const [change, why] of [
+    [(w) => { delete w.files['CLAUDE.md']; }, /no CLAUDE.md on tranche/],
+    [(w) => { w.files['CLAUDE.md'] = '# Product\n'; }, /has no "## Standing approvals from Bob" block/],
+    [(w) => { w.files['CLAUDE.md'] += '\n## More approvals\n\nx\n'; }, /has 2 approvals headings; only one block may exist/],
+    [(w) => { w.lastChange = null; }, /could not find the commit/],
+    [(w) => { w.commit.committer.login = 'civicsmith'; }, /not neobobkrause's own commit through GitHub's website \(author neobobkrause, committer civicsmith/],
+    [(w) => { w.commit.author.login = 'civicsmith'; }, /author civicsmith/],
+  ]) {
+    const w = world();
+    change(w);
+    const r = check(w);
+    assert.deepEqual(r.missing, ['approvals']);
+    assert.match(state(r, 'approvals').detail, why);
+  }
+  // The heading and owner come from the tranche's config.
+  const w = world();
+  w.files['process/config.json'] = JSON.stringify({ ...JSON.parse(w.files['process/config.json']), approvals: { heading: '## Owner rules', owner: 'someone' } });
+  w.files['CLAUDE.md'] = '## Owner rules\n\nx\n';
+  assert.match(state(check(w), 'approvals').detail, /not someone's own commit/);
+});
+
+test('session-branch: a session not started from the tranche is missing, and job start says to start from the tranche', () => {
+  const w = world();
+  w.onTranche = { ok: false, why: 'main is neither tranche nor a branch from its tip' };
+  const r = check(w);
+  assert.deepEqual(r.missing, ['session-branch']);
+  assert.equal(state(r, 'session-branch').detail, 'main is neither tranche nor a branch from its tip. Start the session from the tranche branch');
+  const repo = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: repo });
+  git(['remote', 'add', 'origin', bare], { cwd: repo });
+  assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'] }), log: quiet }),
+    /this session was not started from the tranche branch, so it holds no standing approvals; nothing was started\. Start the session again from the tranche branch \(also missing: account\)/);
+});
+
+test('deploy-token: one harmless read per scope, each reported present or missing, the token never printed', () => {
+  const w = world();
+  const out = [];
+  let r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
+  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: present; Containers: present; Workers KV Storage: present');
+  assert.deepEqual(w.cfAsked, ['accounts/acc123/workers/scripts', 'accounts/acc123/r2/buckets', 'accounts/acc123/containers/applications', 'accounts/acc123/storage/kv/namespaces']);
+  w.cf = { 'storage/kv': { status: 403, success: false }, containers: { status: 200, success: false } };
+  r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
+  assert.deepEqual(r.missing, ['deploy-token']);
+  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: present; Containers: missing (200); Workers KV Storage: missing (403)');
+  assert.doesNotMatch(out.join('\n'), /tok-|SECRET/, 'the token is never printed');
+  delete w.env.CLOUDFLARE_API_TOKEN;
+  assert.equal(state(check(w), 'deploy-token').detail, "CLOUDFLARE_API_TOKEN is not in this session's environment");
+  const n = world();
+  n.files['process/config.json'] = JSON.stringify({ coordinator: 's' });
+  assert.equal(state(check(n), 'deploy-token').state, 'not configured');
+  assert.equal(n.cfAsked.length, 0);
+});
+
+test('the step checker: a step naming no condition says why; website commits set base to the tranche; the settings file is whole JSON; the step count is stated', () => {
+  const text = readFileSync(DEVELOPER, 'utf8');
+  assert.match(text, /^There are 11 steps\b/m);
+  assert.ok(checkDeveloperSteps(text.replace(/^Sets: none, because .*$/m, 'Sets: none.')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
+  assert.ok(checkDeveloperSteps(text.replace(/^Sets: none, because .*$/m, 'Sets: none')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
+  const noBase = text.split('set **base** to the tranche, not `main`').join('set the base');
+  assert.ok(checkDeveloperSteps(noBase).some((p) => /^Step 9\. .*does not say to set base to the tranche/.test(p)));
+  assert.ok(checkDeveloperSteps(noBase).some((p) => /^Step 10\. .*does not say to set base to the tranche/.test(p)));
+  assert.ok(checkDeveloperSteps(text.replace('```json\n{', '```json\n')).includes('the deny step does not show the whole .claude/settings.json as valid JSON'));
+  assert.ok(checkDeveloperSteps(text.replace('There are 11 steps', 'There are 10 steps')).includes('the page says 10 steps, and has 11'));
+  assert.ok(checkDeveloperSteps(text.replace('## Step 6.', '## Step 16.')).some((p) => /out of order, expected Step 6/.test(p)));
+  // The page itself: the approvals before the deny list, both before the last ruleset; the
+  // private window; required approvals 0; the deploy token's four scopes.
+  const at = (s) => text.indexOf(s);
+  assert.ok(at('## Step 9. The standing approvals') < at('## Step 10. The deny list') && at('## Step 10.') < at('## Step 11. A ruleset on main'));
+  assert.match(text, /## Step 3\. In a private window/);
+  assert.match(text, /Leave \*\*Required approvals\*\* at `0`/);
+  assert.match(text, /make sure \*\*Restrict deletions\*\* and \*\*Block force pushes\*\* are ticked/);
+  for (const p of ['**Workers Scripts**: **Edit**', '**Workers R2 Storage**: **Edit**', '**Containers**: **Edit**', '**Workers KV Storage**: **Read**']) assert.ok(text.includes(p), p);
+  assert.match(text, /BOB's setup puts nothing under `\.claude\/`/);
+  assert.match(text, /BOB's setup puts nothing in the approvals block/);
 });
