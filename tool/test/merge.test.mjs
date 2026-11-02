@@ -468,7 +468,7 @@ const intoMain = (r, lookup, asked = []) => {
   return f;
 };
 
-test('the tranche into main may carry process_repo set by the owner\'s website merge (probe PR 51, refused on probe PR 122)', () => {
+test('the tranche into main may carry process_repo set by the owner\'s website merge (probe PR 51)', () => {
   const r = trancheToMain();
   assert.equal(processRepoSetAt(r.root, r.sha), r.setAt, 'the merge commit, not the pull request\'s own commit or the later one');
   const asked = [];
@@ -631,4 +631,11 @@ test('the tranche\'s name for onboarding is read from the base, not the pull req
   write(r.root, { 'process/config.json': JSON.stringify({ tranche: 'bob/plan' }) }); // the working tree too
   const f = plainIO(r, { base: 'bob/plan', repo: own });
   assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /changes process_repo in process\/config\.json; that needs the owner's word/);
+});
+
+test('the tranche into main takes the tranche\'s name from main\'s config', () => {
+  // Main's config names another branch as the tranche: the owner exception does not apply to this one.
+  const r = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ tranche: 'bob/plan' }) });
+  git(['checkout', '-q', 'tranche'], { cwd: r.root }); // the local checkout says the tranche is "tranche"
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt)).io }), /changes process_repo in process\/config\.json; that needs the owner's word/);
 });

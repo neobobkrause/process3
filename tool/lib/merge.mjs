@@ -277,7 +277,7 @@ export function mergePlain(root, n, opts = {}) {
   let baseCfg = null;
   try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main && Boolean(baseCfg), intoTranche: Boolean(baseCfg) && base === baseCfg.tranche, baseRef,
+    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche: Boolean(baseCfg) && base === baseCfg.tranche, baseRef,
     ownerCommit: (c) => webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug),
   });
   // Another open pull request from the same head would share its check runs.
