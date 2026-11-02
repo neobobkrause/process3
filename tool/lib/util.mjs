@@ -7,9 +7,10 @@ export class Fail extends Error {}
 export const fail = (msg) => { throw new Fail(msg); };
 
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
+// opts.only: run with exactly this environment (productEnv), not the caller's.
 export function run(cmd, args = [], opts = {}) {
   const t0 = Date.now();
-  const env = { ...process.env, ...(opts.env || {}) };
+  const env = { ...(opts.only || process.env), ...(opts.env || {}) };
   for (const k of opts.unset || []) delete env[k];
   const r = spawnSync(cmd, args, {
     cwd: opts.cwd, env, encoding: 'utf8',
@@ -25,6 +26,25 @@ export function run(cmd, args = [], opts = {}) {
 // The tool's git never carries a GitHub token, and never runs a hook or file monitor that
 // product code may have written into .git/config while the gate ran it (review of build G).
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
+// Product code (npm ci and its lifecycle scripts, suites, a module's checks) gets an allowlisted
+// environment, never the caller's with some names removed: Cloudflare, release, npm and GitHub
+// keys must not reach it (review of PR 11). A product adds a variable by name in
+// process/config.json "suite_env"; none is added by default.
+const KEEP_NAMES = ['PATH', 'HOME', 'USER', 'LANG', 'TMPDIR', 'TERM', 'CI', 'HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY',
+  'https_proxy', 'http_proxy', 'no_proxy', 'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'NODE_USE_ENV_PROXY'];
+const KEEP_PREFIXES = ['LC_', 'NODE_', 'npm_config_'];
+// Inside those families, a name that holds a credential stays out (NODE_AUTH_TOKEN, an npm _authToken).
+const CREDENTIAL = /TOKEN|AUTH|SECRET|PASSWORD|PASSWD|KEY/i;
+export function productEnv(extra = [], from = process.env) {
+  const env = {};
+  for (const [k, v] of Object.entries(from)) {
+    if (KEEP_NAMES.includes(k) || (KEEP_PREFIXES.some((p) => k.startsWith(p)) && !CREDENTIAL.test(k))) env[k] = v;
+  }
+  for (const k of [].concat(extra || [])) if (from[k] !== undefined) env[k] = from[k];
+  delete env.NODE_TEST_CONTEXT; // a suite run from inside another test run must not report to it
+  return env;
+}
+
 export function git(args, opts = {}) {
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}`);
@@ -65,6 +85,7 @@ export const DEFAULTS = {
   max_file_bytes: 1048576,
   approvals: { file: 'CLAUDE.md', heading: '## Standing approvals from Bob', owner: 'neobobkrause' },
   lockfiles: [],
+  suite_env: [],
   node: null,
   coordinator: null,
 };

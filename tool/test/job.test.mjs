@@ -314,13 +314,21 @@ test('status: an unfinished start says to rerun job start; offline it does not c
 
 // Build 1 (start loop): decision 14, the coordinator's subscription, and GAT-5 in `test`.
 import { jobTest } from '../lib/job.mjs';
-import { utimesSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { MARK, moduleLocks } from '../lib/suite.mjs';
+import { productEnv } from '../lib/util.mjs';
 
-test('the START names the keyed acts the environment allows and the job still may not take', () => {
+test('the START names the keyed acts the job may not take, and that its Not yours line wins', () => {
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  for (const w of ['Cloudflare', 'wrangler', 'deploy', 'release', 'signing', 'live site', 'another account']) assert.match(start, new RegExp(w));
-  assert.match(start, /^Not yours: .*Cloudflare.*This environment holds keys for those; they are still outside this job\./m);
+  const line = start.split('\n').find((l) => l.startsWith('Not yours'));
+  assert.match(line, /^Not yours, and this line wins over any act listed above it:/);
+  assert.match(line, /any wrangler command that reaches a Cloudflare account \(deploy, publish, secret, or remote KV, D1 or R2\)/);
+  assert.match(line, /release signing/);
+  assert.doesNotMatch(line, /, signing/);
+  assert.match(line, /live site or another account/);
+  assert.match(line, /This environment holds keys for those; they are still outside this job\./);
+  assert.match(line, /Local builds and tests that use wrangler or miniflare are fine\./);
 });
 
 test('job start prints the subscription after the launch, on a fresh start and on a resume', () => {
@@ -347,41 +355,117 @@ test('job start prints the subscription after the launch, on a fresh start and o
   assert.ok(out2.findIndex((x) => /subscribe_pr_activity/.test(x)) > out2.findIndex((x) => /create_session/.test(x)));
 });
 
-test('test installs the module\'s stale lock files, without tokens, and leaves the rest alone', () => {
+// A product whose module alpha needs lock files, and an exec that stands for npm ci.
+const lock = (deps) => JSON.stringify({ lockfileVersion: 3, packages: { '': {}, ...(deps ? { 'node_modules/x': { version: '1.0.0' } } : {}) } }) + '\n';
+function locked(lockfiles, files) {
   const root = product();
-  const lock = '{"lockfileVersion":3,"packages":{}}\n';
-  commit(root, {
-    'process/config.json': { lockfiles: ['package-lock.json', 'test/package-lock.json', 'src/alpha/sub/package-lock.json', 'other/package-lock.json', 'fresh/package-lock.json'] },
-    'package-lock.json': lock, 'test/package-lock.json': lock, 'src/alpha/sub/package-lock.json': lock, 'other/package-lock.json': lock,
-  });
+  commit(root, { 'process/config.json': { lockfiles, suite_env: ['P3_TEST_NAMED'] }, ...files });
   const calls = [];
-  const exec = (cmd, args, o) => { calls.push({ cmd: [cmd, ...args].join(' '), cwd: o.cwd.slice(root.length + 1) || '.', unset: o.unset }); return { code: 0, stdout: '', stderr: '' }; };
-  // A lock file the module does not need is never installed, and a missing one it does need is red.
-  const r0 = jobTest(root, 'alpha', { exec, log: quiet });
-  assert.equal(r0.ok, true);
-  assert.deepEqual(calls.map((c) => c.cwd), ['.', 'test', 'src/alpha/sub']);
-  assert.ok(calls.every((c) => /^npm ci /.test(c.cmd) && c.unset.includes('GH_TOKEN') && c.unset.includes('GITHUB_TOKEN')));
+  const exec = (cmd, args, o) => { calls.push({ cmd: [cmd, ...args].join(' '), cwd: o.cwd.slice(root.length + 1) || '.', env: o.only }); return { code: 0, stdout: '', stderr: '' }; };
+  return { root, calls, exec };
+}
 
-  // Installed and newer than its lock file: skipped. Older than its lock file: installed again.
-  write(root, { 'node_modules/.package-lock.json': lock, 'test/node_modules/.package-lock.json': lock, 'src/alpha/sub/node_modules/.package-lock.json': lock });
-  const past = new Date(Date.now() - 3600e3);
-  utimesSync(join(root, 'test/node_modules/.package-lock.json'), past, past);
-  calls.length = 0;
+test('test installs the module\'s lock files, and only those', () => {
+  const { root, calls, exec } = locked(['package-lock.json', 'test/package-lock.json', './src/alpha/sub/package-lock.json', 'other/package-lock.json', 'fresh/package-lock.json'],
+    { 'package-lock.json': lock(true), 'test/package-lock.json': lock(true), 'src/alpha/sub/package-lock.json': lock(true), 'other/package-lock.json': lock(true) });
   const r = jobTest(root, 'alpha', { exec, log: quiet });
-  assert.deepEqual(calls.map((c) => c.cwd), ['test']);
   assert.equal(r.ok, true);
+  assert.deepEqual(calls.map((c) => c.cwd), ['.', 'test', 'src/alpha/sub']);
+  assert.ok(calls.every((c) => /^npm ci /.test(c.cmd)));
   assert.equal(r.tests.pass, 1);
 });
 
-test('test stops, red, when a lock file it needs is missing or npm ci fails', () => {
-  const root = product();
-  commit(root, { 'process/config.json': { lockfiles: ['test/alpha/package-lock.json'] } });
+test('freshness is the lock file\'s hash left by a good install; a lock with no dependencies is fresh', () => {
+  const { root, calls, exec } = locked(['test/package-lock.json', 'src/alpha/package-lock.json'], { 'test/package-lock.json': lock(true), 'src/alpha/package-lock.json': lock(false) });
+  jobTest(root, 'alpha', { exec, log: quiet });
+  assert.deepEqual(calls.map((c) => c.cwd), ['test'], 'no dependencies: nothing to install');
+  assert.ok(existsSync(join(root, 'test/node_modules', MARK)));
+  calls.length = 0;
+  jobTest(root, 'alpha', { exec, log: quiet });
+  assert.deepEqual(calls, [], 'the hash matches: fresh');
+  writeFileSync(join(root, 'test/package-lock.json'), lock(true).replace('1.0.0', '1.0.1'));
+  jobTest(root, 'alpha', { exec, log: quiet });
+  assert.deepEqual(calls.map((c) => c.cwd), ['test'], 'the lock changed: installed again');
+  // A failed install leaves no mark, so the next run tries again.
+  writeFileSync(join(root, 'test/package-lock.json'), lock(true).replace('1.0.0', '2.0.0'));
+  const bad = jobTest(root, 'alpha', { exec: () => ({ code: 1, stdout: '', stderr: 'npm ERR! offline' }), log: quiet });
+  assert.equal(bad.ok, false);
+  assert.match(bad.install.findings[0].message, /npm ci failed: npm ERR! offline/);
+  assert.notEqual(readFileSync(join(root, 'test/node_modules', MARK), 'utf8').trim().length, 0);
+  calls.length = 0;
+  jobTest(root, 'alpha', { exec, log: quiet });
+  assert.deepEqual(calls.map((c) => c.cwd), ['test']);
+});
+
+test('test stops, red, when a lock file it needs is missing', () => {
+  const { root } = locked(['test/alpha/package-lock.json'], {});
   const out = [];
   const r = jobTest(root, 'alpha', { exec: () => { throw new Error('not run'); }, log: (m) => out.push(m) });
   assert.equal(r.ok, false);
   assert.match(out.join('\n'), /install: test\/alpha\/package-lock.json: lock file not found/);
-  commit(root, { 'test/alpha/package-lock.json': '{}\n' });
-  const r2 = jobTest(root, 'alpha', { exec: () => ({ code: 1, stdout: '', stderr: 'npm ERR! offline' }), log: quiet });
-  assert.equal(r2.ok, false);
-  assert.match(r2.install.findings[0].message, /npm ci failed: npm ERR! offline/);
+});
+
+test('moduleLocks matches paths however they are written', () => {
+  const e = entry('alpha', { paths: ['./src/alpha/'], tests: ['test\\alpha'] });
+  assert.deepEqual(moduleLocks(['./package-lock.json', 'src\\alpha\\pkg\\package-lock.json', './test//alpha/../alpha/package-lock.json', 'src/package-lock.json', 'src/beta/package-lock.json', 'src/alphabet/package-lock.json'], e),
+    ['./package-lock.json', 'src\\alpha\\pkg\\package-lock.json', './test//alpha/../alpha/package-lock.json', 'src/package-lock.json']);
+});
+
+test('product code gets only the allowlisted environment, plus the names the config adds', () => {
+  const from = {
+    PATH: '/bin', HOME: '/h', USER: 'u', LANG: 'C', LC_ALL: 'C', TMPDIR: '/t', TERM: 'x', CI: '1', NODE_OPTIONS: '--x', npm_config_cache: '/c',
+    HTTPS_PROXY: 'p', https_proxy: 'p', NO_PROXY: 'n', NODE_EXTRA_CA_CERTS: 'ca', SSL_CERT_FILE: 'ca', NODE_USE_ENV_PROXY: '1',
+    CLOUDFLARE_API_TOKEN: 's', CF_ACCOUNT_ID: 's', GH_TOKEN: 's', GITHUB_TOKEN: 's', NPM_TOKEN: 's', NODE_AUTH_TOKEN: 's', 'npm_config_//registry.npmjs.org/:_authToken': 's',
+    RELEASE_SIGNING_KEY: 's', NODE_TEST_CONTEXT: 'child', P3_TEST_NAMED: 'named',
+  };
+  const env = productEnv([], from);
+  assert.deepEqual(Object.keys(env).sort(), ['CI', 'HOME', 'HTTPS_PROXY', 'LANG', 'LC_ALL', 'NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS', 'NODE_USE_ENV_PROXY', 'NO_PROXY', 'PATH', 'SSL_CERT_FILE', 'TERM', 'TMPDIR', 'USER', 'https_proxy', 'npm_config_cache'].sort());
+  assert.equal(productEnv(['P3_TEST_NAMED', 'NOT_SET'], from).P3_TEST_NAMED, 'named');
+  assert.equal('NOT_SET' in productEnv(['NOT_SET'], from), false);
+});
+
+test('test, job complete and their installs run product code without the caller\'s keys', () => {
+  const probe = "import test from 'node:test'; import a from 'node:assert';\n"
+    + "test('env', () => { a.equal(process.env.CLOUDFLARE_API_TOKEN, undefined); a.equal(process.env.GH_TOKEN, undefined); a.equal(process.env.P3_TEST_NAMED, 'named'); a.ok(process.env.PATH); });\n";
+  const { root, calls, exec } = locked(['test/package-lock.json'], { 'test/package-lock.json': lock(true), 'test/alpha/env.test.mjs': probe });
+  const keep = { CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN, GH_TOKEN: process.env.GH_TOKEN, P3_TEST_NAMED: process.env.P3_TEST_NAMED };
+  Object.assign(process.env, { CLOUDFLARE_API_TOKEN: 'secret', GH_TOKEN: 'secret', P3_TEST_NAMED: 'named' });
+  try {
+    const t = jobTest(root, 'alpha', { exec, log: quiet });
+    assert.equal(t.ok, true, t.output);
+    assert.equal(calls[0].env.CLOUDFLARE_API_TOKEN, undefined);
+    assert.equal(calls[0].env.P3_TEST_NAMED, 'named');
+    // job complete: its install runs first, then its suite, both clean.
+    git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+    jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+    git(['checkout', '-q', 'job/alpha'], { cwd: root });
+    writeFileSync(join(root, 'test/package-lock.json'), lock(true).replace('1.0.0', '3.0.0'));
+    commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+    calls.length = 0;
+    const c = jobComplete(root, 'alpha', { push: false, exec, log: quiet });
+    assert.equal(c.ok, true);
+    assert.deepEqual(calls.map((x) => x.cwd), ['test'], 'job complete installs the stale lock first');
+    assert.deepEqual(c.receipt.commands.filter((x) => /npm ci|node --test/.test(x.cmd)).map((x) => [x.cmd.split(' ')[0], x.exit]), [['npm', 0], ['node', 0]]);
+    assert.equal(c.receipt.commands.find((x) => x.suite).tests.pass, 2);
+  } finally {
+    for (const [k, v] of Object.entries(keep)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
+test('job start reprints the launch and the subscription when the pull request is already open', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  const first = jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  const out = [];
+  const again = jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: () => first.pr, log: (m) => out.push(m) });
+  assert.equal(again.resumed, true);
+  assert.equal(f.state.prs, 1, 'no second pull request');
+  assert.equal(again.pr.number, 9);
+  assert.match(out.join('\n'), /create_session[\s\S]*already open[\s\S]*subscribe_pr_activity/);
+  // A job with work on its branch is never launched twice.
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: () => first.pr, log: quiet }), /with an open pull request and is not an unfinished start \(WORKING, 2 commits\)/);
 });
