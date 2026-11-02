@@ -266,6 +266,109 @@ test('record_since naming no commit here is a finding', () => {
   assert.match(recordSince(root, { base: main }).finding.message, /no such commit/);
 });
 
+// Who may set record_since (Bob's word on question 16, 2 Nov 2026): anyone, when it names the
+// base or an ancestor of it; otherwise only the owner's website commit, as before.
+function oldOnBase() {
+  const root = makeRepo({ 'README.md': 'x' });
+  const first = git(['rev-parse', 'HEAD'], { cwd: root });
+  const base = commit(root, { 'old/big.bin': 'y'.repeat(101) }, 'old work, already on the base');
+  git(['checkout', '-q', '-b', 'onboard'], { cwd: root });
+  return { root, first, base };
+}
+
+test('must hold 1: a session may set record_since to the base when the base has no config', () => {
+  const { root, base } = oldOnBase();
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: base }, '.process': 'pin' }, 'onboard');
+  const s = recordSince(root, { base });
+  assert.equal(s.since, base);
+  const r = recordCheck(root, cfg, { base, since: s.since, lookup: session });
+  assert.equal(r.commits, 1);
+  assert.deepEqual(r.findings, []);
+});
+
+test('a session may set record_since to an ancestor of the base, in a later commit too', () => {
+  const { root, first, base } = oldOnBase();
+  commit(root, { 'process/config.json': { max_file_bytes: 100 }, '.process': 'pin' }, 'onboard');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: first } }, 'name it');
+  assert.deepEqual(recordCheck(root, cfg, { base, since: recordSince(root, { base }).since, lookup: session }).findings, []);
+});
+
+test('must hold 2: record_since naming a commit the head brings still needs the owner', () => {
+  const { root, base } = oldOnBase();
+  const brought = commit(root, { 'more/big.bin': 'z'.repeat(101) }, 'old work the head brings');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: brought }, '.process': 'pin' }, 'onboard');
+  const s = recordSince(root, { base });
+  assert.equal(s.since, brought);
+  const f = recordCheck(root, cfg, { base, since: s.since, lookup: session }).findings;
+  assert.equal(f.length, 1);
+  assert.match(f[0].message, /changes the approvals or record_since but is not neobobkrause's own commit/);
+});
+
+test('record_since on the base by a ref or a short id, or with no base, still needs the owner', () => {
+  for (const v of ['main', 'HEAD~1']) {
+    const { root, base } = oldOnBase();
+    commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: v } }, 'onboard');
+    assert.equal(recordCheck(root, cfg, { base, lookup: session }).findings[0]?.file, 'process/config.json', v);
+  }
+  const { root, base } = oldOnBase();
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: base.slice(0, 12) } }, 'onboard');
+  assert.equal(recordCheck(root, cfg, { base, lookup: session }).findings[0]?.file, 'process/config.json');
+  const r2 = makeRepo({ 'README.md': 'x' });
+  const b2 = git(['rev-parse', 'HEAD'], { cwd: r2 });
+  commit(r2, { 'process/config.json': { max_file_bytes: 100, record_since: b2 } }, 'onboard');
+  assert.equal(recordCheck(r2, cfg, { lookup: session }).findings[0]?.file, 'process/config.json');
+});
+
+test('must hold 3: the copy\'s record_since, on its tranche but not on main, set by the owner\'s website commit, passes', () => {
+  // civicsmith-copy: main has no config; the tranche holds old work and then the process.
+  const { root, main, old, named } = oldThenProcess();
+  assert.notEqual(git(['merge-base', '--is-ancestor', old, main], { cwd: root, allowFail: true }).code, 0);
+  const s = recordSince(root, { base: main });
+  assert.equal(s.since, old);
+  assert.deepEqual(recordCheck(root, cfg, { base: main, since: s.since, lookup: webFor(named) }).findings, []);
+});
+
+test('record_since a session set on the tranche\'s base needs the owner once the range\'s base does not hold it', () => {
+  // Onboarding into a tranche that is ahead of main: fine into the tranche, but the tranche into
+  // main would hide the tranche's own commits, so there the owner's commit is needed.
+  const root = makeRepo({ 'README.md': 'x' });
+  const main = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const t = commit(root, { 'old/big.bin': 'y'.repeat(101) }, 'tranche work before the process');
+  const onboard = commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: t } }, 'onboard');
+  assert.deepEqual(recordCheck(root, cfg, { base: t, since: recordSince(root, { base: t }).since, lookup: session }).findings, []);
+  const f = recordCheck(root, cfg, { base: main, since: recordSince(root, { base: main }).since, lookup: session }).findings;
+  assert.deepEqual(f.map((x) => x.file), ['process/config.json']);
+  assert.match(f[0].message, new RegExp(`commit ${onboard.slice(0, 10)} changes the approvals or record_since`));
+});
+
+test('must hold 5: a session changing the approvals key fails, even beside a record_since on the base', () => {
+  const { root, base } = oldOnBase();
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: base, approvals: { owner: 'someone', file: 'CLAUDE.md', heading: H } } }, 'onboard');
+  const f = recordCheck(root, { ...cfg, max_file_bytes: 1000 }, { base, since: base, lookup: session }).findings;
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
+  const { root: r2, base: b2 } = oldOnBase();
+  commit(r2, { 'process/config.json': { max_file_bytes: 100, record_since: b2 } }, 'onboard');
+  commit(r2, { 'process/config.json': { max_file_bytes: 100, record_since: b2, approvals: { owner: 'someone' } } }, 'then the approvals');
+  const f2 = recordCheck(r2, { ...cfg, max_file_bytes: 1000 }, { base: b2, since: b2, lookup: session }).findings;
+  assert.deepEqual(f2.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
+});
+
+test('the push check finds the base from the tranche, so onboarding pushed to a branch passes', async () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const t = commit(root, { 'old/big.bin': 'y'.repeat(101) }, 'old work');
+  git(['checkout', '-q', '-b', 'build/onboard'], { cwd: root });
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: t }, '.process': 'pin' }, 'onboard');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'other.txt': 'the tranche moved on' }, 'tranche moves');
+  const out = join(root, 'out.json');
+  const cwd = process.cwd();
+  process.chdir(root);
+  try { assert.equal(await main(['record-check', '--head', 'build/onboard', '--onto', 'tranche', '--out', out]), 0); } finally { process.chdir(cwd); }
+  assert.deepEqual(JSON.parse(readFileSync(out, 'utf8')).findings, []);
+});
+
 test('a config that is not a JSON object is refused with a clear error', () => {
   const root = makeRepo({ 'process/config.json': 'null\n' });
   assert.throws(() => recordSince(root, { base: undefined }), /is not a JSON object/);

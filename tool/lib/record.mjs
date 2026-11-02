@@ -93,7 +93,11 @@ function introduced(root, sha, parents, { guarded = () => false, judged = () => 
 // record_since (decided by Bob, 2 Nov 2026): a product whose history predates Process3 names
 // the last commit before the process arrived; that commit and everything before it are not
 // checked. It is a key that weakens a check, so, like the approvals, only the owner's own
-// website commit may set or change it (recordCheck). It is used only while the base has no
+// website commit may set or change it (recordCheck), with one exception (Bob's word on
+// question 16, 2 Nov 2026): any author may set it to the base's commit or an ancestor of it,
+// since the base already leaves that history out and so it hides nothing the change brings
+// (onboarding). On a later range whose base does not hold it, the commit that set it needs
+// the owner's website commit again. It is used only while the base has no
 // config yet (before the tranche first reaches main): once the base has one, the base itself
 // already leaves out the old history, so record_since is ignored and cannot be abused. And it
 // must lie before every commit in the head's history that adds the config, so it can never
@@ -129,6 +133,11 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const findings = [];
   const notices = [];
   const verified = new Map();
+  // record_since names the base or an ancestor of it: a full commit id only, never a ref or
+  // a short id, whose meaning could change. With no base there is nothing to compare with.
+  const onBase = (v) => typeof v === 'string' && /^([0-9a-f]{40}|[0-9a-f]{64})$/i.test(v) && Boolean(base)
+    && git(['rev-parse', '-q', '--verify', `${v}^{commit}`], { cwd: root, allowFail: true }).code === 0
+    && git(['merge-base', '--is-ancestor', v, base], { cwd: root, allowFail: true }).code === 0;
   const ownerCommit = (sha) => {
     if (!verified.has(sha)) verified.set(sha, webCommitByOwner(root, sha, cfg.approvals.owner, lookup));
     return verified.get(sha);
@@ -180,10 +189,14 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           const added = (show(root, sha, file) || '').split('\n').filter((l) => APPROVAL_WORDS.test(l) && !before.some((b) => b.split('\n').includes(l)));
           if (added.length && !approvalsTouched.some((t2) => t2.file === file)) approvalsTouched.push({ file, line: 1 });
         } else if (file === CONFIG_FILE) {
-          const ap = (t2) => { try { const c = JSON.parse(t2 || '{}'); return JSON.stringify([c.approvals ?? null, c.record_since ?? null]); } catch { return 'unreadable'; } };
+          const ap = (t2) => { try { const c = JSON.parse(t2 || '{}'); return { approvals: JSON.stringify(c.approvals ?? null), since: c.record_since ?? null }; } catch { return { approvals: 'unreadable', since: 'unreadable' }; } };
           const now = ap(show(root, sha, file));
           const was = parents.length ? parentsFor(file).map((p) => ap(show(root, p, file))) : [ap(null)];
-          if (!was.includes(now)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
+          // The approvals must equal a version already judged; so must record_since, unless it
+          // names the base or an ancestor of it, which hides nothing the change brings.
+          const same = (w) => w.approvals === now.approvals
+            && (JSON.stringify(w.since) === JSON.stringify(now.since) || onBase(now.since));
+          if (!was.some(same)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
         }
       }
       for (const t2 of approvalsTouched) {
