@@ -11,7 +11,7 @@ import { NO_TOKENS, exists, git, isRecordPath, loadConfig, now, repoSlug, underP
 
 const ghIO = { comments, addComment, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
-// The product's code runs in child processes with the allowlisted environment (productEnv).
+// The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
 
 function entriesAt(root, ref) {
@@ -72,10 +72,10 @@ export function gate(root, opts) {
     const scope = entry ? [entry] : entries.filter((e) => changed.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
     // GAT-5: every lock file, installed where it sits.
-    if (scope.length) findings.push(...install(root, cfg.lockfiles, { suiteEnv: cfg.suite_env, ...(exec ? { exec } : {}) }).findings);
+    if (scope.length) findings.push(...install(root, cfg.lockfiles, exec ? { exec } : {}).findings);
     const results = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout, suiteEnv: cfg.suite_env });
+      const s = runSuite(root, e, undefined, { timeout });
       results.push(s);
       if (s.exit !== 0) {
         findings.push(F('suite', e.tests[0], `the ${e.id} suite failed (exit ${s.exit}${/ETIMEDOUT/.test(s.output) ? ', timed out' : ''}): ${JSON.stringify(s.tests)}`));
@@ -98,7 +98,7 @@ export function gate(root, opts) {
       } else if (!code.length) {
         runRow.revert = 'no code changed';
       } else {
-        const r = revertCheck(root, entry, revertBase, code, tests, { timeout, suiteEnv: cfg.suite_env });
+        const r = revertCheck(root, entry, revertBase, code, tests, { timeout });
         runRow.revert = r.inert.length ? (exempt ? 'exempt' : 'fail') : 'pass';
         runRow.inert = r.inert;
         // A test that fails only because a new file is gone cannot load; it is not proof the
@@ -139,7 +139,7 @@ const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an 
 // Reverts the code files to the base, runs each test file alone, restores each file to HEAD
 // (removing any HEAD does not have). Returns the test files that still pass, and those that
 // failed only because something could not load. Runs in place: CI's checkout is disposable.
-export function revertCheck(root, entry, base, code, tests, { timeout, suiteEnv } = {}) {
+export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
   const inert = [];
   const loadOnly = [];
   try {
@@ -148,7 +148,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout, suiteEnv 
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
-      const r = runSuite(root, entry, [t], { timeout, suiteEnv });
+      const r = runSuite(root, entry, [t], { timeout });
       if (r.exit === 0) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }

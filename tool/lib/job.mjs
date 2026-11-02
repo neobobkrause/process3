@@ -6,7 +6,7 @@ import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledg
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { fail, fileBytes, git, loadConfig, now, productEnv, repoSlug, run } from './util.mjs';
+import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -49,9 +49,9 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(id)) L.push(`- ${a}`);
-  // Bob's decision 14, 2 Nov: jobs stay in the environment that holds the Cloudflare and release
-  // keys. Local wrangler and miniflare runs are the product's own builds and tests (review of PR 11).
-  L.push('', 'Not yours, and this line wins over any act listed above it: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions; any wrangler command that reaches a Cloudflare account (deploy, publish, secret, or remote KV, D1 or R2); any release, release signing, or act on a live site or another account. This environment holds keys for those; they are still outside this job. Local builds and tests that use wrangler or miniflare are fine. Work you find in other modules, or a need for one of those acts, goes to your coordinator as a report.');
+  // A division of labour (Bob, 2 Nov): deploying and releasing are the coordinator's acts in a
+  // round; local wrangler and miniflare runs are the job's own builds and tests.
+  L.push('', 'Not yours, and this line wins over any act listed above it: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions. Deploying, releasing, release signing and acting on a live site are the coordinator\'s acts in a round, not the job\'s; local builds and tests that use wrangler or miniflare are part of your work. Work you find in other modules, or a need for one of the coordinator\'s acts, goes to your coordinator as a report.');
   return L.join('\n') + '\n';
 }
 
@@ -234,9 +234,9 @@ export function jobComplete(root, id, opts = {}) {
   const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
   if (since.finding) rec.findings.push(since.finding);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
-  // The module's checks and suite are product code: the allowlisted environment (review of PR 11).
+  // The module's checks are product code: without the GitHub tokens, as the gate runs it.
   for (const c of entry.checks || []) {
-    const r = run(c[0], c.slice(1), { cwd: root, timeout, only: productEnv(cfg.suite_env) });
+    const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
     commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
   }
   const notv = [...notVerified];
@@ -246,7 +246,7 @@ export function jobComplete(root, id, opts = {}) {
     for (const l of inst.ran) commands.push({ cmd: `npm ci (${l})`, exit: inst.findings.some((f) => f.file === l) ? 1 : 0 });
     for (const f of inst.findings.filter((x) => !inst.ran.includes(x.file))) commands.push({ cmd: `npm ci (${f.file})`, exit: 1, error: f.message });
     if (!inst.findings.length) {
-      const s = runSuite(root, entry, undefined, { timeout, suiteEnv: cfg.suite_env });
+      const s = runSuite(root, entry, undefined, { timeout });
       commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
       if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
     }
@@ -318,7 +318,7 @@ export function jobBlock(root, id, { reason, push = true, log = console.log } = 
 // The module's stale lock files, installed as the gate installs them: the session hook installs
 // only some of them, and the job's suite must not depend on it (GAT-5).
 function installModule(root, cfg, entry, { exec, log }) {
-  const inst = install(root, moduleLocks(cfg.lockfiles, entry), { onlyStale: true, suiteEnv: cfg.suite_env, ...(exec ? { exec } : {}) });
+  const inst = install(root, moduleLocks(cfg.lockfiles, entry), { onlyStale: true, ...(exec ? { exec } : {}) });
   for (const l of inst.ran) log(`installed ${l}`);
   for (const f of inst.findings) log(`${f.check}: ${f.file}: ${f.message}`);
   return inst;
@@ -330,7 +330,7 @@ export function jobTest(root, id, { log = console.log, exec } = {}) {
   const entry = readEntry(root, id);
   const inst = installModule(root, cfg, entry, { exec, log });
   if (inst.findings.length) return { ok: false, install: inst };
-  const s = runSuite(root, entry, undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, suiteEnv: cfg.suite_env });
+  const s = runSuite(root, entry, undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
   return { ok: s.exit === 0, install: inst, ...s };

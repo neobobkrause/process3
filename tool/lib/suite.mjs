@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, posix, relative } from 'node:path';
-import { productEnv, run, underPath } from './util.mjs';
+import { NO_TOKENS, run, underPath } from './util.mjs';
 
 export const suffixOf = (entry) => entry.suite.test_suffix || '.test.mjs';
 
@@ -29,18 +29,20 @@ export function counts(text) {
 }
 
 // Runs the suite over the given files (default: all of the entry's). Files are root-relative.
-// It runs with the allowlisted environment, plus the names in opts.suiteEnv (config suite_env).
+// Product code never gets the GitHub or Actions tokens (NO_TOKENS); every other variable stays,
+// since a module's tests may use them (Bob, 2 Nov: deploy tokens are a standard condition).
 export function runSuite(root, entry, files = testFiles(root, entry), opts = {}) {
   const cwd = join(root, entry.suite.cwd);
   const args = [...entry.suite.command.slice(1), ...files.map((f) => relative(cwd, join(root, f)))];
   const shown = [entry.suite.command[0], ...args].join(' ');
   if (!files.length) return { cmd: shown, cwd: entry.suite.cwd, exit: 1, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, output: 'no test files' };
-  const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, only: productEnv(opts.suiteEnv) });
+  // A suite run from inside another test run must not report to the outer runner.
+  const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, unset: ['NODE_TEST_CONTEXT', ...NO_TOKENS] });
   const output = r.stdout + r.stderr;
   return { cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output };
 }
 
-// GAT-5: lock files installed where they sit, with the allowlisted environment. The gate
+// GAT-5: lock files installed where they sit, without the GitHub tokens. The gate
 // installs every lock file on its fresh checkout; `test` and `job complete` install their
 // module's, when they are stale.
 
@@ -81,7 +83,7 @@ export function stale(root, lock) {
   return !existsSync(m) || readFileSync(m, 'utf8').trim() !== lockHash(text);
 }
 
-export function install(root, lockfiles, { onlyStale = false, exec = run, suiteEnv = [] } = {}) {
+export function install(root, lockfiles, { onlyStale = false, exec = run } = {}) {
   const findings = [];
   const ran = [];
   for (const lock of lockfiles) {
@@ -90,7 +92,7 @@ export function install(root, lockfiles, { onlyStale = false, exec = run, suiteE
     if (onlyStale && !stale(root, lock)) continue;
     ran.push(lock);
     const text = readFileSync(join(root, lock), 'utf8');
-    const r = exec('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: join(root, posix.dirname(normPath(lock))), only: productEnv(suiteEnv) });
+    const r = exec('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: join(root, posix.dirname(normPath(lock))), unset: NO_TOKENS });
     if (r.code !== 0) { findings.push(at(`npm ci failed: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`)); continue; }
     mkdirSync(join(markFile(root, lock), '..'), { recursive: true });
     writeFileSync(markFile(root, lock), lockHash(text) + '\n');

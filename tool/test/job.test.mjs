@@ -316,19 +316,15 @@ test('status: an unfinished start says to rerun job start; offline it does not c
 import { jobTest } from '../lib/job.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { MARK, moduleLocks } from '../lib/suite.mjs';
-import { productEnv } from '../lib/util.mjs';
 
-test('the START names the keyed acts the job may not take, and that its Not yours line wins', () => {
+test('the START divides the labour: deploys and releases are the coordinator\'s, local wrangler runs the job\'s', () => {
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const line = start.split('\n').find((l) => l.startsWith('Not yours'));
   assert.match(line, /^Not yours, and this line wins over any act listed above it:/);
-  assert.match(line, /any wrangler command that reaches a Cloudflare account \(deploy, publish, secret, or remote KV, D1 or R2\)/);
-  assert.match(line, /release signing/);
-  assert.doesNotMatch(line, /, signing/);
-  assert.match(line, /live site or another account/);
-  assert.match(line, /This environment holds keys for those; they are still outside this job\./);
-  assert.match(line, /Local builds and tests that use wrangler or miniflare are fine\./);
+  assert.match(line, /Deploying, releasing, release signing and acting on a live site are the coordinator's acts in a round, not the job's/);
+  assert.match(line, /local builds and tests that use wrangler or miniflare are part of your work/);
+  assert.doesNotMatch(start, /keys|secret|Cloudflare account/);
 });
 
 test('job start prints the subscription after the launch, on a fresh start and on a resume', () => {
@@ -359,9 +355,9 @@ test('job start prints the subscription after the launch, on a fresh start and o
 const lock = (deps) => JSON.stringify({ lockfileVersion: 3, packages: { '': {}, ...(deps ? { 'node_modules/x': { version: '1.0.0' } } : {}) } }) + '\n';
 function locked(lockfiles, files) {
   const root = product();
-  commit(root, { 'process/config.json': { lockfiles, suite_env: ['P3_TEST_NAMED'] }, ...files });
+  commit(root, { 'process/config.json': { lockfiles }, ...files });
   const calls = [];
-  const exec = (cmd, args, o) => { calls.push({ cmd: [cmd, ...args].join(' '), cwd: o.cwd.slice(root.length + 1) || '.', env: o.only }); return { code: 0, stdout: '', stderr: '' }; };
+  const exec = (cmd, args, o) => { calls.push({ cmd: [cmd, ...args].join(' '), cwd: o.cwd.slice(root.length + 1) || '.', unset: o.unset }); return { code: 0, stdout: '', stderr: '' }; };
   return { root, calls, exec };
 }
 
@@ -411,31 +407,18 @@ test('moduleLocks matches paths however they are written', () => {
     ['./package-lock.json', 'src\\alpha\\pkg\\package-lock.json', './test//alpha/../alpha/package-lock.json', 'src/package-lock.json']);
 });
 
-test('product code gets only the allowlisted environment, plus the names the config adds', () => {
-  const from = {
-    PATH: '/bin', HOME: '/h', USER: 'u', LANG: 'C', LC_ALL: 'C', TMPDIR: '/t', TERM: 'x', CI: '1', NODE_OPTIONS: '--x', npm_config_cache: '/c',
-    HTTPS_PROXY: 'p', https_proxy: 'p', NO_PROXY: 'n', NODE_EXTRA_CA_CERTS: 'ca', SSL_CERT_FILE: 'ca', NODE_USE_ENV_PROXY: '1',
-    CLOUDFLARE_API_TOKEN: 's', CF_ACCOUNT_ID: 's', GH_TOKEN: 's', GITHUB_TOKEN: 's', NPM_TOKEN: 's', NODE_AUTH_TOKEN: 's', 'npm_config_//registry.npmjs.org/:_authToken': 's',
-    RELEASE_SIGNING_KEY: 's', NODE_TEST_CONTEXT: 'child', P3_TEST_NAMED: 'named',
-  };
-  const env = productEnv([], from);
-  assert.deepEqual(Object.keys(env).sort(), ['CI', 'HOME', 'HTTPS_PROXY', 'LANG', 'LC_ALL', 'NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS', 'NODE_USE_ENV_PROXY', 'NO_PROXY', 'PATH', 'SSL_CERT_FILE', 'TERM', 'TMPDIR', 'USER', 'https_proxy', 'npm_config_cache'].sort());
-  assert.equal(productEnv(['P3_TEST_NAMED', 'NOT_SET'], from).P3_TEST_NAMED, 'named');
-  assert.equal('NOT_SET' in productEnv(['NOT_SET'], from), false);
-});
-
-test('test, job complete and their installs run product code without the caller\'s keys', () => {
+test('test, job complete and their installs run product code without the GitHub tokens, and with everything else', () => {
   const probe = "import test from 'node:test'; import a from 'node:assert';\n"
-    + "test('env', () => { a.equal(process.env.CLOUDFLARE_API_TOKEN, undefined); a.equal(process.env.GH_TOKEN, undefined); a.equal(process.env.P3_TEST_NAMED, 'named'); a.ok(process.env.PATH); });\n";
+    + "test('env', () => { a.equal(process.env.GH_TOKEN, undefined); a.equal(process.env.GITHUB_TOKEN, undefined); a.equal(process.env.CLOUDFLARE_API_TOKEN, 'deploy'); });\n";
   const { root, calls, exec } = locked(['test/package-lock.json'], { 'test/package-lock.json': lock(true), 'test/alpha/env.test.mjs': probe });
-  const keep = { CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN, GH_TOKEN: process.env.GH_TOKEN, P3_TEST_NAMED: process.env.P3_TEST_NAMED };
-  Object.assign(process.env, { CLOUDFLARE_API_TOKEN: 'secret', GH_TOKEN: 'secret', P3_TEST_NAMED: 'named' });
+  const keep = { CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN, GH_TOKEN: process.env.GH_TOKEN, GITHUB_TOKEN: process.env.GITHUB_TOKEN };
+  Object.assign(process.env, { CLOUDFLARE_API_TOKEN: 'deploy', GH_TOKEN: 'secret', GITHUB_TOKEN: 'secret' });
   try {
     const t = jobTest(root, 'alpha', { exec, log: quiet });
     assert.equal(t.ok, true, t.output);
-    assert.equal(calls[0].env.CLOUDFLARE_API_TOKEN, undefined);
-    assert.equal(calls[0].env.P3_TEST_NAMED, 'named');
-    // job complete: its install runs first, then its suite, both clean.
+    assert.ok(calls[0].unset.includes('GH_TOKEN') && calls[0].unset.includes('GITHUB_TOKEN'));
+    assert.ok(!calls[0].unset.includes('CLOUDFLARE_API_TOKEN'));
+    // job complete: its install runs first, then its suite, both without the tokens.
     git(['branch', '-f', 'tranche', 'main'], { cwd: root });
     jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
     git(['checkout', '-q', 'job/alpha'], { cwd: root });

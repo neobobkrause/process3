@@ -145,7 +145,7 @@ test('a non-job pull request runs the suite of every module it touches', () => {
 });
 
 // GAT-5 (review of PR 11): the gate installs every lock file the base's config names, wherever
-// it sits, and with the allowlisted environment.
+// it sits, and without the GitHub tokens.
 test('the gate installs every lock file, not only the module\'s', () => {
   const lockfiles = ['package-lock.json', 'src/alpha/package-lock.json', 'other/deep/package-lock.json'];
   const lock = JSON.stringify({ lockfileVersion: 3, packages: { '': {} } });
@@ -161,13 +161,9 @@ test('the gate installs every lock file, not only the module\'s', () => {
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
   const calls = [];
-  const exec = (cmd, args, o) => { calls.push({ cwd: o.cwd.slice(root.length + 1) || '.', env: o.only }); return { code: 0, stdout: '', stderr: '' }; };
-  const keep = process.env.CLOUDFLARE_API_TOKEN;
-  process.env.CLOUDFLARE_API_TOKEN = 'secret';
-  try {
-    const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receiptFor(head)).io, exec, log: quiet });
-    assert.equal(r.run.suite, 'pass');
-  } finally { if (keep === undefined) delete process.env.CLOUDFLARE_API_TOKEN; else process.env.CLOUDFLARE_API_TOKEN = keep; }
+  const exec = (cmd, args, o) => { calls.push({ cwd: o.cwd.slice(root.length + 1) || '.', unset: o.unset }); return { code: 0, stdout: '', stderr: '' }; };
+  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receiptFor(head)).io, exec, log: quiet });
+  assert.equal(r.run.suite, 'pass');
   assert.deepEqual(calls.map((c) => c.cwd), ['.', 'src/alpha', 'other/deep'], 'every lock file, even with no dependencies');
-  assert.ok(calls.every((c) => c.env && c.env.PATH && c.env.CLOUDFLARE_API_TOKEN === undefined));
+  assert.ok(calls.every((c) => c.unset.includes('GH_TOKEN') && c.unset.includes('GITHUB_TOKEN')));
 });
