@@ -4,7 +4,7 @@
 // config it uses is read from the base, never from the change it judges.
 import { basename } from 'node:path';
 import { checkLedger } from './ledger.mjs';
-import { CONFIG_FILE, gh, git, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -63,7 +63,29 @@ const PROTECTED = ['.github/workflows/', '.claude/settings.json', '.process', CO
 // Files the checks themselves stand on: removing one is a finding, not a notice.
 const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml', '.github/workflows/process-record.yml'];
 
-export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup } = {}) {
+// record_since (decided by Bob, 2 Nov 2026): a product whose history predates Process3 names
+// the last commit before the process arrived; that commit and everything before it are not
+// checked. Read from the base's config, or, while the base has no config yet (before the
+// tranche first reaches main), from the head's. Honoured only when it is an ancestor of the
+// oldest commit that added the config, so it can never hide a commit made under the process.
+export function recordSince(root, { base, head = 'HEAD' } = {}) {
+  const has = (ref) => git(['cat-file', '-e', `${ref}:${CONFIG_FILE}`], { cwd: root, allowFail: true }).code === 0;
+  const from = base && has(base) ? base : head;
+  const since = loadConfig(root, from).record_since;
+  if (!since) return { since: null };
+  const bad = (why) => ({ since: null, finding: { check: 'config', file: CONFIG_FILE, line: 1, message: `record_since ${String(since).slice(0, 10)} is not used: ${why}` } });
+  const sha = git(['rev-parse', '-q', '--verify', `${since}^{commit}`], { cwd: root, allowFail: true });
+  if (sha.code !== 0) return bad('no such commit here');
+  const added = git(['log', '--full-history', '--diff-filter=A', '--format=%H', head, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
+  const first = added[added.length - 1];
+  if (!first) return bad(`the head has no ${CONFIG_FILE} in its history`);
+  if (git(['merge-base', '--is-ancestor', sha.stdout.trim(), first], { cwd: root, allowFail: true }).code !== 0 || sha.stdout.trim() === first) {
+    return bad(`it is not before ${first.slice(0, 10)}, the commit that brought the process`);
+  }
+  return { since: sha.stdout.trim(), from: from === base ? 'base' : 'head' };
+}
+
+export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since } = {}) {
   const findings = [];
   const notices = [];
   const verified = new Map();
@@ -71,8 +93,8 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     if (!verified.has(sha)) verified.set(sha, webCommitByOwner(root, sha, cfg.approvals.owner, lookup));
     return verified.get(sha);
   };
-  const range = base ? `${base}..${head}` : head;
-  const commits = git(['rev-list', range], { cwd: root }).split('\n').filter(Boolean);
+  const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : [])];
+  const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
   const { file: afile, heading } = cfg.approvals;
   for (const sha of commits) {
     const short = sha.slice(0, 10);

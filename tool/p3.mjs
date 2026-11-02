@@ -8,7 +8,7 @@ import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
 import { merge } from './lib/merge.mjs';
 import { status } from './lib/status.mjs';
-import { recordCheck } from './lib/record.mjs';
+import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
@@ -104,8 +104,10 @@ const commands = {
     }
     const ledgerBase = git(['merge-base', head, base], { cwd: root });
     const cfg = loadConfig(root, base);
-    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase });
-    console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}`);
+    const s = recordSince(root, { base, head });
+    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since });
+    if (s.finding) findings.push(s.finding);
+    console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}`);
     // Annotations, so a notice shows on the pull request and not only in the log.
     const esc = (x, prop) => String(x).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
       .replace(prop ? /[:,]/g : /$^/, (c) => (c === ':' ? '%3A' : '%2C'));

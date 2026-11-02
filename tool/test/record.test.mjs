@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { approvalsBlock, recordCheck } from '../lib/record.mjs';
+import { approvalsBlock, recordCheck, recordSince } from '../lib/record.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
 import { commit, makeRepo } from './helpers.mjs';
 
@@ -171,4 +171,55 @@ test('a gate row is trusted only when its run is the process gate on that commit
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
   assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
+});
+
+// record_since (Bob's decision, 2 Nov 2026): old history before the process is not judged.
+function oldThenProcess(since = (old) => old) {
+  const root = makeRepo({ 'README.md': 'x' });
+  const main = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { 'old/big.bin': 'y'.repeat(101) }, 'old work');
+  const old = commit(root, { 'old/big2.bin': 'z'.repeat(101) }, 'more old work');
+  const setup = commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: since(old) }, '.process': 'pin' }, 'setup');
+  return { root, main, old, setup };
+}
+
+test('record_since leaves out the commits before the process arrived', () => {
+  const { root, main } = oldThenProcess();
+  commit(root, { 'new/big.bin': 'n'.repeat(101) }, 'new work');
+  const s = recordSince(root, { base: main });
+  assert.equal(s.from, 'head'); // main has no config yet
+  const { commits, findings } = recordCheck(root, cfg, { base: main, since: s.since, lookup: session });
+  assert.equal(commits, 2); // setup and new work
+  assert.deepEqual(findings.map((f) => f.file), ['new/big.bin']);
+  assert.equal(recordCheck(root, cfg, { base: main, lookup: session }).commits, 4); // without it
+});
+
+test('record_since cannot reach past the commit that brought the process', () => {
+  const { root, main } = oldThenProcess();
+  const late = commit(root, { 'new/big.bin': 'n'.repeat(101) }, 'new work');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: late } }, 'hide new work');
+  const s = recordSince(root, { base: main });
+  assert.equal(s.since, null);
+  assert.match(s.finding.message, /not before .*the commit that brought the process/);
+});
+
+test('record_since naming the setup commit itself is refused', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const main = git(['rev-parse', 'HEAD'], { cwd: root });
+  const setup = commit(root, { 'process/config.json': { max_file_bytes: 100 } }, 'setup');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: setup } }, 'name it');
+  assert.equal(recordSince(root, { base: main }).since, null);
+});
+
+test('once the base has a config, record_since is read from the base, not the change', () => {
+  const { root, setup } = oldThenProcess(() => undefined);
+  const { old } = { old: git(['rev-parse', `${setup}^`], { cwd: root }) };
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: old } }, 'a change sets it');
+  assert.equal(recordSince(root, { base: setup }).since, null); // the base does not name one
+  assert.equal(recordSince(root, { base: setup }).finding, undefined);
+});
+
+test('record_since naming no commit here is a finding', () => {
+  const { root, main } = oldThenProcess(() => 'f'.repeat(40));
+  assert.match(recordSince(root, { base: main }).finding.message, /no such commit/);
 });
