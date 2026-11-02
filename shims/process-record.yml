@@ -1,0 +1,49 @@
+# Process3 record check on every push to any branch (REC-10), at the tranche's process pin,
+# from the merge-base with the tranche (or main). Not a required check.
+# Copied into a product as .github/workflows/process-record.yml.
+name: process-record
+on:
+  push:
+permissions:
+  contents: read
+concurrency:
+  group: process-record-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  record-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Full history, but file contents only for the checkout; any other file the checks read
+      # is fetched when read (Bob's decision 3A, 2 Nov 2026: the full checkout of a large
+      # product took up to 4 minutes). A private repository keeps the full fetch: the token is
+      # not kept, so a later fetch of a file there could not authenticate.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: ${{ !github.event.repository.private && 'blob:none' || '' }}
+          persist-credentials: false
+      - name: the tranche's process pin
+        id: pin
+        run: |
+          cfg=$(cat process/config.json 2>/dev/null || echo '{}')
+          tranche=$(echo "$cfg" | jq -r '.tranche // "tranche"')
+          echo "TRANCHE=$tranche" >> "$GITHUB_ENV"
+          if pin=$(git rev-parse -q --verify "origin/$tranche:.process"); then :;
+          elif pin=$(git rev-parse -q --verify "HEAD:.process"); then echo "::warning::the tranche has no pin yet; the pushed commit's pin runs";
+          else echo "no process pin; nothing to check"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          git clone -q --filter=blob:none "$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.pin.outputs.skip != '1'
+        with:
+          node-version: ${{ steps.pin.outputs.node }}
+      - name: record check
+        if: steps.pin.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          onto="origin/$TRANCHE"
+          [ "$GITHUB_REF_NAME" = "$TRANCHE" ] && onto=origin/main
+          node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --head "$GITHUB_SHA" --branch "$GITHUB_REF_NAME" --onto "$onto" --onto origin/main --out "$RUNNER_TEMP/record.json"
