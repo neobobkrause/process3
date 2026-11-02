@@ -354,6 +354,37 @@ test('must hold 5: a session changing the approvals key fails, even beside a rec
   assert.deepEqual(f2.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
 });
 
+test('a merge that itself writes record_since on the base passes; one naming a commit the head brings does not', () => {
+  for (const onBaseCase of [true, false]) {
+    const { root, base } = oldOnBase();
+    const brought = commit(root, { 'a.txt': 'a' }, 'head work');
+    git(['checkout', '-q', '-b', 'side', base], { cwd: root });
+    commit(root, { 'b.txt': 'b' }, 'side work');
+    git(['checkout', '-q', 'onboard'], { cwd: root });
+    git(['merge', '-q', '--no-ff', '--no-commit', 'side'], { cwd: root });
+    write(root, { 'process/config.json': { max_file_bytes: 100, record_since: onBaseCase ? base : brought } });
+    git(['add', '-A'], { cwd: root });
+    git(['commit', '-q', '-m', 'merge, writing the config'], { cwd: root });
+    const f = recordCheck(root, cfg, { base, lookup: session }).findings;
+    assert.deepEqual(f.map((x) => x.file), onBaseCase ? [] : ['process/config.json'], String(onBaseCase));
+  }
+});
+
+test('record-pr\'s shape: the base is the tranche tip by name, moved on and not in the head', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const t = commit(root, { 'old/big.bin': 'y'.repeat(101) }, 'old work');
+  git(['checkout', '-q', '-b', 'build/onboard'], { cwd: root });
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: t } }, 'onboard');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const moved = commit(root, { 'other.txt': 'moved' }, 'tranche moves');
+  git(['checkout', '-q', 'build/onboard'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: 'tranche', since: recordSince(root, { base: 'tranche' }).since, lookup: session }).findings, []);
+  // A record_since on the moved tip, which the head does not hold, is refused by recordSince.
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: moved } }, 'name the moved tip');
+  assert.equal(recordSince(root, { base: 'tranche' }).since, null);
+});
+
 test('the push check finds the base from the tranche, so onboarding pushed to a branch passes', async () => {
   const root = makeRepo({ 'README.md': 'x' });
   git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
