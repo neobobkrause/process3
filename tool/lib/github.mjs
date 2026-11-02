@@ -55,14 +55,20 @@ export function editComment(slug, id, body) {
   return gh(['api', '-X', 'PATCH', `repos/${slug}/issues/comments/${id}`, '--input', '-'], { input: JSON.stringify({ body }) });
 }
 
-// The newest comment carrying a marker, with its parsed block.
-export function latestBlock(slug, n, marker, all = comments(slug, n)) {
+// The newest comment carrying a marker, with its parsed block. With `from`, only comments
+// written by that account count.
+export function latestBlock(slug, n, marker, all = comments(slug, n), { from } = {}) {
   for (const c of [...all].reverse()) {
+    if (from !== undefined && (!from || c.user?.login !== from)) continue;
     const data = parseBlock(c.body, marker);
     if (data) return { comment: c, data };
   }
   return null;
 }
+
+// The newest receipt, only from the account that opened the pull request: the job's own
+// session account. Anyone else's p3:receipt comment is not read (review of PR 13).
+export const latestReceipt = (all, opener) => latestBlock(null, null, RECEIPT, all, { from: opener || null })?.data || null;
 
 // Gate runs, each its own comment written by GitHub Actions and never edited since. A session
 // can post a comment that looks like one, or (as the owner) edit one, so only the bot's

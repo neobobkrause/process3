@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Process3 tool: one program, a fresh process per command, run from the pinned clone.
 // Usage: node <clone>/tool/p3.mjs <command> [args]
+// p3-capability: gate-no-post (the gate workflow greps for this line at the base's pin; a pin
+// without it takes the legacy path; review of PR 13)
 import { writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';

@@ -29,9 +29,9 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
   return {
     calls,
     io: {
-      getPR: () => ({ state: 'open', draft: false, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
+      getPR: () => ({ state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
       comments: () => [
-        { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'neobobkrause' } },
+        { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'civicsmith' } },
         { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
         { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'present', receipt_attempt: 1 }] }), user: { login: BOT } },
       ],

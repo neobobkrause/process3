@@ -8,7 +8,13 @@
 # Two jobs (setup audit, 2 Nov): product code could read a write token from the gate's own
 # process, so job gate, which runs product code, holds only read permissions, and job post,
 # which holds the write token, runs no product code: it posts the row job gate uploaded.
-# Rollout: move the product's process pin to a tool that has --no-post before this file.
+# Each action is pinned by its full commit, with its version beside it (review of PR 13).
+# The legacy path (review of PR 13): when the base's pin is a tool from before the two-job gate
+# (its tool/p3.mjs lacks the line "p3-capability: gate-no-post"), job gate runs that tool's gate
+# without --pr, so it reads and posts nothing, and job post does nothing. A job token can only
+# read, so the old single-job form, which posted from the gate, cannot run here. The legacy
+# path exists only until every base of the product pins the new tool, and is removed at the
+# next change to this file after that.
 # Copied into a product as .github/workflows/process-gate.yml.
 name: process-gate
 on:
@@ -35,7 +41,7 @@ jobs:
       # is fetched when read (Bob's decision 3A, 2 Nov 2026: the full checkout of a large
       # product took up to 4 minutes). A private repository keeps the full fetch: the token is
       # not kept, so a later fetch of a file there could not authenticate.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           filter: ${{ !github.event.repository.private && 'blob:none' || '' }}
@@ -60,7 +66,9 @@ jobs:
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
+          if grep -q 'p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then echo "legacy=0" >> "$GITHUB_OUTPUT"
+          else echo "::warning::legacy path: the base's process pin predates the two-job gate; the gate runs without reading or posting comments"; echo "legacy=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ steps.pin.outputs.node }}
       - name: record check (size, paths, approvals, ledger), by the base's pin, before any product code runs
@@ -78,23 +86,31 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR: ${{ github.event.pull_request.number }}
           DRAFT: ${{ github.event.pull_request.draft }}
+          LEGACY: ${{ steps.pin.outputs.legacy }}
         # The row goes to the artifact only; job post writes the comment from it.
-        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --no-post --out "$RUNNER_TEMP/gate.json"
+        run: |
+          if [ "$LEGACY" = 1 ]; then
+            # legacy path: an old pin, with no --pr, reads and posts no comment.
+            node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --draft "$DRAFT" --started "$STARTED" --out "$RUNNER_TEMP/gate.json"
+          else
+            node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --no-post --out "$RUNNER_TEMP/gate.json"
+          fi
       - name: the run's own record of its row (merge trusts a row only when this artifact matches it)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: gate-row
           path: ${{ runner.temp }}/gate.json
           if-no-files-found: ignore
           overwrite: true
           retention-days: 90
-  # The comment, from the artifact, by the base's pin. No checkout of the pull request: only the
-  # base's tree, for its pin and config, and the process clone at that pin. The comment holds
-  # the artifact's row as uploaded, so merge's verifyRow still finds the two equal.
+  # The comment, from the artifact, by the base's pin. No checkout of the pull request: the
+  # artifact first, into a directory of its own, then only the base's tree, for its pin and
+  # config, and the process clone at that pin. The comment holds the artifact's row as
+  # uploaded, so merge's verifyRow still finds the two equal.
   post:
     needs: gate
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -102,7 +118,12 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: gate-row
+          path: ${{ runner.temp }}/row
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 1
@@ -122,17 +143,15 @@ jobs:
           repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          # legacy path (see the top of this file): an old pin cannot post; job gate posted nothing.
+          if ! grep -q 'p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then
+            echo "::warning::legacy path: the base's process pin predates the two-job gate; no gate comment is posted"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.pin.outputs.skip != '1'
         with:
           node-version: ${{ steps.pin.outputs.node }}
-      - uses: actions/download-artifact@v4
-        if: steps.pin.outputs.skip != '1'
-        continue-on-error: true
-        with:
-          name: gate-row
-          path: ${{ runner.temp }}/row
       - name: post the gate row
         if: steps.pin.outputs.skip != '1'
         working-directory: ${{ runner.temp }}/process3

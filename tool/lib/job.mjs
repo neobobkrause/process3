@@ -261,7 +261,7 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt }) {
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again`);
   }
   if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
-  const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number));
+  const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number), { from: pr.user?.login || null });
   let url = posted?.comment?.html_url;
   if (posted?.data?.sha !== sha) {
     const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));

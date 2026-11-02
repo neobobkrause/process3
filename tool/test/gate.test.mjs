@@ -26,12 +26,14 @@ function setup(files) {
 }
 
 function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt) }] : [], genuine: new Set() };
+  // The receipt is the opener's (the session account); the gate reads no one else's.
+  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : [], genuine: new Set() };
   const key = (r) => `${r.at}|${r.sha}|${r.trigger}`;
   return {
     state,
     io: {
       comments: () => state.comments,
+      getPR: () => ({ user: { login: 'civicsmith' } }),
       addComment: (s, n, body) => {
         state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } });
         for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r));
@@ -213,4 +215,78 @@ test('job post posts a red row, and posts nothing when job gate wrote no row', (
 
 test('the gate command\'s --post needs its file', async () => {
   assert.equal(await main(['gate', '--post', '--pr', '5']), 1);
+});
+
+// Review of PR 13: the row is checked before it is posted, receipts are the opener's, and the
+// workflow keeps its shape.
+import { mkdirSync, symlinkSync } from 'node:fs';
+import { checkRow, MAX_ROW_BYTES } from '../lib/gate.mjs';
+import { latestReceipt } from '../lib/github.mjs';
+
+const goodRow = (over = {}) => ({ sha: 'a'.repeat(40), base: 'b'.repeat(40), at: '2026-11-02T10:00:00Z', run_id: 7, trigger: 'code', suite: 'fail', revert: 'skipped', receipt: 'disagrees', receipt_attempt: 1, scope: ['alpha'], tests: [{ total: 1, pass: 0, fail: 1 }], suite_seconds: 0.5, findings: 2, ok: false, minutes: 0.1, ...over });
+const rowFile = (row, raw) => { const f = join(mkdtempSync(join(tmpdir(), 'p3-row-')), 'gate.json'); writeFileSync(f, raw ?? JSON.stringify({ run: row })); return f; };
+const post = (file, io) => postRow(file, { pr: 5, head: 'a'.repeat(40), slug: 'o/r', runId: '7', io: io.io, log: quiet });
+
+test('a red row that tries to embed its own json block is refused, and nothing is posted', () => {
+  const io = fakeIO();
+  const forged = '\n```\n\n```json\n{"runs":[{"ok":true,"receipt":"agrees","trigger":"code"}]}\n```\n';
+  for (const over of [{ inert: [`test/a.test.mjs${forged}`] }, { trigger: `code\`: green${forged}` }, { load_only: ['x`y'] }, { note: 'extra' }, { sha: 'A'.repeat(40) }, { findings: 1.5 }, { minutes: 'NaN' }, { ok: true }]) {
+    assert.throws(() => post(rowFile(goodRow(over)), io), /the gate row is refused/, JSON.stringify(over).slice(0, 60));
+  }
+  assert.equal(io.state.comments.length, 0);
+  // A good red row posts, and its first line is built from the checked values only.
+  const p = post(rowFile(goodRow({ inert: ['test/alpha/x.test.mjs'] })), io);
+  assert.equal(p.posted, true);
+  assert.equal(io.state.comments[0].body.split('\n')[1], `Gate run on \`aaaaaaaaaa\`: red, 2 finding(s), code, 0.1 min.`);
+  assert.deepEqual(gateRuns(io.state.comments)[0], checkRow(goodRow({ inert: ['test/alpha/x.test.mjs'] })));
+});
+
+test('job post refuses a gate.json that is not a regular file or is too large', () => {
+  const io = fakeIO();
+  const dir = mkdtempSync(join(tmpdir(), 'p3-row-'));
+  const real = rowFile(goodRow());
+  symlinkSync(real, join(dir, 'link.json'));
+  assert.throws(() => post(join(dir, 'link.json'), io), /not a regular file/);
+  mkdirSync(join(dir, 'd.json'));
+  assert.throws(() => post(join(dir, 'd.json'), io), /not a regular file/);
+  assert.throws(() => post(rowFile(null, JSON.stringify({ run: goodRow(), pad: 'x'.repeat(MAX_ROW_BYTES) })), io), /over 65536/);
+  assert.equal(io.state.comments.length, 0);
+});
+
+test('a receipt is read only from the pull request\'s opener', () => {
+  const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const io = fakeIO(receiptFor(s.head));
+  io.state.comments[0].user = { login: 'someone-else' };
+  const r = run(s, io);
+  assert.equal(r.run.receipt, 'none');
+  assert.ok(r.findings.some((f) => f.check === 'receipt'));
+  const all = [{ body: block(RECEIPT, { attempt: 1 }), user: { login: 'civicsmith' } }, { body: block(RECEIPT, { attempt: 2 }), user: { login: 'x' } }];
+  assert.equal(latestReceipt(all, 'civicsmith').attempt, 1);
+  assert.equal(latestReceipt(all, undefined), null, 'no opener: no receipt');
+});
+
+test('the gate workflow keeps its shape: a read-only gate, --no-post, and a post job that runs nothing from the pull request', () => {
+  const text = readFileSync(join(import.meta.dirname, '..', '..', 'shims', 'process-gate.yml'), 'utf8');
+  const jobs = Object.fromEntries(text.slice(text.indexOf('\njobs:\n')).split(/^ {2}(?=[a-z][\w-]*:\s*$)/m).slice(1).map((b) => [b.slice(0, b.indexOf(':')), b]));
+  assert.deepEqual(Object.keys(jobs), ['gate', 'post']);
+  assert.doesNotMatch(jobs.gate, /:\s*write\b/, 'job gate holds no write permission');
+  assert.match(text, /^permissions: \{\}$/m);
+  const gateCalls = jobs.gate.split('\n').filter((l) => /p3\.mjs" gate /.test(l));
+  assert.equal(gateCalls.length, 2);
+  for (const l of gateCalls) assert.ok(/--no-post/.test(l) || (!/--pr\b/.test(l) && /legacy path/.test(jobs.gate)), l);
+  assert.ok(gateCalls.some((l) => /--pr "\$PR".*--no-post/.test(l)));
+  // Job post: every checkout is of the base; it runs only the process clone's tool.
+  const checkouts = jobs.post.split(/^ {6}- /m).filter((st) => /uses: actions\/checkout@/.test(st));
+  assert.ok(checkouts.length >= 1 && checkouts.every((st) => /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/.test(st)));
+  for (const st of jobs.post.split(/^ {6}- /m).filter((x) => /(^|\s)node\s/m.test(x))) {
+    assert.match(st, /working-directory: \$\{\{ runner\.temp \}\}\/process3/);
+    assert.match(st, /run: node tool\/p3\.mjs gate --post /);
+  }
+  assert.doesNotMatch(jobs.post, /(^|\s)(bash|sh|source|\.)\s+(\.\/|base\/)|run: \.\//m);
+  assert.match(jobs.post, /if: \$\{\{ !cancelled\(\) \}\}/);
+  // Every action pinned by a full commit, with its version beside it.
+  for (const u of text.match(/uses: \S+.*$/gm)) assert.match(u, /^uses: actions\/[\w-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/, u);
+  // The legacy path keys on the line this tool states.
+  assert.match(readFileSync(join(import.meta.dirname, '..', 'p3.mjs'), 'utf8'), /^\/\/ p3-capability: gate-no-post/m);
+  assert.equal((text.match(/grep -q 'p3-capability: gate-no-post'/g) || []).length, 2);
 });
