@@ -65,24 +65,26 @@ const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/wo
 
 // record_since (decided by Bob, 2 Nov 2026): a product whose history predates Process3 names
 // the last commit before the process arrived; that commit and everything before it are not
-// checked. Read from the base's config, or, while the base has no config yet (before the
-// tranche first reaches main), from the head's. Honoured only when it is an ancestor of the
-// oldest commit that added the config, so it can never hide a commit made under the process.
+// checked. It is a key that weakens a check, so, like the approvals, only the owner's own
+// website commit may set or change it (recordCheck). It is used only while the base has no
+// config yet (before the tranche first reaches main): once the base has one, the base itself
+// already leaves out the old history, so record_since is ignored and cannot be abused. And it
+// must lie before every commit in the head's history that adds the config, so it can never
+// hide a commit made under the process.
 export function recordSince(root, { base, head = 'HEAD' } = {}) {
   const has = (ref) => git(['cat-file', '-e', `${ref}:${CONFIG_FILE}`], { cwd: root, allowFail: true }).code === 0;
-  const from = base && has(base) ? base : head;
-  const since = loadConfig(root, from).record_since;
+  if (base && has(base)) return { since: null };
+  const since = loadConfig(root, head).record_since;
   if (!since) return { since: null };
   const bad = (why) => ({ since: null, finding: { check: 'config', file: CONFIG_FILE, line: 1, message: `record_since ${String(since).slice(0, 10)} is not used: ${why}` } });
-  const sha = git(['rev-parse', '-q', '--verify', `${since}^{commit}`], { cwd: root, allowFail: true });
-  if (sha.code !== 0) return bad('no such commit here');
-  const added = git(['log', '--full-history', '--diff-filter=A', '--format=%H', head, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
-  const first = added[added.length - 1];
-  if (!first) return bad(`the head has no ${CONFIG_FILE} in its history`);
-  if (git(['merge-base', '--is-ancestor', sha.stdout.trim(), first], { cwd: root, allowFail: true }).code !== 0 || sha.stdout.trim() === first) {
-    return bad(`it is not before ${first.slice(0, 10)}, the commit that brought the process`);
-  }
-  return { since: sha.stdout.trim(), from: from === base ? 'base' : 'head' };
+  const r = git(['rev-parse', '-q', '--verify', `${since}^{commit}`], { cwd: root, allowFail: true });
+  if (r.code !== 0) return bad('no such commit here');
+  const sha = r.stdout.trim();
+  const adders = git(['log', '--full-history', '--diff-filter=A', '--format=%H', head, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
+  if (!adders.length) return bad(`the head has no commit that adds ${CONFIG_FILE}`);
+  const late = adders.find((a) => a === sha || git(['merge-base', '--is-ancestor', sha, a], { cwd: root, allowFail: true }).code !== 0);
+  if (late) return bad(`it is not before ${late.slice(0, 10)}, a commit that adds the process config`);
+  return { since: sha, from: 'head' };
 }
 
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since } = {}) {
@@ -130,15 +132,15 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           const added = (show(root, sha, file) || '').split('\n').filter((l) => APPROVAL_WORDS.test(l) && !before.some((b) => b.split('\n').includes(l)));
           if (added.length && !approvalsTouched.some((t2) => t2.file === file)) approvalsTouched.push({ file, line: 1 });
         } else if (file === CONFIG_FILE) {
-          const ap = (t2) => { try { return JSON.stringify(JSON.parse(t2 || '{}').approvals ?? null); } catch { return 'unreadable'; } };
+          const ap = (t2) => { try { const c = JSON.parse(t2 || '{}'); return JSON.stringify([c.approvals ?? null, c.record_since ?? null]); } catch { return 'unreadable'; } };
           const now = ap(show(root, sha, file));
           const was = parents.length ? parents.map((p) => ap(show(root, p, file))) : [ap(null)];
-          if (!was.includes(now)) approvalsTouched.push({ file, line: 1 });
+          if (!was.includes(now)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
         }
       }
       for (const t2 of approvalsTouched) {
         const v = ownerCommit(sha);
-        if (!v.ok) findings.push({ check: 'approvals', file: t2.file, line: t2.line, message: `commit ${short} changes the approvals but is not ${cfg.approvals.owner}'s own commit through GitHub's website (${v.why})` });
+        if (!v.ok) findings.push({ check: 'approvals', file: t2.file, line: t2.line, message: `commit ${short} changes ${t2.what || 'the approvals'} but is not ${cfg.approvals.owner}'s own commit through GitHub's website (${v.why})` });
       }
     } catch (e) {
       findings.push({ check: 'record', file: '(commit)', line: 1, message: `commit ${short} could not be checked: ${e.message}` });
