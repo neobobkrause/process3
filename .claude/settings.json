@@ -5,7 +5,6 @@
       "Bash(git push -f *)",
       "Bash(git push --force-with-lease *)",
       "Bash(git push origin --delete *)",
-      "Bash(git push origin :*)",
       "Bash(git push origin main)",
       "Bash(git push origin HEAD:main)",
       "Bash(gh api *contents/*)",
