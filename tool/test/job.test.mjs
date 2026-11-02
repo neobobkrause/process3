@@ -202,3 +202,66 @@ test('after a failed push, a rerun posts the saved receipt for the COMPLETE comm
   assert.equal(r.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
   assert.equal(r.commands.find((c) => c.suite).exit, 0);
 });
+
+// --reopen (Bob's decision 1A, 2 Nov 2026).
+function mergedOnce() {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  f.state.failReady = false;
+  jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  // BOB merges: the tranche takes the job's tip.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/alpha'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['branch', '-q', '-D', 'job/alpha'], { cwd: root });
+  return { root, f };
+}
+
+test('a COMPLETE module needs --reopen, and the refusal says so', () => {
+  const { root, f } = mergedOnce();
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet }), /needs --reopen/);
+});
+
+test('--reopen starts attempt 2 from the tranche, with a fast-forward push and the task in the START', () => {
+  const { root, f } = mergedOnce();
+  const old = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  const r = jobStart(root, 'alpha', { coordinator: 's', reopen: 'strengthen the R1 test', open: f.open, find: f.find, log: quiet });
+  assert.equal(r.attempt, 2);
+  assert.match(r.start, /attempt 2/);
+  assert.match(r.start, /What it must do: strengthen the R1 test/);
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  assert.notEqual(tip, old);
+  assert.equal(git(['merge-base', '--is-ancestor', old, tip], { cwd: root, allowFail: true }).code, 0, 'a fast-forward');
+  const entry = JSON.parse(git(['show', `${tip}:process/ledger/alpha.json`], { cwd: root }));
+  assert.equal(entry.status.state, 'WORKING');
+  assert.match(entry.status.reason, /reopened: strengthen/);
+  assert.equal(f.state.prs, 2, 'a new pull request');
+});
+
+test('--reopen is refused while the old attempt is unmerged or its PR is open, and for a module not COMPLETE', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  // WORKING, not merged: an unfinished start resumes rather than reopening.
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: () => ({ number: 9 }), log: quiet }), /open pull request/);
+  const fresh = product();
+  assert.throws(() => jobStart(fresh, 'alpha', { coordinator: 's', reopen: 'x', push: false, log: quiet }), /--reopen is for a COMPLETE module/);
+  const m = mergedOnce();
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', reopen: 'x', open: m.f.open, find: () => ({ number: 9 }), log: quiet }), /reopen only after it merges/);
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', reopen: true, open: m.f.open, find: m.f.find, log: quiet }), /needs what the new attempt must do/);
+});
+
+test('a reopen whose push fails leaves no local branch, so it can run again', () => {
+  const { root, f } = mergedOnce();
+  const url = git(['remote', 'get-url', 'origin'], { cwd: root });
+  git(['config', 'remote.origin.pushurl', '/nonexistent/repo.git'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }));
+  assert.equal(git(['branch', '--list', 'job/alpha'], { cwd: root }), '');
+  git(['config', '--unset', 'remote.origin.pushurl'], { cwd: root });
+  assert.equal(jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }).attempt, 2);
+  assert.ok(url);
+});
