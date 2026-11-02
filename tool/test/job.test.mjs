@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
 import { jobBlock, jobComplete, jobStart } from '../lib/job.mjs';
+import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
@@ -285,4 +286,28 @@ test('a reopened start whose PR failed resumes with its task in the START', () =
   assert.match(r.pr.body, /What it must do: strengthen the R1 test/);
   const again = jobStart(mergedOnce().root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet, reopen: 'y' });
   assert.equal(again.attempt, 2);
+});
+
+test('a reopen never moves a branch another worktree has checked out', () => {
+  const { root, f } = mergedOnce();
+  const wt = join(mkdtempSync(join(tmpdir(), 'p3-wt-')), 'wt');
+  git(['worktree', 'add', '-q', wt, 'job/alpha'], { cwd: root });
+  const was = git(['rev-parse', 'job/alpha'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }), /checked out in a worktree/);
+  assert.equal(git(['rev-parse', 'job/alpha'], { cwd: root }), was);
+});
+
+test('status: an unfinished start says to rerun job start; offline it does not claim merged', () => {
+  const { root, f } = mergedOnce();
+  let fails = true;
+  const open = (slug, p) => { if (fails) { fails = false; throw new Error('network'); } return f.open(slug, p); };
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open, find: f.find, log: quiet }), /network/);
+  git(['remote', 'set-url', 'origin', git(['remote', 'get-url', 'origin'], { cwd: root })], { cwd: root });
+  const out = [];
+  status(root, { log: (m) => out.push(m), io: { openPRs: () => [], checkRun: () => null } });
+  assert.match(out.join('\n'), /alpha: COMPLETE; on its branch WORKING \(reopened: x\), 1 commit\(s\) ahead; FLAG an unfinished start/);
+  const off = [];
+  status(root, { offline: true, log: (m) => off.push(m) });
+  assert.match(off.join('\n'), /PR unknown \(GitHub not read\)/);
+  assert.match(off.join('\n'), /offline, pull requests not read/);
 });

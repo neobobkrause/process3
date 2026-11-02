@@ -127,9 +127,14 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   // to the tranche (no branch is deleted). Any other local branch is refused.
   const local = git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0;
   const stale = local && reopen && git(['merge-base', '--is-ancestor', `refs/heads/${branch}`, from], { cwd: root, allowFail: true }).code === 0;
-  if (local && !stale) fail(`a local branch ${branch} exists with commits the tranche does not have; bring it to your coordinator`);
+  if (local && !stale) {
+    fail(reopen ? `a local branch ${branch} exists with commits the tranche does not have; bring it to Bob`
+      : `a local branch ${branch} exists; a new attempt on a merged module needs --reopen, and anything else goes to Bob`);
+  }
   if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
-  if (stale && git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim() === branch) fail(`check out another branch than ${branch} first`);
+  // Never move a branch that this or any other worktree has checked out.
+  const held = git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').some((l) => l === `branch refs/heads/${branch}`);
+  if (stale && held) fail(`${branch} is checked out in a worktree; check out another branch there first`);
 
   const sym = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true });
   const back = sym.code === 0 ? sym.stdout.trim() : git(['rev-parse', 'HEAD'], { cwd: root });
