@@ -9,7 +9,7 @@ The order, in short:
 - Steps 9 and 10: the approvals and the deny list, as your own commits directly on the tranche.
 - Step 11, last: the ruleset on `main` and the tranche, which stops direct commits to them.
 
-When you are done, tell BOB on the onboarding page. BOB starts a fresh session (the deploy variables reach only sessions started after you saved them) and runs `p3 setup check` there once, which reads everything back.
+When you are done, tell BOB on the onboarding page. BOB starts a fresh session from the tranche branch (the deploy variables reach only sessions started after you saved them) and runs `p3 setup check` there once, which reads everything back.
 
 `p3 setup check` prints one line per entry: `set`, `missing`, `unmeasured` (nothing to measure yet), `not configured` (the product's config does not ask for it), or `confirmed` (GitHub does not let a session read it, so your word on the onboarding page stands for it). No job starts while an entry is `missing`.
 

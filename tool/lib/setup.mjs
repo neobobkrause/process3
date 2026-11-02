@@ -80,7 +80,7 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const head = g(['rev-parse', 'HEAD']).stdout.trim();
   const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
   const trancheTip = g(['rev-parse', ref]).stdout.trim();
-  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: `${here} is on ${main}, not ${name}`, fix: restart };
+  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: `${abbrev === 'HEAD' ? here : `this checkout (${abbrev})`} is on ${main}, not the ${name} branch`, fix: restart };
   if (mainTip) {
     const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
     const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
@@ -280,7 +280,7 @@ const readers = {
   // The deploy token's scopes, by harmless reads in the configured account; never the token.
   'deploy-token': (c, x) => {
     const acct = x.cfg.cloudflare_account;
-    if (acct === undefined) return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (acct === undefined || acct === null || acct === '') return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
     if (!x.env.CLOUDFLARE_API_TOKEN) return missing("CLOUDFLARE_API_TOKEN is not in this session's environment");
     const res = c.value.map((s) => {
       const r = x.cf(s.read.replace('{account}', encodeURIComponent(String(acct))));
