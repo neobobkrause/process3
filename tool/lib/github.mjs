@@ -125,3 +125,22 @@ export function checkRun(slug, sha, name) {
   const runs = (r?.check_runs || []).sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)));
   return runs[0] || null;
 }
+
+// The checks a branch's rulesets require, by name (merge --plain), or null when they cannot be
+// read. Read from the rulesets, not classic branch protection (Bob's rulesets, 2 Nov).
+export function requiredChecks(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const path = branch.split('/').map(encodeURIComponent).join('/');
+  const rules = read(['api', `repos/${slug}/rules/branches/${path}?per_page=100`]);
+  if (!Array.isArray(rules)) return null;
+  return [...new Set(rules.filter((r) => r.type === 'required_status_checks')
+    .flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => c.context)))];
+}
+
+// A named check on a commit: the newest check run's conclusion (or its status while it runs),
+// else a commit status of that context, else 'missing'.
+export function checkState(slug, sha, name, { read = checkRun, statuses = (s, c) => gh(['api', `repos/${s}/commits/${c}/status`], { allowFail: true }) } = {}) {
+  const r = read(slug, sha, name);
+  if (r) return r.status === 'completed' ? r.conclusion : r.status;
+  const st = (statuses(slug, sha)?.statuses || []).find((x) => x.context === name);
+  return st ? st.state : 'missing';
+}

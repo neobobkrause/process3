@@ -5,7 +5,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RECEIPT, checkRun, comments, gateRuns, getPR, latestBlock, verifyRow } from './github.mjs';
+import { RECEIPT, checkRun, checkState, comments, gateRuns, getPR, latestBlock, requiredChecks, verifyRow } from './github.mjs';
 import { checkLedger, entryFile } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
@@ -38,7 +38,7 @@ export function merge(root, n, opts = {}) {
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
-  if (!id) fail(`pull request ${n} is not from a job branch`);
+  if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
 
   // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
   const first = io.checkRun(slug, pr.head.sha, 'gate');
@@ -103,9 +103,45 @@ export function merge(root, n, opts = {}) {
   }
 }
 
-// The merge itself, guarded by the tip the gate passed (a current tip only).
-export function mergePR(slug, n, sha) {
+// The merge itself, guarded by the tip the checks passed (a current tip only).
+export function mergePR(slug, n, sha, { title = `Merge job PR ${n}`, message } = {}) {
   return gh(['api', '-X', 'PUT', `repos/${slug}/pulls/${n}/merge`, '--input', '-'], {
-    input: JSON.stringify({ sha, merge_method: 'merge', commit_title: `Merge job PR ${n}` }),
+    input: JSON.stringify({ sha, merge_method: 'merge', commit_title: title, ...(message ? { commit_message: message } : {}) }),
   });
+}
+
+// merge --plain: every pull request BOB merges that is not a job's (pin moves, metrics rows,
+// config). Bob denies the connector's merge tool, `gh pr merge` and `gh api .../merge` to
+// every session (2 Nov), so this is the one route for them. Into the tranche or a working
+// branch, or the tranche into main; every check the base's rulesets require green on the
+// head; a merge commit pinned to that head. It writes no merge row and pushes nothing.
+export function mergePlain(root, n, opts = {}) {
+  const { reviewed, noReview, log = console.log } = opts;
+  const io = { getPR, requiredChecks, checkState, mergePR, ...(opts.io || {}) };
+  if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
+  const cfg = loadConfig(root);
+  const slug = opts.slug || repoSlug(root);
+  const pr = io.getPR(slug, n);
+  if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
+  if (pr.draft) fail(`pull request ${n} is a draft`);
+  const base = pr.base.ref;
+  const head = pr.head.ref;
+  if (pr.head.repo?.full_name && pr.head.repo.full_name !== slug) fail(`pull request ${n} comes from ${pr.head.repo.full_name}, not ${slug}`);
+  if (/^job\//.test(head)) fail(`pull request ${n} is a job's (${head}); merge it without --plain`);
+  if (/^job\//.test(base)) fail(`pull request ${n} is into ${base}, a job's branch`);
+  const main = base === 'main' || base === pr.base.repo?.default_branch;
+  if (main && head !== cfg.tranche) fail(`only the tranche ${cfg.tranche} merges into ${base}, not ${head}`);
+  const names = io.requiredChecks(slug, base);
+  if (!Array.isArray(names)) fail(`could not read the checks ${base} requires`);
+  const states = names.map((name) => ({ name, state: io.checkState(slug, pr.head.sha, name) }));
+  const red = states.filter((c) => c.state !== 'success');
+  if (red.length) fail(`not every required check is green on ${pr.head.sha.slice(0, 10)}: ${red.map((c) => `${c.name} ${c.state}`).join(', ')}`);
+  log(names.length ? `required checks green on ${pr.head.sha.slice(0, 10)}: ${names.join(', ')}` : `note: ${base} requires no checks`);
+  const r = io.mergePR(slug, n, pr.head.sha, {
+    title: `Merge PR ${n}: ${head} into ${base}`,
+    message: reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`,
+  });
+  if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
+  log(`merged pull request ${n} at ${r.sha} (${now()})`);
+  return { merged: true, sha: r.sha, checks: names };
 }
