@@ -1,6 +1,7 @@
 // Record check (REC-10, your direction 1 Nov). Every commit in a range, merges included, is
 // checked for files over the size limit, writes under transient paths, and changes to the
-// approvals that did not come from the owner's own commit through GitHub's website. The
+// approvals or to the settings under .claude/ that did not come from the owner's own commit
+// through GitHub's website. The
 // config it uses is read from the base, never from the change it judges.
 import { basename } from 'node:path';
 import { checkLedger } from './ledger.mjs';
@@ -57,7 +58,12 @@ function introduced(root, sha, parents) {
 }
 
 const isInstructionFile = (f) => ['CLAUDE.md', 'CLAUDE.local.md'].includes(basename(f)) || (f.startsWith('.claude/') && f.endsWith('.md'));
-const PROTECTED = ['.github/workflows/', '.claude/settings.json', '.process', CONFIG_FILE, 'tool/', 'schema/'];
+// Settings under .claude/ (settings.json, hooks, anything not an instruction .md file) are the
+// owner's: like the approvals, only the owner's own website commit may change them. A deny
+// rule cannot stop an edit made through the shell; this check holds every route (Bob's
+// standing rule: sessions never change permission settings).
+const isOwnerSetting = (f) => f.startsWith('.claude/') && !isInstructionFile(f);
+const PROTECTED = ['.github/workflows/', '.process', CONFIG_FILE, 'tool/', 'schema/'];
 // Files the checks themselves stand on: removing one is a finding, not a notice.
 const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml', '.github/workflows/process-record.yml'];
 
@@ -119,6 +125,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         if (PROTECTED.some((p) => underPath(file, p))) {
           notices.push({ check: 'protected', file, line: 1, message: `commit ${short} changes a protected path; it needs the fresh-context review (rule 5)` });
         }
+        if (isOwnerSetting(file)) approvalsTouched.push({ file, line: 1, check: 'settings', what: `${file}, which is the owner's setting,` });
         if (!ls) { // deleted
           if (KEEP.includes(file)) findings.push({ check: 'path', file, line: 1, message: `commit ${short} removes ${file}, which the checks stand on` });
           continue;
@@ -150,7 +157,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       }
       for (const t2 of approvalsTouched) {
         const v = ownerCommit(sha);
-        if (!v.ok) findings.push({ check: 'approvals', file: t2.file, line: t2.line, message: `commit ${short} changes ${t2.what || 'the approvals'} but is not ${cfg.approvals.owner}'s own commit through GitHub's website (${v.why})` });
+        if (!v.ok) findings.push({ check: t2.check || 'approvals', file: t2.file, line: t2.line, message: `commit ${short} changes ${t2.what || 'the approvals'} but is not ${cfg.approvals.owner}'s own commit through GitHub's website (${v.why})` });
       }
     } catch (e) {
       findings.push({ check: 'record', file: '(commit)', line: 1, message: `commit ${short} could not be checked: ${e.message}` });

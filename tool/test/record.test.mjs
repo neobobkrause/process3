@@ -270,3 +270,58 @@ test('a config that is not a JSON object is refused with a clear error', () => {
   const root = makeRepo({ 'process/config.json': 'null\n' });
   assert.throws(() => recordSince(root, { base: undefined }), /is not a JSON object/);
 });
+
+// The settings under .claude/ are the owner's (Bob's standing rule: sessions never change
+// permission settings): a finding unless the owner's own website commit, as the approvals.
+const settings = (deny) => JSON.stringify({ permissions: { deny } }) + '\n'; // small: the test limit is 100 bytes
+
+test('the owner\'s website commit may change .claude/settings.json', () => {
+  const root = makeRepo({ '.claude/settings.json': settings(['Bash(git push -f *)']) });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const sha = commit(root, { '.claude/settings.json': settings(['Bash(git push -f *)', 'Bash(gh pr merge *)']) });
+  const r = recordCheck(root, cfg, { base, lookup: webFor(sha) });
+  assert.deepEqual(r.findings, []);
+  assert.ok(!r.notices.some((n) => n.file === '.claude/settings.json'), 'a finding or nothing, not a notice');
+});
+
+test('a session\'s commit changing .claude/settings.json, or removing it, is a finding', () => {
+  const root = makeRepo({ '.claude/settings.json': settings(['Bash(git push -f *)']) });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { '.claude/settings.json': settings([]) });
+  const f = recordCheck(root, cfg, { base, lookup: session }).findings;
+  assert.equal(f.length, 1);
+  assert.equal(f[0].check, 'settings');
+  assert.match(f[0].message, /changes \.claude\/settings\.json, which is the owner's setting, but is not neobobkrause's own commit through GitHub's website/);
+  const next = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['rm', '-q', '.claude/settings.json'], { cwd: root });
+  git(['commit', '-q', '-m', 'drop'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: next, lookup: session }).findings.map((x) => [x.check, x.file]), [['settings', '.claude/settings.json']]);
+});
+
+test('a hooks file under .claude/ is the owner\'s too; an instruction file there is not', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { '.claude/hooks/session-start.sh': 'exit 0\n', '.claude/rules/style.md': 'Write plain words.\n' });
+  const f = recordCheck(root, cfg, { base, lookup: session }).findings;
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['settings', '.claude/hooks/session-start.sh']]);
+});
+
+test('a merge carrying the owner\'s settings commit unchanged is not a finding', () => {
+  const root = makeRepo({ '.claude/settings.json': settings(['Bash(git push -f *)']), 'a.txt': 'a' });
+  git(['checkout', '-q', '-b', 'side'], { cwd: root });
+  const owner = commit(root, { '.claude/settings.json': settings(['Bash(git push -f *)', 'Bash(gh pr merge *)']) }, 'Bob, on the website');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const base = commit(root, { 'b.txt': 'b' });
+  git(['merge', '-q', '--no-edit', 'side'], { cwd: root });
+  // Only the owner's commit is judged for the file; the session's merge introduces nothing.
+  const r = recordCheck(root, cfg, { base, lookup: webFor(owner) });
+  assert.equal(r.commits, 2);
+  assert.deepEqual(r.findings, []);
+  // The same merge writing its own settings is judged as the session's.
+  git(['reset', '-q', '--hard', base], { cwd: root });
+  git(['merge', '-q', '--no-commit', 'side'], { cwd: root });
+  write(root, { '.claude/settings.json': settings([]) });
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', 'merge that rewrites the settings'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: webFor(owner) }).findings.map((x) => x.check), ['settings']);
+});
