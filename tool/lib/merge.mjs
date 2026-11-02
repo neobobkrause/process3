@@ -9,6 +9,7 @@ import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestRece
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
+import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
 import { CONFIG_FILE, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
@@ -126,8 +127,12 @@ const blobAt = (root, rev, path) => {
   return r.code === 0 ? r.stdout.trim() : null;
 };
 
+// process3's own address: the one the shims fall back to when a product names none
+// (shims/process-gate.yml, shims/process-record.yml); a test holds them equal.
+export const PROCESS3 = 'https://github.com/neobobkrause/process3';
+
 // process3 as the tool's own clone holds it: whether a pin is released (a commit on its
-// tranche or main), and the blob of a shim at that pin.
+// tranche or main), the blob of a shim at that pin, and process3's own address.
 export function processRepo(dir = TOOL_ROOT) {
   let fetched = false;
   const fetch = () => {
@@ -138,6 +143,7 @@ export function processRepo(dir = TOOL_ROOT) {
     released: (pin) => { fetch(); return ['origin/tranche', 'origin/main'].some((r) => git(['merge-base', '--is-ancestor', pin, r], { cwd: dir, allowFail: true }).code === 0); },
     shim: (pin, name) => blobAt(dir, pin, `shims/${name}`),
     descends: (from, to) => { fetch(); return git(['merge-base', '--is-ancestor', from, to], { cwd: dir, allowFail: true }).code === 0; },
+    address: () => PROCESS3,
   };
 }
 
@@ -147,11 +153,32 @@ const processRepoOf = (root, rev) => {
   try { return r.code === 0 ? JSON.parse(r.stdout).process_repo ?? null : null; } catch { return 'unreadable'; }
 };
 
+const hasConfig = (root, rev) => git(['cat-file', '-e', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true }).code === 0;
+// The commit on rev's first-parent history at which process_repo took the value it has at rev:
+// the newest first-parent commit whose first parent holds another value (or that has none).
+export function processRepoSetAt(root, rev) {
+  const value = processRepoOf(root, rev);
+  // Only a commit that changes the file against its first parent can change the value.
+  const touched = git(['log', '--first-parent', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
+  for (const c of touched) {
+    if (processRepoOf(root, c) !== value) return null; // cannot happen on a first-parent line
+    if (processRepoOf(root, `${c}^1`) !== value) return c;
+  }
+  return null;
+}
+
 // A plain pull request may move the process pin only forward, to a released process3 commit
 // (on its tranche or main) that descends from the base's pin: no unreleased pin, no downgrade.
 // Changing where the process comes from (process_repo) needs the owner's word (third
-// confirming review of PR 14).
-export function pinChange(root, mb, sha, repo) {
+// confirming review of PR 14), with two exceptions where the tool already holds that word
+// (build 22, 2 Nov):
+// - the tranche into main may carry the tranche's process_repo when the commit on the
+//   tranche's first-parent history at which it took that value is the owner's own commit
+//   through GitHub's website (his direct edit, or his website merge of a pull request);
+// - at onboarding, a pull request into the tranche may set process_repo to process3's own
+//   address when the base has no process config at all.
+// at: { intoMain, intoTranche, baseRef, ownerCommit(sha) -> { ok } }.
+export function pinChange(root, mb, sha, repo, at = {}) {
   const was = pinAt(root, mb);
   const now = pinAt(root, sha);
   if (now !== was) {
@@ -159,7 +186,18 @@ export function pinChange(root, mb, sha, repo) {
     if (!repo.released(now)) fail(`the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
     if (was && !repo.descends(was, now)) fail(`the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
   }
-  if (processRepoOf(root, sha) !== processRepoOf(root, mb)) fail(`the pull request changes process_repo in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
+  const value = processRepoOf(root, sha);
+  if (value === processRepoOf(root, mb)) return;
+  const usable = typeof value === 'string' && value !== 'unreadable';
+  if (usable && at.intoMain && at.ownerCommit) {
+    const c = processRepoSetAt(root, sha);
+    if (c && at.ownerCommit(c)?.ok === true) return;
+  }
+  if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef))) {
+    const own = repo.address?.();
+    if (own && value === own) return;
+  }
+  fail(`the pull request changes process_repo in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
@@ -234,7 +272,14 @@ export function mergePlain(root, n, opts = {}) {
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
-  pinChange(root, mb, pr.head.sha, io.repo);
+  // The owner and the tranche's name are read from the base's config, never from the change
+  // it judges; an unreadable base config grants no exception.
+  let baseCfg = null;
+  try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
+  pinChange(root, mb, pr.head.sha, io.repo, {
+    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche: Boolean(baseCfg) && base === baseCfg.tranche, baseRef,
+    ownerCommit: (c) => webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug),
+  });
   // Another open pull request from the same head would share its check runs.
   const same = io.openFrom(slug, head);
   if (!same) fail(`could not read the open pull requests from ${head}`);
