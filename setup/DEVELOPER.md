@@ -5,7 +5,7 @@ There are 11 steps. Take them in order, in one sitting, with no pause: none of t
 The order, in short:
 - Steps 1 and 2: your account and the repository, signed in as yourself.
 - Step 3: the session account's part, in a private window, so your own window stays signed in as you.
-- Steps 4 to 8: while you take these, BOB pushes the tranche and runs the gate once.
+- Steps 4 to 8: while you take these, BOB pushes the tranche (after Step 3) and runs the gate once (after Step 4).
 - Steps 9 and 10: the approvals and the deny list, as your own commits directly on the tranche.
 - Step 11, last: the ruleset on `main` and the tranche, which stops direct commits to them.
 
@@ -16,7 +16,7 @@ When you are done, tell BOB on the onboarding page. BOB starts a fresh session (
 Words used below, filled in when BOB shows you this page for your product: `<owner>/<product>` is the repository; `<session account>` is the second GitHub account the Claude sessions act as; `<tranche>` is the tranche's name. The **tranche** is the branch the sessions' work collects in before it reaches `main` (named `tranche` unless `process/config.json` says otherwise). The **required check** is `gate` unless `process/config.json` names another.
 
 Two rules for every edit you make on github.com:
-- Only an edit made on github.com in the browser, signed in as yourself, counts: the pencil (**Edit this file**) or **Add file**, then **Create new file**. An upload (**Add file**, then **Upload files**), GitHub Desktop or a `git push` does not count, and the checks report it.
+- Only an edit made on github.com in the browser, signed in as yourself, counts: the pencil (**Edit this file**) or **Add file**, then **Create new file**. Do not upload a file (**Add file**, then **Upload files**), use GitHub Desktop, or `git push`: the edit page shows you exactly the text you commit, and the checks report any commit that is not your own website commit.
 - If GitHub offers to commit only to a new branch, it opens a pull request on the next page. On that page, set **base** to the tranche, not `main`, before you click **Create pull request**.
 
 ## Step 1. Own the product's repository
@@ -27,7 +27,7 @@ Clicks: signed in to github.com as yourself. If the repository does not exist ye
 
 How BOB confirms: BOB can open the repository with `gh api repos/<owner>/<product>`, and its owner is you.
 
-Sets: none, because the setup check reads this repository, so it cannot run before the repository is yours; Step 2's `account` reads it.
+Sets: none, because the setup check reads this repository, so it cannot run before the repository is yours; Step 3's `account` reads it.
 
 ## Step 2. Install the Claude GitHub App, and invite the session account, as yourself
 
@@ -50,9 +50,9 @@ Why: the sessions act on GitHub through Claude's GitHub connection. If it is con
 Clicks:
 1. Open a private window: in Chrome or Edge press Ctrl+Shift+N (Cmd+Shift+N on a Mac); in Firefox, Ctrl+Shift+P (Cmd+Shift+P); in Safari, **File**, then **New Private Window**.
 2. In the private window, open `https://github.com/login` and sign in as `<session account>`. Open `https://github.com/<owner>/<product>/invitations` and click **Accept invitation**.
-3. In the same private window, open `https://claude.ai/connect-github`, sign in to claude.ai with your own Claude account, and connect (or reconnect) GitHub. When GitHub asks you to authorize Claude, check that the account shown at the top is `<session account>`, then click **Authorize**. If it asks to install the app, it is already installed (Step 2): click **Configure** and leave it as it is.
+3. In the same private window, open `https://claude.ai/connect-github` and sign in to claude.ai with your own Claude account. If claude.ai emails you a sign-in link, copy the link (or the code) from the email into the private window, not your normal one, so the sign-in lands there. Then connect (or reconnect) GitHub. When GitHub asks you to authorize Claude, check that the account shown at the top is `<session account>`, then click **Authorize**. If GitHub offers to install the Claude app on `<session account>`, close that page without installing: Step 2 already installed it on the repository.
 4. Close the private window. Your own window is still signed in to github.com as you.
-5. On the onboarding page, tell BOB Step 3 is done. BOB then pushes the tranche and runs the gate once while you take Steps 4 to 8.
+5. On the onboarding page, tell BOB Step 3 is done. BOB then pushes the tranche while you go on with Step 4.
 
 How BOB confirms: `p3 setup check` shows `account` set (push, not admin), and the account it names is `<session account>`, not yours.
 
@@ -60,12 +60,13 @@ Sets: `account`.
 
 ## Step 4. Actions settings, secrets and environments
 
-Why: the gate runs the product's code from every pull request. Only its posting step gets a token that can write, and only for that step; no deploy or release key may be within the gate's reach, since those live in Claude's cloud environment (Step 8). The gate's records must be kept 90 days, because a merge trusts a gate result only while its record still exists. A record keeps the retention set when it was made, so take this step first of Steps 4 to 8.
+Why: the gate runs the product's code from every pull request. Only its posting step gets a token that can write, and only for that step; no deploy or release key may be within the gate's reach, since those live in Claude's cloud environment (Step 8). The gate's records must be kept 90 days, because a merge trusts a gate result only while its record still exists. A record keeps the retention set when it was made, so take this step first of Steps 4 to 8, and tell BOB when it is saved: BOB runs the gate once only then.
 
 Clicks:
 1. Open `https://github.com/<owner>/<product>/settings/actions` (**Settings**, then **Actions**, then **General**). Under **Artifact and log retention**, enter `90` days and click **Save**. Under **Workflow permissions**, choose **Read repository contents and packages permissions**, untick **Allow GitHub Actions to create and approve pull requests**, and click **Save**.
 2. **Settings**, then **Secrets and variables**, then **Actions**: there should be no repository secrets.
 3. **Settings**, then **Environments**: there should be none. If one must exist, open it and under **Deployment branches and tags** choose **Selected branches and tags** with `main` only.
+4. On the onboarding page, tell BOB Step 4 is saved. BOB runs the gate once while you take Steps 5 to 8.
 
 How BOB confirms: `p3 setup check` shows `artifact-retention` set once the gate has run (`unmeasured` before then). The other three cannot be read by a session, so you confirm them on the onboarding page.
 
@@ -110,16 +111,16 @@ Sets: `ruleset-all-branches`, `ruleset-bypass`.
 Why: the process deploys the product so walkers can run and each round can find and fix flaws, unattended. The sessions need the product's deploy token for that, in their own environment. The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email, so the token needs each scope below; without Workers KV, `wrangler delete` exits with an error after it has succeeded.
 
 Clicks:
-1. On `https://dash.cloudflare.com`, signed in to the account `process/config.json` names as `"cloudflare_account"`, click your profile icon (top right), then **My Profile**, then **API Tokens**, then **Create Token**. Next to **Create Custom Token**, click **Get started**.
+1. On `https://dash.cloudflare.com`, sign in. The product's account is the one whose **Account ID** is the value `process/config.json` names as `"cloudflare_account"` (BOB shows it on the onboarding page; each account's ID is on its **Account home**, under the account's name, or in the URL after `dash.cloudflare.com/`). R2 must already be enabled on that account (its **R2 Object Storage** page opens without asking you to subscribe). Click your profile icon (top right), then **My Profile**, then **API Tokens**, then **Create Token**. Next to **Create Custom Token**, click **Get started**.
 2. Name it (for example `<product> development`). Under **Permissions**, add these four rows, using **+ Add more** for each after the first, all under **Account**:
    - **Workers Scripts**: **Edit**
    - **Workers R2 Storage**: **Edit**
    - **Containers**: **Edit**
    - **Workers KV Storage**: **Read**
-3. Under **Account Resources**, choose **Include** and the product's account. Click **Continue to summary**, then **Create Token**, and copy the token. Never paste it into a chat.
-4. On claude.ai, open any Claude Code session for this product. Click the cloud environment menu in the session's title bar, then **Edit**. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable (not under Network secrets), because `p3 setup check` and the product's deploy tools read environment variables. Set `CLOUDFLARE_API_TOKEN` to the token, and `CLOUDFLARE_ACCOUNT_ID` to the account `process/config.json` names as `"cloudflare_account"`. Click **Save**.
+3. Under **Account Resources**, choose **Include** and the product's account (the one with that Account ID). Click **Continue to summary**, then **Create Token**, and copy the token. Never paste it into a chat.
+4. On claude.ai, open any Claude Code session for this product. Click the cloud environment menu in the session's title bar, then **Edit**. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable (not under Network secrets), because `p3 setup check` and the product's deploy tools read environment variables. Set `CLOUDFLARE_API_TOKEN` to the token, and `CLOUDFLARE_ACCOUNT_ID` to that Account ID. Click **Save**.
 
-How BOB confirms: the variables reach only sessions started after you save, so BOB confirms from a new session. `p3 setup check` there shows `environment` set (it prints only the names), `deploy-account` set (it prints only the configured account and whether it matches), and `deploy-token` set: it makes one harmless read per scope (list Workers scripts, list R2 buckets, list containers, list KV namespaces) and reports each scope present or missing, never printing the token. Before `process/config.json` lists them, all three show `not configured`.
+How BOB confirms: the variables reach only sessions started after you save, so BOB confirms from a new session. `p3 setup check` there shows `environment` set (it prints only the names), `deploy-account` set (it prints only the configured account and whether it matches), and `deploy-token` set: it makes one harmless read per scope (list Workers scripts, list R2 buckets, list containers, list KV namespaces) and reports each scope present or missing, never printing the token. A read cannot tell Edit from Read, so choose **Edit** exactly as listed above. Before `process/config.json` lists them, all three show `not configured`.
 
 Sets: `environment`, `deploy-account`, `deploy-token`.
 
@@ -136,10 +137,11 @@ Clicks: signed in to github.com as yourself, in your own window.
    ## Standing approvals from Bob
    ```
 
-3. Under it, paste your approvals: the text is your own, from your onboarding page. Leave any other part of the file as it is.
-4. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
+3. Under it, paste your approvals: the text is your own, from your onboarding page. Give your text no heading of its own that holds the word "approval" (the checks count every such heading, and allow one). Leave any other part of the file as it is.
+4. Make the change here, in the browser, signed in as yourself. An upload, GitHub Desktop or a `git push` does not count.
+5. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
 
-How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, last changed by your own commit through GitHub's website. The record check also reports any later change to the approvals that is not your own website commit.
+How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, last changed by your own commit through GitHub's website. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"` (by default `neobobkrause`). The record check also reports any later change to the approvals that is not your own website commit.
 
 Sets: `approvals`.
 
@@ -150,27 +152,27 @@ Why: the deny list stops every session from force-pushing, deleting a branch, wr
 Clicks: signed in to github.com as yourself, in your own window.
 
 1. Open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche. If GitHub says the file already exists, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text.
-2. Paste this whole file, exactly. It holds no rule that would block a session's push of its own branch, such as `"Bash(git push origin :*)"`:
+2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. It holds no rule that would block a session's push of its own branch, such as `"Bash(git push origin :*)"`:
 
-```json
-{
-  "permissions": {
-    "deny": [
-      "Bash(git push --force *)",
-      "Bash(git push -f *)",
-      "Bash(git push --force-with-lease *)",
-      "Bash(git push origin --delete *)",
-      "mcp__github__create_or_update_file",
-      "mcp__github__push_files",
-      "mcp__github__delete_file",
-      "Bash(gh api *contents/*)",
-      "mcp__github__merge_pull_request",
-      "Bash(gh pr merge *)",
-      "Bash(gh api *pulls/*/merge*)"
-    ]
-  }
-}
-```
+   ```json
+   {
+     "permissions": {
+       "deny": [
+         "Bash(git push --force *)",
+         "Bash(git push -f *)",
+         "Bash(git push --force-with-lease *)",
+         "Bash(git push origin --delete *)",
+         "mcp__github__create_or_update_file",
+         "mcp__github__push_files",
+         "mcp__github__delete_file",
+         "Bash(gh api *contents/*)",
+         "mcp__github__merge_pull_request",
+         "Bash(gh pr merge *)",
+         "Bash(gh api *pulls/*/merge*)"
+       ]
+     }
+   }
+   ```
 
 3. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
 
@@ -186,7 +188,7 @@ Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**
 1. Name it (for example `process3`). Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
 2. Under **Target branches**, click **Add target**, then **Include by pattern**, and enter `main`. Do it again for the tranche's name.
 3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**.
-4. Tick **Require status checks to pass**, click **Add checks**, type `gate`, and pick the one whose source is **GitHub Actions** (BOB ran the gate once while you took Steps 4 to 8, so it is offered). If it is not offered, type `gate` in full, add it, and set its source to **GitHub Actions**, not any source.
+4. Tick **Require status checks to pass**, click **Add checks**, type `gate`, and pick the one whose source is **GitHub Actions** (BOB ran the gate once after Step 4, so it is offered). If it is not offered, type `gate` in full, add it, and set its source to **GitHub Actions**, not any source.
 5. Click **Create**.
 
 How BOB confirms: `p3 setup check` shows `ruleset-main-tranche` set. The bypass list cannot be read whole by a session, so you confirm it on the onboarding page.

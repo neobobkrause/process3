@@ -92,7 +92,7 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   if (push) {
     const s = setup(root, { slug, log });
     // A session started from the wrong branch holds no approvals (Bob, 2 Nov): say so plainly.
-    if (s.missing.includes('session-branch')) fail(`this session was not started from the ${cfg.tranche} branch, so it holds no standing approvals; nothing was started. Start the session again from the ${cfg.tranche} branch${s.missing.length > 1 ? ` (also missing: ${s.missing.filter((m) => m !== 'session-branch').join(', ')})` : ''}`);
+    if (s.missing.includes('session-branch')) fail(`this session was not started from the ${s.tranche || cfg.tranche} branch, so it holds no standing approvals; nothing was started. Start the session again from the ${s.tranche || cfg.tranche} branch${s.missing.length > 1 ? ` (also missing: ${s.missing.filter((m) => m !== 'session-branch').join(', ')})` : ''}`);
     if (!s.ok) fail(`the setup is not complete (${s.missing.join(', ')}); nothing was started. Bob sets what is missing; p3 setup check shows it`);
   }
   const branch = `job/${id}`;

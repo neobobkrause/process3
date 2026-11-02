@@ -106,7 +106,7 @@
         "last_changed_by": "the owner's commit through GitHub's website"
       },
       "who": "the developer, committing it on the tranche through GitHub's website, signed in as the owner",
-      "read": "the file on origin/<tranche>, through git: the approvals headings; the newest commit whose approvals block differs from every parent's, then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner)"
+      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner)"
     },
     {
       "id": "artifact-retention",
@@ -128,11 +128,11 @@
     },
     {
       "id": "session-branch",
-      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip, or is a commit the tranche holds.",
+      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip, or it branched from a tranche commit that main does not hold and carries the tranche's current approvals block.",
       "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
-      "value": "HEAD descends from origin/<tranche>, or origin/<tranche> holds HEAD",
+      "value": "HEAD descends from origin/<tranche>; or merge-base(HEAD, origin/<tranche>) is not in origin/main and HEAD's approvals block equals the tranche's",
       "who": "BOB and every session it starts: start from the tranche",
-      "read": "git in the session's own checkout: merge-base --is-ancestor between HEAD and origin/<tranche>, either way"
+      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else merge-base HEAD origin/<tranche>, checked against origin/main, and the approvals block at HEAD and at origin/<tranche>"
     },
     {
       "id": "environment",
@@ -173,7 +173,7 @@
         }
       ],
       "who": "the developer (a Cloudflare API token, saved in the Claude cloud environment's settings)",
-      "read": "one harmless GET per scope on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 and success true is present; each scope reported present or missing; the token is never printed; not configured when the config names no cloudflare_account"
+      "read": "one harmless GET per scope on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 with success true (or a bare JSON answer) is present; each scope reported present or missing; a read cannot tell Edit from Read; the token is never printed; not configured when the config names no cloudflare_account"
     },
     {
       "id": "ruleset-bypass",

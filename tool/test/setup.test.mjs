@@ -188,16 +188,17 @@ test('the files are read from the tranche on origin, through git', () => {
   git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
   const w = world();
   commit(r, w.files, 'setup');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  // The local checkout is main, which has neither file.
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  // The local checkout is main, which has neither file; every file is read from the tranche, and
+  // the one gap is the session's own branch: main is not the tranche (reviews of PR 24).
   git(['checkout', '-q', 'main'], { cwd: r });
   const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet });
-  assert.equal(res.ok, true, JSON.stringify(res.results));
+  assert.deepEqual(res.missing, ['session-branch'], JSON.stringify(res.results));
   assert.equal(state(res, 'coordinator').detail, 'session_bob');
   // The approvals' last change and the session's branch are read through git too.
   const sha = git(['rev-parse', 'origin/tranche'], { cwd: r });
   assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${sha.slice(0, 10)}`);
-  assert.equal(state(res, 'session-branch').detail, 'main is a commit tranche holds');
+  assert.equal(state(res, 'session-branch').detail, 'main is neither tranche nor a branch from it. Start the session from the tranche branch');
   // A later commit on the tranche that leaves the block alone does not move its last change;
   // one that edits the block does, and it is not the owner's website commit.
   git(['checkout', '-q', 'tranche'], { cwd: r });
@@ -219,7 +220,7 @@ test('the files are read from the tranche on origin, through git', () => {
   git(['checkout', '-q', '-b', 'stray', 'main'], { cwd: r });
   commit(r, { 'stray.txt': 's' }, 'stray');
   assert.match(state(setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet }), 'session-branch').detail,
-    /stray is neither tranche nor a branch from its tip\. Start the session from the tranche branch/);
+    /stray is neither tranche nor a branch from it\. Start the session from the tranche branch/);
 });
 
 test('job start runs the setup check first and starts nothing while a condition is missing', () => {
@@ -244,8 +245,8 @@ test('job start runs the setup check first and starts nothing while a condition 
 
 // The developer's steps (Bob, 2 Nov): setup/DEVELOPER.md holds only the owner's acts, checked
 // against the list by the real checker.
-import { readFileSync } from 'node:fs';
-import { DEVELOPER, bashRuleMatches, checkDeveloperSteps } from '../lib/setup.mjs';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
+import { DEVELOPER, bashRuleMatches, checkDeveloperSteps, cloudflareRead, lastApprovalsChange, sessionOnTranche } from '../lib/setup.mjs';
 
 test('DEVELOPER.md: every step complete, every developer condition covered, only theirs named, the deny lines the list\'s', () => {
   assert.deepEqual(checkDeveloperSteps(readFileSync(DEVELOPER, 'utf8')), []);
@@ -414,7 +415,7 @@ test('the step checker: a step naming no condition says why; website commits set
   const noBase = text.split('set **base** to the tranche, not `main`').join('set the base');
   assert.ok(checkDeveloperSteps(noBase).some((p) => /^Step 9\. .*does not say to set base to the tranche/.test(p)));
   assert.ok(checkDeveloperSteps(noBase).some((p) => /^Step 10\. .*does not say to set base to the tranche/.test(p)));
-  assert.ok(checkDeveloperSteps(text.replace('```json\n{', '```json\n')).includes('the deny step does not show the whole .claude/settings.json as valid JSON'));
+  assert.ok(checkDeveloperSteps(text.replace('```json\n   {', '```json\n')).includes('the deny step does not show the whole .claude/settings.json as valid JSON'));
   assert.ok(checkDeveloperSteps(text.replace('There are 11 steps', 'There are 10 steps')).includes('the page says 10 steps, and has 11'));
   assert.ok(checkDeveloperSteps(text.replace('## Step 6.', '## Step 16.')).some((p) => /out of order, expected Step 6/.test(p)));
   // The page itself: the approvals before the deny list, both before the last ruleset; the
@@ -427,4 +428,134 @@ test('the step checker: a step naming no condition says why; website commits set
   for (const p of ['**Workers Scripts**: **Edit**', '**Workers R2 Storage**: **Edit**', '**Containers**: **Edit**', '**Workers KV Storage**: **Read**']) assert.ok(text.includes(p), p);
   assert.match(text, /BOB's setup puts nothing under `\.claude\/`/);
   assert.match(text, /BOB's setup puts nothing in the approvals block/);
+});
+
+// Reviews of PR 24: the approvals' last change by ancestry, a shallow clone, the session's
+// branch, the Cloudflare read itself, and the step checker's "none" lines.
+const HEAD_ = '## Standing approvals from Bob';
+const claude = (words) => `# P\n\n${HEAD_}\n\n${words}\n`;
+function originRepo() {
+  const r = makeRepo({ 'README.md': 'x' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: r });
+  git(['remote', 'add', 'origin', bare], { cwd: r });
+  return { r, bare };
+}
+const tip = (r, ref = 'HEAD') => git(['rev-parse', ref], { cwd: r });
+
+test('lastApprovalsChange follows ancestry, not dates: a merge that keeps a side commit\'s block names that commit', () => {
+  for (const keep of ['side', 'owner']) {
+    const { r } = originRepo();
+    git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+    commit(r, { 'CLAUDE.md': claude('A') }, 'owner first');
+    git(['checkout', '-q', '-b', 'job/x'], { cwd: r });
+    commit(r, { 'CLAUDE.md': claude('EVIL') }, 'session widens');
+    const n = tip(r);
+    git(['checkout', '-q', 'tranche'], { cwd: r });
+    commit(r, { 'CLAUDE.md': claude('B') }, 'owner second');
+    const w = tip(r);
+    git(['merge', '-q', '--no-ff', '--no-commit', 'job/x'], { cwd: r, allowFail: true });
+    commit(r, { 'CLAUDE.md': claude(keep === 'side' ? 'EVIL' : 'B') }, 'merge');
+    git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+    assert.equal(lastApprovalsChange(r, 'tranche', 'CLAUDE.md', HEAD_), keep === 'side' ? n : w, keep);
+  }
+  // A merge whose block is neither parent's is itself the change; no block at the tip is null.
+  const { r } = originRepo();
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  commit(r, { 'CLAUDE.md': '# P\n' }, 'no block');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  assert.equal(lastApprovalsChange(r, 'tranche', 'CLAUDE.md', HEAD_), null);
+});
+
+test('lastApprovalsChange deepens a shallow clone, and reports the edge rather than a wrong commit when it cannot', () => {
+  const { r, bare } = originRepo();
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  commit(r, { 'CLAUDE.md': claude('A') }, 'owner');
+  const owner = tip(r);
+  for (let i = 0; i < 3; i++) commit(r, { 'CLAUDE.md': `${claude('A')}\n## Notes\n\nn${i}\n` }, `notes ${i}`);
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  const dir = mkdtempSync(join(tmpdir(), 'p3-shallow-'));
+  const c = join(dir, 'c');
+  git(['clone', '-q', '--depth', '1', '--branch', 'tranche', `file://${bare}`, c], { cwd: dir });
+  assert.equal(lastApprovalsChange(c, 'tranche', 'CLAUDE.md', HEAD_), owner);
+  const c2 = join(dir, 'c2');
+  git(['clone', '-q', '--depth', '1', '--branch', 'tranche', `file://${bare}`, c2], { cwd: dir });
+  git(['remote', 'set-url', 'origin', join(dir, 'nowhere.git')], { cwd: c2 });
+  assert.deepEqual(lastApprovalsChange(c2, 'tranche', 'CLAUDE.md', HEAD_), { shallow: tip(c2, 'origin/tranche') });
+  const w = world();
+  w.lastChange = { shallow: 'abcdef1234567' };
+  assert.match(state(check(w), 'approvals').detail, /is shallow at abcdef1234 and could not be deepened/);
+});
+
+test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch, or stale approvals are not', () => {
+  const { r } = originRepo();
+  git(['push', '-q', 'origin', 'main'], { cwd: r });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  commit(r, { 'CLAUDE.md': claude('A') }, 'owner');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  const on = () => sessionOnTranche(r, 'tranche');
+  assert.deepEqual(on(), { ok: true, why: 'tranche descends from the tip of tranche' });
+  git(['checkout', '-q', '--detach', 'tranche'], { cwd: r });
+  assert.match(on().why, /^this checkout \(detached at [0-9a-f]+\) descends from the tip of tranche$/);
+  // A build branch cut from the tranche, with its own commits, after the tranche moved on.
+  git(['checkout', '-q', '-b', 'build/x', 'tranche'], { cwd: r });
+  commit(r, { 'b.txt': 'b' }, 'build');
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  commit(r, { 't.txt': 't' }, 'tranche moves');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  git(['checkout', '-q', 'build/x'], { cwd: r });
+  assert.deepEqual(on(), { ok: true, why: 'build/x started from tranche and holds its approvals' });
+  // The tranche's approvals changed since: the old checkout does not hold them.
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  commit(r, { 'CLAUDE.md': claude('B') }, 'owner again');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  git(['checkout', '-q', 'build/x'], { cwd: r });
+  assert.deepEqual(on(), { ok: false, why: 'build/x started from tranche but does not hold its current approvals' });
+  git(['checkout', '-q', 'main'], { cwd: r });
+  assert.deepEqual(on(), { ok: false, why: 'main is neither tranche nor a branch from it' });
+  assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here' });
+});
+
+test('cloudflareRead gives curl the token on stdin, never in its arguments, and reads status and success', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'p3-curl-'));
+  const fake = join(dir, 'curl');
+  writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' "$@" > "${dir}/argv"\ncat > "${dir}/stdin"\nprintf '%s\\n%s' "$FAKE_BODY" "$FAKE_STATUS"\n`);
+  chmodSync(fake, 0o755);
+  const saved = { PATH: process.env.PATH, FAKE_BODY: process.env.FAKE_BODY, FAKE_STATUS: process.env.FAKE_STATUS };
+  try {
+    process.env.PATH = `${dir}:${saved.PATH}`;
+    const env = { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value' };
+    for (const [body, status, want] of [['{"success":true,"result":[]}', '200', { status: 200, success: true }], ['[]', '200', { status: 200, success: true }], ['{"success":false}', '403', { status: 403, success: false }], ['not json', '502', { status: 502, success: false }]]) {
+      process.env.FAKE_BODY = body;
+      process.env.FAKE_STATUS = status;
+      assert.deepEqual(cloudflareRead('accounts/acc/r2/buckets', env), want, body);
+    }
+    const argv = readFileSync(join(dir, 'argv'), 'utf8');
+    assert.doesNotMatch(argv, /SECRET/);
+    assert.match(argv, /https:\/\/api\.cloudflare\.com\/client\/v4\/accounts\/acc\/r2\/buckets/);
+    assert.equal(readFileSync(join(dir, 'stdin'), 'utf8'), 'Authorization: Bearer tok-SECRET-value\n');
+  } finally {
+    for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  }
+});
+
+test('the step checker: a "none" line names nothing even with a backticked id, needs a real reason, and each website commit its base note', () => {
+  const text = readFileSync(DEVELOPER, 'utf8');
+  const s1 = /^Sets: none, because .*$/m;
+  assert.ok(checkDeveloperSteps(text.replace(s1, 'Sets: none of it.')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
+  assert.ok(checkDeveloperSteps(text.replace(s1, 'Sets: none `account`.')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
+  const p = checkDeveloperSteps(text.replace('Sets: `deny-list`.', 'Sets: none, because the record check holds `deny-list` anyway.'));
+  assert.ok(p.includes('deny-list is the developer\'s and has no step'), p.join('; '));
+  const two = text.replace('3. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**', '3. Click **Commit changes...** once more. Then click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**');
+  assert.ok(checkDeveloperSteps(two).some((q) => /^Step 10\. .*does not say to set base/.test(q)));
+  assert.ok(checkDeveloperSteps(text.replace('Why: every other step', 'Why: \u2013 every other step')).includes('an em-dash'));
+});
+
+test('job start names the tranche the setup check read', () => {
+  const repo = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: repo });
+  git(['remote', 'add', 'origin', bare], { cwd: repo });
+  assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch'], tranche: 'next' }), log: quiet }),
+    /not started from the next branch.*Start the session again from the next branch$/);
 });
