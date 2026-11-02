@@ -315,7 +315,8 @@ test('status: an unfinished start says to rerun job start; offline it does not c
 // Build 1 (start loop): decision 14, the coordinator's subscription, and GAT-5 in `test`.
 import { jobTest } from '../lib/job.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { MARK, moduleLocks } from '../lib/suite.mjs';
+import { MARK, install, moduleLocks } from '../lib/suite.mjs';
+import { createHash } from 'node:crypto';
 
 test('the START divides the labour: deploys and releases are the coordinator\'s, local wrangler runs the job\'s', () => {
   const root = product();
@@ -382,12 +383,13 @@ test('freshness is the lock file\'s hash left by a good install; a lock with no 
   writeFileSync(join(root, 'test/package-lock.json'), lock(true).replace('1.0.0', '1.0.1'));
   jobTest(root, 'alpha', { exec, log: quiet });
   assert.deepEqual(calls.map((c) => c.cwd), ['test'], 'the lock changed: installed again');
-  // A failed install leaves no mark, so the next run tries again.
-  writeFileSync(join(root, 'test/package-lock.json'), lock(true).replace('1.0.0', '2.0.0'));
+  // A failed install leaves no mark of the new lock, so the next run tries again.
+  const newLock = lock(true).replace('1.0.0', '2.0.0');
+  writeFileSync(join(root, 'test/package-lock.json'), newLock);
   const bad = jobTest(root, 'alpha', { exec: () => ({ code: 1, stdout: '', stderr: 'npm ERR! offline' }), log: quiet });
   assert.equal(bad.ok, false);
   assert.match(bad.install.findings[0].message, /npm ci failed: npm ERR! offline/);
-  assert.notEqual(readFileSync(join(root, 'test/node_modules', MARK), 'utf8').trim().length, 0);
+  assert.notEqual(readFileSync(join(root, 'test/node_modules', MARK), 'utf8').trim(), createHash('sha256').update(newLock).digest('hex'));
   calls.length = 0;
   jobTest(root, 'alpha', { exec, log: quiet });
   assert.deepEqual(calls.map((c) => c.cwd), ['test']);
@@ -444,11 +446,45 @@ test('job start reprints the launch and the subscription when the pull request i
   assert.equal(again.resumed, true);
   assert.equal(f.state.prs, 1, 'no second pull request');
   assert.equal(again.pr.number, 9);
-  assert.match(out.join('\n'), /create_session[\s\S]*already open[\s\S]*subscribe_pr_activity/);
+  assert.match(out.join('\n'), /Use this launch only when no job session is running for it: check your sessions first[\s\S]*create_session[\s\S]*already open[\s\S]*subscribe_pr_activity/);
   // A job with work on its branch is never launched twice.
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
   git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: () => first.pr, log: quiet }), /with an open pull request and is not an unfinished start \(WORKING, 2 commits\)/);
+});
+
+// Confirming review of PR 11.
+test('job complete installs the module\'s stale lock files before its checks, with or without --no-suite', () => {
+  const marker = "import { existsSync } from 'node:fs'; if (!existsSync('test/node_modules/.p3-lock-hash')) process.exit(3);\n";
+  for (const noSuite of [false, true]) {
+    const { root, calls, exec } = locked(['test/package-lock.json'], { 'test/package-lock.json': lock(true), 'check.mjs': marker });
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+    git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+    // The module's own check needs the install's mark.
+    const e = JSON.parse(readFileSync(join(root, 'process/ledger/alpha.json'), 'utf8'));
+    e.checks = [['node', 'check.mjs']];
+    commit(root, { 'process/ledger/alpha.json': JSON.stringify(e, null, 2) + '\n' });
+    git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+    jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+    git(['checkout', '-q', 'job/alpha'], { cwd: root });
+    commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+    const c = jobComplete(root, 'alpha', { push: false, noSuite, exec, log: quiet });
+    assert.equal(c.ok, true, JSON.stringify(c.commands));
+    assert.deepEqual(calls.map((x) => x.cwd), ['test'], `installed (noSuite ${noSuite})`);
+    const names = c.receipt.commands.map((x) => x.cmd);
+    assert.ok(names.indexOf('npm ci (test/package-lock.json)') < names.indexOf('node check.mjs'), names.join(' | '));
+  }
+});
+
+test('install reads and checks the lock file at its normalised path', () => {
+  const root = makeRepo({ 'test/package-lock.json': lock(true) });
+  const calls = [];
+  const exec = (cmd, args, o) => { calls.push(o.cwd.slice(root.length + 1)); return { code: 0, stdout: '', stderr: '' }; };
+  const r = install(root, ['.\\test\\package-lock.json'], { onlyStale: true, exec });
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual(calls, ['test']);
+  assert.deepEqual(install(root, ['.\\test\\package-lock.json'], { onlyStale: true, exec }).ran, [], 'fresh by its mark');
 });

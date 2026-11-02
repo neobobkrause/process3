@@ -23,7 +23,9 @@ function entriesAt(root, ref) {
   }).filter(Boolean);
 }
 
-const diffNames = (root, a, b) => git(['diff', '--name-only', '-z', a, b], { cwd: root }).split('\0').filter(Boolean);
+// No rename detection: a rename lists both the removed and the added path (confirming review
+// of PR 14).
+const diffNames = (root, a, b) => git(['diff', '--no-renames', '--name-only', '-z', a, b], { cwd: root }).split('\0').filter(Boolean);
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
 export const ownPaths = (e) => [...e.paths, ...e.tests, entryFile(e.id), metricsFile(e.id)];
