@@ -14,12 +14,13 @@ test('markReady uses the proxy route first and stops there when it works', () =>
 
 test('markReady falls back to gh pr ready outside a session', () => {
   const calls = [];
-  markReady('o/r', 3, { call: (a) => { calls.push(a[0]); return a[0] === 'api' ? no('HTTP 404') : ok; }, read: () => ({ draft: false }) });
+  const pr = markReady('o/r', 3, { call: (a) => { calls.push(a[0]); return a[0] === 'api' ? no('HTTP 404') : ok; }, read: () => ({ number: 3, draft: false }) });
   assert.deepEqual(calls, ['api', 'pr']);
+  assert.equal(pr.number, 3);
 });
 
 test('markReady fails, naming both routes, when neither works', () => {
-  assert.throws(() => markReady('o/r', 3, { call: () => no('HTTP 403: GraphQL is not available'), read: () => ({ draft: true }) }),
+  assert.throws(() => markReady('o/r', 3, { call: () => no('HTTP 403: GraphQL is not available'), read: () => { throw new Error('read before failing'); } }),
     /could not mark pull request 3 ready: gh api -X POST: HTTP 403.*; gh pr ready 3: HTTP 403/);
 });
 
