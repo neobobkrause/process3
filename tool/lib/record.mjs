@@ -4,7 +4,7 @@
 // config it uses is read from the base, never from the change it judges.
 import { basename } from 'node:path';
 import { checkLedger } from './ledger.mjs';
-import { CONFIG_FILE, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -35,10 +35,8 @@ export function webCommitByOwner(root, sha, owner, lookup = gh) {
   };
 }
 
-const show = (root, rev, file) => {
-  const r = git(['show', `${rev}:${file}`], { cwd: root, allowFail: true });
-  return r.code === 0 ? r.stdout : null;
-};
+// null only when the file is absent; a file that is there but cannot be read is an error.
+const show = (root, rev, file) => (exists(root, rev, file) ? git(['show', `${rev}:${file}`], { cwd: root }) : null);
 const blobOf = (root, rev, file) => {
   const r = git(['rev-parse', '-q', '--verify', `${rev}:${file}`], { cwd: root, allowFail: true });
   return r.code === 0 ? r.stdout.trim() : null;
@@ -72,7 +70,7 @@ const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/wo
 // must lie before every commit in the head's history that adds the config, so it can never
 // hide a commit made under the process.
 export function recordSince(root, { base, head = 'HEAD' } = {}) {
-  const has = (ref) => git(['cat-file', '-e', `${ref}:${CONFIG_FILE}`], { cwd: root, allowFail: true }).code === 0;
+  const has = (ref) => exists(root, ref, CONFIG_FILE);
   if (base && has(base)) return { since: null };
   const since = loadConfig(root, head).record_since;
   if (!since) return { since: null };
@@ -87,6 +85,17 @@ export function recordSince(root, { base, head = 'HEAD' } = {}) {
   return { since: sha, from: 'head' };
 }
 
+// In a partial clone, fetch every file the range needs in one request rather than one at a
+// time as each is read. Best effort: a file still missing is fetched, or fails, when read.
+function prefetch(root, range) {
+  if (git(['config', '--get', 'remote.origin.promisor'], { cwd: root, allowFail: true }).stdout.trim() !== 'true') return;
+  const missing = git(['rev-list', '--objects', '--missing=print', ...range], { cwd: root, allowFail: true }).stdout
+    .split('\n').filter((l) => l.startsWith('?')).map((l) => l.slice(1));
+  if (!missing.length) return;
+  git(['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '-q', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', '--stdin', 'origin'],
+    { cwd: root, allowFail: true, input: missing.join('\n') + '\n' });
+}
+
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since } = {}) {
   const findings = [];
   const notices = [];
@@ -97,6 +106,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   };
   const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : [])];
   const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
+  prefetch(root, range);
   const { file: afile, heading } = cfg.approvals;
   for (const sha of commits) {
     const short = sha.slice(0, 10);

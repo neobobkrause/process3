@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          filter: ${{ github.event.repository.private && '' || 'blob:none' }}
+          filter: ${{ !github.event.repository.private && 'blob:none' || '' }}
           persist-credentials: false
       - name: the tranche's process pin
         id: pin

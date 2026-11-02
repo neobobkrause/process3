@@ -7,18 +7,19 @@ import { GATE, RECEIPT, addComment, block, comments, gateRuns, latestBlock, veri
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { runSuite, suffixOf, testFiles } from './suite.mjs';
-import { git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { NO_TOKENS, exists, git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token.
-export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
+export { NO_TOKENS };
 
 function entriesAt(root, ref) {
   const r = git(['ls-tree', '--name-only', `${ref}:${LEDGER_DIR}`], { cwd: root, allowFail: true });
   if (r.code !== 0) return [];
   return r.stdout.split('\n').filter((n) => n.endsWith('.json')).map((n) => {
-    try { return JSON.parse(git(['show', `${ref}:${LEDGER_DIR}/${n}`], { cwd: root })); } catch { return null; }
+    const text = git(['show', `${ref}:${LEDGER_DIR}/${n}`], { cwd: root }); // a read failure is an error
+    try { return JSON.parse(text); } catch { return null; } // unreadable JSON is checkLedger's finding
   }).filter(Boolean);
 }
 
@@ -151,7 +152,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
   const loadOnly = [];
   try {
     for (const f of code) {
-      if (git(['cat-file', '-e', `${base}:${f}`], { cwd: root, allowFail: true }).code === 0) git(['checkout', base, '--', f], { cwd: root });
+      if (exists(root, base, f)) git(['checkout', base, '--', f], { cwd: root });
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
@@ -162,7 +163,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
   } finally {
     for (const f of code) {
       git(['reset', '-q', 'HEAD', '--', f], { cwd: root, allowFail: true });
-      if (git(['cat-file', '-e', `HEAD:${f}`], { cwd: root, allowFail: true }).code === 0) git(['checkout', 'HEAD', '--', f], { cwd: root });
+      if (exists(root, 'HEAD', f)) git(['checkout', 'HEAD', '--', f], { cwd: root });
       else rmSync(join(root, f), { force: true, recursive: true });
     }
   }

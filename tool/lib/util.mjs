@@ -22,11 +22,18 @@ export function run(cmd, args = [], opts = {}) {
   };
 }
 
+// The tool's git never carries a GitHub token, and never runs a hook or file monitor that
+// product code may have written into .git/config while the gate ran it (review of build G).
+export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
-  const r = run('git', args, opts);
+  const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
 }
+
+// Whether a path exists at a commit, read from the tree alone: in a partial clone this fetches
+// nothing, so "absent" is never confused with "could not fetch".
+export const exists = (root, rev, path) => git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true }).code === 0;
 
 // GitHub through the gh CLI (measured route, platform row 14). Returns parsed JSON or text.
 export function gh(args, opts = {}) {
@@ -69,8 +76,7 @@ export const CONFIG_FILE = 'process/config.json';
 export function loadConfig(root, ref) {
   let text = null;
   if (ref) {
-    const r = git(['show', `${ref}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
-    if (r.code === 0) text = r.stdout;
+    if (exists(root, ref, CONFIG_FILE)) text = git(['show', `${ref}:${CONFIG_FILE}`], { cwd: root });
   } else if (existsSync(join(root, CONFIG_FILE))) text = readFileSync(join(root, CONFIG_FILE), 'utf8');
   let c = {};
   try { c = text ? JSON.parse(text) : {}; } catch (e) { fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not JSON: ${e.message}`); }
