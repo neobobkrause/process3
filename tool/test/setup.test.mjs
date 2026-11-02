@@ -225,7 +225,7 @@ test('the files are read from the tranche on origin, through git', () => {
   git(['checkout', '-q', '-b', 'stray', 'main'], { cwd: r });
   commit(r, { 'stray.txt': 's' }, 'stray');
   assert.match(state(setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet }), 'session-branch').detail,
-    /stray holds no approvals block, so it is not from tranche\. Start the session from the tranche branch/);
+    /stray holds no approvals block, so it is not from the tranche branch\. Start the session from the tranche branch/);
 });
 
 test('job start runs the setup check first and starts nothing while a condition is missing', () => {
@@ -394,9 +394,9 @@ test('session-branch: a session not started from the tranche is missing, and job
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: repo });
   git(['remote', 'add', 'origin', bare], { cwd: repo });
-  const detail = 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch';
+  const detail = 'main holds no approvals block, so it is not from the tranche branch. Start the session from the tranche branch';
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'], results: [{ id: 'session-branch', detail }] }), log: quiet }),
-    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
+    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. main holds no approvals block, so it is not from the tranche branch\. Start the session from the tranche branch \(also missing: account\)$/);
 });
 
 test('deploy-token: one harmless read per scope, each reported present or missing, the token never printed', () => {
@@ -415,12 +415,15 @@ test('deploy-token: one harmless read per scope, each reported present or missin
   const n = world();
   n.files['process/config.json'] = JSON.stringify({ coordinator: 's' });
   assert.equal(state(check(n), 'deploy-token').state, 'not configured');
-  for (const acct of [null, '']) {
-    n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: acct, environment: null });
+  for (const [acct, envList] of [[null, null], ['', []], ['   ', null]]) {
+    n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: acct, environment: envList });
     const rn = check(n);
     assert.equal(rn.ok, true, JSON.stringify(rn.missing));
     for (const id of ['deploy-token', 'deploy-account', 'environment']) assert.equal(state(rn, id).state, 'not configured', `${id} with ${JSON.stringify(acct)}`);
   }
+  n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: false });
+  const rf = check(n);
+  for (const id of ['deploy-token', 'deploy-account']) assert.equal(state(rf, id).detail, 'process/config.json cloudflare_account is not an account ID', id);
   assert.equal(n.cfAsked.length, 0);
 });
 
@@ -534,7 +537,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['checkout', '-q', '-b', 'from-main'], { cwd: r });
   assert.equal(why(), 'this checkout (from-main) is on main, not the tranche branch');
   commit(r, { 'f.txt': 'f' }, 'work off main');
-  assert.equal(why(), 'from-main holds no approvals block, so it is not from tranche');
+  assert.equal(why(), 'from-main holds no approvals block, so it is not from the tranche branch');
   git(['checkout', '-q', 'main'], { cwd: r });
   assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here', fix: 'Start the session from the no-such branch' });
   // After the tranche merges into main (a merge commit) and moves on: a branch cut before the
@@ -553,7 +556,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['checkout', '-q', '-b', 'claude/runner', 'main'], { cwd: r });
   assert.equal(why(), 'this checkout (claude/runner) is on main, not the tranche branch');
   commit(r, { 'r.txt': 'r' }, 'runner work');
-  assert.match(why(), /^claude\/runner holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
+  assert.match(why(), /^claude\/runner holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from the tranche branch$/);
   git(['checkout', '-q', 'main'], { cwd: r });
   git(['checkout', '-q', 'tranche'], { cwd: r });
   const behind = tip(r);
@@ -562,7 +565,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['checkout', '-q', '-b', 'off-main', 'main'], { cwd: r });
   assert.equal(why(), 'this checkout (off-main) is on main, not the tranche branch');
   commit(r, { 'o.txt': 'o' }, 'work off main');
-  assert.match(why(), /^off-main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
+  assert.match(why(), /^off-main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from the tranche branch$/);
   git(['checkout', '-q', 'build/y'], { cwd: r });
   assert.deepEqual(on(), { ok: true, why: 'build/y is from tranche\'s history and holds its current approvals' });
   git(['checkout', '-q', '-B', 'tranche', behind], { cwd: r });

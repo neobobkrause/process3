@@ -80,18 +80,21 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const head = g(['rev-parse', 'HEAD']).stdout.trim();
   const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
   const trancheTip = g(['rev-parse', ref]).stdout.trim();
-  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: abbrev === main ? `this checkout is ${main}, not the ${name} branch` : `${abbrev === 'HEAD' ? here : `this checkout (${abbrev})`} is on ${main}, not the ${name} branch`, fix: restart };
+  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) {
+    const who = abbrev === main ? `this checkout is ${main}` : `${abbrev === 'HEAD' ? here : `this checkout (${abbrev})`} is on ${main}`;
+    return { ok: false, why: `${who}, not the ${name} branch`, fix: restart };
+  }
   if (mainTip) {
     const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
     const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
-    if (mainOnly) return { ok: false, why: `${here} holds ${main}'s commit ${mainOnly.slice(0, 10)}, which ${name} does not, so it is not from ${name}`, fix: restart };
+    if (mainOnly) return { ok: false, why: `${here} holds ${main}'s commit ${mainOnly.slice(0, 10)}, which ${name} does not, so it is not from the ${name} branch`, fix: restart };
   }
   if (anc(ref, 'HEAD')) return { ok: true, why: `${here} descends from the tip of ${name}` };
   // No shared history with the tranche: not from it, whatever its files say.
   if (!g(['merge-base', 'HEAD', ref]).stdout.trim()) return { ok: false, why: `${here} shares no history with ${name}`, fix: restart };
   const blockAt = (rev) => (exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
   const now = blockAt('HEAD');
-  if (!now) return { ok: false, why: `${here} holds no approvals block, so it is not from ${name}`, fix: restart };
+  if (!now) return { ok: false, why: `${here} holds no approvals block, so it is not from the ${name} branch`, fix: restart };
   if (now !== blockAt(ref)) return { ok: false, why: `${here} holds older approvals than ${ref}`, fix: `Bring it up to date with ${name} (git pull origin ${name}), or start the session from the ${name} branch` };
   return { ok: true, why: `${here} is from ${name}'s history and holds its current approvals` };
 }
@@ -108,6 +111,9 @@ export function cloudflareRead(path, env) {
   return { status: r.code === 0 ? status : 0, success };
 }
 
+// No account named: absent, null, or blank (reviews of PR 24). Anything else must be an ID,
+// a string or a number.
+const noAccount = (a) => a === undefined || a === null || (typeof a === 'string' && !a.trim());
 const set = (detail) => ({ state: 'set', detail });
 const missing = (detail) => ({ state: 'missing', detail });
 const unread = (what) => missing(`could not read ${what}`);
@@ -214,7 +220,7 @@ const readers = {
   // a prefix. This reader never calls Cloudflare's API; only deploy-token does, with harmless reads.
   environment: (c, x) => {
     const names = x.cfg.environment;
-    if (names === undefined || names === null) return { state: 'not configured', detail: 'process/config.json lists no environment' };
+    if (names === undefined || names === null || (Array.isArray(names) && !names.length)) return { state: 'not configured', detail: 'process/config.json lists no environment' };
     if (!Array.isArray(names) || !names.every((n) => typeof n === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(n))) return missing('process/config.json "environment" is not a list of variable names');
     const absent = names.filter((n) => !x.env[n]);
     return absent.length ? missing(`not in this session's environment: ${absent.join(', ')}`) : set(`present: ${names.join(', ')}`);
@@ -222,7 +228,8 @@ const readers = {
 
   'deploy-account': (c, x) => {
     const want = x.cfg.cloudflare_account;
-    if (want === undefined || want === null || want === '') return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (noAccount(want)) return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (typeof want !== 'string' && typeof want !== 'number') return missing('process/config.json cloudflare_account is not an account ID');
     if (!x.env.CLOUDFLARE_ACCOUNT_ID) return missing(`CLOUDFLARE_ACCOUNT_ID is not in this session's environment (configured: ${want})`);
     return x.env.CLOUDFLARE_ACCOUNT_ID === String(want) ? set(`CLOUDFLARE_ACCOUNT_ID matches ${want}: yes`) : missing(`CLOUDFLARE_ACCOUNT_ID matches ${want}: no`);
   },
@@ -280,7 +287,8 @@ const readers = {
   // The deploy token's scopes, by harmless reads in the configured account; never the token.
   'deploy-token': (c, x) => {
     const acct = x.cfg.cloudflare_account;
-    if (acct === undefined || acct === null || acct === '') return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (noAccount(acct)) return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (typeof acct !== 'string' && typeof acct !== 'number') return missing('process/config.json cloudflare_account is not an account ID');
     if (!x.env.CLOUDFLARE_API_TOKEN) return missing("CLOUDFLARE_API_TOKEN is not in this session's environment");
     const res = c.value.map((s) => {
       const r = x.cf(s.read.replace('{account}', encodeURIComponent(String(acct))));
