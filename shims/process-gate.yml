@@ -5,16 +5,17 @@
 # branch (measured 1 Nov on process3), so a check judged wholly by the base cannot run from a
 # tranche. The workflow file itself still comes from the pull request, so merge (BOB's own
 # tool) repeats the ownership and receipt checks, and Bob's ruleset pins the check's source.
+# Two jobs (setup audit, 2 Nov): product code could read a write token from the gate's own
+# process, so job gate, which runs product code, holds only read permissions, and job post,
+# which holds the write token, runs no product code: it posts the row job gate uploaded.
+# Rollout: move the product's process pin to a tool that has --no-post before this file.
 # Copied into a product as .github/workflows/process-gate.yml.
 name: process-gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  actions: read
+# Each job names its own permissions; nothing is granted by default.
+permissions: {}
 concurrency:
   group: process-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -22,6 +23,11 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      actions: read
     steps:
       - name: start the clock
         run: echo "STARTED=$(date +%s)" >> "$GITHUB_ENV"
@@ -72,7 +78,8 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR: ${{ github.event.pull_request.number }}
           DRAFT: ${{ github.event.pull_request.draft }}
-        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --out "$RUNNER_TEMP/gate.json"
+        # The row goes to the artifact only; job post writes the comment from it.
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --no-post --out "$RUNNER_TEMP/gate.json"
       - name: the run's own record of its row (merge trusts a row only when this artifact matches it)
         if: always()
         uses: actions/upload-artifact@v4
@@ -82,3 +89,56 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
           retention-days: 90
+  # The comment, from the artifact, by the base's pin. No checkout of the pull request: only the
+  # base's tree, for its pin and config, and the process clone at that pin. The comment holds
+  # the artifact's row as uploaded, so merge's verifyRow still finds the two equal.
+  post:
+    needs: gate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+          sparse-checkout: process/config.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          path: base
+      - name: the base's process pin
+        id: pin
+        run: |
+          # The base's pin only. At bootstrap (a base with no pin) the head's pin judges in job
+          # gate, but its code never gets this job's token: no comment is posted.
+          if ! pin=$(git -C base rev-parse -q --verify "HEAD:.process"); then
+            echo "::warning::the base has no process pin; no gate comment is posted"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          cfg=$(cat base/process/config.json 2>/dev/null || echo '{}')
+          repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
+          git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        if: steps.pin.outputs.skip != '1'
+        with:
+          node-version: ${{ steps.pin.outputs.node }}
+      - uses: actions/download-artifact@v4
+        if: steps.pin.outputs.skip != '1'
+        continue-on-error: true
+        with:
+          name: gate-row
+          path: ${{ runner.temp }}/row
+      - name: post the gate row
+        if: steps.pin.outputs.skip != '1'
+        working-directory: ${{ runner.temp }}/process3
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+          GATE_RESULT: ${{ needs.gate.result }}
+        run: node tool/p3.mjs gate --post "$RUNNER_TEMP/row/gate.json" --pr "$PR" --head "$HEAD_SHA" --gate-result "$GATE_RESULT"

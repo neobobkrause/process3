@@ -1,13 +1,13 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { GATE, RECEIPT, addComment, block, comments, gateRuns, latestBlock, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { runSuite, suffixOf, testFiles } from './suite.mjs';
-import { NO_TOKENS, exists, git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
@@ -28,8 +28,13 @@ const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
 export const ownPaths = (e) => [...e.paths, ...e.tests, entryFile(e.id), metricsFile(e.id)];
 
+// The comment for one gate run: the lead line and the row, as job post writes it.
+export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${String(r.sha).slice(0, 10)}\`: ${r.ok ? 'green' : `red, ${r.findings} finding(s)`}, ${r.trigger}, ${r.minutes} min.`);
+
+// post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes
+// the comment from the run's artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
-  const { base, head, branch, pr, draft = false, started = Date.now(), io = ghIO, log = console.log } = opts;
+  const { base, head, branch, pr, draft = false, started = Date.now(), post = true, io = ghIO, log = console.log } = opts;
   const cfg = loadConfig(root, base); // the trusted side
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const slug = opts.slug || repoSlug(root);
@@ -129,8 +134,28 @@ export function gate(root, opts) {
   runRow.ok = findings.length === 0;
   runRow.minutes = Math.round(((Date.now() - started) / MINUTE) * 100) / 100;
   // One new comment per run: the bot never edits, so an edited gate comment is not counted.
-  if (pr) io.addComment(slug, pr, block(GATE, { runs: [runRow] }, `Gate run on \`${head.slice(0, 10)}\`: ${runRow.ok ? 'green' : `red, ${runRow.findings} finding(s)`}, ${runRow.trigger}, ${runRow.minutes} min.`));
+  if (pr && post) io.addComment(slug, pr, gateComment(runRow));
   return { run: runRow, findings, changed };
+}
+
+// Job post of the gate workflow (setup audit, 2 Nov): the one job with a write token. It runs
+// no product code: only this tool, at the base's pin, over the gate.json job gate uploaded as
+// the run's gate-row artifact. The comment holds that same row, so verifyRow, which compares
+// the comment's row with the artifact, still trusts it. The row must be this run's and this
+// head's, and a green row needs job gate to have ended green.
+export function postRow(file, { pr, head, gateResult, slug, runId = process.env.GITHUB_RUN_ID, io = ghIO, log = console.log }) {
+  if (!pr) fail('--post needs --pr <n>');
+  if (!existsSync(file)) { log(`no ${file}: job gate wrote no row (cancelled or stopped early); nothing to post`); return { posted: false }; }
+  let data;
+  try { data = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`${file} is not JSON: ${e.message}`); }
+  const row = data?.run;
+  if (!row || typeof row !== 'object') { log(`no gate row in ${file}${data?.error ? ` (the gate stopped: ${data.error})` : ''}; nothing to post`); return { posted: false }; }
+  if (runId && String(row.run_id) !== String(runId)) fail(`the row names run ${row.run_id}, not this run ${runId}`);
+  if (head && row.sha !== head) fail(`the row is for ${String(row.sha).slice(0, 10)}, not the head ${head.slice(0, 10)}`);
+  if (row.ok && gateResult && gateResult !== 'success') fail(`the row says green, but job gate ended ${gateResult}`);
+  const comment = io.addComment(slug, pr, gateComment(row));
+  log(`posted the gate row for ${String(row.sha).slice(0, 10)} (${row.ok ? 'green' : 'red'})`);
+  return { posted: true, comment, row };
 }
 
 // GAT-5: every lock file installed where it sits, without the workflow's token.

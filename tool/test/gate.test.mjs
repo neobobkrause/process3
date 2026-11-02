@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { gate } from '../lib/gate.mjs';
 import { BOT, GATE, RECEIPT, block, gateRuns, parseBlock } from '../lib/github.mjs';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -142,4 +142,75 @@ test('a non-job pull request runs the suite of every module it touches', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
   const r = gate(s.root, { base: s.base, head: s.head, branch: 'bob/setup', pr: 5, slug: 'o/r', io: fakeIO().io, log: quiet });
   assert.deepEqual([r.run.scope, r.run.suite], [['alpha'], 'fail']);
+});
+
+// Two jobs (setup audit, 2 Nov): job gate writes the row to its artifact only; job post posts it.
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { GATE_WORKFLOW, verifyRow } from '../lib/github.mjs';
+import { postRow } from '../lib/gate.mjs';
+import { main, report } from '../p3.mjs';
+
+function twoJobs(over = {}) {
+  const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const io = fakeIO(receiptFor(s.head));
+  const was = process.env.GITHUB_RUN_ID;
+  process.env.GITHUB_RUN_ID = '4242';
+  let r;
+  try { r = run(s, io, { post: false, ...over }); } finally { if (was === undefined) delete process.env.GITHUB_RUN_ID; else process.env.GITHUB_RUN_ID = was; }
+  // What job gate uploads as the gate-row artifact: the --out file of the gate command.
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-row-')), 'gate.json');
+  report(r.findings, file, { run: r.run });
+  return { s, io, r, file };
+}
+
+test('job gate posts nothing; job post posts the artifact\'s row, and merge\'s verifyRow trusts it', () => {
+  const { s, io, r, file } = twoJobs();
+  assert.equal(r.run.ok, true);
+  assert.equal(io.state.comments.length, 1, 'only the receipt: job gate posted no comment');
+  const posted = postRow(file, { pr: 5, head: s.head, gateResult: 'success', slug: 'o/r', runId: '4242', io: io.io, log: quiet });
+  assert.equal(posted.posted, true);
+  const c = io.state.comments.at(-1);
+  assert.equal(c.user.login, BOT);
+  const rows = gateRuns(io.state.comments);
+  assert.equal(rows.length, 1);
+  assert.match(c.body, new RegExp(`Gate run on \`${s.head.slice(0, 10)}\`: green, code`));
+  // The run is the process gate on the head, completed green, and its artifact is the same file.
+  const actionsRun = { path: GATE_WORKFLOW, head_sha: s.head, status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 5, base: { ref: 'tranche' } }] };
+  const art = JSON.parse(readFileSync(file, 'utf8')).run;
+  assert.equal(rows[0].run_id, 4242);
+  assert.equal(verifyRow('o/r', rows[0], { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), true);
+});
+
+test('job post refuses a row that is not this run\'s, not this head\'s, or green when job gate was not', () => {
+  const { s, io, file } = twoJobs();
+  const q = { pr: 5, slug: 'o/r', io: io.io, log: quiet };
+  assert.throws(() => postRow(file, { ...q, head: s.head, runId: '9' }), /names run 4242, not this run 9/);
+  assert.throws(() => postRow(file, { ...q, head: 'f'.repeat(40), runId: '4242' }), /not the head ffffffffff/);
+  assert.throws(() => postRow(file, { ...q, head: s.head, runId: '4242', gateResult: 'failure' }), /says green, but job gate ended failure/);
+  assert.throws(() => postRow(file, { ...q, pr: null, runId: '4242' }), /needs --pr/);
+  assert.equal(io.state.comments.length, 1, 'nothing posted');
+});
+
+test('job post posts a red row, and posts nothing when job gate wrote no row', () => {
+  // A red row: the suite fails.
+  const s = setup({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': realTest });
+  const io = fakeIO(receiptFor(s.head));
+  const r = run(s, io, { post: false });
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-row-')), 'gate.json');
+  report(r.findings, file, { run: { ...r.run, run_id: 7 } });
+  const p = postRow(file, { pr: 5, head: s.head, gateResult: 'failure', slug: 'o/r', runId: '7', io: io.io, log: quiet });
+  assert.equal(p.row.ok, false);
+  assert.match(io.state.comments.at(-1).body, /red, 2 finding\(s\)/);
+
+  const out = [];
+  assert.equal(postRow(join(tmpdir(), 'p3-no-such-row.json'), { pr: 5, slug: 'o/r', io: io.io, log: (m) => out.push(m) }).posted, false);
+  const err = join(mkdtempSync(join(tmpdir(), 'p3-row-')), 'gate.json');
+  writeFileSync(err, JSON.stringify({ error: 'git merge-base failed', findings: [] }));
+  assert.equal(postRow(err, { pr: 5, slug: 'o/r', io: io.io, log: (m) => out.push(m) }).posted, false);
+  assert.match(out.join('\n'), /the gate stopped: git merge-base failed/);
+});
+
+test('the gate command\'s --post needs its file', async () => {
+  assert.equal(await main(['gate', '--post', '--pr', '5']), 1);
 });
