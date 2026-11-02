@@ -27,6 +27,13 @@ export function findPR(slug, head, { state = 'open' } = {}) {
 
 export const getPR = (slug, n) => gh(['api', `repos/${slug}/pulls/${n}`]);
 
+// Every open pull request from a head branch, or null when unreadable.
+export function openFrom(slug, head) {
+  const owner = slug.split('/')[0];
+  const prs = gh(['api', `repos/${slug}/pulls?state=open&head=${owner}:${encodeURIComponent(head)}&per_page=10`], { allowFail: true });
+  return Array.isArray(prs) ? prs : null;
+}
+
 export function openPRs(slug, base) {
   const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=open&base=${encodeURIComponent(base)}&per_page=100`], { allowFail: true });
   return Array.isArray(pages) ? pages.flat() : null;
