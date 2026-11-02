@@ -60,6 +60,7 @@ function world() {
       throw new Error(`unexpected read ${p}`);
     },
     file: (f) => w.files[f] ?? null,
+    branchExists: () => true,
     lastChange: () => w.lastChange,
     onTranche: () => w.onTranche,
     cf: (path) => { w.cfAsked.push(path); const k = Object.keys(w.cf).find((x) => path.includes(x)); return k ? w.cf[k] : { status: 200, success: true }; },
@@ -198,7 +199,7 @@ test('the files are read from the tranche on origin, through git', () => {
   // The approvals' last change and the session's branch are read through git too.
   const sha = git(['rev-parse', 'origin/tranche'], { cwd: r });
   assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${sha.slice(0, 10)}`);
-  assert.equal(state(res, 'session-branch').detail, 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch');
+  assert.equal(state(res, 'session-branch').detail, 'main is main, not tranche. Start the session from the tranche branch');
   // A later commit on the tranche that leaves the block alone does not move its last change;
   // one that edits the block does, and it is not the owner's website commit.
   git(['checkout', '-q', 'tranche'], { cwd: r });
@@ -344,6 +345,11 @@ test('classic branch protection on main or the tranche is reported missing, to r
   const w4 = world();
   delete w4.branchInfo.tranche;
   assert.match(state(check(w4), 'classic-protection').detail, /tranche: could not read the branch/);
+  // A tranche not pushed yet is unmeasured; one that exists but cannot be read is missing.
+  const w6 = world();
+  delete w6.branchInfo.tranche;
+  w6.io.branchExists = (b) => b !== 'tranche';
+  assert.deepEqual(state(check(w6), 'classic-protection'), { id: 'classic-protection', what: state(check(w6), 'classic-protection').what, state: 'unmeasured', detail: 'tranche not pushed yet' });
   const w5 = world();
   w5.branchInfo.main = { protected: false };
   w5.branchInfo.tranche = { protected: false };
@@ -386,7 +392,7 @@ test('session-branch: a session not started from the tranche is missing, and job
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   const detail = 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch';
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'], results: [{ id: 'session-branch', detail }] }), log: quiet }),
-    /^Error|this session's checkout is not the tranche branch, whose standing approvals sessions act on; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
+    /this session's checkout is not the tranche branch, whose standing approvals sessions act on; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
 });
 
 test('deploy-token: one harmless read per scope, each reported present or missing, the token never printed', () => {
@@ -506,7 +512,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   commit(r, { 't.txt': 't' }, 'tranche moves');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   git(['checkout', '-q', 'build/x'], { cwd: r });
-  assert.deepEqual(on(), { ok: true, why: 'build/x started from tranche and holds its approvals' });
+  assert.deepEqual(on(), { ok: true, why: 'build/x is from tranche\'s history and holds its current approvals' });
   // The tranche's approvals changed since: the old checkout does not hold them.
   git(['checkout', '-q', 'tranche'], { cwd: r });
   commit(r, { 'CLAUDE.md': claude('B') }, 'owner again');
@@ -514,7 +520,10 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['checkout', '-q', 'build/x'], { cwd: r });
   assert.deepEqual(on(), { ok: false, why: 'build/x holds older approvals than tranche', fix: 'Bring it up to date with tranche (git pull origin tranche), or start the session from the tranche branch' });
   git(['checkout', '-q', 'main'], { cwd: r });
-  assert.equal(why(), 'main holds no approvals block, so it is not from tranche');
+  assert.equal(why(), 'main is main, not tranche');
+  git(['checkout', '-q', '-b', 'from-main'], { cwd: r });
+  assert.equal(why(), 'from-main holds no approvals block, so it is not from tranche');
+  git(['checkout', '-q', 'main'], { cwd: r });
   assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here', fix: 'Start the session from the no-such branch' });
   // After the tranche merges into main (a merge commit) and moves on: a branch cut before the
   // merge, and a local tranche behind origin, are still the tranche; main is not.
@@ -528,12 +537,26 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   const behind = tip(r);
   commit(r, { 'z.txt': 'z' }, 'tranche moves on');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  git(['checkout', '-q', 'main'], { cwd: r });
-  assert.match(why(), /^main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
+  git(['checkout', '-q', '-b', 'off-main', 'main'], { cwd: r });
+  assert.match(why(), /^off-main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
   git(['checkout', '-q', 'build/y'], { cwd: r });
-  assert.deepEqual(on(), { ok: true, why: 'build/y started from tranche and holds its approvals' });
+  assert.deepEqual(on(), { ok: true, why: 'build/y is from tranche\'s history and holds its current approvals' });
   git(['checkout', '-q', '-B', 'tranche', behind], { cwd: r });
-  assert.deepEqual(on(), { ok: true, why: 'tranche started from tranche and holds its approvals' });
+  assert.deepEqual(on(), { ok: true, why: 'tranche is from tranche\'s history and holds its current approvals' });
+  // main merged back into the tranche: main is still not the tranche, checked out or detached.
+  git(['checkout', '-q', '-B', 'tranche', 'origin/tranche'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '-m', 'main back into tranche', 'main'], { cwd: r });
+  commit(r, { 'w.txt': 'w' }, 'tranche moves on again');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  git(['checkout', '-q', 'main'], { cwd: r });
+  assert.deepEqual(on(), { ok: false, why: 'main is main, not tranche', fix: 'Start the session from the tranche branch' });
+  git(['checkout', '-q', '--detach', 'main'], { cwd: r });
+  assert.match(why(), /^this checkout \(detached at [0-9a-f]+\) is main, not tranche$/);
+  // An orphan branch carrying the same approvals text shares no history with the tranche.
+  git(['checkout', '-q', '--orphan', 'loose'], { cwd: r });
+  git(['rm', '-rq', '--cached', '.'], { cwd: r });
+  commit(r, { 'CLAUDE.md': claude('B') }, 'copy');
+  assert.equal(why(), 'loose shares no history with tranche');
 });
 
 test('cloudflareRead gives curl the token on stdin, never in its arguments, and reads status and success', () => {

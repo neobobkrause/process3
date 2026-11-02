@@ -55,7 +55,7 @@
         "classic_rule": false
       },
       "who": "the developer (Settings, Branches, Branch protection rules: Delete)",
-      "read": "GET /repos/{repo}/branches/{branch} for main and the tranche: protected and protection.enabled; GET /repos/{repo}/branches/{branch}/protection where readable. A rule found is reported missing, to remove"
+      "read": "GET /repos/{repo}/branches/{branch} for main and the tranche: protected and protection.enabled; GET /repos/{repo}/branches/{branch}/protection where readable. A rule found is reported missing, to remove; a branch not pushed yet is unmeasured"
     },
     {
       "id": "merge-settings",
@@ -128,11 +128,11 @@
     },
     {
       "id": "session-branch",
-      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip, or it holds no commit of main's that the tranche lacks and carries the tranche's current approvals block.",
+      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip; or it is not main, shares history with the tranche, holds no commit of main's that the tranche lacks, and carries the tranche's current approvals block.",
       "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
-      "value": "HEAD descends from origin/<tranche>; or no commit reachable from both HEAD and origin/main is missing from origin/<tranche>, and HEAD's approvals block equals the tranche's",
+      "value": "HEAD descends from origin/<tranche>; or HEAD is not main (by name, or detached at main's tip), has a merge-base with origin/<tranche>, no commit reachable from both HEAD and origin/main is missing from origin/<tranche>, and HEAD's approvals block equals the tranche's",
       "who": "BOB and every session it starts: start from the tranche",
-      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else rev-list (merge-base --all HEAD origin/main) --not origin/<tranche>, and the approvals block at HEAD and at origin/<tranche>; older approvals say to pull the tranche, anything else to start from the tranche"
+      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else the branch name against main, merge-base HEAD origin/<tranche>, rev-list (merge-base --all HEAD origin/main) --not origin/<tranche>, and the approvals block at HEAD and at origin/<tranche>. The last test proves the same approvals text, not where the session started; the others prove it is from the tranche's history. Older approvals say to pull the tranche, anything else to start from the tranche"
     },
     {
       "id": "environment",

@@ -75,7 +75,12 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const abbrev = g(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
   const here = abbrev === 'HEAD' ? `this checkout (detached at ${g(['rev-parse', '--short', 'HEAD']).stdout.trim()})` : abbrev;
   if (anc(ref, 'HEAD')) return { ok: true, why: `${here} descends from the tip of ${name}` };
-  if (g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).code === 0) {
+  // main itself is never the tranche, even once main is merged back into it (second re-review).
+  const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
+  if (abbrev === main || (abbrev === 'HEAD' && mainTip && mainTip === g(['rev-parse', 'HEAD']).stdout.trim())) return { ok: false, why: `${here} is ${main}, not ${name}`, fix: restart };
+  // No shared history with the tranche: not from it, whatever its files say.
+  if (!g(['merge-base', 'HEAD', ref]).stdout.trim()) return { ok: false, why: `${here} shares no history with ${name}`, fix: restart };
+  if (mainTip) {
     const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
     const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
     if (mainOnly) return { ok: false, why: `${here} holds ${main}'s commit ${mainOnly.slice(0, 10)}, which ${name} does not, so it is not from ${name}`, fix: restart };
@@ -84,7 +89,7 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const now = blockAt('HEAD');
   if (!now) return { ok: false, why: `${here} holds no approvals block, so it is not from ${name}`, fix: restart };
   if (now !== blockAt(ref)) return { ok: false, why: `${here} holds older approvals than ${name}`, fix: `Bring it up to date with ${name} (git pull origin ${name}), or start the session from the ${name} branch` };
-  return { ok: true, why: `${here} started from ${name} and holds its approvals` };
+  return { ok: true, why: `${here} is from ${name}'s history and holds its current approvals` };
 }
 
 // A harmless Cloudflare read with the session's token: the token goes to curl on stdin, never on
@@ -215,17 +220,24 @@ const readers = {
   // endpoint where it can be read, tell a classic rule. Any classic rule is to be removed.
   'classic-protection': (c, x) => {
     const found = [];
+    const absent = [];
     for (const b of [x.main, x.cfg.tranche]) {
       const enc = b.split('/').map(encodeURIComponent).join('/');
       const br = x.api(`repos/${x.slug}/branches/${enc}`);
-      if (!br || typeof br !== 'object' || typeof br.protected !== 'boolean') { found.push(`${b}: could not read the branch (it may not exist yet)`); continue; }
+      if (!br || typeof br !== 'object' || typeof br.protected !== 'boolean') {
+        // A branch not pushed yet has nothing to measure; any other failure to read is missing.
+        if (!x.branchExists(b)) absent.push(b); else found.push(`${b}: could not read the branch`);
+        continue;
+      }
       if (!br.protected) continue;
       const p = x.api(`repos/${x.slug}/branches/${enc}/protection`);
       if (p && typeof p === 'object' && p.url) found.push(`${b}: a classic branch protection rule, to remove`);
       else if (br.protection?.enabled === true) found.push(`${b}: a classic branch protection rule, to remove`);
       else if (br.protection?.enabled !== false) found.push(`${b}: protected, and whether by a classic rule could not be read`);
     }
-    return found.length ? missing(found.join('; ')) : set(`no classic branch protection rule on ${x.main} or ${x.cfg.tranche}`);
+    if (found.length) return missing(found.join('; '));
+    if (absent.length) return { state: 'unmeasured', detail: `${absent.join(' and ')} not pushed yet` };
+    return set(`no classic branch protection rule on ${x.main} or ${x.cfg.tranche}`);
   },
 
   // The approvals (Bob, 2 Nov): one block in CLAUDE.md on the tranche, last changed by the
@@ -290,8 +302,12 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   let tcfg = {};
   try { tcfg = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
   x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(tcfg.approvals || {}) } };
-  // When the tranche's own config names another tranche, the git readers fetch that one too.
-  if (!io.file && x.cfg.tranche !== local.tranche) git(['fetch', '-q', 'origin', `+refs/heads/${x.cfg.tranche}:refs/remotes/origin/${x.cfg.tranche}`], { cwd: root, allowFail: true });
+  // When the tranche's own config names another tranche, every git reader reads that one.
+  if (!io.file && x.cfg.tranche !== local.tranche) x.file = tranche(root, x.cfg.tranche);
+  x.branchExists = io.branchExists || ((b) => {
+    const r = git(['ls-remote', '--heads', 'origin', `refs/heads/${b}`], { cwd: root, allowFail: true });
+    return r.code !== 0 || r.stdout.trim() !== '';
+  });
   x.lastChange = io.lastChange || ((file, heading) => lastApprovalsChange(root, x.cfg.tranche, file, heading));
   x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
   x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche, { main: x.main, ...x.cfg.approvals }));
