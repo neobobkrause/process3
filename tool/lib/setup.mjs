@@ -275,7 +275,8 @@ const readers = {
     if (!owner) return missing(`${x.ownerWhy() || "the repository's owner could not be read from GitHub"}, and process/config.json on the tranche names no approvals owner`);
     // The sessions' own account cannot hold the approvals (second re-review of PR 26).
     const me = x.api('user')?.login;
-    if (me && owner === me) return missing(`the approvals owner, ${owner}, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word`);
+    if (!me) return missing('the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
+    if (owner === me) return missing(`the approvals owner, ${owner}, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word`);
     const v = x.ownerCommit(sha, owner);
     if (!v.ok) return missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
     // The block must be the newest the owner set through the website in the tranche's history,

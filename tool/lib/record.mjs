@@ -62,14 +62,14 @@ export const ownerAnswer = (v) => (typeof v === 'string' && v ? { login: v }
 // parent's (or, with no parent, is not empty) set the block it holds: an edit, a merge that took
 // one side (a carrying merge: the owner's website merge of a pull request among them), or a
 // removal, whose block is ''.
-// newest(isOwner, { within, self, since }) is the newest of those by committer date (GitHub
+// newest(isOwner, { within, self, eligible }) is the newest of those by committer date (GitHub
 // dates a website commit itself) that is the owner's own website commit; with within, only
 // ancestors of that commit (and the commit itself with self): { sha, at, block }. It is
 // { unread: sha } when a commit that could decide it could not be read from GitHub, so an older
 // one is never taken for the newest; null when there is none. GitHub is asked only about
 // commits GitHub committed (committer noreply@github.com: a website commit always is), and
 // about a carrying merge only when its answer could change the result: when its block differs
-// from the owner's setter found below it, or that setter is older than since.
+// from the owner's setter found below it. eligible(setter) narrows which setters count.
 const GITHUB_COMMITTER = 'noreply@github.com';
 export function approvalsHistory(root, refs, file, heading) {
   const blobs = new Map();
@@ -142,7 +142,7 @@ export function approvalsHistory(root, refs, file, heading) {
     if (!anc.has(k)) anc.set(k, git(['merge-base', '--is-ancestor', x, y], { cwd: root, allowFail: true }).code === 0);
     return anc.get(k);
   };
-  const newest = (isOwner, { within, self = false, since = -Infinity } = {}) => {
+  const newest = (isOwner, { within, self = false, eligible = () => true } = {}) => {
     const ask = (st) => (st.web ? isOwner(st.sha) : { ok: false });
     const pick = (st) => ({ sha: st.sha, at: st.at, block: st.block });
     const pending = [];
@@ -156,11 +156,12 @@ export function approvalsHistory(root, refs, file, heading) {
     };
     for (const st of load()) {
       if (within && (st.sha === within ? !self : !isAncestor(st.sha, within))) continue;
+      if (!eligible(st)) continue;
       if (st.carry) { if (st.web) pending.push(st); continue; }
       const v = ask(st);
       if (v?.unread) return { unread: st.sha };
       if (v?.ok !== true) continue;
-      if (pending.every((p) => p.block === st.block) && st.at >= since) return pick(st);
+      if (pending.every((p) => p.block === st.block)) return pick(st);
       return settle(pick(st));
     }
     return settle(null);
@@ -168,7 +169,7 @@ export function approvalsHistory(root, refs, file, heading) {
   // Did the owner set this block before top? Asked only to word a refusal.
   const ownerSetEarlier = (isOwner, top, block, within) => load().some((st) => st.web && st.at <= top.at && st.sha !== top.sha && st.block === block
     && (!within || isAncestor(st.sha, within)) && isOwner(st.sha)?.ok === true);
-  return { blockOf, newest, ownerSetEarlier };
+  return { blockOf, newest, ownerSetEarlier, isAncestor };
 }
 
 // A path's tree entry at a commit, mode and object together, so a mode-only change counts.
@@ -265,13 +266,12 @@ function prefetch(root, range) {
 // repoOwner: a function giving the repository's owner as GitHub has it (repoOwnerOf: a login,
 // null, or { login, why }). When given and the base has no config, it is the owner the check
 // judges by, and the one value onboarding may give approvals.owner (review follow-ups, 2 Nov).
-// trusted: branches whose approvals history is read besides the head's and the base's (by
-// default origin/main and origin/<tranche>). An owner-set block counts for a commit only when it
-// is among that commit's ancestors, so an owner website commit made anywhere (a side branch, a
-// draft whose pull request the owner closed, even another repository of the fork network,
-// which GitHub's commit lookup also answers for) counts once merged in, provided it is no older
-// than the newest block the owner set on the base. That risk is accepted: they are the owner's
-// own words.
+// trusted: the branches an owner-set block must be on to count (the brief's "the tranche and
+// main"): by default origin/main and origin/<tranche>, and the base. The one exception is the
+// owner's own pull request: a setter inside the checked range counts when every commit in the
+// range is the owner's website commit or a merge that only brings the base in. So an owner
+// draft on a side branch, a closed pull request's, or another repository's, never counts once
+// a session merges it in (third re-review of PR 26).
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, repoOwner, trusted } = {}) {
   const findings = [];
   const notices = [];
@@ -294,13 +294,30 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     return verified.get(sha);
   };
   const { file: afile, heading } = cfg.approvals;
-  const hist = approvalsHistory(root, [head, base, ...(trusted || ['origin/main', `origin/${cfg.tranche}`])], afile, heading);
+  const trustedRefs = [base, ...(trusted || ['origin/main', `origin/${cfg.tranche}`])].filter((x) => x && git(['rev-parse', '-q', '--verify', `${x}^{commit}`], { cwd: root, allowFail: true }).code === 0);
+  const hist = approvalsHistory(root, [head, ...trustedRefs], afile, heading);
   const blockOf = hist.blockOf;
+  // Whether every commit in the range is the owner's website commit or a merge that only brings
+  // the base in: then the range is the owner's own pull request.
+  let ownersOwn;
+  const ownersRange = () => {
+    if (ownersOwn !== undefined) return ownersOwn;
+    ownersOwn = commits.length > 0 && commits.every((c) => {
+      const ps = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+      if (ps.length > 1 && base && ps.slice(1).every((p) => hist.isAncestor(p, base))) return true;
+      const ce = git(['log', '-1', '--format=%ce', c], { cwd: root });
+      return ce === 'noreply@github.com' && ownerCommit(c).ok === true;
+    });
+    return ownersOwn;
+  };
+  const inRangeSet = () => inRangeAll;
+  const eligible = (st) => trustedRefs.some((t) => hist.isAncestor(st.sha, t)) || (inRangeSet().has(st.sha) && ownersRange());
   // The newest block the owner set on the base: the block the range brings must not be older.
   let baseTop;
   const baseNewest = () => (baseTop === undefined ? (baseTop = base ? hist.newest(ownerCommit, { within: base, self: true }) : null) : baseTop);
   const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : [])];
   const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
+  const inRangeAll = new Set(commits);
   prefetch(root, range);
   const inRange = new Set(commits);
   const guarded = (f) => isOwnerSetting(f) || isInstructionFile(f) || f === afile || f === CONFIG_FILE || KEEP.includes(f);
@@ -328,7 +345,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         const was = all.length ? parentsFor(afile).map(blockOf) : [''];
         const changed = all.length ? (!was.includes(now) || mine.some((b) => b !== now)) : now !== '';
         if (changed) {
-          const top = hist.newest(ownerCommit, { within: sha });
+          const top = hist.newest(ownerCommit, { within: sha, eligible });
           const carried = top && !top.unread && top.block === now;
           if (!carried && (top?.unread || !ownerCommit(sha).ok)) {
             const text = show(root, sha, afile) || '';
@@ -369,7 +386,10 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           const ap = (t2) => {
             try {
               const c = JSON.parse(t2 || '{}');
-              const { owner = null, ...rest } = c.approvals ?? {};
+              // An absent owner is the default one; an explicit null is not (third re-review of PR 26).
+              const a = c.approvals && typeof c.approvals === 'object' ? c.approvals : {};
+              const { owner: _o, ...rest } = a;
+              const owner = 'owner' in a ? a.owner : DEFAULTS.approvals.owner;
               return { approvals: c.approvals === undefined || c.approvals === null ? '{}' : JSON.stringify(rest), owner, since: c.record_since ?? null };
             } catch { return { approvals: 'unreadable', owner: 'unreadable', since: 'unreadable' }; }
           };
@@ -404,13 +424,15 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   if (base) {
     const mb = git(['merge-base', base, head], { cwd: root, allowFail: true }).stdout.trim();
     const lands = blockOf(head);
-    if (mb && lands !== blockOf(mb)) {
+    // Judged here only when no commit was refused for the approvals already.
+    if (mb && lands !== blockOf(mb) && !findings.some((f) => f.check === 'approvals' && f.file === afile)) {
       const floor = baseNewest();
-      const top = hist.newest(ownerCommit, { within: head, self: true });
+      const top = hist.newest(ownerCommit, { within: head, self: true, eligible });
       const who = ownerName ?? 'the repository owner';
       const unread = floor?.unread || top?.unread;
       if (unread) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings could not be judged: commit ${unread.slice(0, 10)} could not be read from GitHub` });
-      else if (floor && top && top.block === lands && top.at < floor.at) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings (set by ${top.sha.slice(0, 10)}) are older than the newest block ${who} set on the base (commit ${floor.sha.slice(0, 10)}); an older draft is not carried` });
+      else if (!top || top.block !== lands) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings are not the newest block ${who} set through GitHub's website on the tranche or main${top ? ` (that is commit ${top.sha.slice(0, 10)}'s)` : ''}; a block from elsewhere lands only through ${who}'s own pull request` });
+      else if (floor && top.at < floor.at) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings (set by ${top.sha.slice(0, 10)}) are older than the newest block ${who} set on the base (commit ${floor.sha.slice(0, 10)}); an older draft is not carried` });
     }
   }
   // At the head: one approvals heading only, and the ledger (with the job rule on a job branch).

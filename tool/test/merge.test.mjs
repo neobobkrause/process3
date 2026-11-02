@@ -125,6 +125,7 @@ function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ cont
       openFrom: () => open,
       repoOwner: () => 'neobobkrause',
       me: () => 'civicsmith',
+      namedChecks: () => true,
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -941,11 +942,31 @@ test('while main has no config, a self-named branch goes into main only when its
   // A session's branch from main, naming itself the tranche, with module code.
   const r = plainRepo({ config: false, ledger: false, head: 'bob/self', files: { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'bob/self' }), 'src/alpha/x.mjs': 'x' } });
   const f = plainIO(r, { base: 'main', repo: own });
-  f.io.requiredChecks = (slug, branch) => (branch === 'main' ? { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false } : { checks: [], strict: false });
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /bob\/self names itself the tranche, but its rules require no checks; only the tranche the owner's ruleset holds merges into main/);
+  f.io.namedChecks = () => false;
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /bob\/self names itself the tranche, but no ruleset requiring checks names it; only the tranche the owner's ruleset holds merges into main/);
   assert.equal(f.calls.merged, null);
-  // Unreadable rules: refused too.
-  const g = plainIO(r, { base: 'main', repo: own });
-  g.io.requiredChecks = (slug, branch) => (branch === 'main' ? { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false } : null);
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: g.io }), /names itself the tranche, but its rules require no checks/);
+});
+
+test('namedRequiredChecks: a ruleset naming the branch counts; ~ALL, a pattern, an inactive one or an unreadable answer does not', async () => {
+  const { namedRequiredChecks } = await import('../lib/github.mjs');
+  const rules = [{ type: 'required_status_checks', ruleset_id: 5, parameters: { required_status_checks: [{ context: 'gate' }] } }];
+  const reader = (include, enforcement = 'active') => (args) => (args[1].includes('/rules/branches/') ? rules : { enforcement, conditions: { ref_name: { include } } });
+  assert.equal(namedRequiredChecks('o/r', 'dev', { read: reader(['refs/heads/dev']) }), true);
+  assert.equal(namedRequiredChecks('o/r', 'dev', { read: reader(['~ALL']) }), false);
+  assert.equal(namedRequiredChecks('o/r', 'dev', { read: reader(['refs/heads/d*']) }), false);
+  assert.equal(namedRequiredChecks('o/r', 'dev', { read: reader(['refs/heads/dev'], 'evaluate') }), false);
+  assert.equal(namedRequiredChecks('o/r', 'dev', { read: () => null }), false);
+});
+
+test('onboarding refuses when the account the sessions act as cannot be read, and reads it only at onboarding', () => {
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, approvals: { owner: 'neobobkrause' } }) } });
+  const f = plainIO(r, { repo: own });
+  f.io.me = () => null;
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /the account the sessions act as.*could not be read from GitHub \(gh api user\)/);
+  // A plain merge into a tranche that already has a config does not ask.
+  const m = makeRepoWith(JSON.stringify({}), JSON.stringify({ record_since: null }));
+  const g = plainIO(m);
+  g.io.me = () => { throw new Error('asked'); };
+  assert.equal(mergePlain(m.root, 4, { ...q, noReview: 'x', io: g.io }).merged, true);
 });

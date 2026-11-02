@@ -757,7 +757,7 @@ test('an owner draft older than the newest block on the base is refused, carried
   git(['checkout', '-q', '-b', 'job/y', 'owner-patch-1'], { cwd: b.root });
   dated(b.root, { 'src.txt': 's' }, 'job work on the draft', '2026-11-02T11:00:00Z');
   const fb = recordCheck(b.root, cfg, { base: b.o2, lookup: webFor(b.o1, b.draft, b.o2), trusted: T }).findings;
-  assert.deepEqual(fb.map((x) => x.message), [`the approvals this brings (set by ${b.draft.slice(0, 10)}) are older than the newest block neobobkrause set on the base (commit ${b.o2.slice(0, 10)}); an older draft is not carried`]);
+  assert.deepEqual(fb.map((x) => x.message), [`the approvals this brings are not the newest block neobobkrause set through GitHub's website on the tranche or main (that is commit ${b.o1.slice(0, 10)}'s); a block from elsewhere lands only through neobobkrause's own pull request`]);
 });
 
 // A commit GitHub did not commit (a local commit or merge) is never a website commit, so GitHub
@@ -893,4 +893,35 @@ test('a job branch behind a newer owner block on the base brings nothing, and pa
   const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T10:00:00Z');
   git(['checkout', '-q', 'job/x'], { cwd: root });
   assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: T }).findings, []);
+});
+
+// Third re-review of PR 26: an owner-set block counts only on the tranche or main, or in the
+// owner's own pull request; the owner key's absent and null differ.
+test('an owner draft newer than everything, abandoned and merged in by a session, is refused', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'owner-patch-2'], { cwd: root });
+  const draft = dated(root, { 'CLAUDE.md': claude('may force-push') }, 'an owner draft, its pull request closed', '2026-11-02T10:00:00Z');
+  git(['checkout', '-q', '-b', 'job/x', 'tranche'], { cwd: root });
+  dated(root, { 'src.txt': 's' }, 'job work', '2026-11-02T11:00:00Z');
+  git(['merge', '-q', '--no-ff', '-m', 'take the draft', 'owner-patch-2'], { cwd: root });
+  const f = recordCheck(root, cfg, { base: 'tranche', lookup: webFor(o1, draft), trusted: T }).findings;
+  assert.deepEqual(f.map((x) => x.check), ['approvals']);
+  // The same draft as the owner's own pull request into the tranche passes.
+  git(['checkout', '-q', 'owner-patch-2'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: 'tranche', lookup: webFor(o1, draft), trusted: T }).findings, []);
+});
+
+test('approvals.owner: absent is the default owner, an explicit null is a change', () => {
+  const run = (from, to) => {
+    const root = makeRepo({ 'process/config.json': from });
+    const base = git(['rev-parse', 'HEAD'], { cwd: root });
+    commit(root, { 'process/config.json': to }, 'change');
+    return recordCheck(root, { ...cfg, max_file_bytes: 1e6 }, { base, lookup: session }).findings.map((x) => x.check);
+  };
+  assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: 'neobobkrause' } }), []);
+  assert.deepEqual(run({ max_file_bytes: 1, approvals: { owner: 'neobobkrause' } }, { max_file_bytes: 1 }), []);
+  assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: null } }), ['approvals']);
+  assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: 'mallory' } }), ['approvals']);
 });

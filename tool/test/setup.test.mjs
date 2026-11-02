@@ -791,3 +791,9 @@ test('approvals: an approvals owner that is the sessions\' own account is missin
   w.commit = { ...w.commit, author: { login: 'civicsmith' } };
   assert.equal(state(check(w), 'approvals').detail, "the approvals owner, civicsmith, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word");
 });
+
+test('approvals: the account the sessions act as unreadable is missing', () => {
+  const w = world();
+  w.user = null;
+  assert.equal(state(check(w), 'approvals').detail, 'the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
+});
