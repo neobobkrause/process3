@@ -91,6 +91,14 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   const slug = push ? repoSlug(root) : 'local/local';
   if (push) {
     const s = setup(root, { slug, log });
+    // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
+    // words for what to do (re-review of PR 24).
+    if (s.missing.includes('session-branch')) {
+      const t = s.tranche || cfg.tranche;
+      const why = s.results?.find((r) => r.id === 'session-branch')?.detail || `this checkout is not the ${t} branch. Start the session from the ${t} branch`;
+      const also = s.missing.filter((m) => m !== 'session-branch');
+      fail(`this session's checkout is not one job start accepts: sessions act on the standing approvals of the ${t} branch; nothing was started. ${why}${also.length ? ` (also missing: ${also.join(', ')})` : ''}`);
+    }
     if (!s.ok) fail(`the setup is not complete (${s.missing.join(', ')}); nothing was started. Bob sets what is missing; p3 setup check shows it`);
   }
   const branch = `job/${id}`;

@@ -1,5 +1,5 @@
 {
-  "about": "The setup a product needs before a job starts (setup audit, 2 Nov 2026). One entry per condition. `p3 setup check` reads each one it can through gh api, or from the tranche through git, and reports it as set or missing. The proxy refuses GitHub's Actions-settings, secrets, collaborators and environments endpoints, so those conditions are confirmed once on the onboarding page and never read. `job start` runs the same check first. A condition whose `who` starts with \"the developer\" is the repository owner's to set; setup/DEVELOPER.md holds the steps.",
+  "about": "The setup a product needs before a job starts (setup audit, 2 Nov 2026). One entry per condition. `p3 setup check` reads each one it can: GitHub through gh api, the tranche's files through git, the session's own checkout and environment, and, for the deploy token only, harmless reads of Cloudflare's API; and reports it as set or missing. The proxy refuses GitHub's Actions-settings, secrets, collaborators and environments endpoints, so those conditions are confirmed once on the onboarding page and never read. `job start` runs the same check first. A condition whose `who` starts with \"the developer\" is the repository owner's to set; setup/DEVELOPER.md holds the steps.",
   "conditions": [
     {
       "id": "account",
@@ -28,7 +28,7 @@
     },
     {
       "id": "ruleset-main-tranche",
-      "what": "main and the tranche take changes only through a pull request, merged with a merge commit only, with the required check green; the session account cannot bypass these rules.",
+      "what": "main and the tranche take changes only through a pull request, merged with a merge commit only, with the required check green and no approving review required; the session account cannot bypass these rules.",
       "why": "The gate is what makes a merge trustworthy; merge commits keep each pull request's history whole.",
       "value": {
         "branches": [
@@ -38,10 +38,27 @@
         "merge_methods": [
           "merge"
         ],
-        "required_check": "process/config.json required_check, default gate"
+        "required_check": "process/config.json required_check, default gate",
+        "required_approving_review_count": 0,
+        "require_code_owner_review": false,
+        "required_reviewers": []
       },
       "who": "the developer (Settings, Rules)",
-      "read": "GET /repos/{repo}/rules/branches/{branch} for main and the tranche: pull_request.allowed_merge_methods and required_status_checks; GET /repos/{repo}/rulesets/{id}: current_user_can_bypass"
+      "read": "GET /repos/{repo}/rules/branches/{branch} for main and the tranche: pull_request.allowed_merge_methods, required_approving_review_count, require_code_owner_review and required_reviewers and required_status_checks; GET /repos/{repo}/rulesets/{id}: current_user_can_bypass"
+    },
+    {
+      "id": "classic-protection",
+      "what": "No classic branch protection rule is on main or the tranche; the rulesets alone hold them.",
+      "why": "An older classic rule was missed on 2 Nov; a classic rule adds requirements (reviews, admins exempt or not) that the rulesets and the tool do not expect, and its bypasses cannot be read by a session.",
+      "value": {
+        "branches": [
+          "main",
+          "<tranche>"
+        ],
+        "classic_rule": false
+      },
+      "who": "the developer (Settings, Branches, Branch protection rules: Delete)",
+      "read": "GET /repos/{repo}/branches/{branch} for main and the tranche: protected and protection.enabled; GET /repos/{repo}/branches/{branch}/protection where readable. A rule found is reported missing, to remove; a branch not pushed yet is unmeasured"
     },
     {
       "id": "merge-settings",
@@ -82,6 +99,19 @@
       "read": "the file on origin/<tranche>, through git: permissions.deny, each Bash rule matched against the push commands"
     },
     {
+      "id": "approvals",
+      "what": "CLAUDE.md on the tranche holds one approvals block, under the heading process/config.json names, last changed by the owner's own commit through GitHub's website.",
+      "why": "A session acts on the owner's standing approvals only when CLAUDE.md holding them is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). Only the owner's own website commit may set them, so a session cannot widen its own approvals.",
+      "value": {
+        "file": "process/config.json approvals.file, default CLAUDE.md",
+        "heading": "process/config.json approvals.heading, default ## Standing approvals from Bob",
+        "blocks": 1,
+        "last_changed_by": "the owner's commit through GitHub's website"
+      },
+      "who": "the developer, committing it on the tranche through GitHub's website, signed in as the owner",
+      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner)"
+    },
+    {
       "id": "artifact-retention",
       "what": "Gate artifacts (gate-row) are kept at least 90 days.",
       "why": "merge trusts a gate row only when the run's artifact still holds it (verifyRow); an expired artifact makes a green gate unprovable.",
@@ -100,6 +130,14 @@
       "read": "process/config.json on origin/<tranche>, through git: coordinator"
     },
     {
+      "id": "session-branch",
+      "what": "The checkout of the session running the check is the tranche: it is not main (by name, at main's tip under any name unless the tranche's tip is the same commit, or holding a commit of main's the tranche lacks), and it descends from the tranche's tip, or shares its history and carries the tranche's current approvals block.",
+      "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
+      "value": "not main, not at origin/main's tip (unless origin/<tranche> is there too), no commit reachable from both HEAD and origin/main missing from origin/<tranche>; then HEAD descends from origin/<tranche>, or has a merge-base with it and the same approvals block",
+      "who": "BOB and every session it starts: start from the tranche",
+      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else the branch name against main, merge-base HEAD origin/<tranche>, rev-list (merge-base --all HEAD origin/main) --not origin/<tranche>, and the approvals block at HEAD and at origin/<tranche>. The last test proves the same approvals text, not where the session started; the others prove it is from the tranche's history. Older approvals say to pull the tranche, anything else to start from the tranche"
+    },
+    {
       "id": "environment",
       "what": "Every variable the product's process/config.json lists under \"environment\" (for example CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID) is present in the environment of the session running the check.",
       "why": "The process deploys the product so walkers can run and each round can find and fix flaws, unattended; deploy tokens in the session environment are a standard condition (Bob, 2 Nov).",
@@ -114,6 +152,31 @@
       "value": "CLOUDFLARE_ACCOUNT_ID equals process/config.json cloudflare_account; not configured when the config names none",
       "who": "the developer (the Claude cloud environment's settings)",
       "read": "the environment of the session running the check: a match, yes or no; only the configured account is printed; Cloudflare's API is not called"
+    },
+    {
+      "id": "deploy-token",
+      "what": "The session's CLOUDFLARE_API_TOKEN can read, in the account process/config.json names as cloudflare_account, Workers scripts, R2 buckets, containers and Workers KV namespaces: the scopes Workers Scripts Edit, Workers R2 Storage Edit, Containers Edit and Workers KV Storage Read.",
+      "why": "The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email; a token lacking Workers KV made wrangler delete exit with an error after it had succeeded (2 Nov).",
+      "value": [
+        {
+          "scope": "Workers Scripts",
+          "read": "accounts/{account}/workers/scripts"
+        },
+        {
+          "scope": "Workers R2 Storage",
+          "read": "accounts/{account}/r2/buckets"
+        },
+        {
+          "scope": "Containers",
+          "read": "accounts/{account}/containers/applications"
+        },
+        {
+          "scope": "Workers KV Storage",
+          "read": "accounts/{account}/storage/kv/namespaces"
+        }
+      ],
+      "who": "the developer (a Cloudflare API token, saved in the Claude cloud environment's settings)",
+      "read": "one harmless GET per scope (paths from Cloudflare's API reference, developers.cloudflare.com/api: Workers scripts, R2 buckets, Containers applications, KV namespaces) on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 with success true (or a bare JSON answer) is present; each scope reported present or missing; a read cannot tell Edit from Read; the token is never printed; not configured when the config names no cloudflare_account"
     },
     {
       "id": "ruleset-bypass",
