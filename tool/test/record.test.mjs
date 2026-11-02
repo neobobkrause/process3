@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { approvalsBlock, recordCheck, recordSince } from '../lib/record.mjs';
-import { DEFAULTS, git } from '../lib/util.mjs';
+import { DEFAULTS, git, loadConfig as loadCfg } from '../lib/util.mjs';
 import { commit, makeRepo } from './helpers.mjs';
 
 const H = '## Standing approvals from Bob';
@@ -569,7 +569,9 @@ test('a merge whose first parent is the old side cannot keep the old settings or
 test('an ordinary merge that brings the old branch up to the base passes', () => {
   const { root, base } = oldBranch();
   git(['merge', '-q', '--no-edit', 'main'], { cwd: root });
-  assert.deepEqual(recordCheck(root, cfg, { base, lookup: session }).findings, []);
+  // The merge carries the newest block the owner set through the website (review follow-ups,
+  // 2 Nov): GitHub says so of the base's commit.
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: webFor(base) }).findings, []);
 });
 
 test('CLAUDE.md is an instruction file outside .claude or directly in it, and the owner\'s deeper inside', () => {
@@ -578,4 +580,407 @@ test('CLAUDE.md is an instruction file outside .claude or directly in it, and th
   commit(root, { 'docs/CLAUDE.md': 'Notes.\n', '.claude/CLAUDE.md': 'Notes.\n', '.claude/agents/CLAUDE.md': 'Notes.\n', 'sub/.claude/skills/x/CLAUDE.local.md': 'Notes.\n' });
   assert.deepEqual(recordCheck(root, cfg, { base, lookup: session }).findings.map((x) => [x.check, x.file]).sort(),
     [['settings', '.claude/agents/CLAUDE.md'], ['settings', 'sub/.claude/skills/x/CLAUDE.local.md']]);
+});
+
+// Review follow-ups, 2 Nov: a change to the approvals block is accepted only when it leaves the
+// newest block the owner set through the website among the commits it merges, or is itself a
+// new website commit of the owner's.
+// The tranche and main, as local branches here (origin/main and origin/tranche in CI).
+const T = ['main', 'tranche'];
+function closeOfTranche() {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('may push') }, 'the owner sets the approvals on main', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('may push and release') }, 'the owner widens them on the tranche', '2026-11-02T10:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const m = dated(root, { 'm.txt': 'main moves' }, 'main moves on', '2026-11-02T11:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  return { root, o1, o2, main: m };
+}
+const mergeMainWith = (root, words) => {
+  git(['merge', '-q', '--no-ff', '--no-commit', 'main'], { cwd: root, allowFail: true });
+  if (words) write(root, { 'CLAUDE.md': claude(words) });
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', 'merge main into the tranche'], { cwd: root });
+  return git(['rev-parse', 'HEAD'], { cwd: root });
+};
+
+test('a merge of main into the tranche that puts back main\'s older approvals is refused', () => {
+  const { root, o1, o2, main: m } = closeOfTranche();
+  const merged = mergeMainWith(root, 'may push');
+  // The tranche into main: main's block is the base's, and still the merge is refused.
+  const f = recordCheck(root, cfg, { base: m, lookup: webFor(o1, o2), trusted: T }).findings;
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['approvals', 'CLAUDE.md']]);
+  assert.equal(f[0].message, `commit ${merged.slice(0, 10)} puts back an older approvals block; only the newest block neobobkrause set through GitHub's website (commit ${o2.slice(0, 10)}) may be carried, or a new website commit of neobobkrause's`);
+  // The push of that merge to the tranche, judged against the tranche's old tip: refused too.
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: T }).findings.map((x) => x.check), ['approvals']);
+});
+
+test('a merge of main into the tranche that carries the newest owner-set approvals passes', () => {
+  const { root, o1, o2, main: m } = closeOfTranche();
+  mergeMainWith(root, null);
+  assert.equal(approvalsBlock(git(['show', 'HEAD:CLAUDE.md'], { cwd: root }), H), approvalsBlock(claude('may push and release'), H));
+  assert.deepEqual(recordCheck(root, cfg, { base: m, lookup: webFor(o1, o2), trusted: T }).findings, []);
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: T }).findings, []);
+});
+
+test('a new website commit of the owner\'s may set any block, an older one included', () => {
+  const { root, o1, o2, main: m } = closeOfTranche();
+  const merged = mergeMainWith(root, 'may push');
+  // The owner's own website merge (or edit) is a new owner commit: accepted.
+  assert.deepEqual(recordCheck(root, cfg, { base: m, lookup: webFor(o1, o2, merged), trusted: T }).findings, []);
+  // So is a later website commit on the tranche that sets the older words again; the same
+  // commit by anyone else is refused.
+  const t = closeOfTranche();
+  const again = dated(t.root, { 'CLAUDE.md': claude('may push') }, 'the owner restores them', '2026-11-02T12:00:00Z');
+  assert.deepEqual(recordCheck(t.root, cfg, { base: t.o2, lookup: webFor(t.o1, t.o2, again), trusted: T }).findings, []);
+  assert.match(recordCheck(t.root, cfg, { base: t.o2, lookup: webFor(t.o1, t.o2), trusted: T }).findings[0].message, new RegExp(`commit ${again.slice(0, 10)} puts back an older approvals block`));
+});
+
+test('a non-owner commit that sets the block back to the newest owner-set one passes; any other block does not', () => {
+  const { root, o1, o2 } = closeOfTranche();
+  const bad = commit(root, { 'CLAUDE.md': claude('may force-push') }, 'a session widens them');
+  commit(root, { 'CLAUDE.md': claude('may push and release') }, 'a session puts the owner\'s words back');
+  const f = recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: T }).findings;
+  assert.deepEqual(f.map((x) => x.message.slice(0, 17)), [`commit ${bad.slice(0, 10)}`]);
+  assert.match(f[0].message, /is not neobobkrause's own commit through GitHub's website .*and its block is not the newest one neobobkrause set there/);
+});
+
+// approvals.owner (review follow-ups, 2 Nov): while the base has no config, the owner is the
+// repository's as GitHub has it, and onboarding may set approvals.owner to that owner only.
+test('while the base has no config, the owner judged by is the repository\'s owner from GitHub', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const sha = commit(root, { 'CLAUDE.md': claude('may push') }, 'alice sets the approvals on the website');
+  const alice = (args) => (args[1].endsWith(`/commits/${sha}`) ? { ...web(), author: { login: 'alice' } } : session());
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: alice, repoOwner: () => 'alice' }).findings, []);
+  // Without the repository's owner, the default owner is judged by, and alice's commit is not his.
+  assert.match(recordCheck(root, cfg, { base, lookup: alice }).findings[0].message, /not neobobkrause's own commit/);
+  // The owner cannot be read from GitHub: refused, plainly.
+  assert.match(recordCheck(root, cfg, { base, lookup: alice, repoOwner: () => null }).findings[0].message, /not the repository owner's own commit through GitHub's website \(the repository's owner could not be read from GitHub\)/);
+});
+
+test('onboarding may set approvals.owner to the repository\'s owner only; afterwards only the owner\'s website commit changes it', () => {
+  const onboard = (owner) => {
+    const { root, base } = oldOnBase();
+    commit(root, { 'process/config.json': { max_file_bytes: 1000, approvals: { owner } } }, 'onboard');
+    return { root, base };
+  };
+  const big = { ...cfg, max_file_bytes: 1000 };
+  const a = onboard('alice');
+  assert.deepEqual(recordCheck(a.root, big, { base: a.base, lookup: session, repoOwner: () => 'alice' }).findings, []);
+  // Another owner, or GitHub unreadable: refused.
+  const b = onboard('mallory');
+  assert.deepEqual(recordCheck(b.root, big, { base: b.base, lookup: session, repoOwner: () => 'alice' }).findings.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
+  assert.equal(recordCheck(b.root, big, { base: b.base, lookup: session, repoOwner: () => null }).findings.length, 1);
+  // Onboarding sets the owner, and nothing else under approvals: the rest still needs the owner.
+  const { root: r3, base: b3 } = oldOnBase();
+  commit(r3, { 'process/config.json': { max_file_bytes: 1000, approvals: { owner: 'alice', file: 'OTHER.md' } } }, 'onboard');
+  assert.equal(recordCheck(r3, big, { base: b3, lookup: session, repoOwner: () => 'alice' }).findings.length, 1);
+  // Once the base has the config, changing approvals.owner needs that owner's website commit.
+  const base2 = git(['rev-parse', 'HEAD'], { cwd: a.root });
+  const change = commit(a.root, { 'process/config.json': { max_file_bytes: 1000, approvals: { owner: 'mallory' } } }, 'a new owner');
+  const f = recordCheck(a.root, loadCfg(a.root, base2), { base: base2, lookup: session, repoOwner: () => 'mallory' }).findings;
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
+  assert.match(f[0].message, /not alice's own commit/);
+  const aliceWeb = (args) => (args[1].endsWith(`/commits/${change}`) ? { ...web(), author: { login: 'alice' } } : session());
+  assert.deepEqual(recordCheck(a.root, loadCfg(a.root, base2), { base: base2, lookup: aliceWeb, repoOwner: () => 'mallory' }).findings, []);
+});
+
+// Reviews of PR 26.
+test('the owner\'s website merge of a pull request sets the block it takes, so carrying it later passes', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'patch'], { cwd: root });
+  dated(root, { 'CLAUDE.md': claude('may push and release') }, 'proposed words', '2026-11-01T11:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  dated(root, { 't.txt': 't' }, 'tranche work', '2026-11-01T12:00:00Z');
+  git(['merge', '-q', '--no-ff', '-m', 'Merge pull request #9 from patch', 'patch'], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T13:00:00Z' } });
+  const ownerMerge = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const m = dated(root, { 'm.txt': 'm' }, 'main moves', '2026-11-02T10:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'bring main in', 'main'], { cwd: root });
+  // The push of that later merge to the tranche, judged from the owner's merge on.
+  assert.deepEqual(recordCheck(root, cfg, { base: ownerMerge, lookup: webFor(o1, ownerMerge), trusted: T }).findings, []);
+});
+
+test('a newer setter that GitHub cannot read is never passed over for an older one', () => {
+  const { root, o1, o2, main: m } = closeOfTranche();
+  mergeMainWith(root, 'may push');
+  const unread = (args) => (args[1].endsWith(`/commits/${o2}`) ? null : webFor(o1)(args));
+  const merged = git(['rev-parse', 'HEAD'], { cwd: root });
+  const f = recordCheck(root, cfg, { base: m, lookup: unread, trusted: T }).findings;
+  // The unread commit is in the range too, and cannot be shown to be the owner's.
+  assert.deepEqual(f.map((x) => x.message.slice(0, 17)).sort(), [`commit ${merged.slice(0, 10)}`, `commit ${o2.slice(0, 10)}`].sort());
+  assert.match(f.find((x) => x.message.startsWith(`commit ${merged.slice(0, 10)}`)).message, new RegExp(`commit ${o2.slice(0, 10)} could not be read from GitHub, so the newest block neobobkrause set through GitHub's website cannot be told`));
+});
+
+test('the owner\'s change on a side branch passes with the merge that brings it up to the tranche', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'neobobkrause-patch-1'], { cwd: root });
+  const p = dated(root, { 'CLAUDE.md': claude('may push and release') }, 'the owner, "Create a new branch" on the website', '2026-11-02T10:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const t = dated(root, { 't.txt': 't' }, 'the tranche moves', '2026-11-02T11:00:00Z');
+  git(['checkout', '-q', 'neobobkrause-patch-1'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Update branch', 'tranche'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: t, lookup: webFor(o1, p), trusted: T }).findings, []);
+});
+
+test('an owner draft older than the newest block on the base is refused, carried by a merge or built on', () => {
+  const stale = () => {
+    const root = makeRepo({ 'README.md': 'x' });
+    const o1 = dated(root, { 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+    git(['checkout', '-q', '-b', 'owner-patch-1'], { cwd: root });
+    const draft = dated(root, { 'CLAUDE.md': claude('may force-push') }, 'an owner draft, its pull request closed', '2026-11-01T11:00:00Z');
+    git(['checkout', '-q', '-b', 'tranche', 'main'], { cwd: root });
+    const o2 = dated(root, { 'CLAUDE.md': claude('may push and release') }, 'the owner, later, on the tranche', '2026-11-02T10:00:00Z');
+    return { root, o1, draft, o2 };
+  };
+  // A job branch that merges the draft in.
+  const a = stale();
+  git(['checkout', '-q', '-b', 'job/x', 'tranche'], { cwd: a.root });
+  dated(a.root, { 'src.txt': 's' }, 'job work', '2026-11-02T11:00:00Z');
+  git(['merge', '-q', '--no-ff', '--no-commit', 'owner-patch-1'], { cwd: a.root, allowFail: true });
+  write(a.root, { 'CLAUDE.md': claude('may force-push') });
+  git(['add', '-A'], { cwd: a.root });
+  git(['commit', '-q', '-m', 'take the draft'], { cwd: a.root });
+  const merged = git(['rev-parse', 'HEAD'], { cwd: a.root });
+  const fa = recordCheck(a.root, cfg, { base: a.o2, lookup: webFor(a.o1, a.draft, a.o2), trusted: T }).findings;
+  assert.ok(fa.length >= 1 && fa.every((x) => x.check === 'approvals'), JSON.stringify(fa));
+  assert.ok(fa.some((x) => x.message.startsWith(`commit ${merged.slice(0, 10)} puts back an older approvals block`)), JSON.stringify(fa));
+  // A job branch built on the draft (rebased onto it), into the tranche.
+  const b = stale();
+  git(['checkout', '-q', '-b', 'job/y', 'owner-patch-1'], { cwd: b.root });
+  dated(b.root, { 'src.txt': 's' }, 'job work on the draft', '2026-11-02T11:00:00Z');
+  const fb = recordCheck(b.root, cfg, { base: b.o2, lookup: webFor(b.o1, b.draft, b.o2), trusted: T }).findings;
+  assert.deepEqual(fb.map((x) => x.message), [`the approvals this brings are not the newest block neobobkrause set through GitHub's website on the tranche or main (that is commit ${b.o1.slice(0, 10)}'s); a block from elsewhere lands only through neobobkrause's own pull request`]);
+});
+
+// A commit GitHub did not commit (a local commit or merge) is never a website commit, so GitHub
+// is not asked about it.
+test('the approvals history asks GitHub only about commits GitHub committed', () => {
+  const { root, o1, o2, main: m } = closeOfTranche();
+  git(['config', 'user.email', 'session@example.com'], { cwd: root });
+  for (let i = 0; i < 30; i++) commit(root, { 'CLAUDE.md': claude('may push and release') + `\nnote ${i}\n` }, `local edit ${i}`);
+  mergeMainWith(root, null);
+  const asked = [];
+  const look = (args) => { asked.push(args[1].split('/').pop()); return webFor(o1, o2)(args); };
+  assert.deepEqual(recordCheck(root, cfg, { base: m, lookup: look, trusted: T }).findings, []);
+  assert.deepEqual([...new Set(asked)].sort(), [o1, o2].sort());
+});
+
+test('the owner removing the block counts: putting it back afterwards is refused, in any approvals file', () => {
+  const file = 'docs/APPROVALS.md';
+  const c2 = { ...cfg, approvals: { ...cfg.approvals, file } };
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { [file]: claude('may push') }, 'the owner sets them', '2026-11-01T10:00:00Z');
+  const o2 = dated(root, { [file]: '# none\n' }, 'the owner revokes them', '2026-11-02T10:00:00Z');
+  const back = dated(root, { [file]: claude('may push') }, 'a session puts them back', '2026-11-02T11:00:00Z');
+  const f = recordCheck(root, c2, { base: o2, lookup: webFor(o1, o2), trusted: ['main'] }).findings;
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['approvals', file]]);
+  assert.match(f[0].message, new RegExp(`commit ${back.slice(0, 10)} puts back an older approvals block`));
+});
+
+test('a repository an organization owns is judged by the default owner, as before', async () => {
+  const { ownerOfRepo } = await import('../lib/record.mjs');
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const sha = commit(root, { 'CLAUDE.md': claude('may push') }, 'approvals');
+  const org = () => ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: webFor(sha), repoOwner: org }).findings, []);
+  // An unreadable answer still refuses, plainly.
+  assert.match(recordCheck(root, cfg, { base, lookup: webFor(sha), repoOwner: () => null }).findings[0].message, /could not be read from GitHub/);
+});
+
+test('ownerOfRepo: a user\'s login; an organization keeps the default owner; an unreadable answer gives none, with why', async () => {
+  const { ownerOfRepo } = await import('../lib/record.mjs');
+  assert.deepEqual(ownerOfRepo({ owner: { login: 'alice', type: 'User' } }), { login: 'alice' });
+  assert.deepEqual(ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } }), { login: 'neobobkrause', organization: 'acme' });
+  assert.equal(ownerOfRepo(null).login, null);
+  assert.match(ownerOfRepo(null).why, /could not be read from GitHub/);
+});
+
+test('the approvals history is read once per run, however many merges change the block', () => {
+  const { root, o1, o2, main: m } = closeOfTranche();
+  for (let i = 0; i < 30; i++) {
+    git(['checkout', '-q', '-b', `job/j${i}`, 'main'], { cwd: root });
+    commit(root, { [`j${i}.txt`]: 'j' }, `job ${i}`);
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    git(['merge', '-q', '--no-ff', '-m', `merge job ${i}`, `job/j${i}`], { cwd: root });
+  }
+  const asked = [];
+  const look = (args) => { asked.push(args[1].split('/').pop()); return webFor(o1, o2)(args); };
+  assert.deepEqual(recordCheck(root, cfg, { base: m, lookup: look, trusted: T }).findings, []);
+  // Each commit is asked about at most once, and the 30 merges that carry the newest block are
+  // not asked about at all (reviews of PR 26).
+  assert.equal(new Set(asked).size, asked.length);
+  assert.ok(asked.length <= 3, `${asked.length} lookups`);
+});
+
+// Reviews of PR 26: products check out with filter blob:none; the approvals history reads blob
+// ids from the trees and fetches the blobs in one request, with the same result.
+test('the approvals history in a partial clone gives the full clone\'s result, fetching blobs once', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { root, o1, o2, main: m } = closeOfTranche();
+  for (let i = 0; i < 20; i++) commit(root, { 'CLAUDE.md': claude('may push and release') + `\nnote ${i}\n` }, `edit ${i}`);
+  const merged = mergeMainWith(root, 'may push');
+  git(['config', 'uploadpack.allowFilter', 'true'], { cwd: root });
+  git(['config', 'uploadpack.allowAnySHA1InWant', 'true'], { cwd: root });
+  const dir = mkdtempSync(join(tmpdir(), 'p3-partial-'));
+  const pc = join(dir, 'c');
+  git(['clone', '-q', '--filter=blob:none', '--no-checkout', `file://${root}`, pc], { cwd: dir });
+  git(['fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { cwd: pc });
+  const trace = join(dir, 'trace');
+  const want = recordCheck(root, cfg, { base: m, lookup: webFor(o1, o2), trusted: T }).findings.map((x) => x.message);
+  process.env.GIT_TRACE2_EVENT = trace;
+  let got;
+  try { got = recordCheck(pc, cfg, { base: m, head: merged, lookup: webFor(o1, o2), trusted: ['origin/main', 'origin/tranche'] }).findings.map((x) => x.message); } finally { delete process.env.GIT_TRACE2_EVENT; }
+  assert.deepEqual(got, want);
+  assert.equal(want.length, 1);
+  // Each fetch from the promisor ends in one index-pack: a lazy fetch per blob would give about
+  // 25 here; the history's bulk fetch and prefetch's for the range give a few.
+  const { readFileSync: rf } = await import('node:fs');
+  const packs = rf(trace, 'utf8').split('\n').filter((l) => l.includes('"event":"start"') && l.includes('"index-pack"')).length;
+  assert.ok(packs <= 4, `${packs} fetches`);
+});
+
+// Second re-review of PR 26: the floor judges only what lands, so history the range carries that
+// was newest at its time is never refused later.
+test('the tranche into main passes after the owner edits main and then the tranche, with or without main merged in', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o0 = dated(root, { 'CLAUDE.md': claude('v0') }, 'owner v0', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1 on the tranche', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on main', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const o3 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on the tranche too', '2026-11-01T11:00:00Z');
+  const look = webFor(o0, o1, o2, o3);
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: look, trusted: T }).findings, []);
+  // The README's remedy: main merged into the tranche.
+  git(['merge', '-q', '--no-ff', '-m', 'bring main in', 'main'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: look, trusted: T }).findings, []);
+});
+
+test('main into the tranche after a release and a new owner block passes', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on the tranche', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Merge PR: tranche into main', 'tranche'], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T10:00:00Z' } });
+  const release = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const o3 = dated(root, { 'CLAUDE.md': claude('v3') }, 'owner v3 on the tranche', '2026-11-01T11:00:00Z');
+  git(['merge', '-q', '--no-ff', '-m', 'bring main in', 'main'], { cwd: root });
+  const look = webFor(o1, o2, o3);
+  assert.deepEqual(recordCheck(root, cfg, { base: release, lookup: look, trusted: T }).findings, []);
+  // The push of that merge to the tranche, from its old tip.
+  assert.deepEqual(recordCheck(root, cfg, { base: o3, lookup: look, trusted: T }).findings, []);
+});
+
+test('a job branch behind a newer owner block on the base brings nothing, and passes', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'job/x'], { cwd: root });
+  dated(root, { 'src.txt': 's' }, 'job work', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'job/x'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: T }).findings, []);
+});
+
+// Third re-review of PR 26: an owner-set block counts only on the tranche or main, or in the
+// owner's own pull request; the owner key's absent and null differ.
+test('an owner draft newer than everything, abandoned and merged in by a session, is refused', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'owner-patch-2'], { cwd: root });
+  const draft = dated(root, { 'CLAUDE.md': claude('may force-push') }, 'an owner draft, its pull request closed', '2026-11-02T10:00:00Z');
+  git(['checkout', '-q', '-b', 'job/x', 'tranche'], { cwd: root });
+  dated(root, { 'src.txt': 's' }, 'job work', '2026-11-02T11:00:00Z');
+  git(['merge', '-q', '--no-ff', '-m', 'take the draft', 'owner-patch-2'], { cwd: root });
+  const f = recordCheck(root, cfg, { base: 'tranche', lookup: webFor(o1, draft), trusted: T }).findings;
+  assert.deepEqual(f.map((x) => x.check), ['approvals']);
+  // The same draft as the owner's own pull request into the tranche passes.
+  git(['checkout', '-q', 'owner-patch-2'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: 'tranche', lookup: webFor(o1, draft), trusted: T }).findings, []);
+});
+
+test('approvals.owner: absent is the default owner, an explicit null is a change', () => {
+  const run = (from, to) => {
+    const root = makeRepo({ 'process/config.json': from });
+    const base = git(['rev-parse', 'HEAD'], { cwd: root });
+    commit(root, { 'process/config.json': to }, 'change');
+    return recordCheck(root, { ...cfg, max_file_bytes: 1e6 }, { base, lookup: session }).findings.map((x) => x.check);
+  };
+  assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: 'neobobkrause' } }), []);
+  assert.deepEqual(run({ max_file_bytes: 1, approvals: { owner: 'neobobkrause' } }, { max_file_bytes: 1 }), []);
+  assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: null } }), ['approvals']);
+  assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: 'mallory' } }), ['approvals']);
+});
+
+// Fourth re-review of PR 26.
+test('the owner\'s website merge of an unrelated pull request does not outrank an earlier edit of the owner\'s that lands later', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'owner-patch'], { cwd: root });
+  const p = dated(root, { 'CLAUDE.md': claude('v3') }, 'owner v3 on a side branch', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', '-b', 'job/x', 'tranche'], { cwd: root });
+  dated(root, { 'src.txt': 's' }, 'job work', '2026-11-01T09:30:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'owner website merge of the job', 'job/x'], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T10:00:00Z' } });
+  const jobMerge = git(['rev-parse', 'HEAD'], { cwd: root });
+  // The owner's approvals pull request, after a bot update-branch.
+  git(['checkout', '-q', 'owner-patch'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Update branch', 'tranche'], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T11:00:00Z' } });
+  const look = webFor(o1, p, jobMerge);
+  assert.deepEqual(recordCheck(root, cfg, { base: 'tranche', lookup: look, trusted: T }).findings, []);
+  // Merged into the tranche, then the tranche into main.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const old = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Merge the owner\'s pull request', 'owner-patch'], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T12:00:00Z' } });
+  assert.deepEqual(recordCheck(root, cfg, { base: old, lookup: look, trusted: T }).findings, []);
+  assert.deepEqual(recordCheck(root, cfg, { base: o1, lookup: look, trusted: T }).findings, []);
+});
+
+test('an owner branch made from main, carrying a main-only commit, is still the owner\'s own pull request', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  dated(root, { 't.txt': 't' }, 'tranche work', '2026-11-01T08:30:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  dated(root, { 'release.txt': 'r' }, 'a main-only commit', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', '-b', 'owner-patch'], { cwd: root });
+  const p = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2, branch made from main', '2026-11-01T10:00:00Z');
+  assert.deepEqual(recordCheck(root, cfg, { base: 'tranche', lookup: webFor(o1, p), trusted: T }).findings, []);
+});
+
+test('record-check trusts a self-named tranche while the base has no config, when it is the branch checked', async () => {
+  const { trustedRefs } = await import('../lib/record.mjs');
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  const mainTip = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'develop'], { cwd: root });
+  dated(root, { 'process/config.json': { tranche: 'develop', max_file_bytes: 100000 } }, 'onboard develop', '2026-11-01T08:30:00Z');
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on develop', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', '-b', 'job/x', 'main'], { cwd: root });
+  dated(root, { 'src.txt': 's' }, 'job', '2026-11-01T09:30:00Z');
+  git(['checkout', '-q', 'develop'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'merge the job', 'job/x'], { cwd: root });
+  git(['update-ref', 'refs/remotes/origin/develop', 'develop'], { cwd: root });
+  git(['update-ref', 'refs/remotes/origin/main', 'main'], { cwd: root });
+  const c = { ...cfg, max_file_bytes: 100000 };
+  assert.deepEqual(trustedRefs(root, c, { base: mainTip, head: 'develop', branch: 'develop' }), ['origin/main', 'origin/tranche', 'origin/develop']);
+  assert.deepEqual(trustedRefs(root, c, { base: mainTip, head: 'develop', branch: 'bob/other' }), ['origin/main', 'origin/tranche']);
+  const look = webFor(o1, o2);
+  assert.deepEqual(recordCheck(root, c, { base: mainTip, head: 'develop', lookup: look, trusted: trustedRefs(root, c, { base: mainTip, head: 'develop', branch: 'develop' }) }).findings, []);
+  assert.ok(recordCheck(root, c, { base: mainTip, head: 'develop', lookup: look, trusted: trustedRefs(root, c, { base: mainTip, head: 'develop', branch: 'bob/other' }) }).findings.some((f) => f.check === 'approvals'));
 });

@@ -11,7 +11,7 @@ import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metric
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { status } from './lib/status.mjs';
-import { recordCheck, recordSince } from './lib/record.mjs';
+import { recordCheck, recordSince, repoOwnerOf, trustedRefs } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
@@ -122,7 +122,10 @@ const commands = {
     const ledgerBase = git(['merge-base', head, base], { cwd: root });
     const cfg = loadConfig(root, base);
     const s = recordSince(root, { base, head });
-    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since });
+    // While the base has no config, the owner is the repository's, as GitHub has it.
+    const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
+    const trusted = trustedRefs(root, cfg, { base, head, branch: a.branch });
+    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, repoOwner, trusted });
     if (s.finding) findings.push(s.finding);
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}`);
     // Annotations, so a notice shows on the pull request and not only in the log.

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, markReady } from './github.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
-import { recordCheck, recordSince } from './record.mjs';
+import { recordCheck, recordSince, repoOwnerOf } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -48,6 +48,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   L.push(`4. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>"\`. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`5. End your turn when it prints the receipt link.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
+  // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
+  L.push('', 'Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).');
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(id)) L.push(`- ${a}`);
   // A division of labour (Bob, 2 Nov): deploying and releasing are the coordinator's acts in a
@@ -250,7 +252,9 @@ export function jobComplete(root, id, opts = {}) {
   const ledger = checkLedger(root, { base, branch });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
   const since = recordSince(root, { base });
-  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
+  // As CI runs it: while the base has no config, the repository's owner from GitHub (reviews of PR 26).
+  const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
+  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, repoOwner });
   if (since.finding) rec.findings.push(since.finding);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   // The module's stale lock files first, whether or not the suite runs: its checks may need

@@ -156,6 +156,20 @@ export function requiredChecks(slug, branch, { read = (args) => gh(args, { allow
   return { checks, strict: rs.some((r) => r.parameters?.strict_required_status_checks_policy === true) };
 }
 
+// Whether an active ruleset that requires status checks on this branch names the branch itself
+// (refs/heads/<branch>), not ~ALL or a pattern: what the owner's ruleset gives the tranche
+// (DEVELOPER.md Step 11). false when unreadable.
+export function namedRequiredChecks(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const path = branch.split('/').map(encodeURIComponent).join('/');
+  const rules = read(['api', `repos/${slug}/rules/branches/${path}?per_page=100`]);
+  if (!Array.isArray(rules)) return false;
+  const ids = [...new Set(rules.filter((r) => r.type === 'required_status_checks' && (r.parameters?.required_status_checks || []).length).map((r) => r.ruleset_id).filter(Boolean))];
+  return ids.some((id) => {
+    const rs = read(['api', `repos/${slug}/rulesets/${id}?includes_parents=true`]);
+    return rs?.enforcement === 'active' && (rs.conditions?.ref_name?.include || []).includes(`refs/heads/${branch}`);
+  });
+}
+
 // Every check run of that name on a commit, newest first; null when unreadable. Only check
 // runs: a commit status can be posted by any account with write access (review of PR 14).
 export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFail: true }) } = {}) {

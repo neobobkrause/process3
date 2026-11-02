@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
 import { CONFIRMED, READERS, loadConditions, setupCheck } from '../lib/setup.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo, write } from './helpers.mjs';
 
 const quiet = () => {};
 const DENY = [
@@ -403,12 +403,13 @@ test('deploy-token: one harmless read per scope, each reported present or missin
   const w = world();
   const out = [];
   let r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
-  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: present; Containers: present; Workers KV Storage: present');
-  assert.deepEqual(w.cfAsked, ['accounts/acc123/workers/scripts', 'accounts/acc123/r2/buckets', 'accounts/acc123/containers/applications', 'accounts/acc123/storage/kv/namespaces']);
-  w.cf = { 'storage/kv': { status: 403, success: false }, containers: { status: 200, success: false } };
+  // Three scopes, no Workers KV: the product binds none (review follow-ups, 2 Nov).
+  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: present; Containers: present');
+  assert.deepEqual(w.cfAsked, ['accounts/acc123/workers/scripts', 'accounts/acc123/r2/buckets', 'accounts/acc123/containers/applications']);
+  w.cf = { r2: { status: 403, success: false }, containers: { status: 200, success: false } };
   r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
   assert.deepEqual(r.missing, ['deploy-token']);
-  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: present; Containers: missing (200); Workers KV Storage: missing (403)');
+  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: missing (403); Containers: missing (200)');
   assert.doesNotMatch(out.join('\n'), /tok-|SECRET/, 'the token is never printed');
   delete w.env.CLOUDFLARE_API_TOKEN;
   assert.equal(state(check(w), 'deploy-token').detail, "CLOUDFLARE_API_TOKEN is not in this session's environment");
@@ -439,13 +440,15 @@ test('the step checker: a step naming no condition says why; website commits set
   assert.ok(checkDeveloperSteps(text.replace('There are 11 steps', 'There are 10 steps')).includes('the page says 10 steps, and has 11'));
   assert.ok(checkDeveloperSteps(text.replace('## Step 6.', '## Step 16.')).some((p) => /out of order, expected Step 6/.test(p)));
   // The page itself: the approvals before the deny list, both before the last ruleset; the
-  // private window; required approvals 0; the deploy token's four scopes.
+  // private window; required approvals 0; the deploy token's three scopes, and no KV.
   const at = (s) => text.indexOf(s);
   assert.ok(at('## Step 9. The standing approvals') < at('## Step 10. The deny list') && at('## Step 10.') < at('## Step 11. A ruleset on main'));
   assert.match(text, /## Step 3\. In a private window/);
   assert.match(text, /Leave \*\*Required approvals\*\* at `0`/);
   assert.match(text, /make sure \*\*Restrict deletions\*\* and \*\*Block force pushes\*\* are ticked/);
-  for (const p of ['**Workers Scripts**: **Edit**', '**Workers R2 Storage**: **Edit**', '**Containers**: **Edit**', '**Workers KV Storage**: **Read**']) assert.ok(text.includes(p), p);
+  for (const p of ['**Workers Scripts**: **Edit**', '**Workers R2 Storage**: **Edit**', '**Containers**: **Edit**']) assert.ok(text.includes(p), p);
+  assert.match(text, /add these three rows/);
+  assert.doesNotMatch(text, /Workers KV Storage|list KV namespaces/);
   assert.match(text, /BOB's setup puts nothing under `\.claude\/`/);
   assert.match(text, /BOB's setup puts nothing in the approvals block/);
 });
@@ -678,4 +681,141 @@ test('a second tranche with no config of its own keeps the first tranche\'s sett
   assert.equal(res.tranche, 't2');
   assert.equal(state(res, 'deploy-account').state, 'set');
   assert.equal(state(res, 'coordinator').detail, 'no process/config.json on t2');
+});
+
+// Review follow-ups, 2 Nov: the approvals on the tranche must be the newest block the owner set
+// through the website in its history, and a tranche with no config judges by the repository's
+// owner as GitHub has it.
+const datedCommit = (r, files, msg, date) => {
+  write(r, files);
+  git(['add', '-A'], { cwd: r });
+  git(['commit', '-q', '-m', msg], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date } });
+  return tip(r);
+};
+function restoredTranche(words) {
+  const { r } = originRepo();
+  const w = world();
+  const o1 = datedCommit(r, { ...w.files, 'CLAUDE.md': claude('may push') }, 'the owner on main', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  const o2 = datedCommit(r, { 'CLAUDE.md': claude('may push and release') }, 'the owner on the tranche', '2026-11-02T10:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: r });
+  datedCommit(r, { 'm.txt': 'm' }, 'main moves', '2026-11-02T11:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '--no-commit', 'main'], { cwd: r, allowFail: true });
+  if (words) write(r, { 'CLAUDE.md': claude(words) });
+  git(['add', '-A'], { cwd: r });
+  git(['commit', '-q', '-m', 'merge main into the tranche'], { cwd: r });
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  const notOwner = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+  const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2].some((s) => p.endsWith(s)) ? w.commit : notOwner) : w.io.api(p));
+  const res = setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet });
+  return { res, o1, o2 };
+}
+
+test('approvals: a merge on the tranche that put back an older owner-set block is missing', () => {
+  const { res, o1, o2 } = restoredTranche('may push');
+  const a = state(res, 'approvals');
+  assert.equal(a.state, 'missing');
+  assert.equal(a.detail, `the approvals on tranche (set by ${o1.slice(0, 10)}) are not the newest block neobobkrause set through GitHub's website on tranche or main: that is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it to tranche`);
+});
+
+test('approvals: a merge on the tranche that carries the newest owner-set block is set', () => {
+  const { res, o2 } = restoredTranche(null);
+  assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${o2.slice(0, 10)}`);
+});
+
+test('approvals: a tranche with no config judges by the repository\'s owner from GitHub', () => {
+  const w = world();
+  delete w.files['process/config.json'];
+  w.commit = { ...w.commit, author: { login: 'alice' } };
+  w.repo = { ...w.repo, owner: { login: 'alice' } };
+  assert.equal(state(check(w), 'approvals').detail, "one block, last changed by alice's website commit abc1234567");
+  w.repo = { ...w.repo, owner: undefined };
+  assert.equal(state(check(w), 'approvals').detail, "the repository's owner could not be read from GitHub, and process/config.json on the tranche names no approvals owner");
+  // Once the tranche has a config, its approvals.owner (or the default) is the one judged by.
+  const c = world();
+  c.repo = { ...c.repo, owner: { login: 'alice' } };
+  c.commit = { ...c.commit, author: { login: 'alice' } };
+  assert.match(state(check(c), 'approvals').detail, /not neobobkrause's own commit/);
+  c.files['process/config.json'] = JSON.stringify({ ...JSON.parse(c.files['process/config.json']), approvals: { owner: 'alice' } });
+  assert.equal(state(check(c), 'approvals').state, 'set');
+});
+
+// Review follow-ups, 2 Nov: no Workers KV scope; a removal's follow-up KV error is success only
+// once the script is confirmed gone.
+test('deploy-token asks for no Workers KV scope, and the removal of a development deployment is documented', () => {
+  const token = loadConditions().find((c) => c.id === 'deploy-token');
+  assert.deepEqual(token.value.map((s) => s.scope), ['Workers Scripts', 'Workers R2 Storage', 'Containers']);
+  assert.ok(!token.value.some((s) => /kv/i.test(s.read)));
+  assert.doesNotMatch(token.what, /KV/);
+  assert.match(token.why, /no Workers KV, so the token asks for no KV scope/);
+  const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /## Development deployments/);
+  assert.match(readme, /Count that follow-up error as success only after confirming the script is gone/);
+  // Step 9 says nothing new is needed from the owner for approvals.owner.
+  const dev = readFileSync(DEVELOPER, 'utf8');
+  assert.match(dev, /BOB's onboarding sets it to the repository's owner as GitHub has it, so nothing more is needed from you for it/);
+  assert.deepEqual(checkDeveloperSteps(dev), []);
+});
+
+// Reviews of PR 26: setup looks at the tranche and main, never passes over an unreadable commit,
+// and says plainly when an organization owns the repository.
+test('approvals: a newer owner block on main that the tranche lacks is missing', () => {
+  const { r } = originRepo();
+  const w = world();
+  const o1 = datedCommit(r, { ...w.files, 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+  git(['branch', 'tranche'], { cwd: r });
+  const o2 = datedCommit(r, { 'CLAUDE.md': claude('may push and release') }, 'the owner on main', '2026-11-02T10:00:00Z');
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2].some((x) => p.endsWith(x)) ? w.commit : null) : w.io.api(p));
+  const a = state(setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet }), 'approvals');
+  assert.equal(a.detail, `the approvals on tranche (set by ${o1.slice(0, 10)}) are not the newest block neobobkrause set through GitHub's website on tranche or main: that is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it to tranche`);
+  // GitHub cannot read the newer commit: missing, never the older block taken for the newest.
+  const api2 = (p) => (p.endsWith(o2) ? null : api(p));
+  const b = state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet }), 'approvals');
+  assert.equal(b.detail, `commit ${o2.slice(0, 10)} could not be read from GitHub, so the newest approvals block neobobkrause set through GitHub's website cannot be told`);
+});
+
+test('approvals: a tranche with no config in a repository an organization owns is judged by the default owner', () => {
+  const w = world();
+  delete w.files['process/config.json'];
+  w.repo = { ...w.repo, owner: { login: 'acme', type: 'Organization' } };
+  assert.equal(state(check(w), 'approvals').detail, "one block, last changed by neobobkrause's website commit abc1234567");
+});
+
+// Second re-review of PR 26: the sessions' own account cannot hold the approvals.
+test('approvals: an approvals owner that is the sessions\' own account is missing', () => {
+  const w = world();
+  w.files['process/config.json'] = JSON.stringify({ ...JSON.parse(w.files['process/config.json']), approvals: { owner: 'civicsmith' } });
+  w.commit = { ...w.commit, author: { login: 'civicsmith' } };
+  assert.equal(state(check(w), 'approvals').detail, "the approvals owner, civicsmith, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word");
+});
+
+test('approvals: the account the sessions act as unreadable is missing', () => {
+  const w = world();
+  w.user = null;
+  assert.equal(state(check(w), 'approvals').detail, 'the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
+});
+
+// Fourth re-review of PR 26: an owner website merge carrying an older block does not outrank
+// the owner's own side-branch edit that lands after it.
+test('approvals: the owner\'s website merge of the tranche into main does not outrank the owner\'s side-branch edit', () => {
+  const { r } = originRepo();
+  const w = world();
+  const o1 = datedCommit(r, { ...w.files, 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  const o2 = datedCommit(r, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', '-b', 'owner-patch'], { cwd: r });
+  const o3 = datedCommit(r, { 'CLAUDE.md': claude('v3') }, 'owner v3 on a side branch', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '-m', 'owner website merge: tranche into main', 'tranche'], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T11:00:00Z' } });
+  const release = tip(r);
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '-m', 'BOB merges the owner\'s pull request', 'owner-patch'], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T12:00:00Z' } });
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  const notOwner = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+  const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2, o3, release].some((x) => p.endsWith(x)) ? w.commit : notOwner) : w.io.api(p));
+  const res = setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet });
+  assert.equal(state(res, 'approvals').state, 'set', state(res, 'approvals').detail);
 });

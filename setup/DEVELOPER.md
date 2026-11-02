@@ -25,7 +25,7 @@ Why: every other step is a setting of this repository, and only its owner can ch
 
 Clicks: signed in to github.com as yourself. If the repository does not exist yet, click **+** (top right), then **New repository**, name it `<product>`, and click **Create repository**. If it exists under another account, that account's owner moves it to you: **Settings**, then **General**, then at the bottom **Transfer**.
 
-How BOB confirms: BOB can open the repository with `gh api repos/<owner>/<product>`, and its owner is you.
+How BOB confirms: BOB can open the repository with `gh api repos/<owner>/<product>`, and its owner is you, never `<session account>`: the repository's owner holds the approvals, so the sessions' own account must not own it.
 
 Sets: none, because the setup check reads this repository, so it cannot run before the repository is yours; Step 3's `account` reads it.
 
@@ -108,19 +108,18 @@ Sets: `ruleset-all-branches`, `ruleset-bypass`.
 
 ## Step 8. The deploy token, in the Claude cloud environment
 
-Why: the process deploys the product so walkers can run and each round can find and fix flaws, unattended. The sessions need the product's deploy token for that, in their own environment. The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email, so the token needs each scope below; without Workers KV, `wrangler delete` exits with an error after it has succeeded.
+Why: the process deploys the product so walkers can run and each round can find and fix flaws, unattended. The sessions need the product's deploy token for that, in their own environment. The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email, so the token needs each scope below. It binds no Workers KV, so the token needs no KV scope.
 
 Clicks:
 1. On `https://dash.cloudflare.com`, sign in. The product's account is the one whose **Account ID** is the value `process/config.json` names as `"cloudflare_account"` (BOB shows it on the onboarding page; each account's ID is on its **Account home**, under the account's name, or in the URL after `dash.cloudflare.com/`). In that account, click **R2 Object Storage** in the left sidebar. If the page offers to enable or purchase R2 instead of listing buckets, follow it to enable R2 (it has a free tier; Cloudflare may ask for a payment method), because the token's R2 scope cannot be read until R2 is on. Click your profile icon (top right), then **My Profile**, then **API Tokens**, then **Create Token**. Next to **Create Custom Token**, click **Get started**.
-2. Name it (for example `<product> development`). Under **Permissions**, add these four rows, using **+ Add more** for each after the first, all under **Account**:
+2. Name it (for example `<product> development`). Under **Permissions**, add these three rows, using **+ Add more** for each after the first, all under **Account**:
    - **Workers Scripts**: **Edit**
    - **Workers R2 Storage**: **Edit**
    - **Containers**: **Edit**
-   - **Workers KV Storage**: **Read**
 3. Under **Account Resources**, choose **Include** and the product's account (the one with that Account ID). Click **Continue to summary**, then **Create Token**, and copy the token. Never paste it into a chat.
 4. On claude.ai, open any Claude Code session for this product. Click the cloud environment menu in the session's title bar, then **Edit**. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable (not under Network secrets), because `p3 setup check` and the product's deploy tools read environment variables. Set `CLOUDFLARE_API_TOKEN` to the token, and `CLOUDFLARE_ACCOUNT_ID` to that Account ID. Click **Save**.
 
-How BOB confirms: the variables reach only sessions started after you save, so BOB confirms from a new session started from the tranche branch. `p3 setup check` there shows `environment` set (it prints only the names), `deploy-account` set (it prints only the configured account and whether it matches), and `deploy-token` set: it makes one harmless read per scope (list Workers scripts, list R2 buckets, list containers, list KV namespaces) and reports each scope present or missing, never printing the token. A read cannot tell Edit from Read, so choose **Edit** exactly as listed above. Before `process/config.json` lists them, all three show `not configured`.
+How BOB confirms: the variables reach only sessions started after you save, so BOB confirms from a new session started from the tranche branch. `p3 setup check` there shows `environment` set (it prints only the names), `deploy-account` set (it prints only the configured account and whether it matches), and `deploy-token` set: it makes one harmless read per scope (list Workers scripts, list R2 buckets, list containers) and reports each scope present or missing, never printing the token. A read cannot tell Edit from Read, so choose **Edit** exactly as listed above. Before `process/config.json` lists them, all three show `not configured`.
 
 Sets: `environment`, `deploy-account`, `deploy-token`.
 
@@ -141,7 +140,7 @@ Clicks: signed in to github.com as yourself, in your own window.
 4. Make the change here, in the browser, signed in as yourself. An upload, GitHub Desktop or a `git push` does not count.
 5. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
 
-How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, last changed by your own commit through GitHub's website. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"` (by default `neobobkrause`). The record check also reports any later change to the approvals that is not your own website commit.
+How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, last changed by your own commit through GitHub's website. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"`: BOB's onboarding sets it to the repository's owner as GitHub has it, so nothing more is needed from you for it. The record check also reports any later change to the approvals that is not your own website commit.
 
 Sets: `approvals`.
 

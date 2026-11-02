@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { approvalsBlock, webCommitByOwner } from './record.mjs';
+import { approvalsBlock, approvalsHistory, ownerOfRepo, webCommitByOwner } from './record.mjs';
 import { DEFAULTS, exists, fail, gh, git, loadConfig, run } from './util.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
@@ -272,9 +272,19 @@ const readers = {
     const sha = x.lastChange(file, heading);
     if (sha?.shallow) return missing(`the history of ${file} on ${x.cfg.tranche} is shallow at ${sha.shallow.slice(0, 10)} and could not be deepened, so its last change cannot be found`);
     if (!sha) return missing(`could not find the commit that last changed the approvals on ${x.cfg.tranche}`);
+    if (!owner) return missing(`${x.ownerWhy() || "the repository's owner could not be read from GitHub"}, and process/config.json on the tranche names no approvals owner`);
+    // The sessions' own account cannot hold the approvals (second re-review of PR 26).
+    const me = x.api('user')?.login;
+    if (!me) return missing('the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
+    if (owner === me) return missing(`the approvals owner, ${owner}, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word`);
     const v = x.ownerCommit(sha, owner);
-    return v.ok ? set(`one block, last changed by ${owner}'s website commit ${sha.slice(0, 10)}`)
-      : missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
+    if (!v.ok) return missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
+    // The block must be the newest the owner set through the website in the tranche's history,
+    // so a merge that put back an older one is found (review follow-ups, 2 Nov).
+    const top = x.newestOwner(file, heading, owner);
+    if (top?.unread) return missing(`commit ${top.unread.slice(0, 10)} could not be read from GitHub, so the newest approvals block ${owner} set through GitHub's website cannot be told`);
+    if (top && top.block !== approvalsBlock(text, heading)) return missing(`the approvals on ${x.cfg.tranche} (set by ${sha.slice(0, 10)}) are not the newest block ${owner} set through GitHub's website on ${x.cfg.tranche} or ${x.main}: that is commit ${top.sha.slice(0, 10)}'s. ${owner} sets it again on the website, or a merge carries it to ${x.cfg.tranche}`);
+    return set(`one block, last changed by ${owner}'s website commit ${sha.slice(0, 10)}`);
   },
 
   // The session's own checkout (Bob, 2 Nov): a session acts on the approvals only when CLAUDE.md
@@ -321,7 +331,15 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   // own checkout (review of PR 24).
   let tcfg = {};
   try { tcfg = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
-  x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(tcfg.approvals || {}) } };
+  // A tranche with no config yet judges by the repository's owner as GitHub has it, the owner
+  // onboarding writes into approvals.owner (review follow-ups, 2 Nov).
+  let repo;
+  x.repo = () => (repo === undefined ? (repo = x.api(`repos/${slug}`)) : repo);
+  let ownerWhy = null;
+  const repoOwner = () => { const o = ownerOfRepo(x.repo()); ownerWhy = o.why || null; return o.login; };
+  const noConfig = x.file('process/config.json') === null;
+  x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(noConfig ? { owner: repoOwner() } : {}), ...(tcfg.approvals || {}) } };
+  x.ownerWhy = () => ownerWhy;
   // When the tranche's own config names another tranche, every git reader reads that one.
   // Its config is read again from there, so the approvals' file, heading and owner are that
   // tranche's own (third re-review); one hop only.
@@ -340,11 +358,17 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   });
   x.lastChange = io.lastChange || ((file, heading) => lastApprovalsChange(root, x.cfg.tranche, file, heading));
   x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
+  // Read through git like lastChange, over the tranche and main (review follow-ups, 2 Nov); with
+  // the tranche's files stubbed, nothing to walk.
+  x.newestOwner = io.newestOwner || (io.file ? () => null : (file, heading, owner) => {
+    // main fetched first, so a newer owner block there is seen (reviews of PR 26); the tranche
+    // was fetched, and deepened when shallow, by lastChange.
+    git(['fetch', '-q', 'origin', `+refs/heads/${x.main}:refs/remotes/origin/${x.main}`], { cwd: root, allowFail: true });
+    return approvalsHistory(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading).newest((sha) => x.ownerCommit(sha, owner));
+  });
   x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche, { main: x.main, ...x.cfg.approvals }));
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
   x.required = [].concat(x.cfg.required_check || 'gate');
-  let repo;
-  x.repo = () => (repo === undefined ? (repo = x.api(`repos/${slug}`)) : repo);
   const cache = new Map();
   x.ruleset = (id) => { if (!cache.has(id)) cache.set(id, x.api(`repos/${slug}/rulesets/${id}?includes_parents=true`)); return cache.get(id); };
   x.rulesets = () => {
