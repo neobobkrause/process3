@@ -176,7 +176,7 @@
         }
       ],
       "who": "the developer (a Cloudflare API token, saved in the Claude cloud environment's settings)",
-      "read": "one harmless GET per scope on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 with success true (or a bare JSON answer) is present; each scope reported present or missing; a read cannot tell Edit from Read; the token is never printed; not configured when the config names no cloudflare_account"
+      "read": "one harmless GET per scope (paths from Cloudflare's API reference, developers.cloudflare.com/api: Workers scripts, R2 buckets, Containers applications, KV namespaces) on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 with success true (or a bare JSON answer) is present; each scope reported present or missing; a read cannot tell Edit from Read; the token is never printed; not configured when the config names no cloudflare_account"
     },
     {
       "id": "ruleset-bypass",

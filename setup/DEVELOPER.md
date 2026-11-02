@@ -35,7 +35,7 @@ Why: the sessions reach the repository through the Claude GitHub App, which only
 
 Clicks: signed in to github.com as yourself, in your own window.
 
-1. Open `https://github.com/apps/claude/installations/select_target`, pick your own account, choose **Only select repositories**, pick `<owner>/<product>` (and keep any repositories already listed), and click **Install** (or **Save**).
+1. Open `https://github.com/apps/claude/installations/select_target`, pick your own account. If **All repositories** is already chosen, leave it, since `<owner>/<product>` is then included. Otherwise choose **Only select repositories**, pick `<owner>/<product>` (keeping any repositories already listed), and click **Install** (or **Save**).
 2. Open `https://github.com/<owner>/<product>/settings/access` (**Settings**, then **Collaborators**), click **Add people**, type `<session account>`, pick it, and click **Add ... to this repository**. On a repository you own personally, a collaborator gets Write, never admin.
 3. On the same page, check that `<session account>` is the only other person listed.
 
@@ -152,7 +152,7 @@ Why: the deny list stops every session from force-pushing, deleting a branch, wr
 Clicks: signed in to github.com as yourself, in your own window.
 
 1. Open `https://github.com/<owner>/<product>/tree/<tranche>` (it is there: you used it in Step 9). If the file list shows a `.claude` folder holding `settings.json`, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text; otherwise open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche.
-2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. It holds no rule that would block a session's push of its own branch, such as `"Bash(git push origin :*)"`:
+2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. Do not add a rule such as `"Bash(git push origin :*)"`: it would block a session's push of its own branch.
 
    ```json
    {
@@ -187,7 +187,7 @@ Why: nothing reaches `main` or the tranche except through a pull request whose r
 Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**, then **Rules**, then **Rulesets**), click **New ruleset**, then **New branch ruleset**.
 1. Name it (for example `process3`). Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
 2. Under **Target branches**, click **Add target**, then **Include by pattern**, and enter `main`. Do it again for the tranche's name.
-3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`, and leave **Require review from Code Owners** unticked: the tool merges once the check is green, and a required review would stop every merge. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**.
+3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`, and leave **Require review from Code Owners** unticked: the tool merges once the check is green, and a required review would stop every merge. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**. Leave **Restrict deletions** and **Block force pushes** as GitHub sets them here: Step 7 already holds both on every branch.
 4. Tick **Require status checks to pass**, click **Add checks**, type `gate`, and pick the one whose source is **GitHub Actions** (BOB ran the gate once after Step 4, so it is offered). If it is not offered, type `gate` in full, add it, and set its source to **GitHub Actions**, not any source.
 5. Click **Create**.
 

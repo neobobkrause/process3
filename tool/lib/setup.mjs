@@ -80,7 +80,7 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const head = g(['rev-parse', 'HEAD']).stdout.trim();
   const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
   const trancheTip = g(['rev-parse', ref]).stdout.trim();
-  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: `${here} is ${main}, not ${name}`, fix: restart };
+  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: `${here} is on ${main}, not ${name}`, fix: restart };
   if (mainTip) {
     const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
     const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
@@ -157,7 +157,8 @@ const readers = {
       const pr = rules.filter((r) => r.type === 'pull_request');
       const methods = pr.map((r) => r.parameters?.allowed_merge_methods);
       if (!pr.length) gaps.push(`${b}: no pull request rule`);
-      else if (!methods.some((m) => Array.isArray(m) && m.length === c.value.merge_methods.length && c.value.merge_methods.every((v) => m.includes(v)))) gaps.push(`${b}: merge methods are not ${c.value.merge_methods.join(', ')} only`);
+      // Every pull request rule, not just one, allows only these methods (fifth re-review).
+      else if (!methods.every((m) => Array.isArray(m) && m.length === c.value.merge_methods.length && c.value.merge_methods.every((v) => m.includes(v)))) gaps.push(`${b}: merge methods are not ${c.value.merge_methods.join(', ')} only`);
       // The tool merges without a person's review: no rule may require one (fourth re-review).
       for (const r of pr) {
         const n = r.parameters?.required_approving_review_count;
