@@ -6,7 +6,7 @@ import { gate } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
-import { merge } from './lib/merge.mjs';
+import { merge, mergePlain } from './lib/merge.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -67,8 +67,10 @@ const commands = {
   },
 
   // merge <pr> (--reviewed "<what>" | --no-review "<why>") [--minutes 30]: BOB merges a job.
+  // merge <pr> --plain (--reviewed "<what>" | --no-review "<why>"): any other pull request.
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
+    if (a.plain) return mergePlain(root, n, { reviewed: a.reviewed, noReview: a['no-review'] }).merged ? 0 : 1;
     return merge(root, n, { reviewed: a.reviewed, noReview: a['no-review'], minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
   },
 
