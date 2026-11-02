@@ -111,7 +111,7 @@ function plainRepo({ config = true, ledger = true, head = 'bob/pin', files = { '
 }
 
 const run = (over = {}) => ({ id: 1, app: { id: ACTIONS_APP }, status: 'completed', conclusion: 'success', started_at: '2026-11-02T10:00:00Z', check_suite: { id: 7 }, ...over });
-function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false }, runs = [run()], paths = {}, events = {}, headRepo = 'o/r', after, repo = { released: () => false, shim: () => null } } = {}) {
+function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false }, runs = [run()], paths = {}, events = {}, headRepo = 'o/r', after, repo = { released: () => false, shim: () => null, descends: () => false }, open = [] } = {}) {
   const calls = { merged: null, reads: 0 };
   const pr = () => ({ state: 'open', draft: false, base: { ref: base, repo: { full_name: 'o/r', default_branch: 'main' } }, head: { ref: head, sha: r.sha, repo: headRepo === null ? null : { full_name: headRepo } } });
   return {
@@ -122,6 +122,7 @@ function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ cont
       checkRuns: () => runs,
       workflowRun: (slug, x) => ({ path: paths[x.check_suite?.id] || '.github/workflows/process-gate.yml', event: events[x.check_suite?.id] || 'pull_request' }),
       repo,
+      openFrom: () => open,
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -358,4 +359,66 @@ test('the job route points any other pull request to --plain', () => {
   const f = io('h'.repeat(40));
   f.io.getPR = () => ({ state: 'open', draft: false, base: { ref: 'tranche' }, head: { ref: 'bob/pin', sha: 'h'.repeat(40) } });
   assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, noReview: 'x', log: () => {} }), /merges with --plain/);
+});
+
+// Third confirming review of PR 14.
+// process3 with two released commits on its tranche and one unreleased.
+function process3Line() {
+  const p = makeRepo({ 'shims/process-gate.yml': 'on: pull_request\n' });
+  const v1 = git(['rev-parse', 'HEAD'], { cwd: p });
+  const v2 = commit(p, { 'README.md': 'v2' });
+  git(['branch', 'tranche'], { cwd: p });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-proc-')), 'p.git');
+  git(['init', '-q', '--bare', bare], { cwd: p });
+  git(['remote', 'add', 'origin', bare], { cwd: p });
+  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: p });
+  git(['checkout', '-q', '-b', 'side'], { cwd: p });
+  const side = commit(p, { 'README.md': 'unreleased' });
+  return { dir: p, v1, v2, side };
+}
+// A product whose tranche pins `from`, and a plain PR whose head pins `to` (null: removes it).
+function pinPR(from, to, extra = {}) {
+  const r = plainRepo({ files: { 'pin.txt': 'x' } });
+  git(['checkout', '-q', 'tranche'], { cwd: r.root });
+  if (from) git(['update-index', '--add', '--cacheinfo', `160000,${from},.process`], { cwd: r.root });
+  git(['commit', '-q', '--allow-empty', '-m', 'the tranche pin'], { cwd: r.root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
+  git(['checkout', '-q', '-b', 'bob/move'], { cwd: r.root });
+  if (to) git(['update-index', '--add', '--cacheinfo', `160000,${to},.process`], { cwd: r.root });
+  else git(['rm', '-q', '--cached', '.process'], { cwd: r.root });
+  for (const [f, t] of Object.entries(extra)) { write(r.root, { [f]: t }); git(['add', f], { cwd: r.root }); }
+  git(['commit', '-q', '--allow-empty', '-m', 'move the pin'], { cwd: r.root });
+  git(['push', '-q', 'origin', 'bob/move'], { cwd: r.root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: r.root });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  return { root: r.root, sha, head: 'bob/move' };
+}
+
+test('a plain pin move goes forward to a released process3 commit only', () => {
+  const p = process3Line();
+  const go = (from, to, extra) => { const r = pinPR(from, to, extra); return () => mergePlain(r.root, 4, { ...q, noReview: 'a pin move', io: plainIO(r, { repo: processRepo(p.dir) }).io }); };
+  assert.equal(go(p.v1, p.v2)().merged, true, 'forward, released');
+  assert.equal(go(null, p.v1)().merged, true, 'a first pin, released');
+  assert.throws(go(p.v1, p.side), /is not a commit on process3's tranche or main/);
+  assert.throws(go(p.v2, p.v1), /does not descend from the base's pin .*no downgrade/);
+  assert.throws(go(p.v1, null), /removes the process pin; that needs the owner's word/);
+  assert.throws(go(p.v1, p.v1, { 'process/config.json': JSON.stringify({ process_repo: 'https://example.com/other' }) }), /changes process_repo in process\/config.json; that needs the owner's word/);
+});
+
+test('a rule that names no app is held to GitHub Actions', () => {
+  const r = plainRepo();
+  const rules = { checks: [{ context: 'gate', app: null }], strict: false };
+  const other = run({ app: { id: 999 } });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { rules, runs: [other] }).io }), /gate: no run from app 15368/);
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { rules }).io }).merged, true);
+});
+
+test('a plain merge is refused while another open pull request has the same head', () => {
+  const r = plainRepo();
+  const f = plainIO(r, { open: [{ number: 4 }, { number: 9 }] });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /bob\/pin is also the head of #9/);
+  assert.equal(f.calls.merged, null);
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { open: [{ number: 4 }] }).io }).merged, true);
+  const unread = plainIO(r, { open: null });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: unread.io }), /could not read the open pull requests/);
 });
