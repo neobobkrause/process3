@@ -178,7 +178,9 @@ export function jobComplete(root, id, opts = {}) {
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
-  const rec = recordCheck(root, loadConfig(root, base), { base, since: recordSince(root, { base }).since });
+  const since = recordSince(root, { base });
+  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
+  if (since.finding) rec.findings.push(since.finding);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   for (const c of entry.checks || []) {
     const r = run(c[0], c.slice(1), { cwd: root, timeout });

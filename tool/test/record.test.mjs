@@ -265,3 +265,8 @@ test('record_since naming no commit here is a finding', () => {
   commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: 'f'.repeat(40) } }, 'bad');
   assert.match(recordSince(root, { base: main }).finding.message, /no such commit/);
 });
+
+test('a config that is not a JSON object is refused with a clear error', () => {
+  const root = makeRepo({ 'process/config.json': 'null\n' });
+  assert.throws(() => recordSince(root, { base: undefined }), /is not a JSON object/);
+});
