@@ -127,12 +127,9 @@ const blobAt = (root, rev, path) => {
   return r.code === 0 ? r.stdout.trim() : null;
 };
 
-// process3's own address, from the tool's clone's origin (never GITHUB_REPOSITORY, which in a
-// product's CI names the product): https://github.com/<owner>/<name>, or null.
-export function addressOf(url) {
-  const m = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, '').match(/([^/:]+)\/([^/:]+)$/);
-  return m ? `https://github.com/${m[1]}/${m[2]}` : null;
-}
+// process3's own address: the one the shims fall back to when a product names none
+// (shims/process-gate.yml, shims/process-record.yml); a test holds them equal.
+export const PROCESS3 = 'https://github.com/neobobkrause/process3';
 
 // process3 as the tool's own clone holds it: whether a pin is released (a commit on its
 // tranche or main), the blob of a shim at that pin, and process3's own address.
@@ -146,7 +143,7 @@ export function processRepo(dir = TOOL_ROOT) {
     released: (pin) => { fetch(); return ['origin/tranche', 'origin/main'].some((r) => git(['merge-base', '--is-ancestor', pin, r], { cwd: dir, allowFail: true }).code === 0); },
     shim: (pin, name) => blobAt(dir, pin, `shims/${name}`),
     descends: (from, to) => { fetch(); return git(['merge-base', '--is-ancestor', from, to], { cwd: dir, allowFail: true }).code === 0; },
-    address: () => { const r = git(['remote', 'get-url', 'origin'], { cwd: dir, allowFail: true }); return r.code === 0 ? addressOf(r.stdout) : null; },
+    address: () => PROCESS3,
   };
 }
 
@@ -162,7 +159,7 @@ const hasConfig = (root, rev) => git(['cat-file', '-e', `${rev}:${CONFIG_FILE}`]
 export function processRepoSetAt(root, rev) {
   const value = processRepoOf(root, rev);
   // Only a commit that changes the file against its first parent can change the value.
-  const touched = git(['log', '--first-parent', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
+  const touched = git(['log', '--first-parent', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
   for (const c of touched) {
     if (processRepoOf(root, c) !== value) return null; // cannot happen on a first-parent line
     if (processRepoOf(root, `${c}^1`) !== value) return c;
@@ -275,10 +272,13 @@ export function mergePlain(root, n, opts = {}) {
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
-  // The owner is read from the base's config, never from the change it judges.
+  // The owner and the tranche's name are read from the base's config, never from the change
+  // it judges; an unreadable base config grants no exception.
+  let baseCfg = null;
+  try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main, intoTranche: base === cfg.tranche, baseRef,
-    ownerCommit: (c) => (io.ownerCommit || ((x) => webCommitByOwner(root, x, loadConfig(root, baseRef).approvals.owner)))(c),
+    intoMain: main && Boolean(baseCfg), intoTranche: Boolean(baseCfg) && base === baseCfg.tranche, baseRef,
+    ownerCommit: (c) => webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug),
   });
   // Another open pull request from the same head would share its check runs.
   const same = io.openFrom(slug, head);
