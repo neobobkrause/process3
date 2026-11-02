@@ -2,16 +2,16 @@
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
-import { runSuite, suffixOf, testFiles } from './suite.mjs';
-import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { install, runSuite, suffixOf } from './suite.mjs';
+import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
-// The product's code runs in child processes without the workflow's token.
+// The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
 
 function entriesAt(root, ref) {
@@ -34,7 +34,7 @@ export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${St
 // post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes
 // the comment from the run's artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
-  const { base, head, branch, pr, draft = false, started = Date.now(), post = true, io = ghIO, log = console.log } = opts;
+  const { base, head, branch, pr, draft = false, started = Date.now(), post = true, io = ghIO, exec, log = console.log } = opts;
   const cfg = loadConfig(root, base); // the trusted side
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const slug = opts.slug || repoSlug(root);
@@ -77,10 +77,11 @@ export function gate(root, opts) {
     // A job's PR runs its module; any other PR runs every module whose files it touches.
     const scope = entry ? [entry] : entries.filter((e) => changed.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
-    if (scope.length) install(root, cfg, findings);
+    // GAT-5: every lock file, installed where it sits.
+    if (scope.length) findings.push(...install(root, cfg.lockfiles, exec ? { exec } : {}).findings);
     const results = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout, unset: NO_TOKENS });
+      const s = runSuite(root, e, undefined, { timeout });
       results.push(s);
       if (s.exit !== 0) {
         findings.push(F('suite', e.tests[0], `the ${e.id} suite failed (exit ${s.exit}${/ETIMEDOUT/.test(s.output) ? ', timed out' : ''}): ${JSON.stringify(s.tests)}`));
@@ -202,15 +203,6 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
   return { posted: true, comment, row };
 }
 
-// GAT-5: every lock file installed where it sits, without the workflow's token.
-function install(root, cfg, findings) {
-  for (const lock of cfg.lockfiles) {
-    if (!existsSync(join(root, lock))) { findings.push(F('install', lock, 'lock file not found')); continue; }
-    const r = run('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: join(root, dirname(lock)), unset: NO_TOKENS });
-    if (r.code !== 0) findings.push(F('install', lock, `npm ci failed: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`));
-  }
-}
-
 const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
 
 // Reverts the code files to the base, runs each test file alone, restores each file to HEAD
@@ -225,7 +217,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
-      const r = runSuite(root, entry, [t], { timeout, unset: NO_TOKENS });
+      const r = runSuite(root, entry, [t], { timeout });
       if (r.exit === 0) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }
