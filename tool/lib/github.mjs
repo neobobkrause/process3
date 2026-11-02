@@ -3,7 +3,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fail, gh } from './util.mjs';
+import { fail, gh, run } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -102,9 +102,19 @@ export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifact
   return !!art && SAME.every((k) => JSON.stringify(art[k] ?? null) === JSON.stringify(row[k] ?? null));
 }
 
-export function markReady(slug, n) {
-  gh(['pr', 'ready', String(n), '-R', slug]);
-  const pr = getPR(slug, n);
+// GitHub's REST API has no ready-for-review call, and `gh pr ready` uses GraphQL, which Claude
+// Code sessions cannot reach (measured 1 Nov 2026, the first product job). Sessions reach it
+// through their proxy's REST route; anywhere else, `gh pr ready` is the route.
+export function markReady(slug, n, { call = (args) => run('gh', args), read = getPR } = {}) {
+  const tried = [['api', '-X', 'POST', `repos/${slug}/pulls/${n}/ccr/ready_for_review`], ['pr', 'ready', String(n), '-R', slug]];
+  const errors = [];
+  for (const args of tried) {
+    const r = call(args);
+    if (r.code === 0) break;
+    errors.push(`gh ${args.slice(0, 3).join(' ')}: ${(r.stderr || r.stdout || '').trim().split('\n')[0]}`);
+  }
+  if (errors.length === tried.length) fail(`could not mark pull request ${n} ready: ${errors.join('; ')}`);
+  const pr = read(slug, n);
   if (pr.draft) fail(`pull request ${n} is still a draft`);
   return pr;
 }
