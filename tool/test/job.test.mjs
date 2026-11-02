@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
 import { jobBlock, jobComplete, jobStart } from '../lib/job.mjs';
+import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
@@ -201,4 +202,112 @@ test('after a failed push, a rerun posts the saved receipt for the COMPLETE comm
   const r = parseBlock(f.state.comments[0].body, 'p3:receipt');
   assert.equal(r.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
   assert.equal(r.commands.find((c) => c.suite).exit, 0);
+});
+
+// --reopen (Bob's decision 1A, 2 Nov 2026).
+function mergedOnce() {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  f.state.failReady = false;
+  jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  // BOB merges: the tranche takes the job's tip.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/alpha'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  return { root, f }; // the local job/alpha from attempt 1 stays, as in BOB's own checkout
+}
+
+test('a COMPLETE module needs --reopen, and the refusal says so', () => {
+  const { root, f } = mergedOnce();
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet }), /needs --reopen/);
+});
+
+test('--reopen starts attempt 2 from the tranche, with a fast-forward push and the task in the START', () => {
+  const { root, f } = mergedOnce();
+  const old = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  const r = jobStart(root, 'alpha', { coordinator: 's', reopen: 'strengthen the R1 test', open: f.open, find: f.find, log: quiet });
+  assert.equal(r.attempt, 2);
+  assert.match(r.start, /attempt 2/);
+  assert.match(r.start, /What it must do: strengthen the R1 test/);
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  assert.notEqual(tip, old);
+  assert.equal(git(['merge-base', '--is-ancestor', old, tip], { cwd: root, allowFail: true }).code, 0, 'a fast-forward');
+  const entry = JSON.parse(git(['show', `${tip}:process/ledger/alpha.json`], { cwd: root }));
+  assert.equal(entry.status.state, 'WORKING');
+  assert.match(entry.status.reason, /reopened: strengthen/);
+  assert.equal(f.state.prs, 2, 'a new pull request');
+});
+
+test('--reopen is refused while the old attempt is unmerged or its PR is open, and for a module not COMPLETE', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet });
+  // WORKING, not merged: an unfinished start resumes rather than reopening.
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: () => ({ number: 9 }), log: quiet }), /open pull request/);
+  const fresh = product();
+  assert.throws(() => jobStart(fresh, 'alpha', { coordinator: 's', reopen: 'x', push: false, log: quiet }), /--reopen is for a COMPLETE module/);
+  const m = mergedOnce();
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', reopen: 'x', open: m.f.open, find: () => ({ number: 9 }), log: quiet }), /reopen only after it merges/);
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', reopen: true, open: m.f.open, find: m.f.find, log: quiet }), /needs what the new attempt must do/);
+});
+
+test('a reopen moves the local branch left by attempt 1, and a failed push puts it back', () => {
+  const { root, f } = mergedOnce();
+  const was = git(['rev-parse', 'job/alpha'], { cwd: root });
+  git(['config', 'remote.origin.pushurl', '/nonexistent/repo.git'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }));
+  assert.equal(git(['rev-parse', 'job/alpha'], { cwd: root }), was, 'back where it was, not deleted');
+  git(['config', '--unset', 'remote.origin.pushurl'], { cwd: root });
+  assert.equal(jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }).attempt, 2);
+});
+
+test('a local job branch with work the tranche lacks is refused, not moved', () => {
+  const { root, f } = mergedOnce();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/more.mjs': 'export const y = 2;\n' });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }), /commits the tranche does not have/);
+});
+
+test('a reopened start whose PR failed resumes with its task in the START', () => {
+  const { root, f } = mergedOnce();
+  let fails = true;
+  const open = (slug, p) => { if (fails) { fails = false; throw new Error('network'); } return f.open(slug, p); };
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'strengthen the R1 test', open, find: f.find, log: quiet }), /network/);
+  const notes = [];
+  const r = jobStart(root, 'alpha', { coordinator: 's', open, find: f.find, log: (m) => notes.push(m) });
+  assert.equal(r.resumed, true);
+  assert.equal(r.attempt, 2);
+  assert.match(r.start, /What it must do: strengthen the R1 test/);
+  assert.match(r.pr.body, /What it must do: strengthen the R1 test/);
+  const again = jobStart(mergedOnce().root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet, reopen: 'y' });
+  assert.equal(again.attempt, 2);
+});
+
+test('a reopen never moves a branch another worktree has checked out', () => {
+  const { root, f } = mergedOnce();
+  const wt = join(mkdtempSync(join(tmpdir(), 'p3-wt-')), 'wt');
+  git(['worktree', 'add', '-q', wt, 'job/alpha'], { cwd: root });
+  const was = git(['rev-parse', 'job/alpha'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }), /checked out in a worktree/);
+  assert.equal(git(['rev-parse', 'job/alpha'], { cwd: root }), was);
+});
+
+test('status: an unfinished start says to rerun job start; offline it does not claim merged', () => {
+  const { root, f } = mergedOnce();
+  let fails = true;
+  const open = (slug, p) => { if (fails) { fails = false; throw new Error('network'); } return f.open(slug, p); };
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open, find: f.find, log: quiet }), /network/);
+  git(['remote', 'set-url', 'origin', git(['remote', 'get-url', 'origin'], { cwd: root })], { cwd: root });
+  const out = [];
+  status(root, { log: (m) => out.push(m), io: { openPRs: () => [], checkRun: () => null } });
+  assert.match(out.join('\n'), /alpha: COMPLETE; on its branch WORKING \(reopened: x\), 1 commit\(s\) ahead; FLAG an unfinished start/);
+  const off = [];
+  status(root, { offline: true, log: (m) => off.push(m) });
+  assert.match(off.join('\n'), /PR unknown \(GitHub not read\)/);
+  assert.match(off.join('\n'), /offline, pull requests not read/);
 });

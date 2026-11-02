@@ -5,7 +5,7 @@ import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
 import { git, loadConfig, repoSlug } from './util.mjs';
 
-export function status(root, { role, module, offline = false, log = console.log } = {}) {
+export function status(root, { role, module, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
   if (!offline) git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/job/*:refs/remotes/origin/job/*'], { cwd: root, allowFail: true });
@@ -13,7 +13,7 @@ export function status(root, { role, module, offline = false, log = console.log 
   const onTranche = haveTranche ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
   let prs = null;
   let slug = null;
-  if (!offline) { try { slug = repoSlug(root); prs = openPRs(slug, cfg.tranche); } catch { prs = null; } }
+  if (!offline) { try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; } }
   const rows = [];
   for (const [file, text] of Object.entries(onTranche)) {
     let e;
@@ -34,12 +34,20 @@ export function status(root, { role, module, offline = false, log = console.log 
     const pr = prs?.find((p) => p.head?.ref === `job/${e.id}`);
     if (pr) {
       row.pr = `#${pr.number}${pr.draft ? ' draft' : ' ready'}`;
-      const run = checkRun(slug, pr.head.sha, 'gate');
+      const run = io.checkRun(slug, pr.head.sha, 'gate');
       row.gate = run ? (run.conclusion || run.status) : 'none';
+    } else if (prs === null) {
+      if (row.branch) row.pr = 'unknown (GitHub not read)';
+      else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
+    } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
+      row.flag = 'an unfinished start (pushed, no pull request): run job start again and it resumes';
+    } else if (row.ahead > 0) {
+      // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
+      row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     rows.push(row);
   }
-  log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null && !offline ? '; GitHub unreadable' : ''}`);
+  log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);
   for (const r of rows) {
     log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}`);
   }
