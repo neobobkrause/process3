@@ -5,7 +5,7 @@ import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, ma
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
-import { runSuite } from './suite.mjs';
+import { install, moduleLocks, runSuite } from './suite.mjs';
 import { fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 const MINUTE = 60000;
@@ -49,7 +49,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(id)) L.push(`- ${a}`);
-  L.push('', 'Not yours: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions. Work you find in other modules goes to your coordinator as a report.');
+  // Bob's decision 14, 2 Nov: jobs stay in the environment that holds the Cloudflare and release keys.
+  L.push('', 'Not yours: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions; and Cloudflare, wrangler, any deploy or release, signing, and any act on a live site or on another account. This environment holds keys for those; they are still outside this job. Work you find in other modules, or a need for one of those acts, goes to your coordinator as a report.');
   return L.join('\n') + '\n';
 }
 
@@ -65,6 +66,14 @@ const restore = (root, paths) => git(['checkout', 'HEAD', '--', ...paths], { cwd
 
 function launchFor(slug, branch, id, start, model) {
   return { title: `job ${id}`, source_url: `https://github.com/${slug}`, source_revision: branch, ...(model ? { model } : {}), prompt: start };
+}
+
+// The coordinator's next step: subscribe to the job's pull request, so its completion, a red
+// gate or a comment arrives as an event (attempt 1 was noticed after 194 minutes).
+export function subscribeFor(slug, pr) {
+  const [owner, repo] = slug.split('/');
+  const call = { owner, repo, pullNumber: pr.number };
+  return { call, text: `then subscribe to the job's pull request with subscribe_pr_activity, so its completion, a red gate or a comment reaches you as an event:\n${JSON.stringify(call, null, 2)}` };
 }
 
 // BOB: branch, status WORKING, START, draft pull request; prints what to start the session with.
@@ -109,7 +118,9 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
     const pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
     log(`draft pull request: ${pr.html_url}`);
-    return { start, pr, launch, attempt: startRow?.attempt || 1, resumed: true };
+    const subscribe = subscribeFor(slug, pr);
+    log(subscribe.text);
+    return { start, pr, launch, subscribe: subscribe.call, attempt: startRow?.attempt || 1, resumed: true };
   }
 
   // Validate from the tranche before touching the checkout.
@@ -160,6 +171,9 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });
       log(`draft pull request: ${result.pr.html_url}`);
+      const subscribe = subscribeFor(slug, result.pr);
+      result.subscribe = subscribe.call;
+      log(subscribe.text);
     }
   } catch (e) {
     if (!committed) restore(root, [entryFile(id), metricsFile(id)]);
@@ -292,10 +306,19 @@ export function jobBlock(root, id, { reason, push = true, log = console.log } = 
 }
 
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
-export function jobTest(root, id, { log = console.log } = {}) {
+// It installs the module's lock files first, as the gate does: the session hook installs only
+// some of them, and the job's suite must not depend on it (GAT-5).
+export function jobTest(root, id, { log = console.log, exec } = {}) {
   const cfg = loadConfig(root);
-  const s = runSuite(root, readEntry(root, id), undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
+  const entry = readEntry(root, id);
+  const inst = install(root, moduleLocks(cfg.lockfiles, entry), { onlyStale: true, ...(exec ? { exec } : {}) });
+  for (const l of inst.ran) log(`installed ${l}`);
+  if (inst.findings.length) {
+    for (const f of inst.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+    return { ok: false, install: inst };
+  }
+  const s = runSuite(root, entry, undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
-  return { ok: s.exit === 0, ...s };
+  return { ok: s.exit === 0, install: inst, ...s };
 }

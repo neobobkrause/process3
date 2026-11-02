@@ -13,9 +13,9 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 | command | who | does |
 |---|---|---|
 | `status [--role job --module <id>]` | anyone | entries, branches, PRs, gate, flags, reading set with sizes |
-| `job start <id> --coordinator <session>` | BOB | branch, WORKING, START, draft PR; prints the create_session call |
+| `job start <id> --coordinator <session>` | BOB | branch, WORKING, START, draft PR; prints the create_session call, then the subscribe_pr_activity call for the PR |
 | `job start <id> --reopen "<what>"` | BOB | a new attempt on a COMPLETE module whose last attempt merged; the START says what it must do |
-| `test <id>` | job | the module's own suite |
+| `test <id>` | job | installs the module's stale lock files (GAT-5), then runs the module's own suite |
 | `job complete <id> --not-verified "..."` | job | checks and suite, COMPLETE, push, receipt, ready; resumable |
 | `block <id> --reason "..."` | job | BLOCKED with a reason |
 | `merge <pr> --reviewed "..."` or `--no-review "..."` | BOB | up to the tranche, merge row, gate on that tip, merge |

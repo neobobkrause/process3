@@ -1,7 +1,7 @@
 // A module's own suite (GAT-2): the entry's command over the entry's test files, nothing else.
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { run } from './util.mjs';
+import { dirname, join, relative } from 'node:path';
+import { NO_TOKENS, run, underPath } from './util.mjs';
 
 export const suffixOf = (entry) => entry.suite.test_suffix || '.test.mjs';
 
@@ -37,4 +37,37 @@ export function runSuite(root, entry, files = testFiles(root, entry), opts = {})
   const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, unset: ['NODE_TEST_CONTEXT', ...(opts.unset || [])] });
   const output = r.stdout + r.stderr;
   return { cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output };
+}
+
+// GAT-5: lock files installed where they sit, without the workflow's token. The gate installs
+// every lock file on its fresh checkout; `test` installs its module's, when they are stale.
+// The lock files a module needs: those whose directory holds one of its paths or tests, or
+// sits under one.
+export function moduleLocks(lockfiles, entry) {
+  const own = [...entry.paths, ...entry.tests];
+  return lockfiles.filter((lock) => {
+    const d = dirname(lock);
+    return d === '.' || own.some((p) => underPath(p, d) || underPath(d, p));
+  });
+}
+
+// Stale: npm's own record of the install, node_modules/.package-lock.json, is missing or older
+// than the lock file.
+export function stale(root, lock) {
+  const mark = join(root, dirname(lock), 'node_modules', '.package-lock.json');
+  return !existsSync(mark) || statSync(mark).mtimeMs < statSync(join(root, lock)).mtimeMs;
+}
+
+export function install(root, lockfiles, { onlyStale = false, exec = run } = {}) {
+  const findings = [];
+  const ran = [];
+  for (const lock of lockfiles) {
+    const at = (message) => ({ check: 'install', file: lock, line: 1, message });
+    if (!existsSync(join(root, lock))) { findings.push(at('lock file not found')); continue; }
+    if (onlyStale && !stale(root, lock)) continue;
+    ran.push(lock);
+    const r = exec('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: join(root, dirname(lock)), unset: NO_TOKENS });
+    if (r.code !== 0) findings.push(at(`npm ci failed: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`));
+  }
+  return { findings, ran };
 }
