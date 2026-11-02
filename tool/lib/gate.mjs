@@ -165,10 +165,13 @@ const ROW = {
   minutes: (v) => Number.isFinite(v) && v >= 0,
 };
 const REQUIRED = ['sha', 'base', 'at', 'run_id', 'trigger', 'suite', 'revert', 'receipt', 'findings', 'ok', 'minutes'];
+// Text from the artifact that job post prints: no control characters or line breaks, so it
+// cannot start a workflow command (confirming review of PR 13).
+export const printable = (x, max = 120) => String(x).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').slice(0, max);
 export function checkRow(row) {
   const bad = [
     ...REQUIRED.filter((k) => !(k in row)).map((k) => `${k} is missing`),
-    ...Object.keys(row).filter((k) => !Object.hasOwn(ROW, k)).map((k) => `${k} is not a gate row field`),
+    ...Object.keys(row).filter((k) => !Object.hasOwn(ROW, k)).map((k) => `${printable(k, 40)} is not a gate row field`),
     ...Object.keys(row).filter((k) => Object.hasOwn(ROW, k) && !ROW[k](row[k])).map((k) => `${k} is not a valid value`),
   ];
   if (!bad.length && row.ok !== (row.findings === 0)) bad.push('ok does not agree with findings');
@@ -191,9 +194,9 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
   if (!st.isFile()) fail(`${file} is not a regular file`);
   if (st.size > MAX_ROW_BYTES) fail(`${file} is ${st.size} bytes, over ${MAX_ROW_BYTES}`);
   let data;
-  try { data = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`${file} is not JSON: ${e.message}`); }
+  try { data = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`${file} is not JSON: ${printable(e.message)}`); }
   const raw = data?.run;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { log(`no gate row in ${file}${typeof data?.error === 'string' ? ` (the gate stopped: ${data.error.slice(0, 300)})` : ''}; nothing to post`); return { posted: false }; }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { log(`no gate row in ${file}${typeof data?.error === 'string' ? ` (the gate stopped: ${printable(data.error, 300)})` : ''}; nothing to post`); return { posted: false }; }
   const row = checkRow(raw);
   if (runId && String(row.run_id) !== String(runId)) fail(`the row names run ${row.run_id}, not this run ${runId}`);
   if (head && row.sha !== head) fail(`the row is for ${row.sha.slice(0, 10)}, not the head ${head.slice(0, 10)}`);

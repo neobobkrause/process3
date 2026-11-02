@@ -14,7 +14,9 @@
 # without --pr, so it reads and posts nothing, and job post does nothing. A job token can only
 # read, so the old single-job form, which posted from the gate, cannot run here. The legacy
 # path exists only until every base of the product pins the new tool, and is removed at the
-# next change to this file after that.
+# next change to this file after that. On the legacy path a ready job pull request goes red
+# with "no receipt", since no comment is read: it fails closed. So a product moves this file
+# and its process pin together, in one plain pull request.
 # Copied into a product as .github/workflows/process-gate.yml.
 name: process-gate
 on:
@@ -66,7 +68,7 @@ jobs:
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
-          if grep -q 'p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then echo "legacy=0" >> "$GITHUB_OUTPUT"
+          if grep -q '^// p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then echo "legacy=0" >> "$GITHUB_OUTPUT"
           else echo "::warning::legacy path: the base's process pin predates the two-job gate; the gate runs without reading or posting comments"; echo "legacy=1" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -144,7 +146,7 @@ jobs:
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
           # legacy path (see the top of this file): an old pin cannot post; job gate posted nothing.
-          if ! grep -q 'p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then
+          if ! grep -q '^// p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then
             echo "::warning::legacy path: the base's process pin predates the two-job gate; no gate comment is posted"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
           fi
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
