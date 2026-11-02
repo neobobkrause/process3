@@ -9,6 +9,7 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { setupCheck } from './lib/setup.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -93,6 +94,10 @@ const commands = {
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
   },
+
+  // setup check: the product's setup, read-only, against setup/conditions.json; exit 1 when a
+  // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
+  'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root) }).ok ? 0 : 1),
 
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
   'ledger check': (a, root) => {

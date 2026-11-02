@@ -5,6 +5,7 @@ import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, ma
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
+import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
@@ -82,14 +83,22 @@ export function subscribeFor(slug, pr) {
 // --reopen "<what>" (Bob's decision 1A, 2 Nov 2026): a new attempt on a COMPLETE module whose
 // last attempt merged. The branch restarts from the tranche, which already holds the old tip,
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
-export function jobStart(root, id, { coordinator, model, reopen, push = true, open = createPR, find = findPR, log = console.log } = {}) {
+// It runs the setup check first and starts nothing while a condition is missing (setup audit,
+// 2 Nov); without a push (tests) there is no GitHub to read.
+export function jobStart(root, id, { coordinator, model, reopen, push = true, open = createPR, find = findPR, setup = setupCheck, log = console.log } = {}) {
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
+  if (push) {
+    const s = setup(root, { slug, log });
+    if (!s.ok) fail(`the setup is not complete (${s.missing.join(', ')}); nothing was started. Bob sets what is missing; p3 setup check shows it`);
+  }
   const branch = `job/${id}`;
   coordinator ||= cfg.coordinator;
   model ||= cfg.roles?.job?.model;
-  if (!coordinator) fail('no coordinator: pass --coordinator <session id> or set it in process/config.json');
+  // The coordinator is named in the tranche's config, which setup check requires; --coordinator
+  // overrides it for one start (confirming review of PR 15).
+  if (!coordinator) fail('no coordinator: name it in process/config.json on the tranche, as p3 setup check requires (--coordinator <session id> overrides it for one start)');
   if (push) fetchRef(root, cfg.tranche);
   const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
 
