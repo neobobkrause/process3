@@ -5,7 +5,7 @@
 // config it uses is read from the base, never from the change it judges.
 import { basename } from 'node:path';
 import { checkLedger } from './ledger.mjs';
-import { CONFIG_FILE, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -42,74 +42,131 @@ const show = (root, rev, file) => (exists(root, rev, file) ? git(['show', `${rev
 // The repository's owner, as GitHub has it (GET /repos/{repo}: owner.login): { login } or
 // { login: null, why }. Onboarding sets approvals.owner to it, and while the base has no config
 // it is the owner the checks judge by (review follow-ups, 2 Nov). A repository an organization
-// owns has no person there whose website commit could count, so it gives no login.
+// owns has no person there whose website commit could count, so the default owner (Bob) holds,
+// as it did before (reviews of PR 26), and onboarding writes that.
 export function ownerOfRepo(r) {
   if (!r || typeof r !== 'object' || !r.owner) return { login: null, why: "the repository's owner could not be read from GitHub" };
   const { login, type } = r.owner;
   if (typeof login !== 'string' || !login) return { login: null, why: "the repository's owner could not be read from GitHub" };
-  if (type !== undefined && type !== 'User') return { login: null, why: `the repository is owned by the ${String(type).toLowerCase()} ${login}, not a person; approvals.owner must name the approving person, with Bob's word` };
+  if (type !== undefined && type !== 'User') return { login: DEFAULTS.approvals.owner, organization: login };
   return { login };
 }
 export const repoOwnerOf = (slug, lookup = gh) => ownerOfRepo(slug ? lookup(['api', `repos/${slug}`], { allowFail: true }) : null);
 // A repoOwner answer as callers give it: a login, null (unreadable), or { login, why }.
 export const ownerAnswer = (v) => (typeof v === 'string' && v ? { login: v }
-  : v && typeof v === 'object' && 'login' in v ? (v.login ? { login: v.login } : { login: null, why: v.why || "the repository's owner could not be read from GitHub" })
+  : v && typeof v === 'object' && 'login' in v ? (v.login ? { login: v.login, ...(v.organization ? { organization: v.organization } : {}) } : { login: null, why: v.why || "the repository's owner could not be read from GitHub" })
     : { login: null, why: "the repository's owner could not be read from GitHub" });
 
-// The approvals block's history, read once per run (review follow-ups, 2 Nov). Every commit
-// reachable from refs that touches the file and whose block differs from a parent's (or, with
-// no parent, is not empty) set the block it holds: an edit, a merge that took one side (the
-// owner's website merge of a pull request among them), or a removal, whose block is ''.
-// newest(isOwner, within) is the newest of those by committer date (GitHub dates a website
-// commit itself) that is the owner's own website commit, and, with within, an ancestor of that
-// commit: { sha, block }; { unread: sha } when a newer one could not be read from GitHub, so
-// an older one is never taken for the newest; null when there is none.
+// The approvals block's history, read once per run (review follow-ups, 2 Nov; reviews of PR
+// 26). Every commit reachable from refs that touches the file and whose block differs from a
+// parent's (or, with no parent, is not empty) set the block it holds: an edit, a merge that took
+// one side (a carrying merge: the owner's website merge of a pull request among them), or a
+// removal, whose block is ''.
+// newest(isOwner, { within, self, since }) is the newest of those by committer date (GitHub
+// dates a website commit itself) that is the owner's own website commit; with within, only
+// ancestors of that commit (and the commit itself with self): { sha, at, block }. It is
+// { unread: sha } when a commit that could decide it could not be read from GitHub, so an older
+// one is never taken for the newest; null when there is none. GitHub is asked only about
+// commits GitHub committed (committer noreply@github.com: a website commit always is), and
+// about a carrying merge only when its answer could change the result: when its block differs
+// from the owner's setter found below it, or that setter is older than since.
+const GITHUB_COMMITTER = 'noreply@github.com';
 export function approvalsHistory(root, refs, file, heading) {
   const blobs = new Map();
   const texts = new Map();
-  const prime = (revs) => {
-    const want = [...new Set(revs)].filter((r) => !blobs.has(r));
-    for (let i = 0; i < want.length; i += 2000) {
-      const part = want.slice(i, i + 2000);
-      const out = git(['cat-file', '--batch-check'], { cwd: root, allowFail: true, input: part.map((r) => `${r}:${file}`).join('\n') + '\n' }).stdout.split('\n');
-      part.forEach((r, k) => { const m = (out[k] || '').match(/^([0-9a-f]{40,64}) blob /); blobs.set(r, m ? m[1] : ''); });
+  const ZERO = /^0+$/;
+  // A path's blob at a commit, from its trees alone (rev-parse reads no blob, so a partial clone
+  // fetches nothing for it).
+  const blobAt = (rev) => {
+    if (!blobs.has(rev)) {
+      const r = git(['rev-parse', '-q', '--verify', `${rev}:${file}`], { cwd: root, allowFail: true });
+      blobs.set(rev, r.code === 0 ? r.stdout.trim() : '');
     }
+    return blobs.get(rev);
   };
-  const blockOf = (rev) => {
-    prime([rev]);
-    const b = blobs.get(rev);
+  const textOf = (b) => {
     if (!b) return '';
-    if (!texts.has(b)) texts.set(b, approvalsBlock(git(['cat-file', 'blob', b], { cwd: root }), heading));
+    if (!texts.has(b)) {
+      const r = git(['cat-file', 'blob', b], { cwd: root, allowFail: true }); // not a blob (a submodule pin): no block
+      texts.set(b, r.code === 0 ? approvalsBlock(r.stdout, heading) : '');
+    }
     return texts.get(b);
+  };
+  const blockOf = (rev) => textOf(blobAt(rev));
+  // In a partial clone, the blobs the history needs in one request, not one fetch per blob.
+  const fetchBlobs = (ids) => {
+    if (!ids.length || git(['config', '--get', 'remote.origin.promisor'], { cwd: root, allowFail: true }).stdout.trim() !== 'true') return;
+    git(['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '-q', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', '--stdin', 'origin'],
+      { cwd: root, allowFail: true, input: ids.join('\n') + '\n' });
   };
   let setters = null;
   const load = () => {
     if (setters) return setters;
     const live = [...new Set(refs.filter(Boolean))].filter((r) => git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).code === 0);
-    const rows = live.length ? git(['log', '--full-history', '--format=%H %ct %P', ...live, '--', file], { cwd: root, allowFail: true }).stdout
-      .split('\n').filter(Boolean).map((l) => { const [sha, at, ...parents] = l.trim().split(' '); return { sha, at: Number(at), parents }; }) : [];
-    prime(rows.flatMap((r) => [r.sha, ...r.parents]));
-    setters = rows.filter((r) => { const now = blockOf(r.sha); return r.parents.length ? r.parents.some((p) => blockOf(p) !== now) : now !== ''; })
-      .map((r) => ({ sha: r.sha, at: r.at, block: blockOf(r.sha) })).sort((a, b) => b.at - a.at);
+    // One read of the history: each commit with its parents, and (-m --raw) one line per parent
+    // whose copy of the file differs, giving that parent's blob and the commit's. A parent with
+    // no line holds the commit's own blob. Only tree objects are read.
+    const rows = [];
+    if (live.length) {
+      const out = git(['log', '--full-history', '-m', '--raw', '--no-abbrev', '--no-renames', '--format=C %H %ct %ce %P', ...live, '--', file], { cwd: root, allowFail: true }).stdout;
+      for (const l of out.split('\n')) {
+        if (l.startsWith('C ')) {
+          const [, sha, at, ce, ...parents] = l.trim().split(' ');
+          if (rows.at(-1)?.sha === sha) continue; // the same merge's header again, for its next parent
+          rows.push({ sha, at: Number(at), web: ce === GITHUB_COMMITTER, parents, lines: [] });
+        } else if (l.startsWith(':') && rows.length) {
+          const [, , older, newer] = l.split('\t')[0].split(' ');
+          rows.at(-1).lines.push({ older: ZERO.test(older) ? '' : older, newer: ZERO.test(newer) ? '' : newer });
+        }
+      }
+    }
+    fetchBlobs([...new Set(rows.flatMap((r) => r.lines.flatMap((x) => [x.older, x.newer])).filter(Boolean))]);
+    setters = [];
+    for (const r of rows) {
+      if (!r.lines.length) continue;
+      const nowBlob = r.lines[0].newer;
+      blobs.set(r.sha, nowBlob);
+      const now = textOf(nowBlob);
+      const olds = r.lines.map((x) => textOf(x.older));
+      const differs = r.parents.length ? olds.some((x) => x !== now) : now !== '';
+      if (!differs) continue;
+      const carry = r.parents.length > 1 && (r.lines.length < r.parents.length || olds.includes(now));
+      setters.push({ sha: r.sha, at: r.at, web: r.web, block: now, carry });
+    }
+    setters.sort((x, y) => y.at - x.at);
     return setters;
   };
   const anc = new Map();
-  const isAncestor = (a, b) => {
-    const k = `${a} ${b}`;
-    if (!anc.has(k)) anc.set(k, git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0);
+  const isAncestor = (x, y) => {
+    const k = `${x} ${y}`;
+    if (!anc.has(k)) anc.set(k, git(['merge-base', '--is-ancestor', x, y], { cwd: root, allowFail: true }).code === 0);
     return anc.get(k);
   };
-  const newest = (isOwner, within) => {
+  const newest = (isOwner, { within, self = false, since = -Infinity } = {}) => {
+    const ask = (st) => (st.web ? isOwner(st.sha) : { ok: false });
+    const pick = (st) => ({ sha: st.sha, at: st.at, block: st.block });
+    const pending = [];
+    const settle = (fallback) => {
+      for (const p of pending) {
+        const v = ask(p);
+        if (v?.ok === true) return pick(p);
+        if (v?.unread) return { unread: p.sha };
+      }
+      return fallback;
+    };
     for (const st of load()) {
-      if (within && (st.sha === within || !isAncestor(st.sha, within))) continue;
-      const v = isOwner(st.sha);
-      if (v?.ok === true) return { sha: st.sha, at: st.at, block: st.block };
+      if (within && (st.sha === within ? !self : !isAncestor(st.sha, within))) continue;
+      if (st.carry) { if (st.web) pending.push(st); continue; }
+      const v = ask(st);
       if (v?.unread) return { unread: st.sha };
+      if (v?.ok !== true) continue;
+      if (pending.every((p) => p.block === st.block) && st.at >= since) return pick(st);
+      return settle(pick(st));
     }
-    return null;
+    return settle(null);
   };
   // Did the owner set this block before top? Asked only to word a refusal.
-  const ownerSetEarlier = (isOwner, top, block, within) => load().some((st) => st.at <= top.at && st.sha !== top.sha && st.block === block
+  const ownerSetEarlier = (isOwner, top, block, within) => load().some((st) => st.web && st.at <= top.at && st.sha !== top.sha && st.block === block
     && (!within || isAncestor(st.sha, within)) && isOwner(st.sha)?.ok === true);
   return { blockOf, newest, ownerSetEarlier };
 }
@@ -233,8 +290,13 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     return verified.get(sha);
   };
   const { file: afile, heading } = cfg.approvals;
-  const hist = approvalsHistory(root, trusted || [base, 'origin/main', `origin/${cfg.tranche}`], afile, heading);
+  const hist = approvalsHistory(root, [head, base, ...(trusted || ['origin/main', `origin/${cfg.tranche}`])], afile, heading);
   const blockOf = hist.blockOf;
+  // The newest block the owner set on the base: a change the range brings must not be older
+  // (reviews of PR 26), so a stale owner draft is a restore whichever way it arrives.
+  let baseTop;
+  const baseNewest = () => (baseTop === undefined ? (baseTop = base ? hist.newest(ownerCommit, { within: base, self: true }) : null) : baseTop);
+  const dateOf = (c) => Number(git(['log', '-1', '--format=%ct', c], { cwd: root }));
   const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : [])];
   const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
   prefetch(root, range);
@@ -263,16 +325,24 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         const mine = all.map(blockOf);
         const was = all.length ? parentsFor(afile).map(blockOf) : [''];
         const changed = all.length ? (!was.includes(now) || mine.some((b) => b !== now)) : now !== '';
-        const top = changed ? hist.newest(ownerCommit, sha) : null;
-        if (changed && !(top?.block === now && !top.unread) && !ownerCommit(sha).ok) {
-          const text = show(root, sha, afile) || '';
-          const line = Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1);
-          const who = ownerName ?? 'the repository owner';
-          let message;
-          if (top?.unread) message = `commit ${short} changes the approvals, and commit ${top.unread.slice(0, 10)} could not be read from GitHub, so the newest block ${who} set through GitHub's website cannot be told`;
-          else if (top && hist.ownerSetEarlier(ownerCommit, top, now, sha)) message = `commit ${short} puts back an older approvals block; only the newest block ${who} set through GitHub's website (commit ${top.sha.slice(0, 10)}) may be carried, or a new website commit of ${who}'s`;
-          else message = `commit ${short} changes the approvals but is not ${who}'s own commit through GitHub's website (${ownerCommit(sha).why})${top ? `, and its block is not the newest one ${who} set there (commit ${top.sha.slice(0, 10)})` : ''}`;
-          approvalsTouched.push({ file: afile, line, message });
+        if (changed) {
+          const floor = baseNewest();
+          const since = floor && !floor.unread ? floor.at : -Infinity;
+          const top = floor?.unread ? floor : hist.newest(ownerCommit, { within: sha, since });
+          const carried = top && !top.unread && top.block === now && top.at >= since;
+          const own = !carried && !top?.unread && ownerCommit(sha).ok && dateOf(sha) >= since;
+          if (!carried && !own) {
+            const text = show(root, sha, afile) || '';
+            const line = Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1);
+            const who = ownerName ?? 'the repository owner';
+            let message;
+            if (top?.unread) message = `commit ${short} changes the approvals, and commit ${top.unread.slice(0, 10)} could not be read from GitHub, so the newest block ${who} set through GitHub's website cannot be told`;
+            else if (ownerCommit(sha).ok) message = `commit ${short} is ${who}'s website commit, but older than the newest block ${who} set on the base (commit ${floor.sha.slice(0, 10)}); an older draft is not carried`;
+            else if (top && hist.ownerSetEarlier(ownerCommit, top, now, sha)) message = `commit ${short} puts back an older approvals block; only the newest block ${who} set through GitHub's website (commit ${top.sha.slice(0, 10)}) may be carried, or a new website commit of ${who}'s`;
+            else if (top && top.block === now) message = `commit ${short} carries an approvals block ${who} set (commit ${top.sha.slice(0, 10)}) that is older than the newest one on the base (commit ${floor.sha.slice(0, 10)})`;
+            else message = `commit ${short} changes the approvals but is not ${who}'s own commit through GitHub's website (${ownerCommit(sha).why})${top ? `, and its block is not the newest one ${who} set there (commit ${top.sha.slice(0, 10)})` : ''}`;
+            approvalsTouched.push({ file: afile, line, message });
+          }
         }
       }
       for (const file of files) {

@@ -244,10 +244,11 @@ export function onboardingOwner(root, mb, sha, baseRef, readOwner) {
   if (hasConfig(root, mb) || hasConfig(root, baseRef) || !hasConfig(root, sha)) return;
   const c = configAt(root, sha);
   if (c === 'unreadable') fail(`${CONFIG_FILE} on the pull request is not a JSON object`);
-  const { login: owner, why } = readOwner();
+  const { login: owner, why, organization } = readOwner();
   if (!owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, and ${why}`);
   const named = c.approvals?.owner;
-  if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, ${owner}, as GitHub has it; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
+  const whom = organization ? `the default owner, ${owner}, since the organization ${organization} owns the repository` : `the repository's owner, ${owner}, as GitHub has it`;
+  if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to ${whom}; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
@@ -320,9 +321,19 @@ export function mergePlain(root, n, opts = {}) {
   let baseCfg = null;
   try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
   if (main && !baseCfg) fail(`${CONFIG_FILE} on ${base} cannot be read, so the tranche's name is unknown; only the tranche merges into ${base}`);
-  if (main && head !== baseCfg.tranche) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
+  // Refused before anything is fetched, unless main has no config yet (below).
+  const mainNamed = main && hasConfig(root, baseRef);
+  if (mainNamed && head !== baseCfg.tranche) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
+  if (main && !mainNamed && head !== baseCfg.tranche && git(['ls-remote', '--exit-code', '--heads', 'origin', `refs/heads/${head}`], { cwd: root, allowFail: true }).code !== 0) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
   git(['fetch', '-q', 'origin', `+refs/heads/${head}:refs/remotes/origin/${head}`], { cwd: root });
   if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
+  // The tranche's name: the base's config's. While main has no config, a tranche onboarded under
+  // another name names itself in its own config (reviews of PR 26), and that name holds for the
+  // tranche into main.
+  const headCfg = configAt(root, pr.head.sha);
+  const named = headCfg && headCfg !== 'unreadable' && typeof headCfg.tranche === 'string' ? headCfg.tranche : null;
+  const trancheName = main && !hasConfig(root, baseRef) && !isJob(head) && named === head ? head : baseCfg?.tranche;
+  if (main && head !== trancheName) fail(`only the tranche ${trancheName} merges into ${base}, not ${head}`);
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
@@ -331,9 +342,13 @@ export function mergePlain(root, n, opts = {}) {
   let ghOwner;
   const githubOwner = () => (ghOwner === undefined ? (ghOwner = ownerAnswer(io.repoOwner(slug))) : ghOwner);
   const owner = () => (hasConfig(root, baseRef) ? baseCfg.approvals.owner : githubOwner().login);
-  const intoTranche = Boolean(baseCfg) && base === baseCfg.tranche;
+  // Onboarding a tranche of another name (reviews of PR 26): the base has no process config
+  // (at the merge base or its tip), is not main or a job's branch, and the head's config names
+  // exactly this base as the tranche. It is then the tranche for every guard below.
+  const onboardingNamed = !main && !isJob(base) && !hasConfig(root, mb) && !hasConfig(root, baseRef) && named === base;
+  const intoTranche = (Boolean(baseCfg) && base === baseCfg.tranche) || onboardingNamed;
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche, baseRef, base, head,
+    intoMain: main && Boolean(baseCfg) && head === trancheName, intoTranche, baseRef, base, head,
     ownerCommit: (c) => (owner() ? webCommitByOwner(root, c, owner(), io.lookup, slug) : { ok: false }),
   });
   if (intoTranche) onboardingOwner(root, mb, pr.head.sha, baseRef, githubOwner);
@@ -345,7 +360,7 @@ export function mergePlain(root, n, opts = {}) {
 
   const rules = io.requiredChecks(slug, base);
   if (!rules) fail(`could not read the checks ${base} requires`);
-  if (!rules.checks.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
+  if (!rules.checks.length && (main || !baseCfg || intoTranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
   if (rules.strict && git(['merge-base', '--is-ancestor', baseRef, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} requires an up-to-date head, and ${head} does not contain ${base}'s tip`);
   const red = rules.checks.map((c) => checkGreen(root, slug, baseRef, pr.head.sha, c, io, approved)).filter(Boolean);
   if (red.length) fail(`not every required check is green on ${pr.head.sha.slice(0, 10)}: ${red.join('; ')}`);
@@ -355,7 +370,7 @@ export function mergePlain(root, n, opts = {}) {
   // Module code goes through a job (ARC-2): in a product, a plain merge may not touch any ledger
   // entry's paths or tests. The tranche itself (into main, or into a working branch) carries
   // only work that came through the gate. The tranche's name is the base's, as above.
-  if (!baseCfg || head !== baseCfg.tranche) {
+  if (!baseCfg || head !== trancheName) {
     const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
     const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
     if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);

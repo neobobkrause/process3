@@ -777,9 +777,9 @@ test('approvals: a newer owner block on main that the tranche lacks is missing',
   assert.equal(b.detail, `commit ${o2.slice(0, 10)} could not be read from GitHub, so the newest approvals block neobobkrause set through GitHub's website cannot be told`);
 });
 
-test('approvals: a tranche with no config in a repository an organization owns says so', () => {
+test('approvals: a tranche with no config in a repository an organization owns is judged by the default owner', () => {
   const w = world();
   delete w.files['process/config.json'];
   w.repo = { ...w.repo, owner: { login: 'acme', type: 'Organization' } };
-  assert.equal(state(check(w), 'approvals').detail, "the repository is owned by the organization acme, not a person; approvals.owner must name the approving person, with Bob's word, and process/config.json on the tranche names no approvals owner");
+  assert.equal(state(check(w), 'approvals').detail, "one block, last changed by neobobkrause's website commit abc1234567");
 });

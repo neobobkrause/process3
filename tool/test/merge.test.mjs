@@ -626,14 +626,41 @@ test('onboarding is refused when the tranche gained a process config after the b
   assert.equal(f.calls.merged, null);
 });
 
-test('the tranche\'s name for onboarding is read from the base, not the pull request', () => {
+test('the tranche\'s name for onboarding: the base\'s, or the head\'s config naming exactly that base', () => {
+  const msg = /changes process_repo in process\/config\.json; that needs the owner's word/;
   const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
-  // A pull request into a working branch whose head config says that branch is the tranche.
-  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'bob/plan' }) } });
+  // A pull request into a working branch whose head config names another branch as the tranche:
+  // not onboarding, whatever the working tree says.
+  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'tranche', approvals: { owner: 'neobobkrause' } }) } });
   git(['push', '-q', 'origin', 'tranche:refs/heads/bob/plan'], { cwd: r.root });
   write(r.root, { 'process/config.json': JSON.stringify({ tranche: 'bob/plan' }) }); // the working tree too
-  const f = plainIO(r, { base: 'bob/plan', repo: own });
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /changes process_repo in process\/config\.json; that needs the owner's word/);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { base: 'bob/plan', repo: own }).io }), msg);
+});
+
+test('onboarding a tranche of another name: the head names its base, and the tranche then goes into main', () => {
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  const cfgDev = (extra = {}) => JSON.stringify({ process_repo: P3, tranche: 'dev', approvals: { owner: 'neobobkrause' }, ...extra });
+  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': cfgDev() } });
+  git(['push', '-q', 'origin', 'tranche:refs/heads/dev'], { cwd: r.root });
+  // Onboarding into "dev": every onboarding rule holds there, approvals.owner included.
+  const f = plainIO(r, { base: 'dev', repo: own });
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }).merged, true);
+  const noOwner = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'dev' }) } });
+  git(['push', '-q', 'origin', 'tranche:refs/heads/dev'], { cwd: noOwner.root });
+  assert.throws(() => mergePlain(noOwner.root, 4, { ...q, noReview: 'x', io: plainIO(noOwner, { base: 'dev', repo: own }).io }), /onboarding sets approvals\.owner/);
+  // "dev" is the tranche, so it must require checks.
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { base: 'dev', repo: own, rules: { checks: [], strict: false } }).io }), /dev requires no checks/);
+  // Then "dev" into main while main has no config: its own config names it the tranche.
+  git(['checkout', '-q', '-b', 'dev', 'origin/dev'], { cwd: r.root });
+  git(['merge', '-q', '--no-ff', '-m', 'Merge PR 4', r.sha], { cwd: r.root });
+  const tip = git(['rev-parse', 'HEAD'], { cwd: r.root });
+  git(['push', '-q', 'origin', 'dev'], { cwd: r.root });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  const m = plainIO({ root: r.root, sha: tip, head: 'dev' }, { base: 'main', repo: own });
+  m.io.lookup = ghCommit('none');
+  assert.equal(mergePlain(r.root, 5, { ...q, noReview: 'x', io: m.io }).merged, true);
+  // Another branch into main is still refused.
+  assert.throws(() => mergePlain(r.root, 5, { ...q, noReview: 'x', io: plainIO({ root: r.root, sha: tip, head: 'bob/w' }, { base: 'main', repo: own }).io }), /only the tranche tranche merges into main, not bob\/w/);
 });
 
 test('the tranche into main takes the tranche\'s name from main\'s config', () => {
@@ -857,9 +884,11 @@ test('onboarding sets approvals.owner to the repository\'s owner as GitHub has i
   assert.throws(go(null).run, /onboarding sets approvals\.owner in process\/config\.json to the repository's owner, alice, as GitHub has it; the pull request does not set it/);
   assert.throws(go({ owner: 'neobobkrause' }).run, /to the repository's owner, alice, as GitHub has it; the pull request sets "neobobkrause"/);
   assert.throws(go({ owner: 'alice' }, null).run, /to the repository's owner, and the repository's owner could not be read from GitHub/);
-  // An organization owns the repository: no person to name, refused plainly (reviews of PR 26).
-  assert.throws(go({ owner: 'acme' }, { login: null, why: 'the repository is owned by the organization acme, not a person; approvals.owner must name the approving person, with Bob\'s word' }).run,
-    /onboarding sets approvals\.owner in process\/config\.json to the repository's owner, and the repository is owned by the organization acme, not a person/);
+  // An organization owns the repository: the default owner holds, as before, and onboarding
+  // writes that (reviews of PR 26).
+  const org = { login: 'neobobkrause', organization: 'acme' };
+  assert.equal(go({ owner: 'neobobkrause' }, org).run().merged, true);
+  assert.throws(go({ owner: 'acme' }, org).run, /to the default owner, neobobkrause, since the organization acme owns the repository; the pull request sets "acme"/);
   // Not onboarding (the base has a config): nothing asked of approvals.owner here.
   const r = makeRepoWith(JSON.stringify({}), JSON.stringify({ record_since: null }));
   const f = plainIO(r);

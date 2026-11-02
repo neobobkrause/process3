@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, markReady } from './github.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
-import { recordCheck, recordSince } from './record.mjs';
+import { recordCheck, recordSince, repoOwnerOf } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -252,7 +252,9 @@ export function jobComplete(root, id, opts = {}) {
   const ledger = checkLedger(root, { base, branch });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
   const since = recordSince(root, { base });
-  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
+  // As CI runs it: while the base has no config, the repository's owner from GitHub (reviews of PR 26).
+  const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
+  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, repoOwner });
   if (since.finding) rec.findings.push(since.finding);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   // The module's stale lock files first, whether or not the suite runs: its checks may need

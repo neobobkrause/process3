@@ -356,8 +356,12 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
   // Read through git like lastChange, over the tranche and main (review follow-ups, 2 Nov); with
   // the tranche's files stubbed, nothing to walk.
-  x.newestOwner = io.newestOwner || (io.file ? () => null : (file, heading, owner) =>
-    approvalsHistory(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading).newest((sha) => x.ownerCommit(sha, owner)));
+  x.newestOwner = io.newestOwner || (io.file ? () => null : (file, heading, owner) => {
+    // main fetched first, so a newer owner block there is seen (reviews of PR 26); the tranche
+    // was fetched, and deepened when shallow, by lastChange.
+    git(['fetch', '-q', 'origin', `+refs/heads/${x.main}:refs/remotes/origin/${x.main}`], { cwd: root, allowFail: true });
+    return approvalsHistory(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading).newest((sha) => x.ownerCommit(sha, owner));
+  });
   x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche, { main: x.main, ...x.cfg.approvals }));
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
   x.required = [].concat(x.cfg.required_check || 'gate');

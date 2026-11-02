@@ -7,7 +7,9 @@ import { git } from '../lib/util.mjs';
 export function makeRepo(files = {}) {
   const root = mkdtempSync(join(tmpdir(), 'p3-test-'));
   git(['init', '-q', '-b', 'main'], { cwd: root });
-  git(['config', 'user.email', 't@example.com'], { cwd: root });
+  // GitHub's committer address, as a website commit has it, so the approvals history asks the
+  // test's lookup about every commit; a test that wants a local commit sets its own.
+  git(['config', 'user.email', 'noreply@github.com'], { cwd: root });
   git(['config', 'user.name', 'Test'], { cwd: root });
   git(['config', 'commit.gpgsign', 'false'], { cwd: root });
   if (Object.keys(files).length) commit(root, files, 'initial');
