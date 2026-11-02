@@ -579,10 +579,10 @@ test('an unreadable process config grants no exception', () => {
   const f = plainIO(r, { repo: own });
   f.io.lookup = everyOwner;
   assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), msg);
-  // Main's config is not JSON: the owner cannot be read, so the tranche into main is refused.
+  // Main's config is not JSON: the owner and the tranche's name cannot be read, so the tranche into main is refused.
   const m = trancheToMain({ how: 'direct', mainConfig: '{ not json' });
   git(['checkout', '-q', 'tranche'], { cwd: m.root }); // the local checkout's own config is readable
-  assert.throws(() => mergePlain(m.root, 4, { ...q, noReview: 'x', io: intoMain(m, everyOwner).io }), msg);
+  assert.throws(() => mergePlain(m.root, 4, { ...q, noReview: 'x', io: intoMain(m, everyOwner).io }), /process\/config\.json on main cannot be read/);
 });
 
 test('the owner\'s commit is looked up in the pull request\'s repository', () => {
@@ -637,7 +637,7 @@ test('the tranche into main takes the tranche\'s name from main\'s config', () =
   // Main's config names another branch as the tranche: the owner exception does not apply to this one.
   const r = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ tranche: 'bob/plan' }) });
   git(['checkout', '-q', 'tranche'], { cwd: r.root }); // the local checkout says the tranche is "tranche"
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt)).io }), /changes process_repo in process\/config\.json; that needs the owner's word/);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt)).io }), /only the tranche bob\/plan merges into main, not tranche/);
 });
 
 test('the tranche into main may carry process3\'s own address that the tool merged at onboarding', () => {
@@ -655,9 +655,8 @@ test('the tranche into main may carry process3\'s own address that the tool merg
   git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
   git(['checkout', '-q', 'main'], { cwd: r.root });
   const t = { root: r.root, sha: tip, head: 'tranche' };
-  const asked = [];
   const m = plainIO(t, { base: 'main', repo: own });
-  m.io.lookup = (args, o) => { asked.push(args[1]); return ghCommit('none')(args, o); };
+  m.io.lookup = ghCommit('none');
   assert.equal(mergePlain(r.root, 5, { ...q, noReview: 'x', io: m.io }).merged, true);
   assert.equal(m.calls.merged.sha, tip);
   // Without process3's own address to compare with: refused.
@@ -715,4 +714,46 @@ test('the tranche must require checks by the base\'s config, not the working tre
   git(['push', '-q', 'origin', 'tranche'], { cwd: u.root });
   git(['checkout', '-q', 'main'], { cwd: u.root });
   assert.throws(() => mergePlain(u.root, 4, { ...q, noReview: 'x', io: plainIO(u, { rules: { checks: [], strict: false } }).io }), /tranche requires no checks/);
+});
+
+test('main deleting its config after the tranche branched does not make it onboarding', () => {
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  // The merge base holds main's config naming another process; main's tip has none.
+  const r = trancheToMain({ value: P3, mainConfig: cfgWith('https://example.com/other') });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  git(['rm', '-q', 'process/config.json'], { cwd: r.root });
+  git(['commit', '-q', '-m', 'main drops its config'], { cwd: r.root });
+  git(['push', '-q', 'origin', 'main'], { cwd: r.root });
+  const f = plainIO(r, { base: 'main', repo: own });
+  f.io.lookup = ghCommit('none');
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /changes process_repo in process\/config\.json; that needs the owner's word/);
+  assert.equal(f.calls.merged, null);
+});
+
+test('an unreadable base config grants no module-file exemption', () => {
+  // The base's config is not JSON; the head (named as the working tree's tranche) changes module files.
+  const r = plainRepo({ head: 'bob/plan', files: { 'src/alpha/index.mjs': 'export const x = 1;\n' } });
+  git(['checkout', '-q', 'tranche'], { cwd: r.root });
+  commit(r.root, { 'process/config.json': '{ not json' }, 'broken');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  write(r.root, { 'process/config.json': JSON.stringify({ tranche: 'bob/plan' }) });
+  const f = plainIO(r);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /changes module files, which go through a job: src\/alpha\/index.mjs \(alpha\)/);
+  assert.equal(f.calls.merged, null);
+});
+
+test('only the tranche by main\'s config merges into main, whatever the working tree says', () => {
+  const r = plainRepo({ head: 'bob/w' });
+  write(r.root, { 'process/config.json': JSON.stringify({ tranche: 'bob/w' }) });
+  const f = plainIO(r, { base: 'main' });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /only the tranche tranche merges into main, not bob\/w/);
+  assert.equal(f.calls.merged, null);
+  // Main's config cannot be read: nothing merges into main.
+  const u = plainRepo({ head: 'tranche' });
+  git(['checkout', '-q', 'main'], { cwd: u.root });
+  commit(u.root, { 'process/config.json': '{ not json' }, 'broken');
+  git(['push', '-q', 'origin', 'main'], { cwd: u.root });
+  git(['checkout', '-q', 'tranche'], { cwd: u.root }); // the local checkout's own config is readable
+  assert.throws(() => mergePlain(u.root, 4, { ...q, noReview: 'x', io: plainIO(u, { base: 'main' }).io }), /process\/config\.json on main cannot be read/);
 });
