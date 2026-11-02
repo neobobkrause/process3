@@ -74,21 +74,25 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const anc = (a, b) => g(['merge-base', '--is-ancestor', a, b]).code === 0;
   const abbrev = g(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
   const here = abbrev === 'HEAD' ? `this checkout (detached at ${g(['rev-parse', '--short', 'HEAD']).stdout.trim()})` : abbrev;
-  if (anc(ref, 'HEAD')) return { ok: true, why: `${here} descends from the tip of ${name}` };
-  // main itself is never the tranche, even once main is merged back into it (second re-review).
+  // main is never the tranche, checked before anything else (third re-review): by name; at
+  // main's tip under any name, unless the tranche's tip is that same commit; or holding a
+  // commit of main's that the tranche lacks, such as main's merge of the tranche at a release.
+  const head = g(['rev-parse', 'HEAD']).stdout.trim();
   const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
-  if (abbrev === main || (abbrev === 'HEAD' && mainTip && mainTip === g(['rev-parse', 'HEAD']).stdout.trim())) return { ok: false, why: `${here} is ${main}, not ${name}`, fix: restart };
-  // No shared history with the tranche: not from it, whatever its files say.
-  if (!g(['merge-base', 'HEAD', ref]).stdout.trim()) return { ok: false, why: `${here} shares no history with ${name}`, fix: restart };
+  const trancheTip = g(['rev-parse', ref]).stdout.trim();
+  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: `${here} is ${main}, not ${name}`, fix: restart };
   if (mainTip) {
     const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
     const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
     if (mainOnly) return { ok: false, why: `${here} holds ${main}'s commit ${mainOnly.slice(0, 10)}, which ${name} does not, so it is not from ${name}`, fix: restart };
   }
+  if (anc(ref, 'HEAD')) return { ok: true, why: `${here} descends from the tip of ${name}` };
+  // No shared history with the tranche: not from it, whatever its files say.
+  if (!g(['merge-base', 'HEAD', ref]).stdout.trim()) return { ok: false, why: `${here} shares no history with ${name}`, fix: restart };
   const blockAt = (rev) => (exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
   const now = blockAt('HEAD');
   if (!now) return { ok: false, why: `${here} holds no approvals block, so it is not from ${name}`, fix: restart };
-  if (now !== blockAt(ref)) return { ok: false, why: `${here} holds older approvals than ${name}`, fix: `Bring it up to date with ${name} (git pull origin ${name}), or start the session from the ${name} branch` };
+  if (now !== blockAt(ref)) return { ok: false, why: `${here} holds older approvals than ${ref}`, fix: `Bring it up to date with ${name} (git pull origin ${name}), or start the session from the ${name} branch` };
   return { ok: true, why: `${here} is from ${name}'s history and holds its current approvals` };
 }
 
@@ -303,7 +307,15 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   try { tcfg = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
   x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(tcfg.approvals || {}) } };
   // When the tranche's own config names another tranche, every git reader reads that one.
-  if (!io.file && x.cfg.tranche !== local.tranche) x.file = tranche(root, x.cfg.tranche);
+  // Its config is read again from there, so the approvals' file, heading and owner are that
+  // tranche's own (third re-review); one hop only.
+  if (!io.file && x.cfg.tranche !== local.tranche) {
+    const name = x.cfg.tranche;
+    x.file = tranche(root, name);
+    let t2 = {};
+    try { t2 = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
+    x.cfg = { ...local, ...t2, tranche: name, approvals: { ...DEFAULTS.approvals, ...(t2.approvals || {}) } };
+  }
   x.branchExists = io.branchExists || ((b) => {
     const r = git(['ls-remote', '--heads', 'origin', `refs/heads/${b}`], { cwd: root, allowFail: true });
     return r.code !== 0 || r.stdout.trim() !== '';

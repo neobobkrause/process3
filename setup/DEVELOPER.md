@@ -130,7 +130,7 @@ Why: the standing approvals say what sessions may do without asking you. A sessi
 
 Clicks: signed in to github.com as yourself, in your own window.
 
-1. Open `https://github.com/<owner>/<product>/edit/<tranche>/CLAUDE.md`. Check that the branch shown above the editor is the tranche. If GitHub says the file does not exist, open `https://github.com/<owner>/<product>/new/<tranche>?filename=CLAUDE.md` instead.
+1. Open `https://github.com/<owner>/<product>/edit/<tranche>/CLAUDE.md`. Check that the branch shown above the editor is the tranche. If GitHub says the branch does not exist, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. If GitHub says the file does not exist, open `https://github.com/<owner>/<product>/new/<tranche>?filename=CLAUDE.md` instead.
 2. Add this heading on a line of its own (or the heading `process/config.json` names under `"approvals"`), once, and only once in the file:
 
    ```
@@ -151,7 +151,7 @@ Why: the deny list stops every session from force-pushing, deleting a branch, wr
 
 Clicks: signed in to github.com as yourself, in your own window.
 
-1. Open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche. If GitHub says the file already exists, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text.
+1. Open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche. If GitHub says the branch does not exist, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. If GitHub says the file already exists, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text.
 2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. It holds no rule that would block a session's push of its own branch, such as `"Bash(git push origin :*)"`:
 
    ```json

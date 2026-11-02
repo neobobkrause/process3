@@ -128,9 +128,9 @@
     },
     {
       "id": "session-branch",
-      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip; or it is not main, shares history with the tranche, holds no commit of main's that the tranche lacks, and carries the tranche's current approvals block.",
+      "what": "The checkout of the session running the check is the tranche: it is not main (by name, at main's tip under any name unless the tranche's tip is the same commit, or holding a commit of main's the tranche lacks), and it descends from the tranche's tip, or shares its history and carries the tranche's current approvals block.",
       "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
-      "value": "HEAD descends from origin/<tranche>; or HEAD is not main (by name, or detached at main's tip), has a merge-base with origin/<tranche>, no commit reachable from both HEAD and origin/main is missing from origin/<tranche>, and HEAD's approvals block equals the tranche's",
+      "value": "not main, not at origin/main's tip (unless origin/<tranche> is there too), no commit reachable from both HEAD and origin/main missing from origin/<tranche>; then HEAD descends from origin/<tranche>, or has a merge-base with it and the same approvals block",
       "who": "BOB and every session it starts: start from the tranche",
       "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else the branch name against main, merge-base HEAD origin/<tranche>, rev-list (merge-base --all HEAD origin/main) --not origin/<tranche>, and the approvals block at HEAD and at origin/<tranche>. The last test proves the same approvals text, not where the session started; the others prove it is from the tranche's history. Older approvals say to pull the tranche, anything else to start from the tranche"
     },

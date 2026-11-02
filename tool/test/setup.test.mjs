@@ -392,7 +392,7 @@ test('session-branch: a session not started from the tranche is missing, and job
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   const detail = 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch';
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'], results: [{ id: 'session-branch', detail }] }), log: quiet }),
-    /this session's checkout is not the tranche branch, whose standing approvals sessions act on; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
+    /this session's checkout does not hold the tranche branch's standing approvals, which sessions act on; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
 });
 
 test('deploy-token: one harmless read per scope, each reported present or missing, the token never printed', () => {
@@ -518,10 +518,12 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   commit(r, { 'CLAUDE.md': claude('B') }, 'owner again');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   git(['checkout', '-q', 'build/x'], { cwd: r });
-  assert.deepEqual(on(), { ok: false, why: 'build/x holds older approvals than tranche', fix: 'Bring it up to date with tranche (git pull origin tranche), or start the session from the tranche branch' });
+  assert.deepEqual(on(), { ok: false, why: 'build/x holds older approvals than origin/tranche', fix: 'Bring it up to date with tranche (git pull origin tranche), or start the session from the tranche branch' });
   git(['checkout', '-q', 'main'], { cwd: r });
   assert.equal(why(), 'main is main, not tranche');
   git(['checkout', '-q', '-b', 'from-main'], { cwd: r });
+  assert.equal(why(), 'from-main is main, not tranche');
+  commit(r, { 'f.txt': 'f' }, 'work off main');
   assert.equal(why(), 'from-main holds no approvals block, so it is not from tranche');
   git(['checkout', '-q', 'main'], { cwd: r });
   assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here', fix: 'Start the session from the no-such branch' });
@@ -533,11 +535,23 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['checkout', '-q', 'main'], { cwd: r });
   git(['merge', '-q', '--no-ff', '-m', 'tranche into main', 'tranche'], { cwd: r });
   git(['push', '-q', 'origin', 'main'], { cwd: r });
+  // Right after the release merge, before the tranche moves on: main, detached at main, or a
+  // branch at main's tip under any name, is refused (third re-review).
+  assert.equal(why(), 'main is main, not tranche');
+  git(['checkout', '-q', '--detach', 'main'], { cwd: r });
+  assert.match(why(), /^this checkout \(detached at [0-9a-f]+\) is main, not tranche$/);
+  git(['checkout', '-q', '-b', 'claude/runner', 'main'], { cwd: r });
+  assert.equal(why(), 'claude/runner is main, not tranche');
+  commit(r, { 'r.txt': 'r' }, 'runner work');
+  assert.match(why(), /^claude\/runner holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
+  git(['checkout', '-q', 'main'], { cwd: r });
   git(['checkout', '-q', 'tranche'], { cwd: r });
   const behind = tip(r);
   commit(r, { 'z.txt': 'z' }, 'tranche moves on');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   git(['checkout', '-q', '-b', 'off-main', 'main'], { cwd: r });
+  assert.equal(why(), 'off-main is main, not tranche');
+  commit(r, { 'o.txt': 'o' }, 'work off main');
   assert.match(why(), /^off-main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
   git(['checkout', '-q', 'build/y'], { cwd: r });
   assert.deepEqual(on(), { ok: true, why: 'build/y is from tranche\'s history and holds its current approvals' });
@@ -600,5 +614,23 @@ test('job start names the tranche the setup check read', () => {
   git(['init', '-q', '--bare', bare], { cwd: repo });
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch'], tranche: 'next' }), log: quiet }),
-    /this session's checkout is not the next branch, whose standing approvals sessions act on; nothing was started\. this checkout is not the next branch\. Start the session from the next branch$/);
+    /this session's checkout does not hold the next branch's standing approvals, which sessions act on; nothing was started\. this checkout is not the next branch\. Start the session from the next branch$/);
+});
+
+test('when the tranche\'s config names another tranche, every reader reads that tranche and its own approvals settings', () => {
+  const { r } = originRepo();
+  git(['push', '-q', 'origin', 'main'], { cwd: r });
+  git(['checkout', '-q', '-b', 't1'], { cwd: r });
+  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't2', coordinator: 'old' }) }, 't1');
+  git(['push', '-q', 'origin', 't1'], { cwd: r });
+  git(['checkout', '-q', '-b', 't2'], { cwd: r });
+  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't2', coordinator: 'new', approvals: { heading: '## Owner rules', owner: 'someone' } }), 'CLAUDE.md': '## Owner rules\n\nx\n' }, 't2');
+  git(['push', '-q', 'origin', 't2'], { cwd: r });
+  git(['checkout', '-q', 'main'], { cwd: r });
+  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't1' }) }, 'local config');
+  const w = world();
+  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, branchExists: () => true }, log: quiet });
+  assert.equal(state(res, 'coordinator').detail, 'new');
+  assert.match(state(res, 'approvals').detail, /last changed by [0-9a-f]{10}, which is not someone's own commit/);
+  assert.equal(res.tranche, 't2');
 });
