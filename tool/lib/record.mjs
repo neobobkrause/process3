@@ -38,6 +38,38 @@ export function webCommitByOwner(root, sha, owner, lookup = gh, slug) {
 
 // null only when the file is absent; a file that is there but cannot be read is an error.
 const show = (root, rev, file) => (exists(root, rev, file) ? git(['show', `${rev}:${file}`], { cwd: root }) : null);
+
+// The repository's owner, as GitHub has it (GET /repos/{repo}: owner.login); null when it
+// cannot be read. Onboarding sets approvals.owner to it, and while the base has no config it is
+// the owner the checks judge by (review follow-ups, 2 Nov). Injectable for tests.
+export function repoOwnerOf(slug, lookup = gh) {
+  const r = slug ? lookup(['api', `repos/${slug}`], { allowFail: true }) : null;
+  const login = r && typeof r === 'object' ? r.owner?.login : null;
+  return typeof login === 'string' && login ? login : null;
+}
+
+// The newest approvals block the owner set through GitHub's website among the commits that
+// revs reach (review follow-ups, 2 Nov): a commit sets a block when its block differs from every
+// parent's; of those that are the owner's own website commits, the newest by committer date
+// (GitHub dates a website commit itself). Returns { sha, block }, or null when there is none.
+// isOwner(sha) -> { ok }; blockAt(rev) -> the block at rev, '' when there is none.
+export function newestOwnerBlock(root, revs, file, isOwner, blockAt) {
+  if (!revs.length) return null;
+  const parentsOf = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+  const setters = [];
+  for (const line of git(['log', '--full-history', '--format=%H %ct', ...revs, '--', file], { cwd: root, allowFail: true }).stdout.split('\n')) {
+    const [c, t] = line.trim().split(' ');
+    if (!c) continue;
+    const now = blockAt(c);
+    if (!now) continue;
+    const ps = parentsOf(c);
+    if (ps.some((p) => blockAt(p) === now)) continue;
+    setters.push({ sha: c, at: Number(t), block: now });
+  }
+  setters.sort((a, b) => b.at - a.at);
+  for (const s of setters) if (isOwner(s.sha)?.ok === true) return { sha: s.sha, block: s.block };
+  return null;
+}
 // A path's tree entry at a commit, mode and object together, so a mode-only change counts.
 const entryOf = (root, rev, file) => {
   const out = git(['ls-tree', '-z', rev, '--', file], { cwd: root });
@@ -129,18 +161,42 @@ function prefetch(root, range) {
     { cwd: root, allowFail: true, input: missing.join('\n') + '\n' });
 }
 
-export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since } = {}) {
+// repoOwner: a function giving the repository's owner as GitHub has it (repoOwnerOf), or null
+// when it cannot be read. When given and the base has no config, it is the owner the check
+// judges by, and the one value onboarding may give approvals.owner (review follow-ups, 2 Nov).
+export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, repoOwner } = {}) {
   const findings = [];
   const notices = [];
   const verified = new Map();
+  const baseHasConfig = Boolean(base) && exists(root, base, CONFIG_FILE);
+  let ghOwner;
+  const githubOwner = () => (ghOwner === undefined ? (ghOwner = repoOwner ? repoOwner() : null) : ghOwner);
+  // While the base has no config, the owner is the repository's, read from GitHub.
+  let ownerName = cfg.approvals.owner;
+  let ownerRead = true;
+  if (!baseHasConfig && repoOwner) { ownerName = githubOwner(); ownerRead = Boolean(ownerName); }
   // record_since names the base or an ancestor of it: a full commit id only, never a ref or
   // a short id, whose meaning could change. With no base there is nothing to compare with.
   const onBase = (v) => typeof v === 'string' && /^([0-9a-f]{40}|[0-9a-f]{64})$/i.test(v) && Boolean(base)
     && git(['rev-parse', '-q', '--verify', `${v}^{commit}`], { cwd: root, allowFail: true }).code === 0
     && git(['merge-base', '--is-ancestor', v, base], { cwd: root, allowFail: true }).code === 0;
   const ownerCommit = (sha) => {
-    if (!verified.has(sha)) verified.set(sha, webCommitByOwner(root, sha, cfg.approvals.owner, lookup));
+    if (!ownerRead) return { ok: false, why: "the repository's owner could not be read from GitHub" };
+    if (!verified.has(sha)) verified.set(sha, webCommitByOwner(root, sha, ownerName, lookup));
     return verified.get(sha);
+  };
+  // The approvals block at a commit, by the blob of the file there.
+  const blocks = new Map();
+  const blockOf = (rev) => {
+    const r = git(['rev-parse', '-q', '--verify', `${rev}:${afile}`], { cwd: root, allowFail: true });
+    const key = r.code === 0 ? r.stdout.trim() : '';
+    if (!blocks.has(key)) blocks.set(key, key ? approvalsBlock(git(['cat-file', 'blob', key], { cwd: root }), heading) : '');
+    return blocks.get(key);
+  };
+  const newest = new Map();
+  const newestFor = (sha, parents) => {
+    if (!newest.has(sha)) newest.set(sha, parents.length ? newestOwnerBlock(root, parents, afile, ownerCommit, blockOf) : null);
+    return newest.get(sha);
   };
   const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : [])];
   const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
@@ -160,6 +216,30 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       const parentsFor = (f) => (all.length > 1 ? [...(base ? [base] : []), ...all.filter((p) => judged(p, f))] : all);
       const parents = all;
       const approvalsTouched = [];
+      // The approvals block (review follow-ups, 2 Nov): a commit whose block differs from a
+      // parent's, or from every version already judged, changes it. Such a change is accepted
+      // only when it is the owner's own website commit, or when the block it leaves is the
+      // newest one the owner set through the website among the commits it merges (the tranche
+      // and main, at a tranche's close). So a merge that puts back an older owner-set block is
+      // refused, even when that block is the base's or one parent's.
+      if (files.includes(afile) || all.length > 1) {
+        const now = blockOf(sha);
+        const mine = all.map(blockOf);
+        const was = all.length ? parentsFor(afile).map(blockOf) : [''];
+        const changed = all.length ? (!was.includes(now) || mine.some((b) => b !== now)) : now !== '';
+        if (changed && !ownerCommit(sha).ok) {
+          const top = newestFor(sha, all);
+          if (!top || top.block !== now) {
+            const text = show(root, sha, afile) || '';
+            const line = Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1);
+            const who = ownerName ?? 'the repository owner';
+            const message = top && (was.includes(now) || mine.includes(now))
+              ? `commit ${short} puts back an older approvals block; only the newest block ${who} set through GitHub's website (commit ${top.sha.slice(0, 10)}) may be carried, or a new website commit of ${who}'s`
+              : `commit ${short} changes the approvals but is not ${who}'s own commit through GitHub's website (${ownerCommit(sha).why})${top ? `, and its block is not the newest one ${who} set there (commit ${top.sha.slice(0, 10)})` : ''}`;
+            approvalsTouched.push({ file: afile, line, message });
+          }
+        }
+      }
       for (const file of files) {
         const ls = git(['ls-tree', '-z', sha, '--', file], { cwd: root });
         if (PROTECTED.some((p) => underPath(file, p))) {
@@ -178,30 +258,37 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         }
         const t = cfg.transient.find((p) => underPath(file, p));
         if (t) findings.push({ check: 'path', file, line: 1, message: `commit ${short} writes under transient path ${t}` });
-        if (file === afile) {
-          const text = show(root, sha, file) || '';
-          const now = approvalsBlock(text, heading);
-          const was = parents.length ? parentsFor(file).map((p) => approvalsBlock(show(root, p, file), heading)) : [''];
-          if (!was.includes(now)) approvalsTouched.push({ file, line: Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1) });
-        }
         if (isInstructionFile(file)) {
           const before = parents.length ? parentsFor(file).map((p) => show(root, p, file) || '') : [''];
           const added = (show(root, sha, file) || '').split('\n').filter((l) => APPROVAL_WORDS.test(l) && !before.some((b) => b.split('\n').includes(l)));
           if (added.length && !approvalsTouched.some((t2) => t2.file === file)) approvalsTouched.push({ file, line: 1 });
         } else if (file === CONFIG_FILE) {
-          const ap = (t2) => { try { const c = JSON.parse(t2 || '{}'); return { approvals: JSON.stringify(c.approvals ?? null), since: c.record_since ?? null }; } catch { return { approvals: 'unreadable', since: 'unreadable' }; } };
+          // approvals.owner apart from the rest of the approvals key, so onboarding may set it.
+          const ap = (t2) => {
+            try {
+              const c = JSON.parse(t2 || '{}');
+              const { owner = null, ...rest } = c.approvals ?? {};
+              return { approvals: c.approvals === undefined || c.approvals === null ? '{}' : JSON.stringify(rest), owner, since: c.record_since ?? null };
+            } catch { return { approvals: 'unreadable', owner: 'unreadable', since: 'unreadable' }; }
+          };
           const now = ap(show(root, sha, file));
           const was = parents.length ? parentsFor(file).map((p) => ap(show(root, p, file))) : [ap(null)];
           // The approvals must equal a version already judged; so must record_since, unless it
-          // names the base or an ancestor of it, which hides nothing the change brings.
+          // names the base or an ancestor of it, which hides nothing the change brings. And so must
+          // approvals.owner, except that while the base has no config (onboarding) it may be set to
+          // the repository's owner as GitHub has it; after that only the owner's website commit
+          // changes it (review follow-ups, 2 Nov).
+          const onboardOwner = !baseHasConfig && typeof now.owner === 'string' && now.owner !== '' && now.owner === githubOwner();
           const same = (w) => w.approvals === now.approvals
+            && (JSON.stringify(w.owner) === JSON.stringify(now.owner) || onboardOwner)
             && (JSON.stringify(w.since) === JSON.stringify(now.since) || onBase(now.since));
           if (!was.some(same)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
         }
       }
       for (const t2 of approvalsTouched) {
+        if (t2.message) { findings.push({ check: 'approvals', file: t2.file, line: t2.line, message: t2.message }); continue; }
         const v = ownerCommit(sha);
-        if (!v.ok) findings.push({ check: t2.check || 'approvals', file: t2.file, line: t2.line, message: `commit ${short} changes ${t2.what || 'the approvals'} but is not ${cfg.approvals.owner}'s own commit through GitHub's website (${v.why})` });
+        if (!v.ok) findings.push({ check: t2.check || 'approvals', file: t2.file, line: t2.line, message: `commit ${short} changes ${t2.what || 'the approvals'} but is not ${ownerName ?? "the repository owner"}'s own commit through GitHub's website (${v.why})` });
       }
     } catch (e) {
       findings.push({ check: 'record', file: '(commit)', line: 1, message: `commit ${short} could not be checked: ${e.message}` });

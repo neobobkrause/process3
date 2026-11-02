@@ -123,6 +123,7 @@ function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ cont
       workflowRun: (slug, x) => ({ path: paths[x.check_suite?.id] || '.github/workflows/process-gate.yml', event: events[x.check_suite?.id] || 'pull_request' }),
       repo,
       openFrom: () => open,
+      repoOwner: () => 'neobobkrause',
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -430,6 +431,8 @@ const P3 = 'https://github.com/neobobkrause/process3';
 // GitHub says every commit is the owner's website commit.
 const everyOwner = () => ({ author: { login: 'neobobkrause' }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } });
 const cfgWith = (process_repo) => JSON.stringify(process_repo === null ? { record_since: null } : { process_repo, record_since: null });
+// Onboarding's config: it also sets approvals.owner to the repository's owner (review follow-ups, 2 Nov).
+const onboardWith = (process_repo) => JSON.stringify({ process_repo, record_since: null, approvals: { owner: 'neobobkrause' } });
 // A product whose main has no process config and whose tranche took process_repo at one commit
 // (`how`: 'merge', a merge of a pull request as probe PR 51 did; 'direct', a commit on the
 // tranche), then a later config commit that leaves process_repo alone.
@@ -528,15 +531,15 @@ test('onboarding: a pull request into the tranche may set process_repo to proces
   const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
   const go = (opts, repo = own) => { const r = plainRepo(opts); const f = plainIO(r, { repo }); f.io.lookup = everyOwner; return { r, f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) }; };
   // No process config on the base; the head sets process3's address: allowed.
-  assert.equal(go({ config: false, ledger: false, files: { 'process/config.json': cfgWith(P3) } }).run().merged, true);
+  assert.equal(go({ config: false, ledger: false, files: { 'process/config.json': onboardWith(P3) } }).run().merged, true);
   // Any other address: refused, even with an owner commit at hand.
   for (const other of ['https://github.com/someone/process3', 'https://github.com/neobobkrause/process3.git', 'https://example.com/other', '']) {
-    const t = go({ config: false, ledger: false, files: { 'process/config.json': cfgWith(other) } });
+    const t = go({ config: false, ledger: false, files: { 'process/config.json': onboardWith(other) } });
     assert.throws(t.run, msg, other);
     assert.equal(t.f.calls.merged, null);
   }
   // The tool cannot tell its own address: refused.
-  assert.throws(go({ config: false, ledger: false, files: { 'process/config.json': cfgWith(P3) } }, { ...own, address: () => null }).run, msg);
+  assert.throws(go({ config: false, ledger: false, files: { 'process/config.json': onboardWith(P3) } }, { ...own, address: () => null }).run, msg);
   // The base already has a config (no process_repo yet): not onboarding, refused.
   assert.throws(go({ files: { 'process/config.json': cfgWith(P3) } }).run, msg);
   // A change from one non-null value to another: refused, to process3's address or any other.
@@ -644,7 +647,7 @@ test('the tranche into main may carry process3\'s own address that the tool merg
   const msg = /changes process_repo in process\/config\.json; that needs the owner's word: bring it to Bob/;
   const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
   // Onboarding: a pull request into the tranche sets process3's address, and the tool merges it.
-  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': cfgWith(P3) } });
+  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': onboardWith(P3) } });
   const f = plainIO(r, { repo: own });
   f.io.lookup = ghCommit('none');
   assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }).merged, true);
@@ -756,4 +759,121 @@ test('only the tranche by main\'s config merges into main, whatever the working 
   git(['push', '-q', 'origin', 'main'], { cwd: u.root });
   git(['checkout', '-q', 'tranche'], { cwd: u.root }); // the local checkout's own config is readable
   assert.throws(() => mergePlain(u.root, 4, { ...q, noReview: 'x', io: plainIO(u, { base: 'main' }).io }), /process\/config\.json on main cannot be read/);
+});
+
+// Review follow-ups, 2 Nov: the config's "tranche" field takes process_repo's owner's-word rule.
+import { pinChange } from '../lib/merge.mjs';
+import { recordCheck } from '../lib/record.mjs';
+import { DEFAULTS as D, loadConfig } from '../lib/util.mjs';
+
+test('a pull request into the tranche may not rename the tranche; naming its default is no change', () => {
+  const msg = /changes tranche in process\/config\.json; that needs the owner's word: bring it to Bob/;
+  const into = (base, head) => { const r = makeRepoWith(base, head); const f = plainIO(r); f.io.lookup = everyOwner; return { f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }) }; };
+  for (const [from, to] of [[{}, { tranche: 'bob/plan' }], [{ tranche: 'tranche' }, { tranche: 'other' }]]) {
+    const t = into(JSON.stringify(from), JSON.stringify(to));
+    assert.throws(t.run, msg, JSON.stringify(to));
+    assert.equal(t.f.calls.merged, null);
+  }
+  // The default named outright, or dropped again: the tranche is still "tranche".
+  assert.equal(into('{}', JSON.stringify({ tranche: 'tranche' })).run().merged, true);
+  assert.equal(into(JSON.stringify({ tranche: 'tranche' }), '{}').run().merged, true);
+  // An unreadable head config grants nothing.
+  assert.throws(into('{}', '{ "tranche": ').run, /changes (process_repo|tranche) in process\/config\.json/);
+});
+
+test('onboarding may set the tranche\'s name, but not to main or a job\'s branch', () => {
+  const msg = /changes tranche in process\/config\.json; that needs the owner's word: bring it to Bob/;
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  const go = (tranche) => {
+    const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, tranche, approvals: { owner: 'neobobkrause' } }) } });
+    const f = plainIO(r, { repo: own });
+    return { f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) };
+  };
+  assert.equal(go('dev').run().merged, true);
+  for (const bad of ['main', 'job/x', '', ' dev', 7]) {
+    const t = go(bad);
+    assert.throws(t.run, msg, String(bad));
+    assert.equal(t.f.calls.merged, null);
+  }
+});
+
+test('the tranche into main may carry a tranche name the owner\'s website commit set, or one onboarding set while main had no config', () => {
+  const msg = /changes tranche in process\/config\.json; that needs the owner's word: bring it to Bob/;
+  // Main has a config naming the default tranche; the tranche's config renames it.
+  const renamed = () => {
+    const r = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ process_repo: P3 }) });
+    git(['checkout', '-q', 'tranche'], { cwd: r.root });
+    r.setAt = commit(r.root, { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'tranche-2' }) }, 'rename');
+    r.sha = r.setAt;
+    git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
+    git(['checkout', '-q', 'main'], { cwd: r.root });
+    return r;
+  };
+  const a = renamed();
+  assert.equal(mergePlain(a.root, 4, { ...q, noReview: 'x', io: intoMain(a, ghCommit(a.setAt)).io }).merged, true);
+  const b = renamed();
+  const f = intoMain(b, ghCommit('none'));
+  assert.throws(() => mergePlain(b.root, 4, { ...q, noReview: 'x', io: f.io }), msg);
+  assert.equal(f.calls.merged, null);
+  // Main has no config at all: the name onboarding set is carried, whoever merged it.
+  const c = trancheToMain({ how: 'direct' });
+  git(['checkout', '-q', 'tranche'], { cwd: c.root });
+  c.sha = commit(c.root, { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'tranche' }) }, 'name');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: c.root });
+  git(['checkout', '-q', 'main'], { cwd: c.root });
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  const m = plainIO(c, { base: 'main', repo: own });
+  m.io.lookup = ghCommit('none');
+  assert.equal(mergePlain(c.root, 4, { ...q, noReview: 'x', io: m.io }).merged, true);
+});
+
+// Review follow-ups, 2 Nov: onboarding sets approvals.owner to the repository's owner.
+test('onboarding sets approvals.owner to the repository\'s owner as GitHub has it', () => {
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  const go = (approvals, owner = 'alice') => {
+    const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, ...(approvals ? { approvals } : {}) }) } });
+    const f = plainIO(r, { repo: own });
+    f.io.repoOwner = (slug) => { f.asked = slug; return owner; };
+    return { f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) };
+  };
+  const ok = go({ owner: 'alice' });
+  assert.equal(ok.run().merged, true);
+  assert.equal(ok.f.asked, 'o/r', 'read from the pull request\'s repository');
+  assert.throws(go(null).run, /onboarding sets approvals\.owner in process\/config\.json to the repository's owner, alice, as GitHub has it; the pull request does not set it/);
+  assert.throws(go({ owner: 'neobobkrause' }).run, /to the repository's owner, alice, as GitHub has it; the pull request sets "neobobkrause"/);
+  assert.throws(go({ owner: 'alice' }, null).run, /the owner could not be read from GitHub/);
+  // Not onboarding (the base has a config): nothing asked of approvals.owner here.
+  const r = makeRepoWith(JSON.stringify({}), JSON.stringify({ record_since: null }));
+  const f = plainIO(r);
+  f.io.repoOwner = () => { throw new Error('asked'); };
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }).merged, true);
+});
+
+test('while main has no config, the tranche into main judges by the repository\'s owner', () => {
+  const r = trancheToMain({ how: 'direct', value: 'https://example.com/fork' });
+  const f = intoMain(r, ghCommit(r.setAt, { author: 'alice' }));
+  f.io.repoOwner = () => 'alice';
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }).merged, true);
+  const g = intoMain(r, ghCommit(r.setAt, { author: 'alice' }));
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: g.io }), /changes process_repo/);
+});
+
+// Review follow-ups, 2 Nov: pinChange lets the tranche carry its config into main as it is;
+// the record check is what stops a carried config from changing approvals.owner.
+test('the tranche into main carrying a changed approvals.owner passes pinChange, and the record check refuses it', () => {
+  const r = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ process_repo: P3 }) });
+  const mainTip = git(['rev-parse', 'main'], { cwd: r.root });
+  git(['checkout', '-q', 'tranche'], { cwd: r.root });
+  const change = commit(r.root, { 'process/config.json': JSON.stringify({ process_repo: P3, approvals: { owner: 'civicsmith' } }) }, 'a session names another owner');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  const mb = git(['merge-base', mainTip, change], { cwd: r.root });
+  assert.doesNotThrow(() => pinChange(r.root, mb, change, { released: () => false, descends: () => false }, { intoMain: true, baseRef: 'origin/main', ownerCommit: () => ({ ok: false }) }));
+  const cfgMain = loadConfig(r.root, mainTip);
+  assert.equal(cfgMain.approvals.owner, D.approvals.owner);
+  const f = recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit('none') }).findings;
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
+  assert.match(f[0].message, new RegExp(`commit ${change.slice(0, 10)} changes the approvals or record_since but is not neobobkrause's own commit`));
+  // The owner's own website commit may change it.
+  assert.deepEqual(recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit(change) }).findings, []);
 });

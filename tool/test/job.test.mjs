@@ -490,3 +490,12 @@ test('install reads and checks the lock file at its normalised path', () => {
   assert.deepEqual(calls, ['test']);
   assert.deepEqual(install(root, ['.\\test\\package-lock.json'], { onlyStale: true, exec }).ran, [], 'fresh by its mark');
 });
+
+// Review follow-ups, 2 Nov: measured, the only refused merge into main was chained with an
+// unrelated script; the START says each judged act is its own shell command.
+test('the START says each judged act is its own shell command, never chained with another', () => {
+  const root = product();
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  const lines = start.split('\n').filter((l) => /judged act/.test(l));
+  assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `;` or pipe joining it to anything else).']);
+});

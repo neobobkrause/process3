@@ -105,11 +105,13 @@
       "value": {
         "file": "process/config.json approvals.file, default CLAUDE.md",
         "heading": "process/config.json approvals.heading, default ## Standing approvals from Bob",
+        "owner": "process/config.json approvals.owner, which onboarding sets to the repository's owner as GitHub has it; while the tranche has no config, that owner",
         "blocks": 1,
-        "last_changed_by": "the owner's commit through GitHub's website"
+        "last_changed_by": "the owner's commit through GitHub's website",
+        "newest": "the block is the newest one the owner set through GitHub's website in the tranche's history, so a merge that put back an older one is missing"
       },
       "who": "the developer, committing it on the tranche through GitHub's website, signed in as the owner",
-      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner)"
+      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner); then, of the commits in the tranche's history whose block differs from every parent's, the newest by committer date that is the owner's website commit: its block must be the tip's (the record check's newestOwnerBlock); GET /repos/{repo}: owner.login when the tranche has no config"
     },
     {
       "id": "artifact-retention",
@@ -155,8 +157,8 @@
     },
     {
       "id": "deploy-token",
-      "what": "The session's CLOUDFLARE_API_TOKEN can read, in the account process/config.json names as cloudflare_account, Workers scripts, R2 buckets, containers and Workers KV namespaces: the scopes Workers Scripts Edit, Workers R2 Storage Edit, Containers Edit and Workers KV Storage Read.",
-      "why": "The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email; a token lacking Workers KV made wrangler delete exit with an error after it had succeeded (2 Nov).",
+      "what": "The session's CLOUDFLARE_API_TOKEN can read, in the account process/config.json names as cloudflare_account, Workers scripts, R2 buckets and containers: the scopes Workers Scripts Edit, Workers R2 Storage Edit and Containers Edit.",
+      "why": "The product binds R2, Durable Objects, containers, service bindings, browser rendering and send_email, and no Workers KV, so the token asks for no KV scope (review follow-ups, 2 Nov). Without one, wrangler delete may exit with a Workers KV error after the delete itself succeeded; removing a development deployment counts that error as success only once a read of the script finds it gone (README, Development deployments).",
       "value": [
         {
           "scope": "Workers Scripts",
@@ -169,14 +171,10 @@
         {
           "scope": "Containers",
           "read": "accounts/{account}/containers/applications"
-        },
-        {
-          "scope": "Workers KV Storage",
-          "read": "accounts/{account}/storage/kv/namespaces"
         }
       ],
       "who": "the developer (a Cloudflare API token, saved in the Claude cloud environment's settings)",
-      "read": "one harmless GET per scope (paths from Cloudflare's API reference, developers.cloudflare.com/api: Workers scripts, R2 buckets, Containers applications, KV namespaces) on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 with success true (or a bare JSON answer) is present; each scope reported present or missing; a read cannot tell Edit from Read; the token is never printed; not configured when the config names no cloudflare_account"
+      "read": "one harmless GET per scope (paths from Cloudflare's API reference, developers.cloudflare.com/api: Workers scripts, R2 buckets, Containers applications) on api.cloudflare.com/client/v4, the token given to curl on stdin: HTTP 200 with success true (or a bare JSON answer) is present; each scope reported present or missing; a read cannot tell Edit from Read; the token is never printed; not configured when the config names no cloudflare_account"
     },
     {
       "id": "ruleset-bypass",

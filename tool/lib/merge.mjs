@@ -9,9 +9,9 @@ import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestRece
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
-import { webCommitByOwner } from './record.mjs';
+import { repoOwnerOf, webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
-import { CONFIG_FILE, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -148,39 +148,64 @@ export function processRepo(dir = TOOL_ROOT) {
 }
 
 const pinAt = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] || null;
-const processRepoOf = (root, rev) => {
+// A config key at a commit: null when the file is absent, 'unreadable' when it is not JSON. The
+// tranche's name counts as its default when the config does not name it.
+const configAt = (root, rev) => {
   const r = git(['show', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
-  try { return r.code === 0 ? JSON.parse(r.stdout).process_repo ?? null : null; } catch { return 'unreadable'; }
+  if (r.code !== 0) return null;
+  try { const c = JSON.parse(r.stdout); return c && typeof c === 'object' && !Array.isArray(c) ? c : 'unreadable'; } catch { return 'unreadable'; }
 };
+const keyAt = (root, rev, key) => {
+  const c = configAt(root, rev);
+  if (c === 'unreadable') return 'unreadable';
+  const v = c?.[key] ?? null;
+  return key === 'tranche' && v === null ? DEFAULTS.tranche : v;
+};
+const processRepoOf = (root, rev) => keyAt(root, rev, 'process_repo');
 
 const hasConfig = (root, rev) => git(['cat-file', '-e', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true }).code === 0;
-// The commit on rev's first-parent history at which process_repo took the value it has at rev:
+// The commit on rev's first-parent history at which a config key took the value it has at rev:
 // the newest first-parent commit whose first parent holds another value (or that has none).
-export function processRepoSetAt(root, rev) {
-  const value = processRepoOf(root, rev);
+export function keySetAt(root, rev, key) {
+  const value = keyAt(root, rev, key);
   // Only a commit that changes the file against its first parent can change the value.
   const touched = git(['log', '--first-parent', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
   for (const c of touched) {
-    if (processRepoOf(root, c) !== value) return null; // cannot happen on a first-parent line
-    if (processRepoOf(root, `${c}^1`) !== value) return c;
+    if (keyAt(root, c, key) !== value) return null; // cannot happen on a first-parent line
+    if (keyAt(root, `${c}^1`, key) !== value) return c;
   }
   return null;
 }
+export const processRepoSetAt = (root, rev) => keySetAt(root, rev, 'process_repo');
+
+// The keys that say where the process comes from and which branch is the tranche. A changed
+// "tranche" would move the module-file and required-checks guards to another branch (review
+// follow-ups, 2 Nov), so it takes the same owner's-word rule as process_repo. Each says which
+// value onboarding (no process config on the base) may set.
+const GUARDED_KEYS = {
+  process_repo: (value, repo) => { const own = repo.address?.(); return Boolean(own) && value === own; },
+  tranche: (value) => typeof value === 'string' && value.trim() === value && value !== '' && value !== 'main' && !isJob(value),
+};
 
 // A plain pull request may move the process pin only forward, to a released process3 commit
 // (on its tranche or main) that descends from the base's pin: no unreleased pin, no downgrade.
-// Changing where the process comes from (process_repo) needs the owner's word (third
-// confirming review of PR 14), with three exceptions where the tool already holds that word
-// (build 22, 2 Nov):
-// - the tranche into main may carry the tranche's process_repo when the commit on the
-//   tranche's first-parent history at which it took that value is the owner's own commit
-//   through GitHub's website (his direct edit, or his website merge of a pull request);
-// - the tranche into main may also carry process_repo when main has no process config at all
-//   (neither at the merge base nor at main's tip) and the tranche's value is exactly
-//   process3's own address: the value onboarding sets, whoever merged it into the tranche
-//   (with no config on main, the tranche's name is the default one);
-// - at onboarding, a pull request into the tranche may set process_repo to process3's own
-//   address when the base has no process config at all.
+// Changing where the process comes from (process_repo), or which branch is the tranche
+// ("tranche"), needs the owner's word (third confirming review of PR 14; review follow-ups,
+// 2 Nov), with three exceptions where the tool already holds that word (build 22, 2 Nov):
+// - the tranche into main may carry the tranche's value when the commit on the tranche's
+//   first-parent history at which it took that value is the owner's own commit through
+//   GitHub's website (his direct edit, or his website merge of a pull request);
+// - the tranche into main may also carry the value when main has no process config at all
+//   (neither at the merge base nor at main's tip) and the tranche's value is one onboarding may
+//   set: process3's own address for process_repo, whoever merged it into the tranche (with no
+//   config on main, the tranche's name is the default one), and any branch name but main or a
+//   job's for "tranche";
+// - at onboarding, a pull request into the tranche may set either to such a value when the base
+//   has no process config at all.
+// The tranche into main carries the rest of the tranche's config as it is, approvals.owner
+// included: pinChange does not judge it. The record check, a required check on main, is what
+// stops a carried config from changing approvals.owner: it accepts that change only from the
+// owner's own website commit (or, while main has no config, set to the repository's owner).
 // at: { intoMain, intoTranche, baseRef, ownerCommit(sha) -> { ok } }.
 export function pinChange(root, mb, sha, repo, at = {}) {
   const was = pinAt(root, mb);
@@ -190,22 +215,37 @@ export function pinChange(root, mb, sha, repo, at = {}) {
     if (!repo.released(now)) fail(`the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
     if (was && !repo.descends(was, now)) fail(`the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
   }
-  const value = processRepoOf(root, sha);
-  if (value === processRepoOf(root, mb)) return;
-  const usable = typeof value === 'string' && value !== 'unreadable';
-  if (usable && at.intoMain && at.ownerCommit) {
-    const c = processRepoSetAt(root, sha);
-    if (c && at.ownerCommit(c)?.ok === true) return;
+  for (const [key, onboardValue] of Object.entries(GUARDED_KEYS)) {
+    const value = keyAt(root, sha, key);
+    if (value === keyAt(root, mb, key)) continue;
+    const usable = typeof value === 'string' && value !== 'unreadable';
+    // The tranche into main: only these keys are judged here. The rest of the carried config,
+    // approvals.owner included, is the record check's: a required check on main, it refuses a
+    // change to approvals.owner that is not the owner's own website commit.
+    if (usable && at.intoMain && at.ownerCommit) {
+      const c = keySetAt(root, sha, key);
+      if (c && at.ownerCommit(c)?.ok === true) continue;
+    }
+    if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef) && onboardValue(value, repo)) continue;
+    if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef)) && onboardValue(value, repo)) continue;
+    fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
   }
-  if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef)) {
-    const own = repo.address?.();
-    if (own && value === own) return;
-  }
-  if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef))) {
-    const own = repo.address?.();
-    if (own && value === own) return;
-  }
-  fail(`the pull request changes process_repo in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
+}
+
+// Onboarding (a pull request into the tranche, no process config on the base, one on the head)
+// sets approvals.owner to the repository's owner as GitHub has it, so a product owned by
+// someone other than the default owner reads its approvals rightly (review follow-ups, 2 Nov).
+// Nothing is asked of the owner for it. Afterwards the record check lets only the owner's own
+// website commit change it.
+// readOwner() -> the repository's owner, or null when GitHub cannot be read.
+export function onboardingOwner(root, mb, sha, baseRef, readOwner) {
+  if (hasConfig(root, mb) || hasConfig(root, baseRef) || !hasConfig(root, sha)) return;
+  const c = configAt(root, sha);
+  const owner = readOwner();
+  if (c === 'unreadable') fail(`${CONFIG_FILE} on the pull request is not a JSON object`);
+  if (!owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, and the owner could not be read from GitHub`);
+  const named = c.approvals?.owner;
+  if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, ${owner}, as GitHub has it; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
@@ -257,7 +297,7 @@ export function checkGreen(root, slug, baseRef, sha, check, io, approved = new M
 
 export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, log = console.log } = opts;
-  const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), ...(opts.io || {}) };
+  const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), repoOwner: (s2) => repoOwnerOf(s2), ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
@@ -285,10 +325,16 @@ export function mergePlain(root, n, opts = {}) {
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
+  // While the base has no config, the owner is the repository's, as GitHub has it.
+  let ghOwner;
+  const githubOwner = () => (ghOwner === undefined ? (ghOwner = io.repoOwner(slug) || null) : ghOwner);
+  const owner = () => (hasConfig(root, baseRef) ? baseCfg.approvals.owner : githubOwner());
+  const intoTranche = Boolean(baseCfg) && base === baseCfg.tranche;
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche: Boolean(baseCfg) && base === baseCfg.tranche, baseRef,
-    ownerCommit: (c) => webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug),
+    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche, baseRef,
+    ownerCommit: (c) => (owner() ? webCommitByOwner(root, c, owner(), io.lookup, slug) : { ok: false }),
   });
+  if (intoTranche) onboardingOwner(root, mb, pr.head.sha, baseRef, githubOwner);
   // Another open pull request from the same head would share its check runs.
   const same = io.openFrom(slug, head);
   if (!same) fail(`could not read the open pull requests from ${head}`);
