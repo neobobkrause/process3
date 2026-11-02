@@ -5,7 +5,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { ACTIONS_APP, RECEIPT, checkRun, checkRuns, comments, gateRuns, getPR, latestBlock, openFrom, requiredChecks, verifyRow, workflowRun } from './github.mjs';
+import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, openFrom, requiredChecks, verifyRow, workflowRun } from './github.mjs';
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
@@ -45,7 +45,7 @@ export function merge(root, n, opts = {}) {
   const first = io.checkRun(slug, pr.head.sha, 'gate');
   if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
   const all = io.comments(slug, n);
-  const receipt = latestBlock(slug, n, RECEIPT, all)?.data;
+  const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
   if (!receipt) fail(`pull request ${n} has no receipt`);
   // Each row names its Actions run; the row counts only when that run is the process gate on
   // this tip, green, and its own artifact holds the same row (verifyRow).

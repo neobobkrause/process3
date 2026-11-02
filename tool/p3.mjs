@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Process3 tool: one program, a fresh process per command, run from the pinned clone.
 // Usage: node <clone>/tool/p3.mjs <command> [args]
+// p3-capability: gate-no-post (the gate workflow greps for this line at the base's pin; a pin
+// without it takes the legacy path; review of PR 13)
 import { writeFileSync } from 'node:fs';
-import { gate } from './lib/gate.mjs';
+import { gate, postRow } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
@@ -74,11 +76,18 @@ const commands = {
     return merge(root, n, { reviewed: a.reviewed, noReview: a['no-review'], minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
   },
 
-  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]
-  // Run only by the gate workflow, with the base's process pin.
+  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>] [--no-post]
+  // gate --post <gate.json> --pr <n> [--head <sha>] [--gate-result <result>]
+  // Run only by the gate workflow, with the base's process pin: job gate runs the gate with
+  // --no-post on a read-only token, and job post posts its row with --post (setup audit, 2 Nov).
   gate: (a, root) => {
+    if (a.post !== undefined) {
+      if (a.post === true) fail('--post needs the gate.json file');
+      postRow(a.post, { pr: a.pr ? Number(a.pr) : null, head: a.head, gateResult: a['gate-result'], slug: repoSlug(root) });
+      return 0;
+    }
     const { run: r, findings } = gate(root, {
-      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null,
+      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null, post: !a['no-post'],
       draft: a.draft === 'true' || a.draft === true, started: a.started ? Number(a.started) * 1000 : Date.now(),
     });
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
