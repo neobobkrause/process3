@@ -100,7 +100,10 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
     if (entry.status?.state === 'COMPLETE' && ahead === 0) fail(`${id} is COMPLETE and its last attempt merged; a new attempt needs --reopen "<what it must do>"`);
     if (entry.status?.state !== 'WORKING' || ahead !== 1) fail(`${branch} exists and is not an unfinished start (${entry.status?.state}, ${ahead} commits); restarting a job is a Phase 2 command`);
     const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root }).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.event === 'start').pop();
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry) });
+    // A reopened start keeps its task: it is in the start row it already pushed.
+    const task = startRow?.reopen;
+    if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task });
     const launch = launchFor(slug, branch, id, start, model);
     log(start);
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
@@ -120,12 +123,18 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   } else if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) {
     fail(`${id} is ${entry0.status.state}, not OPEN${entry0.status.state === 'COMPLETE' ? '; a new attempt needs --reopen "<what it must do>"' : ''}`);
   }
-  if (git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0) fail(`a local branch ${branch} exists; remove it first`);
+  // A local branch left by the merged attempt holds nothing the tranche lacks: a reopen moves it
+  // to the tranche (no branch is deleted). Any other local branch is refused.
+  const local = git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0;
+  const stale = local && reopen && git(['merge-base', '--is-ancestor', `refs/heads/${branch}`, from], { cwd: root, allowFail: true }).code === 0;
+  if (local && !stale) fail(`a local branch ${branch} exists with commits the tranche does not have; bring it to your coordinator`);
   if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
+  if (stale && git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim() === branch) fail(`check out another branch than ${branch} first`);
 
   const sym = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true });
   const back = sym.code === 0 ? sym.stdout.trim() : git(['rev-parse', 'HEAD'], { cwd: root });
-  git(['checkout', '-q', '-b', branch, from], { cwd: root });
+  const before = stale ? git(['rev-parse', `refs/heads/${branch}`], { cwd: root }) : null;
+  git(['checkout', '-q', stale ? '-B' : '-b', branch, from], { cwd: root });
   let result;
   let committed = false;
   try {
@@ -150,9 +159,11 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   } catch (e) {
     if (!committed) restore(root, [entryFile(id), metricsFile(id)]);
     git(['checkout', '-q', back], { cwd: root, allowFail: true });
-    // Nothing new reached GitHub: drop the local branch so the command can run again.
+    // Nothing new reached GitHub: undo the local branch so the command can run again (a branch
+    // the reopen moved goes back to where it was).
     if (remoteTip(root, branch) !== git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim()) {
-      git(['branch', '-q', '-D', branch], { cwd: root, allowFail: true });
+      if (before) git(['branch', '-q', '-f', branch, before], { cwd: root, allowFail: true });
+      else git(['branch', '-q', '-D', branch], { cwd: root, allowFail: true });
     }
     throw e;
   }

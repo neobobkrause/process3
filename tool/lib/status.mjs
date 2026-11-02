@@ -36,6 +36,9 @@ export function status(root, { role, module, offline = false, log = console.log 
       row.pr = `#${pr.number}${pr.draft ? ' draft' : ' ready'}`;
       const run = checkRun(slug, pr.head.sha, 'gate');
       row.gate = run ? (run.conclusion || run.status) : 'none';
+    } else if (row.ahead > 0 && prs) {
+      // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
+      row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     rows.push(row);
   }

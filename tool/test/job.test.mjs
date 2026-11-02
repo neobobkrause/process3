@@ -217,8 +217,7 @@ function mergedOnce() {
   git(['merge', '-q', '--no-ff', '--no-edit', 'job/alpha'], { cwd: root });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  git(['branch', '-q', '-D', 'job/alpha'], { cwd: root });
-  return { root, f };
+  return { root, f }; // the local job/alpha from attempt 1 stays, as in BOB's own checkout
 }
 
 test('a COMPLETE module needs --reopen, and the refusal says so', () => {
@@ -255,13 +254,35 @@ test('--reopen is refused while the old attempt is unmerged or its PR is open, a
   assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', reopen: true, open: m.f.open, find: m.f.find, log: quiet }), /needs what the new attempt must do/);
 });
 
-test('a reopen whose push fails leaves no local branch, so it can run again', () => {
+test('a reopen moves the local branch left by attempt 1, and a failed push puts it back', () => {
   const { root, f } = mergedOnce();
-  const url = git(['remote', 'get-url', 'origin'], { cwd: root });
+  const was = git(['rev-parse', 'job/alpha'], { cwd: root });
   git(['config', 'remote.origin.pushurl', '/nonexistent/repo.git'], { cwd: root });
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }));
-  assert.equal(git(['branch', '--list', 'job/alpha'], { cwd: root }), '');
+  assert.equal(git(['rev-parse', 'job/alpha'], { cwd: root }), was, 'back where it was, not deleted');
   git(['config', '--unset', 'remote.origin.pushurl'], { cwd: root });
   assert.equal(jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }).attempt, 2);
-  assert.ok(url);
+});
+
+test('a local job branch with work the tranche lacks is refused, not moved', () => {
+  const { root, f } = mergedOnce();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/more.mjs': 'export const y = 2;\n' });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'x', open: f.open, find: f.find, log: quiet }), /commits the tranche does not have/);
+});
+
+test('a reopened start whose PR failed resumes with its task in the START', () => {
+  const { root, f } = mergedOnce();
+  let fails = true;
+  const open = (slug, p) => { if (fails) { fails = false; throw new Error('network'); } return f.open(slug, p); };
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', reopen: 'strengthen the R1 test', open, find: f.find, log: quiet }), /network/);
+  const notes = [];
+  const r = jobStart(root, 'alpha', { coordinator: 's', open, find: f.find, log: (m) => notes.push(m) });
+  assert.equal(r.resumed, true);
+  assert.equal(r.attempt, 2);
+  assert.match(r.start, /What it must do: strengthen the R1 test/);
+  assert.match(r.pr.body, /What it must do: strengthen the R1 test/);
+  const again = jobStart(mergedOnce().root, 'alpha', { coordinator: 's', open: f.open, find: f.find, log: quiet, reopen: 'y' });
+  assert.equal(again.attempt, 2);
 });
