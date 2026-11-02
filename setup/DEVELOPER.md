@@ -132,9 +132,9 @@ Why: the process deploys the product so walkers can run and each round can find 
 
 Clicks:
 1. Open any Claude Code session for this product on claude.ai. Click the cloud environment menu in the session's title bar, then **Edit**.
-2. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable, because `p3 setup check` and the product's deploy tools read only environment variables. Set `CLOUDFLARE_ACCOUNT_ID` to the account `process/config.json` names as `"cloudflare_account"`. Save.
+2. Add each variable that `process/config.json` lists under `"environment"` (for example `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`), with exactly that name, as an environment variable, because `p3 setup check` and the product's deploy tools read environment variables. Set `CLOUDFLARE_ACCOUNT_ID` to the account `process/config.json` names as `"cloudflare_account"`. Save.
 3. Never paste a token into a chat. New sessions pick up the change.
 
-How BOB confirms: `p3 setup check` shows `environment` set (it prints only the names) and `deploy-account` set (it prints only whether the account matches). Before `process/config.json` lists them, both show `not configured`.
+How BOB confirms: `p3 setup check` shows `environment` set (it prints only the names) and `deploy-account` set (it prints only the configured account and whether it matches). Before `process/config.json` lists them, both show `not configured`.
 
 Sets: `environment`, `deploy-account`.
