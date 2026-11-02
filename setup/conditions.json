@@ -1,5 +1,5 @@
 {
-  "about": "The setup a product needs before a job starts (setup audit, 2 Nov 2026). One entry per condition. `p3 setup check` reads each one it can through gh api, or from the tranche through git, and reports it as set or missing. The proxy refuses GitHub's Actions-settings, secrets, collaborators and environments endpoints, so those conditions are confirmed once on the onboarding page and never read. `job start` runs the same check first. A condition whose `who` starts with \"the developer\" is the repository owner's to set; setup/DEVELOPER.md holds the steps.",
+  "about": "The setup a product needs before a job starts (setup audit, 2 Nov 2026). One entry per condition. `p3 setup check` reads each one it can: GitHub through gh api, the tranche's files through git, the session's own checkout and environment, and, for the deploy token only, harmless reads of Cloudflare's API; and reports it as set or missing. The proxy refuses GitHub's Actions-settings, secrets, collaborators and environments endpoints, so those conditions are confirmed once on the onboarding page and never read. `job start` runs the same check first. A condition whose `who` starts with \"the developer\" is the repository owner's to set; setup/DEVELOPER.md holds the steps.",
   "conditions": [
     {
       "id": "account",
@@ -28,7 +28,7 @@
     },
     {
       "id": "ruleset-main-tranche",
-      "what": "main and the tranche take changes only through a pull request, merged with a merge commit only, with the required check green; the session account cannot bypass these rules.",
+      "what": "main and the tranche take changes only through a pull request, merged with a merge commit only, with the required check green and no approving review required; the session account cannot bypass these rules.",
       "why": "The gate is what makes a merge trustworthy; merge commits keep each pull request's history whole.",
       "value": {
         "branches": [
@@ -38,10 +38,13 @@
         "merge_methods": [
           "merge"
         ],
-        "required_check": "process/config.json required_check, default gate"
+        "required_check": "process/config.json required_check, default gate",
+        "required_approving_review_count": 0,
+        "require_code_owner_review": false,
+        "required_reviewers": []
       },
       "who": "the developer (Settings, Rules)",
-      "read": "GET /repos/{repo}/rules/branches/{branch} for main and the tranche: pull_request.allowed_merge_methods and required_status_checks; GET /repos/{repo}/rulesets/{id}: current_user_can_bypass"
+      "read": "GET /repos/{repo}/rules/branches/{branch} for main and the tranche: pull_request.allowed_merge_methods, required_approving_review_count, require_code_owner_review and required_reviewers and required_status_checks; GET /repos/{repo}/rulesets/{id}: current_user_can_bypass"
     },
     {
       "id": "classic-protection",

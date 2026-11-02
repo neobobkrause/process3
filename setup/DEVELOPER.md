@@ -1,6 +1,6 @@
 # The developer's steps
 
-There are 11 steps. Take them in order, in one sitting, with no pause: none of them waits on another person. These are the steps only you, the owner of the product's repository, can take. A Claude session cannot take any of them, and nothing a session can do is listed here. Each step says why it is needed, the exact clicks on github.com (or Cloudflare, or claude.ai), how BOB (the coordinating Claude session) confirms it, and which entry of the setup list (`setup/conditions.json`) it sets.
+There are 11 steps. Take them in order, in one sitting, with no pause: once the repository is yours (Step 1), none of them waits on another person. These are the steps only you, the owner of the product's repository, can take. A Claude session cannot take any of them, and nothing a session can do is listed here. Each step says why it is needed, the exact clicks on github.com (or Cloudflare, or claude.ai), how BOB (the coordinating Claude session) confirms it, and which entry of the setup list (`setup/conditions.json`) it sets.
 
 The order, in short:
 - Steps 1 and 2: your account and the repository, signed in as yourself.
@@ -130,14 +130,14 @@ Why: the standing approvals say what sessions may do without asking you. A sessi
 
 Clicks: signed in to github.com as yourself, in your own window.
 
-1. Open `https://github.com/<owner>/<product>/edit/<tranche>/CLAUDE.md`. Check that the branch shown above the editor is the tranche. If GitHub says the branch does not exist, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. If GitHub says the file does not exist, open `https://github.com/<owner>/<product>/new/<tranche>?filename=CLAUDE.md` instead.
+1. Open `https://github.com/<owner>/<product>/tree/<tranche>`. If GitHub shows a 404 page, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. Otherwise, look at the file list: if `CLAUDE.md` is in it, open `https://github.com/<owner>/<product>/edit/<tranche>/CLAUDE.md`; if not, open `https://github.com/<owner>/<product>/new/<tranche>?filename=CLAUDE.md`. Check that the branch shown above the editor is the tranche.
 2. Add this heading on a line of its own (or the heading `process/config.json` names under `"approvals"`), once, and only once in the file:
 
    ```
    ## Standing approvals from Bob
    ```
 
-3. Under it, paste your approvals: the text is your own, from your onboarding page. Give your text no heading of its own that holds the word "approval" (the checks count every such heading, and allow one). Leave any other part of the file as it is.
+3. Under it, paste your approvals: the text is your own, from your onboarding page. Give your text no heading of its own that holds any form of the word "approve" (approve, approved, approval): the checks count every such heading, and allow one. Leave any other part of the file as it is.
 4. Make the change here, in the browser, signed in as yourself. An upload, GitHub Desktop or a `git push` does not count.
 5. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
 
@@ -151,7 +151,7 @@ Why: the deny list stops every session from force-pushing, deleting a branch, wr
 
 Clicks: signed in to github.com as yourself, in your own window.
 
-1. Open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche. If GitHub says the branch does not exist, BOB has not pushed the tranche yet: ask BOB on the onboarding page, and take this step once BOB says it is there. If GitHub says the file already exists, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text.
+1. Open `https://github.com/<owner>/<product>/tree/<tranche>` (it is there: you used it in Step 9). If the file list shows a `.claude` folder holding `settings.json`, open `https://github.com/<owner>/<product>/edit/<tranche>/.claude/settings.json` and replace its whole text; otherwise open `https://github.com/<owner>/<product>/new/<tranche>?filename=.claude/settings.json`. Check that the branch shown is the tranche.
 2. Make the change here, in the browser, signed in as yourself; an upload, GitHub Desktop or a `git push` does not count. Paste this whole file, exactly. It holds no rule that would block a session's push of its own branch, such as `"Bash(git push origin :*)"`:
 
    ```json
@@ -187,7 +187,7 @@ Why: nothing reaches `main` or the tranche except through a pull request whose r
 Clicks: open `https://github.com/<owner>/<product>/settings/rules` (**Settings**, then **Rules**, then **Rulesets**), click **New ruleset**, then **New branch ruleset**.
 1. Name it (for example `process3`). Set **Enforcement status** to **Active**. Leave **Bypass list** empty: no app, no deploy key, no role.
 2. Under **Target branches**, click **Add target**, then **Include by pattern**, and enter `main`. Do it again for the tranche's name.
-3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**.
+3. Tick **Require a pull request before merging**. Leave **Required approvals** at `0`, and leave **Require review from Code Owners** unticked: the tool merges once the check is green, and a required review would stop every merge. Open **Additional settings** and, under **Allowed merge methods**, leave only **Merge**.
 4. Tick **Require status checks to pass**, click **Add checks**, type `gate`, and pick the one whose source is **GitHub Actions** (BOB ran the gate once after Step 4, so it is offered). If it is not offered, type `gate` in full, add it, and set its source to **GitHub Actions**, not any source.
 5. Click **Create**.
 

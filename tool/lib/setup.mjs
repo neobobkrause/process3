@@ -158,6 +158,13 @@ const readers = {
       const methods = pr.map((r) => r.parameters?.allowed_merge_methods);
       if (!pr.length) gaps.push(`${b}: no pull request rule`);
       else if (!methods.some((m) => Array.isArray(m) && m.length === c.value.merge_methods.length && c.value.merge_methods.every((v) => m.includes(v)))) gaps.push(`${b}: merge methods are not ${c.value.merge_methods.join(', ')} only`);
+      // The tool merges without a person's review: no rule may require one (fourth re-review).
+      for (const r of pr) {
+        const n = r.parameters?.required_approving_review_count;
+        if (n !== c.value.required_approving_review_count) gaps.push(`${b}: a pull request rule requires ${n ?? 'an unknown number of'} approving review(s), not ${c.value.required_approving_review_count}`);
+        if (r.parameters?.require_code_owner_review === true) gaps.push(`${b}: a pull request rule requires a code owner's review`);
+        if ((r.parameters?.required_reviewers || []).length) gaps.push(`${b}: a pull request rule names required reviewers`);
+      }
       const checks = rules.filter((r) => r.type === 'required_status_checks').flatMap((r) => r.parameters?.required_status_checks || []);
       for (const name of x.required) {
         const hit = checks.filter((k) => k.context === name);
@@ -203,7 +210,7 @@ const readers = {
   },
 
   // Deploy tokens are a standard condition (Bob, 2 Nov). Names only: never a value, a length or
-  // a prefix. Cloudflare's API is never called.
+  // a prefix. This reader never calls Cloudflare's API; only deploy-token does, with harmless reads.
   environment: (c, x) => {
     const names = x.cfg.environment;
     if (names === undefined) return { state: 'not configured', detail: 'process/config.json lists no environment' };
@@ -314,7 +321,9 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
     x.file = tranche(root, name);
     let t2 = {};
     try { t2 = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
-    x.cfg = { ...local, ...t2, tranche: name, approvals: { ...DEFAULTS.approvals, ...(t2.approvals || {}) } };
+    // A second tranche with no config of its own keeps the first tranche's (fourth re-review).
+    const has = Object.keys(t2).length > 0;
+    x.cfg = has ? { ...local, ...t2, tranche: name, approvals: { ...DEFAULTS.approvals, ...(t2.approvals || {}) } } : { ...x.cfg, tranche: name };
   }
   x.branchExists = io.branchExists || ((b) => {
     const r = git(['ls-remote', '--heads', 'origin', `refs/heads/${b}`], { cwd: root, allowFail: true });

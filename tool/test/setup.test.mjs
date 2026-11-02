@@ -17,7 +17,7 @@ const DENY = [
 ];
 const rules = (id = 2) => [
   { type: 'deletion', ruleset_id: 1 }, { type: 'non_fast_forward', ruleset_id: 1 },
-  { type: 'pull_request', parameters: { allowed_merge_methods: ['merge'] }, ruleset_id: id },
+  { type: 'pull_request', parameters: { allowed_merge_methods: ['merge'], required_approving_review_count: 0, require_code_owner_review: false }, ruleset_id: id },
   { type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'gate', integration_id: 15368 }] }, ruleset_id: id },
 ];
 
@@ -127,6 +127,9 @@ test('main and the tranche need a pull request, merge commits only, and the requ
     [(w) => { w.branches.main[3].parameters.required_status_checks = [{ context: 'gate' }]; }, /main: check gate is not tied to GitHub Actions/],
     [(w) => { w.sets[2].current_user_can_bypass = 'pull_requests_only'; }, /can bypass ruleset "process3"/],
     [(w) => { delete w.branches.tranche; }, /tranche: could not read its rules/],
+    [(w) => { w.branches.main[2].parameters.required_approving_review_count = 1; }, /main: a pull request rule requires 1 approving review\(s\), not 0/],
+    [(w) => { w.branches.tranche[2].parameters.require_code_owner_review = true; }, /tranche: a pull request rule requires a code owner's review/],
+    [(w) => { w.branches.tranche[2].parameters.required_reviewers = [{ reviewer: { id: 1, type: 'Team' } }]; }, /tranche: a pull request rule names required reviewers/],
   ];
   for (const [change, why] of cases) {
     const w = world();
@@ -392,7 +395,7 @@ test('session-branch: a session not started from the tranche is missing, and job
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   const detail = 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch';
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'], results: [{ id: 'session-branch', detail }] }), log: quiet }),
-    /this session's checkout does not hold the tranche branch's standing approvals, which sessions act on; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
+    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
 });
 
 test('deploy-token: one harmless read per scope, each reported present or missing, the token never printed', () => {
@@ -614,7 +617,7 @@ test('job start names the tranche the setup check read', () => {
   git(['init', '-q', '--bare', bare], { cwd: repo });
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch'], tranche: 'next' }), log: quiet }),
-    /this session's checkout does not hold the next branch's standing approvals, which sessions act on; nothing was started\. this checkout is not the next branch\. Start the session from the next branch$/);
+    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the next branch; nothing was started\. this checkout is not the next branch\. Start the session from the next branch$/);
 });
 
 test('when the tranche\'s config names another tranche, every reader reads that tranche and its own approvals settings', () => {
@@ -633,4 +636,18 @@ test('when the tranche\'s config names another tranche, every reader reads that 
   assert.equal(state(res, 'coordinator').detail, 'new');
   assert.match(state(res, 'approvals').detail, /last changed by [0-9a-f]{10}, which is not someone's own commit/);
   assert.equal(res.tranche, 't2');
+});
+
+test('end to end: job start on a checkout of main, with the real setup check reading git, stops with the plain message', () => {
+  const { r } = originRepo();
+  commit(r, { 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' }, 'ledger');
+  git(['push', '-q', 'origin', 'main'], { cwd: r });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  const w = world();
+  commit(r, w.files, 'setup');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  git(['checkout', '-q', 'main'], { cwd: r });
+  const setup = (root, o) => setupCheck(root, { ...o, slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, branchExists: () => true } });
+  assert.throws(() => jobStart(r, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup, log: quiet }),
+    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. main is main, not tranche\. Start the session from the tranche branch$/);
 });
