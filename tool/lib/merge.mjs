@@ -4,12 +4,13 @@
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { ACTIONS_APP, RECEIPT, checkRun, checkRuns, comments, gateRuns, getPR, latestBlock, requiredChecks, verifyRow, workflowPath } from './github.mjs';
+import { basename, join } from 'node:path';
+import { ACTIONS_APP, RECEIPT, checkRun, checkRuns, comments, gateRuns, getPR, latestBlock, requiredChecks, verifyRow, workflowRun } from './github.mjs';
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
-import { exists, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { TOOL_ROOT } from './job.mjs';
+import { fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -65,7 +66,8 @@ export function merge(root, n, opts = {}) {
   const own = ownPaths(JSON.parse(entryText.stdout));
   const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
   if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
-  const outside = git(['diff', '--name-only', '-z', mb, `origin/${branch}`], { cwd: root }).split('\0').filter(Boolean).filter((f) => !own.some((p) => underPath(f, p)));
+  // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
+  const outside = git(['diff', '--no-renames', '--name-only', '-z', mb, `origin/${branch}`], { cwd: root }).split('\0').filter(Boolean).filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
@@ -118,19 +120,64 @@ export function mergePR(slug, n, sha, { title = `Merge job PR ${n}`, message } =
 // rulesets require green on the head; a merge commit pinned to that head. It writes no merge
 // row and pushes nothing. Without a process/config.json (process3 itself) the defaults hold.
 const isJob = (ref) => /^job\//i.test(ref);
+const WORKFLOWS = '.github/workflows/';
+const blobAt = (root, rev, path) => {
+  const r = git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true });
+  return r.code === 0 ? r.stdout.trim() : null;
+};
 
-// A required check is green only by a check run from the app its rule names, whose workflow
-// (for an Actions run) is on the base: a pull request cannot add a workflow whose job name
-// stands in for the real check. Among the runs that qualify, the newest decides.
-export function checkGreen(root, slug, baseRef, sha, check, io) {
+// process3 as the tool's own clone holds it: whether a pin is released (a commit on its
+// tranche or main), and the blob of a shim at that pin.
+export function processRepo(dir = TOOL_ROOT) {
+  let fetched = false;
+  const fetch = () => {
+    if (!fetched) git(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/main:refs/remotes/origin/main'], { cwd: dir, allowFail: true });
+    fetched = true;
+  };
+  return {
+    released: (pin) => { fetch(); return ['origin/tranche', 'origin/main'].some((r) => git(['merge-base', '--is-ancestor', pin, r], { cwd: dir, allowFail: true }).code === 0); },
+    shim: (pin, name) => blobAt(dir, pin, `shims/${name}`),
+  };
+}
+
+// A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
+// could rewrite a workflow, or add a job named like a required check (confirming review of
+// PR 14). A plain pull request may change a workflow file only to the process's own shim for
+// it, byte for byte, at the released process pin its head sets; any other change needs the
+// owner's word. Returns the approved files and their blobs.
+export function workflowChanges(root, sha, changed, repo) {
+  const files = changed.filter((f) => f.startsWith(WORKFLOWS));
+  if (!files.length) return new Map();
+  const owner = (why) => fail(`the pull request changes ${files.join(', ')}: ${why}. A workflow change needs the owner's word: bring it to Bob`);
+  const pin = git(['ls-tree', sha, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1];
+  if (!pin) owner('there is no process pin to compare it with');
+  if (!repo.released(pin)) owner(`the process pin ${pin.slice(0, 10)} is not a commit on process3's tranche or main`);
+  const approved = new Map();
+  for (const f of files) {
+    const blob = blobAt(root, sha, f);
+    const shim = repo.shim(pin, basename(f));
+    if (!blob || !shim || blob !== shim) owner(`${f} is not the process's own shim at ${pin.slice(0, 10)}`);
+    approved.set(f, blob);
+  }
+  return approved;
+}
+
+// A required check is green only by a check run from the app its rule names. An Actions run
+// counts only when the copy of its workflow that ran is trusted: the base's own copy
+// (pull_request_target), or a file whose blob at the head equals the base's, or a shim change
+// approved above. Among the runs that qualify, the newest decides.
+export function checkGreen(root, slug, baseRef, sha, check, io, approved = new Map()) {
   const runs = io.checkRuns(slug, sha, check.context);
   if (!runs) return `${check.context}: could not be read`;
   let why = 'no check run';
   for (const run of runs) {
     if (check.app !== null && run.app?.id !== check.app) { why = `no run from app ${check.app}`; continue; }
     if (run.app?.id === ACTIONS_APP) {
-      const path = io.workflowPath(slug, run);
-      if (!path || !exists(root, baseRef, path)) { why = `its workflow ${path || '(unknown)'} is not on the base`; continue; }
+      const w = io.workflowRun(slug, run);
+      if (!w) { why = 'its workflow run could not be read'; continue; }
+      const head = blobAt(root, sha, w.path);
+      const trusted = w.event === 'pull_request_target' || (head && (head === blobAt(root, baseRef, w.path) || head === approved.get(w.path)));
+      if (!trusted) { why = `its workflow ${w.path} is the pull request's own copy, not the base's`; continue; }
     }
     const state = run.status === 'completed' ? run.conclusion : run.status;
     return state === 'success' ? null : `${check.context}: ${state}`;
@@ -140,7 +187,7 @@ export function checkGreen(root, slug, baseRef, sha, check, io) {
 
 export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, log = console.log } = opts;
-  const io = { getPR, requiredChecks, checkRuns, workflowPath, mergePR, ...(opts.io || {}) };
+  const io = { getPR, requiredChecks, checkRuns, workflowRun, mergePR, repo: processRepo(), ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
@@ -159,12 +206,16 @@ export function mergePlain(root, n, opts = {}) {
   git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`, `+refs/heads/${head}:refs/remotes/origin/${head}`], { cwd: root });
   const baseRef = `origin/${base}`;
   if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
+  const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
+  // No rename detection: a rename lists the path it removes as well as the one it adds.
+  const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
+  const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
 
   const rules = io.requiredChecks(slug, base);
   if (!rules) fail(`could not read the checks ${base} requires`);
   if (!rules.checks.length && (main || base === cfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
   if (rules.strict && git(['merge-base', '--is-ancestor', baseRef, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} requires an up-to-date head, and ${head} does not contain ${base}'s tip`);
-  const red = rules.checks.map((c) => checkGreen(root, slug, baseRef, pr.head.sha, c, io)).filter(Boolean);
+  const red = rules.checks.map((c) => checkGreen(root, slug, baseRef, pr.head.sha, c, io, approved)).filter(Boolean);
   if (red.length) fail(`not every required check is green on ${pr.head.sha.slice(0, 10)}: ${red.join('; ')}`);
   const names = rules.checks.map((c) => c.context);
   log(names.length ? `required checks green on ${pr.head.sha.slice(0, 10)}: ${names.join(', ')}` : `note: ${base} requires no checks`);
@@ -174,14 +225,9 @@ export function mergePlain(root, n, opts = {}) {
   // only work that came through the gate.
   if (head !== cfg.tranche) {
     const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
-    if (entries.length) {
-      const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
-      const changed = git(['diff', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
-      const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
-      if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);
-    }
+    const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
+    if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);
   }
-
   // The base must still be the one checked.
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);

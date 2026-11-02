@@ -7,7 +7,7 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo, write } from './helpers.mjs';
 
 function setup() {
   const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha') });
@@ -89,8 +89,8 @@ test('merge takes the job\'s paths from the tranche, so a job cannot widen its o
 });
 
 // merge --plain (Bob, 2 Nov: the tool is the one merge route; review of PR 14).
-import { ACTIONS_APP, checkRuns, requiredChecks, workflowPath } from '../lib/github.mjs';
-import { mergePlain } from '../lib/merge.mjs';
+import { ACTIONS_APP, checkRuns, requiredChecks, workflowRun } from '../lib/github.mjs';
+import { mergePlain, processRepo } from '../lib/merge.mjs';
 
 // A repository with the tranche and a head branch on origin; process3 itself has no config
 // and no ledger.
@@ -111,7 +111,7 @@ function plainRepo({ config = true, ledger = true, head = 'bob/pin', files = { '
 }
 
 const run = (over = {}) => ({ id: 1, app: { id: ACTIONS_APP }, status: 'completed', conclusion: 'success', started_at: '2026-11-02T10:00:00Z', check_suite: { id: 7 }, ...over });
-function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false }, runs = [run()], paths = {}, headRepo = 'o/r', after } = {}) {
+function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false }, runs = [run()], paths = {}, events = {}, headRepo = 'o/r', after, repo = { released: () => false, shim: () => null } } = {}) {
   const calls = { merged: null, reads: 0 };
   const pr = () => ({ state: 'open', draft: false, base: { ref: base, repo: { full_name: 'o/r', default_branch: 'main' } }, head: { ref: head, sha: r.sha, repo: headRepo === null ? null : { full_name: headRepo } } });
   return {
@@ -120,7 +120,8 @@ function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ cont
       getPR: () => { calls.reads++; return calls.reads > 1 && after ? after(pr()) : pr(); },
       requiredChecks: () => rules,
       checkRuns: () => runs,
-      workflowPath: (slug, x) => paths[x.check_suite?.id] || '.github/workflows/process-gate.yml',
+      workflowRun: (slug, x) => ({ path: paths[x.check_suite?.id] || '.github/workflows/process-gate.yml', event: events[x.check_suite?.id] || 'pull_request' }),
+      repo,
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -165,10 +166,26 @@ test('the newest qualifying check run decides', () => {
 
 test('a commit status cannot stand in for a check run', () => {
   const r = plainRepo();
-  // Only check runs are read; a status named gate, however green, is never asked for.
-  const f = plainIO(r, { runs: [] });
+  // The real readers over one stub of GitHub that holds a green commit status named gate and no
+  // check run: a fallback to statuses through any of them would merge.
+  const asked = [];
+  const api = (args) => {
+    const p = args[1];
+    asked.push(p);
+    if (p.includes('/check-runs')) return { check_runs: [] };
+    if (/\/status(es)?\b/.test(p)) return { state: 'success', statuses: [{ context: 'gate', state: 'success' }] };
+    if (p.includes('/rules/branches/')) return [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'gate', integration_id: ACTIONS_APP }] } }];
+    return null;
+  };
+  const f = plainIO(r);
+  Object.assign(f.io, {
+    requiredChecks: (slug, b) => requiredChecks(slug, b, { read: api }),
+    checkRuns: (slug, sha, name) => checkRuns(slug, sha, name, { read: api }),
+    workflowRun: (slug, x) => workflowRun(slug, x, { read: api }),
+  });
   assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /gate: no check run/);
   assert.equal(f.calls.merged, null);
+  assert.ok(asked.some((p) => p.includes('/check-runs')));
 });
 
 test('a check run from another app than the rule names does not count', () => {
@@ -179,15 +196,105 @@ test('a check run from another app than the rule names does not count', () => {
   assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { runs: [other, red] }).io }), /gate: failure/, 'the newer foreign run does not hide the real one');
 });
 
-test('a workflow the head added cannot pose as the required check', () => {
-  const r = plainRepo({ files: { '.github/workflows/fake.yml': 'jobs: { gate: {} }\n' } });
-  const fake = run({ id: 2, check_suite: { id: 8 }, conclusion: 'success', started_at: '2026-11-02T12:00:00Z' });
+test('a pull request that edits or adds a workflow is refused: that needs the owner\'s word', () => {
+  for (const files of [{ '.github/workflows/process-gate.yml': 'on: pull_request\njobs: { gate: { steps: [] } }\n' }, { '.github/workflows/fake.yml': 'jobs: { gate: {} }\n' }]) {
+    const r = plainRepo({ files });
+    const f = plainIO(r, { repo: { released: () => true, shim: () => 'f'.repeat(40) } });
+    assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /changes \.github\/workflows\/\S+\.yml: .*needs the owner's word: bring it to Bob/);
+    assert.equal(f.calls.merged, null);
+  }
+  // In process3 itself there is no pin, so any workflow change is refused.
+  const p = plainRepo({ config: false, ledger: false, files: { '.github/workflows/ci.yml': 'x\n' } });
+  assert.throws(() => mergePlain(p.root, 4, { ...q, noReview: 'x', io: plainIO(p).io }), /no process pin to compare it with.*owner's word/);
+});
+
+test('a run from a workflow whose file the head changed does not count; one from the base\'s copy does', () => {
+  // A second workflow names a job gate. The head changes nothing under .github, so it is the
+  // base's copy; a run whose file differs at the head (here: one absent from the base) does not.
+  const r = plainRepo();
+  const ghost = run({ id: 2, check_suite: { id: 8 }, conclusion: 'success', started_at: '2026-11-02T12:00:00Z' });
   const real = run({ id: 1, check_suite: { id: 7 }, conclusion: 'failure' });
-  const paths = { 8: '.github/workflows/fake.yml', 7: '.github/workflows/process-gate.yml' };
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { runs: [fake], paths }).io }), /its workflow .github\/workflows\/fake.yml is not on the base/);
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { runs: [fake, real], paths }).io }), /gate: failure/);
-  // workflowPath reads the run's check suite.
-  assert.equal(workflowPath('o/r', fake, { read: (a) => (a[1].includes('check_suite_id=8') ? { workflow_runs: [{ path: '.github/workflows/fake.yml@refs/pull/4/merge' }] } : null) }), '.github/workflows/fake.yml');
+  const paths = { 8: '.github/workflows/not-on-base.yml', 7: '.github/workflows/process-gate.yml' };
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { runs: [ghost], paths }).io }), /its workflow .github\/workflows\/not-on-base.yml is the pull request's own copy/);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { runs: [ghost, real], paths }).io }), /gate: failure/);
+  // A pull_request_target run is the base's own copy, and counts.
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO(r, { runs: [ghost], paths, events: { 8: 'pull_request_target' } }).io }).merged, true);
+  assert.equal(workflowRun('o/r', ghost, { read: (a) => (a[1].includes('check_suite_id=8') ? { workflow_runs: [{ path: '.github/workflows/x.yml@refs/heads/main', event: 'pull_request_target' }] } : null) }).event, 'pull_request_target');
+});
+
+// process3 at a pin: a repository with the shim on its tranche, behind an origin.
+function process3(shimText) {
+  const p = makeRepo({ 'shims/process-gate.yml': shimText, 'README.md': 'process3' });
+  git(['branch', 'tranche'], { cwd: p });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-proc-')), 'p.git');
+  git(['init', '-q', '--bare', bare], { cwd: p });
+  git(['remote', 'add', 'origin', bare], { cwd: p });
+  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: p });
+  const pin = git(['rev-parse', 'HEAD'], { cwd: p });
+  git(['checkout', '-q', '-b', 'side'], { cwd: p });
+  const unreleased = commit(p, { 'shims/process-gate.yml': shimText + '# side\n' });
+  return { dir: p, pin, unreleased };
+}
+function pinMove(pin, workflow) {
+  const r = plainRepo({ files: { 'pin.txt': 'moved' } });
+  git(['checkout', '-q', r.head], { cwd: r.root });
+  git(['update-index', '--add', '--cacheinfo', `160000,${pin},.process`], { cwd: r.root });
+  write(r.root, { '.github/workflows/process-gate.yml': workflow });
+  git(['add', '.github/workflows/process-gate.yml'], { cwd: r.root });
+  git(['commit', '-q', '-m', 'move the pin and the shim'], { cwd: r.root });
+  git(['push', '-q', 'origin', r.head], { cwd: r.root });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  return { ...r, sha: git(['rev-parse', `refs/heads/${r.head}`], { cwd: r.root }) };
+}
+
+test('a workflow changed to the process\'s own shim at a released pin is allowed, and its runs count', () => {
+  const shim = 'name: process-gate\non: pull_request\n';
+  const p = process3(shim);
+  const r = pinMove(p.pin, shim);
+  const f = plainIO(r, { repo: processRepo(p.dir) });
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'a pin move', io: f.io }).merged, true);
+  // Not the shim byte for byte, or a pin that is not on process3's tranche or main: refused.
+  const off = pinMove(p.pin, shim + ' ');
+  assert.throws(() => mergePlain(off.root, 4, { ...q, noReview: 'x', io: plainIO(off, { repo: processRepo(p.dir) }).io }), /is not the process's own shim at/);
+  const side = pinMove(p.unreleased, shim + '# side\n');
+  assert.throws(() => mergePlain(side.root, 4, { ...q, noReview: 'x', io: plainIO(side, { repo: processRepo(p.dir) }).io }), /is not a commit on process3's tranche or main/);
+});
+
+test('the head moving between the two reads refuses', () => {
+  const r = plainRepo();
+  const f = plainIO(r, { after: (p) => ({ ...p, head: { ...p.head, sha: 'e'.repeat(40) } }) });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /moved while it was checked/);
+  assert.equal(f.calls.merged, null);
+});
+
+test('a rename lists the path it removes: out of a module, or into a job\'s own', () => {
+  const r = plainRepo({ files: { 'pin.txt': 'moved' } });
+  git(['checkout', '-q', 'tranche'], { cwd: r.root });
+  commit(r.root, { 'src/alpha/index.mjs': 'export const x = 1;\n'.repeat(20) });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
+  git(['checkout', '-q', '-b', 'bob/move'], { cwd: r.root });
+  git(['mv', 'src/alpha/index.mjs', 'index-moved.mjs'], { cwd: r.root });
+  git(['commit', '-q', '-m', 'move it out'], { cwd: r.root });
+  git(['push', '-q', 'origin', 'bob/move'], { cwd: r.root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: r.root });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: plainIO({ ...r, sha, head: 'bob/move' }).io }), /changes module files.*src\/alpha\/index.mjs \(alpha\)/);
+  // The job route: a job that moves a file from outside its module into it.
+  const j = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'docs/guide.md': 'a guide line\n'.repeat(30) });
+  git(['branch', 'tranche'], { cwd: j });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: j });
+  git(['remote', 'add', 'origin', bare], { cwd: j });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: j });
+  git(['mv', 'docs/guide.md', 'guide.md'], { cwd: j });
+  write(j, { 'src/alpha/.keep': '' });
+  git(['add', 'src/alpha/.keep'], { cwd: j });
+  git(['mv', 'guide.md', 'src/alpha/guide.md'], { cwd: j });
+  git(['commit', '-q', '-m', 'take the guide'], { cwd: j });
+  const head = git(['rev-parse', 'HEAD'], { cwd: j });
+  git(['push', '-q', 'origin', 'tranche', 'job/alpha', 'main'], { cwd: j });
+  git(['checkout', '-q', 'main'], { cwd: j });
+  assert.throws(() => merge(j, 3, { slug: 'o/r', io: io(head).io, noReview: 'x', log: () => {} }), /outside its module: docs\/guide.md/);
 });
 
 test('main and the tranche must require checks; a working branch need not', () => {
