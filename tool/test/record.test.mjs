@@ -414,3 +414,34 @@ test('a mode-only change to an owner file is a change, in a commit and in a merg
   handMerge(r2, tree, [first, side]);
   assert.deepEqual(recordCheck(r2, cfg, { base: b2, lookup: session }).findings.map((x) => [x.check, x.file]), [['settings', '.claude/hooks/start.sh']]);
 });
+
+// Third confirming review of PR 16.
+function oldBranch() {
+  const root = makeRepo({ '.claude/settings.json': settings(['old']), 'CLAUDE.md': claude('may push') });
+  const old = git(['rev-parse', 'HEAD'], { cwd: root });
+  const base = commit(root, { '.claude/settings.json': settings(['Bash(git push -f *)']), 'CLAUDE.md': claude('may push, never force') }, 'the owner, on the website');
+  git(['checkout', '-q', '-b', 'stale', old], { cwd: root });
+  commit(root, { 'work.txt': 'work' }, 'work on a branch cut from an old commit');
+  return { root, base };
+}
+
+test('a merge whose first parent is the old side cannot keep the old settings or approvals', () => {
+  const { root, base } = oldBranch();
+  git(['merge', '-q', '-s', 'ours', '--no-edit', 'main'], { cwd: root });
+  const f = recordCheck(root, cfg, { base, lookup: session }).findings.map((x) => `${x.check} ${x.file}`).sort();
+  assert.deepEqual(f, ['approvals CLAUDE.md', 'settings .claude/settings.json']);
+});
+
+test('an ordinary merge that brings the old branch up to the base passes', () => {
+  const { root, base } = oldBranch();
+  git(['merge', '-q', '--no-edit', 'main'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: session }).findings, []);
+});
+
+test('CLAUDE.md is an instruction file outside .claude or directly in it, and the owner\'s deeper inside', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { 'docs/CLAUDE.md': 'Notes.\n', '.claude/CLAUDE.md': 'Notes.\n', '.claude/agents/CLAUDE.md': 'Notes.\n', 'sub/.claude/skills/x/CLAUDE.local.md': 'Notes.\n' });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: session }).findings.map((x) => [x.check, x.file]).sort(),
+    [['settings', '.claude/agents/CLAUDE.md'], ['settings', 'sub/.claude/skills/x/CLAUDE.local.md']]);
+});

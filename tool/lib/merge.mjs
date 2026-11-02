@@ -5,12 +5,12 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow, workflowRun } from './github.mjs';
+import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, openFrom, requiredChecks, verifyRow, workflowRun } from './github.mjs';
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { TOOL_ROOT } from './job.mjs';
-import { fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -137,7 +137,29 @@ export function processRepo(dir = TOOL_ROOT) {
   return {
     released: (pin) => { fetch(); return ['origin/tranche', 'origin/main'].some((r) => git(['merge-base', '--is-ancestor', pin, r], { cwd: dir, allowFail: true }).code === 0); },
     shim: (pin, name) => blobAt(dir, pin, `shims/${name}`),
+    descends: (from, to) => { fetch(); return git(['merge-base', '--is-ancestor', from, to], { cwd: dir, allowFail: true }).code === 0; },
   };
+}
+
+const pinAt = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] || null;
+const processRepoOf = (root, rev) => {
+  const r = git(['show', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
+  try { return r.code === 0 ? JSON.parse(r.stdout).process_repo ?? null : null; } catch { return 'unreadable'; }
+};
+
+// A plain pull request may move the process pin only forward, to a released process3 commit
+// (on its tranche or main) that descends from the base's pin: no unreleased pin, no downgrade.
+// Changing where the process comes from (process_repo) needs the owner's word (third
+// confirming review of PR 14).
+export function pinChange(root, mb, sha, repo) {
+  const was = pinAt(root, mb);
+  const now = pinAt(root, sha);
+  if (now !== was) {
+    if (!now) fail(`the pull request removes the process pin; that needs the owner's word: bring it to Bob`);
+    if (!repo.released(now)) fail(`the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
+    if (was && !repo.descends(was, now)) fail(`the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
+  }
+  if (processRepoOf(root, sha) !== processRepoOf(root, mb)) fail(`the pull request changes process_repo in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
@@ -171,7 +193,9 @@ export function checkGreen(root, slug, baseRef, sha, check, io, approved = new M
   if (!runs) return `${check.context}: could not be read`;
   let why = 'no check run';
   for (const run of runs) {
-    if (check.app !== null && run.app?.id !== check.app) { why = `no run from app ${check.app}`; continue; }
+    // A rule that names no app is held to GitHub Actions (third confirming review of PR 14).
+    const app = check.app ?? ACTIONS_APP;
+    if (run.app?.id !== app) { why = `no run from app ${app}`; continue; }
     if (run.app?.id === ACTIONS_APP) {
       const w = io.workflowRun(slug, run);
       if (!w) { why = 'its workflow run could not be read'; continue; }
@@ -187,7 +211,7 @@ export function checkGreen(root, slug, baseRef, sha, check, io, approved = new M
 
 export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, log = console.log } = opts;
-  const io = { getPR, requiredChecks, checkRuns, workflowRun, mergePR, repo: processRepo(), ...(opts.io || {}) };
+  const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
@@ -210,6 +234,12 @@ export function mergePlain(root, n, opts = {}) {
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
+  pinChange(root, mb, pr.head.sha, io.repo);
+  // Another open pull request from the same head would share its check runs.
+  const same = io.openFrom(slug, head);
+  if (!same) fail(`could not read the open pull requests from ${head}`);
+  const others = same.filter((x) => x.number !== n).map((x) => `#${x.number}`);
+  if (others.length) fail(`${head} is also the head of ${others.join(', ')}; merge only when one pull request is open from it`);
 
   const rules = io.requiredChecks(slug, base);
   if (!rules) fail(`could not read the checks ${base} requires`);
