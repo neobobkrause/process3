@@ -19,5 +19,6 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 | `job complete <id> --not-verified "..."` | job | checks and suite, COMPLETE, push, receipt, ready; resumable |
 | `block <id> --reason "..."` | job | BLOCKED with a reason |
 | `merge <pr> --reviewed "..."` or `--no-review "..."` | BOB | up to the tranche, merge row, gate on that tip, merge |
+| `merge <pr> --plain --reviewed "..."` or `--no-review "..."` | BOB | any pull request that is not a job's (pin moves, metrics rows, config): into the tranche or a working branch, or the tranche into main; every required check green on the head; a merge commit pinned to it; no merge row |
 | `metrics add <id> ...`, `metrics report` | BOB | measured figures; the two health metrics |
 | `ledger check`, `record-check`, `gate` | CI | the checks the workflows run |
