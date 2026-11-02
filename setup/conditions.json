@@ -108,10 +108,10 @@
         "owner": "process/config.json approvals.owner, which onboarding sets to the repository's owner as GitHub has it; while the tranche has no config, that owner",
         "blocks": 1,
         "last_changed_by": "the owner's commit through GitHub's website",
-        "newest": "the block is the newest one the owner set through GitHub's website in the tranche's history, so a merge that put back an older one is missing"
+        "newest": "the block is the newest one the owner set through GitHub's website on the tranche or main (an edit, a website merge, or a removal), so a merge that put back an older one is missing"
       },
       "who": "the developer, committing it on the tranche through GitHub's website, signed in as the owner",
-      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner); then, of the commits in the tranche's history whose block differs from every parent's, the newest by committer date that is the owner's website commit: its block must be the tip's (the record check's newestOwnerBlock); GET /repos/{repo}: owner.login when the tranche has no config"
+      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner); then, of the commits on origin/<tranche> and origin/main whose block differs from a parent's, the newest by committer date that is the owner's website commit: its block must be the tip's, and a newer one GitHub cannot read is missing (the record check's approvalsHistory); GET /repos/{repo}: owner.login, a person's only, when the tranche has no config"
     },
     {
       "id": "artifact-retention",

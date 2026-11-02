@@ -497,5 +497,5 @@ test('the START says each judged act is its own shell command, never chained wit
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const lines = start.split('\n').filter((l) => /judged act/.test(l));
-  assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `;` or pipe joining it to anything else).']);
+  assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).']);
 });

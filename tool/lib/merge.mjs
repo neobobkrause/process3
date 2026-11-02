@@ -9,7 +9,7 @@ import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestRece
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
-import { repoOwnerOf, webCommitByOwner } from './record.mjs';
+import { ownerAnswer, repoOwnerOf, webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
 import { CONFIG_FILE, DEFAULTS, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
@@ -181,10 +181,11 @@ export const processRepoSetAt = (root, rev) => keySetAt(root, rev, 'process_repo
 // The keys that say where the process comes from and which branch is the tranche. A changed
 // "tranche" would move the module-file and required-checks guards to another branch (review
 // follow-ups, 2 Nov), so it takes the same owner's-word rule as process_repo. Each says which
-// value onboarding (no process config on the base) may set.
+// value onboarding (no process config on the base) may set: for "tranche", only the name of the
+// branch being onboarded, so the guards never move to a branch nobody onboarded.
 const GUARDED_KEYS = {
   process_repo: (value, repo) => { const own = repo.address?.(); return Boolean(own) && value === own; },
-  tranche: (value) => typeof value === 'string' && value.trim() === value && value !== '' && value !== 'main' && !isJob(value),
+  tranche: (value, repo, onboarded) => typeof onboarded === 'string' && onboarded !== '' && value === onboarded,
 };
 
 // A plain pull request may move the process pin only forward, to a released process3 commit
@@ -198,15 +199,16 @@ const GUARDED_KEYS = {
 // - the tranche into main may also carry the value when main has no process config at all
 //   (neither at the merge base nor at main's tip) and the tranche's value is one onboarding may
 //   set: process3's own address for process_repo, whoever merged it into the tranche (with no
-//   config on main, the tranche's name is the default one), and any branch name but main or a
-//   job's for "tranche";
+//   config on main, the tranche's name is the default one), and for "tranche" the name of the
+//   tranche being merged;
 // - at onboarding, a pull request into the tranche may set either to such a value when the base
-//   has no process config at all.
+//   has no process config at all ("tranche": the name of the branch it goes into).
 // The tranche into main carries the rest of the tranche's config as it is, approvals.owner
 // included: pinChange does not judge it. The record check, a required check on main, is what
 // stops a carried config from changing approvals.owner: it accepts that change only from the
 // owner's own website commit (or, while main has no config, set to the repository's owner).
-// at: { intoMain, intoTranche, baseRef, ownerCommit(sha) -> { ok } }.
+// at: { intoMain, intoTranche, baseRef, base, head, ownerCommit(sha) -> { ok } }; base and head
+// are the branch names.
 export function pinChange(root, mb, sha, repo, at = {}) {
   const was = pinAt(root, mb);
   const now = pinAt(root, sha);
@@ -226,8 +228,8 @@ export function pinChange(root, mb, sha, repo, at = {}) {
       const c = keySetAt(root, sha, key);
       if (c && at.ownerCommit(c)?.ok === true) continue;
     }
-    if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef) && onboardValue(value, repo)) continue;
-    if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef)) && onboardValue(value, repo)) continue;
+    if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef) && onboardValue(value, repo, at.head)) continue;
+    if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef)) && onboardValue(value, repo, at.base)) continue;
     fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
   }
 }
@@ -237,13 +239,13 @@ export function pinChange(root, mb, sha, repo, at = {}) {
 // someone other than the default owner reads its approvals rightly (review follow-ups, 2 Nov).
 // Nothing is asked of the owner for it. Afterwards the record check lets only the owner's own
 // website commit change it.
-// readOwner() -> the repository's owner, or null when GitHub cannot be read.
+// readOwner() -> { login } or { login: null, why } (ownerAnswer).
 export function onboardingOwner(root, mb, sha, baseRef, readOwner) {
   if (hasConfig(root, mb) || hasConfig(root, baseRef) || !hasConfig(root, sha)) return;
   const c = configAt(root, sha);
-  const owner = readOwner();
   if (c === 'unreadable') fail(`${CONFIG_FILE} on the pull request is not a JSON object`);
-  if (!owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, and the owner could not be read from GitHub`);
+  const { login: owner, why } = readOwner();
+  if (!owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, and ${why}`);
   const named = c.approvals?.owner;
   if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, ${owner}, as GitHub has it; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
 }
@@ -327,11 +329,11 @@ export function mergePlain(root, n, opts = {}) {
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
   // While the base has no config, the owner is the repository's, as GitHub has it.
   let ghOwner;
-  const githubOwner = () => (ghOwner === undefined ? (ghOwner = io.repoOwner(slug) || null) : ghOwner);
-  const owner = () => (hasConfig(root, baseRef) ? baseCfg.approvals.owner : githubOwner());
+  const githubOwner = () => (ghOwner === undefined ? (ghOwner = ownerAnswer(io.repoOwner(slug))) : ghOwner);
+  const owner = () => (hasConfig(root, baseRef) ? baseCfg.approvals.owner : githubOwner().login);
   const intoTranche = Boolean(baseCfg) && base === baseCfg.tranche;
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche, baseRef,
+    intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche, baseRef, base, head,
     ownerCommit: (c) => (owner() ? webCommitByOwner(root, c, owner(), io.lookup, slug) : { ok: false }),
   });
   if (intoTranche) onboardingOwner(root, mb, pr.head.sha, baseRef, githubOwner);

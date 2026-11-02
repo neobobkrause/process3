@@ -716,7 +716,7 @@ test('approvals: a merge on the tranche that put back an older owner-set block i
   const { res, o1, o2 } = restoredTranche('may push');
   const a = state(res, 'approvals');
   assert.equal(a.state, 'missing');
-  assert.equal(a.detail, `the approvals on tranche are an older block, set by ${o1.slice(0, 10)}; the newest block neobobkrause set through GitHub's website is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it`);
+  assert.equal(a.detail, `the approvals on tranche (set by ${o1.slice(0, 10)}) are not the newest block neobobkrause set through GitHub's website on tranche or main: that is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it to tranche`);
 });
 
 test('approvals: a merge on the tranche that carries the newest owner-set block is set', () => {
@@ -756,4 +756,30 @@ test('deploy-token asks for no Workers KV scope, and the removal of a developmen
   const dev = readFileSync(DEVELOPER, 'utf8');
   assert.match(dev, /BOB's onboarding sets it to the repository's owner as GitHub has it, so nothing more is needed from you for it/);
   assert.deepEqual(checkDeveloperSteps(dev), []);
+});
+
+// Reviews of PR 26: setup looks at the tranche and main, never passes over an unreadable commit,
+// and says plainly when an organization owns the repository.
+test('approvals: a newer owner block on main that the tranche lacks is missing', () => {
+  const { r } = originRepo();
+  const w = world();
+  const o1 = datedCommit(r, { ...w.files, 'CLAUDE.md': claude('may push') }, 'the owner', '2026-11-01T10:00:00Z');
+  git(['branch', 'tranche'], { cwd: r });
+  const o2 = datedCommit(r, { 'CLAUDE.md': claude('may push and release') }, 'the owner on main', '2026-11-02T10:00:00Z');
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2].some((x) => p.endsWith(x)) ? w.commit : null) : w.io.api(p));
+  const a = state(setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet }), 'approvals');
+  assert.equal(a.detail, `the approvals on tranche (set by ${o1.slice(0, 10)}) are not the newest block neobobkrause set through GitHub's website on tranche or main: that is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it to tranche`);
+  // GitHub cannot read the newer commit: missing, never the older block taken for the newest.
+  const api2 = (p) => (p.endsWith(o2) ? null : api(p));
+  const b = state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet }), 'approvals');
+  assert.equal(b.detail, `commit ${o2.slice(0, 10)} could not be read from GitHub, so the newest approvals block neobobkrause set through GitHub's website cannot be told`);
+});
+
+test('approvals: a tranche with no config in a repository an organization owns says so', () => {
+  const w = world();
+  delete w.files['process/config.json'];
+  w.repo = { ...w.repo, owner: { login: 'acme', type: 'Organization' } };
+  assert.equal(state(check(w), 'approvals').detail, "the repository is owned by the organization acme, not a person; approvals.owner must name the approving person, with Bob's word, and process/config.json on the tranche names no approvals owner");
 });

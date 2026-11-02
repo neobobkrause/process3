@@ -22,7 +22,7 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 | `job complete <id> --not-verified "..."` | job | checks and suite, COMPLETE, push, receipt, ready; resumable |
 | `block <id> --reason "..."` | job | BLOCKED with a reason |
 | `merge <pr> --reviewed "..."` or `--no-review "..."` | BOB | up to the tranche, merge row, gate on that tip, merge |
-| `merge <pr> --plain --reviewed "..."` or `--no-review "..."` | BOB | any pull request that is not a job's (pin moves, metrics rows, config): into the tranche or a working branch, or the tranche into main; every required check green on the head; a merge commit pinned to it; no merge row. A change to `process_repo` or `tranche` in `process/config.json` needs Bob's word, except the tranche into main carrying the value the owner's own website commit (or website merge) set on the tranche, and onboarding a tranche with no process config (process3's own address; any tranche name but `main` or a job's), which also sets `approvals.owner` to the repository's owner |
+| `merge <pr> --plain --reviewed "..."` or `--no-review "..."` | BOB | any pull request that is not a job's (pin moves, metrics rows, config): into the tranche or a working branch, or the tranche into main; every required check green on the head; a merge commit pinned to it; no merge row. A change to `process_repo` or `tranche` in `process/config.json` needs Bob's word, except the tranche into main carrying the value the owner's own website commit (or website merge) set on the tranche, and onboarding a tranche with no process config (process3's own address; as the tranche's name, only the branch it onboards), which also sets `approvals.owner` to the repository's owner |
 | `setup check` | BOB | reads the product's setup against `setup/conditions.json`, read-only; exit 1 when a condition is missing; `job start` runs it first |
 | `metrics add <id> ...`, `metrics report` | BOB | measured figures; the two health metrics |
 | `ledger check`, `record-check`, `gate [--no-post]`, `gate --post <gate.json> --pr <n>` | CI | the checks the workflows run; the gate comment |
@@ -33,7 +33,9 @@ A development deployment is removed with `wrangler delete`. The product binds no
 
 ## Onboarding
 
-Onboarding is the plain pull request into the tranche that adds `process/config.json` while the tranche has none. It sets `approvals.owner` to the repository's owner as GitHub has it (`GET /repos/{repo}`: `owner.login`); `merge --plain` refuses an onboarding pull request that does not, and while the base has no config the checks judge by that owner. Afterwards only the owner's own website commit changes it. It may also name the tranche (`"tranche"`), any branch but `main` or a job's.
+Onboarding is the plain pull request into the tranche that adds `process/config.json` while the tranche has none. It sets `approvals.owner` to the repository's owner as GitHub has it (`GET /repos/{repo}`: `owner.login`); `merge --plain` refuses an onboarding pull request that does not, and while the base has no config the checks judge by that owner. Afterwards only the owner's own website commit changes it. A repository an organization owns has no person there to name, so onboarding refuses it until Bob names the approving person.
+
+A change to the approvals block, a merge whose sides hold different blocks included, is accepted only when it leaves the newest block the owner set through GitHub's website on the tranche or main (an edit, a website merge, or a removal), or is the owner's own website commit. So such a merge needs GitHub to answer the record check's lookups, and a product whose block was never set by an owner website commit has every such merge refused until the owner sets it once on the website. It may also name the tranche (`"tranche"`), but only as the branch it onboards.
 
 ## Known limits
 
