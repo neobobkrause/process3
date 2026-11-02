@@ -175,6 +175,9 @@ export function processRepoSetAt(root, rev) {
 // - the tranche into main may carry the tranche's process_repo when the commit on the
 //   tranche's first-parent history at which it took that value is the owner's own commit
 //   through GitHub's website (his direct edit, or his website merge of a pull request);
+// - the tranche into main may also carry process_repo when main has no process config at all
+//   (neither at the merge base nor at main's tip) and the tranche's value is exactly
+//   process3's own address: the value onboarding sets, whoever merged it into the tranche;
 // - at onboarding, a pull request into the tranche may set process_repo to process3's own
 //   address when the base has no process config at all.
 // at: { intoMain, intoTranche, baseRef, ownerCommit(sha) -> { ok } }.
@@ -192,6 +195,10 @@ export function pinChange(root, mb, sha, repo, at = {}) {
   if (usable && at.intoMain && at.ownerCommit) {
     const c = processRepoSetAt(root, sha);
     if (c && at.ownerCommit(c)?.ok === true) return;
+  }
+  if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef)) {
+    const own = repo.address?.();
+    if (own && value === own) return;
   }
   if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef))) {
     const own = repo.address?.();
@@ -288,7 +295,7 @@ export function mergePlain(root, n, opts = {}) {
 
   const rules = io.requiredChecks(slug, base);
   if (!rules) fail(`could not read the checks ${base} requires`);
-  if (!rules.checks.length && (main || base === cfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
+  if (!rules.checks.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
   if (rules.strict && git(['merge-base', '--is-ancestor', baseRef, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} requires an up-to-date head, and ${head} does not contain ${base}'s tip`);
   const red = rules.checks.map((c) => checkGreen(root, slug, baseRef, pr.head.sha, c, io, approved)).filter(Boolean);
   if (red.length) fail(`not every required check is green on ${pr.head.sha.slice(0, 10)}: ${red.join('; ')}`);
@@ -297,8 +304,8 @@ export function mergePlain(root, n, opts = {}) {
 
   // Module code goes through a job (ARC-2): in a product, a plain merge may not touch any ledger
   // entry's paths or tests. The tranche itself (into main, or into a working branch) carries
-  // only work that came through the gate.
-  if (head !== cfg.tranche) {
+  // only work that came through the gate. The tranche's name is the base's, as above.
+  if (!baseCfg || head !== baseCfg.tranche) {
     const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
     const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
     if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);
