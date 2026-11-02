@@ -239,14 +239,17 @@ export function pinChange(root, mb, sha, repo, at = {}) {
 // someone other than the default owner reads its approvals rightly (review follow-ups, 2 Nov).
 // Nothing is asked of the owner for it. Afterwards the record check lets only the owner's own
 // website commit change it.
-// readOwner() -> { login } or { login: null, why } (ownerAnswer).
-export function onboardingOwner(root, mb, sha, baseRef, readOwner) {
+// readOwner() -> { login } or { login: null, why } (ownerAnswer). me: the login the tool acts
+// as; a repository the sessions' own account owns would hand them the approvals (second
+// re-review of PR 26), so it is refused.
+export function onboardingOwner(root, mb, sha, baseRef, readOwner, me = null) {
   if (hasConfig(root, mb) || hasConfig(root, baseRef) || !hasConfig(root, sha)) return;
   const c = configAt(root, sha);
   if (c === 'unreadable') fail(`${CONFIG_FILE} on the pull request is not a JSON object`);
   const { login: owner, why, organization } = readOwner();
   if (!owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, and ${why}`);
   const named = c.approvals?.owner;
+  if (me && owner === me) fail(`the repository's owner, ${owner}, is the account the sessions act as, so it cannot hold the approvals; approvals.owner needs Bob's word`);
   const whom = organization ? `the default owner, ${owner}, since the organization ${organization} owns the repository` : `the repository's owner, ${owner}, as GitHub has it`;
   if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to ${whom}; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
 }
@@ -300,7 +303,7 @@ export function checkGreen(root, slug, baseRef, sha, check, io, approved = new M
 
 export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, log = console.log } = opts;
-  const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), repoOwner: (s2) => repoOwnerOf(s2), ...(opts.io || {}) };
+  const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), repoOwner: (s2) => repoOwnerOf(s2), me: () => gh(['api', 'user'], { allowFail: true })?.login || null, ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
@@ -351,7 +354,14 @@ export function mergePlain(root, n, opts = {}) {
     intoMain: main && Boolean(baseCfg) && head === trancheName, intoTranche, baseRef, base, head,
     ownerCommit: (c) => (owner() ? webCommitByOwner(root, c, owner(), io.lookup, slug) : { ok: false }),
   });
-  if (intoTranche) onboardingOwner(root, mb, pr.head.sha, baseRef, githubOwner);
+  if (intoTranche) onboardingOwner(root, mb, pr.head.sha, baseRef, githubOwner, io.me());
+  // A tranche of another name into main while main has no config (second re-review of PR 26):
+  // only a branch whose own rules require checks, as the owner's ruleset gives the tranche
+  // (Step 11); any branch a session made has none, so it cannot pass itself off as the tranche.
+  if (main && trancheName === head && head !== baseCfg.tranche) {
+    const own = io.requiredChecks(slug, head);
+    if (!own?.checks?.length) fail(`${head} names itself the tranche, but its rules require no checks; only the tranche the owner's ruleset holds merges into ${base}`);
+  }
   // Another open pull request from the same head would share its check runs.
   const same = io.openFrom(slug, head);
   if (!same) fail(`could not read the open pull requests from ${head}`);

@@ -783,3 +783,11 @@ test('approvals: a tranche with no config in a repository an organization owns i
   w.repo = { ...w.repo, owner: { login: 'acme', type: 'Organization' } };
   assert.equal(state(check(w), 'approvals').detail, "one block, last changed by neobobkrause's website commit abc1234567");
 });
+
+// Second re-review of PR 26: the sessions' own account cannot hold the approvals.
+test('approvals: an approvals owner that is the sessions\' own account is missing', () => {
+  const w = world();
+  w.files['process/config.json'] = JSON.stringify({ ...JSON.parse(w.files['process/config.json']), approvals: { owner: 'civicsmith' } });
+  w.commit = { ...w.commit, author: { login: 'civicsmith' } };
+  assert.equal(state(check(w), 'approvals').detail, "the approvals owner, civicsmith, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word");
+});

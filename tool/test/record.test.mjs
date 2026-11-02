@@ -748,15 +748,16 @@ test('an owner draft older than the newest block on the base is refused, carried
   write(a.root, { 'CLAUDE.md': claude('may force-push') });
   git(['add', '-A'], { cwd: a.root });
   git(['commit', '-q', '-m', 'take the draft'], { cwd: a.root });
+  const merged = git(['rev-parse', 'HEAD'], { cwd: a.root });
   const fa = recordCheck(a.root, cfg, { base: a.o2, lookup: webFor(a.o1, a.draft, a.o2), trusted: T }).findings;
   assert.ok(fa.length >= 1 && fa.every((x) => x.check === 'approvals'), JSON.stringify(fa));
-  assert.ok(fa.some((x) => x.message.includes(`commit ${a.draft.slice(0, 10)} is neobobkrause's website commit, but older than the newest block neobobkrause set on the base (commit ${a.o2.slice(0, 10)}); an older draft is not carried`)), JSON.stringify(fa));
+  assert.ok(fa.some((x) => x.message.startsWith(`commit ${merged.slice(0, 10)} puts back an older approvals block`)), JSON.stringify(fa));
   // A job branch built on the draft (rebased onto it), into the tranche.
   const b = stale();
   git(['checkout', '-q', '-b', 'job/y', 'owner-patch-1'], { cwd: b.root });
   dated(b.root, { 'src.txt': 's' }, 'job work on the draft', '2026-11-02T11:00:00Z');
   const fb = recordCheck(b.root, cfg, { base: b.o2, lookup: webFor(b.o1, b.draft, b.o2), trusted: T }).findings;
-  assert.deepEqual(fb.map((x) => x.message.slice(0, 17)), [`commit ${b.draft.slice(0, 10)}`]);
+  assert.deepEqual(fb.map((x) => x.message), [`the approvals this brings (set by ${b.draft.slice(0, 10)}) are older than the newest block neobobkrause set on the base (commit ${b.o2.slice(0, 10)}); an older draft is not carried`]);
 });
 
 // A commit GitHub did not commit (a local commit or merge) is never a website commit, so GitHub
@@ -846,4 +847,50 @@ test('the approvals history in a partial clone gives the full clone\'s result, f
   const { readFileSync: rf } = await import('node:fs');
   const packs = rf(trace, 'utf8').split('\n').filter((l) => l.includes('"event":"start"') && l.includes('"index-pack"')).length;
   assert.ok(packs <= 4, `${packs} fetches`);
+});
+
+// Second re-review of PR 26: the floor judges only what lands, so history the range carries that
+// was newest at its time is never refused later.
+test('the tranche into main passes after the owner edits main and then the tranche, with or without main merged in', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o0 = dated(root, { 'CLAUDE.md': claude('v0') }, 'owner v0', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1 on the tranche', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on main', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const o3 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on the tranche too', '2026-11-01T11:00:00Z');
+  const look = webFor(o0, o1, o2, o3);
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: look, trusted: T }).findings, []);
+  // The README's remedy: main merged into the tranche.
+  git(['merge', '-q', '--no-ff', '-m', 'bring main in', 'main'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: look, trusted: T }).findings, []);
+});
+
+test('main into the tranche after a release and a new owner block passes', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2 on the tranche', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Merge PR: tranche into main', 'tranche'], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T10:00:00Z' } });
+  const release = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const o3 = dated(root, { 'CLAUDE.md': claude('v3') }, 'owner v3 on the tranche', '2026-11-01T11:00:00Z');
+  git(['merge', '-q', '--no-ff', '-m', 'bring main in', 'main'], { cwd: root });
+  const look = webFor(o1, o2, o3);
+  assert.deepEqual(recordCheck(root, cfg, { base: release, lookup: look, trusted: T }).findings, []);
+  // The push of that merge to the tranche, from its old tip.
+  assert.deepEqual(recordCheck(root, cfg, { base: o3, lookup: look, trusted: T }).findings, []);
+});
+
+test('a job branch behind a newer owner block on the base brings nothing, and passes', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'job/x'], { cwd: root });
+  dated(root, { 'src.txt': 's' }, 'job work', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'job/x'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: T }).findings, []);
 });

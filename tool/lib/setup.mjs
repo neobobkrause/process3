@@ -273,6 +273,9 @@ const readers = {
     if (sha?.shallow) return missing(`the history of ${file} on ${x.cfg.tranche} is shallow at ${sha.shallow.slice(0, 10)} and could not be deepened, so its last change cannot be found`);
     if (!sha) return missing(`could not find the commit that last changed the approvals on ${x.cfg.tranche}`);
     if (!owner) return missing(`${x.ownerWhy() || "the repository's owner could not be read from GitHub"}, and process/config.json on the tranche names no approvals owner`);
+    // The sessions' own account cannot hold the approvals (second re-review of PR 26).
+    const me = x.api('user')?.login;
+    if (me && owner === me) return missing(`the approvals owner, ${owner}, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word`);
     const v = x.ownerCommit(sha, owner);
     if (!v.ok) return missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
     // The block must be the newest the owner set through the website in the tranche's history,

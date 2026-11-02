@@ -25,7 +25,7 @@ Why: every other step is a setting of this repository, and only its owner can ch
 
 Clicks: signed in to github.com as yourself. If the repository does not exist yet, click **+** (top right), then **New repository**, name it `<product>`, and click **Create repository**. If it exists under another account, that account's owner moves it to you: **Settings**, then **General**, then at the bottom **Transfer**.
 
-How BOB confirms: BOB can open the repository with `gh api repos/<owner>/<product>`, and its owner is you.
+How BOB confirms: BOB can open the repository with `gh api repos/<owner>/<product>`, and its owner is you, never `<session account>`: the repository's owner holds the approvals, so the sessions' own account must not own it.
 
 Sets: none, because the setup check reads this repository, so it cannot run before the repository is yours; Step 3's `account` reads it.
 

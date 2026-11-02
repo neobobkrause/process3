@@ -124,6 +124,7 @@ function plainIO(r, { base = 'tranche', head = r.head, rules = { checks: [{ cont
       repo,
       openFrom: () => open,
       repoOwner: () => 'neobobkrause',
+      me: () => 'civicsmith',
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -923,4 +924,28 @@ test('the tranche into main carrying a changed approvals.owner passes pinChange,
   assert.match(f[0].message, new RegExp(`commit ${change.slice(0, 10)} changes the approvals or record_since but is not neobobkrause's own commit`));
   // The owner's own website commit may change it.
   assert.deepEqual(recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit(change) }).findings, []);
+});
+
+// Second re-review of PR 26.
+test('onboarding is refused when the repository belongs to the account the sessions act as', () => {
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, approvals: { owner: 'civicsmith' } }) } });
+  const f = plainIO(r, { repo: own });
+  f.io.repoOwner = () => 'civicsmith';
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /the repository's owner, civicsmith, is the account the sessions act as, so it cannot hold the approvals; approvals\.owner needs Bob's word/);
+  assert.equal(f.calls.merged, null);
+});
+
+test('while main has no config, a self-named branch goes into main only when its own rules require checks', () => {
+  const own = { released: () => false, shim: () => null, descends: () => false, address: () => P3 };
+  // A session's branch from main, naming itself the tranche, with module code.
+  const r = plainRepo({ config: false, ledger: false, head: 'bob/self', files: { 'process/config.json': JSON.stringify({ process_repo: P3, tranche: 'bob/self' }), 'src/alpha/x.mjs': 'x' } });
+  const f = plainIO(r, { base: 'main', repo: own });
+  f.io.requiredChecks = (slug, branch) => (branch === 'main' ? { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false } : { checks: [], strict: false });
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /bob\/self names itself the tranche, but its rules require no checks; only the tranche the owner's ruleset holds merges into main/);
+  assert.equal(f.calls.merged, null);
+  // Unreadable rules: refused too.
+  const g = plainIO(r, { base: 'main', repo: own });
+  g.io.requiredChecks = (slug, branch) => (branch === 'main' ? { checks: [{ context: 'gate', app: ACTIONS_APP }], strict: false } : null);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: g.io }), /names itself the tranche, but its rules require no checks/);
 });
