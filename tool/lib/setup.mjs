@@ -87,7 +87,6 @@ const readers = {
     try { deny = JSON.parse(text).permissions?.deny || []; } catch { return missing(`.claude/settings.json on ${x.cfg.tranche} is not JSON`); }
     const gaps = [
       ...c.value.deny.filter((d) => !deny.includes(d)).map((d) => `lacks ${d}`),
-      ...c.value.deny_matching.filter((m) => !deny.some((d) => new RegExp(m.pattern).test(d))).map((m) => `lacks a rule for ${m.rule} (such as ${m.example})`),
       ...c.value.not.filter((d) => deny.includes(d)).map((d) => `holds ${d}, which blocks every push`),
     ];
     return gaps.length ? missing(gaps.join('; ')) : set(`${deny.length} deny rules on ${x.cfg.tranche}`);

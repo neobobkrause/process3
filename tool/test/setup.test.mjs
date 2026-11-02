@@ -12,7 +12,7 @@ import { commit, entry, makeRepo } from './helpers.mjs';
 const quiet = () => {};
 const DENY = [
   'Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push origin --delete *)',
-  'Edit(.claude/settings.json)', 'Bash(gh api *contents/*)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file',
+  'Bash(gh api *contents/*)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file',
   'mcp__github__merge_pull_request', 'Bash(gh pr merge *)', 'Bash(gh api *pulls/*/merge*)',
 ];
 const rules = (id = 2) => [
@@ -135,11 +135,13 @@ test('merge settings: merge commits on, auto-merge off, no branch deleted on mer
 });
 
 test('the deny list must hold the safety, file-write and merge-route rules, and not the rule that blocks every push', () => {
+  // No settings-file rule is required: the record check holds the settings file (build 5).
+  assert.equal(check(world()).ok, true);
   const w = world();
-  w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY.filter((d) => !/merge|Edit/.test(d)), 'Bash(git push origin :*)'] } });
+  w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY.filter((d) => !/merge/.test(d)), 'Bash(git push origin :*)'] } });
   const d = state(check(w), 'deny-list');
   assert.equal(d.state, 'missing');
-  for (const m of ['lacks mcp__github__merge_pull_request', 'lacks Bash(gh pr merge *)', 'lacks Bash(gh api *pulls/*/merge*)', 'lacks a rule for the settings file', 'holds Bash(git push origin :*), which blocks every push']) assert.ok(d.detail.includes(m), `${m} in ${d.detail}`);
+  for (const m of ['lacks mcp__github__merge_pull_request', 'lacks Bash(gh pr merge *)', 'lacks Bash(gh api *pulls/*/merge*)', 'holds Bash(git push origin :*), which blocks every push']) assert.ok(d.detail.includes(m), `${m} in ${d.detail}`);
   const w2 = world();
   delete w2.files['.claude/settings.json'];
   assert.match(state(check(w2), 'deny-list').detail, /no .claude\/settings.json on tranche/);

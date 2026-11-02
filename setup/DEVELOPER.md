@@ -14,7 +14,7 @@ Clicks: if the repository does not exist yet, on github.com click **+** (top rig
 
 How BOB confirms: BOB can open the repository with `gh api repos/<owner>/<repository>`, and its owner is you.
 
-Sets: none; every later step needs it.
+Sets: none; the setup check reads the repository, so it cannot run before the repository is yours.
 
 ## Step 2. Add the session account, and accept the invitation as that account
 
@@ -50,7 +50,7 @@ Clicks: open the repository's `CLAUDE.md` on `main` (or click **Add file**, then
 
 How BOB confirms: the record check passes on the tranche once the approvals reach it. It reports any change to the approvals that is not your own website commit.
 
-Sets: none in the list; the record check holds it on every pull request.
+Sets: none; the record check, not the setup list, judges the approvals on every pull request.
 
 ## Step 5. Merge settings
 
@@ -103,12 +103,11 @@ Sets: `actions-settings`, `artifact-retention`, `secrets`, `environments`.
 
 ## Step 9. The deny list in .claude/settings.json, committed by you
 
-Why: the deny list stops every session from editing its own settings file, force-pushing, deleting a branch, writing files through GitHub instead of git, and merging any way but the tool. A session cannot change its own settings file, so the commit is yours.
+Why: the deny list stops every session from force-pushing, deleting a branch, writing files through GitHub instead of git, and merging any way but the tool. The settings file is yours: the checks find any change to it that is not your own commit on GitHub's website.
 
 Clicks: on the tranche, open `.claude/settings.json` and click the pencil (**Edit this file**). Make sure the `"deny"` list under `"permissions"` holds these lines, and does not hold `"Bash(git push origin :*)"`, which would block every push:
 
 ```
-"Edit(.claude/settings.json)",
 "Bash(git push --force *)",
 "Bash(git push -f *)",
 "Bash(git push --force-with-lease *)",

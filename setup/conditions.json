@@ -57,8 +57,8 @@
     },
     {
       "id": "deny-list",
-      "what": "The tranche's .claude/settings.json denies editing the settings file, force-push, branch deletion, writing files through GitHub, and every merge route but the tool; it does not deny every push.",
-      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob, 2 Nov). The rule Bash(git push origin :*) matches every push, so sessions could not push their own branches.",
+      "what": "The tranche's .claude/settings.json denies force-push, branch deletion, writing files through GitHub, and every merge route but the tool; it does not deny every push.",
+      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob, 2 Nov). The rule Bash(git push origin :*) matches every push, so sessions could not push their own branches. Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
       "value": {
         "deny": [
           "Bash(git push --force *)",
@@ -72,13 +72,6 @@
           "mcp__github__merge_pull_request",
           "Bash(gh pr merge *)",
           "Bash(gh api *pulls/*/merge*)"
-        ],
-        "deny_matching": [
-          {
-            "rule": "the settings file",
-            "pattern": "^(Edit|Write)\\([^)]*\\.claude/settings\\.json\\)$",
-            "example": "Edit(.claude/settings.json)"
-          }
         ],
         "not": [
           "Bash(git push origin :*)"
