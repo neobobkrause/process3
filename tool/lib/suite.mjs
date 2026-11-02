@@ -76,8 +76,10 @@ function noDependencies(text) {
     return pk ? pk.length === 0 : !l.dependencies || !Object.keys(l.dependencies).length;
   } catch { return false; }
 }
+// The lock file's place in the checkout, from its normalised path (confirming review of PR 11).
+const lockAt = (root, lock) => join(root, normPath(lock));
 export function stale(root, lock) {
-  const text = readFileSync(join(root, lock), 'utf8');
+  const text = readFileSync(lockAt(root, lock), 'utf8');
   if (noDependencies(text)) return false;
   const m = markFile(root, lock);
   return !existsSync(m) || readFileSync(m, 'utf8').trim() !== lockHash(text);
@@ -88,10 +90,10 @@ export function install(root, lockfiles, { onlyStale = false, exec = run } = {})
   const ran = [];
   for (const lock of lockfiles) {
     const at = (message) => ({ check: 'install', file: lock, line: 1, message });
-    if (!existsSync(join(root, lock))) { findings.push(at('lock file not found')); continue; }
+    if (!existsSync(lockAt(root, lock))) { findings.push(at('lock file not found')); continue; }
     if (onlyStale && !stale(root, lock)) continue;
     ran.push(lock);
-    const text = readFileSync(join(root, lock), 'utf8');
+    const text = readFileSync(lockAt(root, lock), 'utf8');
     const r = exec('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: join(root, posix.dirname(normPath(lock))), unset: NO_TOKENS });
     if (r.code !== 0) { findings.push(at(`npm ci failed: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`)); continue; }
     mkdirSync(join(markFile(root, lock), '..'), { recursive: true });
