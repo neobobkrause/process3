@@ -5,8 +5,8 @@ import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, ma
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
-import { runSuite } from './suite.mjs';
-import { fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
+import { install, moduleLocks, runSuite } from './suite.mjs';
+import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -49,7 +49,9 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(id)) L.push(`- ${a}`);
-  L.push('', 'Not yours: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions. Work you find in other modules goes to your coordinator as a report.');
+  // A division of labour (Bob, 2 Nov): deploying and releasing are the coordinator's acts in a
+  // round; local wrangler and miniflare runs are the job's own builds and tests.
+  L.push('', 'Not yours, and this line wins over any act listed above it: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions. Deploying, releasing, release signing and acting on a live site are the coordinator\'s acts in a round, not the job\'s; local builds and tests that use wrangler or miniflare are part of your work. Work you find in other modules, or a need for one of the coordinator\'s acts, goes to your coordinator as a report.');
   return L.join('\n') + '\n';
 }
 
@@ -65,6 +67,14 @@ const restore = (root, paths) => git(['checkout', 'HEAD', '--', ...paths], { cwd
 
 function launchFor(slug, branch, id, start, model) {
   return { title: `job ${id}`, source_url: `https://github.com/${slug}`, source_revision: branch, ...(model ? { model } : {}), prompt: start };
+}
+
+// The coordinator's next step: subscribe to the job's pull request, so its completion, a red
+// gate or a comment arrives as an event (attempt 1 was noticed after 194 minutes).
+export function subscribeFor(slug, pr) {
+  const [owner, repo] = slug.split('/');
+  const call = { owner, repo, pullNumber: pr.number };
+  return { call, text: `then subscribe to the job's pull request with subscribe_pr_activity, so its completion, a red gate or a comment reaches you as an event:\n${JSON.stringify(call, null, 2)}` };
 }
 
 // BOB: branch, status WORKING, START, draft pull request; prints what to start the session with.
@@ -90,15 +100,18 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
   if (merged) {
     if (find(slug, branch)) fail(`${branch} has an open pull request; reopen only after it merges`);
   } else if (push && remoteTip(root, branch)) {
-    if (find(slug, branch)) fail(`${branch} already has an open pull request; restarting a job is a Phase 2 command`);
-    // Resume: the branch was pushed but the PR was never opened. Only for an unfinished start:
-    // WORKING, and nothing on the branch but its start commit.
+    // Resume: the branch was pushed but the PR was never opened, or it was opened and the launch
+    // was lost (review of PR 11): an existing PR is reused and the launch printed again. Only
+    // for an unfinished start: WORKING, and nothing on the branch but its start commit; a job
+    // with work on its branch is never launched twice.
+    const existing = find(slug, branch);
+    if (existing && reopen) fail(`${branch} already has an open pull request; reopen only after it merges`);
     fetchRef(root, branch);
     const entryText = git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root });
     const entry = JSON.parse(entryText);
     const ahead = Number(git(['rev-list', '--count', `${from}..origin/${branch}`], { cwd: root }));
     if (entry.status?.state === 'COMPLETE' && ahead === 0) fail(`${id} is COMPLETE and its last attempt merged; a new attempt needs --reopen "<what it must do>"`);
-    if (entry.status?.state !== 'WORKING' || ahead !== 1) fail(`${branch} exists and is not an unfinished start (${entry.status?.state}, ${ahead} commits); restarting a job is a Phase 2 command`);
+    if (entry.status?.state !== 'WORKING' || ahead !== 1) fail(`${branch} exists${existing ? ' with an open pull request' : ''} and is not an unfinished start (${entry.status?.state}, ${ahead} commits); restarting a job is a Phase 2 command`);
     const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root }).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.event === 'start').pop();
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
@@ -106,10 +119,14 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task });
     const launch = launchFor(slug, branch, id, start, model);
     log(start);
+    // The PR is open, so a job session may already be running (confirming review of PR 11).
+    if (existing) log(`note: ${branch} already has its pull request open. Use this launch only when no job session is running for it: check your sessions first, and start nothing if one is.`);
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
-    const pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
-    log(`draft pull request: ${pr.html_url}`);
-    return { start, pr, launch, attempt: startRow?.attempt || 1, resumed: true };
+    const pr = existing || open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
+    log(`${existing ? 'the draft pull request already open' : 'draft pull request'}: ${pr.html_url}`);
+    const subscribe = subscribeFor(slug, pr);
+    log(subscribe.text);
+    return { start, pr, launch, subscribe: subscribe.call, attempt: startRow?.attempt || 1, resumed: true };
   }
 
   // Validate from the tranche before touching the checkout.
@@ -160,6 +177,9 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });
       log(`draft pull request: ${result.pr.html_url}`);
+      const subscribe = subscribeFor(slug, result.pr);
+      result.subscribe = subscribe.call;
+      log(subscribe.text);
     }
   } catch (e) {
     if (!committed) restore(root, [entryFile(id), metricsFile(id)]);
@@ -185,7 +205,7 @@ const onBranch = (root, id) => {
 // The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing.
 export function jobComplete(root, id, opts = {}) {
-  const { notVerified = [], exemptRevert, noSuite, push = true, log = console.log } = opts;
+  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log } = opts;
   const io = { findPR, addComment, markReady, comments, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
@@ -216,13 +236,20 @@ export function jobComplete(root, id, opts = {}) {
   const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
   if (since.finding) rec.findings.push(since.finding);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
-  for (const c of entry.checks || []) {
-    const r = run(c[0], c.slice(1), { cwd: root, timeout });
+  // The module's stale lock files first, whether or not the suite runs: its checks may need
+  // them too (GAT-5; confirming review of PR 11).
+  const inst = installModule(root, cfg, entry, { exec, log });
+  for (const l of inst.ran) commands.push({ cmd: `npm ci (${l})`, exit: inst.findings.some((f) => f.file === l) ? 1 : 0 });
+  for (const f of inst.findings.filter((x) => !inst.ran.includes(x.file))) commands.push({ cmd: `npm ci (${f.file})`, exit: 1, error: f.message });
+  const installed = !inst.findings.length;
+  // The module's checks are product code: without the GitHub tokens, as the gate runs it.
+  for (const c of installed ? entry.checks || [] : []) {
+    const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
     commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
   }
   const notv = [...notVerified];
   if (noSuite) notv.push('the module suite was not run by job complete');
-  else {
+  else if (installed) {
     const s = runSuite(root, entry, undefined, { timeout });
     commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
     if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
@@ -291,11 +318,23 @@ export function jobBlock(root, id, { reason, push = true, log = console.log } = 
   return { ok: true };
 }
 
+// The module's stale lock files, installed as the gate installs them: the session hook installs
+// only some of them, and the job's suite must not depend on it (GAT-5).
+function installModule(root, cfg, entry, { exec, log }) {
+  const inst = install(root, moduleLocks(cfg.lockfiles, entry), { onlyStale: true, ...(exec ? { exec } : {}) });
+  for (const l of inst.ran) log(`installed ${l}`);
+  for (const f of inst.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+  return inst;
+}
+
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
-export function jobTest(root, id, { log = console.log } = {}) {
+export function jobTest(root, id, { log = console.log, exec } = {}) {
   const cfg = loadConfig(root);
-  const s = runSuite(root, readEntry(root, id), undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
+  const entry = readEntry(root, id);
+  const inst = installModule(root, cfg, entry, { exec, log });
+  if (inst.findings.length) return { ok: false, install: inst };
+  const s = runSuite(root, entry, undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
-  return { ok: s.exit === 0, ...s };
+  return { ok: s.exit === 0, install: inst, ...s };
 }
