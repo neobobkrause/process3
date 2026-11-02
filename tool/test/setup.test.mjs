@@ -797,3 +797,25 @@ test('approvals: the account the sessions act as unreadable is missing', () => {
   w.user = null;
   assert.equal(state(check(w), 'approvals').detail, 'the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
 });
+
+// Fourth re-review of PR 26: an owner website merge carrying an older block does not outrank
+// the owner's own side-branch edit that lands after it.
+test('approvals: the owner\'s website merge of the tranche into main does not outrank the owner\'s side-branch edit', () => {
+  const { r } = originRepo();
+  const w = world();
+  const o1 = datedCommit(r, { ...w.files, 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  const o2 = datedCommit(r, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', '-b', 'owner-patch'], { cwd: r });
+  const o3 = datedCommit(r, { 'CLAUDE.md': claude('v3') }, 'owner v3 on a side branch', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'main'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '-m', 'owner website merge: tranche into main', 'tranche'], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T11:00:00Z' } });
+  const release = tip(r);
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '-m', 'BOB merges the owner\'s pull request', 'owner-patch'], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T12:00:00Z' } });
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  const notOwner = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+  const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2, o3, release].some((x) => p.endsWith(x)) ? w.commit : notOwner) : w.io.api(p));
+  const res = setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet });
+  assert.equal(state(res, 'approvals').state, 'set', state(res, 'approvals').detail);
+});

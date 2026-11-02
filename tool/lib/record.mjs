@@ -130,8 +130,19 @@ export function approvalsHistory(root, refs, file, heading) {
       const olds = r.lines.map((x) => textOf(x.older));
       const differs = r.parents.length ? olds.some((x) => x !== now) : now !== '';
       if (!differs) continue;
+      // A merge that keeps its first parent's block sets nothing: it brings another branch in
+      // (fourth re-review of PR 26).
+      if (r.parents.length > 1 && blockOf(r.parents[0]) === now) continue;
       const carry = r.parents.length > 1 && (r.lines.length < r.parents.length || olds.includes(now));
       setters.push({ sha: r.sha, at: r.at, web: r.web, block: now, carry });
+    }
+    setters.sort((x, y) => y.at - x.at);
+    // A carrying merge is dated by the edit that set the block it carries (the newest edit of that
+    // block among its ancestors), not by its own time, so the owner's website merge of any pull
+    // request never outranks an edit the owner made earlier that lands later.
+    for (const c of setters.filter((x) => x.carry)) {
+      const src = setters.find((x) => !x.carry && x.block === c.block && x.at <= c.at && isAncestor(x.sha, c.sha));
+      if (src) c.at = src.at;
     }
     setters.sort((x, y) => y.at - x.at);
     return setters;
@@ -263,6 +274,20 @@ function prefetch(root, range) {
     { cwd: root, allowFail: true, input: missing.join('\n') + '\n' });
 }
 
+// The branches the record check trusts: main and the tranche the base's config names. While the
+// base has no config, a tranche onboarded under another name names itself in its own config:
+// its branch is trusted too when it is the branch checked (fourth re-review of PR 26); merge
+// --plain still requires a ruleset naming it before it reaches main.
+export function trustedRefs(root, cfg, { base, head = 'HEAD', branch } = {}) {
+  const refs = ['origin/main', `origin/${cfg.tranche}`];
+  if (base && branch && !exists(root, base, CONFIG_FILE)) {
+    let named = null;
+    try { named = loadConfig(root, head).tranche; } catch { named = null; }
+    if (named && named === branch && named !== cfg.tranche) refs.push(`origin/${named}`);
+  }
+  return refs;
+}
+
 // repoOwner: a function giving the repository's owner as GitHub has it (repoOwnerOf: a login,
 // null, or { login, why }). When given and the base has no config, it is the owner the check
 // judges by, and the one value onboarding may give approvals.owner (review follow-ups, 2 Nov).
@@ -305,6 +330,8 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     ownersOwn = commits.length > 0 && commits.every((c) => {
       const ps = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
       if (ps.length > 1 && base && ps.slice(1).every((p) => hist.isAncestor(p, base))) return true;
+      // A commit already on the tranche or main (a branch made from main) is not the range's own.
+      if (trustedRefs.some((t) => hist.isAncestor(c, t))) return true;
       const ce = git(['log', '-1', '--format=%ce', c], { cwd: root });
       return ce === 'noreply@github.com' && ownerCommit(c).ok === true;
     });
