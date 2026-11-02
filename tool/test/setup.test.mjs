@@ -198,3 +198,37 @@ test('job start runs the setup check first and starts nothing while a condition 
   assert.equal(opened, 1);
   assert.equal(seen.length, 1);
 });
+
+// The developer's steps (Bob, 2 Nov): setup/DEVELOPER.md holds only the owner's acts.
+import { readFileSync } from 'node:fs';
+import { CONDITIONS } from '../lib/setup.mjs';
+function developerSteps(text) {
+  return text.split(/^## /m).slice(1).filter((s) => /^Step \d+\./.test(s)).map((s) => ({
+    title: s.split('\n')[0],
+    parts: ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => new RegExp(`^${p}`, 'm').test(s)),
+    sets: [...(s.match(/^Sets:(.*)$/m)?.[1] || '').matchAll(/`([^`]+)`/g)].map((m) => m[1]),
+  }));
+}
+
+test('every condition the developer sets has a step, and every step names only conditions in the list', () => {
+  const text = readFileSync(join(CONDITIONS, '..', 'DEVELOPER.md'), 'utf8');
+  const steps = developerSteps(text);
+  assert.ok(steps.length > 0);
+  for (const s of steps) assert.deepEqual(s.parts, ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'], s.title);
+  const ids = loadConditions().map((c) => c.id);
+  const named = steps.flatMap((s) => s.sets);
+  assert.deepEqual(named.filter((id) => !ids.includes(id)), [], 'a step names a condition not in the list');
+  const developer = loadConditions().filter((c) => /^the developer\b/.test(c.who)).map((c) => c.id);
+  assert.ok(developer.length >= 9);
+  assert.deepEqual(developer.filter((id) => !named.includes(id)), [], 'a developer condition with no step');
+  assert.ok(!/\u2014/.test(text), 'no em-dashes');
+});
+
+test('the step check fails on a missing step and on an unknown condition', () => {
+  const steps = developerSteps('## Step 1. A\n\nWhy: x\n\nClicks: y\n\nHow BOB confirms: z\n\nSets: `account`, `no-such-id`.\n');
+  assert.deepEqual(steps[0].sets, ['account', 'no-such-id']);
+  const ids = loadConditions().map((c) => c.id);
+  assert.deepEqual(steps[0].sets.filter((id) => !ids.includes(id)), ['no-such-id']);
+  const developer = loadConditions().filter((c) => /^the developer\b/.test(c.who)).map((c) => c.id);
+  assert.ok(developer.filter((id) => !steps[0].sets.includes(id)).includes('deny-list'));
+});

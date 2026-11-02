@@ -1,36 +1,58 @@
 {
-  "about": "The setup a product needs before a job starts (setup audit, 2 Nov 2026). One entry per condition. `p3 setup check` reads each one it can through gh api, or from the tranche through git, and reports it as set or missing. The proxy refuses GitHub's Actions-settings, secrets, collaborators and environments endpoints, so those conditions are confirmed once on the onboarding page and never read. `job start` runs the same check first.",
+  "about": "The setup a product needs before a job starts (setup audit, 2 Nov 2026). One entry per condition. `p3 setup check` reads each one it can through gh api, or from the tranche through git, and reports it as set or missing. The proxy refuses GitHub's Actions-settings, secrets, collaborators and environments endpoints, so those conditions are confirmed once on the onboarding page and never read. `job start` runs the same check first. A condition whose `who` starts with \"the developer\" is the repository owner's to set; setup/DEVELOPER.md holds the steps.",
   "conditions": [
     {
       "id": "account",
       "what": "The account sessions act as can push to the product and is not an admin of it.",
       "why": "Sessions push their own branches and open pull requests. An admin could bypass every ruleset and change settings.",
-      "value": { "push": true, "admin": false },
-      "who": "Bob, as the repository's owner (collaborator access)",
+      "value": {
+        "push": true,
+        "admin": false
+      },
+      "who": "the developer (the repository's owner): adds the session account as a collaborator and points Claude's GitHub connection at it",
       "read": "GET /user for the account, then GET /repos/{repo}: permissions.push and permissions.admin"
     },
     {
       "id": "ruleset-all-branches",
       "what": "An active ruleset on every branch, with nothing excluded, refuses deletion and force-push, and the session account cannot bypass it.",
       "why": "No session may delete a branch or rewrite history, on any branch (the standing safety rules).",
-      "value": { "include": "~ALL", "rules": ["deletion", "non_fast_forward"] },
-      "who": "Bob (Settings, Rules)",
+      "value": {
+        "include": "~ALL",
+        "rules": [
+          "deletion",
+          "non_fast_forward"
+        ]
+      },
+      "who": "the developer (Settings, Rules)",
       "read": "GET /repos/{repo}/rulesets, then GET /repos/{repo}/rulesets/{id}: conditions.ref_name, rules, current_user_can_bypass"
     },
     {
       "id": "ruleset-main-tranche",
       "what": "main and the tranche take changes only through a pull request, merged with a merge commit only, with the required check green; the session account cannot bypass these rules.",
       "why": "The gate is what makes a merge trustworthy; merge commits keep each pull request's history whole.",
-      "value": { "branches": ["main", "<tranche>"], "merge_methods": ["merge"], "required_check": "process/config.json required_check, default gate" },
-      "who": "Bob (Settings, Rules)",
+      "value": {
+        "branches": [
+          "main",
+          "<tranche>"
+        ],
+        "merge_methods": [
+          "merge"
+        ],
+        "required_check": "process/config.json required_check, default gate"
+      },
+      "who": "the developer (Settings, Rules)",
       "read": "GET /repos/{repo}/rules/branches/{branch} for main and the tranche: pull_request.allowed_merge_methods and required_status_checks; GET /repos/{repo}/rulesets/{id}: current_user_can_bypass"
     },
     {
       "id": "merge-settings",
       "what": "The repository allows merge commits, does not allow auto-merge, and does not delete a branch when its pull request merges.",
       "why": "Merges are made by the tool alone, with a merge commit; no branch is ever deleted.",
-      "value": { "allow_merge_commit": true, "allow_auto_merge": false, "delete_branch_on_merge": false },
-      "who": "Bob (Settings, General)",
+      "value": {
+        "allow_merge_commit": true,
+        "allow_auto_merge": false,
+        "delete_branch_on_merge": false
+      },
+      "who": "the developer (Settings, General)",
       "read": "GET /repos/{repo}: allow_merge_commit, allow_auto_merge, delete_branch_on_merge"
     },
     {
@@ -52,19 +74,27 @@
           "Bash(gh api *pulls/*/merge*)"
         ],
         "deny_matching": [
-          { "rule": "the settings file", "pattern": "^(Edit|Write)\\([^)]*\\.claude/settings\\.json\\)$", "example": "Edit(.claude/settings.json)" }
+          {
+            "rule": "the settings file",
+            "pattern": "^(Edit|Write)\\([^)]*\\.claude/settings\\.json\\)$",
+            "example": "Edit(.claude/settings.json)"
+          }
         ],
-        "not": ["Bash(git push origin :*)"]
+        "not": [
+          "Bash(git push origin :*)"
+        ]
       },
-      "who": "the onboarding session writes it through a pull request into the tranche, with Bob's approval in words; a session cannot edit its own settings file",
+      "who": "the developer, committing it on the tranche through GitHub's website; a session cannot edit its own settings file",
       "read": "the file on origin/<tranche>, through git: permissions.deny"
     },
     {
       "id": "artifact-retention",
       "what": "Gate artifacts (gate-row) are kept at least 90 days.",
       "why": "merge trusts a gate row only when the run's artifact still holds it (verifyRow); an expired artifact makes a green gate unprovable.",
-      "value": { "min_days": 90 },
-      "who": "Bob (Settings, Actions, General: artifact and log retention); the gate workflow asks for 90 days",
+      "value": {
+        "min_days": 90
+      },
+      "who": "the developer (Settings, Actions, General: artifact and log retention); the gate workflow asks for 90 days",
       "read": "GET /repos/{repo}/actions/artifacts?name=gate-row: the newest artifact's expires_at less its created_at, in whole days; unmeasured when there is none yet"
     },
     {
@@ -80,7 +110,7 @@
       "what": "Workflows get a read-only token by default, and GitHub Actions may not create or approve pull requests.",
       "why": "Only the gate's post job is given a write token, by its own permissions block; nothing else in Actions can approve its own way into the tranche.",
       "value": "default workflow permissions: read; allow GitHub Actions to create and approve pull requests: off",
-      "who": "Bob (Settings, Actions, General)",
+      "who": "the developer (Settings, Actions, General)",
       "read": "confirmed once on the onboarding page"
     },
     {
@@ -88,15 +118,15 @@
       "what": "No Actions secret is given to the process workflows; the Cloudflare and release keys live in the jobs' cloud environment only.",
       "why": "The gate runs product code from any pull request; a secret it could read would leave with that code (Bob's decision 14, 2 Nov: jobs stay in the environment that holds the keys).",
       "value": "no repository or organization Actions secret used by process-gate or process-record",
-      "who": "Bob (Settings, Secrets and variables)",
+      "who": "the developer (Settings, Secrets and variables)",
       "read": "confirmed once on the onboarding page"
     },
     {
       "id": "collaborators",
-      "what": "Bob is the only admin; the account sessions act as is a collaborator with Write.",
-      "why": "Write lets sessions push their own branches and open pull requests; only Bob changes settings and rulesets.",
-      "value": "Bob: admin; the session account: write; no one else",
-      "who": "Bob (Settings, Collaborators)",
+      "what": "The developer is the only admin; the account sessions act as is a collaborator with Write.",
+      "why": "Write lets sessions push their own branches and open pull requests; only the developer changes settings and rulesets.",
+      "value": "the developer: admin; the session account: write; no one else",
+      "who": "the developer (Settings, Collaborators)",
       "read": "confirmed once on the onboarding page"
     },
     {
@@ -104,7 +134,7 @@
       "what": "No deployment environment holds a secret that a pull request run, or a branch other than main, can reach.",
       "why": "An environment's secrets would otherwise reach product code run by the gate.",
       "value": "no environments, or each one limited to main",
-      "who": "Bob (Settings, Environments)",
+      "who": "the developer (Settings, Environments)",
       "read": "confirmed once on the onboarding page"
     }
   ]
