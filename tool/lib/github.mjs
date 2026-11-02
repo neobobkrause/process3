@@ -157,11 +157,12 @@ export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFa
   return [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0));
 }
 
-// The workflow file behind an Actions check run, through its check suite's workflow run.
-export function workflowPath(slug, run, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+// The workflow run behind an Actions check run, through its check suite: its file and the
+// event that started it.
+export function workflowRun(slug, run, { read = (args) => gh(args, { allowFail: true }) } = {}) {
   const id = run.check_suite?.id;
   if (!id) return null;
   const r = read(['api', `repos/${slug}/actions/runs?check_suite_id=${id}&per_page=1`]);
-  const path = r?.workflow_runs?.[0]?.path;
-  return path ? String(path).split('@')[0] : null;
+  const w = r?.workflow_runs?.[0];
+  return w?.path ? { path: String(w.path).split('@')[0], event: w.event || null } : null;
 }

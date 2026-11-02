@@ -128,6 +128,8 @@ export function jobStart(root, id, { coordinator, model, reopen, push = true, op
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task });
     const launch = launchFor(slug, branch, id, start, model);
     log(start);
+    // The PR is open, so a job session may already be running (confirming review of PR 11).
+    if (existing) log(`note: ${branch} already has its pull request open. Use this launch only when no job session is running for it: check your sessions first, and start nothing if one is.`);
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
     const pr = existing || open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
     log(`${existing ? 'the draft pull request already open' : 'draft pull request'}: ${pr.html_url}`);
@@ -243,22 +245,23 @@ export function jobComplete(root, id, opts = {}) {
   const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
   if (since.finding) rec.findings.push(since.finding);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
+  // The module's stale lock files first, whether or not the suite runs: its checks may need
+  // them too (GAT-5; confirming review of PR 11).
+  const inst = installModule(root, cfg, entry, { exec, log });
+  for (const l of inst.ran) commands.push({ cmd: `npm ci (${l})`, exit: inst.findings.some((f) => f.file === l) ? 1 : 0 });
+  for (const f of inst.findings.filter((x) => !inst.ran.includes(x.file))) commands.push({ cmd: `npm ci (${f.file})`, exit: 1, error: f.message });
+  const installed = !inst.findings.length;
   // The module's checks are product code: without the GitHub tokens, as the gate runs it.
-  for (const c of entry.checks || []) {
+  for (const c of installed ? entry.checks || [] : []) {
     const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
     commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
   }
   const notv = [...notVerified];
   if (noSuite) notv.push('the module suite was not run by job complete');
-  else {
-    const inst = installModule(root, cfg, entry, { exec, log });
-    for (const l of inst.ran) commands.push({ cmd: `npm ci (${l})`, exit: inst.findings.some((f) => f.file === l) ? 1 : 0 });
-    for (const f of inst.findings.filter((x) => !inst.ran.includes(x.file))) commands.push({ cmd: `npm ci (${f.file})`, exit: 1, error: f.message });
-    if (!inst.findings.length) {
-      const s = runSuite(root, entry, undefined, { timeout });
-      commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
-      if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
-    }
+  else if (installed) {
+    const s = runSuite(root, entry, undefined, { timeout });
+    commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
+    if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
   }
   for (const f of [...ledger, ...rec.findings]) log(`${f.check}: ${f.file}:${f.line}: ${f.message}`);
   const failed = commands.filter((c) => c.exit !== 0);

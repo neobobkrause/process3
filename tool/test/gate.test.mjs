@@ -288,7 +288,13 @@ test('the gate workflow keeps its shape: a read-only gate, --no-post, and a post
   for (const u of text.match(/uses: \S+.*$/gm)) assert.match(u, /^uses: actions\/[\w-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/, u);
   // The legacy path keys on the line this tool states.
   assert.match(readFileSync(join(import.meta.dirname, '..', 'p3.mjs'), 'utf8'), /^\/\/ p3-capability: gate-no-post/m);
-  assert.equal((text.match(/grep -q 'p3-capability: gate-no-post'/g) || []).length, 2);
+  assert.equal((text.match(/grep -q '\^\/\/ p3-capability: gate-no-post'/g) || []).length, 2, 'both greps anchored to the line start');
+  assert.doesNotMatch(text, /grep -q 'p3-capability/, 'no unanchored grep');
+  // Job post downloads the artifact before it checks anything out.
+  const steps = jobs.post.split(/^ {6}- /m);
+  const dl = steps.findIndex((st) => /uses: actions\/download-artifact@/.test(st));
+  const co = steps.findIndex((st) => /uses: actions\/checkout@/.test(st));
+  assert.ok(dl > 0 && co > dl, `download (${dl}) before checkout (${co})`);
 });
 
 // GAT-5 (review of PR 11): the gate installs every lock file the base's config names, wherever
@@ -313,4 +319,18 @@ test('the gate installs every lock file, not only the module\'s', () => {
   assert.equal(r.run.suite, 'pass');
   assert.deepEqual(calls.map((c) => c.cwd), ['.', 'src/alpha', 'other/deep'], 'every lock file, even with no dependencies');
   assert.ok(calls.every((c) => c.unset.includes('GH_TOKEN') && c.unset.includes('GITHUB_TOKEN')));
+});
+
+// Confirming review of PR 13: text from the artifact is printed without line breaks or
+// control characters, so it cannot emit a workflow command.
+test('job post prints artifact text without line breaks or control characters', () => {
+  const io = fakeIO();
+  const out = [];
+  const log = (m) => out.push(m);
+  const evil = '\n::error file=x::pwned\r\u0007';
+  assert.throws(() => postRow(rowFile({ ...goodRow(), [`k${evil}`]: 1 }), { pr: 5, slug: 'o/r', runId: '7', io: io.io, log }), (e) => !/[\n\r\u0007]/.test(e.message) && /is not a gate row field/.test(e.message));
+  postRow(rowFile(null, JSON.stringify({ error: `stopped${evil}` })), { pr: 5, slug: 'o/r', io: io.io, log });
+  assert.ok(out.length && out.every((l) => !/[\n\r\u0007]/.test(l)), JSON.stringify(out));
+  assert.throws(() => postRow(rowFile(null, `{"x":${evil}`), { pr: 5, slug: 'o/r', io: io.io, log }), (e) => /is not JSON/.test(e.message) && !/[\n\r\u0007]/.test(e.message));
+  assert.equal(io.state.comments.length, 0);
 });
