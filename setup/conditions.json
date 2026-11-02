@@ -128,11 +128,11 @@
     },
     {
       "id": "session-branch",
-      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip, or it branched from a tranche commit that main does not hold and carries the tranche's current approvals block.",
+      "what": "The checkout of the session running the check is the tranche: it descends from the tranche's tip, or it holds no commit of main's that the tranche lacks and carries the tranche's current approvals block.",
       "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
-      "value": "HEAD descends from origin/<tranche>; or merge-base(HEAD, origin/<tranche>) is not in origin/main and HEAD's approvals block equals the tranche's",
+      "value": "HEAD descends from origin/<tranche>; or no commit reachable from both HEAD and origin/main is missing from origin/<tranche>, and HEAD's approvals block equals the tranche's",
       "who": "BOB and every session it starts: start from the tranche",
-      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else merge-base HEAD origin/<tranche>, checked against origin/main, and the approvals block at HEAD and at origin/<tranche>"
+      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else rev-list (merge-base --all HEAD origin/main) --not origin/<tranche>, and the approvals block at HEAD and at origin/<tranche>; older approvals say to pull the tranche, anything else to start from the tranche"
     },
     {
       "id": "environment",

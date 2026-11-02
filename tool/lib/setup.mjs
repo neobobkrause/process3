@@ -60,28 +60,31 @@ export function lastApprovalsChange(root, name, file, heading) {
 }
 
 // Is this session's own checkout the tranche? Set when HEAD descends from the tranche's tip, or
-// when it branched from a tranche commit that main does not hold and carries the tranche's own
-// approvals block (a session started from the tranche, which has moved on since). A checkout of
-// main, or of anything main holds, is not (reviews of PR 24).
+// when it holds nothing main has that the tranche lacks (main's own merge commits, say) and
+// carries the tranche's current approvals block: a session started from the tranche, which has
+// moved on since, even past a merge into main. A checkout of main is not: it holds main's own
+// commits, or no approvals block (reviews of PR 24). fix says what to do when it is not.
 export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.approvals.file, heading = DEFAULTS.approvals.heading } = {}) {
   const ref = `origin/${name}`;
   const g = (args) => git(args, { cwd: root, allowFail: true });
+  const restart = `Start the session from the ${name} branch`;
   g(['fetch', '-q', 'origin', `+refs/heads/${main}:refs/remotes/origin/${main}`]);
-  if (g(['rev-parse', '-q', '--verify', `${ref}^{commit}`]).code !== 0) return { ok: false, why: `${ref} is not here` };
-  if (g(['rev-parse', '-q', '--verify', 'HEAD^{commit}']).code !== 0) return { ok: false, why: 'this checkout has no commit' };
+  if (g(['rev-parse', '-q', '--verify', `${ref}^{commit}`]).code !== 0) return { ok: false, why: `${ref} is not here`, fix: restart };
+  if (g(['rev-parse', '-q', '--verify', 'HEAD^{commit}']).code !== 0) return { ok: false, why: 'this checkout has no commit', fix: restart };
   const anc = (a, b) => g(['merge-base', '--is-ancestor', a, b]).code === 0;
   const abbrev = g(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
   const here = abbrev === 'HEAD' ? `this checkout (detached at ${g(['rev-parse', '--short', 'HEAD']).stdout.trim()})` : abbrev;
   if (anc(ref, 'HEAD')) return { ok: true, why: `${here} descends from the tip of ${name}` };
-  const base = g(['merge-base', 'HEAD', ref]).stdout.trim();
-  const hasMain = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).code === 0;
-  const blockAt = (rev) => (exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
-  if (base && hasMain && !anc(base, `origin/${main}`)) {
-    const now = blockAt('HEAD');
-    if (now && now === blockAt(ref)) return { ok: true, why: `${here} started from ${name} and holds its approvals` };
-    return { ok: false, why: `${here} started from ${name} but does not hold its current approvals` };
+  if (g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).code === 0) {
+    const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
+    const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
+    if (mainOnly) return { ok: false, why: `${here} holds ${main}'s commit ${mainOnly.slice(0, 10)}, which ${name} does not, so it is not from ${name}`, fix: restart };
   }
-  return { ok: false, why: `${here} is neither ${name} nor a branch from it` };
+  const blockAt = (rev) => (exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
+  const now = blockAt('HEAD');
+  if (!now) return { ok: false, why: `${here} holds no approvals block, so it is not from ${name}`, fix: restart };
+  if (now !== blockAt(ref)) return { ok: false, why: `${here} holds older approvals than ${name}`, fix: `Bring it up to date with ${name} (git pull origin ${name}), or start the session from the ${name} branch` };
+  return { ok: true, why: `${here} started from ${name} and holds its approvals` };
 }
 
 // A harmless Cloudflare read with the session's token: the token goes to curl on stdin, never on
@@ -247,7 +250,7 @@ const readers = {
   // is on the branch it started from, so every session starts from the tranche.
   'session-branch': (c, x) => {
     const r = x.onTranche();
-    return r.ok ? set(r.why) : missing(`${r.why}. Start the session from the ${x.cfg.tranche} branch`);
+    return r.ok ? set(r.why) : missing(`${r.why}. ${r.fix || `Start the session from the ${x.cfg.tranche} branch`}`);
   },
 
   // The deploy token's scopes, by harmless reads in the configured account; never the token.
@@ -287,6 +290,8 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   let tcfg = {};
   try { tcfg = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
   x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(tcfg.approvals || {}) } };
+  // When the tranche's own config names another tranche, the git readers fetch that one too.
+  if (!io.file && x.cfg.tranche !== local.tranche) git(['fetch', '-q', 'origin', `+refs/heads/${x.cfg.tranche}:refs/remotes/origin/${x.cfg.tranche}`], { cwd: root, allowFail: true });
   x.lastChange = io.lastChange || ((file, heading) => lastApprovalsChange(root, x.cfg.tranche, file, heading));
   x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
   x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche, { main: x.main, ...x.cfg.approvals }));

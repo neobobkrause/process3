@@ -198,7 +198,7 @@ test('the files are read from the tranche on origin, through git', () => {
   // The approvals' last change and the session's branch are read through git too.
   const sha = git(['rev-parse', 'origin/tranche'], { cwd: r });
   assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${sha.slice(0, 10)}`);
-  assert.equal(state(res, 'session-branch').detail, 'main is neither tranche nor a branch from it. Start the session from the tranche branch');
+  assert.equal(state(res, 'session-branch').detail, 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch');
   // A later commit on the tranche that leaves the block alone does not move its last change;
   // one that edits the block does, and it is not the owner's website commit.
   git(['checkout', '-q', 'tranche'], { cwd: r });
@@ -220,7 +220,7 @@ test('the files are read from the tranche on origin, through git', () => {
   git(['checkout', '-q', '-b', 'stray', 'main'], { cwd: r });
   commit(r, { 'stray.txt': 's' }, 'stray');
   assert.match(state(setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet }), 'session-branch').detail,
-    /stray is neither tranche nor a branch from it\. Start the session from the tranche branch/);
+    /stray holds no approvals block, so it is not from tranche\. Start the session from the tranche branch/);
 });
 
 test('job start runs the setup check first and starts nothing while a condition is missing', () => {
@@ -384,8 +384,9 @@ test('session-branch: a session not started from the tranche is missing, and job
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: repo });
   git(['remote', 'add', 'origin', bare], { cwd: repo });
-  assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'] }), log: quiet }),
-    /this session was not started from the tranche branch, so it holds no standing approvals; nothing was started\. Start the session again from the tranche branch \(also missing: account\)/);
+  const detail = 'main holds no approvals block, so it is not from tranche. Start the session from the tranche branch';
+  assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch', 'account'], results: [{ id: 'session-branch', detail }] }), log: quiet }),
+    /^Error|this session's checkout is not the tranche branch, whose standing approvals sessions act on; nothing was started\. main holds no approvals block, so it is not from tranche\. Start the session from the tranche branch \(also missing: account\)$/);
 });
 
 test('deploy-token: one harmless read per scope, each reported present or missing, the token never printed', () => {
@@ -494,6 +495,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   commit(r, { 'CLAUDE.md': claude('A') }, 'owner');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   const on = () => sessionOnTranche(r, 'tranche');
+  const why = () => on().why;
   assert.deepEqual(on(), { ok: true, why: 'tranche descends from the tip of tranche' });
   git(['checkout', '-q', '--detach', 'tranche'], { cwd: r });
   assert.match(on().why, /^this checkout \(detached at [0-9a-f]+\) descends from the tip of tranche$/);
@@ -510,10 +512,28 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   commit(r, { 'CLAUDE.md': claude('B') }, 'owner again');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   git(['checkout', '-q', 'build/x'], { cwd: r });
-  assert.deepEqual(on(), { ok: false, why: 'build/x started from tranche but does not hold its current approvals' });
+  assert.deepEqual(on(), { ok: false, why: 'build/x holds older approvals than tranche', fix: 'Bring it up to date with tranche (git pull origin tranche), or start the session from the tranche branch' });
   git(['checkout', '-q', 'main'], { cwd: r });
-  assert.deepEqual(on(), { ok: false, why: 'main is neither tranche nor a branch from it' });
-  assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here' });
+  assert.equal(why(), 'main holds no approvals block, so it is not from tranche');
+  assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here', fix: 'Start the session from the no-such branch' });
+  // After the tranche merges into main (a merge commit) and moves on: a branch cut before the
+  // merge, and a local tranche behind origin, are still the tranche; main is not.
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  git(['checkout', '-q', '-b', 'build/y'], { cwd: r });
+  commit(r, { 'y.txt': 'y' }, 'build y');
+  git(['checkout', '-q', 'main'], { cwd: r });
+  git(['merge', '-q', '--no-ff', '-m', 'tranche into main', 'tranche'], { cwd: r });
+  git(['push', '-q', 'origin', 'main'], { cwd: r });
+  git(['checkout', '-q', 'tranche'], { cwd: r });
+  const behind = tip(r);
+  commit(r, { 'z.txt': 'z' }, 'tranche moves on');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
+  git(['checkout', '-q', 'main'], { cwd: r });
+  assert.match(why(), /^main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from tranche$/);
+  git(['checkout', '-q', 'build/y'], { cwd: r });
+  assert.deepEqual(on(), { ok: true, why: 'build/y started from tranche and holds its approvals' });
+  git(['checkout', '-q', '-B', 'tranche', behind], { cwd: r });
+  assert.deepEqual(on(), { ok: true, why: 'tranche started from tranche and holds its approvals' });
 });
 
 test('cloudflareRead gives curl the token on stdin, never in its arguments, and reads status and success', () => {
@@ -557,5 +577,5 @@ test('job start names the tranche the setup check read', () => {
   git(['init', '-q', '--bare', bare], { cwd: repo });
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch'], tranche: 'next' }), log: quiet }),
-    /not started from the next branch.*Start the session again from the next branch$/);
+    /this session's checkout is not the next branch, whose standing approvals sessions act on; nothing was started\. this checkout is not the next branch\. Start the session from the next branch$/);
 });
