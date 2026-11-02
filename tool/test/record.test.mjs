@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { approvalsBlock, recordCheck } from '../lib/record.mjs';
+import { approvalsBlock, recordCheck, recordSince } from '../lib/record.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
 import { commit, makeRepo } from './helpers.mjs';
 
@@ -171,4 +171,102 @@ test('a gate row is trusted only when its run is the process gate on that commit
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
   assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
+});
+
+// record_since (Bob's decision, 2 Nov 2026): old history before the process is not judged.
+// A lookup that says only the listed commits are the owner's website commits.
+const webFor = (...shas) => (args) => (shas.some((x) => args[1].endsWith(`/commits/${x}`)) ? web() : session());
+const dated = (root, files, msg, date) => {
+  const env = { GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date };
+  write(root, files);
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', msg], { cwd: root, env: { ...process.env, ...env } });
+  return git(['rev-parse', 'HEAD'], { cwd: root });
+};
+
+function oldThenProcess() {
+  const root = makeRepo({ 'README.md': 'x' });
+  const main = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { 'old/big.bin': 'y'.repeat(101) }, 'old work');
+  const old = commit(root, { 'old/big2.bin': 'z'.repeat(101) }, 'more old work');
+  const setup = commit(root, { 'process/config.json': { max_file_bytes: 100 }, '.process': 'pin' }, 'setup');
+  const named = commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: old } }, 'Bob names record_since');
+  return { root, main, old, setup, named };
+}
+
+test('record_since leaves out the commits before the process arrived', () => {
+  const { root, main, named } = oldThenProcess();
+  commit(root, { 'new/big.bin': 'n'.repeat(101) }, 'new work');
+  const s = recordSince(root, { base: main });
+  assert.equal(s.from, 'head'); // main has no config yet
+  const { commits, findings } = recordCheck(root, cfg, { base: main, since: s.since, lookup: webFor(named) });
+  assert.equal(commits, 3); // setup, naming it, new work
+  assert.deepEqual(findings.map((f) => f.file), ['new/big.bin']);
+  assert.equal(recordCheck(root, cfg, { base: main, lookup: webFor(named) }).commits, 5); // without it
+});
+
+test('only the owner\'s website commit may set record_since', () => {
+  const { root, main } = oldThenProcess();
+  const s = recordSince(root, { base: main });
+  const f = recordCheck(root, cfg, { base: main, since: s.since, lookup: session }).findings;
+  assert.equal(f.length, 1);
+  assert.match(f[0].message, /changes the approvals or record_since but is not neobobkrause's own commit/);
+});
+
+test('record_since cannot reach past a commit that brought the process', () => {
+  const { root, main } = oldThenProcess();
+  const late = commit(root, { 'new/big.bin': 'n'.repeat(101) }, 'new work');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: late } }, 'hide new work');
+  const s = recordSince(root, { base: main });
+  assert.equal(s.since, null);
+  assert.match(s.finding.message, /not before .*a commit that adds the process config/);
+});
+
+test('record_since naming the setup commit itself is refused', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const main = git(['rev-parse', 'HEAD'], { cwd: root });
+  const setup = commit(root, { 'process/config.json': { max_file_bytes: 100 } }, 'setup');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: setup } }, 'name it');
+  assert.equal(recordSince(root, { base: main }).since, null);
+});
+
+test('once the base has a config, record_since is ignored, even one the base names', () => {
+  const { root, named } = oldThenProcess();
+  // review attack 1: a head forked before the setup carries L (an approvals edit) and its own config adder F
+  const pre = git(['rev-parse', `${named}~2`], { cwd: root });
+  git(['checkout', '-q', '-b', 'attack', pre], { cwd: root });
+  const L = commit(root, { 'CLAUDE.md': claude('may merge to main') }, 'L');
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: L } }, 'F');
+  const s = recordSince(root, { base: named });
+  assert.deepEqual(s, { since: null });
+  const f = recordCheck(root, cfg, { base: named, since: s.since, lookup: session }).findings;
+  assert.ok(f.some((x) => x.file === 'CLAUDE.md' && x.check === 'approvals'));
+});
+
+test('a back-dated side branch cannot pose as the commit that brought the process', () => {
+  // review attack 2: L (an approvals edit) then F (adds a config, back-dated) on a side branch
+  // merged into a head that holds the real setup; git log's date order would print F last.
+  const { root, main, setup } = oldThenProcess();
+  const pre = git(['rev-parse', `${setup}^`], { cwd: root });
+  const head = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'side', pre], { cwd: root });
+  const L = commit(root, { 'CLAUDE.md': claude('may merge to main') }, 'L');
+  dated(root, { 'other/config-seed.txt': 'x', 'process/config.json': { max_file_bytes: 100 } }, 'F', '2025-01-01T00:00:00Z');
+  git(['checkout', '-q', head], { cwd: root });
+  git(['merge', '-q', '--no-edit', '-X', 'ours', 'side'], { cwd: root });
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: L } }, 'name L');
+  const s = recordSince(root, { base: main });
+  assert.equal(s.since, null);
+  assert.match(s.finding.message, /not before/);
+});
+
+test('record_since naming no commit here is a finding', () => {
+  const { root, main } = oldThenProcess();
+  commit(root, { 'process/config.json': { max_file_bytes: 100, record_since: 'f'.repeat(40) } }, 'bad');
+  assert.match(recordSince(root, { base: main }).finding.message, /no such commit/);
+});
+
+test('a config that is not a JSON object is refused with a clear error', () => {
+  const root = makeRepo({ 'process/config.json': 'null\n' });
+  assert.throws(() => recordSince(root, { base: undefined }), /is not a JSON object/);
 });
