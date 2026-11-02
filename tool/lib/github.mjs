@@ -55,14 +55,20 @@ export function editComment(slug, id, body) {
   return gh(['api', '-X', 'PATCH', `repos/${slug}/issues/comments/${id}`, '--input', '-'], { input: JSON.stringify({ body }) });
 }
 
-// The newest comment carrying a marker, with its parsed block.
-export function latestBlock(slug, n, marker, all = comments(slug, n)) {
+// The newest comment carrying a marker, with its parsed block. With `from`, only comments
+// written by that account count.
+export function latestBlock(slug, n, marker, all = comments(slug, n), { from } = {}) {
   for (const c of [...all].reverse()) {
+    if (from !== undefined && (!from || c.user?.login !== from)) continue;
     const data = parseBlock(c.body, marker);
     if (data) return { comment: c, data };
   }
   return null;
 }
+
+// The newest receipt, only from the account that opened the pull request: the job's own
+// session account. Anyone else's p3:receipt comment is not read (review of PR 13).
+export const latestReceipt = (all, opener) => latestBlock(null, null, RECEIPT, all, { from: opener || null })?.data || null;
 
 // Gate runs, each its own comment written by GitHub Actions and never edited since. A session
 // can post a comment that looks like one, or (as the owner) edit one, so only the bot's
@@ -124,4 +130,38 @@ export function checkRun(slug, sha, name) {
   const r = gh(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&per_page=20`], { allowFail: true });
   const runs = (r?.check_runs || []).sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)));
   return runs[0] || null;
+}
+
+// The checks a branch's rulesets require (merge --plain): each by name with the app the rule
+// names (its integration_id, or null for any app), and whether the strict policy is on. null
+// when the rules cannot be read. Read from the rulesets, not classic branch protection.
+export const ACTIONS_APP = 15368; // GitHub Actions
+export function requiredChecks(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const path = branch.split('/').map(encodeURIComponent).join('/');
+  const rules = read(['api', `repos/${slug}/rules/branches/${path}?per_page=100`]);
+  if (!Array.isArray(rules)) return null;
+  const rs = rules.filter((r) => r.type === 'required_status_checks');
+  const checks = [];
+  for (const c of rs.flatMap((r) => r.parameters?.required_status_checks || [])) {
+    const app = c.integration_id ?? null;
+    if (!checks.some((k) => k.context === c.context && k.app === app)) checks.push({ context: c.context, app });
+  }
+  return { checks, strict: rs.some((r) => r.parameters?.strict_required_status_checks_policy === true) };
+}
+
+// Every check run of that name on a commit, newest first; null when unreadable. Only check
+// runs: a commit status can be posted by any account with write access (review of PR 14).
+export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const r = read(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=all&per_page=100`]);
+  if (!r || !Array.isArray(r.check_runs)) return null;
+  return [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0));
+}
+
+// The workflow file behind an Actions check run, through its check suite's workflow run.
+export function workflowPath(slug, run, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const id = run.check_suite?.id;
+  if (!id) return null;
+  const r = read(['api', `repos/${slug}/actions/runs?check_suite_id=${id}&per_page=1`]);
+  const path = r?.workflow_runs?.[0]?.path;
+  return path ? String(path).split('@')[0] : null;
 }

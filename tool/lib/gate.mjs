@@ -1,17 +1,17 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { GATE, RECEIPT, addComment, block, comments, gateRuns, latestBlock, verifyRow } from './github.mjs';
+import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
-import { runSuite, suffixOf, testFiles } from './suite.mjs';
-import { NO_TOKENS, exists, git, isRecordPath, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { install, runSuite, suffixOf } from './suite.mjs';
+import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
-const ghIO = { comments, addComment, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
+const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
-// The product's code runs in child processes without the workflow's token.
+// The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
 
 function entriesAt(root, ref) {
@@ -28,8 +28,13 @@ const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
 export const ownPaths = (e) => [...e.paths, ...e.tests, entryFile(e.id), metricsFile(e.id)];
 
+// The comment for one gate run: the lead line and the row, as job post writes it.
+export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${String(r.sha).slice(0, 10)}\`: ${r.ok ? 'green' : `red, ${r.findings} finding(s)`}, ${r.trigger}, ${r.minutes} min.`);
+
+// post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes
+// the comment from the run's artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
-  const { base, head, branch, pr, draft = false, started = Date.now(), io = ghIO, log = console.log } = opts;
+  const { base, head, branch, pr, draft = false, started = Date.now(), post = true, io = ghIO, exec, log = console.log } = opts;
   const cfg = loadConfig(root, base); // the trusted side
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const slug = opts.slug || repoSlug(root);
@@ -39,7 +44,8 @@ export function gate(root, opts) {
   const runRow = { sha: head, base, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   const all = pr ? io.comments(slug, pr) : [];
   const prior = gateRuns(all);
-  const receipt = pr ? latestBlock(slug, pr, RECEIPT, all)?.data : null;
+  // The receipt is read only from the pull request's opener (review of PR 13).
+  const receipt = pr ? latestReceipt(all, opts.opener ?? io.getPR(slug, pr)?.user?.login) : null;
 
   const job = branch?.match(/^job\/([a-z0-9-]+)$/)?.[1];
   const entries = entriesAt(root, head);
@@ -71,10 +77,11 @@ export function gate(root, opts) {
     // A job's PR runs its module; any other PR runs every module whose files it touches.
     const scope = entry ? [entry] : entries.filter((e) => changed.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
-    if (scope.length) install(root, cfg, findings);
+    // GAT-5: every lock file, installed where it sits.
+    if (scope.length) findings.push(...install(root, cfg.lockfiles, exec ? { exec } : {}).findings);
     const results = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout, unset: NO_TOKENS });
+      const s = runSuite(root, e, undefined, { timeout });
       results.push(s);
       if (s.exit !== 0) {
         findings.push(F('suite', e.tests[0], `the ${e.id} suite failed (exit ${s.exit}${/ETIMEDOUT/.test(s.output) ? ', timed out' : ''}): ${JSON.stringify(s.tests)}`));
@@ -129,17 +136,71 @@ export function gate(root, opts) {
   runRow.ok = findings.length === 0;
   runRow.minutes = Math.round(((Date.now() - started) / MINUTE) * 100) / 100;
   // One new comment per run: the bot never edits, so an edited gate comment is not counted.
-  if (pr) io.addComment(slug, pr, block(GATE, { runs: [runRow] }, `Gate run on \`${head.slice(0, 10)}\`: ${runRow.ok ? 'green' : `red, ${runRow.findings} finding(s)`}, ${runRow.trigger}, ${runRow.minutes} min.`));
+  if (pr && post) io.addComment(slug, pr, gateComment(runRow));
   return { run: runRow, findings, changed };
 }
 
-// GAT-5: every lock file installed where it sits, without the workflow's token.
-function install(root, cfg, findings) {
-  for (const lock of cfg.lockfiles) {
-    if (!existsSync(join(root, lock))) { findings.push(F('install', lock, 'lock file not found')); continue; }
-    const r = run('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: join(root, dirname(lock)), unset: NO_TOKENS });
-    if (r.code !== 0) findings.push(F('install', lock, `npm ci failed: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`));
-  }
+// A gate row, checked field by field before job post writes it into a comment: the file was
+// written after product code ran, so it may hold anything (review of PR 13). Every string is
+// a known value or a short plain pattern, so no field can carry a fence or a block of its own.
+const HEX40 = /^[0-9a-f]{40}$/;
+const PLAIN = /^[A-Za-z0-9 _.\/@+()-]{1,300}$/;
+const ROW = {
+  sha: (v) => HEX40.test(v), base: (v) => HEX40.test(v), after: (v) => HEX40.test(v),
+  at: (v) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(v),
+  run_id: (v) => Number.isSafeInteger(v) && v > 0,
+  trigger: (v) => ['record', 'draft', 'record-since-green', 'code'].includes(v),
+  suite: (v) => ['skipped', 'pass', 'fail'].includes(v),
+  revert: (v) => ['skipped', 'pass', 'fail', 'exempt', 'no code changed'].includes(v),
+  receipt: (v) => ['not checked', 'none', 'wrong commit', 'present', 'agrees', 'disagrees'].includes(v),
+  receipt_attempt: (v) => v === null || (Number.isSafeInteger(v) && v > 0),
+  scope: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && /^[a-z0-9-]{1,100}$/.test(x)),
+  tests: (v) => Array.isArray(v) && v.length <= 200 && v.every((t) => t && typeof t === 'object' && !Array.isArray(t)
+    && Object.keys(t).every((k) => ['total', 'pass', 'fail'].includes(k)) && Object.values(t).every((x) => x === null || (Number.isSafeInteger(x) && x >= 0))),
+  suite_seconds: (v) => Number.isFinite(v) && v >= 0,
+  inert: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && PLAIN.test(x)),
+  load_only: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && PLAIN.test(x)),
+  findings: (v) => Number.isSafeInteger(v) && v >= 0,
+  ok: (v) => typeof v === 'boolean',
+  minutes: (v) => Number.isFinite(v) && v >= 0,
+};
+const REQUIRED = ['sha', 'base', 'at', 'run_id', 'trigger', 'suite', 'revert', 'receipt', 'findings', 'ok', 'minutes'];
+export function checkRow(row) {
+  const bad = [
+    ...REQUIRED.filter((k) => !(k in row)).map((k) => `${k} is missing`),
+    ...Object.keys(row).filter((k) => !Object.hasOwn(ROW, k)).map((k) => `${k} is not a gate row field`),
+    ...Object.keys(row).filter((k) => Object.hasOwn(ROW, k) && !ROW[k](row[k])).map((k) => `${k} is not a valid value`),
+  ];
+  if (!bad.length && row.ok !== (row.findings === 0)) bad.push('ok does not agree with findings');
+  if (bad.length) fail(`the gate row is refused: ${bad.slice(0, 5).join('; ')}`);
+  // A fresh object of the checked fields, in a fixed order.
+  return Object.fromEntries(Object.keys(ROW).filter((k) => k in row).map((k) => [k, row[k]]));
+}
+
+// Job post of the gate workflow (setup audit, 2 Nov): the one job with a write token. It runs
+// no product code: only this tool, at the base's pin, over the gate.json job gate uploaded as
+// the run's gate-row artifact. The comment holds that same row, so verifyRow, which compares
+// the comment's row with the artifact, still trusts it. The row must be this run's and this
+// head's, and a green row needs job gate to have ended green.
+export const MAX_ROW_BYTES = 65536;
+export function postRow(file, { pr, head, gateResult, slug, runId = process.env.GITHUB_RUN_ID, io = ghIO, log = console.log }) {
+  if (!pr) fail('--post needs --pr <n>');
+  let st;
+  try { st = lstatSync(file); } catch { st = null; }
+  if (!st) { log(`no ${file}: job gate wrote no row (cancelled or stopped early); nothing to post`); return { posted: false }; }
+  if (!st.isFile()) fail(`${file} is not a regular file`);
+  if (st.size > MAX_ROW_BYTES) fail(`${file} is ${st.size} bytes, over ${MAX_ROW_BYTES}`);
+  let data;
+  try { data = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`${file} is not JSON: ${e.message}`); }
+  const raw = data?.run;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { log(`no gate row in ${file}${typeof data?.error === 'string' ? ` (the gate stopped: ${data.error.slice(0, 300)})` : ''}; nothing to post`); return { posted: false }; }
+  const row = checkRow(raw);
+  if (runId && String(row.run_id) !== String(runId)) fail(`the row names run ${row.run_id}, not this run ${runId}`);
+  if (head && row.sha !== head) fail(`the row is for ${row.sha.slice(0, 10)}, not the head ${head.slice(0, 10)}`);
+  if (row.ok && gateResult && gateResult !== 'success') fail(`the row says green, but job gate ended ${gateResult}`);
+  const comment = io.addComment(slug, pr, gateComment(row));
+  log(`posted the gate row for ${row.sha.slice(0, 10)} (${row.ok ? 'green' : 'red'})`);
+  return { posted: true, comment, row };
 }
 
 const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
@@ -156,7 +217,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
-      const r = runSuite(root, entry, [t], { timeout, unset: NO_TOKENS });
+      const r = runSuite(root, entry, [t], { timeout });
       if (r.exit === 0) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }
