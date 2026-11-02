@@ -38,34 +38,48 @@ export function webCommitByOwner(root, sha, owner, lookup = gh) {
 
 // null only when the file is absent; a file that is there but cannot be read is an error.
 const show = (root, rev, file) => (exists(root, rev, file) ? git(['show', `${rev}:${file}`], { cwd: root }) : null);
-const blobOf = (root, rev, file) => {
-  const r = git(['rev-parse', '-q', '--verify', `${rev}:${file}`], { cwd: root, allowFail: true });
-  return r.code === 0 ? r.stdout.trim() : null;
+// A path's tree entry at a commit, mode and object together, so a mode-only change counts.
+const entryOf = (root, rev, file) => {
+  const out = git(['ls-tree', '-z', rev, '--', file], { cwd: root });
+  const hit = out.split('\0').find((l) => l.endsWith(`\t${file}`));
+  return hit ? hit.split('\t')[0].replace(/ \w+ /, ' ') : null;
 };
 
-// Files a commit introduces: against its parent, or for a merge, the files whose content
-// matches no parent (what the merge itself wrote). Paths read with -z, so any name is safe.
-function introduced(root, sha, parents) {
+// Plain instruction files: CLAUDE.md and CLAUDE.local.md anywhere, and .claude/rules/**/*.md.
+// Anything else in a .claude directory (any letter case, at any depth, or .claude itself as
+// a link or a pin) and .mcp.json anywhere is the owner's: settings, hooks, agents, skills,
+// commands, output styles, any file (confirming review of PR 16). Like the approvals, only
+// the owner's own website commit may change them. A deny rule cannot stop an edit made
+// through the shell; this check holds every route (Bob's standing rule: sessions never
+// change permission settings).
+// On process3 itself the required record check runs from main's copy of the tool
+// (pull_request_target runs from the default branch), so these rules judge process3's own
+// pull requests only once the tranche reaches main.
+const isInstructionFile = (f) => ['CLAUDE.md', 'CLAUDE.local.md'].includes(basename(f)) || /(^|\/)\.claude\/rules\/(.+\/)?[^/]+\.md$/i.test(f);
+const isOwnerSetting = (f) => !isInstructionFile(f)
+  && (f.split('/').some((seg) => seg.toLowerCase() === '.claude') || basename(f).toLowerCase() === '.mcp.json');
+const PROTECTED = ['.github/workflows/', '.process', CONFIG_FILE, 'tool/', 'schema/'];
+// Files the checks themselves stand on: removing one is a finding, not a notice.
+const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml', '.github/workflows/process-record.yml'];
+
+// Files a commit introduces: against its parent, or, for a merge, what the merge itself
+// wrote. A merge's file is carried, not its own, when it equals the first parent's; or, for
+// an ordinary file, any parent's; or, for a guarded file (the owner's settings, instruction
+// files, the approvals file, the config, the files the checks stand on), another parent's
+// version that a commit inside the checked range set, and so was judged there. A hand-made
+// merge that takes a guarded file from an old commit outside the range is therefore judged
+// as its own change (confirming review of PR 16). Paths read with -z, so any name is safe.
+function introduced(root, sha, parents, { guarded = () => false, judged = () => false } = {}) {
   if (parents.length <= 1) {
     const out = git(['diff-tree', '-r', '-z', '--no-commit-id', '--name-only', '--no-renames', ...(parents.length ? [] : ['--root']), sha], { cwd: root });
     return out.split('\0').filter(Boolean);
   }
   const out = git(['diff-tree', '-r', '-z', '--no-commit-id', '--name-only', '--no-renames', parents[0], sha], { cwd: root });
   return out.split('\0').filter(Boolean).filter((f) => {
-    const b = blobOf(root, sha, f);
-    return !parents.some((p) => blobOf(root, p, f) === b);
+    const e = entryOf(root, sha, f);
+    return !parents.slice(1).some((p) => entryOf(root, p, f) === e && (!guarded(f) || judged(p, f)));
   });
 }
-
-const isInstructionFile = (f) => ['CLAUDE.md', 'CLAUDE.local.md'].includes(basename(f)) || (f.startsWith('.claude/') && f.endsWith('.md'));
-// Settings under .claude/ (settings.json, hooks, anything not an instruction .md file) are the
-// owner's: like the approvals, only the owner's own website commit may change them. A deny
-// rule cannot stop an edit made through the shell; this check holds every route (Bob's
-// standing rule: sessions never change permission settings).
-const isOwnerSetting = (f) => f.startsWith('.claude/') && !isInstructionFile(f);
-const PROTECTED = ['.github/workflows/', '.process', CONFIG_FILE, 'tool/', 'schema/'];
-// Files the checks themselves stand on: removing one is a finding, not a notice.
-const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/workflows/record-pr.yml', '.github/workflows/process-gate.yml', '.github/workflows/process-record.yml'];
 
 // record_since (decided by Bob, 2 Nov 2026): a product whose history predates Process3 names
 // the last commit before the process arrived; that commit and everything before it are not
@@ -114,11 +128,19 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
   prefetch(root, range);
   const { file: afile, heading } = cfg.approvals;
+  const inRange = new Set(commits);
+  const guarded = (f) => isOwnerSetting(f) || isInstructionFile(f) || f === afile || f === CONFIG_FILE || KEEP.includes(f);
+  // Another parent's version was judged when the last commit that set it lies in the range.
+  const judged = (p, f) => inRange.has(git(['log', '-1', '--format=%H', p, '--', f], { cwd: root }).trim());
   for (const sha of commits) {
     const short = sha.slice(0, 10);
     try {
-      const parents = git(['rev-list', '--parents', '-n', '1', sha], { cwd: root }).split(' ').slice(1);
-      const files = introduced(root, sha, parents);
+      const all = git(['rev-list', '--parents', '-n', '1', sha], { cwd: root }).split(' ').slice(1);
+      const files = introduced(root, sha, all, { guarded, judged });
+      // The versions a guarded file is compared with: the first parent's, and any other
+      // parent's that was judged inside the range.
+      const parentsFor = (f) => all.filter((p, i) => i === 0 || judged(p, f));
+      const parents = all;
       const approvalsTouched = [];
       for (const file of files) {
         const ls = git(['ls-tree', '-z', sha, '--', file], { cwd: root });
@@ -141,17 +163,17 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         if (file === afile) {
           const text = show(root, sha, file) || '';
           const now = approvalsBlock(text, heading);
-          const was = parents.length ? parents.map((p) => approvalsBlock(show(root, p, file), heading)) : [''];
+          const was = parents.length ? parentsFor(file).map((p) => approvalsBlock(show(root, p, file), heading)) : [''];
           if (!was.includes(now)) approvalsTouched.push({ file, line: Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1) });
         }
         if (isInstructionFile(file)) {
-          const before = parents.length ? parents.map((p) => show(root, p, file) || '') : [''];
+          const before = parents.length ? parentsFor(file).map((p) => show(root, p, file) || '') : [''];
           const added = (show(root, sha, file) || '').split('\n').filter((l) => APPROVAL_WORDS.test(l) && !before.some((b) => b.split('\n').includes(l)));
           if (added.length && !approvalsTouched.some((t2) => t2.file === file)) approvalsTouched.push({ file, line: 1 });
         } else if (file === CONFIG_FILE) {
           const ap = (t2) => { try { const c = JSON.parse(t2 || '{}'); return JSON.stringify([c.approvals ?? null, c.record_since ?? null]); } catch { return 'unreadable'; } };
           const now = ap(show(root, sha, file));
-          const was = parents.length ? parents.map((p) => ap(show(root, p, file))) : [ap(null)];
+          const was = parents.length ? parentsFor(file).map((p) => ap(show(root, p, file))) : [ap(null)];
           if (!was.includes(now)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
         }
       }
