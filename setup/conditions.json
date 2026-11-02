@@ -99,6 +99,22 @@
       "read": "process/config.json on origin/<tranche>, through git: coordinator"
     },
     {
+      "id": "environment",
+      "what": "Every variable the product's process/config.json lists under \"environment\" (for example CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID) is present in the environment of the session running the check.",
+      "why": "The process deploys the product so walkers can run and each round can find and fix flaws, unattended; deploy tokens in the session environment are a standard condition (Bob, 2 Nov).",
+      "value": "the names in process/config.json \"environment\"; not configured when the config lists none",
+      "who": "the developer (the Claude cloud environment's settings)",
+      "read": "the environment of the session running the check: names only, never a value, a length or a prefix"
+    },
+    {
+      "id": "deploy-account",
+      "what": "When process/config.json names \"cloudflare_account\", the session's CLOUDFLARE_ACCOUNT_ID is that account.",
+      "why": "Deploys must reach the product's own account and no other.",
+      "value": "CLOUDFLARE_ACCOUNT_ID equals process/config.json cloudflare_account; not configured when the config names none",
+      "who": "the developer (the Claude cloud environment's settings)",
+      "read": "the environment of the session running the check: a match, yes or no; only the configured account is printed; Cloudflare's API is not called"
+    },
+    {
       "id": "actions-settings",
       "what": "Workflows get a read-only token by default, and GitHub Actions may not create or approve pull requests.",
       "why": "Only the gate's post job is given a write token, by its own permissions block; nothing else in Actions can approve its own way into the tranche.",

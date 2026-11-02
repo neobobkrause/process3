@@ -102,6 +102,23 @@ const readers = {
     return (days >= c.value.min_days ? set : missing)(`the newest gate-row artifact (${newest.created_at}) is kept ${days} days`);
   },
 
+  // Deploy tokens are a standard condition (Bob, 2 Nov). Names only: never a value, a length or
+  // a prefix. Cloudflare's API is never called.
+  environment: (c, x) => {
+    const names = x.cfg.environment;
+    if (names === undefined) return { state: 'not configured', detail: 'process/config.json lists no environment' };
+    if (!Array.isArray(names) || !names.every((n) => typeof n === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(n))) return missing('process/config.json "environment" is not a list of variable names');
+    const absent = names.filter((n) => !x.env[n]);
+    return absent.length ? missing(`not in this session's environment: ${absent.join(', ')}`) : set(`present: ${names.join(', ')}`);
+  },
+
+  'deploy-account': (c, x) => {
+    const want = x.cfg.cloudflare_account;
+    if (want === undefined) return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (!x.env.CLOUDFLARE_ACCOUNT_ID) return missing(`CLOUDFLARE_ACCOUNT_ID is not in this session's environment (configured: ${want})`);
+    return x.env.CLOUDFLARE_ACCOUNT_ID === String(want) ? set(`CLOUDFLARE_ACCOUNT_ID matches ${want}: yes`) : missing(`CLOUDFLARE_ACCOUNT_ID matches ${want}: no`);
+  },
+
   coordinator: (c, x) => {
     const text = x.file('process/config.json');
     if (text === null) return missing(`no process/config.json on ${x.cfg.tranche}`);
@@ -112,11 +129,11 @@ const readers = {
 };
 export const READERS = Object.keys(readers);
 
-// Every condition, read or confirmed. ok is false when any condition is missing; unmeasured
-// and confirmed conditions do not stop a start.
+// Every condition, read or confirmed. ok is false when any condition is missing; unmeasured,
+// not configured and confirmed conditions do not stop a start.
 export function setupCheck(root, { slug, conditions = loadConditions(), io = {}, log = console.log } = {}) {
   const local = loadConfig(root);
-  const x = { slug, api: io.api || api };
+  const x = { slug, api: io.api || api, env: io.env || process.env };
   x.file = io.file || tranche(root, local.tranche);
   // The tranche's own config, when it has one, names the tranche and the required check.
   let cfg = local;

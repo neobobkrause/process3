@@ -33,7 +33,8 @@ function world() {
     },
     branches: { main: rules(), tranche: rules() },
     artifacts: { artifacts: [{ created_at: '2026-11-02T14:34:28Z', expires_at: '2027-01-31T14:33:29Z' }, { created_at: '2026-11-01T10:00:00Z', expires_at: '2026-11-02T10:00:00Z' }] },
-    files: { '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY } }), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob' }) },
+    files: { '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY } }), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
+    env: { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value', CLOUDFLARE_ACCOUNT_ID: 'acc123' },
     asked: [],
   };
   w.io = {
@@ -50,6 +51,7 @@ function world() {
     },
     file: (f) => w.files[f] ?? null,
   };
+  Object.defineProperty(w.io, 'env', { get: () => w.env, enumerable: true });
   return w;
 }
 const root = () => makeRepo({ 'README.md': 'x' });
@@ -68,7 +70,7 @@ test('a complete setup is all set, and the four unreadable conditions are confir
   const out = [];
   const r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
   assert.equal(r.ok, true, out.join('\n'));
-  assert.deepEqual(r.results.filter((x) => x.state === 'set').map((x) => x.id), READERS);
+  assert.deepEqual(r.results.filter((x) => x.state === 'set').map((x) => x.id).sort(), [...READERS].sort());
   assert.match(state(r, 'artifact-retention').detail, /kept 90 days/);
   assert.ok(!w.asked.some((p) => /actions\/permissions|secrets|collaborators|environments/.test(p)), w.asked.join(', '));
   assert.match(out.join('\n'), /- confirmed: secrets: confirmed once on the onboarding page/);
@@ -176,7 +178,7 @@ test('the files are read from the tranche on origin, through git', () => {
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   // The local checkout is main, which has neither file.
   git(['checkout', '-q', 'main'], { cwd: r });
-  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api }, log: quiet });
+  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env }, log: quiet });
   assert.equal(res.ok, true, JSON.stringify(res.results));
   assert.equal(state(res, 'coordinator').detail, 'session_bob');
 });
@@ -233,4 +235,38 @@ test('the step check fails on a missing step and on an unknown condition', () =>
   assert.deepEqual(steps[0].sets.filter((id) => !ids.includes(id)), ['no-such-id']);
   const developer = loadConditions().filter((c) => /^the developer\b/.test(c.who)).map((c) => c.id);
   assert.ok(developer.filter((id) => !steps[0].sets.includes(id)).includes('deny-list'));
+});
+
+// Deploy tokens are a standard condition (Bob, 2 Nov): present by name, the account matching.
+test('environment: every listed variable is present, and only names are ever printed', () => {
+  const w = world();
+  const out = [];
+  const r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
+  assert.equal(state(r, 'environment').state, 'set');
+  assert.match(state(r, 'environment').detail, /present: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID/);
+  delete w.env.CLOUDFLARE_API_TOKEN;
+  const r2 = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
+  assert.deepEqual(r2.missing, ['environment']);
+  assert.match(state(r2, 'environment').detail, /not in this session's environment: CLOUDFLARE_API_TOKEN$/);
+  assert.doesNotMatch(out.join('\n'), /tok-|SECRET|value|\b16\b/, 'no value, prefix or length');
+  // No list in the config: not configured, which does not stop a start.
+  const n = world();
+  n.files['process/config.json'] = JSON.stringify({ coordinator: 's' });
+  const r3 = check(n);
+  assert.equal(r3.ok, true);
+  assert.equal(state(r3, 'environment').state, 'not configured');
+  assert.equal(state(r3, 'deploy-account').state, 'not configured');
+});
+
+test('deploy-account: CLOUDFLARE_ACCOUNT_ID must be the configured account, reported as yes or no', () => {
+  const w = world();
+  assert.equal(state(check(w), 'deploy-account').detail, 'CLOUDFLARE_ACCOUNT_ID matches acc123: yes');
+  w.env.CLOUDFLARE_ACCOUNT_ID = 'other-account-999';
+  const out = [];
+  const r = setupCheck(root(), { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
+  assert.ok(r.missing.includes('deploy-account'));
+  assert.equal(state(r, 'deploy-account').detail, 'CLOUDFLARE_ACCOUNT_ID matches acc123: no');
+  assert.doesNotMatch(out.join('\n'), /other-account-999/, 'only the configured account is printed');
+  delete w.env.CLOUDFLARE_ACCOUNT_ID;
+  assert.match(state(check(w), 'deploy-account').detail, /CLOUDFLARE_ACCOUNT_ID is not in this session's environment \(configured: acc123\)/);
 });
