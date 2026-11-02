@@ -170,11 +170,15 @@ export function processRepoSetAt(root, rev) {
 // A plain pull request may move the process pin only forward, to a released process3 commit
 // (on its tranche or main) that descends from the base's pin: no unreleased pin, no downgrade.
 // Changing where the process comes from (process_repo) needs the owner's word (third
-// confirming review of PR 14), with two exceptions where the tool already holds that word
+// confirming review of PR 14), with three exceptions where the tool already holds that word
 // (build 22, 2 Nov):
 // - the tranche into main may carry the tranche's process_repo when the commit on the
 //   tranche's first-parent history at which it took that value is the owner's own commit
 //   through GitHub's website (his direct edit, or his website merge of a pull request);
+// - the tranche into main may also carry process_repo when main has no process config at all
+//   (neither at the merge base nor at main's tip) and the tranche's value is exactly
+//   process3's own address: the value onboarding sets, whoever merged it into the tranche
+//   (with no config on main, the tranche's name is the default one);
 // - at onboarding, a pull request into the tranche may set process_repo to process3's own
 //   address when the base has no process config at all.
 // at: { intoMain, intoTranche, baseRef, ownerCommit(sha) -> { ok } }.
@@ -192,6 +196,10 @@ export function pinChange(root, mb, sha, repo, at = {}) {
   if (usable && at.intoMain && at.ownerCommit) {
     const c = processRepoSetAt(root, sha);
     if (c && at.ownerCommit(c)?.ok === true) return;
+  }
+  if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef)) {
+    const own = repo.address?.();
+    if (own && value === own) return;
   }
   if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef))) {
     const own = repo.address?.();
@@ -251,7 +259,6 @@ export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, log = console.log } = opts;
   const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), ...(opts.io || {}) };
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
-  const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
@@ -262,20 +269,22 @@ export function mergePlain(root, n, opts = {}) {
   if (isJob(head)) fail(`pull request ${n} is a job's (${head}); merge it without --plain`);
   if (isJob(base)) fail(`pull request ${n} is into ${base}, a job's branch`);
   const main = base === 'main' || base === pr.base.repo?.default_branch;
-  if (main && head !== cfg.tranche) fail(`only the tranche ${cfg.tranche} merges into ${base}, not ${head}`);
 
   // The base and head as GitHub has them, fetched so they are read here, not trusted.
-  git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`, `+refs/heads/${head}:refs/remotes/origin/${head}`], { cwd: root });
+  git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root });
   const baseRef = `origin/${base}`;
+  // The owner and the tranche's name are read from the base's config, never from the change
+  // it judges or the working tree; an unreadable base config grants no exception.
+  let baseCfg = null;
+  try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
+  if (main && !baseCfg) fail(`${CONFIG_FILE} on ${base} cannot be read, so the tranche's name is unknown; only the tranche merges into ${base}`);
+  if (main && head !== baseCfg.tranche) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
+  git(['fetch', '-q', 'origin', `+refs/heads/${head}:refs/remotes/origin/${head}`], { cwd: root });
   if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
-  // The owner and the tranche's name are read from the base's config, never from the change
-  // it judges; an unreadable base config grants no exception.
-  let baseCfg = null;
-  try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
   pinChange(root, mb, pr.head.sha, io.repo, {
     intoMain: main && Boolean(baseCfg) && head === baseCfg.tranche, intoTranche: Boolean(baseCfg) && base === baseCfg.tranche, baseRef,
     ownerCommit: (c) => webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug),
@@ -288,7 +297,7 @@ export function mergePlain(root, n, opts = {}) {
 
   const rules = io.requiredChecks(slug, base);
   if (!rules) fail(`could not read the checks ${base} requires`);
-  if (!rules.checks.length && (main || base === cfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
+  if (!rules.checks.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
   if (rules.strict && git(['merge-base', '--is-ancestor', baseRef, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} requires an up-to-date head, and ${head} does not contain ${base}'s tip`);
   const red = rules.checks.map((c) => checkGreen(root, slug, baseRef, pr.head.sha, c, io, approved)).filter(Boolean);
   if (red.length) fail(`not every required check is green on ${pr.head.sha.slice(0, 10)}: ${red.join('; ')}`);
@@ -297,8 +306,8 @@ export function mergePlain(root, n, opts = {}) {
 
   // Module code goes through a job (ARC-2): in a product, a plain merge may not touch any ledger
   // entry's paths or tests. The tranche itself (into main, or into a working branch) carries
-  // only work that came through the gate.
-  if (head !== cfg.tranche) {
+  // only work that came through the gate. The tranche's name is the base's, as above.
+  if (!baseCfg || head !== baseCfg.tranche) {
     const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
     const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
     if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);
