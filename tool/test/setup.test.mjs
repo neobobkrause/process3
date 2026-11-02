@@ -203,7 +203,7 @@ test('the files are read from the tranche on origin, through git', () => {
   // The approvals' last change and the session's branch are read through git too.
   const sha = git(['rev-parse', 'origin/tranche'], { cwd: r });
   assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${sha.slice(0, 10)}`);
-  assert.equal(state(res, 'session-branch').detail, 'this checkout (main) is on main, not the tranche branch. Start the session from the tranche branch');
+  assert.equal(state(res, 'session-branch').detail, 'this checkout is main, not the tranche branch. Start the session from the tranche branch');
   // A later commit on the tranche that leaves the block alone does not move its last change;
   // one that edits the block does, and it is not the owner's website commit.
   git(['checkout', '-q', 'tranche'], { cwd: r });
@@ -415,8 +415,12 @@ test('deploy-token: one harmless read per scope, each reported present or missin
   const n = world();
   n.files['process/config.json'] = JSON.stringify({ coordinator: 's' });
   assert.equal(state(check(n), 'deploy-token').state, 'not configured');
-  n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: null });
-  assert.equal(state(check(n), 'deploy-token').state, 'not configured');
+  for (const acct of [null, '']) {
+    n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: acct, environment: null });
+    const rn = check(n);
+    assert.equal(rn.ok, true, JSON.stringify(rn.missing));
+    for (const id of ['deploy-token', 'deploy-account', 'environment']) assert.equal(state(rn, id).state, 'not configured', `${id} with ${JSON.stringify(acct)}`);
+  }
   assert.equal(n.cfAsked.length, 0);
 });
 
@@ -526,7 +530,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['checkout', '-q', 'build/x'], { cwd: r });
   assert.deepEqual(on(), { ok: false, why: 'build/x holds older approvals than origin/tranche', fix: 'Bring it up to date with tranche (git pull origin tranche), or start the session from the tranche branch' });
   git(['checkout', '-q', 'main'], { cwd: r });
-  assert.equal(why(), 'this checkout (main) is on main, not the tranche branch');
+  assert.equal(why(), 'this checkout is main, not the tranche branch');
   git(['checkout', '-q', '-b', 'from-main'], { cwd: r });
   assert.equal(why(), 'this checkout (from-main) is on main, not the tranche branch');
   commit(r, { 'f.txt': 'f' }, 'work off main');
@@ -543,7 +547,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   git(['push', '-q', 'origin', 'main'], { cwd: r });
   // Right after the release merge, before the tranche moves on: main, detached at main, or a
   // branch at main's tip under any name, is refused (third re-review).
-  assert.equal(why(), 'this checkout (main) is on main, not the tranche branch');
+  assert.equal(why(), 'this checkout is main, not the tranche branch');
   git(['checkout', '-q', '--detach', 'main'], { cwd: r });
   assert.match(why(), /^this checkout \(detached at [0-9a-f]+\) is on main, not the tranche branch$/);
   git(['checkout', '-q', '-b', 'claude/runner', 'main'], { cwd: r });
@@ -569,7 +573,7 @@ test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch
   commit(r, { 'w.txt': 'w' }, 'tranche moves on again');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   git(['checkout', '-q', 'main'], { cwd: r });
-  assert.deepEqual(on(), { ok: false, why: 'this checkout (main) is on main, not the tranche branch', fix: 'Start the session from the tranche branch' });
+  assert.deepEqual(on(), { ok: false, why: 'this checkout is main, not the tranche branch', fix: 'Start the session from the tranche branch' });
   git(['checkout', '-q', '--detach', 'main'], { cwd: r });
   assert.match(why(), /^this checkout \(detached at [0-9a-f]+\) is on main, not the tranche branch$/);
   // An orphan branch carrying the same approvals text shares no history with the tranche.
@@ -652,7 +656,7 @@ test('end to end: job start on a checkout of main, with the real setup check rea
   git(['checkout', '-q', 'main'], { cwd: r });
   const setup = (root, o) => setupCheck(root, { ...o, slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, branchExists: () => true } });
   assert.throws(() => jobStart(r, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup, log: quiet }),
-    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. this checkout \(main\) is on main, not the tranche branch\. Start the session from the tranche branch$/);
+    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. this checkout is main, not the tranche branch\. Start the session from the tranche branch$/);
 });
 
 test('a second tranche with no config of its own keeps the first tranche\'s settings, and the coordinator still reports its config missing', () => {

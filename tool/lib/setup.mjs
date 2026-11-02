@@ -80,7 +80,7 @@ export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.ap
   const head = g(['rev-parse', 'HEAD']).stdout.trim();
   const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
   const trancheTip = g(['rev-parse', ref]).stdout.trim();
-  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: `${abbrev === 'HEAD' ? here : `this checkout (${abbrev})`} is on ${main}, not the ${name} branch`, fix: restart };
+  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) return { ok: false, why: abbrev === main ? `this checkout is ${main}, not the ${name} branch` : `${abbrev === 'HEAD' ? here : `this checkout (${abbrev})`} is on ${main}, not the ${name} branch`, fix: restart };
   if (mainTip) {
     const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
     const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
@@ -214,7 +214,7 @@ const readers = {
   // a prefix. This reader never calls Cloudflare's API; only deploy-token does, with harmless reads.
   environment: (c, x) => {
     const names = x.cfg.environment;
-    if (names === undefined) return { state: 'not configured', detail: 'process/config.json lists no environment' };
+    if (names === undefined || names === null) return { state: 'not configured', detail: 'process/config.json lists no environment' };
     if (!Array.isArray(names) || !names.every((n) => typeof n === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(n))) return missing('process/config.json "environment" is not a list of variable names');
     const absent = names.filter((n) => !x.env[n]);
     return absent.length ? missing(`not in this session's environment: ${absent.join(', ')}`) : set(`present: ${names.join(', ')}`);
@@ -222,7 +222,7 @@ const readers = {
 
   'deploy-account': (c, x) => {
     const want = x.cfg.cloudflare_account;
-    if (want === undefined) return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
+    if (want === undefined || want === null || want === '') return { state: 'not configured', detail: 'process/config.json names no cloudflare_account' };
     if (!x.env.CLOUDFLARE_ACCOUNT_ID) return missing(`CLOUDFLARE_ACCOUNT_ID is not in this session's environment (configured: ${want})`);
     return x.env.CLOUDFLARE_ACCOUNT_ID === String(want) ? set(`CLOUDFLARE_ACCOUNT_ID matches ${want}: yes`) : missing(`CLOUDFLARE_ACCOUNT_ID matches ${want}: no`);
   },
