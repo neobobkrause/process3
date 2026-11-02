@@ -126,21 +126,36 @@ export function checkRun(slug, sha, name) {
   return runs[0] || null;
 }
 
-// The checks a branch's rulesets require, by name (merge --plain), or null when they cannot be
-// read. Read from the rulesets, not classic branch protection (Bob's rulesets, 2 Nov).
+// The checks a branch's rulesets require (merge --plain): each by name with the app the rule
+// names (its integration_id, or null for any app), and whether the strict policy is on. null
+// when the rules cannot be read. Read from the rulesets, not classic branch protection.
+export const ACTIONS_APP = 15368; // GitHub Actions
 export function requiredChecks(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
   const path = branch.split('/').map(encodeURIComponent).join('/');
   const rules = read(['api', `repos/${slug}/rules/branches/${path}?per_page=100`]);
   if (!Array.isArray(rules)) return null;
-  return [...new Set(rules.filter((r) => r.type === 'required_status_checks')
-    .flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => c.context)))];
+  const rs = rules.filter((r) => r.type === 'required_status_checks');
+  const checks = [];
+  for (const c of rs.flatMap((r) => r.parameters?.required_status_checks || [])) {
+    const app = c.integration_id ?? null;
+    if (!checks.some((k) => k.context === c.context && k.app === app)) checks.push({ context: c.context, app });
+  }
+  return { checks, strict: rs.some((r) => r.parameters?.strict_required_status_checks_policy === true) };
 }
 
-// A named check on a commit: the newest check run's conclusion (or its status while it runs),
-// else a commit status of that context, else 'missing'.
-export function checkState(slug, sha, name, { read = checkRun, statuses = (s, c) => gh(['api', `repos/${s}/commits/${c}/status`], { allowFail: true }) } = {}) {
-  const r = read(slug, sha, name);
-  if (r) return r.status === 'completed' ? r.conclusion : r.status;
-  const st = (statuses(slug, sha)?.statuses || []).find((x) => x.context === name);
-  return st ? st.state : 'missing';
+// Every check run of that name on a commit, newest first; null when unreadable. Only check
+// runs: a commit status can be posted by any account with write access (review of PR 14).
+export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const r = read(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=all&per_page=100`]);
+  if (!r || !Array.isArray(r.check_runs)) return null;
+  return [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0));
+}
+
+// The workflow file behind an Actions check run, through its check suite's workflow run.
+export function workflowPath(slug, run, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const id = run.check_suite?.id;
+  if (!id) return null;
+  const r = read(['api', `repos/${slug}/actions/runs?check_suite_id=${id}&per_page=1`]);
+  const path = r?.workflow_runs?.[0]?.path;
+  return path ? String(path).split('@')[0] : null;
 }
