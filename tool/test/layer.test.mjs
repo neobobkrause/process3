@@ -1,4 +1,4 @@
-// Build Plan Phase 3: layer start and layer close (INT-4, ARC-4).
+// Build Plan Phase 3: a layer ready to close, layer close, and the next layer (INT-4, ARC-4).
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -66,6 +66,14 @@ test('a closed layer: the next layer is listed, its deferred marks shown and not
   // A row whose commit is already on main (a tranche merged before) does not count.
   git(['update-ref', 'refs/remotes/origin/main', tip], { cwd: root });
   assert.equal(status(root, { role: 'bob', offline: true, log: quiet }).layer.cur.n, 1);
+  // Online, GitHub's compare says whether it is on main (a shallow clone cannot): here it is not.
+  git(['update-ref', '-d', 'refs/remotes/origin/main'], { cwd: root });
+  git(['remote', 'add', 'origin', join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'p.git')], { cwd: root });
+  const asked = [];
+  const on = (ahead) => ({ openPRs: () => [], checkRun: () => null, compare: (s, b, h) => { asked.push([s, b, h]); return { ahead_by: ahead }; } });
+  assert.equal(status(root, { role: 'bob', log: quiet, io: on(1) }).layer.cur.n, 2);
+  assert.deepEqual(asked.at(-1).slice(1), ['main', tip]);
+  assert.equal(status(root, { role: 'bob', log: quiet, io: on(0) }).layer.cur.n, 1);
 });
 
 function withOrigin(files) {

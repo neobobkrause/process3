@@ -12,7 +12,7 @@ import { entryFile } from './ledger.mjs';
 import { fetchState, writeState } from './state.mjs';
 import { CLOSED_FILE, closedRows, layerState, nextWork, status } from './status.mjs';
 import { install, runSuite } from './suite.mjs';
-import { depth, fail, git, loadConfig, now, run } from './util.mjs';
+import { depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -24,11 +24,11 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
   const s = status(root, { log: () => {}, io });
   if (s.prs === null) fail('GitHub unreadable: open pull requests not known, so the layer cannot be closed');
   fetchState(root, cfg.state_branch, { fresh: true });
-  const closed = closedRows(root, cfg);
+  const closed = closedRows(root, cfg, { slug: repoSlug(root), ...(io?.compare ? { read: io.compare } : {}) });
   const ls = layerState(root, cfg, s.rows, tranche, { closed });
   if (!ls) fail(`no layer map (${cfg.layers_file}) on ${tranche}`);
   if (ls.cur?.n !== Number(n)) fail(`layer ${n} is not the open layer; the open layer is ${ls.cur ? ls.cur.n : 'none'}`);
-  if (!ls.ready) fail(`layer ${n} is not ready to close: ${ls.cur.mods.filter((m) => m.open || (!m.merged && m.marks.length)).map((m) => `${m.id} ${m.open ? 'has an open job' : 'has no merged job'}`).join('; ')}`);
+  if (!ls.ready) fail(`layer ${n} is not ready to close: ${ls.cur.mods.filter((m) => m.open || (!m.merged && m.marks.length)).map((m) => `${m.id} ${m.open ? 'has an open job' : m.row?.flag ? `is flagged: ${m.row.flag}` : 'has no merged job and unmet marks'}`).join('; ')}`);
   const sha = git(['rev-parse', tranche], { cwd: root });
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const wt = join(mkdtempSync(join(tmpdir(), 'p3-layer-')), 'w');

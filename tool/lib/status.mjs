@@ -114,7 +114,7 @@ export function status(root, { role, module, context, live, offline = false, log
   if (role === 'bob') {
     const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
-    out.layer = layerState(root, cfg, rows, ref);
+    out.layer = layerState(root, cfg, rows, ref, { closed: closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare }) });
     out.next = halt ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer });
     return out;
   }
@@ -166,13 +166,18 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
 
 // A layer closed by `layer close` (INT-4): one row per close in layers/closed.jsonl on the state
 // branch, BOB the one writer. A row counts for this tranche only: its tranche name, and its commit
-// not yet on main (a row from a tranche already merged into main is stale). In a shallow clone
-// main's history may not reach the commit; the row then counts.
+// not yet on main (a row from a tranche already merged into main is stale). On main is GitHub's
+// compare when online (a shallow clone's history, and a stale origin/main, cannot say; review of
+// PR 48), else the local ancestry.
 export const CLOSED_FILE = 'layers/closed.jsonl';
-export function closedRows(root, cfg) {
+export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
+  const onMain = (sha) => {
+    const c = slug ? read(slug, 'main', sha) : null;
+    if (Number.isInteger(c?.ahead_by)) return c.ahead_by === 0;
+    return git(['merge-base', '--is-ancestor', sha, 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
+  };
   return (readState(root, cfg.state_branch, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } })
-    .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer)
-      && git(['merge-base', '--is-ancestor', String(r.commit), 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code !== 0);
+    .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }
 
 const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
@@ -197,7 +202,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const row = rows.find((r) => r.id === id || r.req === file);
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
       const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
-      return { id, file, open, merged, marks: marks(file) };
+      return { id, file, open, merged, marks: marks(file), row };
     }) }))
     .sort((a, b) => a.n - b.n);
   for (const L of layers) L.closed = recorded.has(L.n) || L.mods.every((m) => !m.open && !m.marks.length);
