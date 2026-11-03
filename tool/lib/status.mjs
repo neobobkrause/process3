@@ -7,6 +7,7 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { fetchState, handoffFile, readState, undelivered } from './state.mjs';
 import { fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
@@ -26,7 +27,7 @@ export function status(root, { role, module, context, offline = false, log = con
     let e;
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
     const branch = `origin/job/${e.id}`;
-    const row = { id: e.id, tranche: e.status?.state };
+    const row = { id: e.id, tranche: e.status?.state, req: e.requirements };
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
@@ -82,7 +83,11 @@ export function status(root, { role, module, context, offline = false, log = con
     log(`reading set for job ${module}: ${set.bytes} bytes`);
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
-  if (role === 'bob') return { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
+  if (role === 'bob') {
+    const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
+    out.next = nextWork(root, cfg, rows, haveTranche ? tranche : null, log);
+    return out;
+  }
   return { rows, sessions };
 }
 
@@ -125,4 +130,33 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   L.push(`reading set for bob: ${files.reduce((s, x) => s + x.b, 0)} bytes; ${files.map((x) => `${x.f} ${x.b}`).join(', ')}`);
   for (const l of L) log(l);
   return { rows, undelivered: owedMsgs };
+}
+
+// Next work: while fewer than jobs_at_once jobs are open, the requirement files with an unmet
+// requirement and no open job, fewest unmet first (small, finishable modules first).
+export function nextWork(root, cfg, rows, ref, log = console.log) {
+  const open = rows.filter((r) => r.tranche !== 'COMPLETE');
+  if (open.length >= cfg.jobs_at_once) return [];
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  const taken = new Set(open.map((r) => r.req));
+  let names;
+  if (ref) {
+    const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
+    names = r.code === 0 ? r.stdout.split('\n') : [];
+  } else names = existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : [];
+  const list = [];
+  for (const n of names.filter((x) => x.endsWith('.md') && x !== 'README.md')) {
+    const f = `${dir}/${n}`;
+    if (taken.has(f)) continue;
+    const text = ref ? git(['show', `${ref}:${f}`], { cwd: root }) : readFileSync(join(root, f), 'utf8');
+    const count = (text.match(/\*\*R[\w.-]+\*\*\s*\*\(not yet met/g) || []).length;
+    if (count) list.push({ file: f, count });
+  }
+  list.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  if (list.length) {
+    log(`next work (${open.length} of ${cfg.jobs_at_once} jobs open; BOB chooses from these, unmet requirements each):`);
+    for (const x of list.slice(0, 10)) log(`- ${x.file}: ${x.count}`);
+    if (list.length > 10) log(`- and ${list.length - 10} more`);
+  }
+  return list;
 }
