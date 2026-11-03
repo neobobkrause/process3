@@ -58,6 +58,7 @@ jobs:
           name: checks-result
           path: ${{ runner.temp }}/checks.json
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 90
   assemble:
     runs-on: ubuntu-latest
@@ -98,6 +99,7 @@ jobs:
           name: release-files
           path: ${{ steps.cfg.outputs.out }}
           if-no-files-found: error
+          overwrite: true
           retention-days: 90
   # The tag and the draft release. No product code runs here: the files are downloaded, the
   # tool is the pin's, and the pushed commit must already be on the tranche.
