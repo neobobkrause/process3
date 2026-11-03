@@ -238,8 +238,9 @@ export function owedNotices(root, cfg, rows, log = console.log) {
   let all = [];
   try { all = notices(root, cfg.state_branch); } catch { all = []; }
   const named = (u) => {
-    const r = rows.find((x) => x.id === u);
-    if (!r?.branch || (r.tranche === 'COMPLETE' && !r.pr?.startsWith('#'))) return [];
+    // The job branch decides: a start row there that names the notice is a job that names it
+    // (an older merged attempt's row cannot, or the notice would be answered).
+    if (!rows.find((x) => x.id === u)?.branch) return [];
     const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
     return t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
   };

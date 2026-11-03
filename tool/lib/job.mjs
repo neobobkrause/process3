@@ -95,6 +95,11 @@ function noticesFor(root, cfg, id, fetch) {
   } catch { return []; }
 }
 
+// The notices a start row named, with their detail from the state branch when it has them: job
+// complete asks a test for each key the row names, so the START names every one.
+const named = (owed, row) => (row?.notices || []).map((key) => owed.find((x) => x.key === key)
+  || { key, provider: key.split(':')[0], ids: ['(see the state branch)'], pr: key.split(':')[1] });
+
 const commitFiles = (root, paths, msg) => {
   git(['add', '--', ...paths], { cwd: root });
   git(['commit', '-q', '-m', msg, '--', ...paths], { cwd: root });
@@ -146,8 +151,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
   if (push) fetchRef(root, cfg.tranche);
   const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
   const owed = noticesFor(root, cfg, id, push);
-  // A COMPLETE module with an unanswered notice is reopened to answer it.
-  if (!reopen && owed.length && /"state":\s*"COMPLETE"/.test(git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true }).stdout)) reopen = `answer ${owed.length === 1 ? 'the provider notice' : 'the provider notices'} ${owed.map((x) => x.key).join(', ')}`;
+  // A COMPLETE module with an unanswered notice is reopened to answer it; not when its branch
+  // holds an unfinished start, which resumes with its own task.
+  const unfinished = () => push && remoteTip(root, branch) && (fetchRef(root, branch), aheadBy(root, { slug, base: cfg.tranche, head: branch, local: [from, `origin/${branch}`], read: cmp }) !== 0);
+  if (!reopen && owed.length && /"state":\s*"COMPLETE"/.test(git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true }).stdout) && !unfinished()) reopen = `answer ${owed.length === 1 ? 'the provider notice' : 'the provider notices'} ${owed.map((x) => x.key).join(', ')}`;
 
   // A reopen restarts a branch whose last attempt merged (its tip is in the tranche). Anything
   // else on the remote branch is either an unfinished start, resumed below, or refused there.
@@ -175,7 +182,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task, notices: owed.filter((x) => (startRow?.notices || []).includes(x.key)) });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task, notices: named(owed, startRow) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -281,7 +288,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
     entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: startRow?.reopen,
-    notices: noticesFor(root, cfg, id, true).filter((x) => (startRow?.notices || []).includes(x.key)),
+    notices: named(noticesFor(root, cfg, id, true), startRow),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });

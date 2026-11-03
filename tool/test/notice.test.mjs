@@ -9,8 +9,8 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { jobComplete, jobStart } from '../lib/job.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
-import { NOTICES_FILE, changedIds, notices, providerNotice, recordAtMerge, unanswered } from '../lib/notice.mjs';
-import { fetchState, jsonl, readState } from '../lib/state.mjs';
+import { changedIds, noticeFile, notices, providerNotice, recordAtMerge, unanswered } from '../lib/notice.mjs';
+import { fetchState, readState } from '../lib/state.mjs';
 import { owedNotices, status } from '../lib/status.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
@@ -78,7 +78,7 @@ test('recordAtMerge writes the notice once and an answer per user; the other use
 
 test('job start <user> puts the notice in the START and its start row; job complete needs its test, which the receipt names', () => {
   const root = product();
-  onState(root, { [NOTICES_FILE]: JSON.stringify(NOTICE) + '\n' });
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
   const { start } = jobStart(root, 'u1', { coordinator: 's', push: false, log: quiet });
   assert.match(start, /## Provider notices/);
   assert.match(start, /`p:7`: provider `p` changed R1, R2, R4 \(PR 7\)/);
@@ -101,7 +101,7 @@ test('job start on a COMPLETE user with a notice reopens it to answer the notice
   git(['checkout', '-q', 'tranche'], { cwd: root });
   commit(root, { 'process/ledger/u2.json': entry('u2', { status: { state: 'COMPLETE' } }) });
   git(['checkout', '-q', 'main'], { cwd: root });
-  onState(root, { [NOTICES_FILE]: JSON.stringify(NOTICE) + '\n' });
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
   const { start } = jobStart(root, 'u2', { coordinator: 's', push: false, log: quiet });
   assert.match(start, /reopens the module after an earlier attempt merged\. What it must do: answer the provider notice p:7/);
 });
@@ -113,7 +113,7 @@ test('status --role bob lists each user\'s notice and counts the user as next wo
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   openPassed(root);
-  onState(root, { [NOTICES_FILE]: JSON.stringify(NOTICE) + '\n' });
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   const text = out.join('\n');
@@ -125,7 +125,7 @@ test('status --role bob lists each user\'s notice and counts the user as next wo
 
 test('a user whose open job names the notice is no longer listed; one whose job does not still is', () => {
   const root = product();
-  onState(root, { [NOTICES_FILE]: JSON.stringify(NOTICE) + '\n' });
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
   git(['checkout', '-q', '-b', 'job/u1', 'tranche'], { cwd: root });
   commit(root, { 'process/metrics/u1.jsonl': JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n' });
   git(['update-ref', 'refs/remotes/origin/job/u1', 'HEAD'], { cwd: root });
@@ -169,6 +169,21 @@ test('merge of the provider\'s job records the notice; merge of a user\'s job an
   assert.deepEqual(r2.notices.rows.map((x) => [x.row, x.key, x.user]), [['answered', 'p:7', 'u1']]);
   const sb = loadConfig(root).state_branch;
   fetchState(root, sb, { fresh: true });
-  assert.equal(jsonl(readState(root, sb, NOTICES_FILE)).length, 2);
+  assert.equal(JSON.parse(readState(root, sb, 'notices/answered/u1-p-7.json')).key, 'p:7');
   assert.deepEqual(notices(root, sb)[0].open, ['u2']);
+});
+
+test('merge run again on a merged job pull request records only its provider notices, once', () => {
+  const root = product();
+  git(['checkout', '-q', '-b', 'job/p', 'tranche'], { cwd: root });
+  const head = commit(root, { 'req/p.md': REQ.replace('*(not yet met: x)* ', '') });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/p'], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const io = { getPR: () => ({ state: 'closed', merged: true, merge_commit_sha: m, head: { ref: 'job/p', sha: head }, base: { ref: 'tranche' } }) };
+  const r = merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet });
+  assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.users]), [['notice', 'p:7', ['u1', 'u2']]]);
+  assert.deepEqual(merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet }).notices.rows, [], 'a second run adds nothing');
 });
