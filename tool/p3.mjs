@@ -11,6 +11,7 @@ import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { trancheReport } from './lib/report.mjs';
+import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
@@ -184,6 +185,20 @@ const commands = {
     console.log(md);
     return 0;
   },
+
+  // release dev [--version <v>]: BOB's development release (development only; there is no public
+  // release): refused unless the layers allow it, the checkout is the tranche tip and the config
+  // has "release"; prints the push of p3dev-release/<v>, the run to watch and the record.
+  // release dev --record <run url>: the run's row (version, commit, run, draft release, checks) on the state branch.
+  'release dev': (a, root) => (releaseDev(root, { version: a.version === true ? fail('--version <v>') : a.version, record: a.record === true ? fail('--record <run url>') : a.record }).ok ? 0 : 1),
+  // release run checks|assemble [--out <results.json>]: the shim's read-only jobs (process-dev-release.yml).
+  'release run': (a, root) => (releaseRun(root, one(a, 'step (checks or assemble)'), { out: a.out }).ok ? 0 : 1),
+  // release version --branch <ref>: the version a p3dev-release/<v> branch names, printed (the shim's publish job).
+  'release version': (a) => { console.log(versionOf(a.branch)); return 0; },
+  // release sign <dir>: SHA256SUMS and its Ed25519 signature, the PEM key in P3_SIGN_KEY (only when release.sign_secret is set).
+  'release sign': (a) => { releaseSign(one(a, 'directory')); return 0; },
+  // release body <checks.json> --version <v> --commit <sha>: the draft release's body.
+  'release body': (a) => { console.log(releaseBody(one(a, 'checks file'), { version: a.version, commit: a.commit })); return 0; },
 
   // review brief <pr> [--scope "<text>"]: prints the fresh-context brief a reviewer subagent is
   // given, filled from the pull request (build N). Writes nothing.
