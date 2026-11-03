@@ -2,7 +2,7 @@
 // record alone: the ledger and metrics rows the tranche holds, the state branch's sweep, handover,
 // address and closed-layer rows, and the pull requests merged into the tranche. Every figure the
 // record lacks prints "unmeasured", never a guess. Overhead is metrics report's (overhead()).
-import { comments as ghComments, gateRuns } from './github.mjs';
+import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
@@ -64,7 +64,7 @@ function recordOnly(root, cfg, base, tip) {
 export function trancheReport(root, cfg, { slug, now = new Date().toISOString(), stateRead = false, io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   const tip = gitOut(root, ['rev-parse', '--verify', '-q', tranche]) ? tranche : 'HEAD';
-  const read = { state: () => null, merged: () => (slug ? mergedPRs(slug, cfg.tranche) : null), comments: (n) => ghComments(slug, n), ...io };
+  const read = { state: () => null, merged: () => (slug ? mergedPRs(slug, cfg.tranche) : null), comments: (n) => ghComments(slug, n), compare: (sha) => (slug ? ghCompare(slug, 'main', sha) : null), ...io };
   const stateJsonl = (p) => { const t = stateRead ? read.state(p) : null; return t === null ? null : t.split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }); };
   const show = (ref, f) => (ref && exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null);
   const rows = rowsAt(root, tip);
@@ -95,20 +95,32 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
     return { m, layer: layers.get(m) ?? null, prs: [...new Set(mergeRows.filter((r) => r.module === m).map((r) => r.pr))], met, unmet: now_.unmet, state: ledger.find((e) => e.id === m)?.status?.state ?? 'no ledger entry' };
   });
   L.push('## Work', '');
-  L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); job merges recorded: ${mergeRows.length}` : `${s.open && s.open !== U ? merged.filter((p) => p.merged_at >= s.open).length : `${merged.length} in all, since the tranche's opening ${U}`} (${mergeRows.length} job merges recorded; the rest plain)`}.`, '');
+  L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); job merges recorded: ${mergeRows.length}` : `${s.open && s.open !== U ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(s.open)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${mergeRows.length} job merges recorded; the rest plain)`}.`, '');
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
   // layer close's rows (status.mjs closedRows' rule): this tranche's name, and a commit the tranche
   // holds that main lacked when the tranche opened (closedRows' "not on main", which a tranche
   // already merged into main can no longer use).
-  const inSpan = (sha) => gitOut(root, ['merge-base', '--is-ancestor', sha, tip]) !== null && (!s.base || gitOut(root, ['merge-base', '--is-ancestor', sha, s.base]) === null);
-  const closedBy = new Map((closed || []).filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && inSpan(String(r.commit))).map((r) => [r.layer, r]));
+  // Where the clone cannot say (a shallow clone lacks the commit, or the opening is unknown), an
+  // open tranche asks GitHub's compare as closedRows does; otherwise the close is unmeasured.
+  const inSpan = (sha) => {
+    if (s.base && gitOut(root, ['cat-file', '-e', `${sha}^{commit}`]) !== null) {
+      return gitOut(root, ['merge-base', '--is-ancestor', sha, tip]) !== null && gitOut(root, ['merge-base', '--is-ancestor', sha, s.base]) === null;
+    }
+    if (s.close) return null;
+    let c = null;
+    try { c = read.compare(sha); } catch { c = null; }
+    return Number.isInteger(c?.ahead_by) ? c.ahead_by > 0 : null;
+  };
+  const mine = (closed || []).filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer)).map((r) => ({ r, in: inSpan(String(r.commit)) }));
+  const closedBy = new Map(mine.filter((x) => x.in === true).map((x) => [x.r.layer, x.r]));
+  const undecided = new Set(mine.filter((x) => x.in === null && !closedBy.has(x.r.layer)).map((x) => x.r.layer));
   for (const n of order) {
     const ws = byLayer.get(n);
     const c = n === null ? null : closedBy.get(n);
     const metCount = ws.every((w) => Array.isArray(w.met)) ? ws.reduce((t, w) => t + w.met.length, 0) : U;
-    L.push(`### ${n === null ? 'Not in the layer map' : `Layer ${n}`}${n === null ? '' : closed === null ? ` (closed: ${U}, state branch not read)` : c ? ` (closed ${c.at} at ${String(c.commit).slice(0, 10)})` : ' (not closed)'}`, '');
+    L.push(`### ${n === null ? 'Not in the layer map' : `Layer ${n}`}${n === null ? '' : closed === null ? ` (closed: ${U}, state branch not read)` : undecided.has(n) ? ` (closed: ${U}, its close row's commit cannot be placed here)` : c ? ` (closed ${c.at} at ${String(c.commit).slice(0, 10)})` : ' (not closed)'}`, '');
     L.push(`Modules ${ws.length}; merged job PRs ${ws.reduce((t, w) => t + w.prs.length, 0)}; marks met ${metCount}.`, '');
     L.push(...table(['module', 'ledger', 'merged PRs', 'marks met'], ws.map((w) => [w.m, w.state, w.prs.map((p) => `#${p}`).join(', ') || 'none', Array.isArray(w.met) ? `${w.met.length}${w.met.length ? ` (${w.met.join(', ')})` : ''}` : U])), '');
   }
@@ -118,20 +130,25 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const def = work.map((w) => {
     const c = w.layer === null ? null : closedBy.get(w.layer);
     const ids = c ? (c.deferred?.[w.m] || []) : w.unmet;
-    return [w.m, c ? `layer ${w.layer} close` : 'tip', ids.length, ids.join(', ') || 'none'];
+    return [w.m, c ? `layer ${w.layer} close` : undecided.has(w.layer) ? `tip (layer ${w.layer} close ${U})` : 'tip', ids.length, ids.join(', ') || 'none'];
   }).filter((r) => r[2] > 0);
   L.push(...(def.length ? table(['module', 'from', 'unmet', 'marks'], def) : ['None.']), '');
 
   // Cost and overhead
   const o = overhead(rows, layers);
   const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
-  const priced = measured.filter((r) => Number.isFinite(Number(r.cost_usd)));
   L.push('## Cost and overhead share', '', `Overhead as \`metrics report\` reckons it: ${o.rule}`, '');
   L.push(...(o.jobs.length ? table(['job', 'layer', 'job cost', 'reviews', 'BOB', 'ROOT', 'gate', 'overhead', 'share', 'unmeasured parts'],
     o.jobs.map((j) => [j.module, j.layer ?? 'none', usd(j.job_usd), usd(j.reviews_usd), usd(j.bob_usd), usd(j.root_usd), usd(j.gate_usd), usd(j.overhead_usd), pct(j.share), j.unmeasured.join(', ') || 'none'])) : [`No job has a measured row: cost per job ${U}.`]), '');
   if (o.layers.length) L.push(...table(['layer', 'jobs', 'overhead', 'share', 'unmeasured parts'], o.layers.map((l) => [l.layer, l.jobs.join(', '), usd(l.overhead_usd), pct(l.share), l.unmeasured.join(', ') || 'none'])), '');
-  const total = priced.reduce((t, r) => t + Number(r.cost_usd), 0);
-  L.push(`- total cost: ${!measured.length ? U : priced.length === measured.length ? usd(total) : `${U} (${usd(total)} over ${priced.length} priced rows; ${measured.length - priced.length} rows without a cost)`}`);
+  // A BOB or ROOT row's cost is its session's cost so far: each such session counts its last row.
+  const proc = (r) => r.role === 'bob' || r.role === 'root';
+  const last = new Map();
+  for (const r of measured.filter(proc).sort((a, b) => String(a.at).localeCompare(String(b.at)))) last.set(r.session || `${r.module} ${r.at}`, r);
+  const counted = [...measured.filter((r) => !proc(r)), ...last.values()];
+  const pricedC = counted.filter((r) => Number.isFinite(Number(r.cost_usd)));
+  const total = pricedC.reduce((t, r) => t + Number(r.cost_usd), 0);
+  L.push(`- total cost: ${!counted.length ? U : pricedC.length === counted.length ? usd(total) : `${U} (${usd(total)} over ${pricedC.length} priced rows; ${counted.length - pricedC.length} without a cost)`}`);
   L.push(`- BOB and ROOT cost not attributed to a job: ${usd(o.unattributed_usd)}`, '');
 
   // Refusals by role and act: the refusal rows (as status counts them); a session's role from the
