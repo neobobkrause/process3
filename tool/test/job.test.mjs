@@ -499,3 +499,30 @@ test('the START says each judged act is its own shell command, never chained wit
   const lines = start.split('\n').filter((l) => /judged act/.test(l));
   assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).']);
 });
+
+// P7: the receipt names the test for each mark the job struck.
+test('job complete names a test for each struck mark, and refuses before marking when one is missing or wrong', () => {
+  const root = product();
+  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: no x)* does x.\n- **R2** *(not yet met: no y)* does y.\n- **R3** done.\n' });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  assert.match(start, /--test R<id>="<test file>::<test name>"/);
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    'req/alpha.md': '# alpha\n\n- **R1** does x.\n- **R2** *(not yet met: no y)* does y.\n- **R3** done.\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
+    'src/alpha/x.mjs': "export const x = 1;\n",
+  });
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  assert.throws(() => run([]), /struck R1 with no --test/);
+  assert.throws(() => run(['R1=src/alpha/x.mjs::x']), /not in the module's tests/);
+  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 y']), /does not contain "R1 y"/);
+  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 x', 'R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck/);
+  assert.throws(() => run(['R1 test/alpha/x.test.mjs']), /write it as R<id>=/);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
+  assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
+  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface']);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x at the interface' }]);
+});
