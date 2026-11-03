@@ -156,7 +156,7 @@ const commands = {
   // hourly routine; prints what ROOT must do and writes the heartbeat. sweep task --session <id>:
   // the hourly task's prompt and create_trigger call.
   sweep: (a, root) => {
-    if (a._[0] === 'task') { const t = sweepTask(a.session); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
+    if (a._[0] === 'task') { const t = sweepTask(a.session, loadConfig(root).tranche); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
     sweep(root, { session: a.session, live: a.live, attempts: list(a.attempt).filter((x) => x !== true) });
     return 0;
   },

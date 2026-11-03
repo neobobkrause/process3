@@ -65,7 +65,7 @@ test('start prints prompts and the create_session call; start bob refuses while 
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: {}, log: quiet }), /no ROOT is addressed/);
   const b = startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R } }, log: quiet });
   assert.ok(b.prompt.includes(R));
-  assert.deepEqual([b.call.source_url, b.call.source_revision, b.call.prompt], ['https://github.com/o/p', 'tranche', b.prompt]);
+  assert.deepEqual([b.call.source_url, b.call.source_revision, b.call.prompt], ['https://github.com/o/p', git(['rev-parse', 'origin/tranche'], { cwd: root }), b.prompt]);
   assert.ok(Buffer.byteLength(b.prompt) < 4096, 'one screen');
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R }, bob: { session: B1 } }, log: quiet }), /handover begin/);
 });

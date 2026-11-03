@@ -117,12 +117,14 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   const s = startRole(root, 'watcher', { slug: 'o/p', address: {}, log: quiet });
   for (const x of ['Priorities first', 'watch --session', 'start record root', 'sweep task', 'push notification']) assert.ok(s.prompt.includes(x), x);
   assert.doesNotMatch(s.prompt, /—/);
-  assert.equal(s.call.source_revision, 'tranche');
+  assert.match(s.call.source_revision, /^[0-9a-f]{40}$/);
+  assert.equal(s.call.source_revision, git(['rev-parse', 'origin/tranche'], { cwd: root }));
   assert.match(s.task.cron_expression, /^\d+ \d+ \* \* \*$/);
   recordStart(root, 'watcher', W, { log: quiet });
   assert.equal(readAddress(root).watcher.session, W);
   assert.throws(() => startRole(root, 'watcher', { slug: 'o/p', log: quiet }), /one per account/);
   const t = sweepTask(R);
+  assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2').prompt.includes('`git fetch origin tr2`'));
   assert.match(t.prompt, new RegExp(`sweep --session ${R} --live`));
   assert.equal(t.call.cron_expression, '0 * * * *');
   const p = rootPrompt({ slug: 'o/p' });
