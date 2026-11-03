@@ -59,7 +59,8 @@ const commands = {
     return 0;
   },
 
-  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>"]: BOB opens a job;
+  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>"] [--over-cap "<why>"]: BOB opens a job;
+  // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
   // No job starts (a reopen included) until the tranche open's grants check has passed; a restart
   // continues a job already started.
@@ -70,7 +71,7 @@ const commands = {
       const o = openState(root, cfg);
       if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
     }
-    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart });
+    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, overCap: a['over-cap'] });
     return 0;
   },
 
