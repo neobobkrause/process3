@@ -65,7 +65,7 @@ test('start prints prompts and the create_session call; start bob refuses while 
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: {}, log: quiet }), /no ROOT is addressed/);
   const b = startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R } }, log: quiet });
   assert.ok(b.prompt.includes(R));
-  for (const t of ['every later turn: `git fetch origin tranche`, then `git checkout -q --detach FETCH_HEAD`, then `git submodule update --init .process`, then `node .process/tool/p3.mjs start check --wake`', 'asking for your handover', 'Answer each sweep message with one `node .process/tool/p3.mjs send root` line', 'Never end your turn while status shows work', '--live <n>']) assert.ok(b.prompt.includes(t), t);
+  for (const t of ['every later turn: `git fetch origin tranche`, then `git checkout -q --detach FETCH_HEAD`, then `git submodule update --init .process`, then `node .process/tool/p3.mjs start check --wake`', 'asking for your handover', 'Answer each sweep message with one `node .process/tool/p3.mjs send root "<what you did or wait on>" --from bob`', 'Never end your turn while status shows work', '--live <n>']) assert.ok(b.prompt.includes(t), t);
   for (const p of [rootPrompt({ slug: 'o/p' }), startRole(root, 'watcher', { slug: 'o/p', address: {}, log: quiet }).task.prompt]) assert.match(p, /start check --wake`.*push notification and take no further step/);
   assert.deepEqual([b.call.source_url, b.call.source_revision, b.call.prompt], ['https://github.com/o/p', git(['rev-parse', 'origin/tranche'], { cwd: root }), b.prompt]);
   assert.ok(Buffer.byteLength(b.prompt) < 4096, 'one screen');
