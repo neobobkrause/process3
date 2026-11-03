@@ -124,6 +124,7 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   assert.equal(readAddress(root).watcher.session, W);
   assert.throws(() => startRole(root, 'watcher', { slug: 'o/p', log: quiet }), /one per account/);
   const t = sweepTask(R);
+  assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2').prompt.includes('`git fetch origin tr2`'));
   assert.match(t.prompt, new RegExp(`sweep --session ${R} --live`));
   assert.equal(t.call.cron_expression, '0 * * * *');
   const p = rootPrompt({ slug: 'o/p' });
