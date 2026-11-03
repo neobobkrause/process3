@@ -11,7 +11,7 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { ownerAnswer, repoOwnerOf, webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
-import { CONFIG_FILE, DEFAULTS, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -96,13 +96,38 @@ export function merge(root, n, opts = {}) {
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
-    const r = io.mergePR(slug, n, tip);
+    const r = mergeRetry(() => io.mergePR(slug, n, tip), {
+      log, wait: opts.wait,
+      fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }),
+      check: () => {
+        const p = io.getPR(slug, n);
+        if (p.state !== 'open' || p.base?.ref !== cfg.tranche || p.head?.sha !== tip) fail(`pull request ${n} changed while its base moved; run merge again`);
+      },
+    });
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
     return { merged: true, sha: r.sha, tip };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
     rmSync(wt, { recursive: true, force: true });
+  }
+}
+
+// A merge GitHub refuses because its base moved ("Base branch was modified") fetches the base,
+// confirms the pull request still has the head and base that were checked, and tries again, at
+// most RETRIES times in all. Any other refusal stops at once. Never forced.
+export function mergeRetry(call, { fetch = () => {}, check = () => {}, tries = RETRIES, wait = 3000, log = console.log } = {}) {
+  for (let t = 1; ; t++) {
+    let r;
+    let why = null;
+    try { r = call(); } catch (e) { if (!(e instanceof Fail) || !BASE_MOVED.test(e.message)) throw e; why = e.message; }
+    if (!why && !(r && !r.merged && BASE_MOVED.test(r.message || ''))) return r;
+    why = why || r.message;
+    if (t >= tries) fail(`GitHub refused the merge ${tries} times because its base moved: ${why}`);
+    log(`the base moved (${why.replace(/\s+/g, ' ').slice(0, 120)}); fetching and trying again (${t + 1} of ${tries})`);
+    if (wait > 0) sleep(wait * t);
+    fetch();
+    check();
   }
 }
 
@@ -392,9 +417,16 @@ export function mergePlain(root, n, opts = {}) {
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);
   if (again.head?.sha !== pr.head.sha) fail(`pull request ${n} moved while it was checked; run merge again`);
-  const r = io.mergePR(slug, n, pr.head.sha, {
+  const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`,
+  }), {
+    log, wait: opts.wait,
+    fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root, allowFail: true }),
+    check: () => {
+      const p = io.getPR(slug, n);
+      if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
+    },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
   log(`merged pull request ${n} at ${r.sha} (${now()})`);

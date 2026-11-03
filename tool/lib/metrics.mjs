@@ -4,7 +4,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { comments, gateRuns, getPR } from './github.mjs';
-import { git, now } from './util.mjs';
+import { fail, git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
@@ -28,6 +28,44 @@ export function appendRow(root, id, row, file = metricsFile(id)) {
   const full = { at: now(), module: id, ...row };
   appendFileSync(join(root, file), JSON.stringify(full) + '\n');
   return full;
+}
+
+// Refusals per session (Foundations, "Refusals are counted per session"): auto mode falls back
+// to asking a person after 20 refusals in one session, so status prints REFRESH for a session at
+// REFRESH_AT, long before. BOB records each refusal a session reports, with its act and depth,
+// in a file of BOB's own; a refusal on a measured attempt row (metrics add --refusal) counts too.
+export const REFUSALS_FILE = `${METRICS_DIR}/refusals.bob.jsonl`;
+export const REFRESH_AT = 10;
+
+export function recordRefusal(root, { session, act, depth, module = null } = {}) {
+  const text = (v) => typeof v === 'string' && v.trim();
+  if (!text(session)) fail('a refusal needs --session <the session that was refused>');
+  if (!text(act)) fail('a refusal needs --act "<the act that was refused>"');
+  const d = Number(depth);
+  if (depth === undefined || depth === true || !Number.isInteger(d) || d < 0) fail('a refusal needs --depth <n>, the session\'s depth (0 for a session a person started)');
+  return appendRow(root, module, { row: 'refusal', session: session.trim(), act: act.trim(), depth: d }, REFUSALS_FILE);
+}
+
+// Every refusal row with its session: the refusal rows, and the refusals on measured attempt rows.
+export const refusalsOf = (rows) => rows.flatMap((r) => (r.row === 'refusal' ? [{ session: r.session, act: r.act, depth: r.depth }]
+  : r.row === 'attempt' && Array.isArray(r.refusals) ? r.refusals.map((x) => ({ session: r.session, act: x.act, depth: x.depth })) : []))
+  .filter((r) => r.session);
+
+export function refusalCounts(rows) {
+  const counts = new Map();
+  for (const r of refusalsOf(rows)) counts.set(r.session, (counts.get(r.session) || 0) + 1);
+  return [...counts].map(([session, refusals]) => ({ session, refusals, refresh: refusals >= REFRESH_AT }))
+    .sort((a, b) => b.refusals - a.refusals || a.session.localeCompare(b.session));
+}
+
+// Metrics rows as a commit holds them (the tranche's), for status.
+export function rowsAt(root, ref) {
+  const r = git(['ls-tree', '-r', '--name-only', '-z', ref, '--', METRICS_DIR], { cwd: root, allowFail: true });
+  if (r.code !== 0) return [];
+  return r.stdout.split('\0').filter((f) => f.endsWith('.jsonl')).flatMap((f) => {
+    const t = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true });
+    return t.code === 0 ? t.stdout.split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }) : [];
+  });
 }
 
 export const nextAttempt = (root, id) => readRows(root, id).filter((r) => r.row === 'attempt' && r.event === 'start').length + 1;
@@ -85,6 +123,7 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
     gates,
     denials: measured.reduce((s, r) => s + (Number(r.denials) || 0), 0),
     refusals: measured.flatMap((r) => r.refusals || []),
+    refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
   };
 }
