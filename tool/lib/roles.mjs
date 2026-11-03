@@ -99,7 +99,7 @@ export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche 
   if (oldBob) {
     L.push(`4. You replace BOB \`${oldBob}\`. Read your one-screen handoff, written by the old BOB: \`git show origin/${sb}:handoff/bob.md\` after \`git fetch origin ${sb}\`. Report running to ROOT, act on the messages queued while you started, then ${work} The old BOB forwards what it receives to you until it reports ready.`);
   } else L.push(`4. Report running to ROOT, then ${work}`);
-  L.push(`5. At the start of every later turn: ${wakeSteps(tranche)}. If it says the approvals changed, send ROOT one message asking for your handover and take no further step; else steps 3 and 4.`);
+  L.push(`5. At the start of every later turn: ${wakeSteps(tranche)}. If it says the approvals changed, send ROOT one message asking for your handover and take no further step; else steps 3 and 4. Answer each sweep message with one \`${P3} send root\` line saying what you did or wait on: a woken BOB that writes nothing is handed over two hours later.`);
   L.push('', '## Acts you may take', '', ...BOB_ACTS.map((a) => `- ${a}`), '', BOB_NOT);
   return sized(L);
 }
