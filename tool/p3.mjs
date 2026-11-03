@@ -15,6 +15,7 @@ import { startCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
 import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
+import { sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
@@ -143,17 +144,29 @@ const commands = {
   // tip, prints both SHAs; exit 1 when either differs (Foundations, "Every session checks its start").
   'start check': (a, root) => (startCheck(root, { branch: a.branch }).ok ? 0 : 1),
 
-  // start root | start bob: the role's starting prompt and its create_session call.
-  // start record <root|bob> <session id>: the address, written after the session was created.
+  // start root | start bob | start watcher: the role's starting prompt (and create_session call).
+  // start record <root|bob|watcher> <session id>: the address, written after the session was created.
   start: (a, root) => {
     if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
     startRole(root, a._[0]);
     return 0;
   },
 
-  // address <root|bob>: the address as the state branch holds it now.
+  // sweep --session <id> [--live <n>] [--attempt "<who>:<role>:<minutes>:<usd>"]...: ROOT's
+  // hourly routine; prints what ROOT must do and writes the heartbeat. sweep task --session <id>:
+  // the hourly task's prompt and create_trigger call.
+  sweep: (a, root) => {
+    if (a._[0] === 'task') { const t = sweepTask(a.session); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
+    sweep(root, { session: a.session, live: a.live, attempts: list(a.attempt).filter((x) => x !== true) });
+    return 0;
+  },
+
+  // watch --session <the watcher's id> [--full]: the watcher's daily decision.
+  watch: (a, root) => { watch(root, { session: a.session, full: !!a.full }); return 0; },
+
+  // address <root|bob|watcher>: the address as the state branch holds it now.
   address: (a, root) => {
-    const role = checkRole(String(one(a, 'role (root or bob)')).toLowerCase());
+    const role = checkRole(String(one(a, 'role (root, bob or watcher)')).toLowerCase());
     const e = readAddress(root)[role];
     if (!e) fail(`no ${role} is addressed`);
     console.log(`${e.session} (since ${e.at})`);

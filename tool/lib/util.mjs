@@ -71,6 +71,9 @@ export const DEFAULTS = {
   // status --role bob --context <percent>: REFRESH at this share of the window (SES-4).
   refresh_context: 60,
   reading_bob: ['CLAUDE.md'],
+  // sweep: the live-session cap (PLT, measured 1 Nov), and the plan (run, pause or stop).
+  live_cap: 24,
+  plan: 'run',
 };
 
 export const CONFIG_FILE = 'process/config.json';
