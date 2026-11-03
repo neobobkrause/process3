@@ -46,7 +46,7 @@ const ROOT_ACTS = [
   `replace BOB by the handover: \`${P3} handover begin\`, create_session with the call it prints, \`${P3} handover confirm <new id>\`, then message the old BOB as the steps say`,
   'message and interrupt the addressed BOB; interrupt is how a BOB stopped by three refusals in a row is restarted',
   'archive an old BOB once it reports ready; this is housekeeping, nothing waits on it, and a refusal is only reported to Bob',
-  `once, in your first turn: create your hourly sweep, a scheduled task bound to this session (create_trigger with no persistent_session_id), with the prompt and call \`${P3} sweep task --session <your id>\` prints; never edit it and never fire it by hand`,
+  `once, when list_triggers shows no sweep task bound to this session: create your hourly sweep, a scheduled task bound to this session (create_trigger with no persistent_session_id), with the prompt and call \`${P3} sweep task --session <your id>\` prints; never edit it and never fire it by hand`,
   `once per account, in your first turn, when \`${P3} address watcher\` shows none or shows you: start the watcher with \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then create its daily task bound to it (persistent_session_id) with the call it printed`,
   `when the sweep fires: \`${P3} sweep --session <your id> --live <n>\` (n: the live sessions list_sessions shows; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` for each attempt whose session record gives them) and do only what it prints, each act its own command; it reads step 0 to 3 and writes the heartbeat`,
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
@@ -99,7 +99,7 @@ export function watcherPrompt({ slug }) {
   L.push(`1. \`${P3} start check\`. If it fails, act on nothing, tell Bob both SHAs by push notification and end.`, '2. End your turn. Your daily task wakes you.');
   L.push('', '## When your daily task fires', '');
   L.push(`1. \`${P3} start check\`, as above.`);
-  L.push(`2. \`${P3} address root\`; read that session with get_session. If its context reads full, add \`--full\` below.`);
+  L.push(`2. \`${P3} address root\`; read that session's last events with list_events. Add \`--full\` below only if ROOT reported its context full or its last turn failed on a full context.`);
   L.push(`3. \`${P3} watch --session <your id>\`. If it says end, end the turn. If it says take over, do its steps, each its own command: \`${P3} start record root <your id>\`, create your hourly sweep task bound to yourself with what \`${P3} sweep task --session <your id>\` prints, and tell Bob by push notification. From then you are ROOT.`);
   L.push('', 'Nothing else: create no session, merge nothing, edit no task, archive nothing.');
   return sized(L);

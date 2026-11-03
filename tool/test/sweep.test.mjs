@@ -61,8 +61,9 @@ test('sweep: nothing owed writes the heartbeat; over the live cap wakes BOB with
 test('sweep step 1: a paused plan is heartbeat only', () => {
   const root = withOrigin({ 'process/config.json': { tranche: 'tranche', plan: 'pause' } });
   recordStart(root, 'root', R, { log: quiet });
-  const r = run(root);
-  assert.deepEqual([r.act, r.found], ['heartbeat', ['plan pause']]);
+  const r = run(root, { live: 30 });
+  assert.deepEqual([r.act, r.found], ['heartbeat', ['live 30 of 24', 'plan pause', '30 live sessions, over the cap of 24: archive finished ones before starting more']]);
+  assert.throws(() => run(root, { live: true }), /--live/);
 });
 
 test('sweep step 2: no BOB, a silent BOB, a BOB flagged REFRESH', () => {

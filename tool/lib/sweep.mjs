@@ -66,13 +66,14 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
   const cap = cfg.live_cap;
   if (live !== undefined) {
     const n = Number(live);
-    if (!Number.isInteger(n) || n < 0) fail(`--live <n>, the live sessions you count, not ${JSON.stringify(live)}`);
+    if (live === true || !Number.isInteger(n) || n < 0) fail(`--live <n>, the live sessions you count, not ${JSON.stringify(live)}`);
     found.push(`live ${n} of ${cap}`);
     if (n > cap) owed.push(`${n} live sessions, over the cap of ${cap}: archive finished ones before starting more`);
   }
   const plan = cfg.plan;
   if (plan === 'pause' || plan === 'stop') {
-    found.push(`plan ${plan}`);
+    found.push(`plan ${plan}`, ...owed);
+    owed.length = 0; // heartbeat only
   } else {
     const { rows, sessions } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
     const tranche = `origin/${cfg.tranche}`;
