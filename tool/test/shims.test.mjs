@@ -98,6 +98,12 @@ test('shim-drift: workflows equal the pin\'s shims and only allowed hooks; each 
   const f = files();
   delete f['.github/workflows/process-record.yml'];
   assert.match(judge(f)['shim-drift'].detail, /process-record\.yml is absent: BOB opens a plain pull request/);
+  // The development release shim: needed only with a release block; carried, it must equal the pin's.
+  assert.match(ok.detail, /^process-gate\.yml, process-record\.yml equal/);
+  const rel = judge(files({ 'process/config.json': JSON.stringify({ tranche: 'tranche', release: {} }) }))['shim-drift'];
+  assert.match(rel.detail, /process-dev-release\.yml is absent: BOB opens a plain pull request/);
+  assert.equal(judge(files({ '.github/workflows/process-dev-release.yml': PIN.file('shims/process-dev-release.yml') }))['shim-drift'].state, 'set');
+  assert.match(judge(files({ '.github/workflows/process-dev-release.yml': 'x' }))['shim-drift'].detail, /process-dev-release\.yml differs from the pin's shim/);
   // Any other hook fails, and the allowed one moved to another event or matcher does too.
   for (const hooks of [
     { ...HOOKS, PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo hi' }] }] },

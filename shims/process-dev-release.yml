@@ -1,0 +1,172 @@
+# Process3 development release (Build Plan Phase 3, the release row). Development only: there is
+# no public release (Bob's word, 3 Nov). BOB starts it by pushing p3dev-release/<version> at the
+# tranche tip (`p3 release dev` prints the push). A push trigger runs the pushed commit's copy of
+# this file, and the process pin is the pushed commit's; job publish first confirms that commit
+# is on the tranche, so both passed the gate.
+# Three jobs, as process-gate.yml keeps tokens from product code: checks and assemble run product
+# code on read-only tokens; publish holds contents: write and runs no product code: it pushes the
+# tag p3dev-<version> itself (a draft release has no tag until published, measured 3 Nov) and
+# creates a draft release, never published and never marked latest, with the assembled files.
+# Signing only when release.sign_secret in process/config.json names a secret.
+# Copied into a product as .github/workflows/process-dev-release.yml.
+name: process-dev-release
+on:
+  push:
+    branches: ['p3dev-release/**']
+# Each job names its own permissions; nothing is granted by default.
+permissions: {}
+concurrency:
+  group: process-dev-release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          sparse-checkout: process/config.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          path: cfg
+      - name: the release config and the process pin
+        id: cfg
+        run: |
+          cfg=$(cat cfg/process/config.json 2>/dev/null || echo '{}')
+          echo "$cfg" | jq -e '.release | type == "object"' >/dev/null || { echo "::error::process/config.json has no release block"; exit 1; }
+          echo "depth=$(echo "$cfg" | jq -r 'if .release.full_history == true then 0 else 1 end')" >> "$GITHUB_OUTPUT"
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+          pin=$(git -C cfg rev-parse -q --verify "HEAD:.process") || { echo "::error::no process pin"; exit 1; }
+          git clone -q --filter=blob:none "$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          rm -rf cfg
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: ${{ steps.cfg.outputs.depth }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ steps.cfg.outputs.node }}
+      - name: release.checks, each within its own timeout
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run checks --out "$RUNNER_TEMP/checks.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: checks-result
+          path: ${{ runner.temp }}/checks.json
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 90
+  assemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          sparse-checkout: process/config.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          path: cfg
+      - name: the release config and the process pin
+        id: cfg
+        run: |
+          cfg=$(cat cfg/process/config.json 2>/dev/null || echo '{}')
+          echo "$cfg" | jq -e '.release | type == "object"' >/dev/null || { echo "::error::process/config.json has no release block"; exit 1; }
+          echo "depth=$(echo "$cfg" | jq -r 'if .release.full_history == true then 0 else 1 end')" >> "$GITHUB_OUTPUT"
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+          echo "out=$(echo "$cfg" | jq -r '.release.out // ""')" >> "$GITHUB_OUTPUT"
+          pin=$(git -C cfg rev-parse -q --verify "HEAD:.process") || { echo "::error::no process pin"; exit 1; }
+          git clone -q --filter=blob:none "$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          rm -rf cfg
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: ${{ steps.cfg.outputs.depth }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ steps.cfg.outputs.node }}
+      - name: release.assemble, which writes the release files to release.out
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run assemble --out "$RUNNER_TEMP/assemble.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-files
+          path: ${{ steps.cfg.outputs.out }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 90
+  # The tag and the draft release. No product code runs here: the files are downloaded, the
+  # tool is the pin's, and the pushed commit must already be on the tranche.
+  publish:
+    needs: [checks, assemble]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout: process/config.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+          path: repo
+      - name: the commit is on the tranche; the version, the pin and the signing secret's name
+        id: cfg
+        run: |
+          cfg=$(git -C repo show "$GITHUB_SHA:process/config.json")
+          tranche=$(echo "$cfg" | jq -r '.tranche // "tranche"')
+          git -C repo merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$tranche" || { echo "::error::$GITHUB_SHA is not on $tranche; a development release is cut only from the tranche"; exit 1; }
+          echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+          echo "sign=$(echo "$cfg" | jq -r '.release.sign_secret // ""')" >> "$GITHUB_OUTPUT"
+          pin=$(git -C repo rev-parse -q --verify "$GITHUB_SHA:.process") || { echo "::error::no process pin"; exit 1; }
+          git clone -q --filter=blob:none "$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ steps.cfg.outputs.node }}
+      - name: the version from the branch name
+        id: v
+        working-directory: repo
+        run: |
+          v=$(node "$RUNNER_TEMP/process3/tool/p3.mjs" release version --branch "$GITHUB_REF_NAME")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=p3dev-$v" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-files
+          path: ${{ runner.temp }}/release
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          name: checks-result
+          path: ${{ runner.temp }}/checks
+      - name: sign (only when release.sign_secret names a secret)
+        if: steps.cfg.outputs.sign != ''
+        working-directory: repo
+        env:
+          P3_SIGN_KEY: ${{ secrets[steps.cfg.outputs.sign] }}
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release sign "$RUNNER_TEMP/release"
+      - name: the tag and the draft release (never published, never latest)
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          dups=$(find "$RUNNER_TEMP/release" -type f -printf '%f\n' | sort | uniq -d)
+          [ -z "$dups" ] || { echo "::error::two release files share a name: $dups"; exit 1; }
+          node "$RUNNER_TEMP/process3/tool/p3.mjs" release body "$RUNNER_TEMP/checks/checks.json" --version "$VERSION" --commit "$GITHUB_SHA" > "$RUNNER_TEMP/body.md"
+          # The tag first, by the API: an existing tag fails here and is never moved.
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA" >/dev/null
+          mapfile -d '' files < <(find "$RUNNER_TEMP/release" -type f -print0)
+          url=$(gh release create "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --draft --latest=false --verify-tag --title "$TAG (development)" --notes-file "$RUNNER_TEMP/body.md")
+          echo "draft release: $url"
+          echo "Development release $VERSION (draft, never published): $url" >> "$GITHUB_STEP_SUMMARY"

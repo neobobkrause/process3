@@ -279,7 +279,9 @@ const readers = {
     const pin = x.pin();
     if (!pin) return missing(`no .process pin on ${x.cfg.tranche}`);
     const gaps = [];
-    const shims = pin.list('shims').filter((f) => /\.ya?ml$/.test(f));
+    // The development release shim is needed only by a product whose config has "release", or that carries it.
+    const shims = pin.list('shims').filter((f) => /\.ya?ml$/.test(f))
+      .filter((f) => f !== 'process-dev-release.yml' || x.cfg.release || x.file(`.github/workflows/${f}`) !== null);
     for (const f of shims) {
       const mine = x.file(`.github/workflows/${f}`);
       if (mine !== pin.file(`shims/${f}`)) gaps.push(`.github/workflows/${f} ${mine === null ? 'is absent' : 'differs from the pin\'s shim'}: BOB opens a plain pull request into ${x.cfg.tranche} that copies .process/shims/${f} to it`);
