@@ -11,6 +11,8 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
+import { noticeLine, providerNotice, recordAtMerge } from './notice.mjs';
+import { jsonl } from './state.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -60,6 +62,9 @@ export function merge(root, n, opts = {}) {
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
   const id = pr.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
+  // A job's pull request already merged: merge again only records its provider notices, the step
+  // a failed state-branch write left undone (idempotent).
+  if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) return noticesOnly(root, cfg, { id, n, pr, log });
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
@@ -87,7 +92,8 @@ export function merge(root, n, opts = {}) {
   const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
   const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
   if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
-  const own = ownPaths(JSON.parse(entryText.stdout));
+  const baseEntry = JSON.parse(entryText.stdout);
+  const own = ownPaths(baseEntry);
   const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
   if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
   // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
@@ -132,11 +138,43 @@ export function merge(root, n, opts = {}) {
     });
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
-    return { merged: true, sha: r.sha, tip };
+    // The provider-change route: the notice this job leaves its users, and the notices its START
+    // named, answered now that it merged. The merge stands if the write fails; the rows are printed.
+    const notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, requirements: baseEntry.requirements, log });
+    return { merged: true, sha: r.sha, tip, notices: notes };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
     rmSync(wt, { recursive: true, force: true });
   }
+}
+
+// The provider-change route at a job's merge: the notice this job leaves its users, and the
+// notices its START named, answered now that it merged. The merge stands if the write fails;
+// merge <n> run again records them.
+function noticeStep(root, cfg, { id, n, mb, head, at, requirements, log }) {
+  const notice = requirements ? providerNotice(root, cfg, { provider: id, requirements, base: mb, head, pr: n, usersAt: at }) : null;
+  const t = git(['show', `${at}:${metricsFile(id)}`], { cwd: root, allowFail: true });
+  const answers = (t.code === 0 ? jsonl(t.stdout) : []).filter((x) => x.event === 'start').pop()?.notices || [];
+  let notes = { rows: [] };
+  try { notes = recordAtMerge(root, cfg, { notice, answers, user: id, pr: n }); } catch (e) {
+    log(`the merge stands, but its provider notices were not written to ${cfg.state_branch} (${e.message}); run merge ${n} again to record them`);
+    return { rows: [], error: e.message };
+  }
+  for (const x of notes.rows) log(x.row === 'notice' ? `${noticeLine(x)} recorded for ${x.users.join(', ')}` : `provider notice ${x.key} answered by ${x.user}`);
+  if (!notes.rows.length) log(`provider notices for PR ${n}: nothing to record`);
+  return notes;
+}
+
+function noticesOnly(root, cfg, { id, n, pr, log }) {
+  const m = pr.merge_commit_sha;
+  git(['fetch', '-q', ...(git(['rev-parse', '--is-shallow-repository'], { cwd: root }) === 'true' ? ['--depth=50'] : []), 'origin', m], { cwd: root });
+  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
+  if (head.code !== 0) fail(`pull request ${n} merged at ${m.slice(0, 10)}, which is not a merge commit; its provider notices cannot be read`);
+  const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
+  const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  const requirements = entryText.code === 0 ? JSON.parse(entryText.stdout).requirements : null;
+  log(`pull request ${n} is merged; recording only its provider notices`);
+  return { merged: true, sha: m, notices: noticeStep(root, cfg, { id, n, mb, head: head.stdout.trim(), at: m, requirements, log }) };
 }
 
 // A merge GitHub refuses because its base moved ("Base branch was modified") fetches the base,
