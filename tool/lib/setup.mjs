@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { startCheck } from './start.mjs';
 import { DEFAULTS, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
@@ -369,5 +370,26 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   log(`setup check for ${slug}, tranche ${x.cfg.tranche}:`);
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche };
+  const carry = takeInCheck(root, x, { io, log });
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, carry };
+}
+
+// Tranche carry (SHM-4): a product converting mid-tranche lists its open pull requests into the
+// tranche (into main while no tranche exists) that no ledger entry owns, each with the module
+// whose paths own its files or "no single module". Informational: it stops no start, and it
+// closes or rewrites nothing.
+function takeInCheck(root, x, { io, log }) {
+  const onTranche = git(['rev-parse', '-q', '--verify', `origin/${x.cfg.tranche}`], { cwd: root, allowFail: true }).code === 0;
+  const base = onTranche ? x.cfg.tranche : x.main;
+  if (!onTranche) fetchBranch(root, base, { allowFail: true });
+  let prs = null;
+  try {
+    prs = io.openPRs ? io.openPRs(x.slug, base) : x.api(`repos/${x.slug}/pulls?state=open&base=${encodeURIComponent(base)}&per_page=100`);
+  } catch { prs = null; }
+  if (!Array.isArray(prs)) { log(`to take in: unmeasured, the open pull requests into ${base} were not read`); return null; }
+  const files = io.prFiles || prFiles; // paged: a partial list would misjudge the module
+  const list = toTakeIn(root, { slug: x.slug, ref: `origin/${base}`, prs, files });
+  if (list.length) log(`to take in (open pull requests into ${base} no ledger entry owns):`);
+  for (const t of list) log(`- ${takeInLine(t, 'node .process/tool/p3.mjs')}`);
+  return { base, list };
 }

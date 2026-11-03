@@ -1,5 +1,6 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
+import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { aheadBy, checkRun, compare, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
@@ -18,7 +19,7 @@ export const IDLE_HOURS = 2;
 export const SILENT_HOURS = 2;
 
 export function status(root, { role, module, context, live, offline = false, log = console.log, io: given } = {}) {
-  const io = { openPRs, checkRun, compare, ...given };
+  const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
@@ -119,7 +120,7 @@ export function status(root, { role, module, context, live, offline = false, log
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     out.layer = layerState(root, cfg, rows, ref, { closed: closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare }) });
     // No job work until the tranche open's grants check has passed (Build Plan Phase 3).
@@ -135,7 +136,7 @@ export function status(root, { role, module, context, live, offline = false, log
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
 // activity; merged as a count; other open pull requests into the tranche; undelivered messages;
 // REFRESH from refusals and from context use; BOB's reading set with sizes.
-export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
+export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList }) {
   const sb = cfg.state_branch;
   const L = [];
   const age = (t) => (t ? `${Math.round((Date.now() - Date.parse(t)) / 36e5 * 10) / 10}h ago` : 'unknown');
@@ -155,7 +156,12 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
   L.push(`merged: ${merged}`);
   const jobs = new Set(rows.map((r) => `job/${r.id}`));
-  const other = (prs || []).filter((p) => !jobs.has(p.head?.ref));
+  // Tranche carry (SHM-4): an open pull request no ledger entry owns stays under "to take in"
+  // until a job takes it in or it is closed; one already taken in is listed as other.
+  const carry = prs ? toTakeIn(root, { slug, ref: tranche, prs, files: prList }) : [];
+  if (carry.length) L.push('to take in:', ...carry.map((t) => `- ${takeInLine(t, P3)}, last activity ${age(t.updated)}`));
+  const listed = new Set(carry.map((t) => t.number));
+  const other = (prs || []).filter((p) => !jobs.has(p.head?.ref) && !listed.has(p.number));
   if (other.length) L.push('other pull requests:', ...other.map((p) => `- #${p.number} ${p.head?.ref}${p.draft ? ' draft' : ''}, last activity ${age(p.updated_at)}`));
   let haveState = false;
   if (!offline) { try { haveState = fetchState(root, sb); } catch (e) { L.push(`${sb}: ${e.message}`); } }
