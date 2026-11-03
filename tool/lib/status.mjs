@@ -4,9 +4,14 @@ import { checkRun, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
-import { git, loadConfig, repoSlug } from './util.mjs';
+import { fetchState, handoffFile, readState, undelivered } from './state.mjs';
+import { fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { join } from 'node:path';
 
-export function status(root, { role, module, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
+// A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
+export const IDLE_HOURS = 2;
+
+export function status(root, { role, module, context, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
   if (!offline) git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/job/*:refs/remotes/origin/job/*'], { cwd: root, allowFail: true });
@@ -35,6 +40,8 @@ export function status(root, { role, module, offline = false, log = console.log,
     const pr = prs?.find((p) => p.head?.ref === `job/${e.id}`);
     if (pr) {
       row.pr = `#${pr.number}${pr.draft ? ' draft' : ' ready'}`;
+      row.updated = pr.updated_at || null;
+      row.ready = !pr.draft;
       const run = io.checkRun(slug, pr.head.sha, 'gate');
       row.gate = run ? (run.conclusion || run.status) : 'none';
     } else if (prs === null) {
@@ -49,7 +56,7 @@ export function status(root, { role, module, offline = false, log = console.log,
     rows.push(row);
   }
   log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);
-  for (const r of rows) {
+  for (const r of role === 'bob' ? [] : rows) {
     log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}`);
   }
   // Refusals per session, from the tranche's rows and this checkout's (a row BOB recorded but has
@@ -71,5 +78,47 @@ export function status(root, { role, module, offline = false, log = console.log,
     log(`reading set for job ${module}: ${set.bytes} bytes`);
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
+  if (role === 'bob') return { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
   return { rows, sessions };
+}
+
+// status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
+// activity; merged as a count; other open pull requests into the tranche; undelivered messages;
+// REFRESH from refusals and from context use; BOB's reading set with sizes.
+export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
+  const sb = cfg.state_branch;
+  const L = [];
+  const age = (t) => (t ? `${Math.round((Date.now() - Date.parse(t)) / 36e5 * 10) / 10}h ago` : 'unknown');
+  const idle = (r) => r.flag?.startsWith('WORKING') || (r.updated && Date.now() - Date.parse(r.updated) > IDLE_HOURS * 36e5);
+  const groups = { blocked: [], owed: [], idle: [], open: [] };
+  let merged = 0;
+  for (const r of rows) {
+    const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}`;
+    if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
+    else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed`);
+    else if (r.flag && !r.flag.startsWith('WORKING')) groups.owed.push(line);
+    else if (r.pr === 'merged') merged++;
+    else if (idle(r)) groups.idle.push(line);
+    else if (r.pr || r.branch) groups.open.push(line);
+    else merged += r.tranche === 'COMPLETE' ? 1 : 0;
+  }
+  for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
+  L.push(`merged: ${merged}`);
+  const jobs = new Set(rows.map((r) => `job/${r.id}`));
+  const other = (prs || []).filter((p) => !jobs.has(p.head?.ref));
+  if (other.length) L.push('other pull requests:', ...other.map((p) => `- #${p.number} ${p.head?.ref}${p.draft ? ' draft' : ''}, last activity ${age(p.updated_at)}`));
+  let haveState = false;
+  if (!offline) { try { haveState = fetchState(root, sb); } catch (e) { L.push(`${sb}: ${e.message}`); } }
+  else haveState = git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${sb}`], { cwd: root, allowFail: true }).code === 0;
+  const owedMsgs = haveState ? undelivered(root, sb) : [];
+  if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
+  const pct = context === undefined ? null : Number(String(context).replace(/%$/, ''));
+  if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
+  if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
+  const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
+  const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
+  if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
+  L.push(`reading set for bob: ${files.reduce((s, x) => s + x.b, 0)} bytes; ${files.map((x) => `${x.f} ${x.b}`).join(', ')}`);
+  for (const l of L) log(l);
+  return { rows, undelivered: owedMsgs };
 }

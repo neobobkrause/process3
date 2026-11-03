@@ -67,6 +67,10 @@ export const DEFAULTS = {
   lockfiles: [],
   node: null,
   coordinator: null,
+  state_branch: 'process-state',
+  // status --role bob --context <percent>: REFRESH at this share of the window (SES-4).
+  refresh_context: 60,
+  reading_bob: ['CLAUDE.md'],
 };
 
 export const CONFIG_FILE = 'process/config.json';
