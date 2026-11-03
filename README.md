@@ -8,7 +8,6 @@ The Process3 tool and its workflows. Built in Phase 1 of the Process3 Build Plan
 - `.github/workflows/ci.yml`: this repository's own check: the tool's tests and the record check.
 - `shims/`: the workflows a product carries: `process-gate.yml` (the required check "gate": the gate and the record check on every pull request, at the base's process pin, on a read-only token; then job "post", which runs no product code, posts the gate comment from the run's gate-row artifact). If job post fails to post, the required check stays green; that is accepted, because merge refuses a job without a verified gate row (review of PR 13). A base whose pin predates the two-job gate takes a legacy path for that run: the gate reads and posts no comment, so a ready job pull request goes red with "no receipt" (it fails closed); a product therefore moves its gate workflow and its pin in one plain pull request.
 - `shims/process-record.yml`: the record check on every push.
-- `shims/hooks/one-act.mjs`: the one-act hook, a PreToolUse hook on Bash that a product's settings file names (see The one-act hook).
 
 ## Commands
 
@@ -32,27 +31,9 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 
 A moved base is retried, never forced. `merge` and `merge --plain` meet GitHub's "Base branch was modified" by fetching the base, confirming the pull request still has the head and base that were checked (for a job, that the tranche has not moved past the merged result the gate checked; for a base that requires an up-to-date head, that the head still contains it), and trying again, at most 3 times in all; any other refusal stops at once. A push to the state branch uses `pushRetry` (`tool/lib/util.mjs`): on git's fetch-first rejection it fetches the branch, merges it with a merge commit (a conflict stops it, nothing pushed) and pushes again, at most 3 times in all; a non-fast-forward rejection (the local copy already knew the new tip) stops at once, and the command runs again. The tool has no state-branch push yet; its other pushes go to a job's own branch, where a branch that moved must stop the command, not be merged into.
 
-## The one-act hook
-
-One act per command: a judged act chained with another command gives the judge one blob to decide. `shims/hooks/one-act.mjs` refuses, with exit 2 and the one line "run this act as its own command" on stderr, a Bash command that joins an outward act (`git push`; the tool's `merge`, `job start` and `job complete`; `gh`; `wrangler` `deploy`, `delete`, `secret`, `r2` and `containers`) to anything else by `&&`, `||`, `;`, a pipe, `&` or a new line, or that runs one inside another command (`$(...)`, backticks, a subshell or process substitution with other commands, `bash -c` or `eval` with other commands). Quoted text and here-document bodies are not commands, so a commit message or a pull request body may say anything. Everything else exits 0. It judges no text, records nothing and holds no turn.
-
-The owner names it once in the product's `.claude/settings.json`, in the owner's one-time onboarding commit through GitHub's website (sessions never edit `.claude/`), running it from the pinned clone:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.process/shims/hooks/one-act.mjs\"" }] }
-    ]
-  }
-}
-```
-
-Process3 itself names it the same way with the path `shims/hooks/one-act.mjs`.
-
 ## Coordinator guidance
 
-- Run each outward act as its own command, never chained; the one-act hook holds this where a settings file names it.
+- Run each outward act as its own command, never chained.
 - Run `start check` first in every session; if it fails, act on nothing, send both SHAs to the starter and end.
 - Record every refusal a session reports with `metrics refusal`; when `status` prints REFRESH for a session, start a fresh one to replace it.
 
@@ -75,7 +56,5 @@ Known limits of the newest-approvals rule, each needing a session acting on purp
 - While main has no config, a branch literally named `tranche` is not asked for a ruleset naming it when the product's real tranche has another name; main's own required checks still hold it.
 - Once the owner has removed the approvals block, a session could replace the approvals file with a symbolic link (its block reads as empty, the newest) and carry approval text in through the linked file, as with an `@import`.
 
-Known limits of the one-act hook and the start check, each needing a session acting on purpose or outside the tool:
-- The hook matches the command's shape, not its effect: an act behind a shell function, an alias, a variable (`$CMD`), a script file, `xargs` given the act's name in a variable, or a program that pushes for itself (an npm script, `git` with an alias for push) passes. It holds the mistake of chaining, not a session set on hiding an act.
-- A line the hook cannot read (an unclosed quote) is refused when it names an act and holds a separator, and otherwise left to the shell, which refuses it. A command substitution inside an unquoted here-document body is not looked into.
+Known limit of the start check:
 - `start check` compares the approvals block in the checkout's file with the tip's, as the session loaded it from disk at its start; a session that edits the file after its start check is held by the record check, not by this.
