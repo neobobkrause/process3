@@ -55,7 +55,6 @@ Process3 itself names it the same way with the path `shims/hooks/one-act.mjs`.
 - Run each outward act as its own command, never chained; the one-act hook holds this where a settings file names it.
 - Run `start check` first in every session; if it fails, act on nothing, send both SHAs to the starter and end.
 - Record every refusal a session reports with `metrics refusal`; when `status` prints REFRESH for a session, start a fresh one to replace it.
-- Scheduled tasks: the platform allows about 10 creations a minute. ROOT and the watcher create tasks apart, not in a burst. On "Trigger creation rate limit reached", wait the time the refusal states and try once more; if that fails too, stop and report. The tool creates no scheduled tasks, so this rule lives here only.
 
 ## Development deployments
 
