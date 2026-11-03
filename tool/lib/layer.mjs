@@ -28,7 +28,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
   const ls = layerState(root, cfg, s.rows, tranche, { closed });
   if (!ls) fail(`no layer map (${cfg.layers_file}) on ${tranche}`);
   if (ls.cur?.n !== Number(n)) fail(`layer ${n} is not the open layer; the open layer is ${ls.cur ? ls.cur.n : 'none'}`);
-  if (!ls.ready) fail(`layer ${n} is not ready to close: ${ls.cur.mods.filter((m) => m.open || (!m.merged && m.marks.length)).map((m) => `${m.id} ${m.open ? 'has an open job' : m.row?.flag ? `is flagged: ${m.row.flag}` : 'has no merged job and unmet marks'}`).join('; ')}`);
+  if (!ls.ready) fail(`layer ${n} is not ready to close: ${ls.cur.mods.filter((m) => (m.blocked ? m.pr : m.open || (!m.merged && m.marks.length))).map((m) => `${m.id} ${m.blocked ? `is BLOCKED (${m.blocked}) with PR #${m.pr} still open: BOB closes it unmerged first, never deleting its branch` : m.open ? 'has an open job' : m.row?.flag ? `is flagged: ${m.row.flag}` : 'has no merged job and unmet marks'}`).join('; ')}`);
   const sha = git(['rev-parse', tranche], { cwd: root });
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const wt = join(mkdtempSync(join(tmpdir(), 'p3-layer-')), 'w');
@@ -39,6 +39,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
   try {
     findings.push(...install(wt, cfg.lockfiles, { exec }).findings);
     for (const m of findings.length ? [] : ls.cur.mods) {
+      if (m.blocked) { log(`${m.id}: deferred, BLOCKED (${m.blocked}); its work is not in the tranche, no suite to run`); continue; }
       if (!existsSync(join(wt, entryFile(m.id)))) { log(`${m.id}: no ledger entry, no suite to run`); continue; }
       const e = JSON.parse(readFileSync(join(wt, entryFile(m.id)), 'utf8'));
       findings.push(...entryChecks(wt, e, { timeout, exec, log }));
@@ -64,7 +65,8 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
     log(`layer ${n} not closed: ${findings.length} finding(s) on ${sha.slice(0, 10)}; nothing recorded`);
     return { ok: false, findings };
   }
-  const deferred = Object.fromEntries(ls.cur.mods.filter((m) => m.marks.length).map((m) => [m.id, m.marks]));
+  // A module deferred BLOCKED is recorded with its reason: { reason, marks }; the rest, its marks.
+  const deferred = Object.fromEntries(ls.cur.mods.filter((m) => m.marks.length || m.blocked).map((m) => [m.id, m.blocked ? { reason: m.blocked, marks: m.marks } : m.marks]));
   const row = { row: 'closed', layer: Number(n), tranche: cfg.tranche, commit: sha, at: now(), deferred, suites, generated_changed: changed };
   writeState(root, cfg.state_branch, `layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}`, (w) => {
     const p = join(w, CLOSED_FILE);
@@ -73,7 +75,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
     writeFileSync(p, before + JSON.stringify(row) + '\n');
     return {};
   });
-  log(`layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}; deferred: ${Object.entries(deferred).map(([id, ids]) => `${id} ${ids.length}`).join(', ') || 'none'}`);
+  log(`layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}; deferred: ${Object.entries(deferred).map(([id, d]) => (Array.isArray(d) ? `${id} ${d.length}` : `${id} ${d.marks.length} (BLOCKED: ${d.reason})`)).join(', ') || 'none'}`);
   if (changed.length) log(`regenerated files differ from the tranche (${changed.join(', ')}): not committed here; commit them by BOB's plain pull request`);
   nextWork(root, cfg, s.rows, tranche, { log, state: layerState(root, cfg, s.rows, tranche, { closed: [...closed, row] }) });
   return { ok: true, row };

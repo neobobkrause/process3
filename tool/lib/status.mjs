@@ -50,6 +50,8 @@ export function status(root, { role, module, context, live, offline = false, log
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
     const branch = `origin/job/${e.id}`;
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements };
+    // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
+    if (e.status?.state === 'BLOCKED' && e.status.reason) row.blocked = e.status.reason;
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
@@ -60,6 +62,7 @@ export function status(root, { role, module, context, live, offline = false, log
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
       if (s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';
       if (s.state === 'BLOCKED') row.flag = 'BLOCKED';
+      if (s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
     }
     const pr = prs?.find((p) => p.head?.ref === `job/${e.id}`);
     if (pr) {
@@ -186,8 +189,11 @@ const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
 // cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
 // or when none of its modules has unmet marks or an open job. The open layer is the lowest not
 // closed. It is ready to close when no module of it has an open job and each has its job merged
-// in this tranche (its entry COMPLETE, no open pull request, no flag) or no unmet marks; the marks
-// left then are deferred, never listed again as its next work. Null without a layer map.
+// in this tranche (its entry COMPLETE, no open pull request, no flag) or no unmet marks, or is
+// BLOCKED with a recorded reason and its pull request closed (deferred: a BLOCKED module with no
+// reason holds the layer); the marks left then are deferred, never listed again as its next work.
+// owed: the deferred modules whose pull request is still open, BOB's to close unmerged before the
+// close (pending, when nothing else holds the layer). Null without a layer map.
 export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg) } = {}) {
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
@@ -202,14 +208,19 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const row = rows.find((r) => r.id === id || r.req === file);
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
       const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
-      return { id, file, open, merged, marks: marks(file), row };
+      const pr = row?.pr?.match(/^#(\d+)/)?.[1] ?? null;
+      return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), row };
     }) }))
     .sort((a, b) => a.n - b.n);
   for (const L of layers) L.closed = recorded.has(L.n) || L.mods.every((m) => !m.open && !m.marks.length);
   const cur = layers.find((L) => !L.closed) || null;
-  const ready = !!cur && cur.mods.every((m) => !m.open && (m.merged || !m.marks.length));
+  // A deferred module's pull request unread (offline) holds the layer as an open one does.
+  const ok = (m) => (m.blocked ? !m.pr && !m.row.pr?.startsWith('unknown') : !m.open && (m.merged || !m.marks.length));
+  const owed = (cur?.mods || []).filter((m) => m.blocked && m.pr);
+  const ready = !!cur && cur.mods.every(ok);
+  const pending = !!cur && !!owed.length && cur.mods.every((m) => ok(m) || owed.includes(m));
   const deferred = layers.filter((L) => recorded.has(L.n)).flatMap((L) => L.mods.filter((m) => m.marks.length).map((m) => ({ layer: L.n, id: m.id, count: m.marks.length })));
-  return { layers, cur, ready, deferred };
+  return { layers, cur, ready, pending, owed, deferred };
 }
 
 // Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
@@ -228,12 +239,17 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state 
   let layer = null;
   if (ls) {
     layer = ls.cur?.n ?? null;
-    files = ls.ready ? [] : (ls.cur?.mods || []).map((m) => m.file);
+    files = ls.ready || ls.pending ? [] : (ls.cur?.mods || []).map((m) => m.file);
     if (ls.deferred.length) {
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
     }
     if (ls.ready) log(`layer ${layer} ready to close: ${P3} layer close ${layer}`);
+    if (ls.pending) {
+      log(`layer ${layer} ready to close once BOB closes these unmerged (never deleting the branch):`);
+      for (const m of ls.owed) log(`- close PR #${m.pr} unmerged: ${m.blocked}`);
+      log(`then: ${P3} layer close ${layer}`);
+    }
   } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);

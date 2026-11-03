@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { commit, entry, makeRepo } from './helpers.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { BOT, GATE, block } from '../lib/github.mjs';
-import { span, trancheReport } from '../lib/report.mjs';
+import { deepen, span, trancheReport } from '../lib/report.mjs';
 
 const LAYERS = '| Layer | Modules |\n|---|---|\n| 1 | `a`, `b` |\n| 2 | c |\n';
 const req = (...ids) => `# x\n\n${ids.map(([id, met]) => `- **${id}**${met ? '' : ' *(not yet met: x)*'} text`).join('\n')}\n`;
@@ -140,4 +140,23 @@ test('report tranche: in a shallow clone the span is unmeasured, and a close is 
   const unread = run(() => null);
   assert.match(unread, /### Layer 1 \(closed: unmeasured, its close row's commit cannot be placed here\)/);
   assert.match(unread, /\| a \| tip \(layer 1 close unmeasured\) \| 1 \| R2 \|/);
+});
+
+test('report tranche: in a depth-1 clone, deepen fetches the tranche\'s own commits and its base, so the figures are measured', () => {
+  const src = fixture();
+  const root = makeRepo();
+  git(['remote', 'add', 'origin', `file://${src}`], { cwd: root });
+  git(['fetch', '-q', '--depth', '1', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/main:refs/remotes/origin/main'], { cwd: root });
+  git(['checkout', '-q', 'origin/tranche'], { cwd: root });
+  const cfg = loadConfig(root);
+  const run = () => trancheReport(root, cfg, { now: NOW, io: { merged: () => null } });
+  assert.match(run(), /- opened: unmeasured/, 'depth 1 alone holds no opening');
+  deepen(root, 'tranche');
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }), 'true', 'still shallow: main\'s history not fetched');
+  const md = run();
+  assert.match(md, /- opened: 2026-11-01T10:00:00\+02:00/);
+  assert.match(md, /- elapsed: [\d.]+ h/);
+  assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
+  assert.match(md, /- record-only commits: 1 of 2 commits in the tranche/);
+  assert.equal(span(root, 'origin/tranche', 'origin/main').base, git(['rev-parse', 'main'], { cwd: src }));
 });
