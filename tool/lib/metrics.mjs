@@ -91,10 +91,11 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
 
 // The loop guard (build I, 3 Nov): an attempt's elapsed time and cost against its role's budget.
 // rows: the module's rows (its own file and BOB's), in any order. Elapsed runs from the attempt's
-// start row to its complete row, or to now while it has none. Cost is BOB's measured figure for
-// the attempt when he recorded one, else the one the job's complete row read from its session
-// record, else 'unmeasured'. Returns null when the rows hold no attempt.
-export function attemptBudget(rows, budgets, { now: at = Date.now(), attempt } = {}) {
+// start row to its complete row, or to the moment it was blocked (blockedAt), or to now while it
+// runs. Cost is BOB's latest measured figure for the attempt in the same role, else the one the
+// job's complete row read from its session record, else 'unmeasured'. merged: a merge row
+// follows the attempt's complete row. Returns null when the rows hold no attempt.
+export function attemptBudget(rows, budgets, { now: at = Date.now(), attempt, blockedAt } = {}) {
   const starts = rows.filter((r) => r.row === 'attempt' && r.event === 'start');
   if (!starts.length) return null;
   const n = attempt ?? Math.max(...starts.map((r) => Number(r.attempt) || 1));
@@ -103,15 +104,19 @@ export function attemptBudget(rows, budgets, { now: at = Date.now(), attempt } =
   const complete = of('complete').pop();
   const role = start.role || 'job';
   const t0 = Date.parse(start.at);
-  const t1 = complete ? Date.parse(complete.at) : at;
+  const blocked = !complete && Number.isFinite(Date.parse(blockedAt)) ? Date.parse(blockedAt) : null;
+  const t1 = complete ? Date.parse(complete.at) : blocked ?? at;
   const minutes = Number.isFinite(t0) && Number.isFinite(t1) ? Math.max(0, Math.round((t1 - t0) / 60000)) : 'unmeasured';
-  const costs = [...of('measured').map((r) => r.cost_usd), complete?.cost_usd];
-  const cost = costs.find((c) => typeof c === 'number' && Number.isFinite(c)) ?? 'unmeasured';
+  const num = (c) => typeof c === 'number' && Number.isFinite(c);
+  const measured = of('measured').filter((r) => (r.role || 'job') === role && num(r.cost_usd)).sort((x, y) => String(x.at).localeCompare(String(y.at)));
+  const costs = [measured.at(-1)?.cost_usd, complete?.cost_usd];
+  const cost = costs.find(num) ?? 'unmeasured';
+  const merged = Boolean(complete) && rows.some((r) => r.row === 'merge' && Date.parse(r.at) >= Date.parse(complete.at));
   const budget = budgets?.[role] || null;
   const over = [];
   if (budget && typeof budget.minutes === 'number' && typeof minutes === 'number' && minutes > budget.minutes) over.push(`${minutes} min of ${budget.minutes}`);
   if (budget && typeof budget.cost_usd === 'number' && typeof cost === 'number' && cost > budget.cost_usd) over.push(`$${cost} of $${budget.cost_usd}`);
-  return { attempt: n, role, minutes, cost_usd: cost, done: Boolean(complete), budget, over };
+  return { attempt: n, role, minutes, cost_usd: cost, done: Boolean(complete), blocked: blocked !== null, merged, budget, over };
 }
 
 // The open check (Build Plan, tranche open): one row per run in a file of BOB's own, with the

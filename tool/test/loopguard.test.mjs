@@ -26,7 +26,7 @@ function transcript(lines, id = 'sess-1') {
 }
 
 test('budgets: one table in the tool\'s config, a role\'s figures overridable by the product', () => {
-  assert.deepEqual(DEFAULTS.budgets.job, { minutes: 180, cost_usd: 40 });
+  assert.deepEqual(DEFAULTS.budgets, { job: { minutes: 180, cost_usd: 40 } });
   const root = makeRepo({ 'process/config.json': { budgets: { job: { minutes: 60 }, review: { cost_usd: 5 }, bad: 'x' } } });
   const b = loadConfig(root).budgets;
   assert.deepEqual(b.job, { minutes: 60, cost_usd: 40 });
@@ -82,12 +82,35 @@ test('attemptBudget: elapsed from start to complete (or now), cost from BOB\'s f
   // The latest attempt is the one judged; another role's budget applies to its own rows.
   b = attemptBudget([start(1), done, start(2, t0 + 60 * MIN)], budgets, { now: t0 + 70 * MIN });
   assert.deepEqual([b.attempt, b.minutes, b.done], [2, 10, false]);
-  b = attemptBudget([{ ...start(1), role: 'coordinator' }], budgets, { now: t0 + 500 * MIN });
-  assert.deepEqual(b.over, ['500 min of 480']);
+  b = attemptBudget([{ ...start(1), role: 'review' }], { ...budgets, review: { minutes: 60 } }, { now: t0 + 61 * MIN });
+  assert.deepEqual(b.over, ['61 min of 60']);
   // A role with no budget, or a figure set to null, is never flagged.
   assert.deepEqual(attemptBudget([{ ...start(1), role: 'other' }], budgets, { now: t0 + 9999 * MIN }).over, []);
   assert.deepEqual(attemptBudget([start(1)], { job: { minutes: null, cost_usd: 40 } }, { now: t0 + 9999 * MIN }).over, []);
   assert.equal(attemptBudget([], budgets), null);
+});
+
+test('attemptBudget (review fixes): BOB\'s latest figure in the attempt\'s own role; a block stops the clock; merged only after a merge row', () => {
+  const t0 = Date.parse('2026-11-03T10:00:00Z');
+  const iso = (m) => new Date(t0 + m * MIN).toISOString();
+  const start = { row: 'attempt', event: 'start', role: 'job', attempt: 1, at: iso(0) };
+  const done = { row: 'attempt', event: 'complete', role: 'job', attempt: 1, at: iso(50) };
+  const measured = (cost, m, role = 'job') => ({ row: 'attempt', event: 'measured', role, attempt: 1, at: iso(m), cost_usd: cost });
+  // A coordinator's figure for the module is not the job attempt's cost.
+  let b = attemptBudget([start, done, measured(90, 60, 'coordinator'), measured(12, 61)], DEFAULTS.budgets);
+  assert.deepEqual([b.cost_usd, b.over], [12, []]);
+  // A later correction wins, whatever order the files are read in.
+  b = attemptBudget([start, done, measured(55, 70), measured(12, 61)], DEFAULTS.budgets);
+  assert.deepEqual([b.cost_usd, b.over], [55, ['$55 of $40']]);
+  // Blocked at 30 min, read 12 hours later: 30 min, not 720, and not flagged.
+  b = attemptBudget([start], DEFAULTS.budgets, { now: t0 + 720 * MIN, blockedAt: iso(30) });
+  assert.deepEqual([b.minutes, b.blocked, b.over], [30, true, []]);
+  // Merged only when a merge row follows the complete row: a reopened attempt is not history.
+  assert.equal(attemptBudget([start, done], DEFAULTS.budgets).merged, false);
+  assert.equal(attemptBudget([start, done, { row: 'merge', pr: 3, at: iso(80) }], DEFAULTS.budgets).merged, true);
+  const reopen = [start, done, { row: 'merge', pr: 3, at: iso(80) }, { ...start, attempt: 2, at: iso(100) }, { ...done, attempt: 2, at: iso(400) }];
+  b = attemptBudget(reopen, DEFAULTS.budgets);
+  assert.deepEqual([b.attempt, b.minutes, b.merged, b.over], [2, 300, false, ['300 min of 180']]);
 });
 
 function product() {
@@ -162,6 +185,17 @@ test('status flags an attempt over budget, shows a live attempt\'s figures, and 
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   assert.match(run(t0 + 10 * MIN, '2.1.316').text, /over budget: attempt 1, \$55 of \$40.*cost \$55/);
+  // Blocked after 30 minutes, read hours later: the clock stops at the block, no flag.
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const e = JSON.parse(readFileSync(join(root, 'process/ledger/alpha.json'), 'utf8'));
+  e.status = { state: 'BLOCKED', reason: 'waits for Bob', at: new Date(t0 + 30 * MIN).toISOString() };
+  writeFileSync(join(root, 'process/ledger/alpha.json'), JSON.stringify(e, null, 2) + '\n');
+  git(['commit', '-q', '-am', 'block'], { cwd: root });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  s = run(t0 + 720 * MIN, '2.1.316');
+  assert.match(s.text, /budget: attempt 1 \(blocked\), 30 min/);
+  assert.doesNotMatch(s.text, /min of 180/);
 });
 
 test('openCheckDue: none, an unread version, a changed version, a stopped run are due; a pass on this version is not', () => {

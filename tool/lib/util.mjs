@@ -69,10 +69,10 @@ export const DEFAULTS = {
   coordinator: null,
   // The loop guard (build I, 3 Nov): one table, a budget per role for one attempt, in elapsed
   // minutes and US dollars. status flags an attempt past either. A product's config may change a
-  // role's figures; a figure set to null is not budgeted.
+  // role's figures or add a role; a figure set to null is not budgeted. Only job attempts have
+  // start rows today, so job is the one role the table holds.
   budgets: {
     job: { minutes: 180, cost_usd: 40 },
-    coordinator: { minutes: 480, cost_usd: 120 },
   },
 };
 

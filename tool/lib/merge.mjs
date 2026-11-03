@@ -38,6 +38,8 @@ export function reviewRounds({ reviewed, noReview, rounds, decision } = {}) {
   if (reviewed === true) fail('--reviewed needs what the reviews found');
   if (noReview === true) fail('--no-review needs why');
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
+  if (reviewed && noReview) fail('say one: --reviewed "<what>" or --no-review "<why>", not both');
+  if (Array.isArray(decision) || Array.isArray(rounds)) fail('give --rounds and --decision once each');
   if (decision === true || (decision !== undefined && !String(decision).trim())) fail('--decision needs the recorded decision: who decided a further review round, and why');
   if (noReview) {
     if (rounds !== undefined && Number(rounds) !== 0) fail('--no-review has no review rounds; drop --rounds');

@@ -74,7 +74,7 @@ const commands = {
         tokens: num(a.tokens), cost_usd: a['cost-usd'] === undefined ? 'unmeasured' : Number(a['cost-usd']),
         denials: Number(a.denials || 0), refusals: split(a.refusal, ['act', 'depth', 'channel']),
         declines: split(a.decline, ['act', 'depth']), outcome: a.outcome || null,
-        minutes: num(a.minutes), claude_code: claudeVersion(),
+        minutes: num(a.minutes),
       }, bobMetricsFile(id));
       console.log(JSON.stringify(row));
       return 0;

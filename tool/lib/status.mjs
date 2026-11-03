@@ -33,13 +33,13 @@ export function status(root, { role, module, offline = false, log = console.log,
     // The loop guard (build I): the latest attempt's time and cost against its role's budget.
     const at = haveTranche ? tranche : 'HEAD';
     const own = onBranch ? rowsAt(root, branch, metricsFile(e.id)) : rowsAt(root, at, metricsFile(e.id));
-    const b = attemptBudget([...own, ...rowsAt(root, at, bobMetricsFile(e.id))], cfg.budgets, { now });
-    if (b) row.budget = b;
+    let blockedAt;
     if (onBranch) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
       try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
       row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
+      if (s.state === 'BLOCKED') blockedAt = s.at;
       const ahead = haveTranche ? Number(git(['rev-list', '--count', `${tranche}..${branch}`], { cwd: root })) : null;
       row.ahead = ahead;
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
@@ -60,15 +60,17 @@ export function status(root, { role, module, offline = false, log = console.log,
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
-    // Only an attempt still running, or one not yet merged, is shown and flagged; a merged one is
-    // history (its figures stay in the metrics report).
-    if (b) row.live = !b.done || e.status?.state !== 'COMPLETE';
+    // Only an attempt not yet merged (no merge row after its complete row) is shown and flagged; a
+    // merged one is history (its figures stay in the metrics report).
+    // A BLOCKED attempt's clock stops at the block: it waits, it does not loop.
+    const b = attemptBudget([...own, ...rowsAt(root, at, bobMetricsFile(e.id))], cfg.budgets, { now, blockedAt });
+    if (b) { row.budget = b; row.live = !b.merged; }
     if (b?.over.length && row.live) row.flag = [row.flag, `over budget: attempt ${b.attempt}, ${b.over.join(', ')} (${b.role} budget)`].filter(Boolean).join('; ');
     rows.push(row);
   }
   log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);
   for (const r of rows) {
-    log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}${r.budget && r.live ? `; budget: attempt ${r.budget.attempt}, ${r.budget.minutes} min, cost ${typeof r.budget.cost_usd === 'number' ? `$${r.budget.cost_usd}` : 'unmeasured'}` : ''}`);
+    log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}${r.budget && r.live ? `; budget: attempt ${r.budget.attempt}${r.budget.blocked ? ' (blocked)' : ''}, ${r.budget.minutes} min, cost ${typeof r.budget.cost_usd === 'number' ? `$${r.budget.cost_usd}` : 'unmeasured'}` : ''}`);
   }
   // The open check reruns at each Claude Code version change (build I).
   const v = typeof version === 'function' ? version() : version;

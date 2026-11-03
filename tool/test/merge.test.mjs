@@ -991,6 +991,10 @@ test('review rounds: stated and recorded; a third round needs a recorded decisio
   assert.throws(() => reviewRounds({ noReview: 'x', rounds: 2 }), /--no-review has no review rounds/);
   assert.throws(() => reviewRounds({ reviewed: true, rounds: 1 }), /--reviewed needs what the reviews found/);
   assert.throws(() => reviewRounds({ rounds: 1 }), /--reviewed/);
+  // Review fixes: both flags, or a repeated flag, are refused.
+  assert.throws(() => reviewRounds({ reviewed: 'x', noReview: 'y' }), /say one: --reviewed .* or --no-review .*, not both/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: 3, decision: ['a', 'b'] }), /once each/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: ['1', '2'] }), /once each/);
 });
 
 test('merge and merge --plain refuse a third round without a decision, and record it with one', () => {
