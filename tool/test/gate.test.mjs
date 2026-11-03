@@ -337,3 +337,11 @@ test('a job that changes only its requirements file\'s marks has no ownership fi
   const r = run(s, fakeIO(), { draft: true });
   assert.ok(!r.findings.some((f) => f.check === 'ownership'), JSON.stringify(r.findings));
 });
+
+test('a job that adds a test for a mark its module already meets and strikes it changes no code', () => {
+  const metTest = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('x is 1', () => a.equal(x, 1));\n";
+  const s = setup({ 'test/alpha/x.test.mjs': metTest, 'req/alpha.md': '- **R1** met\n' });
+  const r = run(s, fakeIO(receiptFor(s.head)));
+  assert.equal(r.run.revert, 'no code changed');
+  assert.deepEqual(r.findings, []);
+});

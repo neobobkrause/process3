@@ -112,7 +112,8 @@ export function gate(root, opts) {
     if (entry && runRow.suite === 'pass') {
       const exempt = receipt?.module === job ? receipt.exempt?.revert : undefined;
       const tests = changed.filter((f) => entry.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(entry)) && existsSync(join(root, f)));
-      const code = changed.filter((f) => !isRecordPath(cfg, f) && !entry.tests.some((t) => underPath(f, t)));
+      // The requirements file's struck marks are not code: reverting them proves nothing.
+      const code = changed.filter((f) => !isRecordPath(cfg, f) && f !== entry.requirements && !entry.tests.some((t) => underPath(f, t)));
       if (!tests.length) {
         runRow.revert = exempt ? 'exempt' : 'fail';
         if (!exempt) findings.push(F('revert', entry.tests[0], 'the job adds or changes no test; name why in the receipt (--exempt-revert)'));
