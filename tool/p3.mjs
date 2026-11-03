@@ -10,6 +10,7 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
@@ -18,7 +19,7 @@ import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/stat
 import { status } from './lib/status.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
-import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
+import { Fail, depth, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -140,6 +141,22 @@ const commands = {
     });
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
+  },
+
+  // report tranche [--out <file>]: the tranche report in Markdown, from the record alone (Phase 3,
+  // PLN-6): elapsed time, work and deferrals per layer, cost and overhead share, refusals by role
+  // and act, BOB's idle occurrences, the Phase 3 overhead comparisons; unmeasured where it lacks.
+  'report tranche': (a, root) => {
+    const cfg = loadConfig(root);
+    let slug = null;
+    try { slug = repoSlug(root); } catch { slug = null; }
+    git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
+    let stateRead = false;
+    try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
+    const md = trancheReport(root, cfg, { slug, stateRead, io: { state: (p) => readState(root, cfg.state_branch, p) } });
+    if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
+    console.log(md);
+    return 0;
   },
 
   // review brief <pr> [--scope "<text>"]: prints the fresh-context brief a reviewer subagent is
