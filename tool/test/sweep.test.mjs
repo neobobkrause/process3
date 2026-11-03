@@ -165,3 +165,26 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   const p = rootPrompt({ slug: 'o/p', approvals: 'b'.repeat(64) });
   for (const x of ['sweep task --session', 'start watcher', 'start record watcher', 'persistent_session_id', 'sweep --session']) assert.ok(p.includes(x), x);
 });
+
+test('sweep step 3: a WORKING job that pushed and then stopped past SILENT_HOURS wakes BOB; one that pushed lately does not', () => {
+  const root = withOrigin({
+    'process/ledger/stale.json': entry('stale', { status: { state: 'WORKING' } }),
+    'process/ledger/fresh.json': entry('fresh', { status: { state: 'WORKING' } }),
+  });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  for (const [id, at] of [['stale', new Date(Date.now() - 3 * 36e5).toISOString()], ['fresh', new Date().toISOString()]]) {
+    git(['checkout', '-q', '-b', `job/${id}`, 'origin/tranche'], { cwd: root });
+    commit(root, { [`src/${id}/a.js`]: '1' }, 'start');
+    process.env.GIT_COMMITTER_DATE = at;
+    try { commit(root, { [`src/${id}/a.js`]: '2' }, 'work in progress'); } finally { delete process.env.GIT_COMMITTER_DATE; }
+    git(['push', '-q', 'origin', `job/${id}`], { cwd: root });
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+  }
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const r = run(root);
+  assert.ok(r.found.includes('stale: WORKING, no push for 3h'), r.found.join('|'));
+  assert.ok(!r.found.some((f) => f.startsWith('fresh')), r.found.join('|'));
+  assert.equal(r.todo.length, 1);
+  assert.match(r.todo[0], /stale: WORKING, no push for 3h/);
+});

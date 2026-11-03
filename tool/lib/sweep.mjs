@@ -8,11 +8,11 @@ import { P3 } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
-import { nextWork, status } from './status.mjs';
+import { SILENT_HOURS, nextWork, status } from './status.mjs';
 import { fail, git, loadConfig, now } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
-export const SILENT_HOURS = 2; // BOB with no write, a WORKING job with nothing pushed
+export { SILENT_HOURS }; // BOB with no write, a WORKING job with no push
 export const IDLE_HOURS = 1; // BOB with next work and no write: woken
 export const WATCH_HOURS = 4; // the heartbeat's age at which the watcher takes over
 export const FAR = 3; // "far over" a role's median: this many times it
@@ -105,6 +105,8 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
       else if (r.flag === 'WORKING, nothing pushed') {
         const age = t - ct(root, [`origin/job/${r.id}`]);
         if (age > SILENT_HOURS * H) owed.push(`${r.id}: WORKING, nothing pushed for ${hours(age)}h`);
+      } else if (r.flag?.startsWith('WORKING, no push for')) {
+        owed.push(`${r.id}: WORKING, no push for ${hours(t - ct(root, [`origin/job/${r.id}`]))}h`);
       }
     }
     owed.push(...overMedian(root, tranche, attempts));
