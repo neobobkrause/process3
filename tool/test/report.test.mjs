@@ -159,4 +159,10 @@ test('report tranche: in a depth-1 clone, deepen fetches the tranche\'s own comm
   assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
   assert.match(md, /- record-only commits: 1 of 2 commits in the tranche/);
   assert.equal(span(root, 'origin/tranche', 'origin/main').base, git(['rev-parse', 'main'], { cwd: src }));
+  // A cut whose parent is not main's (a failed deepen, the tip's parent fetched alone) is unmeasured.
+  const cut = makeRepo();
+  git(['remote', 'add', 'origin', `file://${src}`], { cwd: cut });
+  git(['fetch', '-q', '--depth', '1', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/main:refs/remotes/origin/main'], { cwd: cut });
+  git(['fetch', '-q', '--depth', '1', 'origin', git(['rev-parse', 'tranche^'], { cwd: src })], { cwd: cut });
+  assert.deepEqual(span(cut, 'origin/tranche', 'origin/main'), { open: 'unmeasured', close: null, base: null });
 });

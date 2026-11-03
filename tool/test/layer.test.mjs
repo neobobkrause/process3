@@ -155,3 +155,15 @@ test('BLOCKED with a reason on the job branch (as job block records it) defers t
   assert.equal(r.layer.pending, true);
   assert.deepEqual(r.layer.owed.map((m) => [m.id, m.pr, m.blocked]), [['b', 38, 'why']]);
 });
+
+test('a deferred module: offline, its PR unread, the layer is held; its PR closed, no restart flag', () => {
+  const { root } = withOrigin({ ...blocked(null), 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'WORKING' } }) });
+  git(['checkout', '-q', '-b', 'job/b', 'tranche'], { cwd: root });
+  commit(root, { 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'BLOCKED', reason: 'why' } }) }, 'block b: why');
+  git(['push', '-q', 'origin', 'job/b'], { cwd: root });
+  const tranche = makeRepo(blocked('why'));
+  assert.equal(status(tranche, { role: 'bob', offline: true, log: quiet }).layer.ready, false);
+  const r = status(root, { role: 'bob', log: quiet, io });
+  assert.equal(r.layer.ready, true);
+  assert.equal(r.rows.find((x) => x.id === 'b').flag, 'BLOCKED');
+});

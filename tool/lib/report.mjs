@@ -34,8 +34,9 @@ export function span(root, tranche, main) {
   if (ahead) {
     const f = first(ahead);
     const base = parentOf(root, f);
-    // Shallow, a first commit whose parent this clone lacks is only where the history was cut.
-    if (shallow && !base) return { open: U, close: null, base: null };
+    // Shallow, the first commit counts only when its parent is main's: else it is only where the
+    // history was cut.
+    if (shallow && !(base && gitOut(root, ['merge-base', '--is-ancestor', base, main]) !== null)) return { open: U, close: null, base: null };
     return { open: gitOut(root, ['log', '-1', '--format=%cI', f]), close: null, base };
   }
   if (!haveMain || shallow) return { open: U, close: null, base: null };
@@ -59,7 +60,7 @@ function parentOf(root, sha) {
 // commits) and, at depth 1, main before its first one. Nothing in a full clone.
 export function deepen(root, tranche, main = 'main') {
   if (gitOut(root, ['rev-parse', '--is-shallow-repository']) !== 'true') return;
-  gitOut(root, ['fetch', '-q', `--shallow-exclude=${main}`, 'origin', `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`]);
+  if (gitOut(root, ['fetch', '-q', `--shallow-exclude=${main}`, 'origin', `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`]) === null) return;
   const f = (gitOut(root, ['rev-list', '--reverse', `origin/${main}..origin/${tranche}`]) || '').split('\n').filter(Boolean)[0];
   const p = f && (gitOut(root, ['cat-file', '-p', f]) || '').match(/^parent ([0-9a-f]{40})$/m)?.[1];
   if (p && gitOut(root, ['cat-file', '-e', `${p}^{commit}`]) === null) gitOut(root, ['fetch', '-q', '--depth', '1', 'origin', p]);

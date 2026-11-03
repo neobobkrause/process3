@@ -76,7 +76,7 @@ export function status(root, { role, module, context, live, offline = false, log
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
       row.flag = 'an unfinished start (pushed, no pull request): run job start again and it resumes';
-    } else if (row.ahead > 0) {
+    } else if (row.ahead > 0 && !row.blocked) {
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
@@ -86,6 +86,8 @@ export function status(root, { role, module, context, live, offline = false, log
       const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
     }
+    // A deferred module's pull request, GitHub unread: unknown, so the layer is held.
+    if (prs === null && row.blocked && !row.pr) row.pr = 'unknown (GitHub not read)';
     rows.push(row);
   }
   log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);
