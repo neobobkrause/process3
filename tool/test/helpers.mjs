@@ -42,3 +42,32 @@ export const entry = (id, over = {}) => ({
   status: { state: 'OPEN' },
   ...over,
 });
+
+// origin's copy of the state branch (refs/remotes/origin/process-state), with these files added
+// to what it holds; a .jsonl file is appended to.
+export function onState(root, files) {
+  const ref = 'refs/remotes/origin/process-state';
+  const have = git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code === 0;
+  const back = git(['rev-parse', 'HEAD'], { cwd: root });
+  const branch = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
+  if (have) git(['checkout', '-q', '-B', 'p3-state-test', ref], { cwd: root });
+  else { git(['checkout', '-q', '--orphan', 'p3-state-test'], { cwd: root }); git(['rm', '-rqf', '.'], { cwd: root }); }
+  const add = {};
+  for (const [p, t] of Object.entries(files)) {
+    const prev = have && p.endsWith('.jsonl') ? git(['show', `${ref}:${p}`], { cwd: root, allowFail: true }) : { code: 1 };
+    add[p] = (prev.code === 0 ? prev.stdout : '') + t;
+  }
+  commit(root, add, 'state');
+  git(['update-ref', ref, 'HEAD'], { cwd: root });
+  git(['checkout', '-q', branch || back], { cwd: root });
+  git(['branch', '-D', 'p3-state-test'], { cwd: root });
+}
+
+// The tranche open's grants check passed: every act ok, BOB at depth 1, the probe at 2.
+export function openPassed(root, { tranche = 'tranche', outcome = {} } = {}) {
+  const at = new Date().toISOString();
+  const bob = ['push', 'pr-open', 'pr-comment', 'pr-merge', 'session-start', 'session-archive', 'task-create', 'task-delete'];
+  const rows = [...bob.map((act) => [act, 1]), ...bob.slice(0, 4).map((act) => [act, 2])]
+    .map(([act, depth]) => ({ row: 'grant', at, tranche, act, depth, outcome: outcome[`${act}|${depth}`] || 'ok', session: depth === 1 ? 'bob' : 'probe' }));
+  onState(root, { 'metrics/tranche-open.jsonl': rows.map((r) => JSON.stringify(r) + '\n').join('') });
+}

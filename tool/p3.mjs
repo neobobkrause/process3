@@ -18,6 +18,7 @@ import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/stat
 import { status } from './lib/status.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
+import { checkOpen, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
@@ -69,6 +70,19 @@ const commands = {
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
   'layer close': (a, root) => (layerClose(root, one(a, 'layer number')).ok ? 0 : 1),
+
+  // tranche open [--depth <BOB's depth, default 1>]: the grants check's acts, BOB's and a probe's.
+  // tranche open --record "<act>|<depth>|ok|refused|declined"... --session <id>: each outcome.
+  // tranche open --check: open, pending or stopped; exit 0 only when open.
+  'tranche open': (a, root) => {
+    if (a.record !== undefined) { recordOpen(root, list(a.record), { session: a.session }); return 0; }
+    if (a.check) return checkOpen(root, { depth: a.depth }).state === 'open' ? 0 : 1;
+    return trancheOpen(root, { depth: a.depth }).state === 'stopped' ? 1 : 0;
+  },
+
+  // tranche close: refused unless every layer is closed or the plan says close; BOB's acts.
+  // tranche close --record: once the tranche is on main, the close on the state branch.
+  'tranche close': (a, root) => (trancheClose(root, { record: !!a.record, report: !!commands['report tranche'] }).ok ? 0 : 1),
 
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),

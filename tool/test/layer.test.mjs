@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { layerClose } from '../lib/layer.mjs';
 import { CLOSED_FILE, status } from '../lib/status.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
 
 const quiet = () => {};
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
@@ -34,6 +34,7 @@ function closedOn(root, rows) {
 
 test('layer ready to close with marks left: no next work in it, BOB\'s act is layer close', () => {
   const root = makeRepo(base);
+  openPassed(root);
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.equal(r.layer.cur.n, 1);
@@ -56,6 +57,7 @@ test('a closed layer: the next layer is listed, its deferred marks shown and not
   const root = makeRepo(base);
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
   closedOn(root, [{ layer: 1, commit: tip, deferred: { a: ['R1', 'R2'] } }]);
+  openPassed(root);
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.equal(r.layer.cur.n, 2);
