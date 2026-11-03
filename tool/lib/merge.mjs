@@ -5,11 +5,11 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
-import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, namedRequiredChecks, openFrom, requiredChecks, verifyRow, workflowRun } from './github.mjs';
+import { checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
-import { ownerAnswer, repoOwnerOf, webCommitByOwner } from './record.mjs';
+import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
@@ -166,11 +166,10 @@ export function mergePR(slug, n, sha, { title = `Merge job PR ${n}`, message } =
 
 // merge --plain: every pull request BOB merges that is not a job's (pin moves, metrics rows,
 // config). Bob denies the connector's merge tool, `gh pr merge` and `gh api .../merge` to
-// every session (2 Nov), so this is the one route for them. GitHub's rulesets also hold
-// main and the tranche, but the tool does not rely on them alone (review of PR 14).
-// Into the tranche or a working branch, or the tranche into main; every check the base's
-// rulesets require green on the head; a merge commit pinned to that head. It writes no merge
-// row and pushes nothing. Without a process/config.json (process3 itself) the defaults hold.
+// every session (2 Nov), so this is the one route for them. Into the tranche or a working
+// branch, or the tranche into main; a merge commit pinned to the head. GitHub's rulesets judge
+// the required checks (build J); the tool waits while any is queued or running. It writes no
+// merge row and pushes nothing. Without a process/config.json (process3 itself) the defaults hold.
 const isJob = (ref) => /^job\//i.test(ref);
 const WORKFLOWS = '.github/workflows/';
 const blobAt = (root, rev, path) => {
@@ -178,12 +177,8 @@ const blobAt = (root, rev, path) => {
   return r.code === 0 ? r.stdout.trim() : null;
 };
 
-// process3's own address: the one the shims fall back to when a product names none
-// (shims/process-gate.yml, shims/process-record.yml); a test holds them equal.
-export const PROCESS3 = 'https://github.com/neobobkrause/process3';
-
 // process3 as the tool's own clone holds it: whether a pin is released (a commit on its
-// tranche or main), the blob of a shim at that pin, and process3's own address.
+// tranche or main), and the blob of a shim at that pin.
 export function processRepo(dir = TOOL_ROOT) {
   let fetched = false;
   const fetch = () => {
@@ -194,72 +189,40 @@ export function processRepo(dir = TOOL_ROOT) {
     released: (pin) => { fetch(); return ['origin/tranche', 'origin/main'].some((r) => git(['merge-base', '--is-ancestor', pin, r], { cwd: dir, allowFail: true }).code === 0); },
     shim: (pin, name) => blobAt(dir, pin, `shims/${name}`),
     descends: (from, to) => { fetch(); return git(['merge-base', '--is-ancestor', from, to], { cwd: dir, allowFail: true }).code === 0; },
-    address: () => PROCESS3,
   };
 }
 
 const pinAt = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] || null;
-// A config key at a commit: null when the file is absent, 'unreadable' when it is not JSON. The
-// tranche's name counts as its default when the config does not name it.
-const configAt = (root, rev) => {
-  const r = git(['show', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
-  if (r.code !== 0) return null;
-  try { const c = JSON.parse(r.stdout); return c && typeof c === 'object' && !Array.isArray(c) ? c : 'unreadable'; } catch { return 'unreadable'; }
-};
+// A config key at a commit: 'unreadable' when the file is not a JSON object. The tranche's name
+// counts as its default when the config does not name it.
 const keyAt = (root, rev, key) => {
-  const c = configAt(root, rev);
-  if (c === 'unreadable') return 'unreadable';
+  const r = git(['show', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
+  let c = null;
+  if (r.code === 0) { try { c = JSON.parse(r.stdout); } catch { return 'unreadable'; } if (!c || typeof c !== 'object' || Array.isArray(c)) return 'unreadable'; }
   const v = c?.[key] ?? null;
   return key === 'tranche' && v === null ? DEFAULTS.tranche : v;
 };
-const processRepoOf = (root, rev) => keyAt(root, rev, 'process_repo');
 
-const hasConfig = (root, rev) => git(['cat-file', '-e', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true }).code === 0;
 // The commit on rev's first-parent history at which a config key took the value it has at rev:
 // the newest first-parent commit whose first parent holds another value (or that has none).
 export function keySetAt(root, rev, key) {
   const value = keyAt(root, rev, key);
   // Only a commit that changes the file against its first parent can change the value.
   const touched = git(['log', '--first-parent', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
-  for (const c of touched) {
-    if (keyAt(root, c, key) !== value) return null; // cannot happen on a first-parent line
-    if (keyAt(root, `${c}^1`, key) !== value) return c;
-  }
+  for (const c of touched) if (keyAt(root, `${c}^1`, key) !== value) return c;
   return null;
 }
 export const processRepoSetAt = (root, rev) => keySetAt(root, rev, 'process_repo');
-
-// The keys that say where the process comes from and which branch is the tranche. A changed
-// "tranche" would move the module-file and required-checks guards to another branch (review
-// follow-ups, 2 Nov), so it takes the same owner's-word rule as process_repo. Each says which
-// value onboarding (no process config on the base) may set: for "tranche", only the name of the
-// branch being onboarded, so the guards never move to a branch nobody onboarded.
-const GUARDED_KEYS = {
-  process_repo: (value, repo) => { const own = repo.address?.(); return Boolean(own) && value === own; },
-  tranche: (value, repo, onboarded) => typeof onboarded === 'string' && onboarded !== '' && value === onboarded,
-};
 
 // A plain pull request may move the process pin only forward, to a released process3 commit
 // (on its tranche or main) that descends from the base's pin: no unreleased pin, no downgrade.
 // Changing where the process comes from (process_repo), or which branch is the tranche
 // ("tranche"), needs the owner's word (third confirming review of PR 14; review follow-ups,
-// 2 Nov), with three exceptions where the tool already holds that word (build 22, 2 Nov):
-// - the tranche into main may carry the tranche's value when the commit on the tranche's
-//   first-parent history at which it took that value is the owner's own commit through
-//   GitHub's website (his direct edit, or his website merge of a pull request);
-// - the tranche into main may also carry the value when main has no process config at all
-//   (neither at the merge base nor at main's tip) and the tranche's value is one onboarding may
-//   set: process3's own address for process_repo, whoever merged it into the tranche (with no
-//   config on main, the tranche's name is the default one), and for "tranche" the name of the
-//   tranche being merged;
-// - at onboarding, a pull request into the tranche may set either to such a value when the base
-//   has no process config at all ("tranche": the name of the branch it goes into).
-// The tranche into main carries the rest of the tranche's config as it is, approvals.owner
-// included: pinChange does not judge it. The record check, a required check on main, is what
-// stops a carried config from changing approvals.owner: it accepts that change only from the
-// owner's own website commit (or, while main has no config, set to the repository's owner).
-// at: { intoMain, intoTranche, baseRef, base, head, ownerCommit(sha) -> { ok } }; base and head
-// are the branch names.
+// 2 Nov), except that the tranche into main may carry the tranche's value when the commit on
+// the tranche's first-parent history at which it took that value is the owner's own commit
+// through GitHub's website (his direct edit, or his website merge of a pull request). Onboarding
+// values are Bob's to confirm once (README, Onboarding).
+// at: { intoMain, ownerCommit(sha) -> { ok } }.
 export function pinChange(root, mb, sha, repo, at = {}) {
   const was = pinAt(root, mb);
   const now = pinAt(root, sha);
@@ -268,96 +231,53 @@ export function pinChange(root, mb, sha, repo, at = {}) {
     if (!repo.released(now)) fail(`the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
     if (was && !repo.descends(was, now)) fail(`the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
   }
-  for (const [key, onboardValue] of Object.entries(GUARDED_KEYS)) {
+  for (const key of ['process_repo', 'tranche']) {
     const value = keyAt(root, sha, key);
     if (value === keyAt(root, mb, key)) continue;
-    const usable = typeof value === 'string' && value !== 'unreadable';
-    // The tranche into main: only these keys are judged here. The rest of the carried config,
-    // approvals.owner included, is the record check's: a required check on main, it refuses a
-    // change to approvals.owner that is not the owner's own website commit.
-    if (usable && at.intoMain && at.ownerCommit) {
+    if (at.intoMain && at.ownerCommit && typeof value === 'string' && value !== 'unreadable') {
       const c = keySetAt(root, sha, key);
       if (c && at.ownerCommit(c)?.ok === true) continue;
     }
-    if (usable && at.intoMain && at.baseRef && !hasConfig(root, mb) && !hasConfig(root, at.baseRef) && onboardValue(value, repo, at.head)) continue;
-    if (usable && at.intoTranche && !hasConfig(root, mb) && (!at.baseRef || !hasConfig(root, at.baseRef)) && onboardValue(value, repo, at.base)) continue;
     fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
   }
-}
-
-// Onboarding (a pull request into the tranche, no process config on the base, one on the head)
-// sets approvals.owner to the repository's owner as GitHub has it, so a product owned by
-// someone other than the default owner reads its approvals rightly (review follow-ups, 2 Nov).
-// Nothing is asked of the owner for it. Afterwards the record check lets only the owner's own
-// website commit change it.
-// readOwner() -> { login } or { login: null, why } (ownerAnswer). me: the login the tool acts
-// as; a repository the sessions' own account owns would hand them the approvals (second
-// re-review of PR 26), so it is refused.
-export function onboardingOwner(root, mb, sha, baseRef, readOwner, readMe = () => null) {
-  if (hasConfig(root, mb) || hasConfig(root, baseRef) || !hasConfig(root, sha)) return;
-  const c = configAt(root, sha);
-  if (c === 'unreadable') fail(`${CONFIG_FILE} on the pull request is not a JSON object`);
-  const { login: owner, why, organization } = readOwner();
-  if (!owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to the repository's owner, and ${why}`);
-  const named = c.approvals?.owner;
-  // Read only here, and refused when unreadable (third re-review of PR 26).
-  const me = readMe();
-  if (!me) fail(`onboarding needs the account the sessions act as, to tell it from the repository's owner, and it could not be read from GitHub (gh api user)`);
-  if (owner === me) fail(`the repository's owner, ${owner}, is the account the sessions act as, so it cannot hold the approvals; approvals.owner needs Bob's word`);
-  const whom = organization ? `the default owner, ${owner}, since the organization ${organization} owns the repository` : `the repository's owner, ${owner}, as GitHub has it`;
-  if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to ${whom}; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
 // could rewrite a workflow, or add a job named like a required check (confirming review of
 // PR 14). A plain pull request may change a workflow file only to the process's own shim for
 // it, byte for byte, at the released process pin its head sets; any other change needs the
-// owner's word. Returns the approved files and their blobs.
+// owner's word.
 export function workflowChanges(root, sha, changed, repo) {
   const files = changed.filter((f) => f.startsWith(WORKFLOWS));
-  if (!files.length) return new Map();
+  if (!files.length) return;
   const owner = (why) => fail(`the pull request changes ${files.join(', ')}: ${why}. A workflow change needs the owner's word: bring it to Bob`);
-  const pin = git(['ls-tree', sha, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1];
+  const pin = pinAt(root, sha);
   if (!pin) owner('there is no process pin to compare it with');
   if (!repo.released(pin)) owner(`the process pin ${pin.slice(0, 10)} is not a commit on process3's tranche or main`);
-  const approved = new Map();
   for (const f of files) {
     const blob = blobAt(root, sha, f);
     const shim = repo.shim(pin, basename(f));
     if (!blob || !shim || blob !== shim) owner(`${f} is not the process's own shim at ${pin.slice(0, 10)}`);
-    approved.set(f, blob);
   }
-  return approved;
 }
 
-// A required check is green only by a check run from the app its rule names. An Actions run
-// counts only when the copy of its workflow that ran is trusted: the base's own copy
-// (pull_request_target), or a file whose blob at the head equals the base's, or a shim change
-// approved above. Among the runs that qualify, the newest decides.
-export function checkGreen(root, slug, baseRef, sha, check, io, approved = new Map()) {
-  const runs = io.checkRuns(slug, sha, check.context);
-  if (!runs) return `${check.context}: could not be read`;
-  let why = 'no check run';
-  for (const run of runs) {
-    // A rule that names no app is held to GitHub Actions (third confirming review of PR 14).
-    const app = check.app ?? ACTIONS_APP;
-    if (run.app?.id !== app) { why = `no run from app ${app}`; continue; }
-    if (run.app?.id === ACTIONS_APP) {
-      const w = io.workflowRun(slug, run);
-      if (!w) { why = 'its workflow run could not be read'; continue; }
-      const head = blobAt(root, sha, w.path);
-      const trusted = w.event === 'pull_request_target' || (head && (head === blobAt(root, baseRef, w.path) || head === approved.get(w.path)));
-      if (!trusted) { why = `its workflow ${w.path} is the pull request's own copy, not the base's`; continue; }
-    }
-    const state = run.status === 'completed' ? run.conclusion : run.status;
-    return state === 'success' ? null : `${check.context}: ${state}`;
+// Waits while a required check on the head is queued, in progress or not yet started (it failed
+// at once that way three times on 2 and 3 Nov), up to `minutes`. GitHub judges the result.
+export function waitForChecks(slug, sha, names, { minutes = 20, every = 30000, read = checkRuns, log = console.log } = {}) {
+  const until = Date.now() + minutes * MINUTE;
+  for (;;) {
+    const states = names.map((name) => { const r = read(slug, sha, name)?.[0]; return [name, r ? (r.status === 'completed' ? r.conclusion : r.status) : 'not started']; });
+    const pending = states.filter(([, st]) => ['queued', 'in_progress', 'waiting', 'pending', 'requested', 'not started'].includes(st));
+    if (!pending.length) return states;
+    if (Date.now() > until) fail(`required checks still running on ${sha.slice(0, 10)} after ${minutes} min: ${pending.map(([n, st]) => `${n} ${st}`).join(', ')}`);
+    log(`waiting for ${pending.map(([n, st]) => `${n} (${st})`).join(', ')} on ${sha.slice(0, 10)}`);
+    sleep(every);
   }
-  return `${check.context}: ${why}`;
 }
 
 export function mergePlain(root, n, opts = {}) {
-  const { reviewed, noReview, log = console.log } = opts;
-  const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), repoOwner: (s2) => repoOwnerOf(s2), me: () => gh(['api', 'user'], { allowFail: true })?.login || null, namedChecks: (s2, b) => namedRequiredChecks(s2, b), ...(opts.io || {}) };
+  const { reviewed, noReview, minutes = 20, log = console.log } = opts;
+  const io = { getPR, requiredChecks, checkRuns, mergePR, repo: processRepo(), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
@@ -373,72 +293,38 @@ export function mergePlain(root, n, opts = {}) {
   // The base and head as GitHub has them, fetched so they are read here, not trusted.
   git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root });
   const baseRef = `origin/${base}`;
-  // The owner and the tranche's name are read from the base's config, never from the change
-  // it judges or the working tree; an unreadable base config grants no exception.
+  // The owner and the tranche's name are read from the base's config, never from the change it
+  // judges or the working tree.
   let baseCfg = null;
   try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
   if (main && !baseCfg) fail(`${CONFIG_FILE} on ${base} cannot be read, so the tranche's name is unknown; only the tranche merges into ${base}`);
-  // Refused before anything is fetched, unless main has no config yet (below).
-  const mainNamed = main && hasConfig(root, baseRef);
-  if (mainNamed && head !== baseCfg.tranche) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
-  if (main && !mainNamed && head !== baseCfg.tranche && git(['ls-remote', '--exit-code', '--heads', 'origin', `refs/heads/${head}`], { cwd: root, allowFail: true }).code !== 0) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
+  if (main && head !== baseCfg.tranche) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
   git(['fetch', '-q', 'origin', `+refs/heads/${head}:refs/remotes/origin/${head}`], { cwd: root });
   if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
-  // The tranche's name: the base's config's. While main has no config, a tranche onboarded under
-  // another name names itself in its own config (reviews of PR 26), and that name holds for the
-  // tranche into main.
-  const headCfg = configAt(root, pr.head.sha);
-  const named = headCfg && headCfg !== 'unreadable' && typeof headCfg.tranche === 'string' ? headCfg.tranche : null;
-  const trancheName = main && !hasConfig(root, baseRef) && !isJob(head) && named === head ? head : baseCfg?.tranche;
-  if (main && head !== trancheName) fail(`only the tranche ${trancheName} merges into ${base}, not ${head}`);
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
-  const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
-  // While the base has no config, the owner is the repository's, as GitHub has it.
-  let ghOwner;
-  const githubOwner = () => (ghOwner === undefined ? (ghOwner = ownerAnswer(io.repoOwner(slug))) : ghOwner);
-  const owner = () => (hasConfig(root, baseRef) ? baseCfg.approvals.owner : githubOwner().login);
-  // Onboarding a tranche of another name (reviews of PR 26): the base has no process config
-  // (at the merge base or its tip), is not main or a job's branch, and the head's config names
-  // exactly this base as the tranche. It is then the tranche for every guard below.
-  const onboardingNamed = !main && !isJob(base) && !hasConfig(root, mb) && !hasConfig(root, baseRef) && named === base;
-  const intoTranche = (Boolean(baseCfg) && base === baseCfg.tranche) || onboardingNamed;
+  workflowChanges(root, pr.head.sha, changed, io.repo);
+  const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main && Boolean(baseCfg) && head === trancheName, intoTranche, baseRef, base, head,
-    ownerCommit: (c) => (owner() ? webCommitByOwner(root, c, owner(), io.lookup, slug) : { ok: false }),
+    intoMain: main, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
   });
-  if (intoTranche) onboardingOwner(root, mb, pr.head.sha, baseRef, githubOwner, io.me);
-  // A tranche of another name into main while main has no config (second re-review of PR 26):
-  // only a branch whose own rules require checks, as the owner's ruleset gives the tranche
-  // (Step 11); any branch a session made has none, so it cannot pass itself off as the tranche.
-  // The ruleset must name the branch itself, not every branch or a pattern (third re-review).
-  if (main && trancheName === head && head !== baseCfg.tranche) {
-    if (!io.namedChecks(slug, head)) fail(`${head} names itself the tranche, but no ruleset requiring checks names it; only the tranche the owner's ruleset holds merges into ${base}`);
-  }
-  // Another open pull request from the same head would share its check runs.
-  const same = io.openFrom(slug, head);
-  if (!same) fail(`could not read the open pull requests from ${head}`);
-  const others = same.filter((x) => x.number !== n).map((x) => `#${x.number}`);
-  if (others.length) fail(`${head} is also the head of ${others.join(', ')}; merge only when one pull request is open from it`);
-
-  const rules = io.requiredChecks(slug, base);
-  if (!rules) fail(`could not read the checks ${base} requires`);
-  if (!rules.checks.length && (main || !baseCfg || intoTranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
-  if (rules.strict && git(['merge-base', '--is-ancestor', baseRef, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} requires an up-to-date head, and ${head} does not contain ${base}'s tip`);
-  const red = rules.checks.map((c) => checkGreen(root, slug, baseRef, pr.head.sha, c, io, approved)).filter(Boolean);
-  if (red.length) fail(`not every required check is green on ${pr.head.sha.slice(0, 10)}: ${red.join('; ')}`);
-  const names = rules.checks.map((c) => c.context);
-  log(names.length ? `required checks green on ${pr.head.sha.slice(0, 10)}: ${names.join(', ')}` : `note: ${base} requires no checks`);
 
   // Module code goes through a job (ARC-2): in a product, a plain merge may not touch any ledger
   // entry's paths or tests. The tranche itself (into main, or into a working branch) carries
-  // only work that came through the gate. The tranche's name is the base's, as above.
-  if (!baseCfg || head !== trancheName) {
+  // only work that came through the gate. The tranche's name is the base's.
+  if (!baseCfg || head !== baseCfg.tranche) {
     const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
     const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
     if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);
   }
+
+  const rules = io.requiredChecks(slug, base);
+  if (!rules) fail(`could not read the checks ${base} requires`);
+  const names = [...new Set(rules.checks.map((c) => c.context))];
+  if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
+  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, log });
+  log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
   // The base must still be the one checked.
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);
@@ -452,8 +338,6 @@ export function mergePlain(root, n, opts = {}) {
     check: () => {
       const p = io.getPR(slug, n);
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
-      // A base that requires an up-to-date head: the head must still contain the moved tip.
-      if (rules.strict && git(['merge-base', '--is-ancestor', `refs/remotes/origin/${base}`, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} moved and requires an up-to-date head; run merge again`);
     },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);

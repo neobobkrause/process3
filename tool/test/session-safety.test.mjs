@@ -170,11 +170,9 @@ test('merge --plain retries a moved base and merges the same head; a head that m
       calls,
       io: {
         getPR: () => { calls.reads++; return { state: 'open', draft: false, base: { ref: 'tranche', repo: { full_name: 'o/r', default_branch: 'main' } }, head: { ref: 'bob/pin', sha: calls.tries > 0 && headAfter ? headAfter : sha, repo: { full_name: 'o/r' } } }; },
-        requiredChecks: () => ({ checks: [{ context: 'gate', app: 15368 }], strict: false }),
-        checkRuns: () => [{ id: 1, app: { id: 15368 }, status: 'completed', conclusion: 'success', started_at: '2026-11-02T10:00:00Z', check_suite: { id: 7 } }],
-        workflowRun: () => ({ path: '.github/workflows/ci.yml', event: 'pull_request' }),
+        requiredChecks: () => ({ checks: [{ context: 'gate' }] }),
+        checkRuns: () => [{ id: 1, status: 'completed', conclusion: 'success', started_at: '2026-11-02T10:00:00Z' }],
         repo: { released: () => false, shim: () => null, descends: () => false },
-        openFrom: () => [], repoOwner: () => 'neobobkrause', me: () => 'civicsmith', namedChecks: () => true,
         mergePR: (slug, n, s) => { calls.tries++; if (calls.tries === 1) moved(); calls.merged = s; return { merged: true, sha: 'm'.repeat(40) }; },
       },
     };

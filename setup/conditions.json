@@ -100,18 +100,17 @@
     },
     {
       "id": "approvals",
-      "what": "CLAUDE.md on the tranche holds one approvals block, under the heading process/config.json names, last changed by the owner's own commit through GitHub's website.",
+      "what": "CLAUDE.md on the tranche holds one approvals block, under the heading process/config.json names, the one the owner's own commit through GitHub's website last set on the tranche or main.",
       "why": "A session acts on the owner's standing approvals only when CLAUDE.md holding them is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). Only the owner's own website commit may set them, so a session cannot widen its own approvals.",
       "value": {
         "file": "process/config.json approvals.file, default CLAUDE.md",
         "heading": "process/config.json approvals.heading, default ## Standing approvals from Bob",
-        "owner": "process/config.json approvals.owner, which onboarding sets to the repository's owner as GitHub has it; while the tranche has no config, that owner",
+        "owner": "process/config.json approvals.owner (neobobkrause when it names none), which the owner confirms once at onboarding",
         "blocks": 1,
-        "last_changed_by": "the owner's commit through GitHub's website",
-        "newest": "the block is the newest one the owner set through GitHub's website on the tranche or main (an edit, a website merge, or a removal), so a merge that put back an older one is missing"
+        "last_set_by": "the owner's commit through GitHub's website, on the tranche or main, the newer of the two"
       },
       "who": "the developer, committing it on the tranche through GitHub's website, signed in as the owner",
-      "read": "the file on origin/<tranche>, through git: the approvals headings; from the tip, following a parent whose approvals block is the same, the commit none of whose parents has its block (a shallow clone deepened first); then GET /repos/{repo}/commits/{sha}: committer web-flow, verified, author the owner (the record check's webCommitByOwner); then, of the commits on origin/<tranche> and origin/main whose block differs from a parent's, the newest by committer date that is the owner's website commit: its block must be the tip's, and a newer one GitHub cannot read is missing (the record check's approvalsHistory); GET /repos/{repo}: owner.login, a person's only, when the tranche has no config"
+      "read": "the file on origin/<tranche>, through git: the approvals headings; then, for origin/<tranche> and origin/main (a shallow clone deepened first), one git log of the file gives the commit that set the block its tip holds, and GET /repos/{repo}/commits/{sha} says whether it is the owner's website commit (committer web-flow, verified, author the owner); of those that are, the newer one's block must be the tranche's (the record check's ownerBlock)"
     },
     {
       "id": "artifact-retention",
@@ -133,11 +132,11 @@
     },
     {
       "id": "session-branch",
-      "what": "The checkout of the session running the check is the tranche: it is not main (by name, at main's tip under any name unless the tranche's tip is the same commit, or holding a commit of main's the tranche lacks), and it descends from the tranche's tip, or shares its history and carries the tranche's current approvals block.",
+      "what": "The checkout of the session running the check is the tranche's tip, with its approvals block: start check's own test.",
       "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
-      "value": "not main, not at origin/main's tip (unless origin/<tranche> is there too), no commit reachable from both HEAD and origin/main missing from origin/<tranche>; then HEAD descends from origin/<tranche>, or has a merge-base with it and the same approvals block",
+      "value": "HEAD is origin/<tranche>'s tip, and the approvals block in the checkout's file is the tip's",
       "who": "BOB and every session it starts: start from the tranche",
-      "read": "git in the session's own checkout: merge-base --is-ancestor origin/<tranche> HEAD; else the branch name against main, merge-base HEAD origin/<tranche>, rev-list (merge-base --all HEAD origin/main) --not origin/<tranche>, and the approvals block at HEAD and at origin/<tranche>. The last test proves the same approvals text, not where the session started; the others prove it is from the tranche's history. Older approvals say to pull the tranche, anything else to start from the tranche"
+      "read": "start check (tool/lib/start.mjs) against the tranche: it fetches origin/<tranche> and compares HEAD and the approvals block with its tip; a checkout behind it says to pull the tranche or start from it"
     },
     {
       "id": "environment",

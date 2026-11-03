@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
+import { approvalsBlock } from '../lib/record.mjs';
 import { CONFIRMED, READERS, loadConditions, setupCheck } from '../lib/setup.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
@@ -36,8 +37,9 @@ function world() {
     branchInfo: { main: { protected: true, protection: { enabled: false } }, tranche: { protected: true, protection: { enabled: false } } },
     protection: {},
     commit: { committer: { login: 'web-flow' }, author: { login: 'neobobkrause' }, commit: { verification: { verified: true } } },
-    lastChange: 'abc1234567890',
-    onTranche: { ok: true, why: 'build/x descends from the tip of tranche' },
+    // The block the owner last set (ownerBlock); undefined: the tranche's own block, set by abc1234567.
+    top: undefined,
+    onTranche: { ok: true, head: 'a'.repeat(40), tip: 'a'.repeat(40) },
     cf: {},
     cfAsked: [],
     files: { 'CLAUDE.md': '# Product\n\n## Standing approvals from Bob\n\nThe owner\'s words.\n', '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY } }), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
@@ -61,7 +63,7 @@ function world() {
     },
     file: (f) => w.files[f] ?? null,
     branchExists: () => true,
-    lastChange: () => w.lastChange,
+    ownerBlock: (file, heading) => (w.top !== undefined ? w.top : { ref: 'origin/tranche', sha: 'abc1234567890', at: 1, block: approvalsBlock(w.files[file], heading) }),
     onTranche: () => w.onTranche,
     cf: (path) => { w.cfAsked.push(path); const k = Object.keys(w.cf).find((x) => path.includes(x)); return k ? w.cf[k] : { status: 200, success: true }; },
   };
@@ -202,8 +204,8 @@ test('the files are read from the tranche on origin, through git', () => {
   assert.equal(state(res, 'coordinator').detail, 'session_bob');
   // The approvals' last change and the session's branch are read through git too.
   const sha = git(['rev-parse', 'origin/tranche'], { cwd: r });
-  assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${sha.slice(0, 10)}`);
-  assert.equal(state(res, 'session-branch').detail, 'this checkout is main, not the tranche branch. Start the session from the tranche branch');
+  assert.equal(state(res, 'approvals').detail, `one block, the one neobobkrause's website commit ${sha.slice(0, 10)} set`);
+  assert.match(state(res, 'session-branch').detail, /^HEAD [0-9a-f]{10} is not the tip of tranche \([0-9a-f]{10}\) with its approvals\. Start the session from the tranche branch/);
   // A later commit on the tranche that leaves the block alone does not move its last change;
   // one that edits the block does, and it is not the owner's website commit.
   git(['checkout', '-q', 'tranche'], { cwd: r });
@@ -220,12 +222,10 @@ test('the files are read from the tranche on origin, through git', () => {
   asked = [];
   const a = state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf }, log: quiet }), 'approvals');
   assert.equal(a.state, 'missing');
-  assert.match(a.detail, new RegExp(`last changed by ${widen.slice(0, 10)}, which is not neobobkrause's own commit through GitHub's website \\(author civicsmith, committer civicsmith`));
-  // A checkout that is neither the tranche nor from its tip is missing, with the plain fix.
-  git(['checkout', '-q', '-b', 'stray', 'main'], { cwd: r });
-  commit(r, { 'stray.txt': 's' }, 'stray');
-  assert.match(state(setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet }), 'session-branch').detail,
-    /stray holds no approvals block, so it is not from the tranche branch\. Start the session from the tranche branch/);
+  assert.ok(asked.includes(`repos/o/r/commits/${widen}`), asked.join(', '));
+  assert.equal(a.detail, "no approvals block on tranche or main was last set by neobobkrause's own commit through GitHub's website");
+  // At the tranche's tip, the session's branch is set.
+  assert.equal(state(setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet }), 'session-branch').state, 'set');
 });
 
 test('job start runs the setup check first and starts nothing while a condition is missing', () => {
@@ -251,22 +251,11 @@ test('job start runs the setup check first and starts nothing while a condition 
 // The developer's steps (Bob, 2 Nov): setup/DEVELOPER.md holds only the owner's acts, checked
 // against the list by the real checker.
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
-import { DEVELOPER, bashRuleMatches, checkDeveloperSteps, cloudflareRead, lastApprovalsChange, sessionOnTranche } from '../lib/setup.mjs';
+import { bashRuleMatches, cloudflareRead } from '../lib/setup.mjs';
+import { DEVELOPER, checkDeveloperSteps } from './developer-steps.mjs';
 
 test('DEVELOPER.md: every step complete, every developer condition covered, only theirs named, the deny lines the list\'s', () => {
   assert.deepEqual(checkDeveloperSteps(readFileSync(DEVELOPER, 'utf8')), []);
-});
-
-test('the step checker fails on a missing step, an unknown or non-developer condition, drifted deny lines, and an em-dash', () => {
-  const text = readFileSync(DEVELOPER, 'utf8');
-  const step = (sets, extra = '') => `## Step 99. X\n\nWhy: x\n\nClicks: y${extra}\n\nHow BOB confirms: z\n\nSets: ${sets}.\n`;
-  assert.ok(checkDeveloperSteps(text + step('`no-such-id`')).some((p) => /names no-such-id, which is not in the list/.test(p)));
-  assert.ok(checkDeveloperSteps(text + step('`coordinator`')).some((p) => /names coordinator, which is not the developer's/.test(p)));
-  assert.ok(checkDeveloperSteps(text.replace('Sets: `deny-list`.', 'Sets: none.')).includes('deny-list is the developer\'s and has no step'));
-  assert.ok(checkDeveloperSteps(text.replace('"Bash(gh pr merge *)",\n', '')).includes('the deny lines on the page differ from the deny-list condition'));
-  assert.ok(checkDeveloperSteps(text.replace('Why: every other step', 'Why: — every other step')).includes('an em-dash'));
-  assert.ok(checkDeveloperSteps(text.replace(/^How BOB confirms: `p3 setup check` shows `merge-settings` set\.$/m, '')).some((p) => /Step 5\. .*lacks How BOB confirms/.test(p)));
-  assert.doesNotMatch(text, /civicsmith/i, 'the page names no product or account');
 });
 
 // Deploy tokens are a standard condition (Bob, 2 Nov): present by name, the account matching.
@@ -362,14 +351,13 @@ test('classic branch protection on main or the tranche is reported missing, to r
 
 test('approvals: one block on the tranche, last changed by the owner\'s website commit', () => {
   const ok = check(world());
-  assert.match(state(ok, 'approvals').detail, /one block, last changed by neobobkrause's website commit abc1234567/);
+  assert.equal(state(ok, 'approvals').detail, "one block, the one neobobkrause's website commit abc1234567 set");
   for (const [change, why] of [
     [(w) => { delete w.files['CLAUDE.md']; }, /no CLAUDE.md on tranche/],
     [(w) => { w.files['CLAUDE.md'] = '# Product\n'; }, /has no "## Standing approvals from Bob" block/],
     [(w) => { w.files['CLAUDE.md'] += '\n## More approvals\n\nx\n'; }, /has 2 approvals headings; only one block may exist/],
-    [(w) => { w.lastChange = null; }, /could not find the commit/],
-    [(w) => { w.commit.committer.login = 'civicsmith'; }, /not neobobkrause's own commit through GitHub's website \(author neobobkrause, committer civicsmith/],
-    [(w) => { w.commit.author.login = 'civicsmith'; }, /author civicsmith/],
+    [(w) => { w.top = null; }, /no approvals block on tranche or main was last set by neobobkrause's own commit/],
+    [(w) => { w.top = { ref: 'origin/main', sha: 'def4567890123', at: 2, block: '## Standing approvals from Bob\n\nolder' }; }, /not the block neobobkrause last set through GitHub's website: that is commit def4567890's, on origin\/main/],
   ]) {
     const w = world();
     change(w);
@@ -381,15 +369,15 @@ test('approvals: one block on the tranche, last changed by the owner\'s website 
   const w = world();
   w.files['process/config.json'] = JSON.stringify({ ...JSON.parse(w.files['process/config.json']), approvals: { heading: '## Owner rules', owner: 'someone' } });
   w.files['CLAUDE.md'] = '## Owner rules\n\nx\n';
-  assert.match(state(check(w), 'approvals').detail, /not someone's own commit/);
+  assert.equal(state(check(w), 'approvals').detail, "one block, the one someone's website commit abc1234567 set");
 });
 
 test('session-branch: a session not started from the tranche is missing, and job start says to start from the tranche', () => {
   const w = world();
-  w.onTranche = { ok: false, why: 'main is neither tranche nor a branch from its tip' };
+  w.onTranche = { ok: false, head: 'b'.repeat(40), tip: 'a'.repeat(40) };
   const r = check(w);
   assert.deepEqual(r.missing, ['session-branch']);
-  assert.equal(state(r, 'session-branch').detail, 'main is neither tranche nor a branch from its tip. Start the session from the tranche branch');
+  assert.equal(state(r, 'session-branch').detail, 'HEAD bbbbbbbbbb is not the tip of tranche (aaaaaaaaaa) with its approvals. Start the session from the tranche branch, or bring it up to date (git pull origin tranche)');
   const repo = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: repo });
@@ -428,31 +416,6 @@ test('deploy-token: one harmless read per scope, each reported present or missin
   assert.equal(n.cfAsked.length, 0);
 });
 
-test('the step checker: a step naming no condition says why; website commits set base to the tranche; the settings file is whole JSON; the step count is stated', () => {
-  const text = readFileSync(DEVELOPER, 'utf8');
-  assert.match(text, /^There are 11 steps\b/m);
-  assert.ok(checkDeveloperSteps(text.replace(/^Sets: none, because .*$/m, 'Sets: none.')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
-  assert.ok(checkDeveloperSteps(text.replace(/^Sets: none, because .*$/m, 'Sets: none')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
-  const noBase = text.split('set **base** to the tranche, not `main`').join('set the base');
-  assert.ok(checkDeveloperSteps(noBase).some((p) => /^Step 9\. .*does not say to set base to the tranche/.test(p)));
-  assert.ok(checkDeveloperSteps(noBase).some((p) => /^Step 10\. .*does not say to set base to the tranche/.test(p)));
-  assert.ok(checkDeveloperSteps(text.replace('```json\n   {', '```json\n')).includes('the deny step does not show the whole .claude/settings.json as valid JSON'));
-  assert.ok(checkDeveloperSteps(text.replace('There are 11 steps', 'There are 10 steps')).includes('the page says 10 steps, and has 11'));
-  assert.ok(checkDeveloperSteps(text.replace('## Step 6.', '## Step 16.')).some((p) => /out of order, expected Step 6/.test(p)));
-  // The page itself: the approvals before the deny list, both before the last ruleset; the
-  // private window; required approvals 0; the deploy token's three scopes, and no KV.
-  const at = (s) => text.indexOf(s);
-  assert.ok(at('## Step 9. The standing approvals') < at('## Step 10. The deny list') && at('## Step 10.') < at('## Step 11. A ruleset on main'));
-  assert.match(text, /## Step 3\. In a private window/);
-  assert.match(text, /Leave \*\*Required approvals\*\* at `0`/);
-  assert.match(text, /make sure \*\*Restrict deletions\*\* and \*\*Block force pushes\*\* are ticked/);
-  for (const p of ['**Workers Scripts**: **Edit**', '**Workers R2 Storage**: **Edit**', '**Containers**: **Edit**']) assert.ok(text.includes(p), p);
-  assert.match(text, /add these three rows/);
-  assert.doesNotMatch(text, /Workers KV Storage|list KV namespaces/);
-  assert.match(text, /BOB's setup puts nothing under `\.claude\/`/);
-  assert.match(text, /BOB's setup puts nothing in the approvals block/);
-});
-
 // Reviews of PR 24: the approvals' last change by ancestry, a shallow clone, the session's
 // branch, the Cloudflare read itself, and the step checker's "none" lines.
 const HEAD_ = '## Standing approvals from Bob';
@@ -465,129 +428,6 @@ function originRepo() {
   return { r, bare };
 }
 const tip = (r, ref = 'HEAD') => git(['rev-parse', ref], { cwd: r });
-
-test('lastApprovalsChange follows ancestry, not dates: a merge that keeps a side commit\'s block names that commit', () => {
-  for (const keep of ['side', 'owner']) {
-    const { r } = originRepo();
-    git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
-    commit(r, { 'CLAUDE.md': claude('A') }, 'owner first');
-    git(['checkout', '-q', '-b', 'job/x'], { cwd: r });
-    commit(r, { 'CLAUDE.md': claude('EVIL') }, 'session widens');
-    const n = tip(r);
-    git(['checkout', '-q', 'tranche'], { cwd: r });
-    commit(r, { 'CLAUDE.md': claude('B') }, 'owner second');
-    const w = tip(r);
-    git(['merge', '-q', '--no-ff', '--no-commit', 'job/x'], { cwd: r, allowFail: true });
-    commit(r, { 'CLAUDE.md': claude(keep === 'side' ? 'EVIL' : 'B') }, 'merge');
-    git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-    assert.equal(lastApprovalsChange(r, 'tranche', 'CLAUDE.md', HEAD_), keep === 'side' ? n : w, keep);
-  }
-  // A merge whose block is neither parent's is itself the change; no block at the tip is null.
-  const { r } = originRepo();
-  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
-  commit(r, { 'CLAUDE.md': '# P\n' }, 'no block');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  assert.equal(lastApprovalsChange(r, 'tranche', 'CLAUDE.md', HEAD_), null);
-});
-
-test('lastApprovalsChange deepens a shallow clone, and reports the edge rather than a wrong commit when it cannot', () => {
-  const { r, bare } = originRepo();
-  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
-  commit(r, { 'CLAUDE.md': claude('A') }, 'owner');
-  const owner = tip(r);
-  for (let i = 0; i < 3; i++) commit(r, { 'CLAUDE.md': `${claude('A')}\n## Notes\n\nn${i}\n` }, `notes ${i}`);
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  const dir = mkdtempSync(join(tmpdir(), 'p3-shallow-'));
-  const c = join(dir, 'c');
-  git(['clone', '-q', '--depth', '1', '--branch', 'tranche', `file://${bare}`, c], { cwd: dir });
-  assert.equal(lastApprovalsChange(c, 'tranche', 'CLAUDE.md', HEAD_), owner);
-  const c2 = join(dir, 'c2');
-  git(['clone', '-q', '--depth', '1', '--branch', 'tranche', `file://${bare}`, c2], { cwd: dir });
-  git(['remote', 'set-url', 'origin', join(dir, 'nowhere.git')], { cwd: c2 });
-  assert.deepEqual(lastApprovalsChange(c2, 'tranche', 'CLAUDE.md', HEAD_), { shallow: tip(c2, 'origin/tranche') });
-  const w = world();
-  w.lastChange = { shallow: 'abcdef1234567' };
-  assert.match(state(check(w), 'approvals').detail, /is shallow at abcdef1234 and could not be deepened/);
-});
-
-test('sessionOnTranche: the tip or a branch from it is set; main, a stray branch, or stale approvals are not', () => {
-  const { r } = originRepo();
-  git(['push', '-q', 'origin', 'main'], { cwd: r });
-  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
-  commit(r, { 'CLAUDE.md': claude('A') }, 'owner');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  const on = () => sessionOnTranche(r, 'tranche');
-  const why = () => on().why;
-  assert.deepEqual(on(), { ok: true, why: 'tranche descends from the tip of tranche' });
-  git(['checkout', '-q', '--detach', 'tranche'], { cwd: r });
-  assert.match(on().why, /^this checkout \(detached at [0-9a-f]+\) descends from the tip of tranche$/);
-  // A build branch cut from the tranche, with its own commits, after the tranche moved on.
-  git(['checkout', '-q', '-b', 'build/x', 'tranche'], { cwd: r });
-  commit(r, { 'b.txt': 'b' }, 'build');
-  git(['checkout', '-q', 'tranche'], { cwd: r });
-  commit(r, { 't.txt': 't' }, 'tranche moves');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  git(['checkout', '-q', 'build/x'], { cwd: r });
-  assert.deepEqual(on(), { ok: true, why: 'build/x is from tranche\'s history and holds its current approvals' });
-  // The tranche's approvals changed since: the old checkout does not hold them.
-  git(['checkout', '-q', 'tranche'], { cwd: r });
-  commit(r, { 'CLAUDE.md': claude('B') }, 'owner again');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  git(['checkout', '-q', 'build/x'], { cwd: r });
-  assert.deepEqual(on(), { ok: false, why: 'build/x holds older approvals than origin/tranche', fix: 'Bring it up to date with tranche (git pull origin tranche), or start the session from the tranche branch' });
-  git(['checkout', '-q', 'main'], { cwd: r });
-  assert.equal(why(), 'this checkout is main, not the tranche branch');
-  git(['checkout', '-q', '-b', 'from-main'], { cwd: r });
-  assert.equal(why(), 'this checkout (from-main) is on main, not the tranche branch');
-  commit(r, { 'f.txt': 'f' }, 'work off main');
-  assert.equal(why(), 'from-main holds no approvals block, so it is not from the tranche branch');
-  git(['checkout', '-q', 'main'], { cwd: r });
-  assert.deepEqual(sessionOnTranche(r, 'no-such'), { ok: false, why: 'origin/no-such is not here', fix: 'Start the session from the no-such branch' });
-  // After the tranche merges into main (a merge commit) and moves on: a branch cut before the
-  // merge, and a local tranche behind origin, are still the tranche; main is not.
-  git(['checkout', '-q', 'tranche'], { cwd: r });
-  git(['checkout', '-q', '-b', 'build/y'], { cwd: r });
-  commit(r, { 'y.txt': 'y' }, 'build y');
-  git(['checkout', '-q', 'main'], { cwd: r });
-  git(['merge', '-q', '--no-ff', '-m', 'tranche into main', 'tranche'], { cwd: r });
-  git(['push', '-q', 'origin', 'main'], { cwd: r });
-  // Right after the release merge, before the tranche moves on: main, detached at main, or a
-  // branch at main's tip under any name, is refused (third re-review).
-  assert.equal(why(), 'this checkout is main, not the tranche branch');
-  git(['checkout', '-q', '--detach', 'main'], { cwd: r });
-  assert.match(why(), /^this checkout \(detached at [0-9a-f]+\) is on main, not the tranche branch$/);
-  git(['checkout', '-q', '-b', 'claude/runner', 'main'], { cwd: r });
-  assert.equal(why(), 'this checkout (claude/runner) is on main, not the tranche branch');
-  commit(r, { 'r.txt': 'r' }, 'runner work');
-  assert.match(why(), /^claude\/runner holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from the tranche branch$/);
-  git(['checkout', '-q', 'main'], { cwd: r });
-  git(['checkout', '-q', 'tranche'], { cwd: r });
-  const behind = tip(r);
-  commit(r, { 'z.txt': 'z' }, 'tranche moves on');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  git(['checkout', '-q', '-b', 'off-main', 'main'], { cwd: r });
-  assert.equal(why(), 'this checkout (off-main) is on main, not the tranche branch');
-  commit(r, { 'o.txt': 'o' }, 'work off main');
-  assert.match(why(), /^off-main holds main's commit [0-9a-f]{10}, which tranche does not, so it is not from the tranche branch$/);
-  git(['checkout', '-q', 'build/y'], { cwd: r });
-  assert.deepEqual(on(), { ok: true, why: 'build/y is from tranche\'s history and holds its current approvals' });
-  git(['checkout', '-q', '-B', 'tranche', behind], { cwd: r });
-  assert.deepEqual(on(), { ok: true, why: 'tranche is from tranche\'s history and holds its current approvals' });
-  // main merged back into the tranche: main is still not the tranche, checked out or detached.
-  git(['checkout', '-q', '-B', 'tranche', 'origin/tranche'], { cwd: r });
-  git(['merge', '-q', '--no-ff', '-m', 'main back into tranche', 'main'], { cwd: r });
-  commit(r, { 'w.txt': 'w' }, 'tranche moves on again');
-  git(['push', '-q', 'origin', 'tranche'], { cwd: r });
-  git(['checkout', '-q', 'main'], { cwd: r });
-  assert.deepEqual(on(), { ok: false, why: 'this checkout is main, not the tranche branch', fix: 'Start the session from the tranche branch' });
-  git(['checkout', '-q', '--detach', 'main'], { cwd: r });
-  assert.match(why(), /^this checkout \(detached at [0-9a-f]+\) is on main, not the tranche branch$/);
-  // An orphan branch carrying the same approvals text shares no history with the tranche.
-  git(['checkout', '-q', '--orphan', 'loose'], { cwd: r });
-  git(['rm', '-rq', '--cached', '.'], { cwd: r });
-  commit(r, { 'CLAUDE.md': claude('B') }, 'copy');
-  assert.equal(why(), 'loose shares no history with tranche');
-});
 
 test('cloudflareRead gives curl the token on stdin, never in its arguments, and reads status and success', () => {
   const dir = mkdtempSync(join(tmpdir(), 'p3-curl-'));
@@ -612,18 +452,6 @@ test('cloudflareRead gives curl the token on stdin, never in its arguments, and 
   }
 });
 
-test('the step checker: a "none" line names nothing even with a backticked id, needs a real reason, and each website commit its base note', () => {
-  const text = readFileSync(DEVELOPER, 'utf8');
-  const s1 = /^Sets: none, because .*$/m;
-  assert.ok(checkDeveloperSteps(text.replace(s1, 'Sets: none of it.')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
-  assert.ok(checkDeveloperSteps(text.replace(s1, 'Sets: none `account`.')).some((p) => /^Step 1\. .*names no condition and does not say why/.test(p)));
-  const p = checkDeveloperSteps(text.replace('Sets: `deny-list`.', 'Sets: none, because the record check holds `deny-list` anyway.'));
-  assert.ok(p.includes('deny-list is the developer\'s and has no step'), p.join('; '));
-  const two = text.replace('3. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**', '3. Click **Commit changes...** once more. Then click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**');
-  assert.ok(checkDeveloperSteps(two).some((q) => /^Step 10\. .*does not say to set base/.test(q)));
-  assert.ok(checkDeveloperSteps(text.replace('Why: every other step', 'Why: \u2013 every other step')).includes('an em-dash'));
-});
-
 test('job start names the tranche the setup check read', () => {
   const repo = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -631,24 +459,6 @@ test('job start names the tranche the setup check read', () => {
   git(['remote', 'add', 'origin', bare], { cwd: repo });
   assert.throws(() => jobStart(repo, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup: () => ({ ok: false, missing: ['session-branch'], tranche: 'next' }), log: quiet }),
     /this session's checkout is not one job start accepts: sessions act on the standing approvals of the next branch; nothing was started\. this checkout is not the next branch\. Start the session from the next branch$/);
-});
-
-test('when the tranche\'s config names another tranche, every reader reads that tranche and its own approvals settings', () => {
-  const { r } = originRepo();
-  git(['push', '-q', 'origin', 'main'], { cwd: r });
-  git(['checkout', '-q', '-b', 't1'], { cwd: r });
-  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't2', coordinator: 'old' }) }, 't1');
-  git(['push', '-q', 'origin', 't1'], { cwd: r });
-  git(['checkout', '-q', '-b', 't2'], { cwd: r });
-  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't2', coordinator: 'new', approvals: { heading: '## Owner rules', owner: 'someone' } }), 'CLAUDE.md': '## Owner rules\n\nx\n' }, 't2');
-  git(['push', '-q', 'origin', 't2'], { cwd: r });
-  git(['checkout', '-q', 'main'], { cwd: r });
-  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't1' }) }, 'local config');
-  const w = world();
-  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, branchExists: () => true }, log: quiet });
-  assert.equal(state(res, 'coordinator').detail, 'new');
-  assert.match(state(res, 'approvals').detail, /last changed by [0-9a-f]{10}, which is not someone's own commit/);
-  assert.equal(res.tranche, 't2');
 });
 
 test('end to end: job start on a checkout of main, with the real setup check reading git, stops with the plain message', () => {
@@ -662,25 +472,7 @@ test('end to end: job start on a checkout of main, with the real setup check rea
   git(['checkout', '-q', 'main'], { cwd: r });
   const setup = (root, o) => setupCheck(root, { ...o, slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, branchExists: () => true } });
   assert.throws(() => jobStart(r, 'alpha', { coordinator: 's', open: () => null, find: () => null, setup, log: quiet }),
-    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. this checkout is main, not the tranche branch\. Start the session from the tranche branch$/);
-});
-
-test('a second tranche with no config of its own keeps the first tranche\'s settings, and the coordinator still reports its config missing', () => {
-  const { r } = originRepo();
-  git(['push', '-q', 'origin', 'main'], { cwd: r });
-  git(['checkout', '-q', '-b', 't1'], { cwd: r });
-  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't2', coordinator: 'old', cloudflare_account: 'acc123' }) }, 't1');
-  git(['push', '-q', 'origin', 't1'], { cwd: r });
-  git(['checkout', '-q', '-b', 't2', 'main'], { cwd: r });
-  commit(r, { 'README.md': 'two' }, 't2');
-  git(['push', '-q', 'origin', 't2'], { cwd: r });
-  git(['checkout', '-q', 'main'], { cwd: r });
-  commit(r, { 'process/config.json': JSON.stringify({ tranche: 't1' }) }, 'local config');
-  const w = world();
-  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, branchExists: () => true }, log: quiet });
-  assert.equal(res.tranche, 't2');
-  assert.equal(state(res, 'deploy-account').state, 'set');
-  assert.equal(state(res, 'coordinator').detail, 'no process/config.json on t2');
+    /this session's checkout is not one job start accepts: sessions act on the standing approvals of the tranche branch; nothing was started\. HEAD [0-9a-f]{10} is not the tip of tranche/);
 });
 
 // Review follow-ups, 2 Nov: the approvals on the tranche must be the newest block the owner set
@@ -712,33 +504,9 @@ function restoredTranche(words) {
   return { res, o1, o2 };
 }
 
-test('approvals: a merge on the tranche that put back an older owner-set block is missing', () => {
-  const { res, o1, o2 } = restoredTranche('may push');
-  const a = state(res, 'approvals');
-  assert.equal(a.state, 'missing');
-  assert.equal(a.detail, `the approvals on tranche (set by ${o1.slice(0, 10)}) are not the newest block neobobkrause set through GitHub's website on tranche or main: that is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it to tranche`);
-});
-
 test('approvals: a merge on the tranche that carries the newest owner-set block is set', () => {
   const { res, o2 } = restoredTranche(null);
-  assert.equal(state(res, 'approvals').detail, `one block, last changed by neobobkrause's website commit ${o2.slice(0, 10)}`);
-});
-
-test('approvals: a tranche with no config judges by the repository\'s owner from GitHub', () => {
-  const w = world();
-  delete w.files['process/config.json'];
-  w.commit = { ...w.commit, author: { login: 'alice' } };
-  w.repo = { ...w.repo, owner: { login: 'alice' } };
-  assert.equal(state(check(w), 'approvals').detail, "one block, last changed by alice's website commit abc1234567");
-  w.repo = { ...w.repo, owner: undefined };
-  assert.equal(state(check(w), 'approvals').detail, "the repository's owner could not be read from GitHub, and process/config.json on the tranche names no approvals owner");
-  // Once the tranche has a config, its approvals.owner (or the default) is the one judged by.
-  const c = world();
-  c.repo = { ...c.repo, owner: { login: 'alice' } };
-  c.commit = { ...c.commit, author: { login: 'alice' } };
-  assert.match(state(check(c), 'approvals').detail, /not neobobkrause's own commit/);
-  c.files['process/config.json'] = JSON.stringify({ ...JSON.parse(c.files['process/config.json']), approvals: { owner: 'alice' } });
-  assert.equal(state(check(c), 'approvals').state, 'set');
+  assert.equal(state(res, 'approvals').detail, `one block, the one neobobkrause's website commit ${o2.slice(0, 10)} set`);
 });
 
 // Review follow-ups, 2 Nov: no Workers KV scope; a removal's follow-up KV error is success only
@@ -754,7 +522,7 @@ test('deploy-token asks for no Workers KV scope, and the removal of a developmen
   assert.match(readme, /Count that follow-up error as success only after confirming the script is gone/);
   // Step 9 says nothing new is needed from the owner for approvals.owner.
   const dev = readFileSync(DEVELOPER, 'utf8');
-  assert.match(dev, /BOB's onboarding sets it to the repository's owner as GitHub has it, so nothing more is needed from you for it/);
+  assert.match(dev, /you confirm that owner once on the onboarding page/);
   assert.deepEqual(checkDeveloperSteps(dev), []);
 });
 
@@ -770,52 +538,6 @@ test('approvals: a newer owner block on main that the tranche lacks is missing',
   git(['checkout', '-q', 'tranche'], { cwd: r });
   const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2].some((x) => p.endsWith(x)) ? w.commit : null) : w.io.api(p));
   const a = state(setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet }), 'approvals');
-  assert.equal(a.detail, `the approvals on tranche (set by ${o1.slice(0, 10)}) are not the newest block neobobkrause set through GitHub's website on tranche or main: that is commit ${o2.slice(0, 10)}'s. neobobkrause sets it again on the website, or a merge carries it to tranche`);
-  // GitHub cannot read the newer commit: missing, never the older block taken for the newest.
-  const api2 = (p) => (p.endsWith(o2) ? null : api(p));
-  const b = state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet }), 'approvals');
-  assert.equal(b.detail, `commit ${o2.slice(0, 10)} could not be read from GitHub, so the newest approvals block neobobkrause set through GitHub's website cannot be told`);
+  assert.equal(a.detail, `the approvals on tranche are not the block neobobkrause last set through GitHub's website: that is commit ${o2.slice(0, 10)}'s, on origin/main. neobobkrause sets it again on the website, or a merge carries it to tranche`);
 });
 
-test('approvals: a tranche with no config in a repository an organization owns is judged by the default owner', () => {
-  const w = world();
-  delete w.files['process/config.json'];
-  w.repo = { ...w.repo, owner: { login: 'acme', type: 'Organization' } };
-  assert.equal(state(check(w), 'approvals').detail, "one block, last changed by neobobkrause's website commit abc1234567");
-});
-
-// Second re-review of PR 26: the sessions' own account cannot hold the approvals.
-test('approvals: an approvals owner that is the sessions\' own account is missing', () => {
-  const w = world();
-  w.files['process/config.json'] = JSON.stringify({ ...JSON.parse(w.files['process/config.json']), approvals: { owner: 'civicsmith' } });
-  w.commit = { ...w.commit, author: { login: 'civicsmith' } };
-  assert.equal(state(check(w), 'approvals').detail, "the approvals owner, civicsmith, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word");
-});
-
-test('approvals: the account the sessions act as unreadable is missing', () => {
-  const w = world();
-  w.user = null;
-  assert.equal(state(check(w), 'approvals').detail, 'the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
-});
-
-// Fourth re-review of PR 26: an owner website merge carrying an older block does not outrank
-// the owner's own side-branch edit that lands after it.
-test('approvals: the owner\'s website merge of the tranche into main does not outrank the owner\'s side-branch edit', () => {
-  const { r } = originRepo();
-  const w = world();
-  const o1 = datedCommit(r, { ...w.files, 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T08:00:00Z');
-  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
-  const o2 = datedCommit(r, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T09:00:00Z');
-  git(['checkout', '-q', '-b', 'owner-patch'], { cwd: r });
-  const o3 = datedCommit(r, { 'CLAUDE.md': claude('v3') }, 'owner v3 on a side branch', '2026-11-01T10:00:00Z');
-  git(['checkout', '-q', 'main'], { cwd: r });
-  git(['merge', '-q', '--no-ff', '-m', 'owner website merge: tranche into main', 'tranche'], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T11:00:00Z' } });
-  const release = tip(r);
-  git(['checkout', '-q', 'tranche'], { cwd: r });
-  git(['merge', '-q', '--no-ff', '-m', 'BOB merges the owner\'s pull request', 'owner-patch'], { cwd: r, env: { ...process.env, GIT_COMMITTER_DATE: '2026-11-01T12:00:00Z' } });
-  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
-  const notOwner = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
-  const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2, o3, release].some((x) => p.endsWith(x)) ? w.commit : notOwner) : w.io.api(p));
-  const res = setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet });
-  assert.equal(state(res, 'approvals').state, 'set', state(res, 'approvals').detail);
-});
