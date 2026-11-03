@@ -1,0 +1,15 @@
+{
+  "about": "The only hooks a product's .claude/settings.json may carry (ENF-1; Bob's question 4, 3 Nov). setup check's drift condition fails any other hook.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

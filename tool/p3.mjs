@@ -203,7 +203,7 @@ const commands = {
   // It records the approvals it loaded under .git; start check --wake, at every later wake of
   // BOB, ROOT or the watcher, exits 1 when the tip's approvals differ from that record, or with
   // --approvals <hash> (from the starting or task prompt) from that hash.
-  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch, approvals: a.approvals }) : startCheck(root, { branch: a.branch })).ok ? 0 : 1),
+  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch, approvals: a.approvals }) : startCheck(root, { branch: a.branch, setup: true })).ok ? 0 : 1),
 
   // start root | start bob | start watcher: the role's starting prompt (and create_session call).
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.

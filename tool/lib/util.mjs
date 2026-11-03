@@ -96,6 +96,9 @@ export const DEFAULTS = {
   // full clone stalled a ROOT for over 15 minutes). No blob_limit_kb: it left a 5.2 MB source
   // file out of the checkout and nothing fetched it when node read it. null leaves it out.
   clone: { clone_depth: 1 },
+  // start check (SHM-5): the product's setup script, argv, run once per container; none by default.
+  setup_script: null,
+  setup_timeout_minutes: 15,
 };
 
 // An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
