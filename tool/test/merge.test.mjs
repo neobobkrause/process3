@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
-import { git } from '../lib/util.mjs';
+import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
 
 function setup() {
@@ -55,6 +55,44 @@ test('merge brings the branch up to the tranche, writes the merge row, and merge
   assert.equal(readRows(root, 'alpha').at(-1).review_rounds, 2, 'the merge row records its review rounds');
   git(['checkout', '-q', 'main'], { cwd: root });
   assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left');
+});
+
+test('merge tries again when GitHub says the base moved, and merges the same tip', () => {
+  const { root, head } = setup();
+  const f = io(head);
+  let tries = 0;
+  f.io.mergePR = (slug, n, sha) => {
+    if (++tries === 1) throw new Fail('gh api -X PUT failed: Base branch was modified. Review and try the merge again.');
+    f.calls.merged = sha;
+    return { merged: true, sha: 'm'.repeat(40) };
+  };
+  const pr = f.io.getPR;
+  let reads = 0;
+  f.io.getPR = (...x) => { reads++; const p = pr(...x); return reads > 1 ? { ...p, head: { ...p.head, sha: git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0] } } : p; };
+  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', rounds: 1, log: () => {}, wait: 0 });
+  assert.equal(r.merged, true);
+  assert.equal(tries, 2);
+  assert.equal(f.calls.merged, r.tip);
+});
+
+test('merge does not retry onto a tranche that moved past the merged result the gate checked', () => {
+  const { root, head } = setup();
+  const f = io(head);
+  let tries = 0;
+  f.io.mergePR = () => {
+    tries++;
+    // Another merge lands on the tranche meanwhile.
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    commit(root, { 'another.txt': 'landed' });
+    git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+    throw new Fail('gh api -X PUT failed: Base branch was modified. Review and try the merge again.');
+  };
+  const pr = f.io.getPR;
+  let reads = 0;
+  f.io.getPR = (...x) => { reads++; const p = pr(...x); return reads > 1 ? { ...p, head: { ...p.head, sha: git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0] } } : p; };
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', rounds: 1, log: () => {}, wait: 0 }), /moved past the merged result the gate checked/);
+  assert.equal(tries, 1);
 });
 
 test('merge refuses a job that changed files outside its module', () => {

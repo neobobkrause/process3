@@ -7,9 +7,10 @@ import { writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
-import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
+import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
+import { startCheck } from './lib/start.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince, repoOwnerOf, trustedRefs } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -46,6 +47,8 @@ const commands = {
 
   // metrics add <id> --attempt n --session s [--tokens n] [--cost-usd x] [--denials n]
   //   [--refusal "<act>|<depth>|<channel>"]... [--decline "<act>|<depth>"]... [--outcome o]
+  // metrics refusal --session s --act "<act>" --depth n [--module <id>]: one refusal a session
+  //   reported, in process/metrics/refusals.bob.jsonl; status prints REFRESH for a session at 10.
   // metrics report: the two health metrics and their figures, as JSON.
   metrics: (a, root) => {
     const sub = a._.shift();
@@ -61,12 +64,17 @@ const commands = {
       console.log(JSON.stringify(row));
       return 0;
     }
+    if (sub === 'refusal') {
+      const row = recordRefusal(root, { session: a.session, act: a.act, depth: a.depth, module: typeof a.module === 'string' ? a.module : null });
+      console.log(JSON.stringify(row));
+      return 0;
+    }
     if (sub === 'report') {
       const cfg = loadConfig(root);
       console.log(JSON.stringify(metricsReport(root, repoSlug(root), a.branch || `origin/${cfg.tranche}`), null, 2));
       return 0;
     }
-    fail('metrics add | metrics report');
+    fail('metrics add | metrics refusal | metrics report');
   },
 
   // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 30]: BOB merges a job.
@@ -100,6 +108,11 @@ const commands = {
   // setup check: the product's setup, read-only, against setup/conditions.json; exit 1 when a
   // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
   'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root) }).ok ? 0 : 1),
+
+  // start check [--branch <the branch the session started from; default the tranche>]: a
+  // session's first command. Fetches that branch, compares HEAD and the approvals block with its
+  // tip, prints both SHAs; exit 1 when either differs (Foundations, "Every session checks its start").
+  'start check': (a, root) => (startCheck(root, { branch: a.branch }).ok ? 0 : 1),
 
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
   'ledger check': (a, root) => {

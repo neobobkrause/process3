@@ -109,3 +109,32 @@ export function parseArgs(argv) {
 export const list = (v) => (v === undefined ? [] : [].concat(v));
 export const fileBytes = (p) => (existsSync(p) ? statSync(p).size : 0);
 export const now = () => new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+
+// A moved base is retried, never forced (Foundations, "Refusals, the start and the platform's
+// limits"). GitHub's "Base branch was modified" on a merge, and git's fetch-first rejection of a
+// push, mean another writer got there first; both fetch and try again, at most `tries` times.
+export const RETRIES = 3;
+export const BASE_MOVED = /Base branch was modified/i;
+export const FETCH_FIRST = /\(fetch first\)|fetch first/i;
+const pause = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+
+// Pushes HEAD to a branch (the state branch's push): on a fetch-first rejection it fetches the
+// branch, merges it into HEAD (a merge commit, never a rebase or a force; a conflict stops it)
+// and pushes again. Returns the tip pushed.
+export function pushRetry(cwd, branch, { tries = RETRIES, wait = 2000, log = console.log } = {}) {
+  for (let t = 1; ; t++) {
+    const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd, allowFail: true });
+    if (r.code === 0) return git(['rev-parse', 'HEAD'], { cwd });
+    const why = r.stderr.trim();
+    if (!FETCH_FIRST.test(why)) fail(`the push of ${branch} failed: ${why}`);
+    if (t >= tries) fail(`the push of ${branch} was rejected ${tries} times because ${branch} moved; run it again later`);
+    log(`${branch} moved on origin; fetching and trying again (${t + 1} of ${tries})`);
+    pause(wait * t);
+    git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd });
+    const m = git(['merge', '-q', '--no-edit', `refs/remotes/origin/${branch}`], { cwd, allowFail: true });
+    if (m.code !== 0) {
+      git(['merge', '--abort'], { cwd, allowFail: true });
+      fail(`${branch} moved on origin and does not merge cleanly; nothing was pushed`);
+    }
+  }
+}
