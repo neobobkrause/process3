@@ -5,17 +5,20 @@ import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
-import { fetchState, handoffFile, readState, undelivered } from './state.mjs';
-import { fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { fetchState, handoffFile, readState, toRoute, undelivered } from './state.mjs';
+import { exists, fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
 export const IDLE_HOURS = 2;
 
-export function status(root, { role, module, context, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
+export function status(root, { role, module, context, live, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
+  const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
+  if (halt) log(`plan ${cfg.plan}: take no new step`);
+  if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the live sessions list_sessions shows, not ${JSON.stringify(live)}`);
   if (!offline) git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/job/*:refs/remotes/origin/job/*'], { cwd: root, allowFail: true });
   const haveTranche = git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
   const onTranche = haveTranche ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
@@ -85,7 +88,7 @@ export function status(root, { role, module, context, offline = false, log = con
   }
   if (role === 'bob') {
     const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
-    out.next = nextWork(root, cfg, rows, haveTranche ? tranche : null, log);
+    out.next = halt ? [] : nextWork(root, cfg, rows, haveTranche ? tranche : null, { live: live === undefined ? undefined : Number(live), log });
     return out;
   }
   return { rows, sessions };
@@ -121,6 +124,8 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   else haveState = git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${sb}`], { cwd: root, allowFail: true }).code === 0;
   const owedMsgs = haveState ? undelivered(root, sb) : [];
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
+  const reports = haveState ? toRoute(root, sb) : [];
+  if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.slice(0, 100)}`));
   const pct = context === undefined ? null : Number(String(context).replace(/%$/, ''));
   if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
   if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
@@ -132,31 +137,39 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   return { rows, undelivered: owedMsgs };
 }
 
-// Next work: while fewer than jobs_at_once jobs are open, the requirement files with an unmet
-// requirement and no open job, fewest unmet first (small, finishable modules first).
-export function nextWork(root, cfg, rows, ref, log = console.log) {
+// Next work (Build Plan, Phase 2): the modules of the open layer, the lowest layer in the
+// layer map (layers_file) not yet closed, whose requirement file has unmet marks and that have
+// no open job, fewest unmet first. A layer is closed when none of its modules has unmet marks or
+// an open job. Without a layer map, every requirement file with unmet marks. With live (the live
+// sessions BOB counts), at most live_cap less them are listed; the list returned is all of them.
+export function nextWork(root, cfg, rows, ref, { live, log = console.log } = {}) {
   const open = rows.filter((r) => r.tranche !== 'COMPLETE');
-  if (open.length >= cfg.jobs_at_once) return [];
   const dir = cfg.requirements_dir.replace(/\/$/, '');
-  const taken = new Set(open.map((r) => r.req));
-  let names;
-  if (ref) {
+  const taken = new Set(open.flatMap((r) => [r.req, `${dir}/${r.id}.md`]));
+  const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
+  const unmet = (f) => ((read(f) || '').match(/\*\*R[\w.-]+\*\*\s*\*\(not yet met/g) || []).length;
+  const map = read(cfg.layers_file);
+  let files;
+  let layer = null;
+  if (map !== null) {
+    const layers = map.split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
+      .filter((c) => c.length > 1 && /^\d+$/.test(c[0]))
+      .map((c) => ({ n: Number(c[0]), files: c.at(-1).replace(/[`*]/g, '').split(',').map((m) => m.trim()).filter(Boolean).map((m) => `${dir}/${m}.md`) }))
+      .sort((a, b) => a.n - b.n);
+    const cur = layers.find((L) => L.files.some((f) => taken.has(f) || unmet(f) > 0));
+    layer = cur?.n ?? null;
+    files = cur?.files || [];
+  } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
-    names = r.code === 0 ? r.stdout.split('\n') : [];
-  } else names = existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : [];
-  const list = [];
-  for (const n of names.filter((x) => x.endsWith('.md') && x !== 'README.md')) {
-    const f = `${dir}/${n}`;
-    if (taken.has(f)) continue;
-    const text = ref ? git(['show', `${ref}:${f}`], { cwd: root }) : readFileSync(join(root, f), 'utf8');
-    const count = (text.match(/\*\*R[\w.-]+\*\*\s*\*\(not yet met/g) || []).length;
-    if (count) list.push({ file: f, count });
-  }
+    files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
+  } else files = (existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
+  const list = files.filter((f) => !taken.has(f)).map((file) => ({ file, count: unmet(file) })).filter((x) => x.count);
   list.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
   if (list.length) {
-    log(`next work (${open.length} of ${cfg.jobs_at_once} jobs open; BOB chooses from these, unmet requirements each):`);
-    for (const x of list.slice(0, 10)) log(`- ${x.file}: ${x.count}`);
-    if (list.length > 10) log(`- and ${list.length - 10} more`);
+    const n = live === undefined ? list.length : Math.max(0, cfg.live_cap - live);
+    const shown = list.slice(0, n);
+    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `all ${list.length} listed; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : `${shown.length} listed (live ${live} of ${cfg.live_cap}), ${list.length - shown.length} wait`}`);
+    for (const x of shown) log(`- ${x.file}: ${x.count}`);
   }
   return list;
 }

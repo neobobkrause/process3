@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeRepo, entry } from './helpers.mjs';
+import { commit, makeRepo, entry } from './helpers.mjs';
+import { git } from '../lib/util.mjs';
+
+const quiet = () => {};
 import { status } from '../lib/status.mjs';
 
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
@@ -17,13 +20,79 @@ test('status --role bob lists next work: unmet requirement files with no open jo
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => [x.file, x.count]), [['build/requirements/small.md', 2], ['build/requirements/big.md', 5]]);
-  assert.match(out.join('\n'), /next work \(1 of 2 jobs open; BOB chooses from these/);
+  assert.match(out.join('\n'), /next work \(1 jobs open; BOB chooses from these, unmet requirements each\): all 2 listed; pass --live/);
+});
+
+const LAYERS = '# Layers\n\n| layer | what | modules |\n|---|---|---|\n| 0 | base | `done0` |\n| 1 | first | a, b, c, busy |\n| 2 | next | d |\n';
+
+test('status --role bob: next work only from the open layer, at most live_cap less the live sessions', () => {
+  const files = {
+    'build/layers.md': LAYERS,
+    'build/requirements/done0.md': unmet(0),
+    'build/requirements/a.md': unmet(3),
+    'build/requirements/b.md': unmet(1),
+    'build/requirements/c.md': unmet(0),
+    'build/requirements/busy.md': unmet(1),
+    'build/requirements/d.md': unmet(1),
+    'build/requirements/loose.md': unmet(1),
+    'process/config.json': { live_cap: 5 },
+    'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md' }),
+  };
+  const root = makeRepo(files);
+  const out = [];
+  const r = status(root, { role: 'bob', offline: true, live: 3, log: (m) => out.push(m) });
+  assert.deepEqual(r.next.map((x) => x.file), ['build/requirements/b.md', 'build/requirements/a.md']);
+  assert.match(out.join('\n'), /next work, layer 1 .*: 2 listed \(live 3 of 5\), 0 wait/);
+  const four = [];
+  status(root, { role: 'bob', offline: true, live: 4, log: (m) => four.push(m) });
+  assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1$/);
+  // Layer 1 stays open while busy's job is open, though no file in it is unmet but busy's.
+  const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
+  assert.deepEqual(status(held, { role: 'bob', offline: true, log: quiet }).next, []);
+  // Its job complete and its marks gone, layer 1 closes and layer 2 opens.
+  const closed = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0), 'build/requirements/busy.md': unmet(0), 'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md', status: { state: 'COMPLETE' } }) });
+  assert.deepEqual(status(closed, { role: 'bob', offline: true, log: quiet }).next.map((x) => x.file), ['build/requirements/d.md']);
+  assert.throws(() => status(root, { role: 'bob', offline: true, live: 'x', log: quiet }), /--live/);
+});
+
+test('status --role bob: a paused or stopped plan says take no new step first and lists no next work', () => {
+  const root = makeRepo({ 'process/config.json': { plan: 'stop' }, 'build/requirements/m.md': unmet(1) });
+  const out = [];
+  assert.deepEqual(status(root, { role: 'bob', offline: true, log: (m) => out.push(m) }).next, []);
+  assert.equal(out[0], 'plan stop: take no new step');
+  assert.doesNotMatch(out.join('\n'), /next work/);
+});
+
+test('status --role bob: a job\'s report to bob is listed until a later message from bob names its id', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const msgs = (rows) => rows.map((r) => JSON.stringify({ row: 'sent', ...r })).join('\n') + '\n';
+  const state = (files) => {
+    git(['checkout', '-q', '--orphan', 's'], { cwd: root });
+    git(['rm', '-rqf', '.'], { cwd: root });
+    commit(root, files);
+    git(['update-ref', 'refs/remotes/origin/process-state', 'HEAD'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+    git(['branch', '-D', 's'], { cwd: root });
+  };
+  state({
+    'messages/job-m1.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'done' }, { at: '2026-11-03T11:00:00Z', n: 2, to: 'bob', text: 'blocked' }]),
+    'messages/root.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'Sweep' }]),
+    'messages/bob.jsonl': msgs([{ at: '2026-11-03T10:30:00Z', n: 1, to: 'root', text: 'routed job-m1-1 and job-m1-20' }]),
+  });
+  const out = [];
+  status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
+  const text = out.join('\n');
+  assert.match(text, /reports to route[^\n]*\n- job-m1-2: blocked/);
+  assert.doesNotMatch(text, /job-m1-1:|root-1:/);
+});
+
+test('status --role bob: next work stops at live_cap', () => {
   const full = makeRepo({
-    'process/config.json': { jobs_at_once: 1 },
+    'process/config.json': { live_cap: 1 },
     'build/requirements/small.md': unmet(2),
     'process/ledger/busy.json': entry('busy'),
   });
-  const quiet = [];
-  assert.deepEqual(status(full, { role: 'bob', offline: true, log: (m) => quiet.push(m) }).next, []);
-  assert.doesNotMatch(quiet.join('\n'), /next work/);
+  const shown = [];
+  assert.equal(status(full, { role: 'bob', offline: true, live: 1, log: (m) => shown.push(m) }).next.length, 1);
+  assert.match(shown.join('\n'), /0 listed \(live 1 of 1\), 1 wait/);
 });

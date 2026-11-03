@@ -1,12 +1,12 @@
 // Build H, session safety: the start check, refusals per session, and retry on a moved base.
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { mergeRetry, mergePlain } from '../lib/merge.mjs';
 import { REFRESH_AT, REFUSALS_FILE, appendRow, bobMetricsFile, recordRefusal, refusalCounts } from '../lib/metrics.mjs';
-import { startCheck } from '../lib/start.mjs';
+import { loadedFile, startCheck, wakeCheck } from '../lib/start.mjs';
 import { status } from '../lib/status.mjs';
 import { Fail, git, pushRetry } from '../lib/util.mjs';
 import { commit, makeRepo } from './helpers.mjs';
@@ -72,6 +72,25 @@ test('start check: a stale checkout, a commit of its own, or changed approvals f
   // A change outside the block is not a change to the approvals.
   writeFileSync(join(root, 'CLAUDE.md'), APPROVALS.replace('x\n', 'y\n'));
   assert.equal(startCheck(root, { branch: 'tranche', log: quiet }).ok, true);
+});
+
+test('start check --wake: the tip\'s approvals against those recorded at the start, under .git', () => {
+  const { root, bare } = withOrigin();
+  const out = [];
+  assert.equal(wakeCheck(root, { log: (m) => out.push(m) }).recorded, true, 'no record: says so and records');
+  assert.match(out.at(-1), /no record/);
+  assert.equal(startCheck(root, { log: quiet }).ok, true);
+  assert.ok(existsSync(loadedFile(root)) && loadedFile(root).includes('.git'));
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '', 'nothing in the tree');
+  const other = clone(bare);
+  commit(other, { 'more.txt': 'x' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: other });
+  assert.equal(wakeCheck(root, { log: quiet }).ok, true, 'a new tip with the same approvals');
+  commit(other, { 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: other });
+  const w = [];
+  assert.equal(wakeCheck(root, { log: (m) => w.push(m) }).ok, false);
+  assert.equal(w.at(-1), 'approvals changed since this session started: it is replaced');
 });
 
 test('start check: a branch it cannot fetch is not a confirmed start', () => {
