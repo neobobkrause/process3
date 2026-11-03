@@ -108,8 +108,10 @@ export function overCap(cfg, file, text) {
   if (text === null || text === undefined) return null;
   const bytes = Buffer.byteLength(text);
   const marks = (text.match(UNMET) || []).length;
-  const cap = cfg.requirements_cap;
-  const capMarks = cfg.requirements_cap_marks;
+  // A number written as a string ("70000") is the same cap; null or empty sets none.
+  const num = (v) => (v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : fail(`requirements cap ${JSON.stringify(v)} in process/config.json is not a number`));
+  const cap = num(cfg.requirements_cap);
+  const capMarks = num(cfg.requirements_cap_marks);
   const why = [];
   if (typeof cap === 'number' && bytes > cap) why.push(`${bytes} over ${cap}`);
   if (typeof capMarks === 'number' && marks > capMarks) why.push(`${marks} unmet marks over ${capMarks}`);

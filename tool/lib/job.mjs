@@ -1,4 +1,5 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, findPR, latestBlock, latestReceipt, markReady } from './github.mjs';
@@ -21,7 +22,11 @@ export const P3 = 'node .process/tool/p3.mjs';
 export function readingSet(root, entry, extra = [], cfg = null) {
   const files = [...new Set([...(entry.reading || []), ...extra])].map((f) => ({ file: f, bytes: fileBytes(join(root, f)) }));
   const set = { files, bytes: files.reduce((s, f) => s + f.bytes, 0) };
-  if (cfg && entry.requirements && typeof cfg.requirements_cap === 'number') set.cap = { file: entry.requirements, bytes: fileBytes(join(root, entry.requirements)), cap: cfg.requirements_cap };
+  const reqPath = entry.requirements && join(root, entry.requirements);
+  if (cfg && reqPath && cfg.requirements_cap !== null && cfg.requirements_cap !== undefined) {
+    const text = existsSync(reqPath) ? readFileSync(reqPath, 'utf8') : null;
+    set.cap = { file: entry.requirements, bytes: fileBytes(reqPath), cap: Number(cfg.requirements_cap), over: !!overCap(cfg, entry.requirements, text) };
+  }
   return set;
 }
 
@@ -51,7 +56,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push('', '## Reading set (read each file whole)', '', '| file | bytes |', '|---|---|');
   for (const f of reading.files) L.push(`| \`${f.file}\` | ${f.bytes} |`);
   L.push(`| total | ${reading.bytes} |`);
-  if (reading.cap) L.push('', `Requirement file \`${reading.cap.file}\`: ${reading.cap.bytes} bytes against the cap of ${reading.cap.cap}${reading.cap.bytes > reading.cap.cap ? ', over it' : ''}.`);
+  if (reading.cap) L.push('', `Requirement file \`${reading.cap.file}\`: ${reading.cap.bytes} bytes against the cap of ${reading.cap.cap}${reading.cap.over ? ', over it' : ''}.`);
   L.push('', '## Commands, in order', '');
   const n = restart ? 3 : 1;
   // Shallow, as the session's clone is: job complete deepens the branch to the merge base it needs.
