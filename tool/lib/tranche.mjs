@@ -17,7 +17,7 @@ import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, layerState, status } from './status.mjs';
-import { depth as fetchDepth, fail, git, loadConfig, now, repoSlug } from './util.mjs';
+import { depth as fetchDepth, fail, git, isShallow, loadConfig, repoSlug } from './util.mjs';
 
 export const OPEN_FILE = 'metrics/tranche-open.jsonl';
 export const TRANCHE_CLOSED_FILE = 'tranches/closed.jsonl';
@@ -37,11 +37,20 @@ const bobDepth = (d) => {
 // The tranche's closes, newest last.
 export const trancheCloses = (root, cfg) => jsonl(readState(root, cfg.state_branch, TRANCHE_CLOSED_FILE)).filter((r) => r.row === 'tranche-closed' && r.tranche === cfg.tranche);
 
+// Rows and closes carry milliseconds, so a row written after a close sorts after it.
+const stamp = () => new Date().toISOString();
+const currentRows = (root, cfg) => {
+  const since = trancheCloses(root, cfg).at(-1)?.at || '';
+  return jsonl(readState(root, cfg.state_branch, OPEN_FILE)).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && String(r.at) > since);
+};
+// BOB's depth: --depth when given, else the lowest depth recorded in this open (BOB's acts are
+// always at the lower of the two), else 1. So status needs no flag for a BOB at depth 2.
+const inferDepth = (rows, depth) => (depth !== undefined ? bobDepth(depth) : rows.length ? Math.min(...rows.map((r) => r.depth)) : 1);
+
 // The open of this tranche: the rows after its last close, the latest per act and depth counting.
 export function openState(root, cfg, { depth } = {}) {
-  const d = bobDepth(depth);
-  const since = trancheCloses(root, cfg).at(-1)?.at || '';
-  const rows = jsonl(readState(root, cfg.state_branch, OPEN_FILE)).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && String(r.at) > since);
+  const rows = currentRows(root, cfg);
+  const d = inferDepth(rows, depth);
   const want = [...BOB_ACTS.map((act) => ({ act, depth: d })), ...PROBE_ACTS.map((act) => ({ act, depth: d + 1 }))];
   const got = want.map((w) => ({ ...w, row: rows.filter((r) => r.act === w.act && r.depth === w.depth).at(-1) || null }));
   const recorded = got.filter((g) => g.row).length;
@@ -63,10 +72,10 @@ export function openLine(o) {
 // tranche open: the steps, nothing written. The throwaway branch's number is one past those origin has.
 export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(root) } = {}) {
   const cfg = loadConfig(root);
-  const d = bobDepth(depth);
   const { tip } = tipApprovals(root, cfg);
   fetchState(root, cfg.state_branch);
-  const o = openState(root, cfg, { depth: d });
+  const o = openState(root, cfg, { depth });
+  const d = o.depth;
   log(openLine(o));
   if (o.state === 'stopped') return { ...o, steps: [] };
   const prefix = `p3/grants-${cfg.tranche}-`;
@@ -111,7 +120,7 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
 
 // tranche open --record "<act>|<depth>|<outcome>"... --session <id>: one row per act on the state
 // branch, in one push; a refusal also as metrics refusal's row in this checkout.
-export function recordOpen(root, records, { session, log = console.log } = {}) {
+export function recordOpen(root, records, { session, depth, bob, log = console.log } = {}) {
   const cfg = loadConfig(root);
   if (typeof session !== 'string' || !session.trim()) fail('--record needs --session <the session that took the act>');
   const rows = records.map((x) => {
@@ -119,11 +128,22 @@ export function recordOpen(root, records, { session, log = console.log } = {}) {
     if (rest.length || !BOB_ACTS.includes(act) || !OUTCOMES.includes(outcome)) fail(`--record "<act>|<depth>|<ok, refused or declined>", the act one of ${BOB_ACTS.join(', ')}; not ${JSON.stringify(x)}`);
     const depth = Number(dd);
     if (!/^\d+$/.test(dd)) fail(`the depth in ${JSON.stringify(x)} is not a whole number`);
-    return { row: 'grant', at: now(), tranche: cfg.tranche, act, depth, outcome, session: session.trim() };
+    return { row: 'grant', at: stamp(), tranche: cfg.tranche, act, depth, outcome, session: session.trim() };
   });
   if (!rows.length) fail('--record "<act>|<depth>|<ok, refused or declined>"');
-  for (const r of rows.filter((x) => x.outcome === 'refused')) recordRefusal(root, { session: r.session, act: `tranche open: ${r.act}`, depth: r.depth });
+  // Only acts the check counts: BOB's at its depth, the probe's four one deeper.
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const d = inferDepth([...currentRows(root, cfg), ...rows], depth);
+  const off = rows.filter((r) => !(r.depth === d || (r.depth === d + 1 && PROBE_ACTS.includes(r.act))));
+  // A stop is Bob's to lift: a later ok for an act that stopped the open needs his words.
+  const before = openState(root, cfg, { depth: d });
+  const lifts = rows.filter((r) => r.outcome === 'ok' && before.stop.some((g) => g.act === r.act && g.depth === r.depth));
+  if (lifts.length && (typeof bob !== 'string' || !bob.trim())) fail(`${lifts.map((r) => `${r.act} at depth ${r.depth}`).join(', ')} stopped this open; an ok after it needs --bob "<Bob's words lifting the stop>"; nothing recorded`);
+  if (lifts.length) for (const r of lifts) r.bob = bob.trim();
+  if (off.length) fail(`not an act of this check (BOB at depth ${d}, the probe's ${PROBE_ACTS.join(', ')} at ${d + 1}): ${off.map((r) => `${r.act} at depth ${r.depth}`).join(', ')}; nothing recorded`);
   writeState(root, cfg.state_branch, `tranche open: ${rows.map((r) => `${r.act} ${r.depth} ${r.outcome}`).join(', ')}`, (wt) => put(wt, OPEN_FILE, rows.map((r) => JSON.stringify(r) + '\n').join('')));
+  // The refusal row after the push, so a failed push rerun does not count one refusal twice.
+  for (const r of rows.filter((x) => x.outcome === 'refused')) recordRefusal(root, { session: r.session, act: `tranche open: ${r.act}`, depth: r.depth });
   for (const r of rows) log(`recorded ${r.act} at depth ${r.depth}: ${r.outcome}${r.outcome === 'refused' ? ` (and in ${'process/metrics/refusals.bob.jsonl'}; commit it by BOB's plain pull request)` : ''}`);
   return rows;
 }
@@ -138,10 +158,12 @@ export function checkOpen(root, { depth, log = console.log } = {}) {
   return o;
 }
 
-// Whether `sha` is on `base`: GitHub's compare when online (a shallow clone's history cannot say), else local ancestry.
+// Whether `sha` is on `base`: GitHub's compare when online, else local ancestry, which a shallow
+// clone's cut history cannot answer: there an unread compare is a failure, not a guess.
 const onBranch = (root, slug, base, sha, read) => {
   const c = slug ? read(slug, base, sha) : null;
   if (Number.isInteger(c?.ahead_by)) return c.ahead_by === 0;
+  if (isShallow(root)) fail(`GitHub's compare of ${sha.slice(0, 10)} with ${base} could not be read, and this clone is shallow: run again`);
   return git(['merge-base', '--is-ancestor', sha, `refs/remotes/origin/${base}`], { cwd: root, allowFail: true }).code === 0;
 };
 
@@ -158,16 +180,19 @@ export function trancheClose(root, { record = false, report = false, log = conso
   if (record) {
     if (!onBranch(root, slug, 'main', tip, read)) fail(`${cfg.tranche} ${tip.slice(0, 10)} is not on main yet; merge the tranche's pull request first`);
     if (trancheCloses(root, cfg).some((r) => r.commit === tip)) fail(`the close of ${cfg.tranche} at ${tip.slice(0, 10)} is already recorded`);
-    const row = { row: 'tranche-closed', tranche: cfg.tranche, commit: tip, main, at: now() };
+    const row = { row: 'tranche-closed', tranche: cfg.tranche, commit: tip, main, at: stamp() };
     writeState(root, cfg.state_branch, `tranche ${cfg.tranche} closed at main ${main.slice(0, 10)}`, (wt) => put(wt, TRANCHE_CLOSED_FILE, JSON.stringify(row) + '\n'));
     log(`tranche ${cfg.tranche} closed: ${tip.slice(0, 10)} on main ${main.slice(0, 10)}`);
     if (report) log(`next: ${P3} report tranche`);
     return { ok: true, row };
   }
-  if (cfg.plan !== 'close') {
+  // The plan as the tranche holds it, not this working tree.
+  let plan = null;
+  try { plan = loadConfig(root, t).plan; } catch { plan = null; }
+  if (plan !== 'close') {
     const s = status(root, { log: () => {}, io: io.status });
     const ls = layerState(root, cfg, s.rows, t, { closed: closedRows(root, cfg, { slug, read }) });
-    if (!ls) fail(`no layer map (${cfg.layers_file}) on ${t}, and the plan is ${cfg.plan}, not close`);
+    if (!ls) fail(`no layer map (${cfg.layers_file}) on ${t}, and the plan on ${t} is ${plan}, not close`);
     const open = ls.layers.filter((L) => !L.closed);
     if (open.length) fail(`layers not closed: ${open.map((L) => L.n).join(', ')}; the tranche closes when every layer is closed, or when the plan says close`);
   }

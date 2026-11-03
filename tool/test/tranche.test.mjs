@@ -1,6 +1,6 @@
 // Build Plan Phase 3: tranche open (the grants check) and tranche close.
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -86,7 +86,8 @@ test('tranche open: prints BOB\'s acts and the probe\'s call; --record writes ea
   assert.equal(git(['show', `process-state:${OPEN_FILE}`], { cwd: bare }).split('\n').length, 12);
   // Stopped, open prints no acts.
   assert.deepEqual(trancheOpen(root, { slug, log: quiet }).steps, []);
-  recordOpen(root, ['pr-merge|2|ok'], { session: 'probe2', log: quiet });
+  assert.throws(() => recordOpen(root, ['pr-merge|2|ok'], { session: 'probe2', log: quiet }), /pr-merge at depth 2 stopped this open; an ok after it needs --bob/);
+  recordOpen(root, ['pr-merge|2|ok'], { session: 'probe2', bob: 'grant fixed, take it again', log: quiet });
   assert.equal(checkOpen(root, { log: quiet }).state, 'open');
 });
 
@@ -145,4 +146,17 @@ test('a close starts a new open: grant rows before the tranche\'s last close do 
   assert.equal(checkOpen(root, { log: quiet }).state, 'open');
   trancheClose(root, { slug, io, record: true, log: quiet });
   assert.equal(checkOpen(root, { log: quiet }).state, 'pending');
+});
+
+test('BOB at depth 2: status reads its depth from the rows; --record refuses an act the check does not count', () => {
+  const { root } = withOrigin({ 'README.md': 'x\n' });
+  const acts = ['push', 'pr-open', 'pr-comment', 'pr-merge', 'session-start', 'session-archive', 'task-create', 'task-delete'];
+  recordOpen(root, acts.map((a) => `${a}|2|ok`), { session: 'bob', log: quiet });
+  assert.throws(() => recordOpen(root, ['session-start|3|ok'], { session: 'probe', log: quiet }), /not an act of this check .*session-start at depth 3; nothing recorded/);
+  assert.throws(() => recordOpen(root, ['push|4|refused'], { session: 'probe', log: quiet }), /push at depth 4/);
+  assert.throws(() => existsSync(join(root, REFUSALS_FILE)) || (() => { throw new Error('none'); })(), /none/);
+  recordOpen(root, acts.slice(0, 4).map((a) => `${a}|3|ok`), { session: 'probe', log: quiet });
+  const s = status(root, { role: 'bob', offline: true, log: quiet });
+  assert.equal(s.open.state, 'open');
+  assert.equal(s.open.depth, 2);
 });
