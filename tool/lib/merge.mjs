@@ -29,10 +29,33 @@ export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = che
   }
 }
 
+// The review-round limit (build I, 3 Nov), held by merge: round 1 is the two fresh reviews, round
+// 2 the one fix pass and its confirming re-review of the fix. A merge states its rounds and
+// records them; a third round or more is refused unless the command names the decision that
+// allowed it, which is recorded with them. A merge with no review has no rounds.
+export const MAX_ROUNDS = 2;
+export function reviewRounds({ reviewed, noReview, rounds, decision } = {}) {
+  if (reviewed === true) fail('--reviewed needs what the reviews found');
+  if (noReview === true) fail('--no-review needs why');
+  if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
+  if (reviewed && noReview) fail('say one: --reviewed "<what>" or --no-review "<why>", not both');
+  if (Array.isArray(decision) || Array.isArray(rounds)) fail('give --rounds and --decision once each');
+  if (decision === true || (decision !== undefined && !String(decision).trim())) fail('--decision needs the recorded decision: who decided a further review round, and why');
+  if (noReview) {
+    if (rounds !== undefined && Number(rounds) !== 0) fail('--no-review has no review rounds; drop --rounds');
+    return { rounds: 0, decision: decision ?? null };
+  }
+  const r = Number(rounds);
+  if (rounds === undefined || rounds === true) fail(`say how many review rounds ran: --rounds <n> (1: the two fresh reviews; ${MAX_ROUNDS}: those, one fix pass and one confirming re-review of the fix)`);
+  if (!Number.isInteger(r) || r < 1) fail(`--rounds must be a whole number of review rounds, 1 or more; not ${JSON.stringify(rounds)}`);
+  if (r > MAX_ROUNDS && !decision) fail(`${r} review rounds: the limit is ${MAX_ROUNDS} (two reviews, one fix pass, one confirming re-review of the fix pass); a further round needs a recorded decision: --decision "<who decided, and why>"`);
+  return { rounds: r, decision: decision ?? null };
+}
+
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = 30, log = console.log } = opts;
   const io = { getPR, comments, checkRun, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
-  if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
+  const rounds = reviewRounds(opts);
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
@@ -84,7 +107,7 @@ export function merge(root, n, opts = {}) {
     }
     const done = readRows(wt, id).filter((r) => r.event === 'complete').pop();
     appendRow(wt, id, {
-      row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview,
+      row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
       minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
     });
     git(['add', '--', metricsFile(id)], { cwd: wt });
@@ -335,7 +358,7 @@ export function checkGreen(root, slug, baseRef, sha, check, io, approved = new M
 export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, log = console.log } = opts;
   const io = { getPR, requiredChecks, checkRuns, workflowRun, openFrom, mergePR, repo: processRepo(), repoOwner: (s2) => repoOwnerOf(s2), me: () => gh(['api', 'user'], { allowFail: true })?.login || null, namedChecks: (s2, b) => namedRequiredChecks(s2, b), ...(opts.io || {}) };
-  if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
+  const rounds = reviewRounds(opts);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
@@ -422,7 +445,7 @@ export function mergePlain(root, n, opts = {}) {
   if (again.head?.sha !== pr.head.sha) fail(`pull request ${n} moved while it was checked; run merge again`);
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
-    message: reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`,
+    message: [reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),
   }), {
     log, wait: opts.wait,
     fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root, allowFail: true }),

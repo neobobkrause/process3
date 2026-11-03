@@ -180,10 +180,10 @@ test('merge --plain retries a moved base and merges the same head; a head that m
     };
   };
   const ok = make();
-  const out = mergePlain(root, 4, { slug: 'o/r', log: quiet, wait: 0, io: ok.io, reviewed: 'two fresh reviews' });
+  const out = mergePlain(root, 4, { slug: 'o/r', log: quiet, wait: 0, io: ok.io, reviewed: 'two fresh reviews', rounds: 1 });
   assert.deepEqual([out.merged, ok.calls.tries, ok.calls.merged], [true, 2, sha]);
   const bad = make('f'.repeat(40));
-  assert.throws(() => mergePlain(root, 4, { slug: 'o/r', log: quiet, wait: 0, io: bad.io, reviewed: 'two fresh reviews' }), /changed while its base moved/);
+  assert.throws(() => mergePlain(root, 4, { slug: 'o/r', log: quiet, wait: 0, io: bad.io, reviewed: 'two fresh reviews', rounds: 1 }), /changed while its base moved/);
   assert.equal(bad.calls.tries, 1);
 });
 
