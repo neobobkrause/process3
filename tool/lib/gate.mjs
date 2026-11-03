@@ -142,44 +142,26 @@ export function gate(root, opts) {
   return { run: runRow, findings, changed };
 }
 
-// A gate row, checked field by field before job post writes it into a comment: the file was
-// written after product code ran, so it may hold anything (review of PR 13). Every string is
-// a known value or a short plain pattern, so no field can carry a fence or a block of its own.
+// A gate row, checked before job post writes it into a comment: the file was written after
+// product code ran (review of PR 13). Only the fields job post prints are checked; merge trusts a
+// row only when the run's own artifact holds the same row (verifyRow).
 const HEX40 = /^[0-9a-f]{40}$/;
-const PLAIN = /^[A-Za-z0-9 _.\/@+()-]{1,300}$/;
 const ROW = {
-  sha: (v) => HEX40.test(v), base: (v) => HEX40.test(v), after: (v) => HEX40.test(v),
-  at: (v) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(v),
+  sha: (v) => HEX40.test(v),
   run_id: (v) => Number.isSafeInteger(v) && v > 0,
   trigger: (v) => ['record', 'draft', 'record-since-green', 'code'].includes(v),
-  suite: (v) => ['skipped', 'pass', 'fail'].includes(v),
-  revert: (v) => ['skipped', 'pass', 'fail', 'exempt', 'no code changed'].includes(v),
-  receipt: (v) => ['not checked', 'none', 'wrong commit', 'present', 'agrees', 'disagrees'].includes(v),
-  receipt_attempt: (v) => v === null || (Number.isSafeInteger(v) && v > 0),
-  scope: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && /^[a-z0-9-]{1,100}$/.test(x)),
-  tests: (v) => Array.isArray(v) && v.length <= 200 && v.every((t) => t && typeof t === 'object' && !Array.isArray(t)
-    && Object.keys(t).every((k) => ['total', 'pass', 'fail'].includes(k)) && Object.values(t).every((x) => x === null || (Number.isSafeInteger(x) && x >= 0))),
-  suite_seconds: (v) => Number.isFinite(v) && v >= 0,
-  inert: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && PLAIN.test(x)),
-  load_only: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && PLAIN.test(x)),
   findings: (v) => Number.isSafeInteger(v) && v >= 0,
   ok: (v) => typeof v === 'boolean',
   minutes: (v) => Number.isFinite(v) && v >= 0,
 };
-const REQUIRED = ['sha', 'base', 'at', 'run_id', 'trigger', 'suite', 'revert', 'receipt', 'findings', 'ok', 'minutes'];
 // Text from the artifact that job post prints: no control characters or line breaks, so it
 // cannot start a workflow command (confirming review of PR 13).
 export const printable = (x, max = 120) => String(x).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').slice(0, max);
 export function checkRow(row) {
-  const bad = [
-    ...REQUIRED.filter((k) => !(k in row)).map((k) => `${k} is missing`),
-    ...Object.keys(row).filter((k) => !Object.hasOwn(ROW, k)).map((k) => `${printable(k, 40)} is not a gate row field`),
-    ...Object.keys(row).filter((k) => Object.hasOwn(ROW, k) && !ROW[k](row[k])).map((k) => `${k} is not a valid value`),
-  ];
+  const bad = Object.keys(ROW).filter((k) => !ROW[k](row[k])).map((k) => `${k} is ${k in row ? 'not a valid value' : 'missing'}`);
   if (!bad.length && row.ok !== (row.findings === 0)) bad.push('ok does not agree with findings');
   if (bad.length) fail(`the gate row is refused: ${bad.slice(0, 5).join('; ')}`);
-  // A fresh object of the checked fields, in a fixed order.
-  return Object.fromEntries(Object.keys(ROW).filter((k) => k in row).map((k) => [k, row[k]]));
+  return row;
 }
 
 // Job post of the gate workflow (setup audit, 2 Nov): the one job with a write token. It runs

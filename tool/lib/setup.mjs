@@ -3,7 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { approvalsBlock, approvalsHistory, ownerOfRepo, webCommitByOwner } from './record.mjs';
+import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
+import { startCheck } from './start.mjs';
 import { DEFAULTS, exists, fail, gh, git, loadConfig, run } from './util.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
@@ -22,81 +23,6 @@ function tranche(root, name, fetch = true) {
     if (git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code !== 0 || !exists(root, ref, file)) return null;
     return git(['show', `${ref}:${file}`], { cwd: root });
   };
-}
-
-// The tranche's last commit that changed the approvals block, read through git by ancestry
-// (reviews of PR 24): from the tranche's tip, follow a parent whose block is the same; the commit
-// none of whose parents has its block is the one that set it. A shallow clone is deepened first;
-// a walk that still reaches its edge returns { shallow }, never a wrong commit.
-const MAX_WALK = 20000;
-export function lastApprovalsChange(root, name, file, heading) {
-  const ref = `origin/${name}`;
-  const g = (args) => git(args, { cwd: root, allowFail: true });
-  const isShallow = () => g(['rev-parse', '--is-shallow-repository']).stdout.trim() === 'true';
-  if (isShallow()) g(['fetch', '-q', '--unshallow', 'origin', `+refs/heads/${name}:refs/remotes/origin/${name}`]);
-  const edge = new Set();
-  if (isShallow()) {
-    const f = g(['rev-parse', '--git-path', 'shallow']).stdout.trim();
-    try { for (const l of readFileSync(f.startsWith('/') ? f : join(root, f), 'utf8').split('\n')) if (l.trim()) edge.add(l.trim()); } catch { /* none */ }
-  }
-  const tip = g(['rev-parse', '-q', '--verify', `${ref}^{commit}`]);
-  if (tip.code !== 0) return null;
-  const memo = new Map();
-  const blockAt = (rev) => {
-    if (!memo.has(rev)) memo.set(rev, exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
-    return memo.get(rev);
-  };
-  let cur = tip.stdout.trim();
-  for (let i = 0; i < MAX_WALK; i++) {
-    if (edge.has(cur)) return { shallow: cur };
-    const now = blockAt(cur);
-    if (!now) return null;
-    const parents = g(['rev-list', '--parents', '-n', '1', cur]).stdout.trim().split(' ').slice(1);
-    const same = parents.find((p) => blockAt(p) === now);
-    if (!same) return cur;
-    cur = same;
-  }
-  return null;
-}
-
-// Is this session's own checkout the tranche? Set when HEAD descends from the tranche's tip, or
-// when it holds nothing main has that the tranche lacks (main's own merge commits, say) and
-// carries the tranche's current approvals block: a session started from the tranche, which has
-// moved on since, even past a merge into main. A checkout of main is not: it holds main's own
-// commits, or no approvals block (reviews of PR 24). fix says what to do when it is not.
-export function sessionOnTranche(root, name, { main = 'main', file = DEFAULTS.approvals.file, heading = DEFAULTS.approvals.heading } = {}) {
-  const ref = `origin/${name}`;
-  const g = (args) => git(args, { cwd: root, allowFail: true });
-  const restart = `Start the session from the ${name} branch`;
-  g(['fetch', '-q', 'origin', `+refs/heads/${main}:refs/remotes/origin/${main}`]);
-  if (g(['rev-parse', '-q', '--verify', `${ref}^{commit}`]).code !== 0) return { ok: false, why: `${ref} is not here`, fix: restart };
-  if (g(['rev-parse', '-q', '--verify', 'HEAD^{commit}']).code !== 0) return { ok: false, why: 'this checkout has no commit', fix: restart };
-  const anc = (a, b) => g(['merge-base', '--is-ancestor', a, b]).code === 0;
-  const abbrev = g(['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim();
-  const here = abbrev === 'HEAD' ? `this checkout (detached at ${g(['rev-parse', '--short', 'HEAD']).stdout.trim()})` : abbrev;
-  // main is never the tranche, checked before anything else (third re-review): by name; at
-  // main's tip under any name, unless the tranche's tip is that same commit; or holding a
-  // commit of main's that the tranche lacks, such as main's merge of the tranche at a release.
-  const head = g(['rev-parse', 'HEAD']).stdout.trim();
-  const mainTip = g(['rev-parse', '-q', '--verify', `origin/${main}^{commit}`]).stdout.trim();
-  const trancheTip = g(['rev-parse', ref]).stdout.trim();
-  if (abbrev === main || (mainTip && head === mainTip && head !== trancheTip)) {
-    const who = abbrev === main ? `this checkout is ${main}` : `${abbrev === 'HEAD' ? here : `this checkout (${abbrev})`} is on ${main}`;
-    return { ok: false, why: `${who}, not the ${name} branch`, fix: restart };
-  }
-  if (mainTip) {
-    const bases = g(['merge-base', '--all', 'HEAD', `origin/${main}`]).stdout.split('\n').filter(Boolean);
-    const mainOnly = bases.length ? g(['rev-list', '-n', '1', ...bases, '--not', ref]).stdout.trim() : '';
-    if (mainOnly) return { ok: false, why: `${here} holds ${main}'s commit ${mainOnly.slice(0, 10)}, which ${name} does not, so it is not from the ${name} branch`, fix: restart };
-  }
-  if (anc(ref, 'HEAD')) return { ok: true, why: `${here} descends from the tip of ${name}` };
-  // No shared history with the tranche: not from it, whatever its files say.
-  if (!g(['merge-base', 'HEAD', ref]).stdout.trim()) return { ok: false, why: `${here} shares no history with ${name}`, fix: restart };
-  const blockAt = (rev) => (exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
-  const now = blockAt('HEAD');
-  if (!now) return { ok: false, why: `${here} holds no approvals block, so it is not from the ${name} branch`, fix: restart };
-  if (now !== blockAt(ref)) return { ok: false, why: `${here} holds older approvals than ${ref}`, fix: `Bring it up to date with ${name} (git pull origin ${name}), or start the session from the ${name} branch` };
-  return { ok: true, why: `${here} is from ${name}'s history and holds its current approvals` };
 }
 
 // A harmless Cloudflare read with the session's token: the token goes to curl on stdin, never on
@@ -259,8 +185,8 @@ const readers = {
     return set(`no classic branch protection rule on ${x.main} or ${x.cfg.tranche}`);
   },
 
-  // The approvals (Bob, 2 Nov): one block in CLAUDE.md on the tranche, last changed by the
-  // owner's own commit through GitHub's website, judged as the record check judges it.
+  // The approvals (Bob, 2 Nov; build J): one block in CLAUDE.md on the tranche, the block the
+  // owner last set by a website commit on the tranche or main, as the record check judges it.
   approvals: (c, x) => {
     const { file, heading, owner } = x.cfg.approvals;
     const text = x.file(file);
@@ -269,29 +195,16 @@ const readers = {
     const count = text.split('\n').filter((l) => /^#{1,6}\s.*approv/i.test(l.trim())).length;
     if (!approvalsBlock(text, heading)) return missing(`${file} on ${x.cfg.tranche} has no "${heading}" block`);
     if (count > 1) return missing(`${file} on ${x.cfg.tranche} has ${count} approvals headings; only one block may exist`);
-    const sha = x.lastChange(file, heading);
-    if (sha?.shallow) return missing(`the history of ${file} on ${x.cfg.tranche} is shallow at ${sha.shallow.slice(0, 10)} and could not be deepened, so its last change cannot be found`);
-    if (!sha) return missing(`could not find the commit that last changed the approvals on ${x.cfg.tranche}`);
-    if (!owner) return missing(`${x.ownerWhy() || "the repository's owner could not be read from GitHub"}, and process/config.json on the tranche names no approvals owner`);
-    // The sessions' own account cannot hold the approvals (second re-review of PR 26).
-    const me = x.api('user')?.login;
-    if (!me) return missing('the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
-    if (owner === me) return missing(`the approvals owner, ${owner}, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word`);
-    const v = x.ownerCommit(sha, owner);
-    if (!v.ok) return missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
-    // The block must be the newest the owner set through the website in the tranche's history,
-    // so a merge that put back an older one is found (review follow-ups, 2 Nov).
-    const top = x.newestOwner(file, heading, owner);
-    if (top?.unread) return missing(`commit ${top.unread.slice(0, 10)} could not be read from GitHub, so the newest approvals block ${owner} set through GitHub's website cannot be told`);
-    if (top && top.block !== approvalsBlock(text, heading)) return missing(`the approvals on ${x.cfg.tranche} (set by ${sha.slice(0, 10)}) are not the newest block ${owner} set through GitHub's website on ${x.cfg.tranche} or ${x.main}: that is commit ${top.sha.slice(0, 10)}'s. ${owner} sets it again on the website, or a merge carries it to ${x.cfg.tranche}`);
-    return set(`one block, last changed by ${owner}'s website commit ${sha.slice(0, 10)}`);
+    const top = x.ownerBlock(file, heading, owner);
+    if (!top) return missing(`no approvals block on ${x.cfg.tranche} or ${x.main} was last set by ${owner}'s own commit through GitHub's website`);
+    if (top.block !== approvalsBlock(text, heading)) return missing(`the approvals on ${x.cfg.tranche} are not the block ${owner} last set through GitHub's website: that is commit ${top.sha.slice(0, 10)}'s, on ${top.ref}. ${owner} sets it again on the website, or a merge carries it to ${x.cfg.tranche}`);
+    return set(`one block, the one ${owner}'s website commit ${top.sha.slice(0, 10)} set`);
   },
 
-  // The session's own checkout (Bob, 2 Nov): a session acts on the approvals only when CLAUDE.md
-  // is on the branch it started from, so every session starts from the tranche.
+  // The session's own checkout (Bob, 2 Nov): start check's own test, against the tranche.
   'session-branch': (c, x) => {
     const r = x.onTranche();
-    return r.ok ? set(r.why) : missing(`${r.why}. ${r.fix || `Start the session from the ${x.cfg.tranche} branch`}`);
+    return r.ok ? set(`HEAD is the tip of ${x.cfg.tranche}, with its approvals`) : missing(`HEAD ${String(r.head).slice(0, 10)} is not the tip of ${x.cfg.tranche} (${String(r.tip).slice(0, 10)}) with its approvals. Start the session from the ${x.cfg.tranche} branch, or bring it up to date (git pull origin ${x.cfg.tranche})`);
   },
 
   // The deploy token's scopes, by harmless reads in the configured account; never the token.
@@ -324,49 +237,25 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   const local = loadConfig(root);
   const x = { slug, main: 'main', api: io.api || api, env: io.env || process.env };
   x.file = io.file || tranche(root, local.tranche);
-  // The tranche's own config, when it has one, names the tranche and the required check.
-  let cfg = local;
-  try { const t = x.file('process/config.json'); if (t) cfg = { ...local, ...JSON.parse(t) }; } catch { /* the coordinator reader reports it */ }
-  // The approvals' file, heading and owner come from the tranche's config, never the session's
-  // own checkout (review of PR 24).
+  // The tranche's own config, when it has one, names the required check and the approvals'
+  // file, heading and owner, never the session's own checkout (review of PR 24).
   let tcfg = {};
   try { tcfg = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
-  // A tranche with no config yet judges by the repository's owner as GitHub has it, the owner
-  // onboarding writes into approvals.owner (review follow-ups, 2 Nov).
+  x.cfg = { ...local, ...tcfg, tranche: local.tranche, approvals: { ...DEFAULTS.approvals, ...(tcfg.approvals || {}) } };
   let repo;
   x.repo = () => (repo === undefined ? (repo = x.api(`repos/${slug}`)) : repo);
-  let ownerWhy = null;
-  const repoOwner = () => { const o = ownerOfRepo(x.repo()); ownerWhy = o.why || null; return o.login; };
-  const noConfig = x.file('process/config.json') === null;
-  x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(noConfig ? { owner: repoOwner() } : {}), ...(tcfg.approvals || {}) } };
-  x.ownerWhy = () => ownerWhy;
-  // When the tranche's own config names another tranche, every git reader reads that one.
-  // Its config is read again from there, so the approvals' file, heading and owner are that
-  // tranche's own (third re-review); one hop only.
-  if (!io.file && x.cfg.tranche !== local.tranche) {
-    const name = x.cfg.tranche;
-    x.file = tranche(root, name);
-    let t2 = {};
-    try { t2 = JSON.parse(x.file('process/config.json') || '{}') || {}; } catch { /* the coordinator reader reports it */ }
-    // A second tranche with no config of its own keeps the first tranche's (fourth re-review).
-    const has = Object.keys(t2).length > 0;
-    x.cfg = has ? { ...local, ...t2, tranche: name, approvals: { ...DEFAULTS.approvals, ...(t2.approvals || {}) } } : { ...x.cfg, tranche: name };
-  }
   x.branchExists = io.branchExists || ((b) => {
     const r = git(['ls-remote', '--heads', 'origin', `refs/heads/${b}`], { cwd: root, allowFail: true });
     return r.code !== 0 || r.stdout.trim() !== '';
   });
-  x.lastChange = io.lastChange || ((file, heading) => lastApprovalsChange(root, x.cfg.tranche, file, heading));
   x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
-  // Read through git like lastChange, over the tranche and main (review follow-ups, 2 Nov); with
-  // the tranche's files stubbed, nothing to walk.
-  x.newestOwner = io.newestOwner || (io.file ? () => null : (file, heading, owner) => {
-    // main fetched first, so a newer owner block there is seen (reviews of PR 26); the tranche
-    // was fetched, and deepened when shallow, by lastChange.
+  // Over the tranche and main, through git; a shallow clone is deepened first.
+  x.ownerBlock = io.ownerBlock || ((file, heading, owner) => {
     git(['fetch', '-q', 'origin', `+refs/heads/${x.main}:refs/remotes/origin/${x.main}`], { cwd: root, allowFail: true });
-    return approvalsHistory(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading).newest((sha) => x.ownerCommit(sha, owner));
+    if (git(['rev-parse', '--is-shallow-repository'], { cwd: root, allowFail: true }).stdout.trim() === 'true') git(['fetch', '-q', '--unshallow', 'origin'], { cwd: root, allowFail: true });
+    return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner));
   });
-  x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche, { main: x.main, ...x.cfg.approvals }));
+  x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, log: () => {} }));
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
   x.required = [].concat(x.cfg.required_check || 'gate');
   const cache = new Map();
@@ -387,55 +276,4 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
   return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche };
-}
-
-// The developer's steps (setup/DEVELOPER.md) against this list: each step complete, naming only
-// conditions that are the developer's; every developer condition with a step; the deny lines
-// the page prints equal to the deny-list condition's. Returns the problems.
-export const DEVELOPER = join(dirname(CONDITIONS), 'DEVELOPER.md');
-export const isDeveloper = (c) => /^the developer\b/.test(c.who);
-export function developerSteps(text) {
-  return text.split(/^## /m).slice(1).filter((s) => /^Step \d+\./.test(s)).map((s) => ({
-    title: s.split('\n')[0],
-    body: s,
-    parts: ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => new RegExp(`^${p}`, 'm').test(s)),
-    // A "Sets: none" line names no condition, whatever its reason mentions (review of PR 24).
-    sets: /^Sets: none\b/m.test(s) ? [] : [...(s.match(/^Sets:(.*)$/m)?.[1] || '').matchAll(/`([^`]+)`/g)].map((m) => m[1]),
-  }));
-}
-export function checkDeveloperSteps(text, conditions = loadConditions()) {
-  const problems = [];
-  const steps = developerSteps(text);
-  const byId = new Map(conditions.map((c) => [c.id, c]));
-  if (!steps.length) problems.push('no steps');
-  for (const s of steps) {
-    const lack = ['Why:', 'Clicks:', 'How BOB confirms:', 'Sets:'].filter((p) => !s.parts.includes(p));
-    if (lack.length) problems.push(`${s.title}: lacks ${lack.join(', ')}`);
-    // A step that names no condition says why (Bob, 2 Nov): "Sets: none, because ..." or "none; ...".
-    if (s.parts.includes('Sets:') && !s.sets.length && !/^Sets: none(,? because|;)\s+\S+(\s+\S+){3,}/m.test(s.body)) problems.push(`${s.title}: names no condition and does not say why`);
-    // Every website edit that may become a pull request says to set its base to the tranche.
-    const commits = (s.body.match(/\*\*Commit changes\.\.\.\*\*/g) || []).length;
-    if (commits && (s.body.match(/set \*\*base\*\* to the tranche, not `main`/g) || []).length < commits) problems.push(`${s.title}: a website commit that does not say to set base to the tranche, not main`);
-    for (const id of s.sets) {
-      if (!byId.has(id)) problems.push(`${s.title}: names ${id}, which is not in the list`);
-      else if (!isDeveloper(byId.get(id))) problems.push(`${s.title}: names ${id}, which is not the developer's`);
-    }
-  }
-  const named = new Set(steps.flatMap((s) => s.sets));
-  for (const c of conditions.filter(isDeveloper)) if (!named.has(c.id)) problems.push(`${c.id} is the developer's and has no step`);
-  // The deny step shows the whole .claude/settings.json, as valid JSON, its deny list the list's.
-  const deny = byId.get('deny-list')?.value?.deny;
-  const step = steps.find((s) => s.sets.includes('deny-list'));
-  if (deny && step) {
-    let shown;
-    try { shown = JSON.parse(step.body.match(/```json\n([\s\S]*?)```/)?.[1] ?? ''); } catch { shown = undefined; }
-    if (!shown || typeof shown !== 'object') problems.push('the deny step does not show the whole .claude/settings.json as valid JSON');
-    else if (JSON.stringify(shown.permissions?.deny) !== JSON.stringify(deny)) problems.push('the deny lines on the page differ from the deny-list condition');
-  }
-  // The number of steps stated at the top is the number of steps.
-  const stated = text.match(/^There are (\d+) steps\b/m)?.[1];
-  if (Number(stated) !== steps.length) problems.push(`the page says ${stated ?? 'no number of'} steps, and has ${steps.length}`);
-  steps.forEach((s, i) => { if (!s.title.startsWith(`Step ${i + 1}.`)) problems.push(`${s.title}: out of order, expected Step ${i + 1}`); });
-  if (/[\u2014\u2013]/.test(text)) problems.push('an em-dash');
-  return problems;
 }

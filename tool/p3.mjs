@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 // Process3 tool: one program, a fresh process per command, run from the pinned clone.
 // Usage: node <clone>/tool/p3.mjs <command> [args]
-// p3-capability: gate-no-post (the gate workflow greps for this line at the base's pin; a pin
-// without it takes the legacy path; review of PR 13)
+// p3-capability: gate-no-post (products' older shims grep for this line at the pin; keep it until
+// every product carries the shim without the legacy path; review B of PR 32)
 import { writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
 import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
 import { sweep, sweepTask, watch } from './lib/sweep.mjs';
-import { recordCheck, recordSince, repoOwnerOf, trustedRefs } from './lib/record.mjs';
+import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
@@ -103,12 +104,12 @@ const commands = {
   },
 
   // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 30]: BOB merges a job.
-  // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"]: any other pull request.
+  // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 20]: any other pull request.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
-    if (a.plain) return mergePlain(root, n, review).merged ? 0 : 1;
+    if (a.plain) return mergePlain(root, n, { ...review, minutes: Number(a.minutes || 20) }).merged ? 0 : 1;
     return merge(root, n, { ...review, minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
   },
 
@@ -129,6 +130,10 @@ const commands = {
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
   },
+
+  // review brief <pr> [--scope "<text>"]: prints the fresh-context brief a reviewer subagent is
+  // given, filled from the pull request (build N). Writes nothing.
+  'review brief': (a, root) => { reviewBrief(root, a._[0], { scope: a.scope }); return 0; },
 
   // setup check: the product's setup, read-only, against setup/conditions.json; exit 1 when a
   // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
@@ -199,10 +204,7 @@ const commands = {
     const ledgerBase = git(['merge-base', head, base], { cwd: root });
     const cfg = loadConfig(root, base);
     const s = recordSince(root, { base, head });
-    // While the base has no config, the owner is the repository's, as GitHub has it.
-    const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
-    const trusted = trustedRefs(root, cfg, { base, head, branch: a.branch });
-    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, repoOwner, trusted });
+    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since });
     if (s.finding) findings.push(s.finding);
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}`);
     // Annotations, so a notice shows on the pull request and not only in the log.
