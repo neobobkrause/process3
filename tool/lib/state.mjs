@@ -101,14 +101,26 @@ export function address(root, sb, role) {
   try { const a = JSON.parse(t); return (typeof a === 'string' ? a : a?.session || a?.id) || null; } catch { return t.trim() || null; }
 }
 
+// The record first: no uncommitted change to a tracked file, and no commit the branch's upstream
+// (or, without one, origin's branch of the same name) lacks. A detached HEAD has no record of its own.
+function unpushed(root) {
+  if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('this checkout has uncommitted changes; commit and push the record first, then send');
+  const name = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
+  if (!name) return;
+  git(['fetch', '-q', 'origin', `+refs/heads/${name}:refs/remotes/origin/${name}`], { cwd: root, allowFail: true });
+  let up = git(['rev-list', '--count', '@{upstream}..HEAD'], { cwd: root, allowFail: true });
+  if (up.code !== 0) up = git(['rev-list', '--count', `refs/remotes/origin/${name}..HEAD`], { cwd: root, allowFail: true });
+  if (up.code !== 0) fail(`${name} is not on origin; push the record first, then send`);
+  if (Number(up.stdout) > 0) fail(`${name} has ${Number(up.stdout)} commit(s) not pushed; push the record first, then send`);
+}
+
 // send: the record first (the caller's work pushed, then the numbered message pushed), then the
 // message and the address, read from git after that push, for the session to deliver.
-export function send(root, sb, { from = 'bob', to, text, log = console.log }) {
+export function send(root, sb, { from, to, text, log = console.log }) {
   roleName(from, '--from');
   roleName(to, 'the role sent to');
   if (typeof text !== 'string' || !text.trim()) fail('send <to-role> "<text>"');
-  const up = git(['rev-list', '--count', '@{upstream}..HEAD'], { cwd: root, allowFail: true });
-  if (up.code === 0 && Number(up.stdout) > 0) fail(`this branch has ${Number(up.stdout)} commit(s) not pushed; push the record first, then send`);
+  unpushed(root);
   const { n } = writeState(root, sb, `message from ${from} to ${to}`, (wt) => {
     const file = join(wt, messagesFile(from));
     const k = messages(existsSync(file) ? readFileSync(file, 'utf8') : '').reduce((m, x) => Math.max(m, x.n), 0) + 1;
@@ -119,12 +131,12 @@ export function send(root, sb, { from = 'bob', to, text, log = console.log }) {
   const body = `MSG ${from}-${n} to ${to}: ${text.trim()}\n(numbered; a number already seen is a duplicate, ignore it)`;
   log(body);
   log(at ? `address of ${to}: ${at}` : `no address for ${to} on ${sb}`);
-  log(`deliver it with send_message, then: send delivered ${n}${from === 'bob' ? '' : ` --from ${from}`} (or send failed ${n})`);
+  log(`deliver it with send_message, then: send delivered ${n} --from ${from} (or send failed ${n} --from ${from})`);
   return { n, body, address: at };
 }
 
 // send delivered <n> | send failed <n>: the outcome, recorded only for a message that was sent.
-export function outcome(root, sb, { from = 'bob', n, result, reason, log = console.log }) {
+export function outcome(root, sb, { from, n, result, reason, log = console.log }) {
   roleName(from, '--from');
   if (!Number.isInteger(n) || n < 1) fail(`send ${result} <n>: the message's number`);
   writeState(root, sb, `message ${from}-${n} ${result}`, (wt) => {

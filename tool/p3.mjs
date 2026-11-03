@@ -40,16 +40,16 @@ const commands = {
     return 0;
   },
 
-  // send <to-role> "<text>" [--from <role>]: the record first, then the numbered message and the
+  // send <to-role> "<text>" --from <role>: the record first, then the numbered message and the
   // address read from git, for the session to deliver with send_message (MSG-1, MSG-3).
-  // send delivered <n> | send failed <n> [--reason "..."] [--from <role>]: the outcome (MSG-6).
+  // send delivered <n> | send failed <n> --from <role> [--reason "..."]: the outcome (MSG-6).
   send: (a, root) => {
     const sb = loadConfig(root).state_branch;
-    const from = a.from === undefined ? 'bob' : a.from;
+    if (a._.length !== 2) fail('send <to-role> "<text>" --from <role>, the text in quotes; or send delivered|failed <n> --from <role>');
     const [first, second] = a._;
     if (first === 'delivered' || first === 'failed') {
-      outcome(root, sb, { from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
-    } else send(root, sb, { from, to: first, text: second });
+      outcome(root, sb, { from: a.from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
+    } else send(root, sb, { from: a.from, to: first, text: second });
     return 0;
   },
 

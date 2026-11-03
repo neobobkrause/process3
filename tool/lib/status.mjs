@@ -5,7 +5,7 @@ import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { fetchState, handoffFile, readState, undelivered } from './state.mjs';
-import { fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
 import { join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
@@ -112,8 +112,9 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   else haveState = git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${sb}`], { cwd: root, allowFail: true }).code === 0;
   const owedMsgs = haveState ? undelivered(root, sb) : [];
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
-  const pct = context === undefined || context === true ? null : Number(context);
-  if (pct !== null && Number.isFinite(pct)) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
+  const pct = context === undefined ? null : Number(String(context).replace(/%$/, ''));
+  if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
+  if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
