@@ -148,6 +148,12 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   recordStart(root, 'watcher', W, { log: quiet });
   assert.equal(readAddress(root).watcher.session, W);
   assert.throws(() => startRole(root, 'watcher', { slug: 'o/p', log: quiet }), /one per account/);
+  assert.throws(() => startRole(root, 'watcher', { slug: 'o/p', replace: 'session_other', log: quiet }), /--replace names the addressed watcher, session_watch1/);
+  const out = [];
+  startRole(root, 'watcher', { slug: 'o/p', replace: W, log: (l) => out.push(l) });
+  assert.match(out.at(-1), new RegExp(`delete the old watcher ${W}'s daily task.*after the new one's is created`));
+  recordStart(root, 'watcher', 'session_watch2', { log: quiet });
+  assert.equal(readAddress(root).watcher.session, 'session_watch2');
   const t = sweepTask(R);
   assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2').prompt.includes('`git fetch origin tr2`'));
   assert.match(t.prompt, /start check --wake`; if it says the approvals changed, tell Bob by push notification and take no further step/);
