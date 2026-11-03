@@ -10,7 +10,7 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { trancheReport } from './lib/report.mjs';
+import { deepen, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
@@ -177,6 +177,7 @@ const commands = {
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
     git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
+    deepen(root, cfg.tranche);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
     const md = trancheReport(root, cfg, { slug, stateRead, io: { state: (p) => readState(root, cfg.state_branch, p) } });
