@@ -30,14 +30,19 @@ export function status(root, { role, module, context, live, offline = false, log
   if (!offline) {
     try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
     // The tranche and the branches job/<id> of the ledger's entries that are not COMPLETE, or
-    // that have an open pull request (a reopen): no other job/* ref is fetched (110 s measured
+    // that have an open pull request (a reopen) or an unanswered notice: no other job/* ref is fetched (110 s measured
     // 3 Nov in a fresh depth-1 clone, carrying refs such as job/T11/agent-worker of no entry).
     // One ls-remote, then one fetch of only the refs that moved, --depth 1 in a shallow clone:
     // there a branch fetched in full pulls its whole history (90 s measured 3 Nov), and a --depth
     // fetch never finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
     const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
     const heads = new Set((prs || []).map((p) => p.head?.ref));
-    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
+    // And, for BOB, job/<id> of each user module with an unanswered provider notice: a COMPLETE
+    // user whose auto-reopened start was pushed before its pull request opened names the notice
+    // on that branch only (the state branch is fetched here once; bobStatus reuses the fetch).
+    const noticed = new Set();
+    if (role === 'bob') { try { if (fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
+    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`) || noticed.has(e.id)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)

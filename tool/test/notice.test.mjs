@@ -187,3 +187,25 @@ test('merge run again on a merged job pull request records only its provider not
   assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.users]), [['notice', 'p:7', ['u1', 'u2']]]);
   assert.deepEqual(merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet }).notices.rows, [], 'a second run adds nothing');
 });
+
+test('status --role bob fetches job/<id> of a COMPLETE user with an unanswered notice: a start pushed with no pull request yet clears its listing', () => {
+  const root = product();
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, Object.fromEntries(['p', 'u1', 'u2', 'other'].map((id) => [`process/ledger/${id}.json`, entry(id, { status: { state: 'COMPLETE' } })])));
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // u1's auto-reopened start, pushed to origin only: no remote-tracking ref here, no pull request.
+  git(['checkout', '-q', '-b', 'job/u1', 'tranche'], { cwd: root });
+  commit(root, { 'process/metrics/u1.jsonl': JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n' });
+  git(['push', '-q', 'origin', 'job/u1'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['update-ref', '-d', 'refs/remotes/origin/job/u1'], { cwd: root });
+  openPassed(root);
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const io = { openPRs: () => [], checkRun: () => null, compare: () => null };
+  const out = [];
+  const r = status(root, { role: 'bob', io, log: (m) => out.push(m) });
+  assert.equal(git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/job/u1'], { cwd: root, allowFail: true }).code, 0, 'job/u1 fetched');
+  assert.deepEqual(Object.keys(r.notices), ['u2']);
+  assert.doesNotMatch(out.join('\n'), /- u1: provider notice/);
+});
