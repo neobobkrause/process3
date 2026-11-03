@@ -44,16 +44,18 @@ const GITHUB_COMMITTER = 'noreply@github.com';
 // the commit that set the block its tip holds (the newest whose block is the tip's and no
 // parent's). Of the refs whose setter is the owner's own website commit, the newest setter by
 // committer date gives the block: { ref, sha, at, block }, or null when there is none. GitHub
-// is asked only about commits GitHub committed (a website commit always is).
-export function ownerBlock(root, refs, file, heading, isOwner) {
+// is asked only about commits GitHub committed (a website commit always is). In a shallow clone
+// the setup check passes history (the file's log, "%H %ct %ce %P" lines, from GitHub) and need
+// (fetches a commit it reads by its id), so no history is deepened.
+export function ownerBlock(root, refs, file, heading, isOwner, { history, need } = {}) {
   const memo = new Map();
   const blockOf = (rev) => {
-    if (!memo.has(rev)) memo.set(rev, approvalsBlock(show(root, rev, file), heading));
+    if (!memo.has(rev)) { need?.(rev); memo.set(rev, approvalsBlock(show(root, rev, file), heading)); }
     return memo.get(rev);
   };
   let best = null;
   for (const ref of refs) {
-    const r = git(['log', '--format=%H %ct %ce %P', ref, '--', file], { cwd: root, allowFail: true });
+    const r = history ? history(ref) : git(['log', '--format=%H %ct %ce %P', ref, '--', file], { cwd: root, allowFail: true });
     if (r.code !== 0) continue;
     const tip = blockOf(ref);
     for (const l of r.stdout.split('\n').filter(Boolean)) {

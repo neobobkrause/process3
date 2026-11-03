@@ -315,10 +315,20 @@ test('any deny rule that would block the START\'s push is found, matched as Clau
   assert.equal(bashRuleMatches('Bash(ls *)', 'ls'), true, 'a trailing " *" matches the bare command');
 });
 
-test('job start names the config as the coordinator\'s home', () => {
-  const r = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
+test('job start: the job\'s coordinator is the addressed BOB, not the config\'s coordinator; --coordinator overrides it', () => {
+  const r = makeRepo({ 'process/config.json': { coordinator: 'session_rootcoord' }, 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': 'x' });
   git(['branch', 'tranche'], { cwd: r });
-  assert.throws(() => jobStart(r, 'alpha', { push: false, log: quiet }), /no coordinator: name it in process\/config.json on the tranche, as p3 setup check requires \(--coordinator <session id> overrides it for one start\)/);
+  assert.throws(() => jobStart(r, 'alpha', { push: false, log: quiet }), /no coordinator: no BOB is addressed on process-state \(addresses\/bob\.json\); ROOT records one with start record bob <id>, and --coordinator <session id> overrides it for one start/);
+  // The state branch as origin holds it, addressing BOB.
+  const tree = git(['mktree'], { cwd: r, input: `100644 blob ${git(['hash-object', '-w', '--stdin'], { cwd: r, input: '{"session":"session_bob7","at":"x"}' })}\tbob.json\n` });
+  const top = git(['mktree'], { cwd: r, input: `040000 tree ${tree}\taddresses\n` });
+  git(['update-ref', 'refs/remotes/origin/process-state', git(['commit-tree', top, '-m', 'state'], { cwd: r })], { cwd: r });
+  const a = jobStart(r, 'alpha', { push: false, log: quiet });
+  assert.match(a.start, /Your coordinator is session `session_bob7` \(BOB\)\./);
+  assert.doesNotMatch(a.start, /session_rootcoord/);
+  git(['branch', '-q', '-D', 'job/alpha'], { cwd: r });
+  const b = jobStart(r, 'alpha', { coordinator: 'session_other', push: false, log: quiet });
+  assert.match(b.start, /Your coordinator is session `session_other`\. Messages/);
 });
 
 // Onboarding steps, 2 Nov: classic protection, the approvals, the session's branch, the deploy token.

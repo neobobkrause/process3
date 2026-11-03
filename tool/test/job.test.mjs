@@ -519,7 +519,7 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   assert.match(r.start, /As BOB saw it: its session stopped answering after 40 minutes/);
   assert.match(r.start, /pull request https:\/\/x\/pull\/9, last commit `[0-9a-f]+ half the work`, receipt none posted \(WORKING\)/);
   assert.match(r.start, /refused is never rerouted/);
-  assert.match(r.start, /1\. `git fetch origin job\/alpha:refs\/remotes\/origin\/job\/alpha`/);
+  assert.match(r.start, /1\. `git fetch --depth 1 origin job\/alpha:refs\/remotes\/origin\/job\/alpha`/);
   assert.match(r.start, /2\. `git checkout -q -b job\/alpha origin\/job\/alpha`/);
   assert.match(r.start, /\| `req\/alpha.md` \| \d+ \|/);
   assert.equal(r.launch.source_revision, git(['rev-parse', 'origin/tranche'], { cwd: root }), 'the tranche tip commit');

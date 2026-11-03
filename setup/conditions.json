@@ -110,7 +110,7 @@
         "last_set_by": "the owner's commit through GitHub's website, on the tranche or main, the newer of the two"
       },
       "who": "the developer, committing it on the tranche through GitHub's website, signed in as the owner",
-      "read": "the file on origin/<tranche>, through git: the approvals headings; then, for origin/<tranche> and origin/main (a shallow clone deepened first), one git log of the file gives the commit that set the block its tip holds, and GET /repos/{repo}/commits/{sha} says whether it is the owner's website commit (committer web-flow, verified, author the owner); of those that are, the newer one's block must be the tranche's (the record check's ownerBlock)"
+      "read": "the file on origin/<tranche>, through git: the approvals headings; then, for origin/<tranche> and origin/main, one git log of the file (in a shallow clone, never deepened: GitHub's list of commits by path, GET /repos/{repo}/commits?sha=&path=, and each commit read fetched by its id, --depth 1) gives the commit that set the block its tip holds, and GET /repos/{repo}/commits/{sha} says whether it is the owner's website commit (committer web-flow, verified, author the owner); of those that are, the newer one's block must be the tranche's (the record check's ownerBlock)"
     },
     {
       "id": "artifact-retention",
@@ -124,8 +124,8 @@
     },
     {
       "id": "coordinator",
-      "what": "process/config.json on the tranche names the coordinator session.",
-      "why": "Every START names the coordinator a job reports to; job start uses it when --coordinator is not given.",
+      "what": "process/config.json on the tranche names the coordinator session of ROOT and the watcher.",
+      "why": "ROOT's and the watcher's prompts name it as their coordinator session, besides Bob (PR 43). A job's coordinator is not this: job start names the addressed BOB (addresses/bob.json on the state branch), unless --coordinator overrides it.",
       "value": "a session id",
       "who": "BOB, through a pull request into the tranche",
       "read": "process/config.json on origin/<tranche>, through git: coordinator"

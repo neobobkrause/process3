@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { mergeRetry, mergePlain } from '../lib/merge.mjs';
 import { REFRESH_AT, REFUSALS_FILE, appendRow, bobMetricsFile, recordRefusal, refusalCounts } from '../lib/metrics.mjs';
-import { loadedFile, startCheck, wakeCheck } from '../lib/start.mjs';
+import { approvalsHash, loadedFile, startCheck, wakeCheck } from '../lib/start.mjs';
 import { status } from '../lib/status.mjs';
 import { Fail, git, pushRetry } from '../lib/util.mjs';
 import { commit, makeRepo } from './helpers.mjs';
@@ -91,6 +91,24 @@ test('start check --wake: the tip\'s approvals against those recorded at the sta
   const w = [];
   assert.equal(wakeCheck(root, { log: (m) => w.push(m) }).ok, false);
   assert.equal(w.at(-1), 'approvals changed since this session started: it is replaced');
+});
+
+test('start check --wake --approvals: a fresh container compares the tip with the hash its prompt carries, not a record', () => {
+  const { root, bare } = withOrigin();
+  const at = approvalsHash(root, git(['rev-parse', 'origin/tranche'], { cwd: root }));
+  assert.match(at, /^[0-9a-f]{64}$/);
+  const other = clone(bare);
+  commit(other, { 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: other });
+  // A fresh container: no record under .git. Without --approvals it records the new tip's and passes.
+  const fresh = clone(bare);
+  const w = [];
+  assert.equal(wakeCheck(fresh, { approvals: at, log: (m) => w.push(m) }).ok, false, 'the change since the prompt was made is caught');
+  assert.equal(w.at(-1), 'approvals changed since this session started: it is replaced');
+  assert.equal(existsSync(loadedFile(fresh)), false, 'nothing recorded');
+  const now = approvalsHash(fresh, git(['rev-parse', 'origin/tranche'], { cwd: fresh }));
+  assert.equal(wakeCheck(fresh, { approvals: now, log: quiet }).ok, true);
+  assert.throws(() => wakeCheck(fresh, { approvals: 'abc', log: quiet }), /--approvals takes the 64-hex hash/);
 });
 
 test('start check: a branch it cannot fetch is not a confirmed start', () => {

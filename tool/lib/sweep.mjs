@@ -28,9 +28,10 @@ export function readHeartbeat(root, sb) {
 }
 
 // The prompt of ROOT's hourly sweep task, bound to ROOT's own session.
-export function sweepTask(session, tranche = 'tranche') {
+// approvals: the hash of the tranche tip's approvals when the task is made (tipApprovals).
+export function sweepTask(session, tranche = 'tranche', approvals) {
   checkSession(session);
-  const prompt = `Sweep. First run ${wakeSteps(tranche)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
+  const prompt = `Sweep. First run ${wakeSteps(tranche, approvals)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
   return { prompt, call: { name: 'sweep', cron_expression: '0 * * * *', prompt } };
 }
 

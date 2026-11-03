@@ -25,17 +25,18 @@ export function status(root, { role, module, context, live, offline = false, log
   let slug = null;
   if (!offline) {
     try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
-    // The tranche and the job branches, less those of entries this checkout's ledger already
-    // holds COMPLETE with no open pull request (merged jobs need no branch read). One ls-remote,
-    // then one fetch of only the refs that moved, --depth 1 in a shallow clone: there a branch
-    // fetched in full pulls its whole history (90 s measured 3 Nov), and a --depth fetch never
-    // finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
+    // The tranche and the branches job/<id> of the ledger's entries that are not COMPLETE, or
+    // that have an open pull request (a reopen): no other job/* ref is fetched (110 s measured
+    // 3 Nov in a fresh depth-1 clone, carrying refs such as job/T11/agent-worker of no entry).
+    // One ls-remote, then one fetch of only the refs that moved, --depth 1 in a shallow clone:
+    // there a branch fetched in full pulls its whole history (90 s measured 3 Nov), and a --depth
+    // fetch never finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
     const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
     const heads = new Set((prs || []).map((p) => p.head?.ref));
-    const merged = new Set(Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.status?.state === 'COMPLETE' && !heads.has(`job/${e.id}`) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } }));
+    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
-    const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && (r === `refs/heads/${cfg.tranche}` || (r.startsWith('refs/heads/job/') && !merged.has(r)))
+    const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
       && local.get(`refs/remotes/origin/${r.slice(11)}`) !== sha);
     if (moved.length) git(['fetch', '-q', ...depth(root), 'origin', ...moved.map(([, r]) => `+${r}:refs/remotes/origin/${r.slice(11)}`)], { cwd: root, allowFail: true });
   }

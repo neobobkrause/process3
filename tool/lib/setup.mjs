@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { startCheck } from './start.mjs';
-import { DEFAULTS, exists, fail, gh, git, loadConfig, run } from './util.mjs';
+import { DEFAULTS, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
 export const loadConditions = (file = CONDITIONS) => JSON.parse(readFileSync(file, 'utf8')).conditions;
@@ -17,7 +17,7 @@ const api = (path) => gh(['api', path], { allowFail: true });
 
 // The tranche's files, through git, so no session reads them through the contents API.
 function tranche(root, name, fetch = true) {
-  if (fetch) git(['fetch', '-q', 'origin', `+refs/heads/${name}:refs/remotes/origin/${name}`], { cwd: root, allowFail: true });
+  if (fetch) fetchBranch(root, name, { allowFail: true });
   const ref = `origin/${name}`;
   return (file) => {
     if (git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code !== 0 || !exists(root, ref, file)) return null;
@@ -231,6 +231,18 @@ const readers = {
 };
 export const READERS = Object.keys(readers);
 
+// The approvals file's log at a ref's tip, from GitHub's list of commits by path, as git log's
+// "%H %ct %ce %P" lines: a shallow clone's own log stops at its cut. Unreadable is a throw, which
+// the reader reports as missing.
+export function fileLog(x, ref, file, root) {
+  const sha = git(['rev-parse', ref], { cwd: root, allowFail: true });
+  if (sha.code !== 0) return { code: 1, stdout: '' };
+  const list = x.api(`repos/${x.slug}/commits?sha=${sha.stdout.trim()}&path=${encodeURIComponent(file)}&per_page=100`);
+  if (!Array.isArray(list)) throw new Error(`could not read the history of ${file} at ${ref} from GitHub`);
+  const lines = list.map((c) => [c.sha, Math.floor(Date.parse(c.commit?.committer?.date) / 1000), c.commit?.committer?.email, ...(c.parents || []).map((p) => p.sha)].join(' '));
+  return { code: 0, stdout: lines.join('\n') };
+}
+
 // Every condition, read or confirmed. ok is false when any condition is missing; unmeasured,
 // not configured and confirmed conditions do not stop a start.
 export function setupCheck(root, { slug, conditions = loadConditions(), io = {}, log = console.log } = {}) {
@@ -249,11 +261,15 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
     return r.code !== 0 || r.stdout.trim() !== '';
   });
   x.ownerCommit = io.ownerCommit || ((sha, owner) => webCommitByOwner(root, sha, owner, (args) => x.api(args[1]), slug));
-  // Over the tranche and main, through git; a shallow clone is deepened first.
+  // Over the tranche and main, through git. A shallow clone is never deepened (a one-commit
+  // clone of the product paid its whole 1.2 GB history, 3 Nov): the file's log comes from
+  // GitHub, and each commit the check reads is fetched by its id, --depth 1.
   x.ownerBlock = io.ownerBlock || ((file, heading, owner) => {
-    git(['fetch', '-q', 'origin', `+refs/heads/${x.main}:refs/remotes/origin/${x.main}`], { cwd: root, allowFail: true });
-    if (git(['rev-parse', '--is-shallow-repository'], { cwd: root, allowFail: true }).stdout.trim() === 'true') git(['fetch', '-q', '--unshallow', 'origin'], { cwd: root, allowFail: true });
-    return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner));
+    fetchBranch(root, x.main, { allowFail: true });
+    const shallow = isShallow(root);
+    const history = shallow ? (ref) => fileLog(x, ref, file, root) : undefined;
+    const need = shallow ? (rev) => { if (git(['cat-file', '-e', `${rev}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', '--depth=1', 'origin', rev], { cwd: root }); } : undefined;
+    return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner), { history, need });
   });
   x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, log: () => {} }));
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));

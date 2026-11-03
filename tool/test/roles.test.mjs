@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, makeRepo } from './helpers.mjs';
 import { HANDOVER_FILE, handoverBegin, handoverConfirm, readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
+import { approvalsHash } from '../lib/start.mjs';
 import { git } from '../lib/util.mjs';
 import { address } from '../lib/state.mjs';
 
@@ -65,8 +66,10 @@ test('start prints prompts and the create_session call; start bob refuses while 
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: {}, log: quiet }), /no ROOT is addressed/);
   const b = startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R } }, log: quiet });
   assert.ok(b.prompt.includes(R));
-  for (const t of ['every later turn: `git fetch origin tranche`, then `git checkout -q --detach FETCH_HEAD`, then `git submodule update --init .process`, then `node .process/tool/p3.mjs start check --wake`', 'asking for your handover', 'Answer each sweep message with one `node .process/tool/p3.mjs send root "<what you did or wait on>" --from bob`', 'Never end your turn while status shows work', '--live <n>']) assert.ok(b.prompt.includes(t), t);
-  for (const p of [rootPrompt({ slug: 'o/p' }), startRole(root, 'watcher', { slug: 'o/p', address: {}, log: quiet }).task.prompt]) assert.match(p, /start check --wake`.*push notification and take no further step/);
+  const hash = approvalsHash(root, git(['rev-parse', 'origin/tranche'], { cwd: root }));
+  for (const t of [`every later turn: \`git fetch origin tranche\`, then \`git checkout -q --detach FETCH_HEAD\`, then \`git submodule update --init .process\`, then \`node .process/tool/p3.mjs start check --wake --approvals ${hash}\``, 'asking for your handover', 'Answer each sweep message with one `node .process/tool/p3.mjs send root "<what you did or wait on>" --from bob`', 'Never end your turn while status shows work', '--live <n>']) assert.ok(b.prompt.includes(t), t);
+  for (const p of [r.prompt, startRole(root, 'watcher', { slug: 'o/p', address: {}, log: quiet }).task.prompt]) assert.match(p, new RegExp(`start check --wake --approvals ${hash}\`.*push notification and take no further step`));
+  assert.throws(() => rootPrompt({ slug: 'o/p' }), /needs the hash of the tip's approvals/);
   assert.deepEqual([b.call.source_url, b.call.source_revision, b.call.prompt], ['https://github.com/o/p', git(['rev-parse', 'origin/tranche'], { cwd: root }), b.prompt]);
   assert.ok(Buffer.byteLength(b.prompt) < 4096, 'one screen');
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R }, bob: { session: B1 } }, log: quiet }), /handover begin/);

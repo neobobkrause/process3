@@ -156,11 +156,12 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   assert.equal(readAddress(root).watcher.session, 'session_watch2');
   // A watcher that took over as ROOT is still the addressed watcher: replaced only by --replace.
   assert.throws(() => startRole(root, 'watcher', { slug: 'o/p', address: { root: { session: 'session_watch2' }, watcher: { session: 'session_watch2', at: 'x' } }, log: quiet }), /one per account/);
-  const t = sweepTask(R);
-  assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2').prompt.includes('`git fetch origin tr2`'));
-  assert.match(t.prompt, /start check --wake`; if it says the approvals changed, tell Bob by push notification and take no further step/);
+  const t = sweepTask(R, 'tranche', 'b'.repeat(64));
+  assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2', 'b'.repeat(64)).prompt.includes('`git fetch origin tr2`'));
+  assert.throws(() => sweepTask(R), /needs the hash/);
+  assert.match(t.prompt, /start check --wake --approvals b{64}`; if it says the approvals changed, tell Bob by push notification and take no further step/);
   assert.match(t.prompt, new RegExp(`sweep --session ${R} --live`));
   assert.equal(t.call.cron_expression, '0 * * * *');
-  const p = rootPrompt({ slug: 'o/p' });
+  const p = rootPrompt({ slug: 'o/p', approvals: 'b'.repeat(64) });
   for (const x of ['sweep task --session', 'start watcher', 'start record watcher', 'persistent_session_id', 'sweep --session']) assert.ok(p.includes(x), x);
 });
