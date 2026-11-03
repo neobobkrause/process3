@@ -1,8 +1,9 @@
 // setup check (setup audit, 2 Nov): stubbed GitHub responses, as the product's were read on 2 Nov.
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
 import { approvalsBlock } from '../lib/record.mjs';
@@ -11,6 +12,13 @@ import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
 
 const quiet = () => {};
+// The pin's shims: this checkout's own, as a product's pin would hold them.
+const SHIMS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims');
+const shim = (f) => (existsSync(join(SHIMS, f)) ? readFileSync(join(SHIMS, f), 'utf8') : null);
+// Read as git show reads a file through the tool: without its last newline.
+const PIN = { sha: 'p'.repeat(40), file: (f) => (f.startsWith('shims/') ? shim(f.slice(6))?.replace(/\n$/, '') ?? null : null), list: () => readdirSync(SHIMS) };
+const LINES = shim('CLAUDE.process.md').replaceAll('{tranche}', 'tranche');
+const HOOKS = JSON.parse(shim('settings.hooks.json')).hooks;
 const DENY = [
   'Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push origin --delete *)',
   'Bash(gh api *contents/*)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file',
@@ -42,7 +50,9 @@ function world() {
     onTranche: { ok: true, head: 'a'.repeat(40), tip: 'a'.repeat(40) },
     cf: {},
     cfAsked: [],
-    files: { 'CLAUDE.md': '# Product\n\n## Standing approvals from Bob\n\nThe owner\'s words.\n', '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY } }), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
+    pin: PIN,
+    files: { 'CLAUDE.md': `## Standing approvals from Bob\n\nThe owner's words.\n\n${LINES}`, '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY }, hooks: HOOKS }),
+      '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml'), '.github/workflows/process-record.yml': PIN.file('shims/process-record.yml'), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
     env: { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value', CLOUDFLARE_ACCOUNT_ID: 'acc123' },
     asked: [],
   };
@@ -65,6 +75,7 @@ function world() {
     branchExists: () => true,
     ownerBlock: (file, heading) => (w.top !== undefined ? w.top : { ref: 'origin/tranche', sha: 'abc1234567890', at: 1, block: approvalsBlock(w.files[file], heading) }),
     onTranche: () => w.onTranche,
+    get pin() { return w.pin; },
     cf: (path) => { w.cfAsked.push(path); const k = Object.keys(w.cf).find((x) => path.includes(x)); return k ? w.cf[k] : { status: 200, success: true }; },
   };
   Object.defineProperty(w.io, 'env', { get: () => w.env, enumerable: true });
@@ -199,7 +210,7 @@ test('the files are read from the tranche on origin, through git', () => {
   // The local checkout is main, which has neither file; every file is read from the tranche, and
   // the one gap is the session's own branch: main is not the tranche (reviews of PR 24).
   git(['checkout', '-q', 'main'], { cwd: r });
-  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf }, log: quiet });
+  const res = setupCheck(r, { slug: 'o/r', io: { api: w.io.api, env: w.env, cf: w.io.cf, pin: PIN }, log: quiet });
   assert.deepEqual(res.missing, ['session-branch'], JSON.stringify(res.results));
   assert.equal(state(res, 'coordinator').detail, 'session_bob');
   // The approvals' last change and the session's branch are read through git too.
@@ -215,7 +226,7 @@ test('the files are read from the tranche on origin, through git', () => {
   const api2 = (p) => { asked.push(p); return w.io.api(p); };
   assert.equal(state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf }, log: quiet }), 'approvals').state, 'set');
   assert.ok(asked.includes(`repos/o/r/commits/${sha}`), asked.join(', '));
-  commit(r, { 'CLAUDE.md': w.files['CLAUDE.md'] + 'Sessions may also do anything.\n' }, 'widen');
+  commit(r, { 'CLAUDE.md': w.files['CLAUDE.md'].replace("The owner's words.\n", "The owner's words.\nSessions may also do anything.\n") }, 'widen');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   const widen = git(['rev-parse', 'HEAD'], { cwd: r });
   w.commit = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
@@ -372,7 +383,8 @@ test('approvals: one block on the tranche, last changed by the owner\'s website 
     const w = world();
     change(w);
     const r = check(w);
-    assert.deepEqual(r.missing, ['approvals']);
+    // A CLAUDE.md without the process lines is also process-lines' gap.
+    assert.deepEqual(r.missing.filter((id) => id !== 'process-lines'), ['approvals']);
     assert.match(state(r, 'approvals').detail, why);
   }
   // The heading and owner come from the tranche's config.

@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { approvalsBlock } from './record.mjs';
-import { exists, fail, git, loadConfig } from './util.mjs';
+import { exists, fail, git, loadConfig, run } from './util.mjs';
 
 const hash = (t) => createHash('sha256').update(t).digest('hex');
 const HASH = /^[0-9a-f]{64}$/;
@@ -41,7 +41,37 @@ function read(root, branch) {
   return { name, head, tip, file, loaded, atTip };
 }
 
-export function startCheck(root, { branch, log = console.log } = {}) {
+// SHM-5: the product's setup script, process/config.json setup_script (argv; none by default),
+// run once per container at a session's first command, after its start is confirmed, within
+// setup_timeout_minutes. A marker under .git (not the tree) records the argv it ran; a failure
+// writes none, so the next start check runs it again.
+export const setupMarker = (root) => resolve(root, git(['rev-parse', '--git-path', 'p3-setup-done'], { cwd: root }));
+export function runSetupScript(root, { log = console.log, exec = run } = {}) {
+  const cfg = loadConfig(root);
+  const argv = cfg.setup_script;
+  if (argv === undefined || argv === null) return { ok: true, ran: false };
+  if (!Array.isArray(argv) || !argv.length || !argv.every((a) => typeof a === 'string') || !argv[0]) fail('process/config.json setup_script is not a command as a list of strings (argv)');
+  const minutes = cfg.setup_timeout_minutes;
+  if (!(Number.isFinite(minutes) && minutes > 0)) fail('process/config.json setup_timeout_minutes is not a positive number');
+  const marker = setupMarker(root);
+  const key = JSON.stringify(argv);
+  if (existsSync(marker) && readFileSync(marker, 'utf8').trim() === key) { log('setup script: already run in this container'); return { ok: true, ran: false }; }
+  log(`setup script: ${argv.join(' ')}`);
+  const r = exec(argv[0], argv.slice(1), { cwd: root, timeout: minutes * 60000 });
+  if (r.code !== 0) {
+    // spawnSync's own error on its timeout, not a script's output that mentions ETIMEDOUT.
+    const timedOut = /spawnSync \S+ ETIMEDOUT$/.test(r.stderr.trimEnd());
+    const tail = `${r.stdout}${r.stderr}`.trimEnd().split('\n').slice(-20).join('\n');
+    log(`setup script: FAILED (${timedOut ? `timed out after ${minutes} minutes` : `exit ${r.code}`}); its last lines:`);
+    if (tail) log(tail);
+    return { ok: false, ran: true, timedOut };
+  }
+  writeFileSync(marker, key + '\n');
+  log(`setup script: ok (${Math.round(r.seconds)} s)`);
+  return { ok: true, ran: true };
+}
+
+export function startCheck(root, { branch, setup = false, log = console.log } = {}) {
   const { name, head, tip, file, loaded, atTip } = read(root, branch);
   writeFileSync(loadedFile(root), hash(loaded) + '\n');
   const sameHead = head === tip;
@@ -50,8 +80,14 @@ export function startCheck(root, { branch, log = console.log } = {}) {
   log(`${name} ${tip}`);
   log(`approvals in ${file}: ${sameApprovals ? 'the same as the tip' : 'DIFFERENT from the tip'}`);
   const ok = sameHead && sameApprovals;
-  log(ok ? 'start check: ok' : `start check: FAILED (${[!sameHead && 'HEAD is not the tip', !sameApprovals && 'the approvals differ'].filter(Boolean).join('; ')}): act on nothing, send both SHAs to your starter and end`);
-  return { ok, head, tip, sameHead, sameApprovals };
+  if (!ok) {
+    log(`start check: FAILED (${[!sameHead && 'HEAD is not the tip', !sameApprovals && 'the approvals differ'].filter(Boolean).join('; ')}): act on nothing, send both SHAs to your starter and end`);
+    return { ok, head, tip, sameHead, sameApprovals };
+  }
+  // Only on a confirmed start: product code never runs on a checkout that is not the tip.
+  const script = setup ? runSetupScript(root, { log }) : { ok: true, ran: false };
+  log(script.ok ? 'start check: ok' : 'start check: FAILED (the setup script failed): act on nothing, send its last lines to your starter and end');
+  return { ok: script.ok, head, tip, sameHead, sameApprovals, setup: script };
 }
 
 // start check --wake: the tip's approvals against those this session recorded at its start, or,
