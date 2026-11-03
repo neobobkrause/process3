@@ -45,6 +45,13 @@ export function gh(args, opts = {}) {
   try { return JSON.parse(s); } catch { return s; }
 }
 
+// A shallow clone (clone_depth on create_session): its history is cut, so a full fetch of a
+// branch pulls that branch's whole history (90 s measured 3 Nov), and a local merge base or
+// count of commits between two branches can be wrong. Fetches there take --depth 1.
+export const isShallow = (root) => git(['rev-parse', '--is-shallow-repository'], { cwd: root, allowFail: true }).stdout.trim() === 'true';
+export const depth = (root) => (isShallow(root) ? ['--depth', '1'] : []);
+export const fetchBranch = (root, branch, opts = {}) => git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root, ...opts });
+
 export function repoRoot(cwd = process.cwd()) {
   return git(['rev-parse', '--show-toplevel'], { cwd });
 }
@@ -78,6 +85,9 @@ export const DEFAULTS = {
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
   layers_file: 'build/layers.md',
+  // Added to every create_session call the tool prints: the slim clone (measured 3 Nov, a full
+  // clone stalled a ROOT for over 15 minutes; this one started in about 5). null leaves it out.
+  clone: { clone_depth: 1, blob_limit_kb: 1024 },
 };
 
 export const CONFIG_FILE = 'process/config.json';

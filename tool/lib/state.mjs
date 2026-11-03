@@ -17,12 +17,17 @@ export const roleName = (v, what) => (typeof v === 'string' && NAME.test(v) ? v 
 const ref = (sb) => `refs/remotes/origin/${sb}`;
 
 // Fetches the state branch; false when origin has none. A failed read is a failure, not "none".
-export function fetchState(root, sb) {
-  const ls = git(['ls-remote', '--heads', 'origin', `refs/heads/${sb}`], { cwd: root, allowFail: true });
-  if (ls.code !== 0) fail(`cannot read origin's ${sb}: ${ls.stderr.trim()}`);
-  if (!ls.stdout.trim()) return false;
-  git(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root });
-  return true;
+// One fetch, no ls-remote (each round trip cost up to 26 s measured 3 Nov), and at most once per
+// command: readAddress, bobStatus and sweep in one run share it. writeState asks fresh, since it
+// must build on the latest tip.
+const fetched = new Map();
+export function fetchState(root, sb, { fresh = false } = {}) {
+  const key = `${root}\0${sb}`;
+  if (!fresh && fetched.has(key)) return fetched.get(key);
+  const r = git(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root, allowFail: true });
+  if (r.code !== 0 && !/couldn't find remote ref/i.test(r.stderr)) fail(`cannot read origin's ${sb}: ${r.stderr.trim()}`);
+  fetched.set(key, r.code === 0);
+  return r.code === 0;
 }
 
 // A file as the fetched state branch holds it, or null.
@@ -36,7 +41,7 @@ const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap((l) => 
 // Changes the state branch in a worktree of its own (the caller's checkout never moves), commits
 // and pushes with pushRetry: never forced. A branch origin lacks starts as an orphan commit.
 export function writeState(root, sb, msg, change) {
-  const have = fetchState(root, sb);
+  const have = fetchState(root, sb, { fresh: true });
   const start = have ? ref(sb) : git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
   const wt = join(mkdtempSync(join(tmpdir(), 'p3-state-')), 's');
   git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
@@ -45,7 +50,7 @@ export function writeState(root, sb, msg, change) {
     git(['add', '-A'], { cwd: wt });
     git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
     const tip = pushRetry(wt, sb);
-    git(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root, allowFail: true });
+    try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     return { ...out, tip };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });

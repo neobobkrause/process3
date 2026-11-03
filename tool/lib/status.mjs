@@ -1,30 +1,46 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
-import { checkRun, openPRs } from './github.mjs';
+import { aheadBy, checkRun, compare, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { fetchState, handoffFile, readState, toRoute, undelivered } from './state.mjs';
-import { exists, fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { depth, exists, fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
 export const IDLE_HOURS = 2;
 
-export function status(root, { role, module, context, live, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
+export function status(root, { role, module, context, live, offline = false, log = console.log, io: given } = {}) {
+  const io = { openPRs, checkRun, compare, ...given };
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
   if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the live sessions list_sessions shows, not ${JSON.stringify(live)}`);
-  if (!offline) git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/job/*:refs/remotes/origin/job/*'], { cwd: root, allowFail: true });
-  const haveTranche = git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
-  const onTranche = haveTranche ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
+  const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
   let prs = null;
   let slug = null;
-  if (!offline) { try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; } }
+  if (!offline) {
+    try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
+    // The tranche and the job branches, less those of entries this checkout's ledger already
+    // holds COMPLETE with no open pull request (merged jobs need no branch read). One ls-remote,
+    // then one fetch of only the refs that moved, --depth 1 in a shallow clone: there a branch
+    // fetched in full pulls its whole history (90 s measured 3 Nov), and a --depth fetch never
+    // finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
+    const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
+    const heads = new Set((prs || []).map((p) => p.head?.ref));
+    const merged = new Set(Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.status?.state === 'COMPLETE' && !heads.has(`job/${e.id}`) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } }));
+    const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
+    const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
+    const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && (r === `refs/heads/${cfg.tranche}` || (r.startsWith('refs/heads/job/') && !merged.has(r)))
+      && local.get(`refs/remotes/origin/${r.slice(11)}`) !== sha);
+    if (moved.length) git(['fetch', '-q', ...depth(root), 'origin', ...moved.map(([, r]) => `+${r}:refs/remotes/origin/${r.slice(11)}`)], { cwd: root, allowFail: true });
+  }
+  const haveTranche = haveRef();
+  const onTranche = haveTranche ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
   const rows = [];
   for (const [file, text] of Object.entries(onTranche)) {
     let e;
@@ -36,7 +52,7 @@ export function status(root, { role, module, context, live, offline = false, log
       let s = {};
       try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
       row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
-      const ahead = haveTranche ? Number(git(['rev-list', '--count', `${tranche}..${branch}`], { cwd: root })) : null;
+      const ahead = haveTranche ? aheadBy(root, { slug, base: cfg.tranche, head: `job/${e.id}`, local: [tranche, branch], read: io.compare }) : null;
       row.ahead = ahead;
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
       if (s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';

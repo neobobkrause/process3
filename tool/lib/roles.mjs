@@ -8,7 +8,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { P3 } from './job.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
-import { fail, git, loadConfig, now, repoSlug } from './util.mjs';
+import { fail, fetchBranch, git, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HANDOVER_FILE = 'metrics/handover.jsonl';
 const ROLES = ['root', 'bob', 'watcher'];
@@ -66,10 +66,10 @@ const BOB_NOT = 'Not yours: starting or replacing BOB or ROOT, editing `.claude/
 
 const launch = (root, slug, cfg, role, title, prompt) => {
   const model = cfg.roles?.[role]?.model;
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
+  fetchBranch(root, cfg.tranche);
   // A commit id, not the branch name: measured 3 Nov, a branch name landed on a stale local copy of it in the saved container.
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
-  return { title, source_url: `https://github.com/${slug}`, source_revision: tip, ...(model ? { model } : {}), prompt };
+  return { title, source_url: `https://github.com/${slug}`, source_revision: tip, ...(cfg.clone || {}), ...(model ? { model } : {}), prompt };
 };
 
 // The wake check (BOB, ROOT and the watcher, never a job): at every wake, the tranche's tip, the
@@ -124,9 +124,11 @@ export function startRole(root, role, { slug = repoSlug(root), address = readAdd
   const cfg = loadConfig(root);
   if (role === 'root') {
     const prompt = rootPrompt({ slug, tranche: cfg.tranche });
+    const call = launch(root, slug, cfg, 'root', 'ROOT', prompt);
     log(prompt, size(prompt));
-    log('Bob starts ROOT with this prompt, from the tranche. ROOT records its own address as its second command.');
-    return { prompt };
+    log(`Bob starts ROOT with this prompt, from the tranche, with create_session:\n${JSON.stringify(call, null, 2)}`);
+    log('ROOT records its own address as its third command.');
+    return { prompt, call };
   }
   if (role === 'watcher') {
     const w = address.watcher?.session;
