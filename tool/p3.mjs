@@ -11,6 +11,8 @@ import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } fro
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck } from './lib/start.mjs';
+import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
+import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -27,8 +29,30 @@ const one = (a, what) => a._[0] || fail(`name the ${what}`);
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
-  // status [--role job --module <id>] [--offline]
-  status: (a, root) => { status(root, { role: a.role, module: a.module, offline: !!a.offline }); return 0; },
+  // status [--role job --module <id> | --role bob [--context <percent of the window used>]] [--offline]
+  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, offline: !!a.offline }); return 0; },
+
+  // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
+  // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
+  handoff: (a, root) => {
+    const lines = [];
+    const s = status(root, { role: 'bob', context: a.context, log: (l) => lines.push(l) });
+    handoff(root, loadConfig(root).state_branch, { role: 'bob', tranche: s.tranche, lines, notes: list(a.note).filter((x) => x !== true) });
+    return 0;
+  },
+
+  // send <to-role> "<text>" --from <role>: the record first, then the numbered message and the
+  // address read from git, for the session to deliver with send_message (MSG-1, MSG-3).
+  // send delivered <n> | send failed <n> --from <role> [--reason "..."]: the outcome (MSG-6).
+  send: (a, root) => {
+    const sb = loadConfig(root).state_branch;
+    if (a._.length !== 2) fail('send <to-role> "<text>" --from <role>, the text in quotes; or send delivered|failed <n> --from <role>');
+    const [first, second] = a._;
+    if (first === 'delivered' || first === 'failed') {
+      outcome(root, sb, { from: a.from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
+    } else send(root, sb, { from: a.from, to: first, text: second });
+    return 0;
+  },
 
   // job start <id> --coordinator <session> [--model <m>] [--reopen "<what>"]: BOB opens a job,
   // or, with --reopen, a new attempt on a COMPLETE module whose last attempt merged.
@@ -113,6 +137,31 @@ const commands = {
   // session's first command. Fetches that branch, compares HEAD and the approvals block with its
   // tip, prints both SHAs; exit 1 when either differs (Foundations, "Every session checks its start").
   'start check': (a, root) => (startCheck(root, { branch: a.branch }).ok ? 0 : 1),
+
+  // start root | start bob: the role's starting prompt and its create_session call.
+  // start record <root|bob> <session id>: the address, written after the session was created.
+  start: (a, root) => {
+    if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
+    startRole(root, a._[0]);
+    return 0;
+  },
+
+  // address <root|bob>: the address as the state branch holds it now.
+  address: (a, root) => {
+    const role = checkRole(String(one(a, 'role (root or bob)')).toLowerCase());
+    const e = readAddress(root)[role];
+    if (!e) fail(`no ${role} is addressed`);
+    console.log(`${e.session} (since ${e.at})`);
+    return 0;
+  },
+
+  // handover begin | handover confirm <new BOB id>: ROOT replaces BOB (SES-2).
+  handover: (a, root) => {
+    const sub = a._.shift();
+    if (sub === 'begin') { handoverBegin(root); return 0; }
+    if (sub === 'confirm') { handoverConfirm(root, a._[0]); return 0; }
+    fail('handover begin | handover confirm <new BOB session id>');
+  },
 
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
   'ledger check': (a, root) => {
