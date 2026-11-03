@@ -1,4 +1,5 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
@@ -9,7 +10,7 @@ import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState } from './state.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { NO_TOKENS, fail, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -18,9 +19,16 @@ export const toolPin = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_ROOT, allowF
 export const P3 = 'node .process/tool/p3.mjs';
 
 // The role's reading set with sizes (SES-5, JOB-10).
-export function readingSet(root, entry, extra = []) {
+// With cfg, it also carries the requirement file's size against requirements_cap (REQ-6).
+export function readingSet(root, entry, extra = [], cfg = null) {
   const files = [...new Set([...(entry.reading || []), ...extra])].map((f) => ({ file: f, bytes: fileBytes(join(root, f)) }));
-  return { files, bytes: files.reduce((s, f) => s + f.bytes, 0) };
+  const set = { files, bytes: files.reduce((s, f) => s + f.bytes, 0) };
+  const reqPath = entry.requirements && join(root, entry.requirements);
+  if (cfg && reqPath && cfg.requirements_cap !== null && cfg.requirements_cap !== undefined) {
+    const text = existsSync(reqPath) ? readFileSync(reqPath, 'utf8') : null;
+    set.cap = { file: entry.requirements, bytes: fileBytes(reqPath), cap: Number(cfg.requirements_cap), over: !!overCap(cfg, entry.requirements, text) };
+  }
+  return set;
 }
 
 const DEFAULT_ACTS = (id) => [
@@ -54,6 +62,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push('', '## Reading set (read each file whole)', '', '| file | bytes |', '|---|---|');
   for (const f of reading.files) L.push(`| \`${f.file}\` | ${f.bytes} |`);
   L.push(`| total | ${reading.bytes} |`);
+  if (reading.cap) L.push('', `Requirement file \`${reading.cap.file}\`: ${reading.cap.bytes} bytes against the cap of ${reading.cap.cap}${reading.cap.over ? ', over it' : ''}.`);
   L.push('', '## Commands, in order', '');
   const n = restart ? 3 : 1;
   // Shallow, as the session's clone is: job complete deepens the branch to the merge base it needs.
@@ -128,10 +137,11 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
+export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
   if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, find, notes, log });
-  if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, push, open, find, setup, compare: cmp, gh: ghIO, log });
+  if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
+  if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
   const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
   if (push) setupOrStop(root, cfg, slug, setup, log);
@@ -167,7 +177,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -186,6 +196,12 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn
   const entry0 = JSON.parse(t.stdout);
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
+  // The requirements cap (REQ-6): a trigger for BOB's split or consolidation, never a refusal.
+  // The job waits only until the file is under the cap or BOB records why it starts over it.
+  const reqAt = entry0.requirements ? git(['show', `${from}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
+  const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
+  if (over && overWhy === undefined) fail(`${over}; nothing was started. BOB splits or consolidates the file, or records --over-cap "<why>" on the start`);
+  if (over) log(`${over}; starting over the cap: ${overWhy}`);
   if (reopen) {
     if (entry0.status.state !== 'COMPLETE') fail(`${id} is ${entry0.status.state}; --reopen is for a COMPLETE module`);
   } else if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) {
@@ -213,10 +229,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn
   try {
     const entry = readEntry(root, id);
     const attempt = nextAttempt(root, id);
-    const reading = readingSet(root, entry);
+    const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}), ...(over ? { over_cap: overWhy } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -257,7 +273,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn
 // row, which names what it took in. A pull request from job/<id> is reused (moved to the
 // tranche, made a draft); one from another branch stays open as it is, with a comment naming
 // the job's new draft pull request, which BOB closes or keeps: the tool closes nothing.
-function jobTakeIn(root, id, { coordinator, model, from, push, open, find, setup, compare: cmp, gh: io, log }) {
+function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, find, setup, compare: cmp, gh: io, log }) {
   if (from === true || !String(from ?? '').trim()) fail('--take-in needs the branch or pull request number of the earlier work');
   const x = { getPR, editPR, toDraft, addComment, ...io };
   const cfg = loadConfig(root);
@@ -297,6 +313,11 @@ function jobTakeIn(root, id, { coordinator, model, from, push, open, find, setup
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
   if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) fail(`${id} is ${entry0.status.state}, not OPEN; take-in opens a job that has not started`);
+  // The requirements cap (REQ-6), as a fresh start holds it.
+  const reqAt = entry0.requirements ? git(['show', `${base}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
+  const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
+  if (over && overWhy === undefined) fail(`${over}; nothing was started. BOB splits or consolidates the file, or records --over-cap "<why>" on the start`);
+  if (over) log(`${over}; starting over the cap: ${overWhy}`);
   // A job already started on this branch (WORKING is written only on job/<id>, so the tranche
   // still reads OPEN) is never launched twice (review of PR 55): its entry on the work's tip,
   // or a start row the tranche lacks, refuses it.
@@ -337,10 +358,10 @@ function jobTakeIn(root, id, { coordinator, model, from, push, open, find, setup
     }
     const entry = readEntry(root, id);
     const attempt = nextAttempt(root, id);
-    const reading = readingSet(root, entry);
+    const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, attempt, reading, takeIn: take });
     writeStatus(root, id, { state: 'WORKING', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) } });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}) });
     git(['add', '--', ...paths], { cwd: root });
     git(['commit', '-q', '-m', `job start ${id} (attempt ${attempt}): take in ${source}${take.pr ? ` (#${take.pr})` : ''}, ${commits.length} commit(s)`], { cwd: root });
     committed = true;
@@ -408,7 +429,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   const receipt = !r ? 'none posted' : r.sha === tipSha ? `posted for the branch's tip` : `posted for ${String(r.sha).slice(0, 10)}, not the branch's tip`;
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
-    entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: startRow?.reopen,
+    entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });

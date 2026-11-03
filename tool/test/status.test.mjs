@@ -127,3 +127,23 @@ test('status: a WORKING job that pushed and then went quiet past SILENT_HOURS is
   status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.match(out.join('\n'), /idle:\n- stale: WORKING;.*; WORKING, no push for 5h; BOB's act: .* job start stale --restart "<why>"\nopen:\n- fresh: WORKING; PR unknown \(GitHub not read\), last activity unknown\n/);
 });
+
+test('status --role bob: a requirement file over requirements_cap is a split owed, not startable work (REQ-6)', () => {
+  const root = makeRepo({
+    'build/requirements/small.md': unmet(1),
+    'build/requirements/big.md': unmet(2) + 'x'.repeat(400),
+    'build/requirements/many.md': unmet(4),
+    'process/config.json': { requirements_cap: 300, requirements_cap_marks: 3 },
+  });
+  openPassed(root);
+  const out = [];
+  const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
+  const text = out.join('\n');
+  const big = Buffer.byteLength(unmet(2) + 'x'.repeat(400));
+  assert.match(text, new RegExp(`split or consolidate before its job: build/requirements/big.md ${big} over 300`));
+  assert.match(text, /split or consolidate before its job: build\/requirements\/many.md 4 unmet marks over 3/);
+  assert.match(text, /all 1 listed.*\n- build\/requirements\/small.md: 1$/);
+  assert.doesNotMatch(text, /- build\/requirements\/(big|many).md/);
+  // Still returned, marked: a split owed is work for BOB.
+  assert.deepEqual(r.next.map((x) => [x.file, !!x.over]), [['build/requirements/small.md', false], ['build/requirements/big.md', true], ['build/requirements/many.md', true]]);
+});

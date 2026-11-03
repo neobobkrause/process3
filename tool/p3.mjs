@@ -59,7 +59,8 @@ const commands = {
     return 0;
   },
 
-  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" | --take-in <branch or PR>]: BOB opens a job;
+  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
+  // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --take-in, on work made before Process3, every file of it inside the module's paths;
   // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
   // No job starts (a reopen included) until the tranche open's grants check has passed; a restart
@@ -72,7 +73,7 @@ const commands = {
       if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
     }
     if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
-    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, takeIn: a['take-in'] });
+    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, takeIn: a['take-in'], overCap: a['over-cap'] });
     return 0;
   },
 
