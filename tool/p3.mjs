@@ -13,9 +13,9 @@ import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
-import { handoff, outcome, send } from './lib/state.mjs';
+import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
-import { sweep, sweepTask, watch } from './lib/sweep.mjs';
+import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
@@ -75,7 +75,8 @@ const commands = {
   //   [--refusal "<act>|<depth>|<channel>"]... [--decline "<act>|<depth>"]... [--outcome o]
   // metrics refusal --session s --act "<act>" --depth n [--module <id>]: one refusal a session
   //   reported, in process/metrics/refusals.bob.jsonl; status prints REFRESH for a session at 10.
-  // metrics report: the two health metrics and their figures, as JSON.
+  // metrics report: the two health metrics and their figures, BOB's idle time per day and the
+  //   process overhead share per job and per layer, as JSON.
   metrics: (a, root) => {
     const sub = a._.shift();
     if (sub === 'add') {
@@ -97,7 +98,10 @@ const commands = {
     }
     if (sub === 'report') {
       const cfg = loadConfig(root);
-      console.log(JSON.stringify(metricsReport(root, repoSlug(root), a.branch || `origin/${cfg.tranche}`), null, 2));
+      const branch = a.branch || `origin/${cfg.tranche}`;
+      const sweepRows = fetchState(root, cfg.state_branch) ? jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)) : [];
+      const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
+      console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null }), null, 2));
       return 0;
     }
     fail('metrics add | metrics refusal | metrics report');

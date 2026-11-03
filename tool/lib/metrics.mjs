@@ -92,8 +92,86 @@ export function survival(root, merge, branch, today = Date.now()) {
   return { state: today >= Date.parse(merge.merged_at) + 14 * DAY ? 'survived' : 'pending', due };
 }
 
+// BOB's idle time, per UTC day, from the sweep rows (SWEEP_ROWS_FILE on the state branch): the
+// sweeps that found acts listed for BOB, and the longest BOB had been quiet at one of them.
+export function idleByDay(sweepRows) {
+  if (!sweepRows.length) return 'unmeasured';
+  const days = new Map();
+  for (const r of sweepRows.filter((x) => x.row === 'sweep' && x.bob_acts === true)) {
+    const d = days.get(r.at.slice(0, 10)) || { day: r.at.slice(0, 10), occurrences: 0, longest_quiet_h: 0 };
+    d.occurrences++;
+    d.longest_quiet_h = Math.max(d.longest_quiet_h, Number(r.bob_quiet_h) || 0);
+    days.set(d.day, d);
+  }
+  return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+// module -> layer, from the layer map (layers_file): table rows whose first cell is the layer's
+// number and whose last cell lists its modules.
+export function layerOf(map) {
+  const out = new Map();
+  for (const c of (map || '').split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((x) => x.trim()))) {
+    if (c.length > 1 && /^\d+$/.test(c[0])) for (const m of c.at(-1).replace(/[`*]/g, '').split(',').map((x) => x.trim()).filter(Boolean)) out.set(m, Number(c[0]));
+  }
+  return out;
+}
+
+export const SHARE_RULE = "A job's overhead is the cost of its non-job rows (its reviews) plus an even split of each BOB or ROOT row's cost (the session's cost since that session's previous row) among the jobs with an attempt row since that role's previous row; its share is overhead over its own job cost plus overhead, and a layer's is the same summed over its jobs.";
+const PROCESS = new Set(['bob', 'root']);
+const usd = (x) => Math.round(x * 1e4) / 1e4;
+
+// The process overhead share per job and per layer (Build Plan, Phase 2: measured, no target).
+// A part with no row is "unmeasured"; a share is "unmeasured" when its job's own cost is, and
+// otherwise counts the measured parts only, naming the rest.
+export function overhead(rows, layers = new Map()) {
+  const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
+  const role = (r) => r.role || 'job';
+  const procMods = new Set(measured.filter((r) => PROCESS.has(role(r))).map((r) => r.module));
+  const activity = rows.filter((r) => r.row === 'attempt' && r.module && !procMods.has(r.module) && !(r.event === 'measured' && role(r) !== 'job'));
+  const mods = [...new Set(activity.map((r) => r.module))].sort();
+  const parts = new Map(mods.map((m) => [m, { bob: 0, root: 0 }]));
+  let unattributed = 0;
+  for (const who of PROCESS) {
+    const mine = measured.filter((r) => role(r) === who).sort((a, b) => a.at.localeCompare(b.at));
+    let prevAt = '';
+    const lastCost = new Map();
+    for (const r of mine) {
+      const c = Number(r.cost_usd);
+      if (Number.isFinite(c)) {
+        const delta = Math.max(0, c - (lastCost.get(r.session) ?? 0));
+        lastCost.set(r.session, c);
+        const open = [...new Set(activity.filter((a) => a.at > prevAt && a.at <= r.at).map((a) => a.module))];
+        if (open.length) for (const m of open) parts.get(m)[who] += delta / open.length;
+        else unattributed += delta;
+      }
+      prevAt = r.at;
+    }
+  }
+  const has = (who) => measured.some((r) => role(r) === who && Number.isFinite(Number(r.cost_usd)));
+  const sum = (rs) => (rs.length && rs.every((r) => Number.isFinite(Number(r.cost_usd))) ? rs.reduce((s, r) => s + Number(r.cost_usd), 0) : 'unmeasured');
+  const jobs = mods.map((m) => {
+    const own = measured.filter((r) => r.module === m);
+    const job = sum(own.filter((r) => role(r) === 'job'));
+    const reviews = sum(own.filter((r) => role(r) !== 'job'));
+    const p = { reviews_usd: reviews, bob_usd: has('bob') ? usd(parts.get(m).bob) : 'unmeasured', root_usd: has('root') ? usd(parts.get(m).root) : 'unmeasured', gate_usd: 'unmeasured' };
+    const over = Object.values(p).filter((v) => typeof v === 'number').reduce((s, v) => s + v, 0);
+    const unmeasured = Object.keys(p).filter((k) => p[k] === 'unmeasured').map((k) => k.replace(/_usd$/, ''));
+    return { module: m, layer: layers.get(m) ?? null, job_usd: typeof job === 'number' ? usd(job) : job, ...p, overhead_usd: usd(over), share: typeof job === 'number' && job + over > 0 ? usd(over / (job + over)) : 'unmeasured', unmeasured };
+  });
+  const byLayer = new Map();
+  for (const j of jobs.filter((x) => x.layer !== null)) byLayer.set(j.layer, [...(byLayer.get(j.layer) || []), j]);
+  const layerRows = [...byLayer].sort((a, b) => a[0] - b[0]).map(([layer, js]) => {
+    const ok = js.every((j) => typeof j.share === 'number');
+    const over = js.reduce((s, j) => s + j.overhead_usd, 0);
+    const total = ok ? js.reduce((s, j) => s + j.job_usd, 0) + over : 0;
+    return { layer, jobs: js.map((j) => j.module), overhead_usd: usd(over), share: ok && total > 0 ? usd(over / total) : 'unmeasured', unmeasured: [...new Set(js.flatMap((j) => (typeof j.share === 'number' ? j.unmeasured : [`${j.module} job`])))] };
+  });
+  return { rule: SHARE_RULE, jobs, layers: layerRows, unattributed_usd: has('bob') || has('root') ? usd(unattributed) : 'unmeasured' };
+}
+
 // The two health metrics and the figures that explain them, from rows and pull requests.
-export function report(root, slug, branch, { read = { comments, getPR } } = {}) {
+// sweepRows: the state branch's sweep rows; layers: the layer map's text (layers_file).
+export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null } = {}) {
   const rows = allRows(root);
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
   const merges = rows.filter((r) => r.row === 'merge');
@@ -135,5 +213,7 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
     refusals: measured.flatMap((r) => r.refusals || []),
     refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
+    bob_idle_by_day: idleByDay(sweepRows),
+    overhead: overhead(rows, layerOf(layers)),
   };
 }
