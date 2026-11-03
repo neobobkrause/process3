@@ -9,6 +9,7 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
@@ -128,6 +129,10 @@ const commands = {
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
   },
+
+  // review brief <pr> [--scope "<text>"]: prints the fresh-context brief a reviewer subagent is
+  // given, filled from the pull request (build N). Writes nothing.
+  'review brief': (a, root) => { reviewBrief(root, a._[0], { scope: a.scope }); return 0; },
 
   // setup check: the product's setup, read-only, against setup/conditions.json; exit 1 when a
   // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
