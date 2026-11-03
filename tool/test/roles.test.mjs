@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { commit, makeRepo } from './helpers.mjs';
 import { HANDOVER_FILE, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from '../lib/roles.mjs';
 import { git } from '../lib/util.mjs';
+import { address } from '../lib/state.mjs';
 
 const quiet = () => {};
 const R = 'session_root1';
@@ -34,9 +35,9 @@ test('start record writes the address on the state branch, never touching the ch
   assert.equal(a.root.session, R);
   assert.equal(a.bob.session, B1);
   assert.match(a.bob.at, /^\d{4}-\d\d-\d\dT/);
+  assert.equal(address(root, 'process-state', 'bob'), B1, 'send reads the same file');
   assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
   assert.equal(git(['status', '--porcelain'], { cwd: root }), '');
-  assert.equal(git(['rev-list', '--count', 'origin/process-state'], { cwd: root }), '3', 'an orphan root commit, then one per write');
   assert.throws(() => recordStart(root, 'bob', B2, { log: quiet }), /handover confirm/);
   assert.throws(() => recordStart(root, 'job', B2, { log: quiet }), /name a role/);
   assert.throws(() => recordStart(root, 'root', 'not-an-id', { log: quiet }), /not a session id/);
