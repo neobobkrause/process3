@@ -9,7 +9,7 @@ import { ACTIONS_APP, checkRun, checkRuns, comments, gateRuns, getPR, latestRece
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
-import { orgApprover, ownerAnswer, repoOwnerOf, webCommitByOwner } from './record.mjs';
+import { ownerAnswer, repoOwnerOf, webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
 import { CONFIG_FILE, DEFAULTS, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
@@ -258,9 +258,6 @@ export function pinChange(root, mb, sha, repo, at = {}) {
 // Onboarding (a pull request into the tranche, no process config on the base, one on the head)
 // sets approvals.owner to the repository's owner as GitHub has it, so a product owned by
 // someone other than the default owner reads its approvals rightly (review follow-ups, 2 Nov).
-// A repository an organization owns has no such person: its approver is the login approvals.owner
-// names, set by that person's own commit through GitHub's website, and a pull request that names
-// none, or whose naming commit is not theirs, is refused (build I, 3 Nov).
 // Nothing is asked of the owner for it. Afterwards the record check lets only the owner's own
 // website commit change it.
 // readOwner() -> { login } or { login: null, why } (ownerAnswer). me: the login the tool acts
@@ -277,7 +274,7 @@ export function onboardingOwner(root, mb, sha, baseRef, readOwner, readMe = () =
   const me = readMe();
   if (!me) fail(`onboarding needs the account the sessions act as, to tell it from the repository's owner, and it could not be read from GitHub (gh api user)`);
   if (owner === me) fail(`the repository's owner, ${owner}, is the account the sessions act as, so it cannot hold the approvals; approvals.owner needs Bob's word`);
-  const whom = organization ? `the approver ${owner}, named by ${owner}'s own onboarding commit, since the organization ${organization} owns the repository` : `the repository's owner, ${owner}, as GitHub has it`;
+  const whom = organization ? `the default owner, ${owner}, since the organization ${organization} owns the repository` : `the repository's owner, ${owner}, as GitHub has it`;
   if (named !== owner) fail(`onboarding sets approvals.owner in ${CONFIG_FILE} to ${whom}; the pull request ${named === undefined ? 'does not set it' : `sets ${JSON.stringify(named)}`}`);
 }
 
@@ -370,10 +367,7 @@ export function mergePlain(root, n, opts = {}) {
   const approved = workflowChanges(root, pr.head.sha, changed, io.repo);
   // While the base has no config, the owner is the repository's, as GitHub has it.
   let ghOwner;
-  // An organization-owned product: the approver named by their own onboarding commit, among the
-  // commits this pull request brings (build I).
-  const resolve = (o) => (o.organization && !o.login ? orgApprover(root, { head: pr.head.sha, base: mb, organization: o.organization, isOwnerCommit: (c, who) => webCommitByOwner(root, c, who, io.lookup, slug) }) : o);
-  const githubOwner = () => (ghOwner === undefined ? (ghOwner = resolve(ownerAnswer(io.repoOwner(slug)))) : ghOwner);
+  const githubOwner = () => (ghOwner === undefined ? (ghOwner = ownerAnswer(io.repoOwner(slug))) : ghOwner);
   const owner = () => (hasConfig(root, baseRef) ? baseCfg.approvals.owner : githubOwner().login);
   // Onboarding a tranche of another name (reviews of PR 26): the base has no process config
   // (at the merge base or its tip), is not main or a job's branch, and the head's config names

@@ -3,8 +3,7 @@
 // approvals or to the settings under .claude/ that did not come from the owner's own commit
 // through GitHub's website. The
 // config it uses is read from the base, never from the change it judges.
-import { readFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
@@ -43,57 +42,19 @@ const show = (root, rev, file) => (exists(root, rev, file) ? git(['show', `${rev
 // The repository's owner, as GitHub has it (GET /repos/{repo}: owner.login): { login } or
 // { login: null, why }. Onboarding sets approvals.owner to it, and while the base has no config
 // it is the owner the checks judge by (review follow-ups, 2 Nov). A repository an organization
-// owns has no person there whose website commit could count, so no default holds (build I,
-// 3 Nov): { login: null, organization, why }, and its approver is named by their own onboarding
-// commit (orgApprover).
-export const orgWhy = (org) => `the organization ${org} owns the repository, so its approver is the person approvals.owner names in ${CONFIG_FILE}, set by that person's own onboarding commit through GitHub's website`;
+// owns has no person there whose website commit could count, so the default owner (Bob) holds,
+// as it did before (reviews of PR 26), and onboarding writes that.
 export function ownerOfRepo(r) {
   if (!r || typeof r !== 'object' || !r.owner) return { login: null, why: "the repository's owner could not be read from GitHub" };
   const { login, type } = r.owner;
   if (typeof login !== 'string' || !login) return { login: null, why: "the repository's owner could not be read from GitHub" };
-  if (type !== undefined && type !== 'User') return { login: null, organization: login, why: orgWhy(login) };
+  if (type !== undefined && type !== 'User') return { login: DEFAULTS.approvals.owner, organization: login };
   return { login };
-}
-
-// approvals.owner as a config text names it: a login, or null when absent, empty or unreadable.
-export function namedOwner(text) {
-  if (typeof text !== 'string') return null;
-  try { const o = JSON.parse(text)?.approvals?.owner; return typeof o === 'string' && o ? o : null; } catch { return null; }
-}
-
-// The commit that set approvals.owner to named, as head's history holds it (after base, when
-// given): the newest commit whose config names it while none of its own parents' does. A merge
-// that brings the setting in sets nothing. null when there is none.
-export function ownerSetter(root, head, named, base) {
-  const at = (rev) => namedOwner(show(root, rev, CONFIG_FILE));
-  const range = base ? [head, `^${base}`] : [head];
-  const touched = git(['log', '--full-history', '--format=%H', ...range, '--', CONFIG_FILE], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
-  for (const c of touched) {
-    if (at(c) !== named) continue;
-    const parents = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
-    if (parents.every((p) => at(p) !== named)) return c;
-  }
-  return null;
-}
-
-// An organization-owned product's approver (build I, 3 Nov): the login approvals.owner names at
-// head, when the commit that set it there is that person's own commit through GitHub's website.
-// Else { login: null, organization, why }: a missing approver is refused, never defaulted.
-// isOwnerCommit(sha, login) -> { ok, why }.
-export function orgApprover(root, { head, base, organization, isOwnerCommit }) {
-  const missing = (why) => ({ login: null, organization, why: `${orgWhy(organization)}, and ${why}` });
-  const named = namedOwner(show(root, head, CONFIG_FILE));
-  if (!named) return missing(`${CONFIG_FILE} names no approver`);
-  const c = ownerSetter(root, head, named, base);
-  if (!c) return missing(`no commit here sets approvals.owner to ${named}`);
-  const v = isOwnerCommit(c, named);
-  if (v?.ok !== true) return missing(`commit ${c.slice(0, 10)}, which names ${named}, is not ${named}'s own commit through GitHub's website (${v?.why || 'not read'})`);
-  return { login: named, organization };
 }
 export const repoOwnerOf = (slug, lookup = gh) => ownerOfRepo(slug ? lookup(['api', `repos/${slug}`], { allowFail: true }) : null);
 // A repoOwner answer as callers give it: a login, null (unreadable), or { login, why }.
 export const ownerAnswer = (v) => (typeof v === 'string' && v ? { login: v }
-  : v && typeof v === 'object' && 'login' in v ? (v.login ? { login: v.login, ...(v.organization ? { organization: v.organization } : {}) } : { login: null, why: v.why || "the repository's owner could not be read from GitHub", ...(v.organization ? { organization: v.organization } : {}) })
+  : v && typeof v === 'object' && 'login' in v ? (v.login ? { login: v.login, ...(v.organization ? { organization: v.organization } : {}) } : { login: null, why: v.why || "the repository's owner could not be read from GitHub" })
     : { login: null, why: "the repository's owner could not be read from GitHub" });
 
 // The approvals block's history, read once per run (review follow-ups, 2 Nov; reviews of PR
@@ -139,22 +100,8 @@ export function approvalsHistory(root, refs, file, heading) {
       { cwd: root, allowFail: true, input: ids.join('\n') + '\n' });
   };
   let setters = null;
-  // A shallow clone's edge (build I, 3 Nov): the history is deepened first, and a commit at an
-  // edge that could not be deepened is a setter whose real one may lie beyond it, so newest()
-  // answers { shallow } there rather than pass over it.
-  const edge = new Set();
-  let deepened = null;
-  const g = (args, o = {}) => git(args, { cwd: root, allowFail: true, ...o });
-  const isShallow = () => g(['rev-parse', '--is-shallow-repository']).stdout.trim() === 'true';
   const load = () => {
     if (setters) return setters;
-    if (isShallow()) {
-      deepened = g(['fetch', '-q', '--no-tags', '--recurse-submodules=no', '--unshallow', 'origin']).code === 0 && !isShallow();
-      if (isShallow()) {
-        const f = g(['rev-parse', '--git-path', 'shallow']).stdout.trim();
-        try { for (const l of readFileSync(f.startsWith('/') ? f : join(root, f), 'utf8').split('\n')) if (l.trim()) edge.add(l.trim()); } catch { /* none */ }
-      }
-    }
     const live = [...new Set(refs.filter(Boolean))].filter((r) => git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).code === 0);
     // One read of the history: each commit with its parents, and (-m --raw) one line per parent
     // whose copy of the file differs, giving that parent's blob and the commit's. A parent with
@@ -183,7 +130,6 @@ export function approvalsHistory(root, refs, file, heading) {
       const olds = r.lines.map((x) => textOf(x.older));
       const differs = r.parents.length ? olds.some((x) => x !== now) : now !== '';
       if (!differs) continue;
-      if (edge.has(r.sha)) { setters.push({ sha: r.sha, at: r.at, web: false, block: now, carry: false, edge: true }); continue; }
       // A merge that keeps its first parent's block sets nothing: it brings another branch in
       // (fourth re-review of PR 26).
       if (r.parents.length > 1 && blockOf(r.parents[0]) === now) continue;
@@ -222,7 +168,6 @@ export function approvalsHistory(root, refs, file, heading) {
     for (const st of load()) {
       if (within && (st.sha === within ? !self : !isAncestor(st.sha, within))) continue;
       if (!eligible(st)) continue;
-      if (st.edge) return settle({ shallow: st.sha });
       if (st.carry) { if (st.web) pending.push(st); continue; }
       const v = ask(st);
       if (v?.unread) return { unread: st.sha };
@@ -235,7 +180,7 @@ export function approvalsHistory(root, refs, file, heading) {
   // Did the owner set this block before top? Asked only to word a refusal.
   const ownerSetEarlier = (isOwner, top, block, within) => load().some((st) => st.web && st.at <= top.at && st.sha !== top.sha && st.block === block
     && (!within || isAncestor(st.sha, within)) && isOwner(st.sha)?.ok === true);
-  return { blockOf, newest, ownerSetEarlier, isAncestor, shallow: () => { load(); return { edge: [...edge], deepened }; } };
+  return { blockOf, newest, ownerSetEarlier, isAncestor };
 }
 
 // A path's tree entry at a commit, mode and object together, so a mode-only change counts.
@@ -355,16 +300,10 @@ export function trustedRefs(root, cfg, { base, head = 'HEAD', branch } = {}) {
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, repoOwner, trusted } = {}) {
   const findings = [];
   const notices = [];
-  // Not judged here, and said so (build I): an owner setter that may lie beyond a shallow clone's
-  // edge. job complete puts each in its receipt's not_verified; the gate's full clone judges it.
-  const unverified = [];
-  const shallowNote = (what, sha) => `the record check did not verify ${what}: this clone is shallow at ${sha.slice(0, 10)} and could not be deepened, so the newest block the owner set may lie beyond its edge`;
   const verified = new Map();
   const baseHasConfig = Boolean(base) && exists(root, base, CONFIG_FILE);
   let ghOwner;
-  // An organization-owned product: the approver its own onboarding commit names (build I).
-  const resolve = (o) => (o.organization && !o.login ? orgApprover(root, { head, base, organization: o.organization, isOwnerCommit: (c, who) => webCommitByOwner(root, c, who, lookup) }) : o);
-  const githubOwner = () => (ghOwner === undefined ? (ghOwner = resolve(ownerAnswer(repoOwner ? repoOwner() : null))) : ghOwner);
+  const githubOwner = () => (ghOwner === undefined ? (ghOwner = ownerAnswer(repoOwner ? repoOwner() : null)) : ghOwner);
   // While the base has no config, the owner is the repository's, read from GitHub.
   let ownerName = cfg.approvals.owner;
   let ownerWhy = null;
@@ -434,10 +373,8 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         const changed = all.length ? (!was.includes(now) || mine.some((b) => b !== now)) : now !== '';
         if (changed) {
           const top = hist.newest(ownerCommit, { within: sha, eligible });
-          const carried = top && !top.unread && !top.shallow && top.block === now;
-          if (!carried && top?.shallow && !ownerCommit(sha).ok) {
-            unverified.push(shallowNote(`commit ${short}'s approvals`, top.shallow));
-          } else if (!carried && (top?.unread || !ownerCommit(sha).ok)) {
+          const carried = top && !top.unread && top.block === now;
+          if (!carried && (top?.unread || !ownerCommit(sha).ok)) {
             const text = show(root, sha, afile) || '';
             const line = Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1);
             const who = ownerName ?? 'the repository owner';
@@ -520,9 +457,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       const top = hist.newest(ownerCommit, { within: head, self: true, eligible });
       const who = ownerName ?? 'the repository owner';
       const unread = floor?.unread || top?.unread;
-      const edge = floor?.shallow || top?.shallow;
-      if (edge && !unread) { if (!unverified.length) unverified.push(shallowNote('the approvals this brings', edge)); }
-      else if (unread) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings could not be judged: commit ${unread.slice(0, 10)} could not be read from GitHub` });
+      if (unread) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings could not be judged: commit ${unread.slice(0, 10)} could not be read from GitHub` });
       else if (!top || top.block !== lands) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings are not the newest block ${who} set through GitHub's website on the tranche or main${top ? ` (that is commit ${top.sha.slice(0, 10)}'s)` : ''}; a block from elsewhere lands only through ${who}'s own pull request` });
       else if (floor && top.at < floor.at) findings.push({ check: 'approvals', file: afile, line: 1, message: `the approvals this brings (set by ${top.sha.slice(0, 10)}) are older than the newest block ${who} set on the base (commit ${floor.sha.slice(0, 10)}); an older draft is not carried` });
     }
@@ -534,5 +469,5 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     for (const [, line] of headings.slice(1)) findings.push({ check: 'approvals', file: afile, line, message: 'a second approvals heading; only one block may exist' });
   }
   findings.push(...checkLedger(root, { ref: head, base: ledgerBase, branch }));
-  return { commits: commits.length, findings, notices, unverified: [...new Set(unverified)] };
+  return { commits: commits.length, findings, notices };
 }

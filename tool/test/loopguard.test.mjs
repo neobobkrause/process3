@@ -1,6 +1,5 @@
 // Build I (3 Nov): the loop guard. Budget per attempt from the session record, flagged by
-// status; the open check's row with the Claude Code version; the local record check at a
-// shallow clone's edge.
+// status; the open check's row with the Claude Code version.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -8,7 +7,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { jobComplete, jobStart } from '../lib/job.mjs';
 import { OPEN_CHECK_FILE, appendRow, attemptBudget, bobMetricsFile, metricsFile, openCheckDue, readRows } from '../lib/metrics.mjs';
-import { recordCheck } from '../lib/record.mjs';
 import { claudeVersion, sessionFile, sessionRecord } from '../lib/session.mjs';
 import { status } from '../lib/status.mjs';
 import { DEFAULTS, git, loadConfig } from '../lib/util.mjs';
@@ -17,11 +15,6 @@ import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const passing = "import test from 'node:test'; test('ok', () => {});\n";
-const H = '## Standing approvals from Bob';
-const claude = (words) => `${H}\n\n${words}\n\n## Other\n\nmore\n`;
-const web = () => ({ committer: { login: 'web-flow' }, author: { login: 'neobobkrause' }, commit: { verification: { verified: true } } });
-const session = () => ({ committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } });
-const webFor = (...shas) => (args) => (shas.some((x) => args[1].endsWith(`/commits/${x}`)) ? web() : session());
 const MIN = 60000;
 
 // A session transcript as Claude Code writes it, in a home of its own.
@@ -198,79 +191,4 @@ test('metrics open-check writes BOB\'s row with the Claude Code version; a refus
   const rows = readFileSync(join(root, OPEN_CHECK_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   assert.deepEqual(rows.map((r) => [r.row, r.claude_code, r.outcome, r.session]), [['open-check', '2.1.316', 'pass', 's1'], ['open-check', '2.1.316', 'stopped', null]]);
   assert.deepEqual(rows[1].declines, [{ act: 'merge', depth: '2' }]);
-});
-
-// A product with an owner-set block deep in the tranche's history, cloned shallow.
-function shallowWorld() {
-  const up = makeRepo({ 'README.md': 'x', 'CLAUDE.md': claude('may push') });
-  const o1 = git(['rev-parse', 'HEAD'], { cwd: up });
-  for (let i = 0; i < 3; i++) commit(up, { [`f${i}.txt`]: String(i) }, `filler ${i}`);
-  const dir = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
-  git(['clone', '-q', '--depth', '1', `file://${up}`, dir], { cwd: up });
-  git(['config', 'user.email', 'session@example.com'], { cwd: dir });
-  git(['config', 'user.name', 'Session'], { cwd: dir });
-  git(['config', 'commit.gpgsign', 'false'], { cwd: dir });
-  const base = git(['rev-parse', 'HEAD'], { cwd: dir });
-  return { up, dir, o1, base };
-}
-const isShallow = (dir) => git(['rev-parse', '--is-shallow-repository'], { cwd: dir }) === 'true';
-
-test('record check at a shallow clone\'s edge: deepened when it can be, so the judgement is the full one', () => {
-  const w = shallowWorld();
-  commit(w.dir, { 'CLAUDE.md': claude('may push and merge') }, 'a session widens the approvals');
-  assert.equal(isShallow(w.dir), true);
-  const r = recordCheck(w.dir, DEFAULTS, { base: w.base, lookup: webFor(w.o1), trusted: ['origin/main'] });
-  assert.equal(isShallow(w.dir), false, 'deepened');
-  assert.deepEqual(r.unverified, []);
-  assert.match(r.findings.map((f) => f.message).join('\n'), /changes the approvals but is not neobobkrause's own commit/);
-});
-
-test('record check at a shallow clone\'s edge it cannot deepen: reported as not verified, never passed; job complete carries it', () => {
-  const w = shallowWorld();
-  git(['remote', 'set-url', 'origin', join(w.up, 'gone')], { cwd: w.dir });
-  commit(w.dir, { 'CLAUDE.md': claude('may push and merge') }, 'a session widens the approvals');
-  const r = recordCheck(w.dir, DEFAULTS, { base: w.base, lookup: webFor(w.o1), trusted: ['origin/main'] });
-  assert.equal(isShallow(w.dir), true);
-  assert.equal(r.unverified.length, 1);
-  assert.match(r.unverified[0], new RegExp(`did not verify commit \\w+'s approvals: this clone is shallow at ${w.base.slice(0, 10)} and could not be deepened`));
-  // The approvals untouched: the history is not needed, so nothing is fetched or unverified.
-  const q = shallowWorld();
-  commit(q.dir, { 'other.txt': 'y' });
-  const r2 = recordCheck(q.dir, DEFAULTS, { base: q.base, lookup: webFor(q.o1), trusted: ['origin/main'] });
-  assert.deepEqual([r2.findings, r2.unverified, isShallow(q.dir)], [[], [], true]);
-  // The command CI runs fails closed on it.
-  const cwd = process.cwd();
-  process.chdir(w.dir);
-  const log = console.log;
-  const out = [];
-  console.log = (m) => out.push(String(m));
-  let code;
-  try { code = main(['record-check', '--base', w.base, '--head', 'HEAD', '--onto', 'origin/main']); } finally { console.log = log; process.chdir(cwd); }
-  return Promise.resolve(code).then((c) => {
-    assert.equal(c, 1);
-    assert.match(out.join('\n'), /shallow: \(clone\):1: the record check did not verify/);
-  });
-});
-
-test('job complete puts a shallow edge it could not deepen into the receipt\'s not_verified', () => {
-  const up = makeRepo({
-    'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': '# alpha\n', 'test/alpha/a.test.mjs': passing,
-    'process/config.json': {}, 'CLAUDE.md': claude('may push'),
-  });
-  const o1 = git(['rev-parse', 'HEAD'], { cwd: up });
-  for (let i = 0; i < 3; i++) commit(up, { [`f${i}.txt`]: String(i) }, `filler ${i}`);
-  git(['branch', 'tranche'], { cwd: up });
-  const dir = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
-  git(['clone', '-q', '--depth', '1', '--no-single-branch', `file://${up}`, dir], { cwd: up });
-  git(['config', 'user.email', 'session@example.com'], { cwd: dir });
-  git(['config', 'user.name', 'Session'], { cwd: dir });
-  git(['branch', 'tranche', 'origin/tranche'], { cwd: dir });
-  jobStart(dir, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: dir });
-  git(['remote', 'set-url', 'origin', join(up, 'gone')], { cwd: dir });
-  commit(dir, { 'CLAUDE.md': claude('may push and merge') }, 'touches the approvals');
-  const r = jobComplete(dir, 'alpha', { push: false, log: quiet, session: () => null, lookup: webFor(o1) });
-  assert.equal(r.ok, true, 'not judged here: the gate\'s full clone judges it');
-  assert.equal(r.receipt.not_verified.length, 1);
-  assert.match(r.receipt.not_verified[0], /the record check did not verify .*shallow .*could not be deepened/);
 });

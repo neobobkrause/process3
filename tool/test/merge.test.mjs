@@ -879,7 +879,7 @@ test('onboarding sets approvals.owner to the repository\'s owner as GitHub has i
     const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, ...(approvals ? { approvals } : {}) }) } });
     const f = plainIO(r, { repo: own });
     f.io.repoOwner = (slug) => { f.asked = slug; return owner; };
-    return { r, f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) };
+    return { f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) };
   };
   const ok = go({ owner: 'alice' });
   assert.equal(ok.run().merged, true);
@@ -887,21 +887,11 @@ test('onboarding sets approvals.owner to the repository\'s owner as GitHub has i
   assert.throws(go(null).run, /onboarding sets approvals\.owner in process\/config\.json to the repository's owner, alice, as GitHub has it; the pull request does not set it/);
   assert.throws(go({ owner: 'neobobkrause' }).run, /to the repository's owner, alice, as GitHub has it; the pull request sets "neobobkrause"/);
   assert.throws(go({ owner: 'alice' }, null).run, /to the repository's owner, and the repository's owner could not be read from GitHub/);
-  // An organization owns the repository (build I): no default holds; the approver is the one the
-  // pull request names, by that person's own website commit.
-  const org = ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } });
-  const named = go({ owner: 'alice' }, org);
-  named.f.io.lookup = ghCommit(named.r.sha, { author: 'alice' });
-  assert.equal(named.run().merged, true);
-  const forged = go({ owner: 'alice' }, org);
-  forged.f.io.lookup = ghCommit(forged.r.sha, { author: 'mallory' });
-  assert.throws(forged.run, /the organization acme owns the repository, so its approver is .*commit \w+, which names alice, is not alice's own commit through GitHub's website/);
-  const none = go(null, org);
-  none.f.io.lookup = ghCommit(none.r.sha);
-  assert.throws(none.run, /the organization acme owns the repository, so its approver .*, and process\/config\.json names no approver/);
-  const old = go({ owner: 'neobobkrause' }, org);
-  old.f.io.lookup = ghCommit(old.r.sha, { author: 'alice' });
-  assert.throws(old.run, /is not neobobkrause's own commit/, 'the old default is not taken for an organization');
+  // An organization owns the repository: the default owner holds, as before, and onboarding
+  // writes that (reviews of PR 26).
+  const org = { login: 'neobobkrause', organization: 'acme' };
+  assert.equal(go({ owner: 'neobobkrause' }, org).run().merged, true);
+  assert.throws(go({ owner: 'acme' }, org).run, /to the default owner, neobobkrause, since the organization acme owns the repository; the pull request sets "acme"/);
   // Not onboarding (the base has a config): nothing asked of approvals.owner here.
   const r = makeRepoWith(JSON.stringify({}), JSON.stringify({ record_since: null }));
   const f = plainIO(r);
@@ -983,7 +973,6 @@ test('onboarding refuses when the account the sessions act as cannot be read, an
 });
 
 // Build I (3 Nov): the review-round limit, held by merge.
-import { ownerOfRepo } from '../lib/record.mjs';
 import { MAX_ROUNDS, reviewRounds } from '../lib/merge.mjs';
 
 test('review rounds: stated and recorded; a third round needs a recorded decision', () => {

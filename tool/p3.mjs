@@ -145,17 +145,14 @@ const commands = {
     // While the base has no config, the owner is the repository's, as GitHub has it.
     const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
     const trusted = trustedRefs(root, cfg, { base, head, branch: a.branch });
-    const { commits, findings, notices, unverified } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, repoOwner, trusted });
+    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, repoOwner, trusted });
     if (s.finding) findings.push(s.finding);
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}`);
     // Annotations, so a notice shows on the pull request and not only in the log.
     const esc = (x, prop) => String(x).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
       .replace(prop ? /[:,]/g : /$^/, (c) => (c === ':' ? '%3A' : '%2C'));
     for (const n of notices) console.log(`::warning file=${esc(n.file, true)}::${esc(n.message)}`);
-    // In CI the clone is full; a shallow one the check could not deepen fails closed here, while
-    // job complete carries the same note into its receipt's not_verified (build I).
-    for (const u of unverified) findings.push({ check: 'shallow', file: '(clone)', line: 1, message: u });
-    return report(findings, a.out, { commits, base, notices, unverified });
+    return report(findings, a.out, { commits, base, notices });
   },
 };
 

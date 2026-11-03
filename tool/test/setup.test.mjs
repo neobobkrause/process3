@@ -25,7 +25,7 @@ const rules = (id = 2) => [
 function world() {
   const w = {
     user: { login: 'civicsmith' },
-    repo: { owner: { login: 'neobobkrause', type: 'User' }, permissions: { admin: false, push: true }, allow_merge_commit: true, allow_auto_merge: false, delete_branch_on_merge: false },
+    repo: { permissions: { admin: false, push: true }, allow_merge_commit: true, allow_auto_merge: false, delete_branch_on_merge: false },
     list: [{ id: 1 }, { id: 2 }],
     sets: {
       1: { id: 1, name: 'every-branch', target: 'branch', enforcement: 'active', current_user_can_bypass: 'never', conditions: { ref_name: { include: ['~ALL'], exclude: [] } }, rules: [{ type: 'deletion' }, { type: 'non_fast_forward' }] },
@@ -777,29 +777,11 @@ test('approvals: a newer owner block on main that the tranche lacks is missing',
   assert.equal(b.detail, `commit ${o2.slice(0, 10)} could not be read from GitHub, so the newest approvals block neobobkrause set through GitHub's website cannot be told`);
 });
 
-test('approvals: an organization-owned product names its approver by the owner\'s own onboarding commit; a missing approver is missing (build I)', () => {
-  // No config yet: no default approver holds for an organization.
+test('approvals: a tranche with no config in a repository an organization owns is judged by the default owner', () => {
   const w = world();
   delete w.files['process/config.json'];
   w.repo = { ...w.repo, owner: { login: 'acme', type: 'Organization' } };
-  assert.equal(state(check(w), 'approvals').detail, 'the organization acme owns the repository, so its approver is the person approvals.owner names in process/config.json, set by that person\'s own onboarding commit through GitHub\'s website, and process/config.json on the tranche names no approvals owner');
-  // A config that names no approver: the default does not hold.
-  const c = world();
-  c.repo = { ...c.repo, owner: { login: 'acme', type: 'Organization' } };
-  assert.match(state(check(c), 'approvals').detail, /owns the repository, so its approver .*; process\/config\.json on tranche names no approver, so the default one does not hold/);
-  // It names alice; the naming commit must be alice's own website commit.
-  c.files['process/config.json'] = JSON.stringify({ ...JSON.parse(c.files['process/config.json']), approvals: { owner: 'alice' } });
-  c.commit = { ...c.commit, author: { login: 'alice' } };
-  assert.match(state(check(c), 'approvals').detail, /the commit on tranche that named alice could not be found/);
-  c.io.ownerSetAt = (who) => (who === 'alice' ? 'def4567890123' : null);
-  assert.equal(state(check(c), 'approvals').detail, "one block, last changed by alice's website commit abc1234567; the approver of acme's repository, named by alice's own onboarding commit");
-  const api = c.io.api;
-  c.io.api = (p) => (p.endsWith('/commits/def4567890123') ? { ...c.commit, author: { login: 'mallory' } } : api(p));
-  assert.match(state(check(c), 'approvals').detail, /commit def4567890, which named alice, is not alice's own commit through GitHub's website/);
-  // The repository's owner unreadable: whether an organization owns it cannot be told.
-  const u = world();
-  u.repo = { ...u.repo, owner: undefined };
-  assert.match(state(check(u), 'approvals').detail, /whether an organization owns it, and who its approver is, cannot be told/);
+  assert.equal(state(check(w), 'approvals').detail, "one block, last changed by neobobkrause's website commit abc1234567");
 });
 
 // Second re-review of PR 26: the sessions' own account cannot hold the approvals.

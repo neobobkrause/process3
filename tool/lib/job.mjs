@@ -255,10 +255,8 @@ export function jobComplete(root, id, opts = {}) {
   const since = recordSince(root, { base });
   // As CI runs it: while the base has no config, the repository's owner from GitHub (reviews of PR 26).
   const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
-  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, repoOwner, lookup: opts.lookup });
+  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, repoOwner });
   if (since.finding) rec.findings.push(since.finding);
-  // What the local check could not judge (a shallow clone it could not deepen) is said, never passed.
-  const shallowNotes = rec.unverified || [];
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   // The module's stale lock files first, whether or not the suite runs: its checks may need
   // them too (GAT-5; confirming review of PR 11).
@@ -271,7 +269,7 @@ export function jobComplete(root, id, opts = {}) {
     const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
     commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
   }
-  const notv = [...notVerified, ...shallowNotes];
+  const notv = [...notVerified];
   if (noSuite) notv.push('the module suite was not run by job complete');
   else if (installed) {
     const s = runSuite(root, entry, undefined, { timeout });

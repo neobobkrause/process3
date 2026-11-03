@@ -785,51 +785,23 @@ test('the owner removing the block counts: putting it back afterwards is refused
   assert.match(f[0].message, new RegExp(`commit ${back.slice(0, 10)} puts back an older approvals block`));
 });
 
-test('a repository an organization owns is judged by the approver its own onboarding commit names (build I)', async () => {
+test('a repository an organization owns is judged by the default owner, as before', async () => {
   const { ownerOfRepo } = await import('../lib/record.mjs');
-  const org = () => ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } });
   const root = makeRepo({ 'README.md': 'x' });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
-  // Onboarding names alice, by alice's own website commit; her approvals then count.
-  const named = commit(root, { 'process/config.json': JSON.stringify({ approvals: { owner: 'alice' } }) }, 'onboard');
   const sha = commit(root, { 'CLAUDE.md': claude('may push') }, 'approvals');
-  const as = (who, ...shas) => (args) => (shas.some((x) => args[1].endsWith(`/commits/${x}`)) ? { ...web(), author: { login: who } } : session());
-  assert.deepEqual(recordCheck(root, cfg, { base, lookup: as('alice', named, sha), repoOwner: org }).findings, []);
-  // The naming commit is not alice's: no approver, so her approvals do not count.
-  const f = recordCheck(root, cfg, { base, lookup: as('alice', sha), repoOwner: org }).findings;
-  assert.ok(f.length);
-  assert.match(f.map((x) => x.message).join('\n'), /the organization acme owns the repository, so its approver .*commit \w+, which names alice, is not alice's own commit/);
-  // No approver named: refused, never the old default.
-  const r2 = makeRepo({ 'README.md': 'x' });
-  const b2 = git(['rev-parse', 'HEAD'], { cwd: r2 });
-  const s2 = commit(r2, { 'CLAUDE.md': claude('may push') }, 'approvals');
-  const g = recordCheck(r2, cfg, { base: b2, lookup: webFor(s2), repoOwner: org }).findings;
-  assert.match(g[0].message, /names no approver/);
+  const org = () => ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: webFor(sha), repoOwner: org }).findings, []);
   // An unreadable answer still refuses, plainly.
-  assert.match(recordCheck(r2, cfg, { base: b2, lookup: webFor(s2), repoOwner: () => null }).findings[0].message, /could not be read from GitHub/);
+  assert.match(recordCheck(root, cfg, { base, lookup: webFor(sha), repoOwner: () => null }).findings[0].message, /could not be read from GitHub/);
 });
 
-test('ownerOfRepo: a user\'s login; an organization has no default approver; an unreadable answer gives none, with why', async () => {
+test('ownerOfRepo: a user\'s login; an organization keeps the default owner; an unreadable answer gives none, with why', async () => {
   const { ownerOfRepo } = await import('../lib/record.mjs');
   assert.deepEqual(ownerOfRepo({ owner: { login: 'alice', type: 'User' } }), { login: 'alice' });
-  const o = ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } });
-  assert.equal(o.login, null);
-  assert.equal(o.organization, 'acme');
-  assert.match(o.why, /the organization acme owns the repository, so its approver is the person approvals.owner names/);
+  assert.deepEqual(ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } }), { login: 'neobobkrause', organization: 'acme' });
   assert.equal(ownerOfRepo(null).login, null);
   assert.match(ownerOfRepo(null).why, /could not be read from GitHub/);
-});
-
-test('ownerSetter: the commit that named the approver, not a merge that brought it in', async () => {
-  const { ownerSetter } = await import('../lib/record.mjs');
-  const root = makeRepo({ 'README.md': 'x' });
-  git(['checkout', '-q', '-b', 'side'], { cwd: root });
-  const named = commit(root, { 'process/config.json': JSON.stringify({ approvals: { owner: 'alice' } }) }, 'onboard');
-  git(['checkout', '-q', 'main'], { cwd: root });
-  commit(root, { 'other.txt': 'y' }, 'other');
-  git(['merge', '-q', '--no-ff', '--no-edit', 'side'], { cwd: root });
-  assert.equal(ownerSetter(root, 'HEAD', 'alice'), named);
-  assert.equal(ownerSetter(root, 'HEAD', 'bob'), null);
 });
 
 test('the approvals history is read once per run, however many merges change the block', () => {
