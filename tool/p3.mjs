@@ -5,6 +5,7 @@
 // every product carries the shim without the legacy path; review B of PR 32)
 import { writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
+import { layerClose } from './lib/layer.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
@@ -65,6 +66,10 @@ const commands = {
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
     notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
   }).ok ? 0 : 1),
+
+  // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
+  // the tranche tip, then the close recorded on the state branch with the deferred marks.
+  'layer close': (a, root) => (layerClose(root, one(a, 'layer number')).ok ? 0 : 1),
 
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
