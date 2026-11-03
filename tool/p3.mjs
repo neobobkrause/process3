@@ -11,6 +11,7 @@ import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } fro
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck } from './lib/start.mjs';
+import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
 import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince, repoOwnerOf, trustedRefs } from './lib/record.mjs';
@@ -136,6 +137,31 @@ const commands = {
   // session's first command. Fetches that branch, compares HEAD and the approvals block with its
   // tip, prints both SHAs; exit 1 when either differs (Foundations, "Every session checks its start").
   'start check': (a, root) => (startCheck(root, { branch: a.branch }).ok ? 0 : 1),
+
+  // start root | start bob: the role's starting prompt and its create_session call.
+  // start record <root|bob> <session id>: the address, written after the session was created.
+  start: (a, root) => {
+    if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
+    startRole(root, a._[0]);
+    return 0;
+  },
+
+  // address <root|bob>: the address as the state branch holds it now.
+  address: (a, root) => {
+    const role = checkRole(String(one(a, 'role (root or bob)')).toLowerCase());
+    const e = readAddress(root)[role];
+    if (!e) fail(`no ${role} is addressed`);
+    console.log(`${e.session} (since ${e.at})`);
+    return 0;
+  },
+
+  // handover begin | handover confirm <new BOB id>: ROOT replaces BOB (SES-2).
+  handover: (a, root) => {
+    const sub = a._.shift();
+    if (sub === 'begin') { handoverBegin(root); return 0; }
+    if (sub === 'confirm') { handoverConfirm(root, a._[0]); return 0; }
+    fail('handover begin | handover confirm <new BOB session id>');
+  },
 
   // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
   'ledger check': (a, root) => {

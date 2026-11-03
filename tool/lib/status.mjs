@@ -3,6 +3,7 @@
 import { checkRun, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
+import { readAddress } from './roles.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { fetchState, handoffFile, readState, undelivered } from './state.mjs';
 import { fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
@@ -59,6 +60,9 @@ export function status(root, { role, module, context, offline = false, log = con
   for (const r of role === 'bob' ? [] : rows) {
     log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}`);
   }
+  let addr = {};
+  try { addr = readAddress(root, { fetch: !offline }); } catch { addr = {}; }
+  log(`addresses: ROOT ${addr.root ? `${addr.root.session} (${addr.root.at})` : 'none'}; BOB ${addr.bob ? `${addr.bob.session} (${addr.bob.at})` : 'none'}`);
   // Refusals per session, from the tranche's rows and this checkout's (a row BOB recorded but has
   // not merged yet counts at once); the same row in both counts once (each carries its own id).
   const seen = new Set();
