@@ -147,10 +147,11 @@ const commands = {
   'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch }) : startCheck(root, { branch: a.branch })).ok ? 0 : 1),
 
   // start root | start bob | start watcher: the role's starting prompt (and create_session call).
+  // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
   // start record <root|bob|watcher> <session id>: the address, written after the session was created.
   start: (a, root) => {
     if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
-    startRole(root, a._[0]);
+    startRole(root, a._[0], { replace: a.replace });
     return 0;
   },
 
