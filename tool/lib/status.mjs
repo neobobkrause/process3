@@ -113,10 +113,12 @@ export function status(root, { role, module, context, live, offline = false, log
   }
   if (role === 'bob') {
     const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
-    out.next = halt ? [] : nextWork(root, cfg, rows, haveTranche ? tranche : null, { live: live === undefined ? undefined : Number(live), log });
+    const ref = haveTranche ? tranche : null;
+    out.layer = layerState(root, cfg, rows, ref);
+    out.next = halt ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer });
     return out;
   }
-  return { rows, sessions };
+  return { rows, sessions, prs };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
@@ -162,28 +164,71 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   return { rows, undelivered: owedMsgs };
 }
 
-// Next work (Build Plan, Phase 2): the modules of the open layer, the lowest layer in the
-// layer map (layers_file) not yet closed, whose requirement file has unmet marks and that have
-// no open job, fewest unmet first. A layer is closed when none of its modules has unmet marks or
-// an open job. Without a layer map, every requirement file with unmet marks. With live (the live
-// sessions BOB counts), at most live_cap less them are listed; the list returned is all of them.
-export function nextWork(root, cfg, rows, ref, { live, log = console.log } = {}) {
+// A layer closed by `layer close` (INT-4): one row per close in layers/closed.jsonl on the state
+// branch, BOB the one writer. A row counts for this tranche only: its tranche name, and its commit
+// not yet on main (a row from a tranche already merged into main is stale). In a shallow clone
+// main's history may not reach the commit; the row then counts.
+export const CLOSED_FILE = 'layers/closed.jsonl';
+export function closedRows(root, cfg) {
+  return (readState(root, cfg.state_branch, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } })
+    .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer)
+      && git(['merge-base', '--is-ancestor', String(r.commit), 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code !== 0);
+}
+
+const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+
+// The layers (Build Plan, Phase 3, INT-4): the layer map (layers_file), a table row whose first
+// cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
+// or when none of its modules has unmet marks or an open job. The open layer is the lowest not
+// closed. It is ready to close when no module of it has an open job and each has its job merged
+// in this tranche (its entry COMPLETE, no open pull request, no flag) or no unmet marks; the marks
+// left then are deferred, never listed again as its next work. Null without a layer map.
+export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg) } = {}) {
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
+  const map = read(cfg.layers_file);
+  if (map === null) return null;
+  const marks = (f) => [...(read(f) || '').matchAll(MARK)].map((m) => m[1]);
+  const recorded = new Set(closed.map((r) => r.layer));
+  const layers = map.split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
+    .filter((c) => c.length > 1 && /^\d+$/.test(c[0]))
+    .map((c) => ({ n: Number(c[0]), mods: c.at(-1).replace(/[`*]/g, '').split(',').map((m) => m.trim()).filter(Boolean).map((id) => {
+      const file = `${dir}/${id}.md`;
+      const row = rows.find((r) => r.id === id || r.req === file);
+      const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
+      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
+      return { id, file, open, merged, marks: marks(file) };
+    }) }))
+    .sort((a, b) => a.n - b.n);
+  for (const L of layers) L.closed = recorded.has(L.n) || L.mods.every((m) => !m.open && !m.marks.length);
+  const cur = layers.find((L) => !L.closed) || null;
+  const ready = !!cur && cur.mods.every((m) => !m.open && (m.merged || !m.marks.length));
+  const deferred = layers.filter((L) => recorded.has(L.n)).flatMap((L) => L.mods.filter((m) => m.marks.length).map((m) => ({ layer: L.n, id: m.id, count: m.marks.length })));
+  return { layers, cur, ready, deferred };
+}
+
+// Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
+// marks and that have no open job, fewest unmet first; none once the layer is ready to close (BOB's
+// act is then `layer close <n>`). The deferred marks of closed layers are listed, not as work.
+// Without a layer map, every requirement file with unmet marks. With live (the live sessions BOB
+// counts), at most live_cap less them are listed; the list returned is all of them.
+export function nextWork(root, cfg, rows, ref, { live, log = console.log, state } = {}) {
   const open = rows.filter((r) => r.tranche !== 'COMPLETE');
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const taken = new Set(open.flatMap((r) => [r.req, `${dir}/${r.id}.md`]));
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
-  const unmet = (f) => ((read(f) || '').match(/\*\*R[\w.-]+\*\*\s*\*\(not yet met/g) || []).length;
-  const map = read(cfg.layers_file);
+  const unmet = (f) => ((read(f) || '').match(MARK) || []).length;
+  const ls = state === undefined ? layerState(root, cfg, rows, ref) : state;
   let files;
   let layer = null;
-  if (map !== null) {
-    const layers = map.split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
-      .filter((c) => c.length > 1 && /^\d+$/.test(c[0]))
-      .map((c) => ({ n: Number(c[0]), files: c.at(-1).replace(/[`*]/g, '').split(',').map((m) => m.trim()).filter(Boolean).map((m) => `${dir}/${m}.md`) }))
-      .sort((a, b) => a.n - b.n);
-    const cur = layers.find((L) => L.files.some((f) => taken.has(f) || unmet(f) > 0));
-    layer = cur?.n ?? null;
-    files = cur?.files || [];
+  if (ls) {
+    layer = ls.cur?.n ?? null;
+    files = ls.ready ? [] : (ls.cur?.mods || []).map((m) => m.file);
+    if (ls.deferred.length) {
+      log('deferred at layer close (not work):');
+      for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
+    }
+    if (ls.ready) log(`layer ${layer} ready to close: ${P3} layer close ${layer}`);
   } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
