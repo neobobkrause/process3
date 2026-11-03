@@ -11,6 +11,7 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT } from './job.mjs';
+import { NOTICES_FILE, noticeLine, providerNotice, recordAtMerge } from './notice.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -87,7 +88,8 @@ export function merge(root, n, opts = {}) {
   const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
   const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
   if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
-  const own = ownPaths(JSON.parse(entryText.stdout));
+  const baseEntry = JSON.parse(entryText.stdout);
+  const own = ownPaths(baseEntry);
   const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
   if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
   // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
@@ -132,7 +134,17 @@ export function merge(root, n, opts = {}) {
     });
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
-    return { merged: true, sha: r.sha, tip };
+    // The provider-change route: the notice this job leaves its users, and the notices its START
+    // named, answered now that it merged. The merge stands if the write fails; the rows are printed.
+    const notice = baseEntry.requirements ? providerNotice(root, cfg, { provider: id, requirements: baseEntry.requirements, base: mb, head: pr.head.sha, pr: n }) : null;
+    const answers = readRows(wt, id).filter((x) => x.event === 'start').pop()?.notices || [];
+    let notes = { rows: [] };
+    try { notes = recordAtMerge(root, cfg, { notice, answers, user: id, pr: n }); } catch (e) {
+      log(`the merge stands, but the provider notices were not written to ${cfg.state_branch}:${NOTICES_FILE} (${e.message}); BOB records them: ${JSON.stringify({ notice, answers, user: id, pr: n })}`);
+      notes = { rows: [], error: e.message };
+    }
+    for (const x of notes.rows) log(x.row === 'notice' ? `${noticeLine(x)} recorded for ${x.users.join(', ')}` : `provider notice ${x.key} answered by ${x.user}`);
+    return { merged: true, sha: r.sha, tip, notices: notes };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
     rmSync(wt, { recursive: true, force: true });
