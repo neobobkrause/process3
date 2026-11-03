@@ -499,3 +499,41 @@ test('the START says each judged act is its own shell command, never chained wit
   const lines = start.split('\n').filter((l) => /judged act/.test(l));
   assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).']);
 });
+
+// JOB-6: recovery by replacement.
+test('--restart prints a replacement START from the branch and the PR, from the tranche tip, and writes nothing', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' }, 'half the work');
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const refs = () => git(['ls-remote', 'origin'], { cwd: root });
+  const before = refs();
+  const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'job' } };
+  const r = jobStart(root, 'alpha', { coordinator: 's', restart: 'its session stopped answering after 40 minutes', find: () => pr, notes: () => [], log: quiet });
+  assert.equal(refs(), before, 'no branch, no push');
+  assert.equal(f.state.prs, 1, 'no new pull request');
+  assert.match(r.start, /attempt 1, replacement session/);
+  assert.match(r.start, /As BOB saw it: its session stopped answering after 40 minutes/);
+  assert.match(r.start, /pull request https:\/\/x\/pull\/9, last commit `[0-9a-f]+ half the work`, receipt none posted \(WORKING\)/);
+  assert.match(r.start, /refused is never rerouted/);
+  assert.match(r.start, /1\. `git fetch origin job\/alpha:refs\/remotes\/origin\/job\/alpha`/);
+  assert.match(r.start, /2\. `git checkout -q -b job\/alpha origin\/job\/alpha`/);
+  assert.match(r.start, /\| `req\/alpha.md` \| \d+ \|/);
+  assert.equal(r.launch.source_revision, git(['rev-parse', 'origin/tranche'], { cwd: root }), 'the tranche tip commit');
+  assert.deepEqual(r.subscribe.pullNumber, 9);
+});
+
+test('--restart is refused for a COMPLETE module, without a branch or PR, and without a why', () => {
+  const root = withOrigin();
+  const pr = () => ({ number: 9 });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /no branch job\/alpha/);
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: true, find: pr, notes: () => [], log: quiet }), /--restart needs why/);
+  const m = mergedOnce();
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; a new attempt on a merged module is --reopen/);
+});

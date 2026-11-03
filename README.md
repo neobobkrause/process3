@@ -18,6 +18,7 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 | `status [--role job --module <id>]` | anyone | entries, branches, PRs, gate, flags, reading set with sizes |
 | `job start <id> --coordinator <session>` | BOB | branch, WORKING, START, draft PR; prints the create_session call, then the subscribe_pr_activity call for the PR |
 | `job start <id> --reopen "<what>"` | BOB | a new attempt on a COMPLETE module whose last attempt merged; the START says what it must do |
+| `job start <id> --restart "<why>"` | BOB | a replacement session for a WORKING or BLOCKED job with its branch and pull request open (JOB-6); creates no branch or PR and writes nothing; prints a START that continues from the branch and PR (the PR, the last commit, the receipt state, the why as BOB saw it, the reading set with sizes; a refused act is never rerouted), then the create_session call from the tranche tip's commit (its first commands fetch and check out the branch) and the subscribe_pr_activity call. Refused for a COMPLETE module (that is `--reopen`) and when the branch or PR is missing |
 | `test <id>` | job | installs the module's stale lock files (GAT-5), then runs the module's own suite |
 | `job complete <id> --not-verified "..."` | job | checks and suite, COMPLETE, push, receipt, ready; resumable |
 | `block <id> --reason "..."` | job | BLOCKED with a reason |
