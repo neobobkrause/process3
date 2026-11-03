@@ -6,14 +6,15 @@ import { fail, gh, loadConfig, repoSlug, underPath } from './util.mjs';
 // The files whose change earns a second review: the gate, the record check, the approvals
 // check and the merge tool, with the workflows that run them.
 export const SECOND_REVIEW = [
-  'tool/lib/gate.mjs', 'tool/lib/record.mjs', 'tool/lib/start.mjs', 'tool/lib/merge.mjs',
+  'tool/lib/gate.mjs', 'tool/lib/github.mjs', 'tool/lib/record.mjs', 'tool/lib/start.mjs', 'tool/lib/merge.mjs',
   '.github/workflows/',
 ];
 
-// Requirement ids in a requirements file: GAT-5, INT-1, R1 at a line's start or after a list mark.
+// Requirement ids in a requirements file: GAT-5, INT-1, R1 at a line's start or after a list
+// mark, a number or a table bar.
 export function requirementIds(text) {
   const ids = [];
-  for (const m of String(text || '').matchAll(/^[\s>*#-]*\**([A-Z][A-Z0-9]*-?\d+)\b/gm)) if (!ids.includes(m[1])) ids.push(m[1]);
+  for (const m of String(text || '').matchAll(/^[\s>*#|\d.-]*\**([A-Z][A-Z0-9]*-?\d+)\b/gm)) if (!ids.includes(m[1])) ids.push(m[1]);
   return ids;
 }
 
@@ -63,7 +64,8 @@ export function reviewBrief(root, n, { scope, log = console.log, io = {} } = {})
   const m = /^job\/(.+)$/.exec(pr.head?.ref || '');
   if (m) {
     const entry = contents(slug, `process/ledger/${m[1]}.json`, pr.head.sha);
-    const e = typeof entry === 'string' ? JSON.parse(entry) : entry;
+    let e = entry;
+    if (typeof entry === 'string') { try { e = JSON.parse(entry); } catch { fail(`process/ledger/${m[1]}.json at the head is not JSON`); } }
     if (e?.requirements) job = { id: m[1], file: e.requirements, ids: requirementIds(contents(slug, e.requirements, pr.head.sha)) };
   }
   const text = briefText({ pr, files, job, owner: cfg.approvals.owner, approvalsFile: cfg.approvals.file, scope });

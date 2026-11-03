@@ -27,5 +27,5 @@ test('review brief: a job pull request names its requirement ids, a plain one it
   assert.match(plain, /Scope: the brief only/);
   assert.doesNotMatch(plain, /A job, module/);
   assert.match(plain, /second review: this change touches tool\/lib\/merge\.mjs/);
-  assert.deepEqual(requirementIds('R1 does.\n* **R2** too\n'), ['R1', 'R2']);
+  assert.deepEqual(requirementIds('R1 does.\n* **R2** too\n1. GAT-5 x\n| GAT-6 | y |\n'), ['R1', 'R2', 'GAT-5', 'GAT-6']);
 });
