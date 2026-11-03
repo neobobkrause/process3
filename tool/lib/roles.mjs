@@ -131,7 +131,7 @@ export function startRole(root, role, { slug = repoSlug(root), address = readAdd
   if (role === 'watcher') {
     const w = address.watcher?.session;
     if (replace !== undefined && (replace === true || replace !== w)) fail(`--replace names the addressed watcher, ${w || 'none'}; not ${JSON.stringify(replace)}`);
-    if (w && w !== address.root?.session && !replace) fail(`watcher ${w} is addressed (since ${address.watcher.at}); one per account; whoever starts ROOT replaces it with start watcher --replace ${w}`);
+    if (w && !replace) fail(`watcher ${w} is addressed (since ${address.watcher.at}); one per account; whoever starts ROOT replaces it with start watcher --replace ${w}`);
     const prompt = watcherPrompt({ slug, tranche: cfg.tranche });
     const call = launch(root, slug, cfg, 'watcher', 'Watcher', prompt);
     const task = { name: 'watcher', cron_expression: '17 11 * * *', persistent_session_id: '<the watcher\'s id>', prompt: `Watch. Do what your starting prompt's "When your daily task fires" says, starting with ${wakeSteps(cfg.tranche)}; if it says the approvals changed, tell Bob by push notification and take no further step.` };
