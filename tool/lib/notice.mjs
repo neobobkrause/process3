@@ -5,7 +5,7 @@
 import { fetchState, readState, writeState } from './state.mjs';
 import { exists, git } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 
 export const noticeKey = (provider, pr) => `${provider}:${pr}`;
 
@@ -65,17 +65,27 @@ export const noticeLine = (n) => `provider notice: ${n.provider} ${n.ids.join(',
 
 // At a job's merge: the notice it leaves, and the notices its START named, answered by it. One
 // write; a file already there is kept, so a rerun adds nothing.
+// The answers come from the job's own start row, which the job can edit: only a key of a notice
+// the state branch holds for this user is answered (confirming review of PR 54), and no file
+// lands outside notices/ (a key such as "a/../../x" would otherwise reach past the worktree).
 export function recordAtMerge(root, cfg, { notice, answers = [], user, pr }) {
   const at = new Date().toISOString();
+  const sb = cfg.state_branch;
+  const have = fetchState(root, sb, { fresh: true });
+  if (answers.length) {
+    const known = new Set(have ? notices(root, sb).filter((n) => n.users.includes(user)).map((n) => n.key) : []);
+    answers = [...new Set(answers)].filter((k) => typeof k === 'string' && known.has(k));
+  }
   const want = [
     ...(notice ? [[noticeFile(notice.key), { row: 'notice', at, ...notice }]] : []),
     ...answers.map((key) => [answerFile(user, key), { row: 'answered', at, key, user, pr }]),
   ];
   if (!want.length) return { rows: [] };
-  const sb = cfg.state_branch;
   const missing = (has) => want.filter(([f]) => !has(f));
-  if (fetchState(root, sb, { fresh: true }) && !missing((f) => readState(root, sb, f) !== null).length) return { rows: [] };
+  if (have && !missing((f) => readState(root, sb, f) !== null).length) return { rows: [] };
   return writeState(root, sb, `provider notices at the merge of PR ${pr}`, (wt) => {
+    const dir = resolve(wt, NOTICES_DIR) + sep;
+    for (const [f] of want) if (!resolve(wt, f).startsWith(dir)) throw new Error(`refused: ${f} is outside ${NOTICES_DIR}/`);
     const add = missing((f) => existsSync(join(wt, f)));
     for (const [f, row] of add) {
       mkdirSync(dirname(join(wt, f)), { recursive: true });

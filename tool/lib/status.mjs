@@ -237,23 +237,30 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
 }
 
 // Provider notices (the provider-change route): per user module, each notice it has not answered,
-// as the state branch holds them (bobStatus fetched it). Listed until the user has a job whose
-// START names the notice (its start row, on its job branch); answered when that job merges.
+// as the state branch holds them (bobStatus fetched it). Listed until the user has an open job
+// whose START names the notice (its start row, on its job branch); answered when that job merges.
 export function owedNotices(root, cfg, rows, log = console.log) {
   let all = [];
   try { all = notices(root, cfg.state_branch); } catch { all = []; }
+  const unrecorded = {};
   const named = (u) => {
-    // The job branch decides: a start row there that names the notice is a job that names it
-    // (an older merged attempt's row cannot, or the notice would be answered).
-    if (!rows.find((x) => x.id === u)?.branch) return [];
+    // The job branch decides, while its attempt is open: not COMPLETE on the tranche, an open pull
+    // request, or commits the tranche lacks. A merged attempt's start row names a notice only when
+    // its answer was not written (the merge stands if that write fails): the notice is still owed,
+    // and merge <n> run again records it (confirming review of PR 54).
+    const row = rows.find((x) => x.id === u);
+    if (!row?.branch) return [];
     const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
-    return t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
+    const keys = t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
+    const open = row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#') || row.ahead > 0;
+    if (!open) { unrecorded[u] = keys; return []; }
+    return keys;
   };
   const owed = {};
   for (const n of all) for (const u of n.open) if (!named(u).includes(n.key)) (owed[u] ||= []).push(n);
   const users = Object.keys(owed).sort();
   if (users.length) log('provider notices (the user module\'s next job answers each):');
-  for (const u of users) for (const n of owed[u]) log(`- ${u}: ${noticeLine(n)}`);
+  for (const u of users) for (const n of owed[u]) log(`- ${u}: ${noticeLine(n)}${unrecorded[u]?.includes(n.key) ? `; its merged job named it, answer not recorded: run merge <that job's PR> again` : ''}`);
   return owed;
 }
 
