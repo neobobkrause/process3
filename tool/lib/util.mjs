@@ -67,7 +67,23 @@ export const DEFAULTS = {
   lockfiles: [],
   node: null,
   coordinator: null,
+  // The loop guard (build I, 3 Nov): one table, a budget per role for one attempt, in elapsed
+  // minutes and US dollars. status flags an attempt past either. A product's config may change a
+  // role's figures; a figure set to null is not budgeted.
+  budgets: {
+    job: { minutes: 180, cost_usd: 40 },
+    coordinator: { minutes: 480, cost_usd: 120 },
+  },
 };
+
+// The budget table: the defaults, with each role the config names merged over its default.
+function budgetsOf(given) {
+  const out = Object.fromEntries(Object.entries(DEFAULTS.budgets).map(([k, v]) => [k, { ...v }]));
+  if (given && typeof given === 'object' && !Array.isArray(given)) {
+    for (const [role, b] of Object.entries(given)) if (b && typeof b === 'object' && !Array.isArray(b)) out[role] = { ...(out[role] || {}), ...b };
+  }
+  return out;
+}
 
 export const CONFIG_FILE = 'process/config.json';
 
@@ -84,6 +100,7 @@ export function loadConfig(root, ref) {
   return {
     ...DEFAULTS, ...c,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
+    budgets: budgetsOf(c.budgets),
   };
 }
 

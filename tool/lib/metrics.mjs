@@ -88,3 +88,40 @@ export function report(root, slug, branch, { read = { comments, getPR } } = {}) 
     declines: measured.flatMap((r) => r.declines || []),
   };
 }
+
+// The loop guard (build I, 3 Nov): an attempt's elapsed time and cost against its role's budget.
+// rows: the module's rows (its own file and BOB's), in any order. Elapsed runs from the attempt's
+// start row to its complete row, or to now while it has none. Cost is BOB's measured figure for
+// the attempt when he recorded one, else the one the job's complete row read from its session
+// record, else 'unmeasured'. Returns null when the rows hold no attempt.
+export function attemptBudget(rows, budgets, { now: at = Date.now(), attempt } = {}) {
+  const starts = rows.filter((r) => r.row === 'attempt' && r.event === 'start');
+  if (!starts.length) return null;
+  const n = attempt ?? Math.max(...starts.map((r) => Number(r.attempt) || 1));
+  const start = starts.filter((r) => (Number(r.attempt) || 1) === n).pop();
+  const of = (ev) => rows.filter((r) => r.row === 'attempt' && r.event === ev && (Number(r.attempt) || 1) === n);
+  const complete = of('complete').pop();
+  const role = start.role || 'job';
+  const t0 = Date.parse(start.at);
+  const t1 = complete ? Date.parse(complete.at) : at;
+  const minutes = Number.isFinite(t0) && Number.isFinite(t1) ? Math.max(0, Math.round((t1 - t0) / 60000)) : 'unmeasured';
+  const costs = [...of('measured').map((r) => r.cost_usd), complete?.cost_usd];
+  const cost = costs.find((c) => typeof c === 'number' && Number.isFinite(c)) ?? 'unmeasured';
+  const budget = budgets?.[role] || null;
+  const over = [];
+  if (budget && typeof budget.minutes === 'number' && typeof minutes === 'number' && minutes > budget.minutes) over.push(`${minutes} min of ${budget.minutes}`);
+  if (budget && typeof budget.cost_usd === 'number' && typeof cost === 'number' && cost > budget.cost_usd) over.push(`$${cost} of $${budget.cost_usd}`);
+  return { attempt: n, role, minutes, cost_usd: cost, done: Boolean(complete), budget, over };
+}
+
+// The open check (Build Plan, tranche open): one row per run in a file of BOB's own, with the
+// Claude Code version it ran on, so a new version makes it due again.
+export const OPEN_CHECK_FILE = `${METRICS_DIR}/open-check.bob.jsonl`;
+export function openCheckDue(rows, version) {
+  const last = rows.filter((r) => r.row === 'open-check').pop() || null;
+  if (!last) return { due: true, why: 'no open check is recorded', last };
+  if (!version || version === 'unmeasured') return { due: true, why: 'the Claude Code version here could not be read', last };
+  if (last.claude_code !== version) return { due: true, why: `the last open check ran on Claude Code ${last.claude_code}, and this is ${version}`, last };
+  if (last.outcome !== 'pass') return { due: true, why: `the last open check, on Claude Code ${version}, did not pass (${last.outcome ?? 'no outcome'})`, last };
+  return { due: false, why: `the last open check passed on Claude Code ${version}`, last };
+}

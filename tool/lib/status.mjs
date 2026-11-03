@@ -3,9 +3,18 @@
 import { checkRun, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
+import { OPEN_CHECK_FILE, attemptBudget, bobMetricsFile, metricsFile, openCheckDue } from './metrics.mjs';
+import { claudeVersion } from './session.mjs';
 import { git, loadConfig, repoSlug } from './util.mjs';
 
-export function status(root, { role, module, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
+// A metrics file's rows at a commit, or [] (an unreadable line is left out).
+const rowsAt = (root, rev, file) => {
+  const r = git(['show', `${rev}:${file}`], { cwd: root, allowFail: true });
+  if (r.code !== 0) return [];
+  return r.stdout.split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+};
+
+export function status(root, { role, module, offline = false, log = console.log, io = { openPRs, checkRun }, now = Date.now(), version = claudeVersion } = {}) {
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
   if (!offline) git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/job/*:refs/remotes/origin/job/*'], { cwd: root, allowFail: true });
@@ -20,7 +29,13 @@ export function status(root, { role, module, offline = false, log = console.log,
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
     const branch = `origin/job/${e.id}`;
     const row = { id: e.id, tranche: e.status?.state };
-    if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
+    const onBranch = git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0;
+    // The loop guard (build I): the latest attempt's time and cost against its role's budget.
+    const at = haveTranche ? tranche : 'HEAD';
+    const own = onBranch ? rowsAt(root, branch, metricsFile(e.id)) : rowsAt(root, at, metricsFile(e.id));
+    const b = attemptBudget([...own, ...rowsAt(root, at, bobMetricsFile(e.id))], cfg.budgets, { now });
+    if (b) row.budget = b;
+    if (onBranch) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
       try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
@@ -45,16 +60,24 @@ export function status(root, { role, module, offline = false, log = console.log,
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
+    // Only an attempt still running, or one not yet merged, is shown and flagged; a merged one is
+    // history (its figures stay in the metrics report).
+    if (b) row.live = !b.done || e.status?.state !== 'COMPLETE';
+    if (b?.over.length && row.live) row.flag = [row.flag, `over budget: attempt ${b.attempt}, ${b.over.join(', ')} (${b.role} budget)`].filter(Boolean).join('; ');
     rows.push(row);
   }
   log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);
   for (const r of rows) {
-    log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}`);
+    log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}${r.budget && r.live ? `; budget: attempt ${r.budget.attempt}, ${r.budget.minutes} min, cost ${typeof r.budget.cost_usd === 'number' ? `$${r.budget.cost_usd}` : 'unmeasured'}` : ''}`);
   }
+  // The open check reruns at each Claude Code version change (build I).
+  const v = typeof version === 'function' ? version() : version;
+  const oc = openCheckDue(rowsAt(root, haveTranche ? tranche : 'HEAD', OPEN_CHECK_FILE), v);
+  log(`open check: ${oc.due ? 'DUE' : 'current'}; ${oc.why}`);
   if (role === 'job' && module) {
     const set = readingSet(root, readEntry(root, module));
     log(`reading set for job ${module}: ${set.bytes} bytes`);
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
-  return { rows };
+  return { rows, openCheck: oc };
 }

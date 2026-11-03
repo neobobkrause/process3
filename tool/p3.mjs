@@ -7,7 +7,8 @@ import { writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
-import { appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
+import { OPEN_CHECK_FILE, appendRow, bobMetricsFile, report as metricsReport } from './lib/metrics.mjs';
+import { claudeVersion } from './lib/session.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { status } from './lib/status.mjs';
@@ -44,19 +45,36 @@ const commands = {
   // block <id> --reason "<why>"
   block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason }).ok ? 0 : 1),
 
-  // metrics add <id> --attempt n --session s [--tokens n] [--cost-usd x] [--denials n]
+  // metrics add <id> --attempt n --session s [--tokens n] [--cost-usd x] [--minutes n] [--denials n]
   //   [--refusal "<act>|<depth>|<channel>"]... [--decline "<act>|<depth>"]... [--outcome o]
+  // metrics open-check --outcome pass|stopped --session s [--refusal ...]... [--decline ...]...
+  //   [--claude-code <version>]: BOB's row for one run of the tranche's open check, with the
+  //   Claude Code version it ran on (`claude --version`, else the session record), so status says
+  //   the check is due again when the version changes (build I).
   // metrics report: the two health metrics and their figures, as JSON.
   metrics: (a, root) => {
     const sub = a._.shift();
+    const split = (v, keys) => list(v).map((x) => Object.fromEntries(String(x).split('|').map((p, i) => [keys[i], p])));
+    if (sub === 'open-check') {
+      if (!['pass', 'stopped'].includes(a.outcome)) fail('--outcome pass (every act taken) or --outcome stopped (a refusal or decline stopped the open)');
+      const refusals = split(a.refusal, ['act', 'depth', 'channel']);
+      const declines = split(a.decline, ['act', 'depth']);
+      if (a.outcome === 'pass' && (refusals.length || declines.length)) fail('an open check with a refusal or a decline did not pass: --outcome stopped');
+      const version = typeof a['claude-code'] === 'string' ? a['claude-code'] : claudeVersion();
+      const row = appendRow(root, 'open-check', {
+        row: 'open-check', claude_code: version, session: a.session || null, outcome: a.outcome, refusals, declines,
+      }, OPEN_CHECK_FILE);
+      console.log(JSON.stringify(row));
+      return 0;
+    }
     if (sub === 'add') {
       const id = one(a, 'module');
-      const split = (v, keys) => list(v).map((x) => Object.fromEntries(String(x).split('|').map((p, i) => [keys[i], p])));
       const row = appendRow(root, id, {
         row: 'attempt', event: 'measured', role: a.role || 'job', attempt: Number(a.attempt || 1), session: a.session || null,
         tokens: num(a.tokens), cost_usd: a['cost-usd'] === undefined ? 'unmeasured' : Number(a['cost-usd']),
         denials: Number(a.denials || 0), refusals: split(a.refusal, ['act', 'depth', 'channel']),
         declines: split(a.decline, ['act', 'depth']), outcome: a.outcome || null,
+        minutes: num(a.minutes), claude_code: claudeVersion(),
       }, bobMetricsFile(id));
       console.log(JSON.stringify(row));
       return 0;
@@ -66,15 +84,17 @@ const commands = {
       console.log(JSON.stringify(metricsReport(root, repoSlug(root), a.branch || `origin/${cfg.tranche}`), null, 2));
       return 0;
     }
-    fail('metrics add | metrics report');
+    fail('metrics add | metrics open-check | metrics report');
   },
 
-  // merge <pr> (--reviewed "<what>" | --no-review "<why>") [--minutes 30]: BOB merges a job.
-  // merge <pr> --plain (--reviewed "<what>" | --no-review "<why>"): any other pull request.
+  // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 30]: BOB merges a job.
+  // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"]: any other pull request.
+  // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
-    if (a.plain) return mergePlain(root, n, { reviewed: a.reviewed, noReview: a['no-review'] }).merged ? 0 : 1;
-    return merge(root, n, { reviewed: a.reviewed, noReview: a['no-review'], minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
+    const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
+    if (a.plain) return mergePlain(root, n, review).merged ? 0 : 1;
+    return merge(root, n, { ...review, minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
   },
 
   // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>] [--no-post]
@@ -125,14 +145,17 @@ const commands = {
     // While the base has no config, the owner is the repository's, as GitHub has it.
     const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
     const trusted = trustedRefs(root, cfg, { base, head, branch: a.branch });
-    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, repoOwner, trusted });
+    const { commits, findings, notices, unverified } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, repoOwner, trusted });
     if (s.finding) findings.push(s.finding);
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}`);
     // Annotations, so a notice shows on the pull request and not only in the log.
     const esc = (x, prop) => String(x).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
       .replace(prop ? /[:,]/g : /$^/, (c) => (c === ':' ? '%3A' : '%2C'));
     for (const n of notices) console.log(`::warning file=${esc(n.file, true)}::${esc(n.message)}`);
-    return report(findings, a.out, { commits, base, notices });
+    // In CI the clone is full; a shallow one the check could not deepen fails closed here, while
+    // job complete carries the same note into its receipt's not_verified (build I).
+    for (const u of unverified) findings.push({ check: 'shallow', file: '(clone)', line: 1, message: u });
+    return report(findings, a.out, { commits, base, notices, unverified });
   },
 };
 

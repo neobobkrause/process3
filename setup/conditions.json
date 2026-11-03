@@ -105,7 +105,7 @@
       "value": {
         "file": "process/config.json approvals.file, default CLAUDE.md",
         "heading": "process/config.json approvals.heading, default ## Standing approvals from Bob",
-        "owner": "process/config.json approvals.owner, which onboarding sets to the repository's owner as GitHub has it; while the tranche has no config, that owner",
+        "owner": "process/config.json approvals.owner, which onboarding sets to the repository's owner as GitHub has it; while the tranche has no config, that owner. A repository an organization owns has no default: its approver is the login approvals.owner names, set by that person's own onboarding commit through GitHub's website, and a tranche that names none reads missing",
         "blocks": 1,
         "last_changed_by": "the owner's commit through GitHub's website",
         "newest": "the block is the newest one the owner set through GitHub's website on the tranche or main (an edit, a website merge, or a removal), so a merge that put back an older one is missing"

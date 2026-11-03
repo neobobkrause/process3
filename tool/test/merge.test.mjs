@@ -45,13 +45,14 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
 test('merge brings the branch up to the tranche, writes the merge row, and merges that tip', () => {
   const { root, head } = setup();
   const f = io(head);
-  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker, no gaps', log: () => {} });
+  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker, no gaps', rounds: 2, log: () => {} });
   assert.equal(r.merged, true);
   const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
   assert.equal(f.calls.merged, tip, 'merges the tip the gate passed');
   assert.equal(git(['merge-base', '--is-ancestor', 'origin/tranche', tip], { cwd: root, allowFail: true }).code, 0, 'up to the tranche');
   git(['checkout', '-q', tip], { cwd: root });
   assert.equal(readRows(root, 'alpha').at(-1).row, 'merge');
+  assert.equal(readRows(root, 'alpha').at(-1).review_rounds, 2, 'the merge row records its review rounds');
   git(['checkout', '-q', 'main'], { cwd: root });
   assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left');
 });
@@ -138,11 +139,11 @@ test('merge --plain merges a pin move pinned to its head, with the review in the
   const f = plainIO(r);
   git(['fetch', '-q', 'origin'], { cwd: r.root });
   const before = refs(r.root);
-  const out = mergePlain(r.root, 4, { ...q, io: f.io, reviewed: 'fresh reader, no gaps' });
+  const out = mergePlain(r.root, 4, { ...q, io: f.io, reviewed: 'fresh reader, no gaps', rounds: 1 });
   assert.equal(out.merged, true);
   assert.equal(f.calls.merged.sha, r.sha);
   assert.equal(f.calls.merged.title, 'Merge PR 4: bob/pin into tranche');
-  assert.equal(f.calls.merged.message, 'Reviewed: fresh reader, no gaps');
+  assert.equal(f.calls.merged.message, 'Reviewed: fresh reader, no gaps\nReview rounds: 1');
   assert.equal(refs(r.root), before, 'no branch moved, here or on origin: no merge row, no push');
   assert.equal(git(['worktree', 'list'], { cwd: r.root }).split('\n').length, 1);
 });
@@ -151,7 +152,7 @@ test('merge --plain works in process3 itself, with no config and no ledger', () 
   const r = plainRepo({ config: false, ledger: false, files: { 'tool/p3.mjs': '// changed\n' } });
   const f = plainIO(r, { rules: { checks: [{ context: 'ci', app: ACTIONS_APP }, { context: 'record', app: ACTIONS_APP }], strict: false } });
   assert.equal(mergePlain(r.root, 4, { ...q, io: f.io, noReview: 'a test' }).merged, true);
-  assert.equal(f.calls.merged.message, 'No review: a test');
+  assert.equal(f.calls.merged.message, 'No review: a test\nReview rounds: 0');
 });
 
 test('the newest qualifying check run decides', () => {
@@ -878,7 +879,7 @@ test('onboarding sets approvals.owner to the repository\'s owner as GitHub has i
     const r = plainRepo({ config: false, ledger: false, files: { 'process/config.json': JSON.stringify({ process_repo: P3, ...(approvals ? { approvals } : {}) }) } });
     const f = plainIO(r, { repo: own });
     f.io.repoOwner = (slug) => { f.asked = slug; return owner; };
-    return { f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) };
+    return { r, f, run: () => mergePlain(r.root, 4, { ...q, noReview: 'onboarding', io: f.io }) };
   };
   const ok = go({ owner: 'alice' });
   assert.equal(ok.run().merged, true);
@@ -886,11 +887,21 @@ test('onboarding sets approvals.owner to the repository\'s owner as GitHub has i
   assert.throws(go(null).run, /onboarding sets approvals\.owner in process\/config\.json to the repository's owner, alice, as GitHub has it; the pull request does not set it/);
   assert.throws(go({ owner: 'neobobkrause' }).run, /to the repository's owner, alice, as GitHub has it; the pull request sets "neobobkrause"/);
   assert.throws(go({ owner: 'alice' }, null).run, /to the repository's owner, and the repository's owner could not be read from GitHub/);
-  // An organization owns the repository: the default owner holds, as before, and onboarding
-  // writes that (reviews of PR 26).
-  const org = { login: 'neobobkrause', organization: 'acme' };
-  assert.equal(go({ owner: 'neobobkrause' }, org).run().merged, true);
-  assert.throws(go({ owner: 'acme' }, org).run, /to the default owner, neobobkrause, since the organization acme owns the repository; the pull request sets "acme"/);
+  // An organization owns the repository (build I): no default holds; the approver is the one the
+  // pull request names, by that person's own website commit.
+  const org = ownerOfRepo({ owner: { login: 'acme', type: 'Organization' } });
+  const named = go({ owner: 'alice' }, org);
+  named.f.io.lookup = ghCommit(named.r.sha, { author: 'alice' });
+  assert.equal(named.run().merged, true);
+  const forged = go({ owner: 'alice' }, org);
+  forged.f.io.lookup = ghCommit(forged.r.sha, { author: 'mallory' });
+  assert.throws(forged.run, /the organization acme owns the repository, so its approver is .*commit \w+, which names alice, is not alice's own commit through GitHub's website/);
+  const none = go(null, org);
+  none.f.io.lookup = ghCommit(none.r.sha);
+  assert.throws(none.run, /the organization acme owns the repository, so its approver .*, and process\/config\.json names no approver/);
+  const old = go({ owner: 'neobobkrause' }, org);
+  old.f.io.lookup = ghCommit(old.r.sha, { author: 'alice' });
+  assert.throws(old.run, /is not neobobkrause's own commit/, 'the old default is not taken for an organization');
   // Not onboarding (the base has a config): nothing asked of approvals.owner here.
   const r = makeRepoWith(JSON.stringify({}), JSON.stringify({ record_since: null }));
   const f = plainIO(r);
@@ -969,4 +980,44 @@ test('onboarding refuses when the account the sessions act as cannot be read, an
   const g = plainIO(m);
   g.io.me = () => { throw new Error('asked'); };
   assert.equal(mergePlain(m.root, 4, { ...q, noReview: 'x', io: g.io }).merged, true);
+});
+
+// Build I (3 Nov): the review-round limit, held by merge.
+import { ownerOfRepo } from '../lib/record.mjs';
+import { MAX_ROUNDS, reviewRounds } from '../lib/merge.mjs';
+
+test('review rounds: stated and recorded; a third round needs a recorded decision', () => {
+  assert.equal(MAX_ROUNDS, 2);
+  assert.deepEqual(reviewRounds({ reviewed: 'x', rounds: '1' }), { rounds: 1, decision: null });
+  assert.deepEqual(reviewRounds({ reviewed: 'x', rounds: 2 }), { rounds: 2, decision: null });
+  assert.deepEqual(reviewRounds({ noReview: 'a pin move' }), { rounds: 0, decision: null });
+  assert.throws(() => reviewRounds({ reviewed: 'x' }), /say how many review rounds ran: --rounds <n>/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: true }), /--rounds <n>/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: '0' }), /1 or more/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: '1.5' }), /whole number/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: 3 }), /3 review rounds: the limit is 2 .*--decision/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: 3, decision: true }), /--decision needs the recorded decision/);
+  assert.throws(() => reviewRounds({ reviewed: 'x', rounds: 3, decision: '  ' }), /--decision needs the recorded decision/);
+  assert.deepEqual(reviewRounds({ reviewed: 'x', rounds: 3, decision: "Bob's word, 3 Nov" }), { rounds: 3, decision: "Bob's word, 3 Nov" });
+  assert.throws(() => reviewRounds({ noReview: 'x', rounds: 2 }), /--no-review has no review rounds/);
+  assert.throws(() => reviewRounds({ reviewed: true, rounds: 1 }), /--reviewed needs what the reviews found/);
+  assert.throws(() => reviewRounds({ rounds: 1 }), /--reviewed/);
+});
+
+test('merge and merge --plain refuse a third round without a decision, and record it with one', () => {
+  const { root, head } = setup();
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'x', rounds: 3, log: () => {} }), /limit is 2/);
+  const f = io(head);
+  assert.equal(merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'x', rounds: 3, decision: "Bob's word", log: () => {} }).merged, true);
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  git(['checkout', '-q', tip], { cwd: root });
+  const row = readRows(root, 'alpha').at(-1);
+  assert.equal(row.review_rounds, 3);
+  assert.equal(row.decision, "Bob's word");
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const r = plainRepo();
+  assert.throws(() => mergePlain(r.root, 4, { ...q, io: plainIO(r).io, reviewed: 'x', rounds: 4 }), /limit is 2/);
+  const g = plainIO(r);
+  assert.equal(mergePlain(r.root, 4, { ...q, io: g.io, reviewed: 'x', rounds: 3, decision: "Bob's word" }).merged, true);
+  assert.equal(g.calls.merged.message, "Reviewed: x\nReview rounds: 3\nDecision: Bob's word");
 });

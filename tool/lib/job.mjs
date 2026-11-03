@@ -5,6 +5,7 @@ import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, ma
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince, repoOwnerOf } from './record.mjs';
+import { UNMEASURED, sessionRecord } from './session.mjs';
 import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -224,7 +225,7 @@ const onBranch = (root, id) => {
 // The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing.
 export function jobComplete(root, id, opts = {}) {
-  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log } = opts;
+  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log, session = () => sessionRecord() } = opts;
   const io = { findPR, addComment, markReady, comments, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
@@ -254,8 +255,10 @@ export function jobComplete(root, id, opts = {}) {
   const since = recordSince(root, { base });
   // As CI runs it: while the base has no config, the repository's owner from GitHub (reviews of PR 26).
   const repoOwner = () => { try { return repoOwnerOf(repoSlug(root)); } catch { return null; } };
-  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, repoOwner });
+  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, repoOwner, lookup: opts.lookup });
   if (since.finding) rec.findings.push(since.finding);
+  // What the local check could not judge (a shallow clone it could not deepen) is said, never passed.
+  const shallowNotes = rec.unverified || [];
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   // The module's stale lock files first, whether or not the suite runs: its checks may need
   // them too (GAT-5; confirming review of PR 11).
@@ -268,7 +271,7 @@ export function jobComplete(root, id, opts = {}) {
     const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
     commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
   }
-  const notv = [...notVerified];
+  const notv = [...notVerified, ...shallowNotes];
   if (noSuite) notv.push('the module suite was not run by job complete');
   else if (installed) {
     const s = runSuite(root, entry, undefined, { timeout });
@@ -290,7 +293,17 @@ export function jobComplete(root, id, opts = {}) {
   };
   try {
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt });
+    // The loop guard (build I): the attempt's elapsed time from its start row, and the session's
+    // own figures from its record where the tool can read it, else unmeasured.
+    const startRow = readRows(root, id).filter((r) => r.event === 'start' && (Number(r.attempt) || 1) === attempt).pop();
+    const elapsed = startRow && Number.isFinite(Date.parse(startRow.at)) ? Math.max(0, Math.round((Date.now() - Date.parse(startRow.at)) / MINUTE)) : UNMEASURED;
+    let sess = null;
+    try { sess = session(); } catch { sess = null; }
+    appendRow(root, id, {
+      row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null,
+      elapsed_minutes: elapsed, cost_usd: sess?.cost_usd ?? UNMEASURED, tokens: sess?.tokens ?? UNMEASURED,
+      session_record: sess ? { session: sess.session, version: sess.version, minutes: sess.minutes } : UNMEASURED, receipt,
+    });
     receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
   } catch (e) {
     restore(root, [entryFile(id), metricsFile(id)]);

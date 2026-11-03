@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { approvalsBlock, approvalsHistory, ownerOfRepo, webCommitByOwner } from './record.mjs';
+import { approvalsBlock, approvalsHistory, namedOwner, orgWhy, ownerOfRepo, ownerSetter, webCommitByOwner } from './record.mjs';
 import { DEFAULTS, exists, fail, gh, git, loadConfig, run } from './util.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
@@ -277,6 +277,17 @@ const readers = {
     const me = x.api('user')?.login;
     if (!me) return missing('the account the sessions act as could not be read from GitHub (GET /user), so it cannot be told from the approvals owner');
     if (owner === me) return missing(`the approvals owner, ${owner}, is the account the sessions act as, so its merges would count as the owner's; approvals.owner needs Bob's word`);
+    // An organization owns the repository (build I, 3 Nov): no default approver holds. The
+    // tranche's config names one, and the commit that named it is that person's own website commit.
+    const org = x.organization();
+    if (org === undefined) return missing("the repository's owner could not be read from GitHub, so whether an organization owns it, and who its approver is, cannot be told");
+    if (org) {
+      if (namedOwner(x.file('process/config.json')) !== owner) return missing(`${orgWhy(org)}; process/config.json on ${x.cfg.tranche} names no approver, so the default one does not hold`);
+      const by = x.ownerSetAt(owner);
+      if (!by) return missing(`${orgWhy(org)}; the commit on ${x.cfg.tranche} that named ${owner} could not be found`);
+      const w = x.ownerCommit(by, owner);
+      if (!w.ok) return missing(`${orgWhy(org)}; commit ${by.slice(0, 10)}, which named ${owner}, is not ${owner}'s own commit through GitHub's website (${w.why})`);
+    }
     const v = x.ownerCommit(sha, owner);
     if (!v.ok) return missing(`the approvals were last changed by ${sha.slice(0, 10)}, which is not ${owner}'s own commit through GitHub's website (${v.why})`);
     // The block must be the newest the owner set through the website in the tranche's history,
@@ -284,7 +295,7 @@ const readers = {
     const top = x.newestOwner(file, heading, owner);
     if (top?.unread) return missing(`commit ${top.unread.slice(0, 10)} could not be read from GitHub, so the newest approvals block ${owner} set through GitHub's website cannot be told`);
     if (top && top.block !== approvalsBlock(text, heading)) return missing(`the approvals on ${x.cfg.tranche} (set by ${sha.slice(0, 10)}) are not the newest block ${owner} set through GitHub's website on ${x.cfg.tranche} or ${x.main}: that is commit ${top.sha.slice(0, 10)}'s. ${owner} sets it again on the website, or a merge carries it to ${x.cfg.tranche}`);
-    return set(`one block, last changed by ${owner}'s website commit ${sha.slice(0, 10)}`);
+    return set(`one block, last changed by ${owner}'s website commit ${sha.slice(0, 10)}${org ? `; the approver of ${org}'s repository, named by ${owner}'s own onboarding commit` : ''}`);
   },
 
   // The session's own checkout (Bob, 2 Nov): a session acts on the approvals only when CLAUDE.md
@@ -340,6 +351,8 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   const noConfig = x.file('process/config.json') === null;
   x.cfg = { ...cfg, approvals: { ...DEFAULTS.approvals, ...(noConfig ? { owner: repoOwner() } : {}), ...(tcfg.approvals || {}) } };
   x.ownerWhy = () => ownerWhy;
+  // The organization that owns the repository: its login, null for a person, undefined unread.
+  x.organization = () => { const o = ownerOfRepo(x.repo()); return o.organization || (o.login ? null : undefined); };
   // When the tranche's own config names another tranche, every git reader reads that one.
   // Its config is read again from there, so the approvals' file, heading and owner are that
   // tranche's own (third re-review); one hop only.
@@ -366,6 +379,8 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
     git(['fetch', '-q', 'origin', `+refs/heads/${x.main}:refs/remotes/origin/${x.main}`], { cwd: root, allowFail: true });
     return approvalsHistory(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading).newest((sha) => x.ownerCommit(sha, owner));
   });
+  // The commit that named approvals.owner on the tranche (build I); with the files stubbed, none.
+  x.ownerSetAt = io.ownerSetAt || (io.file ? () => null : (owner) => ownerSetter(root, `origin/${x.cfg.tranche}`, owner));
   x.onTranche = io.onTranche || (() => sessionOnTranche(root, x.cfg.tranche, { main: x.main, ...x.cfg.approvals }));
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
   x.required = [].concat(x.cfg.required_check || 'gate');
