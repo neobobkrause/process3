@@ -331,3 +331,9 @@ test('job post prints artifact text without line breaks or control characters', 
   assert.throws(() => postRow(rowFile(null, `{"x":${evil}`), { pr: 5, slug: 'o/r', io: io.io, log }), (e) => /is not JSON/.test(e.message) && !/[\n\r\u0007]/.test(e.message));
   assert.equal(io.state.comments.length, 0);
 });
+
+test('a job that changes only its requirements file\'s marks has no ownership finding', () => {
+  const s = setup({ 'req/alpha.md': '- **R1** met\n' });
+  const r = run(s, fakeIO(), { draft: true });
+  assert.ok(!r.findings.some((f) => f.check === 'ownership'), JSON.stringify(r.findings));
+});

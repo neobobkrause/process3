@@ -29,7 +29,8 @@ function entriesAt(root, ref) {
 const diffNames = (root, a, b) => git(['diff', '--no-renames', '--name-only', '-z', a, b], { cwd: root }).split('\0').filter(Boolean);
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
-export const ownPaths = (e) => [...e.paths, ...e.tests, entryFile(e.id), metricsFile(e.id)];
+// A job strikes the marks it meets in its requirements file, so that file is its own too.
+export const ownPaths = (e) => [...e.paths, ...e.tests, ...(e.requirements ? [e.requirements] : []), entryFile(e.id), metricsFile(e.id)];
 
 // The comment for one gate run: the lead line and the row, as job post writes it.
 export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${String(r.sha).slice(0, 10)}\`: ${r.ok ? 'green' : `red, ${r.findings} finding(s)`}, ${r.trigger}, ${r.minutes} min.`);
