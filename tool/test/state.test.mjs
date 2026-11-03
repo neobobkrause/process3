@@ -100,12 +100,12 @@ test('status --role bob: owed, idle and open, with last activity; merged as a co
     { number: 9, draft: false, head: { ref: 'build/x', sha: 'c' }, updated_at: old },
   ];
   const lines = [];
-  status(root, { role: 'bob', offline: false, log: (l) => lines.push(l), io: { openPRs: () => prs, checkRun: (s, sha) => ({ conclusion: sha === 'a' ? 'success' : 'failure' }) } });
+  status(root, { role: 'bob', offline: false, log: (l) => lines.push(l), io: { openPRs: () => prs, prFiles: () => ['README.md'], checkRun: (s, sha) => ({ conclusion: sha === 'a' ? 'success' : 'failure' }) } });
   const t = lines.join('\n');
   assert.match(t, /owed:\n- r: .*PR #7 ready, last activity 0h ago; gate success; merge owed/);
   assert.match(t, /idle:\n- q: .*PR #8 draft, last activity 5h ago/);
   assert.match(t, /merged: 1/);
-  assert.match(t, /other pull requests:\n- #9 build\/x, last activity 5h ago/);
+  assert.match(t, /to take in:\n- #9 build\/x: no single module; leave it as a plain pull request, or BOB splits it, last activity 5h ago/);
 });
 
 test('send: unquoted text is refused, not cut to its first word', async () => {

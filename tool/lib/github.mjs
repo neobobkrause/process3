@@ -40,6 +40,20 @@ export function createPR(slug, { head, base, title, body, draft = true }) {
   return pr;
 }
 
+// job start --take-in: a taken-in pull request moved to the tranche (PATCH base) and made a
+// draft (GitHub's REST API has no way back to draft; the GraphQL mutation does).
+export function editPR(slug, n, fields) {
+  const pr = gh(['api', '-X', 'PATCH', `repos/${slug}/pulls/${n}`, '--input', '-'], { input: JSON.stringify(fields) });
+  if (!pr?.number) fail(`GitHub did not return pull request ${n} after the edit`);
+  return pr;
+}
+export function toDraft(slug, pr) {
+  gh(['api', 'graphql', '-f', 'query=mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { pullRequest { isDraft } } }', '-f', `id=${pr.node_id}`]);
+  const now = getPR(slug, pr.number);
+  if (!now?.draft) fail(`pull request ${pr.number} is still not a draft`);
+  return now;
+}
+
 export function comments(slug, n) {
   const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/comments?per_page=100`]);
   return Array.isArray(pages) ? pages.flat() : [];
