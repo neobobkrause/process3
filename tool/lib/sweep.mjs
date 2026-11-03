@@ -8,11 +8,12 @@ import { P3 } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress } from './roles.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { status } from './status.mjs';
+import { nextWork, status } from './status.mjs';
 import { fail, git, loadConfig, now } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 export const SILENT_HOURS = 2; // BOB with no write, a WORKING job with nothing pushed
+export const IDLE_HOURS = 1; // BOB with next work and no write
 export const WATCH_HOURS = 4; // the heartbeat's age at which the watcher takes over
 export const FAR = 3; // "far over" a role's median: this many times it
 const H = 36e5;
@@ -78,14 +79,16 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
     const { rows, sessions } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
     const tranche = `origin/${cfg.tranche}`;
     const t = Date.now();
-    // Step 2: BOB flagged REFRESH, or no write to the record in over two hours.
+    // Step 2: BOB flagged REFRESH, no write to the record in over two hours, or next work waiting
+    // while no job is open or BOB wrote nothing for over an hour.
     const bob = addr.bob;
     if (!bob) { found.push('no BOB addressed'); todo.push(`start BOB: ${P3} start bob`); } else {
       const last = Math.max(Date.parse(bob.at) || 0, ct(root, [tranche]), ct(root, [`refs/remotes/origin/${sb}`, '--', 'messages/bob.jsonl', 'handoff/bob.md']));
       const refresh = sessions.some((s) => s.session === bob.session && s.refresh);
       const quiet = t - last > SILENT_HOURS * H;
-      if (refresh || quiet) {
-        found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : `silent ${hours(t - last)}h`}`);
+      const idle = (!rows.some((r) => r.tranche !== 'COMPLETE') || t - last > IDLE_HOURS * H) && nextWork(root, cfg, rows, tranche, () => {}).length > 0;
+      if (refresh || quiet || idle) {
+        found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : quiet ? `silent ${hours(t - last)}h` : `idle ${hours(t - last)}h with next work`}`);
         todo.push(`handover: ${P3} handover begin, and its steps`);
       }
     }

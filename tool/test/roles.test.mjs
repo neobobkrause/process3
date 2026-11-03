@@ -65,6 +65,7 @@ test('start prints prompts and the create_session call; start bob refuses while 
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: {}, log: quiet }), /no ROOT is addressed/);
   const b = startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R } }, log: quiet });
   assert.ok(b.prompt.includes(R));
+  for (const t of ['every later turn: `git fetch origin tranche`, then `git checkout -q --detach FETCH_HEAD`', 'Never end your turn while status shows work', 'live_cap']) assert.ok(b.prompt.includes(t), t);
   assert.deepEqual([b.call.source_url, b.call.source_revision, b.call.prompt], ['https://github.com/o/p', git(['rev-parse', 'origin/tranche'], { cwd: root }), b.prompt]);
   assert.ok(Buffer.byteLength(b.prompt) < 4096, 'one screen');
   assert.throws(() => startRole(root, 'bob', { slug: 'o/p', address: { root: { session: R }, bob: { session: B1 } }, log: quiet }), /handover begin/);
@@ -79,6 +80,7 @@ test('handover: begin prints the new BOB\'s prompt; confirm repoints and records
   assert.equal(h.old, B1);
   assert.match(h.prompt, /handoff/);
   assert.ok(h.prompt.includes(`You replace BOB \`${B1}\``));
+  assert.ok(h.prompt.includes('choose modules from it'), 'a replacement BOB takes up next work too');
   assert.throws(() => handoverConfirm(root, B1, { log: quiet }), /already the addressed BOB/);
   handoverConfirm(root, B2, { log: quiet });
   assert.equal(readAddress(root).bob.session, B2);

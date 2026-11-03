@@ -132,11 +132,11 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   return { rows, undelivered: owedMsgs };
 }
 
-// Next work: while fewer than jobs_at_once jobs are open, the requirement files with an unmet
+// Next work: while fewer jobs are open than live_cap, the requirement files with an unmet
 // requirement and no open job, fewest unmet first (small, finishable modules first).
 export function nextWork(root, cfg, rows, ref, log = console.log) {
   const open = rows.filter((r) => r.tranche !== 'COMPLETE');
-  if (open.length >= cfg.jobs_at_once) return [];
+  if (open.length >= cfg.live_cap) return [];
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const taken = new Set(open.map((r) => r.req));
   let names;
@@ -154,7 +154,7 @@ export function nextWork(root, cfg, rows, ref, log = console.log) {
   }
   list.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
   if (list.length) {
-    log(`next work (${open.length} of ${cfg.jobs_at_once} jobs open; BOB chooses from these, unmet requirements each):`);
+    log(`next work (${open.length} jobs open, live_cap ${cfg.live_cap}; BOB chooses from these, unmet requirements each):`);
     for (const x of list.slice(0, 10)) log(`- ${x.file}: ${x.count}`);
     if (list.length > 10) log(`- and ${list.length - 10} more`);
   }

@@ -82,6 +82,19 @@ test('sweep step 2: no BOB, a silent BOB, a BOB flagged REFRESH', () => {
   assert.match(run(root).found.join(), /flagged REFRESH/);
 });
 
+test('sweep step 2: next work waiting and no job open is the same handover', () => {
+  const root = withOrigin({ 'build/requirements/m.md': '- **R1** *(not yet met: x)* y\n' });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const s = run(root);
+  assert.match(s.found.join(), /BOB session_bob1 idle .*h with next work/);
+  assert.match(s.todo[0], /handover begin/);
+  commit(root, { 'process/ledger/m.json': entry('m', { requirements: 'build/requirements/m.md' }) });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
+  assert.equal(run(root).act, 'heartbeat', 'a job is open and BOB wrote within the hour');
+});
+
 test('sweep step 3: a blocked job and an attempt far over its role\'s median', () => {
   const root = withOrigin({
     'process/ledger/m1.json': entry('m1', { status: { state: 'BLOCKED', reason: 'x' } }),

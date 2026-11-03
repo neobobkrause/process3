@@ -17,9 +17,9 @@ test('status --role bob lists next work: unmet requirement files with no open jo
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => [x.file, x.count]), [['build/requirements/small.md', 2], ['build/requirements/big.md', 5]]);
-  assert.match(out.join('\n'), /next work \(1 of 2 jobs open; BOB chooses from these/);
+  assert.match(out.join('\n'), /next work \(1 jobs open, live_cap 24; BOB chooses from these/);
   const full = makeRepo({
-    'process/config.json': { jobs_at_once: 1 },
+    'process/config.json': { live_cap: 1 },
     'build/requirements/small.md': unmet(2),
     'process/ledger/busy.json': entry('busy'),
   });
