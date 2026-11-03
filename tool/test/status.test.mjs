@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commit, makeRepo, entry } from './helpers.mjs';
+import { commit, makeRepo, entry, openPassed } from './helpers.mjs';
 import { git } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -17,6 +17,7 @@ test('status --role bob lists next work: unmet requirement files with no open jo
     'build/requirements/busy.md': unmet(1),
     'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md' }),
   });
+  openPassed(root);
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => [x.file, x.count]), [['build/requirements/small.md', 2], ['build/requirements/big.md', 5]]);
@@ -39,6 +40,7 @@ test('status --role bob: next work only from the open layer, at most live_cap le
     'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md' }),
   };
   const root = makeRepo(files);
+  openPassed(root);
   const out = [];
   const r = status(root, { role: 'bob', offline: true, live: 3, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => x.file), ['build/requirements/b.md', 'build/requirements/a.md']);
@@ -48,9 +50,11 @@ test('status --role bob: next work only from the open layer, at most live_cap le
   assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1$/);
   // Layer 1 stays open while busy's job is open, though no file in it is unmet but busy's.
   const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
+  openPassed(held);
   assert.deepEqual(status(held, { role: 'bob', offline: true, log: quiet }).next, []);
   // Its job complete and its marks gone, layer 1 closes and layer 2 opens.
   const closed = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0), 'build/requirements/busy.md': unmet(0), 'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md', status: { state: 'COMPLETE' } }) });
+  openPassed(closed);
   assert.deepEqual(status(closed, { role: 'bob', offline: true, log: quiet }).next.map((x) => x.file), ['build/requirements/d.md']);
   assert.throws(() => status(root, { role: 'bob', offline: true, live: 'x', log: quiet }), /--live/);
 });
@@ -92,6 +96,7 @@ test('status --role bob: next work stops at live_cap', () => {
     'build/requirements/small.md': unmet(2),
     'process/ledger/busy.json': entry('busy'),
   });
+  openPassed(full);
   const shown = [];
   assert.equal(status(full, { role: 'bob', offline: true, live: 1, log: (m) => shown.push(m) }).next.length, 1);
   assert.match(shown.join('\n'), /0 listed \(live 1 of 1\), 1 wait/);

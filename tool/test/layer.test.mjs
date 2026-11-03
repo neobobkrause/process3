@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { layerClose } from '../lib/layer.mjs';
 import { CLOSED_FILE, status } from '../lib/status.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
 
 const quiet = () => {};
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
@@ -34,6 +34,7 @@ function closedOn(root, rows) {
 
 test('layer ready to close with marks left: no next work in it, BOB\'s act is layer close', () => {
   const root = makeRepo(base);
+  openPassed(root);
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.equal(r.layer.cur.n, 1);
@@ -56,6 +57,7 @@ test('a closed layer: the next layer is listed, its deferred marks shown and not
   const root = makeRepo(base);
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
   closedOn(root, [{ layer: 1, commit: tip, deferred: { a: ['R1', 'R2'] } }]);
+  openPassed(root);
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.equal(r.layer.cur.n, 2);
@@ -119,6 +121,8 @@ const prOpen = { openPRs: () => [{ number: 38, draft: false, head: { ref: 'job/b
 
 test('a module BLOCKED with a reason: BOB closes its PR unmerged, then the layer closes with it deferred', () => {
   const { root, bare } = withOrigin({ ...blocked('R47 rests on measure M-R7, recorded nowhere'), 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS });
+  openPassed(root);
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
   const out = [];
   const r = status(root, { role: 'bob', log: (m) => out.push(m), io: prOpen });
   assert.equal(r.layer.ready, false);

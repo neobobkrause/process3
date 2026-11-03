@@ -6,6 +6,7 @@ import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { fetchState, handoffFile, readState, toRoute, undelivered } from './state.mjs';
+import { openLine, openState } from './tranche.mjs';
 import { depth, exists, fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -120,7 +121,10 @@ export function status(root, { role, module, context, live, offline = false, log
     const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     out.layer = layerState(root, cfg, rows, ref, { closed: closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare }) });
-    out.next = halt ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer });
+    // No job work until the tranche open's grants check has passed (Build Plan Phase 3).
+    out.open = openState(root, cfg);
+    if (out.open.state !== 'open') log(openLine(out.open));
+    out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer });
     return out;
   }
   return { rows, sessions, prs };
