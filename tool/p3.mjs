@@ -11,7 +11,7 @@ import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } fro
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck } from './lib/start.mjs';
-import { handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
+import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince, repoOwnerOf, trustedRefs } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -125,8 +125,9 @@ const commands = {
 
   // address <root|bob>: the address as the state branch holds it now.
   address: (a, root) => {
-    const e = readAddress(root)[one(a, 'role (root or bob)')];
-    if (!e) fail(`no ${a._[0]} is addressed`);
+    const role = checkRole(String(one(a, 'role (root or bob)')).toLowerCase());
+    const e = readAddress(root)[role];
+    if (!e) fail(`no ${role} is addressed`);
     console.log(`${e.session} (since ${e.at})`);
     return 0;
   },
