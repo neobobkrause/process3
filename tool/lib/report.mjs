@@ -5,9 +5,9 @@
 import { comments as ghComments, gateRuns } from './github.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
+import { CLOSED_FILE } from './status.mjs';
 import { exists, gh, git, isRecordPath } from './util.mjs';
 
-export const CLOSED_FILE = 'layers/closed.jsonl'; // layer close's rows on the state branch
 const U = 'unmeasured';
 const usd = (x) => (typeof x === 'number' ? `$${(Math.round(x * 100) / 100).toFixed(2)}` : U);
 const pct = (x) => (typeof x === 'number' ? `${Math.round(x * 1000) / 10}%` : U);
@@ -99,7 +99,11 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
-  const closedBy = new Map((closed || []).filter((r) => r.row === 'closed').map((r) => [r.layer, r]));
+  // layer close's rows (status.mjs closedRows' rule): this tranche's name, and a commit the tranche
+  // holds that main lacked when the tranche opened (closedRows' "not on main", which a tranche
+  // already merged into main can no longer use).
+  const inSpan = (sha) => gitOut(root, ['merge-base', '--is-ancestor', sha, tip]) !== null && (!s.base || gitOut(root, ['merge-base', '--is-ancestor', sha, s.base]) === null);
+  const closedBy = new Map((closed || []).filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && inSpan(String(r.commit))).map((r) => [r.layer, r]));
   for (const n of order) {
     const ws = byLayer.get(n);
     const c = n === null ? null : closedBy.get(n);

@@ -46,10 +46,16 @@ const gateComment = (runs) => ({ user: { login: BOT }, created_at: 'x', updated_
 test('report tranche: every section from the record, and unmeasured where the record lacks it', () => {
   const root = fixture();
   const cfg = loadConfig(root);
+  const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  const base = git(['rev-parse', 'origin/main'], { cwd: root });
   const state = {
     'metrics/sweep.jsonl': jl({ at: at(5), row: 'sweep', bob_acts: true, bob_quiet_h: 1.5 }, { at: at(6), row: 'sweep' }),
     'addresses/bob.json': JSON.stringify({ session: 's_bob' }),
-    'layers/closed.jsonl': jl({ row: 'closed', layer: 1, commit: 'abcdef1234567', at: at(7), deferred: { a: ['R2'] } }),
+    'layers/closed.jsonl': jl(
+      { row: 'closed', layer: 1, tranche: 'tranche', commit: tip, at: at(7), deferred: { a: ['R2'] } },
+      { row: 'closed', layer: 2, tranche: 'tranche', commit: base, at: at(7), deferred: {} },
+      { row: 'closed', layer: 2, tranche: 'other', commit: tip, at: at(7), deferred: {} },
+    ),
   };
   const md = trancheReport(root, cfg, {
     slug: 'o/r', now: NOW, stateRead: true,
@@ -59,7 +65,7 @@ test('report tranche: every section from the record, and unmeasured where the re
   assert.match(md, /still open; measured to now/);
   assert.match(md, /- elapsed: [\d.]+ h/);
   assert.match(md, /Pull requests merged into tranche: 2 \(1 job merges recorded/);
-  assert.match(md, /### Layer 1 \(closed 2026-11-01T07:00:00.000Z at abcdef1234\)/);
+  assert.ok(md.includes(`### Layer 1 (closed 2026-11-01T07:00:00.000Z at ${tip.slice(0, 10)})`), "this tranche's close, at a commit main lacked");
   assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
   assert.match(md, /### Layer 2 \(not closed\)/);
   assert.match(md, /\| a \| layer 1 close \| 1 \| R2 \|/, 'a closed layer\'s deferrals come from its row');
