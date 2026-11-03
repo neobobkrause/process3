@@ -1,7 +1,7 @@
 // The provider-change route: a provider with two users, a notice at the provider's merge, the
 // users' START, receipt and status, and the notice answered at the user's merge.
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -186,4 +186,57 @@ test('merge run again on a merged job pull request records only its provider not
   const r = merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet });
   assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.users]), [['notice', 'p:7', ['u1', 'u2']]]);
   assert.deepEqual(merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet }).notices.rows, [], 'a second run adds nothing');
+});
+
+test('status --role bob fetches job/<id> of a COMPLETE user with an unanswered notice: a start pushed with no pull request yet clears its listing', () => {
+  const root = product();
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, Object.fromEntries(['p', 'u1', 'u2', 'other'].map((id) => [`process/ledger/${id}.json`, entry(id, { status: { state: 'COMPLETE' } })])));
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // u1's auto-reopened start, pushed to origin only: no remote-tracking ref here, no pull request.
+  git(['checkout', '-q', '-b', 'job/u1', 'tranche'], { cwd: root });
+  commit(root, { 'process/metrics/u1.jsonl': JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n' });
+  git(['push', '-q', 'origin', 'job/u1'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['update-ref', '-d', 'refs/remotes/origin/job/u1'], { cwd: root });
+  openPassed(root);
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const io = { openPRs: () => [], checkRun: () => null, compare: () => null };
+  const out = [];
+  const r = status(root, { role: 'bob', io, log: (m) => out.push(m) });
+  assert.equal(git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/job/u1'], { cwd: root, allowFail: true }).code, 0, 'job/u1 fetched');
+  assert.deepEqual(Object.keys(r.notices), ['u2']);
+  assert.doesNotMatch(out.join('\n'), /- u1: provider notice/);
+});
+
+test('recordAtMerge answers only notices the state branch holds for the user: a key the job wrote into its start row writes nothing, outside notices/ or in it', () => {
+  const root = product();
+  const cfg = loadConfig(root);
+  const { row, ...notice } = NOTICE;
+  recordAtMerge(root, cfg, { notice, user: 'p', pr: 7 });
+  const out = mkdtempSync(join(tmpdir(), 'p3-escape-'));
+  const evil = `a/${'../'.repeat(12)}${out.slice(1)}/x`;
+  const r = recordAtMerge(root, cfg, { answers: [evil, 'p:8', 'other:7', 'p:7'], user: 'u1', pr: 9 });
+  assert.deepEqual(r.rows.map((x) => [x.row, x.key]), [['answered', 'p:7']]);
+  assert.equal(existsSync(join(out, 'x.json')), false, 'nothing written outside the state worktree');
+  assert.equal(recordAtMerge(root, cfg, { answers: ['p:7'], user: 'other', pr: 10 }).rows.length, 0, 'not a user of the notice');
+  fetchState(root, cfg.state_branch, { fresh: true });
+  assert.deepEqual(git(['ls-tree', '-r', '--name-only', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root }).split('\n').filter((f) => f.startsWith('notices/')), ['notices/answered/u1-p-7.json', 'notices/p-7.json']);
+});
+
+test('a merged attempt whose start row named the notice but whose answer was not written still owes it, with the rerun named; an open attempt does not', () => {
+  const root = product();
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
+  for (const u of ['u1', 'u2']) {
+    git(['checkout', '-q', '-b', `job/${u}`, 'tranche'], { cwd: root });
+    commit(root, { [`process/metrics/${u}.jsonl`]: JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n' });
+    git(['update-ref', `refs/remotes/origin/job/${u}`, 'HEAD'], { cwd: root });
+  }
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const cfg = loadConfig(root);
+  const out = [];
+  const rows = [{ id: 'u1', tranche: 'COMPLETE', branch: 'COMPLETE', ahead: 0, pr: 'merged' }, { id: 'u2', tranche: 'COMPLETE', branch: 'WORKING', ahead: 1 }];
+  assert.deepEqual(Object.keys(owedNotices(root, cfg, rows, (m) => out.push(m))), ['u1']);
+  assert.match(out.join('\n'), /- u1: provider notice: p R1, R2, R4 \(PR 7\); its merged job named it, answer not recorded: run merge/);
 });

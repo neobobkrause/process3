@@ -31,14 +31,19 @@ export function status(root, { role, module, context, live, offline = false, log
   if (!offline) {
     try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
     // The tranche and the branches job/<id> of the ledger's entries that are not COMPLETE, or
-    // that have an open pull request (a reopen): no other job/* ref is fetched (110 s measured
+    // that have an open pull request (a reopen) or an unanswered notice: no other job/* ref is fetched (110 s measured
     // 3 Nov in a fresh depth-1 clone, carrying refs such as job/T11/agent-worker of no entry).
     // One ls-remote, then one fetch of only the refs that moved, --depth 1 in a shallow clone:
     // there a branch fetched in full pulls its whole history (90 s measured 3 Nov), and a --depth
     // fetch never finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
     const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
     const heads = new Set((prs || []).map((p) => p.head?.ref));
-    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
+    // And, for BOB, job/<id> of each user module with an unanswered provider notice: a COMPLETE
+    // user whose auto-reopened start was pushed before its pull request opened names the notice
+    // on that branch only (the state branch is fetched here once; bobStatus reuses the fetch).
+    const noticed = new Set();
+    if (role === 'bob') { try { if (fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
+    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`) || noticed.has(e.id)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
@@ -238,23 +243,30 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
 }
 
 // Provider notices (the provider-change route): per user module, each notice it has not answered,
-// as the state branch holds them (bobStatus fetched it). Listed until the user has a job whose
-// START names the notice (its start row, on its job branch); answered when that job merges.
+// as the state branch holds them (bobStatus fetched it). Listed until the user has an open job
+// whose START names the notice (its start row, on its job branch); answered when that job merges.
 export function owedNotices(root, cfg, rows, log = console.log) {
   let all = [];
   try { all = notices(root, cfg.state_branch); } catch { all = []; }
+  const unrecorded = {};
   const named = (u) => {
-    // The job branch decides: a start row there that names the notice is a job that names it
-    // (an older merged attempt's row cannot, or the notice would be answered).
-    if (!rows.find((x) => x.id === u)?.branch) return [];
+    // The job branch decides, while its attempt is open: not COMPLETE on the tranche, an open pull
+    // request, or commits the tranche lacks. A merged attempt's start row names a notice only when
+    // its answer was not written (the merge stands if that write fails): the notice is still owed,
+    // and merge <n> run again records it (confirming review of PR 54).
+    const row = rows.find((x) => x.id === u);
+    if (!row?.branch) return [];
     const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
-    return t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
+    const keys = t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
+    const open = row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#') || row.ahead > 0;
+    if (!open) { unrecorded[u] = keys; return []; }
+    return keys;
   };
   const owed = {};
   for (const n of all) for (const u of n.open) if (!named(u).includes(n.key)) (owed[u] ||= []).push(n);
   const users = Object.keys(owed).sort();
   if (users.length) log('provider notices (the user module\'s next job answers each):');
-  for (const u of users) for (const n of owed[u]) log(`- ${u}: ${noticeLine(n)}`);
+  for (const u of users) for (const n of owed[u]) log(`- ${u}: ${noticeLine(n)}${unrecorded[u]?.includes(n.key) ? `; its merged job named it, answer not recorded: run merge <that job's PR> again` : ''}`);
   return owed;
 }
 
