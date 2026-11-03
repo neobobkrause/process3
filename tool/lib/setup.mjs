@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { takeInLine, toTakeIn } from './carry.mjs';
+import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { startCheck } from './start.mjs';
 import { DEFAULTS, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
@@ -309,7 +309,7 @@ function takeInCheck(root, x, { io, log }) {
     prs = io.openPRs ? io.openPRs(x.slug, base) : x.api(`repos/${x.slug}/pulls?state=open&base=${encodeURIComponent(base)}&per_page=100`);
   } catch { prs = null; }
   if (!Array.isArray(prs)) { log(`to take in: unmeasured, the open pull requests into ${base} were not read`); return null; }
-  const files = io.prFiles || ((slug, n) => { const f = x.api(`repos/${slug}/pulls/${n}/files?per_page=100`); return Array.isArray(f) ? f.map((y) => y.filename) : null; });
+  const files = io.prFiles || prFiles; // paged: a partial list would misjudge the module
   const list = toTakeIn(root, { slug: x.slug, ref: `origin/${base}`, prs, files });
   if (list.length) log(`to take in (open pull requests into ${base} no ledger entry owns):`);
   for (const t of list) log(`- ${takeInLine(t, 'node .process/tool/p3.mjs')}`);

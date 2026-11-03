@@ -142,3 +142,13 @@ test('carry: status --role bob lists each under "to take in" until a job takes i
   // Once the job's PR is gone (merged), its start row on its branch still names #5.
   assert.deepEqual(toTakeIn(root, { slug: 'o/r', ref: 'origin/tranche', prs: prsBefore(), files }).map((t) => t.number), [7]);
 });
+
+test('take-in is refused on a job already started on its branch, whatever the tranche reads (review of PR 55)', () => {
+  const root = converting();
+  const f = fakeGitHub(root, { 5: { number: 5, state: 'open', head: { ref: 'feature/a' } } });
+  jobStart(root, 'alpha', { coordinator: 's', takeIn: 'feature/a', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet });
+  const before = git(['ls-remote', 'origin'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', takeIn: 'job/alpha', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet }), /job\/alpha already holds a started job alpha \(WORKING\); .*--restart/);
+  assert.equal(git(['ls-remote', 'origin'], { cwd: root }), before, 'nothing pushed');
+  assert.equal(f.s.opened.length, 1, 'no second pull request');
+});

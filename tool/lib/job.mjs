@@ -297,6 +297,14 @@ function jobTakeIn(root, id, { coordinator, model, from, push, open, find, setup
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
   if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) fail(`${id} is ${entry0.status.state}, not OPEN; take-in opens a job that has not started`);
+  // A job already started on this branch (WORKING is written only on job/<id>, so the tranche
+  // still reads OPEN) is never launched twice (review of PR 55): its entry on the work's tip,
+  // or a start row the tranche lacks, refuses it.
+  const atTip = git(['show', `${tip}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  let tipState = null;
+  try { tipState = atTip.code === 0 ? JSON.parse(atTip.stdout).status?.state : null; } catch { tipState = null; }
+  const starts = (ref) => git(['show', `${ref}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter((l) => /"event":"start"/.test(l)).length;
+  if ((tipState && !['OPEN', 'BLOCKED'].includes(tipState)) || starts(tip) > starts(base)) fail(`${source} already holds a started job ${id} (${tipState || 'a start row'}); a job whose session stopped is restarted with --restart "<why>"`);
   const mb = git(['merge-base', base, tip], { cwd: root, allowFail: true });
   if (mb.code !== 0) fail(`${source} shares no history with ${cfg.tranche}`);
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb.stdout.trim(), tip], { cwd: root }).split('\0').filter(Boolean);
