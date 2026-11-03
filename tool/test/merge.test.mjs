@@ -74,6 +74,26 @@ test('merge tries again when GitHub says the base moved, and merges the same tip
   assert.equal(f.calls.merged, r.tip);
 });
 
+test('merge does not retry onto a tranche that moved past the merged result the gate checked', () => {
+  const { root, head } = setup();
+  const f = io(head);
+  let tries = 0;
+  f.io.mergePR = () => {
+    tries++;
+    // Another merge lands on the tranche meanwhile.
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    commit(root, { 'another.txt': 'landed' });
+    git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+    throw new Fail('gh api -X PUT failed: Base branch was modified. Review and try the merge again.');
+  };
+  const pr = f.io.getPR;
+  let reads = 0;
+  f.io.getPR = (...x) => { reads++; const p = pr(...x); return reads > 1 ? { ...p, head: { ...p.head, sha: git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0] } } : p; };
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', log: () => {}, wait: 0 }), /moved past the merged result the gate checked/);
+  assert.equal(tries, 1);
+});
+
 test('merge refuses a job that changed files outside its module', () => {
   const { root } = setup();
   git(['checkout', '-q', 'job/alpha'], { cwd: root });

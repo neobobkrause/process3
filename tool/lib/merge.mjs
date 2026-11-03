@@ -102,6 +102,9 @@ export function merge(root, n, opts = {}) {
       check: () => {
         const p = io.getPR(slug, n);
         if (p.state !== 'open' || p.base?.ref !== cfg.tranche || p.head?.sha !== tip) fail(`pull request ${n} changed while its base moved; run merge again`);
+        // The gate ran on the job merged with the tranche as it was: a tranche that moved past
+        // that is a new merged result, which merge gates afresh when run again.
+        if (git(['merge-base', '--is-ancestor', `refs/remotes/origin/${cfg.tranche}`, tip], { cwd: root, allowFail: true }).code !== 0) fail(`${cfg.tranche} moved past the merged result the gate checked; run merge again`);
       },
     });
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
@@ -426,6 +429,8 @@ export function mergePlain(root, n, opts = {}) {
     check: () => {
       const p = io.getPR(slug, n);
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
+      // A base that requires an up-to-date head: the head must still contain the moved tip.
+      if (rules.strict && git(['merge-base', '--is-ancestor', `refs/remotes/origin/${base}`, pr.head.sha], { cwd: root, allowFail: true }).code !== 0) fail(`${base} moved and requires an up-to-date head; run merge again`);
     },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);

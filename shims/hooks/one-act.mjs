@@ -10,6 +10,7 @@
 import { readFileSync } from 'node:fs';
 
 export const MESSAGE = 'run this act as its own command';
+const ACT_WORD = /(^|[\s;&|(`'"])(git\b[^\n]*\bpush\b|gh\s|wrangler\b|\S*p3(\.mjs)?\s+(merge|job\s+(start|complete))\b)/;
 
 // Words that may stand before a command without changing what runs.
 const WRAPPERS = new Set(['command', 'builtin', 'exec', 'nohup', 'time', 'sudo', 'nice', '!', '{', '(', 'then', 'do', 'else', 'if', 'elif', 'while', 'until']);
@@ -19,16 +20,57 @@ const SHELLS = new Set(['bash', 'sh', 'zsh', 'dash', 'ksh']);
 const base = (w) => w.replace(/^.*\//, '');
 const isAssign = (w) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(w);
 
+// Index of the ' that closes an ANSI-C string $'...' whose body starts at i; -1 when unbalanced.
+function closeAnsi(s, i) {
+  for (; i < s.length; i++) {
+    if (s[i] === '\\') { i++; continue; }
+    if (s[i] === "'") return i;
+  }
+  return -1;
+}
+
+// A here-document's operator at i (<< or <<-, not <<<): its tag and the index of the operator's
+// last character, or null.
+function heredocAt(s, i) {
+  if (s[i] !== '<' || s[i + 1] !== '<' || s[i + 2] === '<') return null;
+  let k = i + 2;
+  const strip = s[k] === '-';
+  if (strip) k++;
+  while (s[k] === ' ' || s[k] === '\t') k++;
+  const m = s.slice(k).match(/^(['"]?)([^\s'";|&<>()]+)\1/);
+  return m ? { tag: m[2], strip, end: k + m[0].length - 1 } : null;
+}
+
+// From a new line at i, the index of the new line that ends each pending here-document's body
+// (or the end of the text).
+function skipBodies(s, i, docs) {
+  for (const h of docs) {
+    let j = i + 1;
+    for (;;) {
+      const e = s.indexOf('\n', j);
+      const line = s.slice(j, e < 0 ? s.length : e);
+      if ((h.strip ? line.replace(/^\t+/, '') : line) === h.tag || e < 0) { i = e < 0 ? s.length : e; break; }
+      j = e + 1;
+    }
+  }
+  return i;
+}
+
 // Index just past the ) that closes an opening at i (the text at i is just past the opener),
-// skipping quotes and nested parentheses; -1 when unbalanced.
+// skipping quotes, here-document bodies and nested parentheses; -1 when unbalanced.
 function closeParen(s, i) {
   let depth = 1;
+  let docs = [];
   for (; i < s.length; i++) {
     const c = s[i];
     if (c === '\\') { i++; continue; }
+    if (c === '$' && s[i + 1] === "'") { const j = closeAnsi(s, i + 2); if (j < 0) return -1; i = j; continue; }
     if (c === "'") { const j = s.indexOf("'", i + 1); if (j < 0) return -1; i = j; continue; }
     if (c === '"') { const j = closeDouble(s, i + 1); if (j < 0) return -1; i = j; continue; }
     if (c === '`') { const j = s.indexOf('`', i + 1); if (j < 0) return -1; i = j; continue; }
+    const h = heredocAt(s, i);
+    if (h) { docs.push(h); i = h.end; continue; }
+    if (c === '\n' && docs.length) { i = skipBodies(s, i, docs); docs = []; continue; }
     if (c === '(') depth++;
     else if (c === ')' && --depth === 0) return i + 1;
   }
@@ -63,6 +105,7 @@ export function parse(s) {
       if (n === '\n') { i++; continue; } // a line continuation joins nothing
       add(n ?? ''); i++; continue;
     }
+    if (c === '$' && n === "'") { const j = closeAnsi(s, i + 2); if (j < 0) return null; add(s.slice(i + 2, j)); i = j; continue; }
     if (c === "'") { const j = s.indexOf("'", i + 1); if (j < 0) return null; add(s.slice(i + 1, j)); i = j; continue; }
     if (c === '"') {
       const j = closeDouble(s, i + 1);
@@ -90,27 +133,13 @@ export function parse(s) {
       nested.push(s.slice(i + 1, j - 1)); add('(…)'); i = j - 1; continue;
     }
     if (c === '#' && word === null) { const j = s.indexOf('\n', i); i = (j < 0 ? s.length : j) - 1; continue; }
-    if (c === '<' && n === '<' && s[i + 2] !== '<') { // a here-document: its body is not commands
-      let k = i + 2;
-      const strip = s[k] === '-';
-      if (strip) k++;
-      while (s[k] === ' ' || s[k] === '\t') k++;
-      const m = s.slice(k).match(/^(['"]?)([^\s'";|&<>()]+)\1/);
-      if (m) { heredocs.push({ tag: m[2], strip }); endWord(); i = k + m[0].length - 1; continue; }
-    }
+    const h = heredocAt(s, i); // a here-document: its body is not commands
+    if (h) { heredocs.push(h); endWord(); i = h.end; continue; }
     if (c === '&' && (n === '>' || (word !== null && /[<>]$/.test(word)))) { add(c); continue; } // &> and >&
     if (c === '|' && word !== null && /[>]$/.test(word)) { add(c); continue; } // >|
     if (c === '\n') {
       endSegment();
-      for (const h of heredocs) { // skip each body, up to its closing line
-        let j = i + 1;
-        for (;;) {
-          const e = s.indexOf('\n', j);
-          const line = s.slice(j, e < 0 ? s.length : e);
-          if ((h.strip ? line.replace(/^\t+/, '') : line) === h.tag || e < 0) { i = e < 0 ? s.length : e; break; }
-          j = e + 1;
-        }
-      }
+      i = skipBodies(s, i, heredocs);
       heredocs = [];
       continue;
     }
@@ -168,15 +197,20 @@ const positional = (w, valued = []) => {
 };
 
 // Whether one simple command (its words) is an outward act. Returns the act's name or null.
+// A word cut at its first redirection (push>log is push; >log and 2>&1 are nothing).
+const unredirect = (words) => words.map((x) => x.replace(/^(\d*|&)[<>].*$/, '').replace(/[<>].*$/, '')).filter(Boolean);
+
 export function actOf(words) {
-  let w = head(words);
+  let w = head(unredirect(words));
   if (!w.length) return null;
   let b = base(w[0]);
   // Package runners that start wrangler.
   if (['npx', 'bunx', 'pnpx'].includes(b) || (['pnpm', 'yarn', 'npm', 'bun'].includes(b))) {
     const p = positional(w.slice(1), ['-p', '--package']);
     const k = ['exec', 'dlx', 'x', 'run'].includes(p[0]) ? 1 : 0;
-    if (p[k] && base(p[k]).startsWith('wrangler')) { w = p.slice(k); b = 'wrangler'; }
+    // wrangler's own words, options included, as they follow it.
+    const at = p[k] && /^wrangler(@|$)/.test(base(p[k])) ? w.indexOf(p[k], 1) : -1;
+    if (at > 0) { w = w.slice(at); b = 'wrangler'; }
   }
   if (b === 'git') {
     const p = positional(w.slice(1), ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path']);
@@ -222,8 +256,10 @@ function innerScripts(words) {
 export function judge(command, depth = 0) {
   if (typeof command !== 'string' || depth > 8) return null;
   const p = parse(command);
-  if (!p) return null; // the shell would refuse it anyway
-  const segments = p.segments.filter((w) => !w.every((x) => CLOSERS.has(x)));
+  // A line this parser cannot read: refused when it names an act and could join it to
+  // anything; the shell refuses a line that is truly broken anyway.
+  if (!p) return ACT_WORD.test(command) && /[;&|\n]|\$\(|`/.test(command) ? 'an act in a line the hook cannot read' : null;
+  const segments = p.segments.filter((w) => { const u = unredirect(w); return u.length && !u.every((x) => CLOSERS.has(x)); });
   const acts = [];
   let inner = [...p.nested];
   for (const w of segments) {
@@ -241,7 +277,7 @@ export function judge(command, depth = 0) {
     if (nestedAct) {
       // A subshell or shell string that is the whole command and holds only the act is the act alone.
       const whole = segments.length === 1 && q.segments.length === 1 && !q.nested.length
-        && (/^\(…\)$/.test(segments[0].join(' ')) || innerScripts(segments[0]).length === 1);
+        && (/^\(…\)$/.test(unredirect(segments[0]).join(' ')) || innerScripts(segments[0]).length === 1);
       if (!whole) return nestedAct;
     }
   }

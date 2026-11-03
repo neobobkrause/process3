@@ -3,7 +3,7 @@
 import { checkRun, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { readingSet } from './job.mjs';
-import { REFRESH_AT, allRows as readRows, refusalCounts, rowsAt } from './metrics.mjs';
+import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { git, loadConfig, repoSlug } from './util.mjs';
 
 export function status(root, { role, module, offline = false, log = console.log, io = { openPRs, checkRun } } = {}) {
@@ -53,9 +53,9 @@ export function status(root, { role, module, offline = false, log = console.log,
     log(`- ${r.id}: ${r.tranche ?? r.state}${r.branch ? `; on its branch ${r.branch}, ${r.ahead} commit(s) ahead` : ''}${r.pr ? `; PR ${r.pr}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; FLAG ${r.flag}` : ''}`);
   }
   // Refusals per session, from the tranche's rows and this checkout's (a row BOB recorded but has
-  // not merged yet counts at once); the same row in both counts once.
+  // not merged yet counts at once); the same row in both counts once (each carries its own id).
   const seen = new Set();
-  const metricRows = [...(haveTranche ? rowsAt(root, tranche) : []), ...readRows(root)].filter((r) => {
+  const metricRows = [...(haveTranche ? rowsAt(root, tranche) : []), ...rowsHere(root)].filter((r) => {
     const k = JSON.stringify(r);
     if (seen.has(k)) return false;
     seen.add(k);

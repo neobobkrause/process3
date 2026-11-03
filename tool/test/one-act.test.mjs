@@ -54,6 +54,18 @@ const refused = [
   // quoting does not hide a real separator
   'git commit -m "a; b" && git push',
   "git commit -m 'it''s' && git push",
+  // review of PR 28: here-documents inside $(...), ANSI-C quotes, runner options, redirects
+  `git commit -m "$(cat <<'EOF'\nDon't stop\nEOF\n)" && git push`,
+  `git add -A && gh pr create --body "$(cat <<'EOF'\nIt's done\nEOF\n)"`,
+  "echo $'it\\'s' && git push",
+  'npx wrangler --env dev deploy && ls',
+  'npx wrangler --config w.toml deploy && ls',
+  'pnpm exec wrangler -e dev deploy; ls',
+  'git push>log; ls',
+  'gh pr list>out && ls',
+  'bash -c "echo hi > f; git push"',
+  // a line the hook cannot read, naming an act, with something it could be joined to
+  'git push "unclosed && ls',
 ];
 
 const allowed = [
@@ -90,6 +102,15 @@ const allowed = [
   'FOO=1 git push origin x',
   '',
   'ls -la',
+  `git commit -m "$(cat <<'EOF'\nDon't stop; git push\nEOF\n)"`,
+  `gh pr create --title t --body "$(cat <<'EOF'\nIt's done && more\nEOF\n)"`,
+  '(git push) 2>&1',
+  '(git push origin x)>log',
+  'git push>log',
+  'gh pr create --body "a > b; c"',
+  "echo $'it\\'s' && ls",
+  'npx wrangler --env dev tail && ls',
+  'echo "unclosed && ls',
 ];
 
 test('one-act: refuses an outward act joined to anything else', () => {
@@ -106,8 +127,9 @@ test('one-act: hook input; other tools and unreadable input pass', () => {
   assert.equal(hook(JSON.stringify({ tool_name: 'Read', tool_input: { file_path: 'x' } })), 0);
   assert.equal(hook('not json'), 0);
   assert.equal(hook(JSON.stringify({ tool_name: 'Bash', tool_input: {} })), 0);
-  // A line the shell would not parse is left to the shell.
-  assert.equal(hook(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git push "unclosed && ls' } })), 0);
+  // A line the hook cannot read is left to the shell unless it names an act.
+  assert.equal(hook(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'echo "unclosed && ls' } })), 0);
+  assert.equal(hook(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git push "unclosed && ls' } })), 2);
 });
 
 test('one-act: the script exits 2 with its one line on stderr, else 0 and silent', () => {

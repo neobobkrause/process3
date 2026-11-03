@@ -92,12 +92,12 @@ test('refusals: recorded with act, depth and session; bad input refused', () => 
   assert.throws(() => recordRefusal(root, { session: 's', act: 'x', depth: 'deep' }), /--depth/);
 });
 
-test('refusals: counted per session across refusal rows and measured attempt rows; REFRESH at 10', () => {
+test('refusals: counted per session from the refusal rows only; REFRESH at 10', () => {
   const rows = [
-    ...Array.from({ length: REFRESH_AT - 1 }, () => ({ row: 'refusal', session: 'A', act: 'merge', depth: 0 })),
-    { row: 'attempt', event: 'measured', session: 'A', refusals: [{ act: 'push', depth: '1', channel: 'claude.md' }] },
-    ...Array.from({ length: REFRESH_AT - 1 }, () => ({ row: 'refusal', session: 'B', act: 'gh', depth: 1 })),
-    { row: 'attempt', event: 'measured', session: null, refusals: [{ act: 'x' }] },
+    ...Array.from({ length: REFRESH_AT }, (_, i) => ({ row: 'refusal', id: `a${i}`, session: 'A', act: 'merge', depth: 0 })),
+    // The same refusal also listed on BOB's measured row is not counted again.
+    { row: 'attempt', event: 'measured', session: 'B', refusals: [{ act: 'push', depth: '1', channel: 'claude.md' }] },
+    ...Array.from({ length: REFRESH_AT - 1 }, (_, i) => ({ row: 'refusal', id: `b${i}`, session: 'B', act: 'gh', depth: 1 })),
   ];
   assert.deepEqual(refusalCounts(rows), [
     { session: 'A', refusals: REFRESH_AT, refresh: true },
@@ -111,9 +111,14 @@ test('status prints REFRESH for a session with 10 refusals, from the tranche and
   recordRefusal(root, { session: 'session_D', act: 'gh', depth: 2 });
   commit(root, {}, 'refusal rows');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
-  // Four more, recorded here and not yet on the tranche; one measured row from metrics add.
-  for (let i = 6; i < 9; i++) recordRefusal(root, { session: 'session_C', act: `act ${i}`, depth: 0 });
-  appendRow(root, 'alpha', { row: 'attempt', event: 'measured', session: 'session_C', refusals: [{ act: 'push', depth: '1', channel: 'claude.md' }] }, bobMetricsFile('alpha'));
+  // Four more recorded here and not yet on the tranche, two of them alike in the same second;
+  // a measured row listing one of them again; a line that is not JSON.
+  recordRefusal(root, { session: 'session_C', act: 'act 6', depth: 0 });
+  recordRefusal(root, { session: 'session_C', act: 'act 7', depth: 0 });
+  recordRefusal(root, { session: 'session_C', act: 'same', depth: 0 });
+  recordRefusal(root, { session: 'session_C', act: 'same', depth: 0 });
+  appendRow(root, 'alpha', { row: 'attempt', event: 'measured', session: 'session_C', refusals: [{ act: 'same', depth: '0', channel: 'claude.md' }] }, bobMetricsFile('alpha'));
+  writeFileSync(join(root, REFUSALS_FILE), readFileSync(join(root, REFUSALS_FILE), 'utf8') + '<<<<<<< conflict\n');
   const out = [];
   const r = status(root, { offline: true, log: (m) => out.push(m) });
   assert.deepEqual(r.sessions.map((s) => [s.session, s.refusals, s.refresh]), [['session_C', 10, true], ['session_D', 1, false]]);
