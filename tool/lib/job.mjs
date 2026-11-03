@@ -7,7 +7,7 @@ import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
+import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -52,7 +52,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, attempt, 
   L.push(`${n}. \`git submodule update --init .process\` (the pinned process clone arrives empty).`);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends, so nothing is lost (JOB-9).`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>"\`. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. End your turn when it prints the receipt link.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
@@ -260,6 +260,36 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   return { start, pr, launch, subscribe: subscribe.call, restarted: true };
 }
 
+// A requirement mark (P7), as status counts it: `**R36** *(not yet met: ...)*`.
+const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+export const markedIds = (text) => [...String(text || '').matchAll(MARK)].map((m) => m[1]);
+
+// The marks the branch struck against the base, each with the test the job names for it with
+// --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
+// before anything is marked or pushed when one is missing or does not hold.
+function struckTests(root, entry, base, given) {
+  const at = (ref) => git(['show', `${ref}:${entry.requirements}`], { cwd: root, allowFail: true }).stdout;
+  const left = new Set(markedIds(at('HEAD')));
+  const struck = markedIds(at(base)).filter((r) => !left.has(r));
+  const named = new Map();
+  for (const g of given) {
+    const m = /^(R[\w.-]+)=(.+?)::(.+)$/.exec(String(g));
+    if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>"`);
+    if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
+    named.set(m[1], { req: m[1], file: m[2], name: m[3] });
+  }
+  const missing = struck.filter((r) => !named.has(r));
+  if (missing.length) fail(`not complete, nothing pushed or marked: the branch struck ${missing.join(', ')} with no --test; add --test ${missing[0]}="<test file>::<test name>" for each`);
+  return struck.map((r) => {
+    const t = named.get(r);
+    if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${r}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
+    const text = git(['show', `HEAD:${t.file}`], { cwd: root, allowFail: true });
+    if (text.code !== 0) fail(`--test ${r}: ${t.file} is not committed on this branch`);
+    if (!text.stdout.includes(t.name)) fail(`--test ${r}: ${t.file} does not contain "${t.name}"`);
+    return t;
+  });
+}
+
 const onBranch = (root, id) => {
   const b = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
   if (b !== `job/${id}`) fail(`run this on branch job/${id}, not ${b || 'a detached HEAD'}`);
@@ -292,6 +322,7 @@ export function jobComplete(root, id, opts = {}) {
     return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at } });
   }
   if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
+  const tests = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
@@ -329,7 +360,7 @@ export function jobComplete(root, id, opts = {}) {
   // The receipt is saved in the COMPLETE commit, so a rerun after a failed push can post it.
   const receipt = {
     kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
-    commands, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
+    commands, tests, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
   };
   try {
     writeStatus(root, id, { state: 'COMPLETE', at: now() });

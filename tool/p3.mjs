@@ -60,9 +60,9 @@ const commands = {
   // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
   'job start': (a, root) => { jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart }); return 0; },
 
-  // job complete <id> [--not-verified "..."]... [--exempt-revert "<why>"] [--no-suite]
+  // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite]
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
-    notVerified: list(a['not-verified']).filter((x) => x !== true), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
+    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
   }).ok ? 0 : 1),
 
   // test <id>: the module's own suite, as the gate runs it.
