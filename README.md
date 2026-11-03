@@ -24,8 +24,18 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 | `merge <pr> --reviewed "..."` or `--no-review "..."` | BOB | up to the tranche, merge row, gate on that tip, merge |
 | `merge <pr> --plain --reviewed "..."` or `--no-review "..."` | BOB | any pull request that is not a job's (pin moves, metrics rows, config): into the tranche or a working branch, or the tranche into main; every required check green on the head; a merge commit pinned to it; no merge row. A change to `process_repo` or `tranche` in `process/config.json` needs Bob's word, except the tranche into main carrying the value the owner's own website commit (or website merge) set on the tranche, and onboarding a tranche with no process config (process3's own address; as the tranche's name, only the branch it onboards), which also sets `approvals.owner` to the repository's owner |
 | `setup check` | BOB | reads the product's setup against `setup/conditions.json`, read-only; exit 1 when a condition is missing; `job start` runs it first |
+| `start check [--branch <name>]` | every session | its first command: fetches the branch it started from (default the tranche), compares HEAD and the approvals block of the approvals file with that branch's tip, prints both SHAs; exit 1 when either differs, and the session then acts on nothing, sends both SHAs to its starter and ends |
 | `metrics add <id> ...`, `metrics report` | BOB | measured figures; the two health metrics |
+| `metrics refusal --session <s> --act "<act>" --depth <n> [--module <id>]` | BOB | one refusal a session reported, in `process/metrics/refusals.bob.jsonl`; `status` counts these rows per session (a refusal also listed on a measured row by `metrics add --refusal` is not counted again) and prints REFRESH for a session with 10 or more, long before auto mode's 20 |
 | `ledger check`, `record-check`, `gate [--no-post]`, `gate --post <gate.json> --pr <n>` | CI | the checks the workflows run; the gate comment |
+
+A moved base is retried, never forced. `merge` and `merge --plain` meet GitHub's "Base branch was modified" by fetching the base, confirming the pull request still has the head and base that were checked (for a job, that the tranche has not moved past the merged result the gate checked; for a base that requires an up-to-date head, that the head still contains it), and trying again, at most 3 times in all; any other refusal stops at once. A push to the state branch uses `pushRetry` (`tool/lib/util.mjs`): on git's fetch-first rejection it fetches the branch, merges it with a merge commit (a conflict stops it, nothing pushed) and pushes again, at most 3 times in all; a non-fast-forward rejection (the local copy already knew the new tip) stops at once, and the command runs again. The tool has no state-branch push yet; its other pushes go to a job's own branch, where a branch that moved must stop the command, not be merged into.
+
+## Coordinator guidance
+
+- Run each outward act as its own command, never chained.
+- Run `start check` first in every session; if it fails, act on nothing, send both SHAs to the starter and end.
+- Record every refusal a session reports with `metrics refusal`; when `status` prints REFRESH for a session, start a fresh one to replace it.
 
 ## Development deployments
 
@@ -45,3 +55,6 @@ Known limits of the newest-approvals rule, each needing a session acting on purp
 - A pull request whose head is an owner branch holding only the owner's website commits counts as the owner's own pull request whoever opened it, so a session could land an owner draft the owner abandoned, if it is newer than every block on the tranche and main.
 - While main has no config, a branch literally named `tranche` is not asked for a ruleset naming it when the product's real tranche has another name; main's own required checks still hold it.
 - Once the owner has removed the approvals block, a session could replace the approvals file with a symbolic link (its block reads as empty, the newest) and carry approval text in through the linked file, as with an `@import`.
+
+Known limit of the start check:
+- `start check` compares the approvals block in the checkout's file with the tip's, as the session loaded it from disk at its start; a session that edits the file after its start check is held by the record check, not by this.
