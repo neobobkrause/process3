@@ -74,6 +74,9 @@ export const DEFAULTS = {
   // sweep: the live-session cap (PLT, measured 1 Nov), and the plan (run, pause or stop).
   live_cap: 24,
   plan: 'run',
+  // status --role bob: where requirement files live, and how many jobs BOB keeps open at once.
+  requirements_dir: 'build/requirements',
+  jobs_at_once: 2,
 };
 
 export const CONFIG_FILE = 'process/config.json';
