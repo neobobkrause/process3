@@ -8,6 +8,7 @@ import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState } from './state.mjs';
+import { unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
@@ -39,7 +40,7 @@ const DEFAULT_ACTS = (id) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, notices = [] }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -48,6 +49,11 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push('', `Your work: meet the open requirements in \`${entry.requirements}\` by changing only these paths: ${[...entry.paths, ...entry.tests].map((p) => `\`${p}\``).join(', ')}, and by striking in \`${entry.requirements}\` the marks you meet. Your branch is \`${branch}\`; your draft pull request into \`${tranche}\` is already open. Done means merged, and you do not merge: BOB does.`);
   if (entry.prior_work) L.push('', `Prior work: ${entry.prior_work}`);
   if (reopen) L.push('', `This attempt reopens the module after an earlier attempt merged. What it must do: ${reopen}`);
+  // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
+  if (notices.length) {
+    L.push('', '## Provider notices', '', 'A module this one uses changed its requirements. For each notice: confirm or adapt this module\'s code for the provider\'s new behaviour, and add or update this module\'s own test that exercises it.');
+    for (const n of notices) L.push(`- \`${n.key}\`: provider \`${n.provider}\` changed ${n.ids.join(', ')} (PR ${n.pr}); name its test at job complete with \`--test notice:${n.key}="<test file>::<test name>"\`.`);
+  }
   if (restart) {
     L.push('', `You replace the job session that stopped on this job. As BOB saw it: ${restart.why}`);
     L.push(`You continue from the branch and the pull request as they are: pull request ${restart.pr}, last commit \`${restart.last}\`, receipt ${restart.receipt}. Read the branch's commits and the pull request's comments before you change anything.`);
@@ -64,7 +70,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n}. \`git submodule update --init .process\` (the pinned process clone arrives empty).`);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends, so nothing is lost (JOB-9).`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and one \`--test notice:<key>=...\` for each provider notice above' : ''}. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. End your turn when it prints the receipt link.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
@@ -88,6 +94,20 @@ function jobCoordinator(root, cfg, given, fetch) {
   if (typeof session !== 'string' || !session) fail(`no coordinator: no BOB is addressed on ${cfg.state_branch} (${addressFile('bob')}); ROOT records one with start record bob <id>, and --coordinator <session id> overrides it for one start`);
   return { coordinator: session, bob: true };
 }
+
+// The unanswered provider notices for a module, as the state branch holds them (none when it
+// cannot be read: the START then names none, and status still lists them).
+function noticesFor(root, cfg, id, fetch) {
+  try {
+    if (fetch) fetchState(root, cfg.state_branch);
+    return unanswered(root, cfg.state_branch, id);
+  } catch { return []; }
+}
+
+// The notices a start row named, with their detail from the state branch when it has them: job
+// complete asks a test for each key the row names, so the START names every one.
+const named = (owed, row) => (row?.notices || []).map((key) => owed.find((x) => x.key === key)
+  || { key, provider: key.split(':')[0], ids: ['(see the state branch)'], pr: key.split(':')[1] });
 
 const commitFiles = (root, paths, msg) => {
   git(['add', '--', ...paths], { cwd: root });
@@ -140,6 +160,11 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, overCa
   model ||= cfg.roles?.job?.model;
   if (push) fetchRef(root, cfg.tranche);
   const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  const owed = noticesFor(root, cfg, id, push);
+  // A COMPLETE module with an unanswered notice is reopened to answer it; not when its branch
+  // holds an unfinished start, which resumes with its own task.
+  const unfinished = () => push && remoteTip(root, branch) && (fetchRef(root, branch), aheadBy(root, { slug, base: cfg.tranche, head: branch, local: [from, `origin/${branch}`], read: cmp }) !== 0);
+  if (!reopen && owed.length && /"state":\s*"COMPLETE"/.test(git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true }).stdout) && !unfinished()) reopen = `answer ${owed.length === 1 ? 'the provider notice' : 'the provider notices'} ${owed.map((x) => x.key).join(', ')}`;
 
   // A reopen restarts a branch whose last attempt merged (its tip is in the tranche). Anything
   // else on the remote branch is either an unfinished start, resumed below, or refused there.
@@ -167,7 +192,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, overCa
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -220,9 +245,9 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, overCa
     const entry = readEntry(root, id);
     const attempt = nextAttempt(root, id);
     const reading = readingSet(root, entry, [], cfg);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}), ...(over ? { over_cap: overWhy } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -279,6 +304,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
     entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
+    notices: named(noticesFor(root, cfg, id, true), startRow),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
@@ -297,12 +323,19 @@ export const markedIds = (text) => [...String(text || '').matchAll(MARK)].map((m
 // The marks the branch struck against the base, each with the test the job names for it with
 // --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
 // before anything is marked or pushed when one is missing or does not hold.
-function struckTests(root, entry, base, given) {
+function struckTests(root, entry, base, given, notices = []) {
   const at = (ref) => git(['show', `${ref}:${entry.requirements}`], { cwd: root, allowFail: true }).stdout;
   const left = new Set(markedIds(at('HEAD')));
   const struck = markedIds(at(base)).filter((r) => !left.has(r));
   const named = new Map();
+  const answered = new Map();
   for (const g of given) {
+    const k = /^notice:([^=]+)=(.+?)::(.+)$/.exec(String(g));
+    if (k) {
+      if (!notices.includes(k[1])) fail(`--test notice:${k[1]}: this job's START named no provider notice ${k[1]} (named: ${notices.join(', ') || 'none'})`);
+      answered.set(k[1], { notice: k[1], file: k[2], name: k[3] });
+      continue;
+    }
     const m = /^(R[\w.-]+)=(.+?)::(.+)$/.exec(String(g));
     if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>"`);
     if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
@@ -310,14 +343,16 @@ function struckTests(root, entry, base, given) {
   }
   const missing = struck.filter((r) => !named.has(r));
   if (missing.length) fail(`not complete, nothing pushed or marked: the branch struck ${missing.join(', ')} with no --test; add --test ${missing[0]}="<test file>::<test name>" for each`);
-  return struck.map((r) => {
-    const t = named.get(r);
-    if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${r}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
+  const unnamed = notices.filter((k) => !answered.has(k));
+  if (unnamed.length) fail(`not complete, nothing pushed or marked: the provider notice ${unnamed.join(', ')} has no --test; add --test notice:${unnamed[0]}="<test file>::<test name>", this module's own test of the provider's new behaviour`);
+  const holds = (label, t) => {
+    if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${label}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
     const text = git(['show', `HEAD:${t.file}`], { cwd: root, allowFail: true });
-    if (text.code !== 0) fail(`--test ${r}: ${t.file} is not committed on this branch`);
-    if (!text.stdout.includes(t.name)) fail(`--test ${r}: ${t.file} does not contain "${t.name}"`);
+    if (text.code !== 0) fail(`--test ${label}: ${t.file} is not committed on this branch`);
+    if (!text.stdout.includes(t.name)) fail(`--test ${label}: ${t.file} does not contain "${t.name}"`);
     return t;
-  });
+  };
+  return [...struck.map((r) => holds(r, named.get(r))), ...notices.map((k) => holds(`notice:${k}`, answered.get(k)))];
 }
 
 // The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
@@ -365,7 +400,7 @@ export function jobComplete(root, id, opts = {}) {
     return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at } });
   }
   if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
-  const tests = struckTests(root, entry, base, opts.tests || []);
+  const tests = struckTests(root, entry, base, opts.tests || [], readRows(root, id).filter((r) => r.event === 'start').pop()?.notices || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
