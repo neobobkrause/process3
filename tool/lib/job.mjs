@@ -5,7 +5,6 @@ import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, ma
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince, repoOwnerOf } from './record.mjs';
-import { UNMEASURED, sessionRecord } from './session.mjs';
 import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -225,7 +224,7 @@ const onBranch = (root, id) => {
 // The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing.
 export function jobComplete(root, id, opts = {}) {
-  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log, session = () => sessionRecord() } = opts;
+  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log } = opts;
   const io = { findPR, addComment, markReady, comments, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
@@ -291,17 +290,7 @@ export function jobComplete(root, id, opts = {}) {
   };
   try {
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
-    // The loop guard (build I): the attempt's elapsed time from its start row, and the session's
-    // own figures from its record where the tool can read it, else unmeasured.
-    const startRow = readRows(root, id).filter((r) => r.event === 'start' && (Number(r.attempt) || 1) === attempt).pop();
-    const elapsed = startRow && Number.isFinite(Date.parse(startRow.at)) ? Math.max(0, Math.round((Date.now() - Date.parse(startRow.at)) / MINUTE)) : UNMEASURED;
-    let sess = null;
-    try { sess = session(); } catch { sess = null; }
-    appendRow(root, id, {
-      row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null,
-      elapsed_minutes: elapsed, cost_usd: sess?.cost_usd ?? UNMEASURED, tokens: sess?.tokens ?? UNMEASURED,
-      session_record: sess ? { session: sess.session, version: sess.version, minutes: sess.minutes } : UNMEASURED, receipt,
-    });
+    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt });
     receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
   } catch (e) {
     restore(root, [entryFile(id), metricsFile(id)]);

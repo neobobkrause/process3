@@ -15,7 +15,7 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 
 | command | who | does |
 |---|---|---|
-| `status [--role job --module <id>]` | anyone | entries, branches, PRs, gate, flags (an attempt over its budget among them), each live attempt's time and cost, whether the open check is due, reading set with sizes |
+| `status [--role job --module <id>]` | anyone | entries, branches, PRs, gate, flags, reading set with sizes |
 | `job start <id> --coordinator <session>` | BOB | branch, WORKING, START, draft PR; prints the create_session call, then the subscribe_pr_activity call for the PR |
 | `job start <id> --reopen "<what>"` | BOB | a new attempt on a COMPLETE module whose last attempt merged; the START says what it must do |
 | `test <id>` | job | installs the module's stale lock files (GAT-5), then runs the module's own suite |
@@ -24,23 +24,16 @@ Run from a product checkout with the pinned clone at `.process/`: `node .process
 | `merge <pr> --reviewed "..." --rounds <n>` or `--no-review "..."`, optionally `--decision "..."` | BOB | up to the tranche, merge row (with its review rounds), gate on that tip, merge |
 | `merge <pr> --plain --reviewed "..." --rounds <n>` or `--no-review "..."`, optionally `--decision "..."` | BOB | any pull request that is not a job's (pin moves, metrics rows, config): into the tranche or a working branch, or the tranche into main; every required check green on the head; a merge commit pinned to it; no merge row. A change to `process_repo` or `tranche` in `process/config.json` needs Bob's word, except the tranche into main carrying the value the owner's own website commit (or website merge) set on the tranche, and onboarding a tranche with no process config (process3's own address; as the tranche's name, only the branch it onboards), which also sets `approvals.owner` to the repository's owner |
 | `setup check` | BOB | reads the product's setup against `setup/conditions.json`, read-only; exit 1 when a condition is missing; `job start` runs it first |
-| `metrics add <id> ...`, `metrics open-check --outcome pass\|stopped ...`, `metrics report` | BOB | measured figures; the open check's row, with the Claude Code version it ran on; the two health metrics |
+| `metrics add <id> ...`, `metrics report` | BOB | measured figures; the two health metrics |
 | `ledger check`, `record-check`, `gate [--no-post]`, `gate --post <gate.json> --pr <n>` | CI | the checks the workflows run; the gate comment |
 
-## The loop guard
+## The review-round limit
 
-No session runs past its budget or loops unnoticed (the Foundations' sixth running-unattended condition; build I, 3 Nov).
-
-- Budget per attempt. `budgets` in the tool's config (`DEFAULTS` in `tool/lib/util.mjs`) is one table, a budget per role in elapsed minutes and US dollars: today `job`, 180 minutes and $40, the one role whose attempts have start rows (BOB's own session is not budgeted by the tool yet). A product's `process/config.json` may change a role's figures (`"budgets": {"job": {"minutes": 120}}`); a figure set to `null` is not budgeted. An attempt's elapsed time runs from its start row to its complete row, or to its block while it is BLOCKED (it waits, it does not loop), or to now while it runs. Its cost is BOB's latest measured figure for it (`metrics add --cost-usd`, same role), else the one `job complete` read from the job's session record (Claude Code's transcript for `CLAUDE_CODE_SESSION_ID`), else `unmeasured`: a cloud session's transcript states tokens but no cost today, so the cost of a job attempt is unmeasured until BOB records it. `job complete` writes `elapsed_minutes`, `cost_usd`, `tokens` and the session record's version and minutes into the complete row. `status` shows the figures of each attempt not yet merged (no merge row after its complete row, so a reopened attempt counts) and flags one past either budget.
-- The review-round limit, held by `merge`. Round 1 is the two fresh reviews; round 2 is the one fix pass and its confirming re-review of the fix. A reviewed merge states its rounds (`--rounds 1` or `--rounds 2`) and records them: in the merge row for a job, in the merge commit's message for a plain merge. A third round or more is refused unless the command names the decision that allowed it (`--decision "<who decided, and why>"`), which is recorded with the rounds. A merge with `--no-review` has no rounds, and naming both `--reviewed` and `--no-review` is refused. The rounds are as the command states them: the tool cannot see reviews run by subagents, so a count stated wrongly on purpose is held by the record it leaves, not by the tool.
-- The open check reruns at each Claude Code version change. `metrics open-check` writes BOB's row to `process/metrics/open-check.bob.jsonl` with the Claude Code version (`claude --version`, else the session record, else `unmeasured`); `status` says the open check is due when no row is recorded, the version here differs from the last row's, the version cannot be read, or the last run did not pass.
+`merge` holds it (build I, 3 Nov). Round 1 is the two fresh reviews; round 2 is the one fix pass and its confirming re-review of the fix. A reviewed merge states its rounds (`--rounds 1` or `--rounds 2`) and records them: in the merge row for a job, in the merge commit's message for a plain merge. A third round or more is refused unless the command names the decision that allowed it (`--decision "<who decided, and why>"`), which is recorded with the rounds. A merge with `--no-review` has no rounds, and naming both `--reviewed` and `--no-review` is refused. The rounds are as the command states them: the tool cannot see reviews run by subagents, so a count stated wrongly on purpose is held by the record it leaves, not by the tool.
 
 ## The coordinator
 
-BOB, the coordinator, takes the acts a round needs that are not a job's: starting job sessions, merging through `merge`, deploying, releasing and acting on a live site. Two rules for those acts:
-
-- One act per command, never chained. Each judged act (a git push, a merge, a gh call, a session start, a deploy) is its own shell command, with no `&&`, `||`, `;`, pipe or second line joining it to anything else.
-- Deploy duties follow the rule under Development deployments below: `wrangler delete`'s error about Workers KV counts as success only once the script is confirmed gone.
+One act per command, never chained: each judged act (a git push, a merge, a gh call, a session start, a deploy) is its own shell command, joined to nothing else by `&&`, `||`, `;`, a pipe or a second line.
 
 ## Development deployments
 
