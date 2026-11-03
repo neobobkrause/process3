@@ -11,6 +11,7 @@ import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } fro
 import { merge, mergePlain } from './lib/merge.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck } from './lib/start.mjs';
+import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
 import { recordCheck, recordSince, repoOwnerOf, trustedRefs } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -27,8 +28,30 @@ const one = (a, what) => a._[0] || fail(`name the ${what}`);
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
-  // status [--role job --module <id>] [--offline]
-  status: (a, root) => { status(root, { role: a.role, module: a.module, offline: !!a.offline }); return 0; },
+  // status [--role job --module <id> | --role bob [--context <percent of the window used>]] [--offline]
+  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, offline: !!a.offline }); return 0; },
+
+  // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
+  // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
+  handoff: (a, root) => {
+    const lines = [];
+    const s = status(root, { role: 'bob', context: a.context, log: (l) => lines.push(l) });
+    handoff(root, loadConfig(root).state_branch, { role: 'bob', tranche: s.tranche, lines, notes: list(a.note).filter((x) => x !== true) });
+    return 0;
+  },
+
+  // send <to-role> "<text>" [--from <role>]: the record first, then the numbered message and the
+  // address read from git, for the session to deliver with send_message (MSG-1, MSG-3).
+  // send delivered <n> | send failed <n> [--reason "..."] [--from <role>]: the outcome (MSG-6).
+  send: (a, root) => {
+    const sb = loadConfig(root).state_branch;
+    const from = a.from === undefined ? 'bob' : a.from;
+    const [first, second] = a._;
+    if (first === 'delivered' || first === 'failed') {
+      outcome(root, sb, { from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
+    } else send(root, sb, { from, to: first, text: second });
+    return 0;
+  },
 
   // job start <id> --coordinator <session> [--model <m>] [--reopen "<what>"]: BOB opens a job,
   // or, with --reopen, a new attempt on a COMPLETE module whose last attempt merged.
