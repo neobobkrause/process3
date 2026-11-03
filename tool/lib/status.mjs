@@ -2,7 +2,7 @@
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
 import { aheadBy, checkRun, compare, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
-import { readingSet } from './job.mjs';
+import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { fetchState, handoffFile, readState, toRoute, undelivered } from './state.mjs';
@@ -12,6 +12,8 @@ import { join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
 export const IDLE_HOURS = 2;
+// A WORKING job whose branch tip is older than this is stalled (the sweep wakes BOB for it).
+export const SILENT_HOURS = 2;
 
 export function status(root, { role, module, context, live, offline = false, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, ...given };
@@ -75,6 +77,12 @@ export function status(root, { role, module, context, live, offline = false, log
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
+    // A WORKING job that pushed and then stopped (interrupted, or stopped by refusals): its pull
+    // request not ready and its branch tip older than SILENT_HOURS. BOB restarts its session.
+    if (!row.flag && !row.ready && row.ahead > 1 && row.branch?.startsWith('WORKING')) {
+      const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
+      if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
+    }
     rows.push(row);
   }
   log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);

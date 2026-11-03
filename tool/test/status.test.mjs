@@ -96,3 +96,29 @@ test('status --role bob: next work stops at live_cap', () => {
   assert.equal(status(full, { role: 'bob', offline: true, live: 1, log: (m) => shown.push(m) }).next.length, 1);
   assert.match(shown.join('\n'), /0 listed \(live 1 of 1\), 1 wait/);
 });
+
+// A job branch two commits past the tranche, its tip committed at `at`, the entry WORKING on it.
+function pushedJob(root, id, at) {
+  git(['checkout', '-q', '-b', `job/${id}`, 'origin/tranche'], { cwd: root });
+  commit(root, { [`src/${id}/a.js`]: '1' }, 'start');
+  const old = process.env.GIT_COMMITTER_DATE;
+  process.env.GIT_COMMITTER_DATE = at;
+  try { commit(root, { [`src/${id}/a.js`]: '2' }, 'work in progress'); } finally { if (old === undefined) delete process.env.GIT_COMMITTER_DATE; else process.env.GIT_COMMITTER_DATE = old; }
+  git(['update-ref', `refs/remotes/origin/job/${id}`, 'HEAD'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+}
+
+test('status: a WORKING job that pushed and then went quiet past SILENT_HOURS is flagged with the restart as BOB\'s act; a fresh one is not', () => {
+  const root = makeRepo({ 'process/ledger/stale.json': entry('stale', { status: { state: 'WORKING' } }), 'process/ledger/fresh.json': entry('fresh', { status: { state: 'WORKING' } }) });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  pushedJob(root, 'stale', new Date(Date.now() - 5 * 36e5).toISOString());
+  pushedJob(root, 'fresh', new Date().toISOString());
+  const { rows } = status(root, { offline: true, log: quiet });
+  const by = Object.fromEntries(rows.map((r) => [r.id, r]));
+  assert.equal(by.stale.ahead, 2);
+  assert.match(by.stale.flag, /^WORKING, no push for 5h; BOB's act: node \.process\/tool\/p3\.mjs job start stale --restart "<why>"$/);
+  assert.equal(by.fresh.flag, undefined);
+  const out = [];
+  status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
+  assert.match(out.join('\n'), /idle:\n- stale: WORKING;.*; WORKING, no push for 5h; BOB's act: .* job start stale --restart "<why>"\nopen:\n- fresh: WORKING; PR unknown \(GitHub not read\), last activity unknown\n/);
+});
