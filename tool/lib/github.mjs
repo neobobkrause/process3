@@ -3,7 +3,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fail, gh, run } from './util.mjs';
+import { fail, gh, git, isShallow, run } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -147,4 +147,21 @@ export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFa
   const r = read(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=all&per_page=100`]);
   if (!r || !Array.isArray(r.check_runs)) return null;
   return [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0));
+}
+
+// GitHub's comparison of two refs or commits: ahead_by, behind_by, merge_base_commit; null when
+// unreadable.
+const refPath = (r) => String(r).split('/').map(encodeURIComponent).join('/');
+export const compare = (slug, base, head) => gh(['api', `repos/${slug}/compare/${refPath(base)}...${refPath(head)}?per_page=1`], { allowFail: true });
+
+// Commits on head that base lacks. In a shallow clone the local count is wrong (both histories
+// are cut), so GitHub's compare answers when a slug is given (online); a full clone, offline, or
+// a failed call counts locally with rev-list local[0]..local[1]. null when neither can.
+export function aheadBy(root, { slug, base, head, local, read = compare }) {
+  if (slug && isShallow(root)) {
+    const c = read(slug, base, head);
+    if (Number.isInteger(c?.ahead_by)) return c.ahead_by;
+  }
+  const r = git(['rev-list', '--count', `${local[0]}..${local[1]}`], { cwd: root, allowFail: true });
+  return r.code === 0 ? Number(r.stdout.trim()) : null;
 }

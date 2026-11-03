@@ -1,13 +1,13 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, block, comments, createPR, findPR, latestBlock, latestReceipt, markReady } from './github.mjs';
+import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, findPR, latestBlock, latestReceipt, markReady } from './github.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { NO_TOKENS, fail, fileBytes, git, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { NO_TOKENS, fail, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -71,12 +71,12 @@ const commitFiles = (root, paths, msg) => {
   git(['commit', '-q', '-m', msg, '--', ...paths], { cwd: root });
   return git(['rev-parse', 'HEAD'], { cwd: root });
 };
-const fetchRef = (root, branch) => git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+const fetchRef = (root, branch) => fetchBranch(root, branch);
 const remoteTip = (root, branch) => (git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.split('\t')[0] || '').trim();
 const restore = (root, paths) => git(['checkout', 'HEAD', '--', ...paths], { cwd: root, allowFail: true });
 
-function launchFor(slug, branch, id, start, model) {
-  return { title: `job ${id}`, source_url: `https://github.com/${slug}`, source_revision: branch, ...(model ? { model } : {}), prompt: start };
+function launchFor(slug, branch, id, start, model, clone) {
+  return { title: `job ${id}`, source_url: `https://github.com/${slug}`, source_revision: branch, ...(clone || {}), ...(model ? { model } : {}), prompt: start };
 }
 
 // The coordinator's next step: subscribe to the job's pull request, so its completion, a red
@@ -94,7 +94,7 @@ export function subscribeFor(slug, pr) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, log = console.log } = {}) {
+export function jobStart(root, id, { coordinator, model, reopen, restart, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, log = console.log } = {}) {
   if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, find, notes, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   const cfg = loadConfig(root);
@@ -122,8 +122,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
 
   // A reopen restarts a branch whose last attempt merged (its tip is in the tranche). Anything
   // else on the remote branch is either an unfinished start, resumed below, or refused there.
+  // Ahead counts come from GitHub in a shallow clone, where the local history is cut (aheadBy).
+  const ahead = (head, local) => aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head, local: [from, local], read: cmp });
   const merged = push && reopen && remoteTip(root, branch) && (fetchRef(root, branch), true)
-    && git(['merge-base', '--is-ancestor', `origin/${branch}`, from], { cwd: root, allowFail: true }).code === 0;
+    && ahead(branch, `origin/${branch}`) === 0;
   if (merged) {
     if (find(slug, branch)) fail(`${branch} has an open pull request; reopen only after it merges`);
   } else if (push && remoteTip(root, branch)) {
@@ -136,15 +138,16 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
     fetchRef(root, branch);
     const entryText = git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root });
     const entry = JSON.parse(entryText);
-    const ahead = Number(git(['rev-list', '--count', `${from}..origin/${branch}`], { cwd: root }));
-    if (entry.status?.state === 'COMPLETE' && ahead === 0) fail(`${id} is COMPLETE and its last attempt merged; a new attempt needs --reopen "<what it must do>"`);
-    if (entry.status?.state !== 'WORKING' || ahead !== 1) fail(`${branch} exists${existing ? ' with an open pull request' : ''} and is not an unfinished start (${entry.status?.state}, ${ahead} commits); a job whose session stopped is restarted with --restart "<why>"`);
+    const n = ahead(branch, `origin/${branch}`);
+    if (n === null) fail(`cannot count ${branch}'s commits beyond ${from}`);
+    if (entry.status?.state === 'COMPLETE' && n === 0) fail(`${id} is COMPLETE and its last attempt merged; a new attempt needs --reopen "<what it must do>"`);
+    if (entry.status?.state !== 'WORKING' || n !== 1) fail(`${branch} exists${existing ? ' with an open pull request' : ''} and is not an unfinished start (${entry.status?.state}, ${n} commits); a job whose session stopped is restarted with --restart "<why>"`);
     const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root }).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.event === 'start').pop();
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, coordinator, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task });
-    const launch = launchFor(slug, branch, id, start, model);
+    const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
     if (existing) log(`note: ${branch} already has its pull request open. Use this launch only when no job session is running for it: check your sessions first, and start nothing if one is.`);
@@ -170,7 +173,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
   // A local branch left by the merged attempt holds nothing the tranche lacks: a reopen moves it
   // to the tranche (no branch is deleted). Any other local branch is refused.
   const local = git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0;
-  const stale = local && reopen && git(['merge-base', '--is-ancestor', `refs/heads/${branch}`, from], { cwd: root, allowFail: true }).code === 0;
+  const stale = local && reopen && ahead(git(['rev-parse', `refs/heads/${branch}`], { cwd: root }), `refs/heads/${branch}`) === 0;
   if (local && !stale) {
     fail(reopen ? `a local branch ${branch} exists with commits the tranche does not have; bring it to Bob`
       : `a local branch ${branch} exists; a new attempt on a merged module needs --reopen, and anything else goes to Bob`);
@@ -195,7 +198,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
     appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
-    const launch = launchFor(slug, branch, id, start, model);
+    const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
     result = { start, launch, attempt, pr: null };
@@ -252,7 +255,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
-  const launch = { ...launchFor(slug, branch, id, start, model), title: `job ${id} (restart)`, source_revision: tip };
+  const launch = { ...launchFor(slug, branch, id, start, model, cfg.clone), title: `job ${id} (restart)`, source_revision: tip };
   log(start);
   log(`start the replacement job session with create_session, once the session it replaces has stopped:\n${JSON.stringify(launch, null, 2)}`);
   const subscribe = subscribeFor(slug, pr);
@@ -290,6 +293,18 @@ function struckTests(root, entry, base, given) {
   });
 }
 
+// The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
+// and the branch is deepened down to it (its commits beyond the tranche, plus one), so the range
+// base..HEAD the checks walk is whole and the base's tree is here.
+export function shallowBase(root, slug, tranche, branch, read = compare) {
+  const c = read(slug, tranche, branch);
+  const sha = c?.merge_base_commit?.sha;
+  if (!/^[0-9a-f]{40,64}$/.test(sha || '') || !Number.isInteger(c.ahead_by)) fail(`this clone is shallow and GitHub did not give the merge base of ${branch} and ${tranche}; run job complete again`);
+  git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', '--depth=1', 'origin', sha], { cwd: root });
+  return sha;
+}
+
 const onBranch = (root, id) => {
   const b = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
   if (b !== `job/${id}`) fail(`run this on branch job/${id}, not ${b || 'a detached HEAD'}`);
@@ -307,8 +322,9 @@ export function jobComplete(root, id, opts = {}) {
   const cfg = loadConfig(root);
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   if (push) fetchRef(root, cfg.tranche);
-  const base = git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
   const slug = push ? repoSlug(root) : 'local/local';
+  const base = push && isShallow(root) ? shallowBase(root, slug, cfg.tranche, branch, opts.compare || compare)
+    : git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
   const pr = push ? io.findPR(slug, branch) : null;
   if (push && !pr) fail(`no open pull request from ${branch}`);
   const entry = readEntry(root, id);
