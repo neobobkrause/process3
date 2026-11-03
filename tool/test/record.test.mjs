@@ -702,3 +702,42 @@ test('approvals.owner: absent is the default owner, an explicit null is a change
   assert.deepEqual(run({ max_file_bytes: 1 }, { max_file_bytes: 1, approvals: { owner: 'mallory' } }), ['approvals']);
 });
 
+// Review A of PR 32: two owner edits in one tranche cycle. A merge that brought in the first
+// owner block passes once the head holds the second.
+const mergeAt = (root, b, date) => { git(['merge', '-q', '--no-ff', '-m', `merge ${b}`, b], { cwd: root, env: { ...process.env, GIT_COMMITTER_DATE: date } }); return git(['rev-parse', 'HEAD'], { cwd: root }); };
+test('a job that brought the tranche in across two owner edits passes, and so does the release', () => {
+  const root = makeRepo({ 'CLAUDE.md': claude('v0') });
+  const start = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job'], { cwd: root });
+  dated(root, { 'a.txt': 'a' }, 'job work', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'job'], { cwd: root });
+  mergeAt(root, 'tranche', '2026-11-01T11:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T13:00:00Z');
+  git(['checkout', '-q', 'job'], { cwd: root });
+  mergeAt(root, 'tranche', '2026-11-01T14:00:00Z');
+  assert.deepEqual(recordCheck(root, cfg, { base: o2, lookup: webFor(o1, o2), trusted: ['main', 'tranche'] }).findings, []);
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  mergeAt(root, 'job', '2026-11-01T15:00:00Z');
+  assert.deepEqual(recordCheck(root, cfg, { base: start, lookup: webFor(o1, o2), trusted: ['main', 'tranche'] }).findings, []);
+});
+
+test('the release after two owner edits merged from website branches passes', () => {
+  const root = makeRepo({ 'CLAUDE.md': claude('v0') });
+  const start = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  dated(root, { 't.txt': 't' }, 'tranche work', '2026-11-01T09:00:00Z');
+  git(['checkout', '-q', '-b', 'owner1', start], { cwd: root });
+  const o1 = dated(root, { 'CLAUDE.md': claude('v1') }, 'owner v1', '2026-11-01T10:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  mergeAt(root, 'owner1', '2026-11-01T10:30:00Z');
+  git(['checkout', '-q', '-b', 'owner2'], { cwd: root });
+  const o2 = dated(root, { 'CLAUDE.md': claude('v2') }, 'owner v2', '2026-11-01T11:00:00Z');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  dated(root, { 'u.txt': 'u' }, 'tranche work 2', '2026-11-01T11:10:00Z');
+  mergeAt(root, 'owner2', '2026-11-01T11:30:00Z');
+  assert.deepEqual(recordCheck(root, cfg, { base: start, lookup: webFor(o1, o2), trusted: ['main', 'tranche'] }).findings, []);
+});

@@ -285,6 +285,8 @@ test('the gate workflow keeps its shape: a read-only gate, --no-post, and a post
   assert.match(jobs.post, /if: \$\{\{ !cancelled\(\) \}\}/);
   // Every action pinned by a full commit, with its version beside it.
   for (const u of text.match(/uses: \S+.*$/gm)) assert.match(u, /^uses: actions\/[\w-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/, u);
+  // Products' older shims grep the pinned tool for this line (review B of PR 32).
+  assert.match(readFileSync(join(import.meta.dirname, '..', 'p3.mjs'), 'utf8'), /^\/\/ p3-capability: gate-no-post/m);
   // Job post downloads the artifact before it checks anything out.
   const steps = jobs.post.split(/^ {6}- /m);
   const dl = steps.findIndex((st) => /uses: actions\/download-artifact@/.test(st));

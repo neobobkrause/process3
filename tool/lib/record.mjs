@@ -206,12 +206,15 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       // The approvals block (build J): a commit whose block differs from a parent's, or from every
       // version already judged, changes it. It is accepted only when it is the owner's own website
       // commit, or leaves the block the owner last set on the tips of main or the tranche. So a
-      // merge that puts back an older block is refused, even when that block is one parent's.
+      // merge that puts back an older block, leaving it at the head, is refused.
       if (files.includes(afile) || parents.length > 1) {
         const now = blockOf(sha);
         const was = parents.length ? parentsFor(afile).map(blockOf) : [''];
         const changed = parents.length ? (!was.includes(now) || parents.some((p) => blockOf(p) !== now)) : now !== '';
-        if (changed && !landed(sha) && now !== ownerSet()?.block && !ownerCommit(sha).ok) {
+        // A merge may also carry the block the owner had set as one of its parents saw it (an
+        // earlier owner edit, since overtaken), when the head ends on the current one (review A).
+        const carried = () => blockOf(head) === ownerSet()?.block && parents.some((p) => ownerBlock(root, [p], afile, heading, ownerCommit)?.block === now);
+        if (changed && !landed(sha) && now !== ownerSet()?.block && !ownerCommit(sha).ok && !carried()) {
           const text = show(root, sha, afile) || '';
           const line = Math.max(1, text.split('\n').findIndex((l) => l.trim() === heading.trim()) + 1);
           const t = ownerSet();
