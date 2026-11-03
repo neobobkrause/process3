@@ -573,7 +573,7 @@ test('metrics report: BOB\'s idle time per day, and the overhead share per job a
     { at: '2026-11-02T01:00:00Z', row: 'sweep', bob_acts: 'unmeasured', bob_quiet_h: null },
     { at: '2026-11-02T02:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 3 },
   ]);
-  assert.deepEqual(idle, [{ day: '2026-11-01', occurrences: 2, longest_quiet_h: 1.5 }, { day: '2026-11-02', occurrences: 1, longest_quiet_h: 3 }]);
+  assert.deepEqual(idle, [{ day: '2026-11-01', occurrences: 2, longest_quiet_h: 1.5, unmeasured_sweeps: 0 }, { day: '2026-11-02', occurrences: 1, longest_quiet_h: 3, unmeasured_sweeps: 1 }]);
   assert.equal(idleByDay([]), 'unmeasured');
   const at = (h) => `2026-11-01T${String(h).padStart(2, '0')}:00:00Z`;
   const m = (module, h, role, cost, session = 's') => ({ at: at(h), module, row: 'attempt', event: 'measured', role, session, cost_usd: cost });
@@ -598,4 +598,10 @@ test('metrics report: BOB\'s idle time per day, and the overhead share per job a
   assert.equal(o.jobs.some((j) => j.module === 'bob'), false);
   assert.match(o.rule, /even split/);
   assert.equal(overhead([m('a', 2, 'job', 6)]).jobs[0].bob_usd, 'unmeasured');
+  // A job active after BOB's last row, or in a window a costless row ends, has BOB's part unmeasured.
+  const later = overhead([...rows, { at: at(8), module: 'd', row: 'attempt', event: 'start' }, m('d', 9, 'job', 2)]);
+  assert.deepEqual([later.jobs.find((j) => j.module === 'd').bob_usd, later.jobs.find((j) => j.module === 'd').unmeasured], ['unmeasured', ['reviews', 'bob', 'root', 'gate']]);
+  const costless = overhead([m('e', 1, 'job', 2), m('bob', 2, 'bob', 'unmeasured', 'session_bob'), m('bob', 3, 'bob', 1, 'session_bob')]);
+  assert.equal(costless.jobs[0].bob_usd, 'unmeasured');
+  assert.deepEqual(overhead([{ module: 'x', row: 'attempt', event: 'start' }]).jobs, []);
 });

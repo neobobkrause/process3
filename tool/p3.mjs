@@ -81,6 +81,7 @@ const commands = {
     const sub = a._.shift();
     if (sub === 'add') {
       const id = one(a, 'module');
+      if (['bob', 'root'].includes(a.role) && (typeof a.session !== 'string' || !a.session)) fail(`--role ${a.role} needs --session <its session id>: its --cost-usd is that session's cost so far`);
       const split = (v, keys) => list(v).map((x) => Object.fromEntries(String(x).split('|').map((p, i) => [keys[i], p])));
       const row = appendRow(root, id, {
         row: 'attempt', event: 'measured', role: a.role || 'job', attempt: Number(a.attempt || 1), session: a.session || null,
@@ -99,7 +100,8 @@ const commands = {
     if (sub === 'report') {
       const cfg = loadConfig(root);
       const branch = a.branch || `origin/${cfg.tranche}`;
-      const sweepRows = fetchState(root, cfg.state_branch) ? jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)) : [];
+      let sweepRows = [];
+      try { if (fetchState(root, cfg.state_branch)) sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); } catch { sweepRows = []; } // unreadable: idle time unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
       console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null }), null, 2));
       return 0;
