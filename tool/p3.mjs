@@ -56,9 +56,9 @@ const commands = {
     return 0;
   },
 
-  // job start <id> --coordinator <session> [--model <m>] [--reopen "<what>"]: BOB opens a job,
-  // or, with --reopen, a new attempt on a COMPLETE module whose last attempt merged.
-  'job start': (a, root) => { jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen }); return 0; },
+  // job start <id> --coordinator <session> [--model <m>] [--reopen "<what>" | --restart "<why>"]: BOB opens a job;
+  // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
+  'job start': (a, root) => { jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart }); return 0; },
 
   // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite]
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
