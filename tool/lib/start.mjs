@@ -6,7 +6,9 @@
 // starter and ends. It records the hash of the approvals it loaded in a file under .git (not the
 // tree); start check --wake, run by BOB, ROOT and the watcher at every later wake after they
 // fetch and detach at the tip, compares the tip's approvals with that record: a session loads
-// approvals only at its start, so one whose approvals changed is replaced.
+// approvals only at its start, so one whose approvals changed is replaced. A fresh container has
+// no such record (PR 38 note), so the starting prompts and task prompts carry the hash of the
+// tip's block at prompt time (--approvals <hash>), and --wake compares the tip's with that.
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -14,6 +16,14 @@ import { approvalsBlock } from './record.mjs';
 import { exists, fail, git, loadConfig } from './util.mjs';
 
 const hash = (t) => createHash('sha256').update(t).digest('hex');
+const HASH = /^[0-9a-f]{64}$/;
+
+// The hash of the approvals block at a commit (the commit's own config names the file), as
+// --wake --approvals takes it.
+export function approvalsHash(root, rev) {
+  const { approvals: { file, heading } } = loadConfig(root, rev);
+  return hash(exists(root, rev, file) ? approvalsBlock(git(['show', `${rev}:${file}`], { cwd: root }), heading) : '');
+}
 export const loadedFile = (root) => resolve(root, git(['rev-parse', '--git-path', 'p3-approvals-loaded'], { cwd: root }));
 
 // Fetches the branch; HEAD, its tip, the approvals file and both blocks (the tip names the file).
@@ -44,11 +54,18 @@ export function startCheck(root, { branch, log = console.log } = {}) {
   return { ok, head, tip, sameHead, sameApprovals };
 }
 
-// start check --wake: the tip's approvals against those this session recorded at its start.
-export function wakeCheck(root, { branch, log = console.log } = {}) {
+// start check --wake: the tip's approvals against those this session recorded at its start, or,
+// with --approvals <hash>, against the hash its starting or task prompt carries.
+export function wakeCheck(root, { branch, approvals, log = console.log } = {}) {
+  if (approvals !== undefined && !HASH.test(String(approvals))) fail('--approvals takes the 64-hex hash the starting or task prompt carries');
   const { name, tip, atTip } = read(root, branch);
   const rec = loadedFile(root);
   log(`${name} ${tip}`);
+  if (approvals !== undefined) {
+    const ok = approvals === hash(atTip);
+    log(ok ? 'start check --wake: ok, the approvals are those this session started with' : 'approvals changed since this session started: it is replaced');
+    return { ok, tip };
+  }
   if (!existsSync(rec)) {
     writeFileSync(rec, hash(atTip) + '\n');
     log('start check --wake: no record of the approvals this session loaded; the tip\'s are recorded now');

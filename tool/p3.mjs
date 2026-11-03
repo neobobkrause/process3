@@ -12,7 +12,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
-import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
+import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
 import { sweep, sweepTask, watch } from './lib/sweep.mjs';
@@ -56,7 +56,7 @@ const commands = {
     return 0;
   },
 
-  // job start <id> --coordinator <session> [--model <m>] [--reopen "<what>" | --restart "<why>"]: BOB opens a job;
+  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>"]: BOB opens a job;
   // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
   'job start': (a, root) => { jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart }); return 0; },
 
@@ -143,8 +143,9 @@ const commands = {
   // session's first command. Fetches that branch, compares HEAD and the approvals block with its
   // tip, prints both SHAs; exit 1 when either differs (Foundations, "Every session checks its start").
   // It records the approvals it loaded under .git; start check --wake, at every later wake of
-  // BOB, ROOT or the watcher, exits 1 when the tip's approvals differ from that record.
-  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch }) : startCheck(root, { branch: a.branch })).ok ? 0 : 1),
+  // BOB, ROOT or the watcher, exits 1 when the tip's approvals differ from that record, or with
+  // --approvals <hash> (from the starting or task prompt) from that hash.
+  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch, approvals: a.approvals }) : startCheck(root, { branch: a.branch })).ok ? 0 : 1),
 
   // start root | start bob | start watcher: the role's starting prompt (and create_session call).
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
@@ -159,7 +160,7 @@ const commands = {
   // hourly routine; prints what ROOT must do and writes the heartbeat. sweep task --session <id>:
   // the hourly task's prompt and create_trigger call.
   sweep: (a, root) => {
-    if (a._[0] === 'task') { const t = sweepTask(a.session, loadConfig(root).tranche); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
+    if (a._[0] === 'task') { const t = sweepTask(a.session, loadConfig(root).tranche, tipApprovals(root).approvals); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
     sweep(root, { session: a.session, live: a.live, attempts: list(a.attempt).filter((x) => x !== true) });
     return 0;
   },
