@@ -7,6 +7,7 @@ import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, veri
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
+import { committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
@@ -59,6 +60,14 @@ export function gate(root, opts) {
   if (entry) {
     for (const f of changed) if (!ownPaths(entry).some((p) => underPath(f, p))) findings.push(F('ownership', f, `job ${job} may not change files outside its module`));
   }
+  // ARC-1: its imports are its own module or its declared uses. JOB-8: no generated artifact.
+  const gen = generatedRows(cfg);
+  findings.push(...gen.findings);
+  if (entry) {
+    const im = importFindings(root, cfg, { base, head, entry, changed });
+    if (im.skipped) { runRow.imports = 'skipped'; log(im.skipped); } else runRow.imports = im.findings.length ? 'fail' : 'pass';
+    findings.push(...im.findings, ...committedGenerated(root, gen.rows, { head, changed }));
+  }
 
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
@@ -80,7 +89,10 @@ export function gate(root, opts) {
     const scope = entry ? [entry] : entries.filter((e) => changed.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
     // GAT-5: every lock file, installed where it sits.
-    if (scope.length) findings.push(...install(root, cfg.lockfiles, exec ? { exec } : {}).findings);
+    const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
+    findings.push(...inst);
+    // ARC-4: the entry's own checks, as job complete runs them.
+    if (entry && !inst.length) findings.push(...entryChecks(root, entry, { timeout, log }));
     const results = [];
     for (const e of scope) {
       const s = runSuite(root, e, undefined, { timeout });
@@ -114,6 +126,12 @@ export function gate(root, opts) {
         runRow.load_only = r.loadOnly;
         if (r.inert.length && !exempt) for (const t of r.inert) findings.push(F('revert', t, 'passes with the change reverted: the test does not test the change'));
       }
+    }
+    // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
+    if (scope.length && gen.rows.length) {
+      const g = regenerate(root, gen.rows, { timeout });
+      runRow.generated = g.ran;
+      findings.push(...g.findings);
     }
   }
 
