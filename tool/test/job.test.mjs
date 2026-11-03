@@ -4,7 +4,7 @@ import { parseBlock, GATE, block } from '../lib/github.mjs';
 import { jobBlock, jobComplete, jobStart } from '../lib/job.mjs';
 import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
-import { appendRow, readRows, report } from '../lib/metrics.mjs';
+import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
 
@@ -563,4 +563,48 @@ test('job complete names a test for each struck mark, and refuses before marking
   const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface']);
   assert.equal(r.ok, true);
   assert.deepEqual(r.receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x at the interface' }]);
+});
+
+test('metrics report: BOB\'s idle time per day, and the overhead share per job and per layer', () => {
+  const idle = idleByDay([
+    { at: '2026-11-01T01:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 0.5 },
+    { at: '2026-11-01T02:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 1.5 },
+    { at: '2026-11-01T03:00:00Z', row: 'sweep', bob_acts: false, bob_quiet_h: null },
+    { at: '2026-11-02T01:00:00Z', row: 'sweep', bob_acts: 'unmeasured', bob_quiet_h: null },
+    { at: '2026-11-02T02:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 3 },
+  ]);
+  assert.deepEqual(idle, [{ day: '2026-11-01', occurrences: 2, longest_quiet_h: 1.5, unmeasured_sweeps: 0 }, { day: '2026-11-02', occurrences: 1, longest_quiet_h: 3, unmeasured_sweeps: 1 }]);
+  assert.equal(idleByDay([]), 'unmeasured');
+  const at = (h) => `2026-11-01T${String(h).padStart(2, '0')}:00:00Z`;
+  const m = (module, h, role, cost, session = 's') => ({ at: at(h), module, row: 'attempt', event: 'measured', role, session, cost_usd: cost });
+  const rows = [
+    { at: at(1), module: 'a', row: 'attempt', event: 'start' },
+    { at: at(1), module: 'b', row: 'attempt', event: 'start' },
+    m('a', 2, 'job', 6), m('a', 2, 'review', 1), m('b', 2, 'job', 'unmeasured'),
+    m('bob', 3, 'bob', 4, 'session_bob'), // 4 split over a and b
+    { at: at(4), module: 'c', row: 'attempt', event: 'start' }, m('c', 5, 'job', 3),
+    m('bob', 6, 'bob', 7, 'session_bob'), // cumulative: 3 more, all to c
+    m('bob', 7, 'bob', 2, 'session_bob2'), // a new BOB, nothing open since: unattributed
+  ];
+  const o = overhead(rows, layerOf('| Layer | Modules |\n|---|---|\n| 1 | `a`, `b` |\n| 2 | c |\n'));
+  const job = (id) => o.jobs.find((j) => j.module === id);
+  assert.deepEqual([job('a').job_usd, job('a').reviews_usd, job('a').bob_usd, job('a').root_usd, job('a').share], [6, 1, 2, 'unmeasured', 0.3333]);
+  assert.deepEqual(job('a').unmeasured, ['root', 'gate']);
+  assert.deepEqual([job('b').job_usd, job('b').reviews_usd, job('b').bob_usd, job('b').share], ['unmeasured', 'unmeasured', 2, 'unmeasured']);
+  assert.deepEqual([job('c').bob_usd, job('c').share, job('c').layer], [3, 0.5, 2]);
+  assert.deepEqual(o.layers.map((l) => [l.layer, l.share]), [[1, 'unmeasured'], [2, 0.5]]);
+  assert.ok(o.layers[0].unmeasured.includes('b job'));
+  assert.equal(o.unattributed_usd, 2);
+  assert.equal(o.jobs.some((j) => j.module === 'bob'), false);
+  assert.match(o.rule, /even split/);
+  assert.equal(overhead([m('a', 2, 'job', 6)]).jobs[0].bob_usd, 'unmeasured');
+  // A job active after BOB's last row, or in a window a costless row ends, has BOB's part unmeasured.
+  const later = overhead([...rows, { at: at(8), module: 'd', row: 'attempt', event: 'start' }, m('d', 9, 'job', 2)]);
+  assert.deepEqual([later.jobs.find((j) => j.module === 'd').bob_usd, later.jobs.find((j) => j.module === 'd').unmeasured], ['unmeasured', ['reviews', 'bob', 'root', 'gate']]);
+  const costless = overhead([m('e', 1, 'job', 2), m('bob', 2, 'bob', 'unmeasured', 'session_bob'), m('bob', 3, 'bob', 1, 'session_bob')]);
+  assert.equal(costless.jobs[0].bob_usd, 'unmeasured');
+  const spans = overhead([m('f', 1, 'job', 2), m('bob', 2, 'bob', 1, 'session_bob'), m('g', 3, 'job', 2), m('bob', 4, 'bob', 'unmeasured', 'session_bob'), m('h', 5, 'job', 2), m('bob', 6, 'bob', 3, 'session_bob')]);
+  assert.deepEqual(spans.jobs.map((j) => [j.module, j.bob_usd]), [['f', 1], ['g', 'unmeasured'], ['h', 'unmeasured']]);
+  assert.equal(spans.unattributed_usd, 2);
+  assert.deepEqual(overhead([{ module: 'x', row: 'attempt', event: 'start' }]).jobs, []);
 });

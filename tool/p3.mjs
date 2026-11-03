@@ -14,9 +14,9 @@ import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
-import { handoff, outcome, send } from './lib/state.mjs';
+import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
-import { sweep, sweepTask, watch } from './lib/sweep.mjs';
+import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
@@ -80,11 +80,13 @@ const commands = {
   //   [--refusal "<act>|<depth>|<channel>"]... [--decline "<act>|<depth>"]... [--outcome o]
   // metrics refusal --session s --act "<act>" --depth n [--module <id>]: one refusal a session
   //   reported, in process/metrics/refusals.bob.jsonl; status prints REFRESH for a session at 10.
-  // metrics report: the two health metrics and their figures, as JSON.
+  // metrics report: the two health metrics and their figures, BOB's idle time per day and the
+  //   process overhead share per job and per layer, as JSON.
   metrics: (a, root) => {
     const sub = a._.shift();
     if (sub === 'add') {
       const id = one(a, 'module');
+      if (['bob', 'root'].includes(a.role) && (typeof a.session !== 'string' || !a.session)) fail(`--role ${a.role} needs --session <its session id>: its --cost-usd is that session's cost so far`);
       const split = (v, keys) => list(v).map((x) => Object.fromEntries(String(x).split('|').map((p, i) => [keys[i], p])));
       const row = appendRow(root, id, {
         row: 'attempt', event: 'measured', role: a.role || 'job', attempt: Number(a.attempt || 1), session: a.session || null,
@@ -102,7 +104,11 @@ const commands = {
     }
     if (sub === 'report') {
       const cfg = loadConfig(root);
-      console.log(JSON.stringify(metricsReport(root, repoSlug(root), a.branch || `origin/${cfg.tranche}`), null, 2));
+      const branch = a.branch || `origin/${cfg.tranche}`;
+      let sweepRows = [];
+      try { if (fetchState(root, cfg.state_branch)) sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); } catch { sweepRows = []; } // unreadable: idle time unmeasured
+      const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
+      console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null }), null, 2));
       return 0;
     }
     fail('metrics add | metrics refusal | metrics report');
