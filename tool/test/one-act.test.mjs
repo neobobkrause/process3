@@ -61,6 +61,9 @@ const refused = [
   'npx wrangler --env dev deploy && ls',
   'npx wrangler --config w.toml deploy && ls',
   'pnpm exec wrangler -e dev deploy; ls',
+  'npx -p wrangler wrangler deploy && echo ok',
+  'npm exec --package wrangler -- wrangler deploy; ls',
+  'pnpm --filter web exec wrangler deploy && echo ok',
   'git push>log; ls',
   'gh pr list>out && ls',
   'bash -c "echo hi > f; git push"',
@@ -110,6 +113,8 @@ const allowed = [
   'gh pr create --body "a > b; c"',
   "echo $'it\\'s' && ls",
   'npx wrangler --env dev tail && ls',
+  'npx -p wrangler wrangler tail && ls',
+  'pnpm --filter web exec wrangler deploy',
   'echo "unclosed && ls',
 ];
 

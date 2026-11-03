@@ -186,15 +186,18 @@ function head(words) {
   }
 }
 
-const positional = (w, valued = []) => {
+// The indexes of the words that are not options (an option in `valued` takes the next word).
+const positionalAt = (w, valued = []) => {
   const out = [];
   for (let i = 0; i < w.length; i++) {
-    if (w[i] === '--') { out.push(...w.slice(i + 1)); break; }
+    if (w[i] === '--') { for (let j = i + 1; j < w.length; j++) out.push(j); break; }
     if (w[i].startsWith('-')) { if (valued.includes(w[i])) i++; continue; }
-    out.push(w[i]);
+    out.push(i);
   }
   return out;
 };
+const positional = (w, valued = []) => positionalAt(w, valued).map((i) => w[i]);
+const RUNNER_VALUED = ['-p', '--package', '--filter', '-F', '-C', '--dir', '--cwd', '-w', '--workspace', '--prefix'];
 
 // Whether one simple command (its words) is an outward act. Returns the act's name or null.
 // A word cut at its first redirection (push>log is push; >log and 2>&1 are nothing).
@@ -206,11 +209,10 @@ export function actOf(words) {
   let b = base(w[0]);
   // Package runners that start wrangler.
   if (['npx', 'bunx', 'pnpx'].includes(b) || (['pnpm', 'yarn', 'npm', 'bun'].includes(b))) {
-    const p = positional(w.slice(1), ['-p', '--package']);
-    const k = ['exec', 'dlx', 'x', 'run'].includes(p[0]) ? 1 : 0;
+    const at = positionalAt(w, RUNNER_VALUED).filter((i) => i > 0);
+    const k = ['exec', 'dlx', 'x', 'run'].includes(w[at[0]]) ? 1 : 0;
     // wrangler's own words, options included, as they follow it.
-    const at = p[k] && /^wrangler(@|$)/.test(base(p[k])) ? w.indexOf(p[k], 1) : -1;
-    if (at > 0) { w = w.slice(at); b = 'wrangler'; }
+    if (at[k] !== undefined && /^wrangler(@|$)/.test(base(w[at[k]]))) { w = w.slice(at[k]); b = 'wrangler'; }
   }
   if (b === 'git') {
     const p = positional(w.slice(1), ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path']);
