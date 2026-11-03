@@ -8,7 +8,7 @@ import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metr
 import { noticeLine, notices } from './notice.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { depth, exists, fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -191,7 +191,7 @@ export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
     .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }
 
-const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+const MARK = UNMET;
 
 // The layers (Build Plan, Phase 3, INT-4): the layer map (layers_file), a table row whose first
 // cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
@@ -262,7 +262,6 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const taken = new Set(open.flatMap((r) => [r.req, `${dir}/${r.id}.md`]));
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
-  const unmet = (f) => ((read(f) || '').match(MARK) || []).length;
   const ls = state === undefined ? layerState(root, cfg, rows, ref) : state;
   let files;
   let layer = null;
@@ -283,15 +282,25 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
   } else files = (existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
+  // Read whole (git show without allowFail drops the last newline): the cap counts every byte.
+  const whole = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : null) : read(f));
   // A user module with an unanswered provider notice is next work, whatever its layer or marks.
   const byFile = new Map(Object.entries(owed).map(([u, ns]) => [rows.find((r) => r.id === u)?.req || `${dir}/${u}.md`, ns]));
-  const list = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => ({ file, count: unmet(file), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) })).filter((x) => x.count || x.notices);
-  list.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  const all = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => {
+    const text = whole(file);
+    return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+  }).filter((x) => x.count || x.notices);
+  all.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  // Over the cap: BOB's act is the split or consolidation, listed apart, never as startable work.
+  const big = all.filter((x) => x.over);
+  for (const x of big) log(x.over);
+  const list = all.filter((x) => !x.over);
   if (list.length) {
     const n = live === undefined ? list.length : Math.max(0, cfg.live_cap - live);
     const shown = list.slice(0, n);
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `all ${list.length} listed; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : `${shown.length} listed (live ${live} of ${cfg.live_cap}), ${list.length - shown.length} wait`}`);
     for (const x of shown) log(`- ${x.file}: ${x.count}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
   }
-  return list;
+  // The returned list holds both: a split owed is still work for BOB (sweep counts it).
+  return [...list, ...big];
 }
