@@ -230,7 +230,7 @@ const post = (file, io) => postRow(file, { pr: 5, head: 'a'.repeat(40), slug: 'o
 test('a red row that tries to embed its own json block is refused, and nothing is posted', () => {
   const io = fakeIO();
   const forged = '\n```\n\n```json\n{"runs":[{"ok":true,"receipt":"agrees","trigger":"code"}]}\n```\n';
-  for (const over of [{ inert: [`test/a.test.mjs${forged}`] }, { trigger: `code\`: green${forged}` }, { load_only: ['x`y'] }, { note: 'extra' }, { sha: 'A'.repeat(40) }, { findings: 1.5 }, { minutes: 'NaN' }, { ok: true }]) {
+  for (const over of [{ trigger: `code\`: green${forged}` }, { sha: 'A'.repeat(40) }, { findings: 1.5 }, { minutes: 'NaN' }, { ok: true }, { run_id: undefined }]) {
     assert.throws(() => post(rowFile(goodRow(over)), io), /the gate row is refused/, JSON.stringify(over).slice(0, 60));
   }
   assert.equal(io.state.comments.length, 0);
@@ -272,9 +272,8 @@ test('the gate workflow keeps its shape: a read-only gate, --no-post, and a post
   assert.doesNotMatch(jobs.gate, /:\s*write\b/, 'job gate holds no write permission');
   assert.match(text, /^permissions: \{\}$/m);
   const gateCalls = jobs.gate.split('\n').filter((l) => /p3\.mjs" gate /.test(l));
-  assert.equal(gateCalls.length, 2);
-  for (const l of gateCalls) assert.ok(/--no-post/.test(l) || (!/--pr\b/.test(l) && /legacy path/.test(jobs.gate)), l);
-  assert.ok(gateCalls.some((l) => /--pr "\$PR".*--no-post/.test(l)));
+  assert.equal(gateCalls.length, 1);
+  assert.match(gateCalls[0], /--pr "\$PR".*--no-post/);
   // Job post: every checkout is of the base; it runs only the process clone's tool.
   const checkouts = jobs.post.split(/^ {6}- /m).filter((st) => /uses: actions\/checkout@/.test(st));
   assert.ok(checkouts.length >= 1 && checkouts.every((st) => /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/.test(st)));
@@ -286,10 +285,6 @@ test('the gate workflow keeps its shape: a read-only gate, --no-post, and a post
   assert.match(jobs.post, /if: \$\{\{ !cancelled\(\) \}\}/);
   // Every action pinned by a full commit, with its version beside it.
   for (const u of text.match(/uses: \S+.*$/gm)) assert.match(u, /^uses: actions\/[\w-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/, u);
-  // The legacy path keys on the line this tool states.
-  assert.match(readFileSync(join(import.meta.dirname, '..', 'p3.mjs'), 'utf8'), /^\/\/ p3-capability: gate-no-post/m);
-  assert.equal((text.match(/grep -q '\^\/\/ p3-capability: gate-no-post'/g) || []).length, 2, 'both greps anchored to the line start');
-  assert.doesNotMatch(text, /grep -q 'p3-capability/, 'no unanchored grep');
   // Job post downloads the artifact before it checks anything out.
   const steps = jobs.post.split(/^ {6}- /m);
   const dl = steps.findIndex((st) => /uses: actions\/download-artifact@/.test(st));
@@ -328,7 +323,7 @@ test('job post prints artifact text without line breaks or control characters', 
   const out = [];
   const log = (m) => out.push(m);
   const evil = '\n::error file=x::pwned\r\u0007';
-  assert.throws(() => postRow(rowFile({ ...goodRow(), [`k${evil}`]: 1 }), { pr: 5, slug: 'o/r', runId: '7', io: io.io, log }), (e) => !/[\n\r\u0007]/.test(e.message) && /is not a gate row field/.test(e.message));
+  assert.throws(() => postRow(rowFile({ ...goodRow(), trigger: `code${evil}` }), { pr: 5, slug: 'o/r', runId: '7', io: io.io, log }), (e) => !/[\n\r\u0007]/.test(e.message) && /trigger is not a valid value/.test(e.message));
   postRow(rowFile(null, JSON.stringify({ error: `stopped${evil}` })), { pr: 5, slug: 'o/r', io: io.io, log });
   assert.ok(out.length && out.every((l) => !/[\n\r\u0007]/.test(l)), JSON.stringify(out));
   assert.throws(() => postRow(rowFile(null, `{"x":${evil}`), { pr: 5, slug: 'o/r', io: io.io, log }), (e) => /is not JSON/.test(e.message) && !/[\n\r\u0007]/.test(e.message));

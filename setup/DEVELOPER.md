@@ -140,7 +140,7 @@ Clicks: signed in to github.com as yourself, in your own window.
 4. Make the change here, in the browser, signed in as yourself. An upload, GitHub Desktop or a `git push` does not count.
 5. Click **Commit changes...**, choose **Commit directly to the `<tranche>` branch**, and click **Commit changes**. If only **Create a new branch** is offered, on the next page set **base** to the tranche, not `main`, then click **Create pull request**; BOB merges it.
 
-How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, last changed by your own commit through GitHub's website. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"`: BOB's onboarding sets it to the repository's owner as GitHub has it, so nothing more is needed from you for it. The record check also reports any later change to the approvals that is not your own website commit.
+How BOB confirms: `p3 setup check` shows `approvals` set: one approvals block in `CLAUDE.md` on the tranche, the block your own commit through GitHub's website last set on the tranche or `main`. It judges by the owner `process/config.json` on the tranche names under `"approvals"`, `"owner"` (`neobobkrause` when it names none); you confirm that owner once on the onboarding page. The record check also reports any later change to the approvals that is not your own website commit.
 
 Sets: `approvals`.
 

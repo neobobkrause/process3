@@ -27,13 +27,6 @@ export function findPR(slug, head, { state = 'open' } = {}) {
 
 export const getPR = (slug, n) => gh(['api', `repos/${slug}/pulls/${n}`]);
 
-// Every open pull request from a head branch, or null when unreadable.
-export function openFrom(slug, head) {
-  const owner = slug.split('/')[0];
-  const prs = gh(['api', `repos/${slug}/pulls?state=open&head=${owner}:${encodeURIComponent(head)}&per_page=10`], { allowFail: true });
-  return Array.isArray(prs) ? prs : null;
-}
-
 export function openPRs(slug, base) {
   const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=open&base=${encodeURIComponent(base)}&per_page=100`], { allowFail: true });
   return Array.isArray(pages) ? pages.flat() : null;
@@ -139,51 +132,19 @@ export function checkRun(slug, sha, name) {
   return runs[0] || null;
 }
 
-// The checks a branch's rulesets require (merge --plain): each by name with the app the rule
-// names (its integration_id, or null for any app), and whether the strict policy is on. null
-// when the rules cannot be read. Read from the rulesets, not classic branch protection.
-export const ACTIONS_APP = 15368; // GitHub Actions
+// The checks a branch's rulesets require (merge --plain), by name; null when the rules cannot
+// be read. Read from the rulesets, not classic branch protection.
 export function requiredChecks(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
   const path = branch.split('/').map(encodeURIComponent).join('/');
   const rules = read(['api', `repos/${slug}/rules/branches/${path}?per_page=100`]);
   if (!Array.isArray(rules)) return null;
-  const rs = rules.filter((r) => r.type === 'required_status_checks');
-  const checks = [];
-  for (const c of rs.flatMap((r) => r.parameters?.required_status_checks || [])) {
-    const app = c.integration_id ?? null;
-    if (!checks.some((k) => k.context === c.context && k.app === app)) checks.push({ context: c.context, app });
-  }
-  return { checks, strict: rs.some((r) => r.parameters?.strict_required_status_checks_policy === true) };
+  const checks = rules.filter((r) => r.type === 'required_status_checks').flatMap((r) => r.parameters?.required_status_checks || []);
+  return { checks: checks.map((c) => ({ context: c.context })) };
 }
 
-// Whether an active ruleset that requires status checks on this branch names the branch itself
-// (refs/heads/<branch>), not ~ALL or a pattern: what the owner's ruleset gives the tranche
-// (DEVELOPER.md Step 11). false when unreadable.
-export function namedRequiredChecks(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
-  const path = branch.split('/').map(encodeURIComponent).join('/');
-  const rules = read(['api', `repos/${slug}/rules/branches/${path}?per_page=100`]);
-  if (!Array.isArray(rules)) return false;
-  const ids = [...new Set(rules.filter((r) => r.type === 'required_status_checks' && (r.parameters?.required_status_checks || []).length).map((r) => r.ruleset_id).filter(Boolean))];
-  return ids.some((id) => {
-    const rs = read(['api', `repos/${slug}/rulesets/${id}?includes_parents=true`]);
-    return rs?.enforcement === 'active' && (rs.conditions?.ref_name?.include || []).includes(`refs/heads/${branch}`);
-  });
-}
-
-// Every check run of that name on a commit, newest first; null when unreadable. Only check
-// runs: a commit status can be posted by any account with write access (review of PR 14).
+// Every check run of that name on a commit, newest first; null when unreadable.
 export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFail: true }) } = {}) {
   const r = read(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=all&per_page=100`]);
   if (!r || !Array.isArray(r.check_runs)) return null;
   return [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0));
-}
-
-// The workflow run behind an Actions check run, through its check suite: its file and the
-// event that started it.
-export function workflowRun(slug, run, { read = (args) => gh(args, { allowFail: true }) } = {}) {
-  const id = run.check_suite?.id;
-  if (!id) return null;
-  const r = read(['api', `repos/${slug}/actions/runs?check_suite_id=${id}&per_page=1`]);
-  const w = r?.workflow_runs?.[0];
-  return w?.path ? { path: String(w.path).split('@')[0], event: w.event || null } : null;
 }

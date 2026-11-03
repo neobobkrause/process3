@@ -9,14 +9,6 @@
 # process, so job gate, which runs product code, holds only read permissions, and job post,
 # which holds the write token, runs no product code: it posts the row job gate uploaded.
 # Each action is pinned by its full commit, with its version beside it (review of PR 13).
-# The legacy path (review of PR 13): when the base's pin is a tool from before the two-job gate
-# (its tool/p3.mjs lacks the line "p3-capability: gate-no-post"), job gate runs that tool's gate
-# without --pr, so it reads and posts nothing, and job post does nothing. A job token can only
-# read, so the old single-job form, which posted from the gate, cannot run here. The legacy
-# path exists only until every base of the product pins the new tool, and is removed at the
-# next change to this file after that. On the legacy path a ready job pull request goes red
-# with "no receipt", since no comment is read: it fails closed. So a product moves this file
-# and its process pin together, in one plain pull request.
 # Copied into a product as .github/workflows/process-gate.yml.
 name: process-gate
 on:
@@ -68,8 +60,6 @@ jobs:
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
-          if grep -q '^// p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then echo "legacy=0" >> "$GITHUB_OUTPUT"
-          else echo "::warning::legacy path: the base's process pin predates the two-job gate; the gate runs without reading or posting comments"; echo "legacy=1" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ steps.pin.outputs.node }}
@@ -88,15 +78,8 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR: ${{ github.event.pull_request.number }}
           DRAFT: ${{ github.event.pull_request.draft }}
-          LEGACY: ${{ steps.pin.outputs.legacy }}
         # The row goes to the artifact only; job post writes the comment from it.
-        run: |
-          if [ "$LEGACY" = 1 ]; then
-            # legacy path: an old pin, with no --pr, reads and posts no comment.
-            node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --draft "$DRAFT" --started "$STARTED" --out "$RUNNER_TEMP/gate.json"
-          else
-            node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --no-post --out "$RUNNER_TEMP/gate.json"
-          fi
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" gate --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --pr "$PR" --draft "$DRAFT" --started "$STARTED" --no-post --out "$RUNNER_TEMP/gate.json"
       - name: the run's own record of its row (merge trusts a row only when this artifact matches it)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -145,10 +128,6 @@ jobs:
           repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
-          # legacy path (see the top of this file): an old pin cannot post; job gate posted nothing.
-          if ! grep -q '^// p3-capability: gate-no-post' "$RUNNER_TEMP/process3/tool/p3.mjs"; then
-            echo "::warning::legacy path: the base's process pin predates the two-job gate; no gate comment is posted"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
-          fi
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.pin.outputs.skip != '1'

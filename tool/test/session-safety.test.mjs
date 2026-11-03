@@ -8,7 +8,7 @@ import { mergeRetry, mergePlain } from '../lib/merge.mjs';
 import { REFRESH_AT, REFUSALS_FILE, appendRow, bobMetricsFile, recordRefusal, refusalCounts } from '../lib/metrics.mjs';
 import { startCheck } from '../lib/start.mjs';
 import { status } from '../lib/status.mjs';
-import { Fail, git, pushRetry } from '../lib/util.mjs';
+import { Fail, git } from '../lib/util.mjs';
 import { commit, makeRepo } from './helpers.mjs';
 
 const APPROVALS = '# Product\n\n## Standing approvals from Bob\n\nSessions may push.\n\n## Other\n\nx\n';
@@ -170,11 +170,9 @@ test('merge --plain retries a moved base and merges the same head; a head that m
       calls,
       io: {
         getPR: () => { calls.reads++; return { state: 'open', draft: false, base: { ref: 'tranche', repo: { full_name: 'o/r', default_branch: 'main' } }, head: { ref: 'bob/pin', sha: calls.tries > 0 && headAfter ? headAfter : sha, repo: { full_name: 'o/r' } } }; },
-        requiredChecks: () => ({ checks: [{ context: 'gate', app: 15368 }], strict: false }),
-        checkRuns: () => [{ id: 1, app: { id: 15368 }, status: 'completed', conclusion: 'success', started_at: '2026-11-02T10:00:00Z', check_suite: { id: 7 } }],
-        workflowRun: () => ({ path: '.github/workflows/ci.yml', event: 'pull_request' }),
+        requiredChecks: () => ({ checks: [{ context: 'gate' }] }),
+        checkRuns: () => [{ id: 1, status: 'completed', conclusion: 'success', started_at: '2026-11-02T10:00:00Z' }],
         repo: { released: () => false, shim: () => null, descends: () => false },
-        openFrom: () => [], repoOwner: () => 'neobobkrause', me: () => 'civicsmith', namedChecks: () => true,
         mergePR: (slug, n, s) => { calls.tries++; if (calls.tries === 1) moved(); calls.merged = s; return { merged: true, sha: 'm'.repeat(40) }; },
       },
     };
@@ -187,31 +185,3 @@ test('merge --plain retries a moved base and merges the same head; a head that m
   assert.equal(bad.calls.tries, 1);
 });
 
-test('pushRetry: a fetch-first rejection fetches, merges (never forced) and pushes again', () => {
-  const { root, bare } = withOrigin({ 'README.md': 'x' });
-  const other = clone(bare);
-  const theirs = commit(other, { 'theirs.txt': 'x' });
-  git(['push', '-q', 'origin', 'tranche'], { cwd: other });
-  const ours = commit(root, { 'ours.txt': 'y' });
-  const logs = [];
-  const tip = pushRetry(root, 'tranche', { wait: 0, log: (m) => logs.push(m) });
-  assert.equal(git(['ls-remote', 'origin', 'refs/heads/tranche'], { cwd: root }).split('\t')[0], tip);
-  for (const c of [theirs, ours]) assert.equal(git(['merge-base', '--is-ancestor', c, tip], { cwd: root, allowFail: true }).code, 0, 'both sides kept');
-  assert.equal(logs.length, 1);
-  assert.match(logs[0], /moved on origin; fetching and trying again \(2 of 3\)/);
-});
-
-test('pushRetry: a conflict stops it with nothing pushed; another rejection stops at once', () => {
-  const { root, bare } = withOrigin({ 'README.md': 'x' });
-  const other = clone(bare);
-  const theirs = commit(other, { 'README.md': 'theirs' });
-  git(['push', '-q', 'origin', 'tranche'], { cwd: other });
-  const ours = commit(root, { 'README.md': 'ours' });
-  assert.throws(() => pushRetry(root, 'tranche', { wait: 0, log: quiet }), /does not merge cleanly; nothing was pushed/);
-  assert.equal(git(['ls-remote', 'origin', 'refs/heads/tranche'], { cwd: root }).split('\t')[0], theirs);
-  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), ours, 'the merge was aborted');
-  assert.equal(git(['status', '--porcelain'], { cwd: root }), '');
-  // A rejection that is not fetch-first (a non-fast-forward the local side already knows of).
-  git(['fetch', '-q', 'origin'], { cwd: root });
-  assert.throws(() => pushRetry(root, 'tranche', { wait: 0, log: quiet }), /the push of tranche failed/);
-});
