@@ -201,10 +201,16 @@ test('setup script: a failure stops start check with its last lines and writes n
   // A timeout, through the runner the tool uses.
   const slow = product({ setup_script: ['x'], setup_timeout_minutes: 0.001 });
   const t = runSetupScript(slow, { log: quiet, exec: (cmd, args, o) => { assert.equal(o.timeout, 60); return { code: 1, stdout: 'started', stderr: 'Error: spawnSync x ETIMEDOUT', seconds: 0 }; } });
+  // And the real runner's timeout, end to end.
+  const real = runSetupScript(product({ setup_script: ['sh', script('sleep 5')], setup_timeout_minutes: 0.005 }), { log: quiet });
+  assert.deepEqual(real, { ok: false, ran: true, timedOut: true });
   assert.deepEqual(t, { ok: false, ran: true, timedOut: true });
   const tout = [];
-  runSetupScript(slow, { log: (m) => tout.push(m), exec: () => ({ code: 1, stdout: '', stderr: 'ETIMEDOUT', seconds: 0 }) });
+  runSetupScript(slow, { log: (m) => tout.push(m), exec: () => ({ code: 1, stdout: '', stderr: 'Error: spawnSync x ETIMEDOUT', seconds: 0 }) });
   assert.match(tout.join('\n'), /timed out after 0\.001 minutes/);
+  // A script that fails on its own and prints ETIMEDOUT (a network error) is its exit, not a timeout.
+  const own = runSetupScript(slow, { log: quiet, exec: () => ({ code: 1, stdout: '', stderr: 'npm ERR! ETIMEDOUT\n', seconds: 0 }) });
+  assert.equal(own.timedOut, false);
 });
 
 test('setup script: a stale start runs nothing; a bad setup_script is refused', () => {

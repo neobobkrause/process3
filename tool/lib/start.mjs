@@ -59,7 +59,8 @@ export function runSetupScript(root, { log = console.log, exec = run } = {}) {
   log(`setup script: ${argv.join(' ')}`);
   const r = exec(argv[0], argv.slice(1), { cwd: root, timeout: minutes * 60000 });
   if (r.code !== 0) {
-    const timedOut = /ETIMEDOUT/.test(r.stderr);
+    // spawnSync's own error on its timeout, not a script's output that mentions ETIMEDOUT.
+    const timedOut = /spawnSync \S+ ETIMEDOUT$/.test(r.stderr.trimEnd());
     const tail = `${r.stdout}${r.stderr}`.trimEnd().split('\n').slice(-20).join('\n');
     log(`setup script: FAILED (${timedOut ? `timed out after ${minutes} minutes` : `exit ${r.code}`}); its last lines:`);
     if (tail) log(tail);
