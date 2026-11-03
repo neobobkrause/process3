@@ -603,5 +603,8 @@ test('metrics report: BOB\'s idle time per day, and the overhead share per job a
   assert.deepEqual([later.jobs.find((j) => j.module === 'd').bob_usd, later.jobs.find((j) => j.module === 'd').unmeasured], ['unmeasured', ['reviews', 'bob', 'root', 'gate']]);
   const costless = overhead([m('e', 1, 'job', 2), m('bob', 2, 'bob', 'unmeasured', 'session_bob'), m('bob', 3, 'bob', 1, 'session_bob')]);
   assert.equal(costless.jobs[0].bob_usd, 'unmeasured');
+  const spans = overhead([m('f', 1, 'job', 2), m('bob', 2, 'bob', 1, 'session_bob'), m('g', 3, 'job', 2), m('bob', 4, 'bob', 'unmeasured', 'session_bob'), m('h', 5, 'job', 2), m('bob', 6, 'bob', 3, 'session_bob')]);
+  assert.deepEqual(spans.jobs.map((j) => [j.module, j.bob_usd]), [['f', 1], ['g', 'unmeasured'], ['h', 'unmeasured']]);
+  assert.equal(spans.unattributed_usd, 2);
   assert.deepEqual(overhead([{ module: 'x', row: 'attempt', event: 'start' }]).jobs, []);
 });

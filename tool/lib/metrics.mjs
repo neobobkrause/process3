@@ -141,16 +141,23 @@ export function overhead(rows, layers = new Map()) {
     const mine = measured.filter((r) => role(r) === who).sort((a, b) => a.at.localeCompare(b.at));
     let prevAt = '';
     const lastCost = new Map();
+    const skipped = new Set();
     const since = (from, to) => [...new Set(activity.filter((a) => a.at > from && (to === null || a.at <= to)).map((a) => a.module))];
     for (const r of mine) {
       const c = Number(r.cost_usd);
       const open = since(prevAt, r.at);
-      if (Number.isFinite(c) && r.session) {
+      if (Number.isFinite(c) && r.session && !skipped.has(r.session)) {
         const delta = Math.max(0, c - (lastCost.get(r.session) ?? 0));
         lastCost.set(r.session, c);
         if (open.length) for (const m of open) parts.get(m)[who] += delta / open.length;
         else unattributed += delta;
-      } else for (const m of open) parts.get(m).gap.add(who);
+      } else {
+        // A row with no cost: its window's jobs are unmeasured, and so are the next priced row's,
+        // whose cost spans both windows; that cost is counted unattributed.
+        for (const m of open) parts.get(m).gap.add(who);
+        if (r.session && !Number.isFinite(c)) skipped.add(r.session);
+        else if (r.session) { unattributed += Math.max(0, c - (lastCost.get(r.session) ?? 0)); lastCost.set(r.session, c); skipped.delete(r.session); }
+      }
       prevAt = r.at;
     }
     for (const m of since(prevAt, null)) parts.get(m).gap.add(who);
