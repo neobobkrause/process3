@@ -15,6 +15,33 @@ const DAY = 86400000;
 
 const api = (path) => gh(['api', path], { allowFail: true });
 
+// The pinned clone's own repository: the tool runs from it (.process in a product).
+const TOOL = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const PROCESS_LINES = 'shims/CLAUDE.process.md';
+export const HOOKS_SHIM = 'shims/settings.hooks.json';
+export const MAX_LINES = 30;
+
+// The tranche's process pin and its files, read from the tool's own repository: the pin commit
+// is fetched by its id, --depth 1, when the clone lacks it. null when the tranche has no pin.
+export function pinOf(root, name, toolRoot = TOOL) {
+  const tree = git(['ls-tree', `origin/${name}`, '--', '.process'], { cwd: root, allowFail: true });
+  const sha = tree.code === 0 ? tree.stdout.match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] : null;
+  if (!sha) return null;
+  if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: toolRoot, allowFail: true }).code !== 0) {
+    git(['fetch', '-q', '--depth=1', 'origin', sha], { cwd: toolRoot, allowFail: true });
+    if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: toolRoot, allowFail: true }).code !== 0) throw new Error(`could not fetch the pin ${sha.slice(0, 10)} into the process clone`);
+  }
+  return {
+    sha,
+    file: (f) => (exists(toolRoot, sha, f) ? git(['show', `${sha}:${f}`], { cwd: toolRoot }) : null),
+    list: (dir) => git(['ls-tree', '-z', '--name-only', `${sha}:${dir}`], { cwd: toolRoot, allowFail: true }).stdout.split('\0').filter(Boolean),
+  };
+}
+
+// Every hook of a settings file, one key per command, so order and grouping do not matter.
+const hookKeys = (hooks) => Object.entries(hooks && typeof hooks === 'object' ? hooks : {}).flatMap(([event, groups]) =>
+  [].concat(groups || []).flatMap((g) => [].concat(g?.hooks || []).map((h) => JSON.stringify([event, g?.matcher ?? '', h?.type ?? '', h?.command ?? '', h?.timeout ?? null]))));
+
 // The tranche's files, through git, so no session reads them through the contents API.
 function tranche(root, name, fetch = true) {
   if (fetch) fetchBranch(root, name, { allowFail: true });
@@ -221,6 +248,55 @@ const readers = {
     return res.every((r) => r.ok) ? set(line) : missing(line);
   },
 
+  // TXT-1: the product's CLAUDE.md carries the pin's process lines exactly, below the owner's
+  // approvals (never written by the tool), and is under thirty lines without them.
+  'process-lines': (c, x) => {
+    const pin = x.pin();
+    if (!pin) return missing(`no .process pin on ${x.cfg.tranche}`);
+    const shim = pin.file(PROCESS_LINES);
+    if (shim === null) return { state: 'not configured', detail: `the pin ${pin.sha.slice(0, 10)} has no ${PROCESS_LINES}` };
+    const { file, heading } = x.cfg.approvals;
+    const text = x.file(file);
+    if (text === null) return missing(`no ${file} on ${x.cfg.tranche}`);
+    const want = shim.replaceAll('{tranche}', x.cfg.tranche).replace(/\n+$/, '').split('\n');
+    const block = approvalsBlock(text, heading);
+    const all = text.replace(/\n+$/, '').split('\n');
+    const at = block ? all.findIndex((l) => l.trim() === heading.trim()) : -1;
+    const rest = at < 0 ? all : [...all.slice(0, at), ...all.slice(at + block.split('\n').length)];
+    const pr = `BOB opens a plain pull request into ${x.cfg.tranche} that`;
+    const keep = 'and changes nothing in the approvals block';
+    const gaps = [];
+    const has = rest.some((_, i) => want.every((w, k) => rest[i + k] === w));
+    if (!has) gaps.push(`${file} on ${x.cfg.tranche} lacks the process lines of the pin ${pin.sha.slice(0, 10)} exactly: ${pr} puts the lines of .process/${PROCESS_LINES} (with {tranche} as ${x.cfg.tranche}) in ${file} below the approvals block, ${keep}`);
+    if (rest.length >= MAX_LINES) gaps.push(`${file} on ${x.cfg.tranche} is ${rest.length} lines without the approvals block, not under ${MAX_LINES}: ${pr} moves what else it holds to another file, ${keep}`);
+    return gaps.length ? missing(gaps.join('; ')) : set(`the process lines of the pin ${pin.sha.slice(0, 10)}, ${rest.length} lines besides the approvals`);
+  },
+
+  // SHM-1: the drift check. Each workflow named like a shim equals the pin's shim, and the
+  // settings file carries only the hooks the pin allows (ENF-1).
+  'shim-drift': (c, x) => {
+    const pin = x.pin();
+    if (!pin) return missing(`no .process pin on ${x.cfg.tranche}`);
+    const gaps = [];
+    const shims = pin.list('shims').filter((f) => /\.ya?ml$/.test(f));
+    for (const f of shims) {
+      const mine = x.file(`.github/workflows/${f}`);
+      if (mine !== pin.file(`shims/${f}`)) gaps.push(`.github/workflows/${f} ${mine === null ? 'is absent' : 'differs from the pin\'s shim'}: BOB opens a plain pull request into ${x.cfg.tranche} that copies .process/shims/${f} to it`);
+    }
+    const allowText = pin.file(HOOKS_SHIM);
+    let allowed = [];
+    try { allowed = allowText === null ? [] : hookKeys(JSON.parse(allowText).hooks); } catch { gaps.push(`the pin's ${HOOKS_SHIM} is not JSON`); }
+    const text = x.file('.claude/settings.json');
+    let hooks = {};
+    try { hooks = text === null ? {} : JSON.parse(text).hooks; } catch { gaps.push(`.claude/settings.json on ${x.cfg.tranche} is not JSON`); }
+    const extra = hookKeys(hooks).filter((k) => !allowed.includes(k));
+    for (const k of extra) {
+      const [event, , , command] = JSON.parse(k);
+      gaps.push(`.claude/settings.json carries a ${event} hook the pin does not allow (${command}): the file is the owner's, so Bob removes it through GitHub's website, or BOB opens a plain pull request into ${x.cfg.tranche} that adds it to ${HOOKS_SHIM} in the process`);
+    }
+    return gaps.length ? missing(gaps.join('; ')) : set(`${shims.join(', ')} equal the pin ${pin.sha.slice(0, 10)}'s shims; ${hookKeys(hooks).length} hook(s), each allowed`);
+  },
+
   coordinator: (c, x) => {
     const text = x.file('process/config.json');
     if (text === null) return missing(`no process/config.json on ${x.cfg.tranche}`);
@@ -272,6 +348,8 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
     return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner), { history, need });
   });
   x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, log: () => {} }));
+  let pinned;
+  x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche)) : pinned);
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
   x.required = [].concat(x.cfg.required_check || 'gate');
   const cache = new Map();
