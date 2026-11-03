@@ -29,7 +29,7 @@ export function readHeartbeat(root, sb) {
 // The prompt of ROOT's hourly sweep task, bound to ROOT's own session.
 export function sweepTask(session) {
   checkSession(session);
-  const prompt = `Sweep. First run \`git submodule update --init .process\` (a fresh container has it empty). Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
+  const prompt = `Sweep. First run \`git fetch origin tranche\`, then \`git checkout -q --detach FETCH_HEAD\`, then \`git submodule update --init .process\` (a fresh container may hold an old checkout and has it empty). Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
   return { prompt, call: { name: 'sweep', cron_expression: '0 * * * *', prompt } };
 }
 
