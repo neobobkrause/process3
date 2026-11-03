@@ -31,7 +31,7 @@ test('release config: the keys validated; checks take an argv or {name, argv, ti
   assert.throws(() => releaseConfig(cfgWith({ ...REL, checks: ['npm test'] })), /argv or/);
   assert.throws(() => releaseConfig(cfgWith({ ...REL, checks: [{ argv: ['x'], timeout_minutes: 0 }] })), /whole minutes/);
   assert.throws(() => releaseConfig(cfgWith({ ...REL, assemble: 'node a.mjs' })), /release.assemble must be a non-empty argv/);
-  for (const out of ['/tmp/x', '../x', 'a/../../b', '', 'a b']) assert.throws(() => releaseConfig(cfgWith({ ...REL, out })), /release.out must be a relative directory/, out);
+  for (const out of ['/tmp/x', '../x', 'a/../../b', '', 'a b', '.', './', '/']) assert.throws(() => releaseConfig(cfgWith({ ...REL, out })), /release.out must be a relative directory/, out);
   assert.throws(() => releaseConfig(cfgWith({ ...REL, full_history: 'yes' })), /true or false/);
   for (const s of ['lower', 'GITHUB_TOKEN', 'A-B']) assert.throws(() => releaseConfig(cfgWith({ ...REL, sign_secret: s })), /must name a repository secret/, s);
 });
@@ -95,7 +95,10 @@ test('release dev: refused before a layer is closed, off the tranche tip, on a d
   const r = releaseDev(root, { io, slug, log: (m) => out.push(m) });
   assert.equal(r.ok, true);
   assert.equal(r.commit, tip);
-  assert.match(r.version, new RegExp(`^\\d{8}-${tip.slice(0, 7)}$`));
+  const day = git(['log', '-1', '--format=%cI', tip], { cwd: root });
+  assert.equal(r.version, defaultVersion(tip, new Date(day)));
+  // GitHub unreadable: open pull requests unknown, so refused.
+  assert.throws(() => releaseDev(root, { io: { ...io, status: { ...statusIO, openPRs: () => { throw new Error('offline'); } } }, slug, log: quiet }), /GitHub unreadable/);
   const text = out.join('\n');
   assert.match(text, /development only, never published/);
   assert.match(text, new RegExp(`1\\. \`git push origin ${tip}:refs/heads/p3dev-release/${r.version}\``));

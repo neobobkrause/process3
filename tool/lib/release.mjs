@@ -62,7 +62,7 @@ export function releaseConfig(cfg) {
   });
   const assemble = argv(r.assemble, 'release.assemble');
   const out = r.out;
-  if (typeof out !== 'string' || !out || out.startsWith('/') || out.split(/[\\/]/).includes('..') || /[^0-9A-Za-z._/-]/.test(out)) fail(`release.out must be a relative directory inside the repository (letters, digits, . _ / -), not ${JSON.stringify(out)}`);
+  if (typeof out !== 'string' || !out || out.startsWith('/') || out.split(/[\\/]/).some((p) => p === '..') || /^\.?\/*$/.test(out.replace(/^\.\//, '')) || /[^0-9A-Za-z._/-]/.test(out)) fail(`release.out must be a relative directory inside the repository (letters, digits, . _ / -), not ${JSON.stringify(out)}`);
   if (r.full_history !== undefined && typeof r.full_history !== 'boolean') fail('release.full_history must be true or false');
   const s = r.sign_secret;
   if (s !== undefined && s !== null && (typeof s !== 'string' || !/^[A-Z_][A-Z0-9_]*$/.test(s) || s.startsWith('GITHUB_'))) fail(`release.sign_secret must name a repository secret (upper case letters, digits and _, not GITHUB_), not ${JSON.stringify(s)}`);
@@ -110,10 +110,11 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
   fetchState(root, cfg.state_branch, { fresh: true });
   const s = status(root, { log: () => {}, io: io.status });
+  if (s.prs === null) fail('GitHub unreadable: open pull requests not known, so the layers cannot be judged');
   const ls = layerState(root, cfg, s.rows, t, { closed: closedRows(root, cfg, { slug, ...(io.compare ? { read: io.compare } : {}) }) });
   const ready = releaseReady(ls);
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
-  const v = checkVersion(version === undefined ? defaultVersion(tip) : String(version));
+  const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
   const taken = io.remoteRefs(root, [`refs/heads/${branchOf(v)}`, `refs/tags/${tagOf(v)}`]).trim();
   if (taken) fail(`version ${v} is taken on origin (${taken.split('\n').map((l) => l.split('\t')[1]).join(', ')}); pass another --version`);
   log(`development release ${v} of ${cfg.tranche} ${tip.slice(0, 10)} (${ready.why}); development only, never published`);
@@ -175,7 +176,7 @@ export function releaseRun(root, step, { out, log = console.log, exec = run } = 
   const list = inst.findings.length ? [] : step === 'checks' ? rel.checks : [{ name: 'assemble', argv: rel.assemble, timeout_minutes: rel.assemble_timeout_minutes }];
   for (const c of list) {
     log(`::group::${c.name}`);
-    const r = exec(c.argv[0], c.argv.slice(1), { cwd: root, timeout: c.timeout_minutes * MINUTE, unset: NO_TOKENS });
+    const r = exec(c.argv[0], c.argv.slice(1), { cwd: root, timeout: c.timeout_minutes * MINUTE, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
     process.stdout.write(r.stdout.slice(-20000));
     process.stderr.write(r.stderr.slice(-20000));
     log('::endgroup::');
