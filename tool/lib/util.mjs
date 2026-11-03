@@ -85,9 +85,10 @@ export const DEFAULTS = {
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
   layers_file: 'build/layers.md',
-  // Added to every create_session call the tool prints: the slim clone (measured 3 Nov, a full
-  // clone stalled a ROOT for over 15 minutes; this one started in about 5). null leaves it out.
-  clone: { clone_depth: 1, blob_limit_kb: 1024 },
+  // Added to every create_session call the tool prints: the shallow clone (measured 3 Nov, a
+  // full clone stalled a ROOT for over 15 minutes). No blob_limit_kb: it left a 5.2 MB source
+  // file out of the checkout and nothing fetched it when node read it. null leaves it out.
+  clone: { clone_depth: 1 },
 };
 
 export const CONFIG_FILE = 'process/config.json';
