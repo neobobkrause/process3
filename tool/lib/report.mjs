@@ -22,24 +22,48 @@ export function mergedPRs(slug, base) {
 const gitOut = (root, args) => { const r = git(args, { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; };
 
 // The tranche's span: from its first commit main lacks to now, or, once the tranche is merged
-// into main, to that merge. In a shallow clone, or with no such commit, unmeasured.
+// into main, to that merge. base is main before that first commit, when this clone holds it. In
+// a shallow clone, deepen() first fetches the tranche's own commits and that base; a tranche
+// merged into main there, or with no such commit, is unmeasured.
 export function span(root, tranche, main) {
   const shallow = gitOut(root, ['rev-parse', '--is-shallow-repository']) === 'true';
-  if (shallow || gitOut(root, ['rev-parse', '--verify', '-q', tranche]) === null) return { open: U, close: null, base: null };
+  if (gitOut(root, ['rev-parse', '--verify', '-q', tranche]) === null) return { open: U, close: null, base: null };
   const haveMain = gitOut(root, ['rev-parse', '--verify', '-q', main]) !== null;
   const ahead = haveMain ? gitOut(root, ['rev-list', '--reverse', `${main}..${tranche}`]) : null;
   const first = (shas) => (shas || '').split('\n').filter(Boolean)[0] || null;
   if (ahead) {
     const f = first(ahead);
-    return { open: gitOut(root, ['log', '-1', '--format=%cI', f]), close: null, base: gitOut(root, ['rev-parse', `${f}^`]) };
+    const base = parentOf(root, f);
+    // Shallow, the first commit counts only when its parent is main's: else it is only where the
+    // history was cut.
+    if (shallow && !(base && gitOut(root, ['merge-base', '--is-ancestor', base, main]) !== null)) return { open: U, close: null, base: null };
+    return { open: gitOut(root, ['log', '-1', '--format=%cI', f]), close: null, base };
   }
-  if (!haveMain) return { open: U, close: null, base: null };
+  if (!haveMain || shallow) return { open: U, close: null, base: null };
   // Merged: the first main commit on the path from the tranche tip, and main before it.
   const c = first(gitOut(root, ['rev-list', '--reverse', '--ancestry-path', `${tranche}..${main}`]));
   const before = c && gitOut(root, ['rev-parse', `${c}^1`]);
   const f = before && first(gitOut(root, ['rev-list', '--reverse', `${before}..${tranche}`]));
   if (!f) return { open: U, close: null, base: null };
   return { open: gitOut(root, ['log', '-1', '--format=%cI', f]), close: gitOut(root, ['log', '-1', '--format=%cI', c]), base: before };
+}
+
+// A commit's first parent, read from the commit itself (a shallow clone's boundary commit shows
+// none), and only when this clone holds that parent; else null.
+function parentOf(root, sha) {
+  const p = (gitOut(root, ['cat-file', '-p', sha]) || '').match(/^parent ([0-9a-f]{40})$/m)?.[1];
+  return p && gitOut(root, ['cat-file', '-e', `${p}^{commit}`]) !== null ? p : null;
+}
+
+// In a shallow clone (every session's), fetch only what the span, marks met and record-only
+// figures read: the tranche's commits main lacks (--shallow-exclude, 1 s measured 3 Nov for 165
+// commits) and, at depth 1, main before its first one. Nothing in a full clone.
+export function deepen(root, tranche, main = 'main') {
+  if (gitOut(root, ['rev-parse', '--is-shallow-repository']) !== 'true') return;
+  if (gitOut(root, ['fetch', '-q', `--shallow-exclude=${main}`, 'origin', `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`]) === null) return;
+  const f = (gitOut(root, ['rev-list', '--reverse', `origin/${main}..origin/${tranche}`]) || '').split('\n').filter(Boolean)[0];
+  const p = f && (gitOut(root, ['cat-file', '-p', f]) || '').match(/^parent ([0-9a-f]{40})$/m)?.[1];
+  if (p && gitOut(root, ['cat-file', '-e', `${p}^{commit}`]) === null) gitOut(root, ['fetch', '-q', '--depth', '1', 'origin', p]);
 }
 
 const hours = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 36e5 * 10) / 10;
@@ -129,7 +153,8 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push('## Deferrals', '', 'Marks left unmet per module: from the closed-layer row where its layer is closed, otherwise from the requirement file at the tip.', '');
   const def = work.map((w) => {
     const c = w.layer === null ? null : closedBy.get(w.layer);
-    const ids = c ? (c.deferred?.[w.m] || []) : w.unmet;
+    const d = c?.deferred?.[w.m];
+    const ids = c ? (Array.isArray(d) ? d : d?.marks || []) : w.unmet;
     return [w.m, c ? `layer ${w.layer} close` : undecided.has(w.layer) ? `tip (layer ${w.layer} close ${U})` : 'tip', ids.length, ids.join(', ') || 'none'];
   }).filter((r) => r[2] > 0);
   L.push(...(def.length ? table(['module', 'from', 'unmet', 'marks'], def) : ['None.']), '');

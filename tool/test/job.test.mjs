@@ -608,3 +608,41 @@ test('metrics report: BOB\'s idle time per day, and the overhead share per job a
   assert.equal(spans.unattributed_usd, 2);
   assert.deepEqual(overhead([{ module: 'x', row: 'attempt', event: 'start' }]).jobs, []);
 });
+
+test('job start over requirements_cap prints the split owed and starts only with --over-cap (REQ-6)', () => {
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha'),
+    'process/config.json': { requirements_cap: 20 },
+    'req/alpha.md': '# alpha\n\nR1 does a thing.\n',
+    'test/alpha/a.test.mjs': passing,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /split or consolidate before its job: req\/alpha.md 26 over 20; nothing was started.*--over-cap/);
+  assert.equal(git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root }), 'main');
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: true, log: quiet }), /--over-cap needs why/);
+  const out = [];
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: 'one reading still', log: (m) => out.push(m) });
+  assert.match(out.join('\n'), /req\/alpha.md 26 over 20; starting over the cap: one reading still/);
+  assert.match(start, /Requirement file `req\/alpha.md`: 26 bytes against the cap of 20, over it\./);
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  assert.equal(readRows(root, 'alpha')[0].over_cap, 'one reading still');
+});
+
+test('job start under the cap shows the requirement file against it', () => {
+  const root = product();
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  assert.match(start, /Requirement file `req\/alpha.md`: 26 bytes against the cap of 70000\.$/m);
+});
+
+test('job start: a cap on unmet marks, or a cap written as a string, is the same trigger', () => {
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha'),
+    'process/config.json': { requirements_cap: '70000', requirements_cap_marks: 1 },
+    'req/alpha.md': '- **R1** *(not yet met: x)* a\n- **R2** *(not yet met: x)* b\n',
+    'test/alpha/a.test.mjs': passing,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /req\/alpha.md 2 unmet marks over 1; nothing was started/);
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: 'two marks, one reading', log: quiet });
+  assert.match(start, /Requirement file `req\/alpha.md`: \d+ bytes against the cap of 70000, over it\./);
+});

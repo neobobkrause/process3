@@ -131,6 +131,28 @@
       "read": "process/config.json on origin/<tranche>, through git: coordinator"
     },
     {
+      "id": "process-lines",
+      "what": "The product's CLAUDE.md on the tranche carries the process lines of the pin's shims/CLAUDE.process.md exactly ({tranche} as the tranche's name: the pin, the one fetch command, where the role prompt comes from), below the owner's approvals block, and is under thirty lines without that block (TXT-1).",
+      "why": "A session reads CLAUDE.md at its start; the approvals and these few lines are all it needs before its role prompt. The tool never writes the approvals block.",
+      "value": {
+        "shim": "shims/CLAUDE.process.md at the tranche's .process pin",
+        "max_lines_besides_approvals": 30
+      },
+      "who": "BOB, through a plain pull request into the tranche that adds the lines and leaves the approvals block as it is",
+      "read": "CLAUDE.md on origin/<tranche>, through git, against the pin's shim, read from the process clone at the commit origin/<tranche> pins as .process (fetched by its id, --depth 1, when absent)"
+    },
+    {
+      "id": "shim-drift",
+      "what": "Each workflow under .github/workflows named like a shim of the pin equals that shim, and .claude/settings.json carries only the hooks the pin's shims/settings.hooks.json allows (SHM-1, ENF-1).",
+      "why": "The gate and record shims are what make a merge trustworthy; a copy that drifted from the pin, or another hook, runs what the process did not review (Bob's question 4).",
+      "value": {
+        "workflows": "every shims/*.yml at the pin, as .github/workflows/<name>",
+        "hooks": "shims/settings.hooks.json at the pin"
+      },
+      "who": "BOB, through a plain pull request into the tranche that copies the pin's shim; a hook to remove is in the owner's settings file, which Bob changes through GitHub's website",
+      "read": "the workflows and .claude/settings.json on origin/<tranche>, through git, against the pin's shims, read from the process clone at the tranche's .process pin"
+    },
+    {
       "id": "session-branch",
       "what": "The checkout of the session running the check is the tranche's tip, with its approvals block: start check's own test.",
       "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",

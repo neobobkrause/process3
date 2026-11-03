@@ -1,14 +1,17 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, findPR, latestBlock, latestReceipt, markReady } from './github.mjs';
+import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
+import { ownPaths } from './gate.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState } from './state.mjs';
+import { unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { NO_TOKENS, fail, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -17,9 +20,16 @@ export const toolPin = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_ROOT, allowF
 export const P3 = 'node .process/tool/p3.mjs';
 
 // The role's reading set with sizes (SES-5, JOB-10).
-export function readingSet(root, entry, extra = []) {
+// With cfg, it also carries the requirement file's size against requirements_cap (REQ-6).
+export function readingSet(root, entry, extra = [], cfg = null) {
   const files = [...new Set([...(entry.reading || []), ...extra])].map((f) => ({ file: f, bytes: fileBytes(join(root, f)) }));
-  return { files, bytes: files.reduce((s, f) => s + f.bytes, 0) };
+  const set = { files, bytes: files.reduce((s, f) => s + f.bytes, 0) };
+  const reqPath = entry.requirements && join(root, entry.requirements);
+  if (cfg && reqPath && cfg.requirements_cap !== null && cfg.requirements_cap !== undefined) {
+    const text = existsSync(reqPath) ? readFileSync(reqPath, 'utf8') : null;
+    set.cap = { file: entry.requirements, bytes: fileBytes(reqPath), cap: Number(cfg.requirements_cap), over: !!overCap(cfg, entry.requirements, text) };
+  }
+  return set;
 }
 
 const DEFAULT_ACTS = (id) => [
@@ -31,7 +41,7 @@ const DEFAULT_ACTS = (id) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, takeIn, notices = [] }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -40,14 +50,25 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push('', `Your work: meet the open requirements in \`${entry.requirements}\` by changing only these paths: ${[...entry.paths, ...entry.tests].map((p) => `\`${p}\``).join(', ')}, and by striking in \`${entry.requirements}\` the marks you meet. Your branch is \`${branch}\`; your draft pull request into \`${tranche}\` is already open. Done means merged, and you do not merge: BOB does.`);
   if (entry.prior_work) L.push('', `Prior work: ${entry.prior_work}`);
   if (reopen) L.push('', `This attempt reopens the module after an earlier attempt merged. What it must do: ${reopen}`);
+  // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
+  if (notices.length) {
+    L.push('', '## Provider notices', '', 'A module this one uses changed its requirements. For each notice: confirm or adapt this module\'s code for the provider\'s new behaviour, and add or update this module\'s own test that exercises it.');
+    for (const n of notices) L.push(`- \`${n.key}\`: provider \`${n.provider}\` changed ${n.ids.join(', ')} (PR ${n.pr}); name its test at job complete with \`--test notice:${n.key}="<test file>::<test name>"\`.`);
+  }
   if (restart) {
     L.push('', `You replace the job session that stopped on this job. As BOB saw it: ${restart.why}`);
     L.push(`You continue from the branch and the pull request as they are: pull request ${restart.pr}, last commit \`${restart.last}\`, receipt ${restart.receipt}. Read the branch's commits and the pull request's comments before you change anything.`);
     L.push('An act the earlier session was refused is never rerouted: do not try it another way; report it to your coordinator.');
   }
+  if (takeIn) {
+    // The marker line (carry.mjs TAKEN): the pull request it names has a job.
+    L.push('', `Earlier work taken in: ${takeIn.pr ? `pull request #${takeIn.pr}` : 'no pull request'} (branch \`${takeIn.branch}\`), ${takeIn.commits.length} commit(s) made before Process3, from \`${takeIn.commits[takeIn.commits.length - 1]}\` to \`${takeIn.commits[0]}\`, merged with the tranche in your start commit.`);
+    L.push('That work is part of this job: read its commits and diff before you change anything, keep what meets the requirements, and change only the paths above. Nothing of it was rebased or rewritten.');
+  }
   L.push('', '## Reading set (read each file whole)', '', '| file | bytes |', '|---|---|');
   for (const f of reading.files) L.push(`| \`${f.file}\` | ${f.bytes} |`);
   L.push(`| total | ${reading.bytes} |`);
+  if (reading.cap) L.push('', `Requirement file \`${reading.cap.file}\`: ${reading.cap.bytes} bytes against the cap of ${reading.cap.cap}${reading.cap.over ? ', over it' : ''}.`);
   L.push('', '## Commands, in order', '');
   const n = restart ? 3 : 1;
   // Shallow, as the session's clone is: job complete deepens the branch to the merge base it needs.
@@ -55,7 +76,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n}. \`git submodule update --init .process\` (the pinned process clone arrives empty).`);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends, so nothing is lost (JOB-9).`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and one \`--test notice:<key>=...\` for each provider notice above' : ''}. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. End your turn when it prints the receipt link.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
@@ -80,6 +101,20 @@ function jobCoordinator(root, cfg, given, fetch) {
   return { coordinator: session, bob: true };
 }
 
+// The unanswered provider notices for a module, as the state branch holds them (none when it
+// cannot be read: the START then names none, and status still lists them).
+function noticesFor(root, cfg, id, fetch) {
+  try {
+    if (fetch) fetchState(root, cfg.state_branch);
+    return unanswered(root, cfg.state_branch, id);
+  } catch { return []; }
+}
+
+// The notices a start row named, with their detail from the state branch when it has them: job
+// complete asks a test for each key the row names, so the START names every one.
+const named = (owed, row) => (row?.notices || []).map((key) => owed.find((x) => x.key === key)
+  || { key, provider: key.split(':')[0], ids: ['(see the state branch)'], pr: key.split(':')[1] });
+
 const commitFiles = (root, paths, msg) => {
   git(['add', '--', ...paths], { cwd: root });
   git(['commit', '-q', '-m', msg, '--', ...paths], { cwd: root });
@@ -101,6 +136,20 @@ export function subscribeFor(slug, pr) {
   return { call, text: `then subscribe to the job's pull request with subscribe_pr_activity, so its completion, a red gate or a comment reaches you as an event:\n${JSON.stringify(call, null, 2)}` };
 }
 
+// The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
+function setupOrStop(root, cfg, slug, setup, log) {
+  const s = setup(root, { slug, log });
+  // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
+  // words for what to do (re-review of PR 24).
+  if (s.missing.includes('session-branch')) {
+    const t = s.tranche || cfg.tranche;
+    const why = s.results?.find((r) => r.id === 'session-branch')?.detail || `this checkout is not the ${t} branch. Start the session from the ${t} branch`;
+    const also = s.missing.filter((m) => m !== 'session-branch');
+    fail(`this session's checkout is not one job start accepts: sessions act on the standing approvals of the ${t} branch; nothing was started. ${why}${also.length ? ` (also missing: ${also.join(', ')})` : ''}`);
+  }
+  if (!s.ok) fail(`the setup is not complete (${s.missing.join(', ')}); nothing was started. Bob sets what is missing; p3 setup check shows it`);
+}
+
 // BOB: branch, status WORKING, START, draft pull request; prints what to start the session with.
 // Safe to run again: when the branch is pushed but has no pull request, it opens the PR.
 // --reopen "<what>" (Bob's decision 1A, 2 Nov 2026): a new attempt on a COMPLETE module whose
@@ -108,28 +157,24 @@ export function subscribeFor(slug, pr) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, log = console.log } = {}) {
+export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
   if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, find, notes, log });
+  if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
+  if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
   const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
-  if (push) {
-    const s = setup(root, { slug, log });
-    // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
-    // words for what to do (re-review of PR 24).
-    if (s.missing.includes('session-branch')) {
-      const t = s.tranche || cfg.tranche;
-      const why = s.results?.find((r) => r.id === 'session-branch')?.detail || `this checkout is not the ${t} branch. Start the session from the ${t} branch`;
-      const also = s.missing.filter((m) => m !== 'session-branch');
-      fail(`this session's checkout is not one job start accepts: sessions act on the standing approvals of the ${t} branch; nothing was started. ${why}${also.length ? ` (also missing: ${also.join(', ')})` : ''}`);
-    }
-    if (!s.ok) fail(`the setup is not complete (${s.missing.join(', ')}); nothing was started. Bob sets what is missing; p3 setup check shows it`);
-  }
+  if (push) setupOrStop(root, cfg, slug, setup, log);
   const branch = `job/${id}`;
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
   if (push) fetchRef(root, cfg.tranche);
   const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  const owed = noticesFor(root, cfg, id, push);
+  // A COMPLETE module with an unanswered notice is reopened to answer it; not when its branch
+  // holds an unfinished start, which resumes with its own task.
+  const unfinished = () => push && remoteTip(root, branch) && (fetchRef(root, branch), aheadBy(root, { slug, base: cfg.tranche, head: branch, local: [from, `origin/${branch}`], read: cmp }) !== 0);
+  if (!reopen && owed.length && /"state":\s*"COMPLETE"/.test(git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true }).stdout) && !unfinished()) reopen = `answer ${owed.length === 1 ? 'the provider notice' : 'the provider notices'} ${owed.map((x) => x.key).join(', ')}`;
 
   // A reopen restarts a branch whose last attempt merged (its tip is in the tranche). Anything
   // else on the remote branch is either an unfinished start, resumed below, or refused there.
@@ -157,7 +202,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: task });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -176,6 +221,12 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
   const entry0 = JSON.parse(t.stdout);
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
+  // The requirements cap (REQ-6): a trigger for BOB's split or consolidation, never a refusal.
+  // The job waits only until the file is under the cap or BOB records why it starts over it.
+  const reqAt = entry0.requirements ? git(['show', `${from}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
+  const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
+  if (over && overWhy === undefined) fail(`${over}; nothing was started. BOB splits or consolidates the file, or records --over-cap "<why>" on the start`);
+  if (over) log(`${over}; starting over the cap: ${overWhy}`);
   if (reopen) {
     if (entry0.status.state !== 'COMPLETE') fail(`${id} is ${entry0.status.state}; --reopen is for a COMPLETE module`);
   } else if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) {
@@ -203,10 +254,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
   try {
     const entry = readEntry(root, id);
     const attempt = nextAttempt(root, id);
-    const reading = readingSet(root, entry);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen });
+    const reading = readingSet(root, entry, [], cfg);
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(reopen ? { reopen } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -230,6 +281,148 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, push =
     if (remoteTip(root, branch) !== git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim()) {
       if (before) git(['branch', '-q', '-f', branch, before], { cwd: root, allowFail: true });
       else git(['branch', '-q', '-D', branch], { cwd: root, allowFail: true });
+    }
+    throw e;
+  }
+  git(['checkout', '-q', back], { cwd: root });
+  return result;
+}
+
+// job start <id> --take-in <branch or PR number> (JOB-3, SHM-4): the job opens on work made
+// before Process3. The job's branch is job/<id> (the gate, status and job complete know a job by
+// it): the taken-in branch itself when it has that name, else job/<id> made at its tip, which
+// is left as it was. Every file the work changes against the tranche must lie in the entry's
+// own paths (gate ownPaths), else it is refused with the files named and nothing is written;
+// BOB splits the work or takes in only what fits. The start commit merges the tranche into
+// the work (a merge commit; never a rebase or a force-push) and writes WORKING and the start
+// row, which names what it took in. A pull request from job/<id> is reused (moved to the
+// tranche, made a draft); one from another branch stays open as it is, with a comment naming
+// the job's new draft pull request, which BOB closes or keeps: the tool closes nothing.
+function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, find, setup, compare: cmp, gh: io, log }) {
+  if (from === true || !String(from ?? '').trim()) fail('--take-in needs the branch or pull request number of the earlier work');
+  const x = { getPR, editPR, toDraft, addComment, ...io };
+  const cfg = loadConfig(root);
+  const slug = push ? repoSlug(root) : 'local/local';
+  if (push) setupOrStop(root, cfg, slug, setup, log);
+  const job = `job/${id}`;
+  let source = String(from).trim();
+  let pr = null;
+  if (/^#?\d+$/.test(source)) {
+    if (!push) fail('--take-in <number> reads the pull request from GitHub');
+    pr = x.getPR(slug, Number(source.replace('#', '')));
+    if (!pr?.number || pr.state !== 'open') fail(`pull request ${source} is not open; take in an open pull request or its branch`);
+    if (pr.head?.repo?.full_name !== slug) fail(`pull request #${pr.number} comes from ${pr.head?.repo?.full_name || 'a deleted fork'}; only a branch of ${slug} is taken in`);
+    source = pr.head.ref;
+  } else if (push) pr = find(slug, source);
+  if (source === cfg.tranche || source === 'main' || source === cfg.state_branch) fail(`${source} is not earlier work; take in a work branch`);
+  const lead = jobCoordinator(root, cfg, coordinator, push);
+  model ||= cfg.roles?.job?.model;
+  const base = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  const tip = push ? `origin/${source}` : source;
+  if (push) {
+    fetchRef(root, cfg.tranche);
+    if (!remoteTip(root, source)) fail(`no branch ${source} on origin`);
+    if (source !== job && remoteTip(root, job)) fail(`${job} already exists on origin; take in onto it with --take-in ${job}, or bring it to Bob`);
+    // A shallow clone: deepen both sides down to their merge base, so the diff and the merge
+    // see whole history (GitHub's compare gives the depths).
+    if (isShallow(root)) {
+      const c = cmp(slug, cfg.tranche, source);
+      if (!Number.isInteger(c?.ahead_by) || !Number.isInteger(c?.behind_by)) fail(`this clone is shallow and GitHub did not compare ${source} with ${cfg.tranche}; run it again`);
+      git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', `+refs/heads/${source}:refs/remotes/origin/${source}`], { cwd: root });
+      git(['fetch', '-q', `--depth=${c.behind_by + 1}`, 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
+    } else fetchRef(root, source);
+  }
+  const t = git(['show', `${base}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (t.code !== 0) fail(`no ledger entry ${entryFile(id)} on ${base}`);
+  const entry0 = JSON.parse(t.stdout);
+  const errs = validate(entry0);
+  if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
+  if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) fail(`${id} is ${entry0.status.state}, not OPEN; take-in opens a job that has not started`);
+  // The requirements cap (REQ-6), as a fresh start holds it.
+  const reqAt = entry0.requirements ? git(['show', `${base}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
+  const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
+  if (over && overWhy === undefined) fail(`${over}; nothing was started. BOB splits or consolidates the file, or records --over-cap "<why>" on the start`);
+  if (over) log(`${over}; starting over the cap: ${overWhy}`);
+  // A job already started on this branch (WORKING is written only on job/<id>, so the tranche
+  // still reads OPEN) is never launched twice (review of PR 55): its entry on the work's tip,
+  // or a start row the tranche lacks, refuses it.
+  const atTip = git(['show', `${tip}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  let tipState = null;
+  try { tipState = atTip.code === 0 ? JSON.parse(atTip.stdout).status?.state : null; } catch { tipState = null; }
+  const starts = (ref) => git(['show', `${ref}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter((l) => /"event":"start"/.test(l)).length;
+  if ((tipState && !['OPEN', 'BLOCKED'].includes(tipState)) || starts(tip) > starts(base)) fail(`${source} already holds a started job ${id} (${tipState || 'a start row'}); a job whose session stopped is restarted with --restart "<why>"`);
+  const mb = git(['merge-base', base, tip], { cwd: root, allowFail: true });
+  if (mb.code !== 0) fail(`${source} shares no history with ${cfg.tranche}`);
+  const changed = git(['diff', '--no-renames', '--name-only', '-z', mb.stdout.trim(), tip], { cwd: root }).split('\0').filter(Boolean);
+  const own = ownPaths(entry0);
+  const outside = changed.filter((f) => !own.some((p) => underPath(f, p)));
+  if (outside.length) fail(`refused, nothing written: ${source} changes ${outside.length} file(s) outside module ${id}'s paths (${own.join(', ')}): ${outside.join(', ')}. BOB splits the work, or takes in only what fits`);
+  const commits = git(['log', '--format=%h', `${mb.stdout.trim()}..${tip}`], { cwd: root }).split('\n').filter(Boolean);
+  if (!commits.length) fail(`${source} has no commits the tranche lacks; nothing to take in (a fresh start is job start ${id})`);
+  if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
+  const local = git(['rev-parse', '-q', '--verify', `refs/heads/${job}`], { cwd: root, allowFail: true });
+  if (local.code === 0 && local.stdout.trim() !== git(['rev-parse', tip], { cwd: root })) fail(`a local branch ${job} exists and is not ${source}'s tip; bring it to Bob`);
+  if (git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').some((l) => l === `branch refs/heads/${job}`)) fail(`${job} is checked out in a worktree; check out another branch there first`);
+
+  const sym = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true });
+  const back = sym.code === 0 ? sym.stdout.trim() : git(['rev-parse', 'HEAD'], { cwd: root });
+  const take = { branch: source, pr: pr?.number || null, commits };
+  const paths = [entryFile(id), metricsFile(id)];
+  git(['checkout', '-q', '-B', job, tip], { cwd: root });
+  let result;
+  let committed = false;
+  try {
+    // The merge commit: the tranche's ledger entry and history come in; a conflict stops it.
+    if (git(['merge-base', '--is-ancestor', base, 'HEAD'], { cwd: root, allowFail: true }).code !== 0) {
+      const m = git(['merge', '-q', '--no-ff', '--no-commit', base], { cwd: root, allowFail: true });
+      if (m.code !== 0) {
+        const files = git(['diff', '--name-only', '--diff-filter=U'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+        git(['merge', '--abort'], { cwd: root, allowFail: true });
+        fail(`refused, nothing written: ${source} does not merge with ${cfg.tranche} without conflicts${files.length ? ` (${files.join(', ')})` : ''}; bring it to Bob`);
+      }
+    }
+    const entry = readEntry(root, id);
+    const attempt = nextAttempt(root, id);
+    const reading = readingSet(root, entry, [], cfg);
+    const owed = noticesFor(root, cfg, id, push);
+    const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, attempt, reading, takeIn: take, notices: owed });
+    writeStatus(root, id, { state: 'WORKING', at: now() });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    git(['add', '--', ...paths], { cwd: root });
+    git(['commit', '-q', '-m', `job start ${id} (attempt ${attempt}): take in ${source}${take.pr ? ` (#${take.pr})` : ''}, ${commits.length} commit(s)`], { cwd: root });
+    committed = true;
+    const launch = launchFor(slug, job, id, start, model, cfg.clone);
+    log(start);
+    log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
+    result = { start, launch, attempt, pr: null, takeIn: take };
+    if (push) {
+      git(['push', '-q', '-u', 'origin', job], { cwd: root });
+      if (remoteTip(root, job) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${job} did not land`);
+      if (pr && pr.head.ref === job) {
+        // Reused: the job's own branch already had this pull request.
+        let p = x.editPR(slug, pr.number, { base: cfg.tranche, title: `job: ${id}`, body: start });
+        if (!p.draft) p = x.toDraft(slug, p);
+        result.pr = p;
+        log(`pull request reused as the job's draft into ${cfg.tranche}: ${p.html_url}`);
+      } else {
+        result.pr = open(slug, { head: job, base: cfg.tranche, title: `job: ${id}`, body: start, draft: true });
+        log(`draft pull request: ${result.pr.html_url}`);
+        if (pr) {
+          x.addComment(slug, pr.number, `Taken in by job \`${id}\`: its commits are on \`${job}\`, draft pull request #${result.pr.number}. This pull request is left open as it is; BOB closes it or keeps it.`);
+          log(`#${pr.number} is left open, with a comment naming #${result.pr.number}`);
+        }
+      }
+      const subscribe = subscribeFor(slug, result.pr);
+      result.subscribe = subscribe.call;
+      log(subscribe.text);
+    }
+  } catch (e) {
+    if (!committed) { git(['merge', '--abort'], { cwd: root, allowFail: true }); restore(root, paths); }
+    git(['checkout', '-q', '-f', back], { cwd: root, allowFail: true });
+    // Nothing reached GitHub: the local branch goes, so the command can run again.
+    if (remoteTip(root, job) !== git(['rev-parse', '-q', '--verify', `refs/heads/${job}`], { cwd: root, allowFail: true }).stdout.trim()) {
+      if (local.code === 0) git(['branch', '-q', '-f', job, local.stdout.trim()], { cwd: root, allowFail: true });
+      else git(['branch', '-q', '-D', job], { cwd: root, allowFail: true });
     }
     throw e;
   }
@@ -262,7 +455,8 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   const receipt = !r ? 'none posted' : r.sha === tipSha ? `posted for the branch's tip` : `posted for ${String(r.sha).slice(0, 10)}, not the branch's tip`;
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
-    entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry), reopen: startRow?.reopen,
+    entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
+    notices: named(noticesFor(root, cfg, id, true), startRow),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
@@ -281,12 +475,19 @@ export const markedIds = (text) => [...String(text || '').matchAll(MARK)].map((m
 // The marks the branch struck against the base, each with the test the job names for it with
 // --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
 // before anything is marked or pushed when one is missing or does not hold.
-function struckTests(root, entry, base, given) {
+function struckTests(root, entry, base, given, notices = []) {
   const at = (ref) => git(['show', `${ref}:${entry.requirements}`], { cwd: root, allowFail: true }).stdout;
   const left = new Set(markedIds(at('HEAD')));
   const struck = markedIds(at(base)).filter((r) => !left.has(r));
   const named = new Map();
+  const answered = new Map();
   for (const g of given) {
+    const k = /^notice:([^=]+)=(.+?)::(.+)$/.exec(String(g));
+    if (k) {
+      if (!notices.includes(k[1])) fail(`--test notice:${k[1]}: this job's START named no provider notice ${k[1]} (named: ${notices.join(', ') || 'none'})`);
+      answered.set(k[1], { notice: k[1], file: k[2], name: k[3] });
+      continue;
+    }
     const m = /^(R[\w.-]+)=(.+?)::(.+)$/.exec(String(g));
     if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>"`);
     if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
@@ -294,14 +495,16 @@ function struckTests(root, entry, base, given) {
   }
   const missing = struck.filter((r) => !named.has(r));
   if (missing.length) fail(`not complete, nothing pushed or marked: the branch struck ${missing.join(', ')} with no --test; add --test ${missing[0]}="<test file>::<test name>" for each`);
-  return struck.map((r) => {
-    const t = named.get(r);
-    if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${r}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
+  const unnamed = notices.filter((k) => !answered.has(k));
+  if (unnamed.length) fail(`not complete, nothing pushed or marked: the provider notice ${unnamed.join(', ')} has no --test; add --test notice:${unnamed[0]}="<test file>::<test name>", this module's own test of the provider's new behaviour`);
+  const holds = (label, t) => {
+    if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${label}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
     const text = git(['show', `HEAD:${t.file}`], { cwd: root, allowFail: true });
-    if (text.code !== 0) fail(`--test ${r}: ${t.file} is not committed on this branch`);
-    if (!text.stdout.includes(t.name)) fail(`--test ${r}: ${t.file} does not contain "${t.name}"`);
+    if (text.code !== 0) fail(`--test ${label}: ${t.file} is not committed on this branch`);
+    if (!text.stdout.includes(t.name)) fail(`--test ${label}: ${t.file} does not contain "${t.name}"`);
     return t;
-  });
+  };
+  return [...struck.map((r) => holds(r, named.get(r))), ...notices.map((k) => holds(`notice:${k}`, answered.get(k)))];
 }
 
 // The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
@@ -349,7 +552,7 @@ export function jobComplete(root, id, opts = {}) {
     return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at } });
   }
   if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
-  const tests = struckTests(root, entry, base, opts.tests || []);
+  const tests = struckTests(root, entry, base, opts.tests || [], readRows(root, id).filter((r) => r.event === 'start').pop()?.notices || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });

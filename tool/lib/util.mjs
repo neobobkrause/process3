@@ -85,11 +85,41 @@ export const DEFAULTS = {
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
   layers_file: 'build/layers.md',
+  // The requirements cap (Build Plan, Phase 3; REQ-6, P6): a module's requirement file over this
+  // many bytes is BOB's to split or consolidate before its job opens, a trigger, never a refusal.
+  // Provisional, from layers 1 to 6 of the product's tranche (3 Nov: 109 files, median 32,829,
+  // 90th percentile 71,128, max 137,301); the real number is set at the gate.
+  // requirements_cap_marks: optionally, the same for the count of unmet marks; null, none.
+  requirements_cap: 70000,
+  requirements_cap_marks: null,
   // Added to every create_session call the tool prints: the shallow clone (measured 3 Nov, a
   // full clone stalled a ROOT for over 15 minutes). No blob_limit_kb: it left a 5.2 MB source
   // file out of the checkout and nothing fetched it when node read it. null leaves it out.
   clone: { clone_depth: 1 },
+  // start check (SHM-5): the product's setup script, argv, run once per container; none by default.
+  setup_script: null,
+  setup_timeout_minutes: 15,
 };
+
+// An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
+export const UNMET = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+
+// The requirements cap (REQ-6): the line that names a requirement file over requirements_cap
+// bytes, or over requirements_cap_marks unmet marks, as BOB's to split or consolidate before its
+// job; null when it is under both. A trigger, never a refusal: job start takes --over-cap.
+export function overCap(cfg, file, text) {
+  if (text === null || text === undefined) return null;
+  const bytes = Buffer.byteLength(text);
+  const marks = (text.match(UNMET) || []).length;
+  // A number written as a string ("70000") is the same cap; null or empty sets none.
+  const num = (v) => (v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : fail(`requirements cap ${JSON.stringify(v)} in process/config.json is not a number`));
+  const cap = num(cfg.requirements_cap);
+  const capMarks = num(cfg.requirements_cap_marks);
+  const why = [];
+  if (typeof cap === 'number' && bytes > cap) why.push(`${bytes} over ${cap}`);
+  if (typeof capMarks === 'number' && marks > capMarks) why.push(`${marks} unmet marks over ${capMarks}`);
+  return why.length ? `split or consolidate before its job: ${file} ${why.join(', ')}` : null;
+}
 
 export const CONFIG_FILE = 'process/config.json';
 

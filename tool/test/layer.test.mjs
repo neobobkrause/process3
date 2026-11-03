@@ -114,3 +114,60 @@ test('layer close: a red suite records nothing; a layer with an open job is refu
   const open = withOrigin({ ...base, 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md' }) });
   assert.throws(() => layerClose(open.root, '1', { io, log: quiet }), /layer 1 is not ready to close: b has an open job/);
 });
+
+// Measured 3 Nov on the copy: a layer-1 job BLOCKED by `job block` with a reason, its PR open.
+const blocked = (reason) => ({ ...base, 'build/requirements/b.md': unmet(1), 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'BLOCKED', ...(reason ? { reason } : {}) } }) });
+const prOpen = { openPRs: () => [{ number: 38, draft: false, head: { ref: 'job/b', sha: 'x' }, updated_at: '2026-11-03T00:00:00Z' }], checkRun: () => null, compare: () => null };
+
+test('a module BLOCKED with a reason: BOB closes its PR unmerged, then the layer closes with it deferred', () => {
+  const { root, bare } = withOrigin({ ...blocked('R47 rests on measure M-R7, recorded nowhere'), 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS });
+  openPassed(root);
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const out = [];
+  const r = status(root, { role: 'bob', log: (m) => out.push(m), io: prOpen });
+  assert.equal(r.layer.ready, false);
+  assert.equal(r.layer.pending, true);
+  assert.deepEqual(r.next, []);
+  assert.match(out.join('\n'), /layer 1 ready to close once BOB closes these unmerged \(never deleting the branch\):\n- close PR #38 unmerged: R47 rests on measure M-R7, recorded nowhere\nthen: node \.process\/tool\/p3\.mjs layer close 1/);
+  assert.throws(() => layerClose(root, '1', { io: prOpen, log: quiet }), /b is BLOCKED \(R47 rests on measure M-R7, recorded nowhere\) with PR #38 still open: BOB closes it unmerged first/);
+  // PR 38 closed: ready, and the close records b deferred with its reason and marks.
+  assert.equal(status(root, { role: 'bob', log: quiet, io }).layer.ready, true);
+  const out2 = [];
+  assert.equal(layerClose(root, '1', { io, log: (m) => out2.push(m) }).ok, true);
+  const row = JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare }));
+  assert.deepEqual(row.deferred, { a: ['R1', 'R2'], b: { reason: 'R47 rests on measure M-R7, recorded nowhere', marks: ['R1'] } });
+  assert.match(out2.join('\n'), /b: deferred, BLOCKED[\s\S]*deferred: a 2, b 1 \(BLOCKED: R47/);
+});
+
+test('a module BLOCKED with no reason holds the layer, its PR closed or not', () => {
+  const { root } = withOrigin(blocked(null));
+  for (const io_ of [prOpen, io]) {
+    const out = [];
+    const r = status(root, { role: 'bob', log: (m) => out.push(m), io: io_ });
+    assert.equal(r.layer.ready, false);
+    assert.equal(r.layer.pending, false);
+    assert.doesNotMatch(out.join('\n'), /ready to close/);
+  }
+});
+
+test('BLOCKED with a reason on the job branch (as job block records it) defers the module', () => {
+  const { root } = withOrigin({ ...blocked(null), 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'WORKING' } }) });
+  git(['checkout', '-q', '-b', 'job/b', 'tranche'], { cwd: root });
+  commit(root, { 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'BLOCKED', reason: 'why' } }) }, 'block b: why');
+  git(['push', '-q', 'origin', 'job/b'], { cwd: root });
+  const r = status(root, { role: 'bob', log: quiet, io: prOpen });
+  assert.equal(r.layer.pending, true);
+  assert.deepEqual(r.layer.owed.map((m) => [m.id, m.pr, m.blocked]), [['b', 38, 'why']]);
+});
+
+test('a deferred module: offline, its PR unread, the layer is held; its PR closed, no restart flag', () => {
+  const { root } = withOrigin({ ...blocked(null), 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'WORKING' } }) });
+  git(['checkout', '-q', '-b', 'job/b', 'tranche'], { cwd: root });
+  commit(root, { 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'BLOCKED', reason: 'why' } }) }, 'block b: why');
+  git(['push', '-q', 'origin', 'job/b'], { cwd: root });
+  const tranche = makeRepo(blocked('why'));
+  assert.equal(status(tranche, { role: 'bob', offline: true, log: quiet }).layer.ready, false);
+  const r = status(root, { role: 'bob', log: quiet, io });
+  assert.equal(r.layer.ready, true);
+  assert.equal(r.rows.find((x) => x.id === 'b').flag, 'BLOCKED');
+});

@@ -1,13 +1,15 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
+import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { aheadBy, checkRun, compare, openPRs } from './github.mjs';
 import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
-import { REFRESH_AT, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
-import { fetchState, handoffFile, readState, toRoute, undelivered } from './state.mjs';
+import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
+import { noticeLine, notices } from './notice.mjs';
+import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { depth, exists, fail, fileBytes, git, loadConfig, repoSlug } from './util.mjs';
+import { UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -17,7 +19,7 @@ export const IDLE_HOURS = 2;
 export const SILENT_HOURS = 2;
 
 export function status(root, { role, module, context, live, offline = false, log = console.log, io: given } = {}) {
-  const io = { openPRs, checkRun, compare, ...given };
+  const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
@@ -29,14 +31,19 @@ export function status(root, { role, module, context, live, offline = false, log
   if (!offline) {
     try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
     // The tranche and the branches job/<id> of the ledger's entries that are not COMPLETE, or
-    // that have an open pull request (a reopen): no other job/* ref is fetched (110 s measured
+    // that have an open pull request (a reopen) or an unanswered notice: no other job/* ref is fetched (110 s measured
     // 3 Nov in a fresh depth-1 clone, carrying refs such as job/T11/agent-worker of no entry).
     // One ls-remote, then one fetch of only the refs that moved, --depth 1 in a shallow clone:
     // there a branch fetched in full pulls its whole history (90 s measured 3 Nov), and a --depth
     // fetch never finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
     const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
     const heads = new Set((prs || []).map((p) => p.head?.ref));
-    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
+    // And, for BOB, job/<id> of each user module with an unanswered provider notice: a COMPLETE
+    // user whose auto-reopened start was pushed before its pull request opened names the notice
+    // on that branch only (the state branch is fetched here once; bobStatus reuses the fetch).
+    const noticed = new Set();
+    if (role === 'bob') { try { if (fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
+    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`) || noticed.has(e.id)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
@@ -51,6 +58,8 @@ export function status(root, { role, module, context, live, offline = false, log
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
     const branch = `origin/job/${e.id}`;
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements };
+    // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
+    if (e.status?.state === 'BLOCKED' && e.status.reason) row.blocked = e.status.reason;
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
@@ -61,6 +70,7 @@ export function status(root, { role, module, context, live, offline = false, log
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
       if (s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';
       if (s.state === 'BLOCKED') row.flag = 'BLOCKED';
+      if (s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
     }
     const pr = prs?.find((p) => p.head?.ref === `job/${e.id}`);
     if (pr) {
@@ -74,7 +84,7 @@ export function status(root, { role, module, context, live, offline = false, log
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
       row.flag = 'an unfinished start (pushed, no pull request): run job start again and it resumes';
-    } else if (row.ahead > 0) {
+    } else if (row.ahead > 0 && !row.blocked) {
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
@@ -84,6 +94,8 @@ export function status(root, { role, module, context, live, offline = false, log
       const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
     }
+    // A deferred module's pull request, GitHub unread: unknown, so the layer is held.
+    if (prs === null && row.blocked && !row.pr) row.pr = 'unknown (GitHub not read)';
     rows.push(row);
   }
   log(`ledger on ${haveTranche ? tranche : 'the working tree'}: ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}${prs === null ? (offline ? '; offline, pull requests not read' : '; GitHub unreadable') : ''}`);
@@ -113,13 +125,14 @@ export function status(root, { role, module, context, live, offline = false, log
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     out.layer = layerState(root, cfg, rows, ref, { closed: closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare }) });
     // No job work until the tranche open's grants check has passed (Build Plan Phase 3).
     out.open = openState(root, cfg);
     if (out.open.state !== 'open') log(openLine(out.open));
-    out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer });
+    out.notices = owedNotices(root, cfg, rows, log);
+    out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
     return out;
   }
   return { rows, sessions, prs };
@@ -128,7 +141,7 @@ export function status(root, { role, module, context, live, offline = false, log
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
 // activity; merged as a count; other open pull requests into the tranche; undelivered messages;
 // REFRESH from refusals and from context use; BOB's reading set with sizes.
-export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
+export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList }) {
   const sb = cfg.state_branch;
   const L = [];
   const age = (t) => (t ? `${Math.round((Date.now() - Date.parse(t)) / 36e5 * 10) / 10}h ago` : 'unknown');
@@ -148,7 +161,12 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log }) {
   for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
   L.push(`merged: ${merged}`);
   const jobs = new Set(rows.map((r) => `job/${r.id}`));
-  const other = (prs || []).filter((p) => !jobs.has(p.head?.ref));
+  // Tranche carry (SHM-4): an open pull request no ledger entry owns stays under "to take in"
+  // until a job takes it in or it is closed; one already taken in is listed as other.
+  const carry = prs ? toTakeIn(root, { slug, ref: tranche, prs, files: prList }) : [];
+  if (carry.length) L.push('to take in:', ...carry.map((t) => `- ${takeInLine(t, P3)}, last activity ${age(t.updated)}`));
+  const listed = new Set(carry.map((t) => t.number));
+  const other = (prs || []).filter((p) => !jobs.has(p.head?.ref) && !listed.has(p.number));
   if (other.length) L.push('other pull requests:', ...other.map((p) => `- #${p.number} ${p.head?.ref}${p.draft ? ' draft' : ''}, last activity ${age(p.updated_at)}`));
   let haveState = false;
   if (!offline) { try { haveState = fetchState(root, sb); } catch (e) { L.push(`${sb}: ${e.message}`); } }
@@ -184,14 +202,17 @@ export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
     .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }
 
-const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+const MARK = UNMET;
 
 // The layers (Build Plan, Phase 3, INT-4): the layer map (layers_file), a table row whose first
 // cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
 // or when none of its modules has unmet marks or an open job. The open layer is the lowest not
 // closed. It is ready to close when no module of it has an open job and each has its job merged
-// in this tranche (its entry COMPLETE, no open pull request, no flag) or no unmet marks; the marks
-// left then are deferred, never listed again as its next work. Null without a layer map.
+// in this tranche (its entry COMPLETE, no open pull request, no flag) or no unmet marks, or is
+// BLOCKED with a recorded reason and its pull request closed (deferred: a BLOCKED module with no
+// reason holds the layer); the marks left then are deferred, never listed again as its next work.
+// owed: the deferred modules whose pull request is still open, BOB's to close unmerged before the
+// close (pending, when nothing else holds the layer). Null without a layer map.
 export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg) } = {}) {
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
@@ -206,14 +227,47 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const row = rows.find((r) => r.id === id || r.req === file);
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
       const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
-      return { id, file, open, merged, marks: marks(file), row };
+      const pr = row?.pr?.match(/^#(\d+)/)?.[1] ?? null;
+      return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), row };
     }) }))
     .sort((a, b) => a.n - b.n);
   for (const L of layers) L.closed = recorded.has(L.n) || L.mods.every((m) => !m.open && !m.marks.length);
   const cur = layers.find((L) => !L.closed) || null;
-  const ready = !!cur && cur.mods.every((m) => !m.open && (m.merged || !m.marks.length));
+  // A deferred module's pull request unread (offline) holds the layer as an open one does.
+  const ok = (m) => (m.blocked ? !m.pr && !m.row.pr?.startsWith('unknown') : !m.open && (m.merged || !m.marks.length));
+  const owed = (cur?.mods || []).filter((m) => m.blocked && m.pr);
+  const ready = !!cur && cur.mods.every(ok);
+  const pending = !!cur && !!owed.length && cur.mods.every((m) => ok(m) || owed.includes(m));
   const deferred = layers.filter((L) => recorded.has(L.n)).flatMap((L) => L.mods.filter((m) => m.marks.length).map((m) => ({ layer: L.n, id: m.id, count: m.marks.length })));
-  return { layers, cur, ready, deferred };
+  return { layers, cur, ready, pending, owed, deferred };
+}
+
+// Provider notices (the provider-change route): per user module, each notice it has not answered,
+// as the state branch holds them (bobStatus fetched it). Listed until the user has an open job
+// whose START names the notice (its start row, on its job branch); answered when that job merges.
+export function owedNotices(root, cfg, rows, log = console.log) {
+  let all = [];
+  try { all = notices(root, cfg.state_branch); } catch { all = []; }
+  const unrecorded = {};
+  const named = (u) => {
+    // The job branch decides, while its attempt is open: not COMPLETE on the tranche, an open pull
+    // request, or commits the tranche lacks. A merged attempt's start row names a notice only when
+    // its answer was not written (the merge stands if that write fails): the notice is still owed,
+    // and merge <n> run again records it (confirming review of PR 54).
+    const row = rows.find((x) => x.id === u);
+    if (!row?.branch) return [];
+    const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
+    const keys = t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
+    const open = row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#') || row.ahead > 0;
+    if (!open) { unrecorded[u] = keys; return []; }
+    return keys;
+  };
+  const owed = {};
+  for (const n of all) for (const u of n.open) if (!named(u).includes(n.key)) (owed[u] ||= []).push(n);
+  const users = Object.keys(owed).sort();
+  if (users.length) log('provider notices (the user module\'s next job answers each):');
+  for (const u of users) for (const n of owed[u]) log(`- ${u}: ${noticeLine(n)}${unrecorded[u]?.includes(n.key) ? `; its merged job named it, answer not recorded: run merge <that job's PR> again` : ''}`);
+  return owed;
 }
 
 // Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
@@ -221,34 +275,50 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
 // act is then `layer close <n>`). The deferred marks of closed layers are listed, not as work.
 // Without a layer map, every requirement file with unmet marks. With live (the live sessions BOB
 // counts), at most live_cap less them are listed; the list returned is all of them.
-export function nextWork(root, cfg, rows, ref, { live, log = console.log, state } = {}) {
+export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {} } = {}) {
   const open = rows.filter((r) => r.tranche !== 'COMPLETE');
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const taken = new Set(open.flatMap((r) => [r.req, `${dir}/${r.id}.md`]));
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
-  const unmet = (f) => ((read(f) || '').match(MARK) || []).length;
   const ls = state === undefined ? layerState(root, cfg, rows, ref) : state;
   let files;
   let layer = null;
   if (ls) {
     layer = ls.cur?.n ?? null;
-    files = ls.ready ? [] : (ls.cur?.mods || []).map((m) => m.file);
+    files = ls.ready || ls.pending ? [] : (ls.cur?.mods || []).map((m) => m.file);
     if (ls.deferred.length) {
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
     }
     if (ls.ready) log(`layer ${layer} ready to close: ${P3} layer close ${layer}`);
+    if (ls.pending) {
+      log(`layer ${layer} ready to close once BOB closes these unmerged (never deleting the branch):`);
+      for (const m of ls.owed) log(`- close PR #${m.pr} unmerged: ${m.blocked}`);
+      log(`then: ${P3} layer close ${layer}`);
+    }
   } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
   } else files = (existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
-  const list = files.filter((f) => !taken.has(f)).map((file) => ({ file, count: unmet(file) })).filter((x) => x.count);
-  list.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  // Read whole (git show without allowFail drops the last newline): the cap counts every byte.
+  const whole = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : null) : read(f));
+  // A user module with an unanswered provider notice is next work, whatever its layer or marks.
+  const byFile = new Map(Object.entries(owed).map(([u, ns]) => [rows.find((r) => r.id === u)?.req || `${dir}/${u}.md`, ns]));
+  const all = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => {
+    const text = whole(file);
+    return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+  }).filter((x) => x.count || x.notices);
+  all.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  // Over the cap: BOB's act is the split or consolidation, listed apart, never as startable work.
+  const big = all.filter((x) => x.over);
+  for (const x of big) log(x.over);
+  const list = all.filter((x) => !x.over);
   if (list.length) {
     const n = live === undefined ? list.length : Math.max(0, cfg.live_cap - live);
     const shown = list.slice(0, n);
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `all ${list.length} listed; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : `${shown.length} listed (live ${live} of ${cfg.live_cap}), ${list.length - shown.length} wait`}`);
-    for (const x of shown) log(`- ${x.file}: ${x.count}`);
+    for (const x of shown) log(`- ${x.file}: ${x.count}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
   }
-  return list;
+  // The returned list holds both: a split owed is still work for BOB (sweep counts it).
+  return [...list, ...big];
 }

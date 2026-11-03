@@ -10,8 +10,8 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { trancheReport } from './lib/report.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
+import { deepen, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
@@ -60,7 +60,9 @@ const commands = {
     return 0;
   },
 
-  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>"]: BOB opens a job;
+  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
+  // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
+  // --take-in, on work made before Process3, every file of it inside the module's paths;
   // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
   // No job starts (a reopen included) until the tranche open's grants check has passed; a restart
   // continues a job already started.
@@ -71,7 +73,8 @@ const commands = {
       const o = openState(root, cfg);
       if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
     }
-    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart });
+    if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
+    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, takeIn: a['take-in'], overCap: a['over-cap'] });
     return 0;
   },
 
@@ -178,6 +181,7 @@ const commands = {
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
     git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
+    deepen(root, cfg.tranche);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
     const md = trancheReport(root, cfg, { slug, stateRead, io: { state: (p) => readState(root, cfg.state_branch, p) } });
@@ -214,7 +218,7 @@ const commands = {
   // It records the approvals it loaded under .git; start check --wake, at every later wake of
   // BOB, ROOT or the watcher, exits 1 when the tip's approvals differ from that record, or with
   // --approvals <hash> (from the starting or task prompt) from that hash.
-  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch, approvals: a.approvals }) : startCheck(root, { branch: a.branch })).ok ? 0 : 1),
+  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch, approvals: a.approvals }) : startCheck(root, { branch: a.branch, setup: true })).ok ? 0 : 1),
 
   // start root | start bob | start watcher: the role's starting prompt (and create_session call).
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
