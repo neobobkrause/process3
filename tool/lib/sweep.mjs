@@ -2,7 +2,7 @@
 // cannot call Claude's session or task tools: sweep reads the record and prints what ROOT must do,
 // in the Foundations' order, and writes the heartbeat; watch reads the heartbeat's age and ROOT's
 // address and prints the watcher's decision. The session makes every call.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { P3 } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
@@ -12,6 +12,9 @@ import { SILENT_HOURS, nextWork, status } from './status.mjs';
 import { fail, git, loadConfig, now } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
+// One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
+// listed acts for BOB (next work, or a job owed or blocked) and, if so, how long BOB had been quiet.
+export const SWEEP_ROWS_FILE = 'metrics/sweep.jsonl';
 export { SILENT_HOURS }; // BOB with no write, a WORKING job with no push
 export const IDLE_HOURS = 1; // BOB with next work and no write: woken
 export const WATCH_HOURS = 4; // the heartbeat's age at which the watcher takes over
@@ -66,6 +69,7 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
   const todo = [];
   const owed = [];
   const cap = cfg.live_cap;
+  let idle = { bob_acts: 'unmeasured', bob_quiet_h: null }; // no BOB, or a paused plan: not read
   if (live !== undefined) {
     const n = Number(live);
     if (live === true || !Number.isInteger(n) || n < 0) fail(`--live <n>, the live sessions you count, not ${JSON.stringify(live)}`);
@@ -88,12 +92,15 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
       const last = Math.max(Date.parse(bob.at) || 0, ct(root, [tranche]), ct(root, [`refs/remotes/origin/${sb}`, '--', 'messages/bob.jsonl', 'handoff/bob.md']));
       const refresh = sessions.some((s) => s.session === bob.session && s.refresh);
       const wake = Math.min(...messages(readState(root, sb, messagesFile('root'))).filter((m) => m.to === 'bob').map((m) => Date.parse(m.at)).filter((x) => x > last));
+      // BOB's idle time: acts listed for it (next work, or a job owed or blocked) while it is quiet.
+      const next = nextWork(root, cfg, rows, tranche, { log: () => {} }).length > 0;
+      const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success') || (r.flag && !r.flag.startsWith('WORKING')));
+      idle = { bob_acts: acts, bob_quiet_h: acts ? hours(t - last) : null };
       if (refresh || t - wake > SILENT_HOURS * H) {
         found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : `silent ${hours(t - last)}h, ${hours(t - wake)}h after a wake`}`);
         todo.push(`handover: ${P3} handover begin, and its steps`);
       } else if (!Number.isFinite(wake)) {
         // Step 3 for BOB: silent over two hours, or next work while no job is open or after an hour with no write: wake it.
-        const next = nextWork(root, cfg, rows, tranche, { log: () => {} }).length > 0;
         const noJob = !rows.some((r) => r.tranche !== 'COMPLETE');
         if (t - last > SILENT_HOURS * H) owed.push(`BOB ${bob.session} silent ${hours(t - last)}h`);
         else if (next && (noJob || t - last > IDLE_HOURS * H)) owed.push(`BOB ${bob.session} idle ${hours(t - last)}h with next work`);
@@ -121,6 +128,8 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
   const { tip } = writeState(root, sb, `heartbeat: ${beat.found.join('; ').slice(0, 60)}`, (dir) => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, HEARTBEAT_FILE), JSON.stringify(beat) + '\n');
+    mkdirSync(join(dir, 'metrics'), { recursive: true });
+    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle }) + '\n');
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

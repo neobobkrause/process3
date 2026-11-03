@@ -36,7 +36,7 @@ export function readState(root, sb, path) {
   return r.code === 0 ? r.stdout : null;
 }
 
-const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
 
 // Changes the state branch in a worktree of its own (the caller's checkout never moves), commits
 // and pushes with pushRetry: never forced. A branch origin lacks starts as an orphan commit.

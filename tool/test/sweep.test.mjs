@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { commit, entry, makeRepo } from './helpers.mjs';
 import { readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
 import { readState, writeState } from '../lib/state.mjs';
-import { HEARTBEAT_FILE, sweep, sweepTask, watch } from '../lib/sweep.mjs';
+import { HEARTBEAT_FILE, SWEEP_ROWS_FILE, sweep, sweepTask, watch } from '../lib/sweep.mjs';
 import { git } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -187,4 +187,21 @@ test('sweep step 3: a WORKING job that pushed and then stopped past SILENT_HOURS
   assert.ok(!r.found.some((f) => f.startsWith('fresh')), r.found.join('|'));
   assert.equal(r.todo.length, 1);
   assert.match(r.todo[0], /stale: WORKING, no push for 3h/);
+});
+
+test('sweep row: BOB\'s idle time is recorded when status lists acts for it, and not otherwise', () => {
+  const root = withOrigin({ 'process/ledger/m1.json': entry('m1', { status: { state: 'BLOCKED', reason: 'x' } }) });
+  recordStart(root, 'root', R, { log: quiet });
+  run(root);
+  recordStart(root, 'bob', B, { log: quiet });
+  run(root);
+  const rows = readState(root, 'process-state', SWEEP_ROWS_FILE).trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(rows.map((r) => [r.row, r.session, r.bob_acts]), [['sweep', R, 'unmeasured'], ['sweep', R, true]]);
+  assert.equal(typeof rows[1].bob_quiet_h, 'number');
+  const quietRoot = withOrigin();
+  recordStart(quietRoot, 'root', R, { log: quiet });
+  recordStart(quietRoot, 'bob', B, { log: quiet });
+  run(quietRoot);
+  const q = JSON.parse(readState(quietRoot, 'process-state', SWEEP_ROWS_FILE));
+  assert.deepEqual([q.bob_acts, q.bob_quiet_h], [false, null]);
 });
