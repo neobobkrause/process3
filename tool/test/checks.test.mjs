@@ -75,6 +75,11 @@ test('GAT-4: the gate regenerates, verifies the rows whose paths changed, and a 
   assert.match(of(bad, 'generated')[0].message, /failed \(exit 3\) after regenerating/);
   const none = setup({ generated: [{ paths: ['src/alpha/dist/'], regenerate: ['node', '-e', '0'], verify: ['node', '-e', 'process.exit(3)'] }] }, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   assert.deepEqual([of(none, 'generated').length, none.run.generated[0].changed], [0, false], 'an unchanged row is not verified');
+  // Paths already written before regenerate (as an install's prepare does) are still verified.
+  const pre = ['node', '-e', "require('fs').mkdirSync('src/alpha/dist',{recursive:true});require('fs').writeFileSync('src/alpha/dist/out.js','pre\\n')"];
+  const dirty = setup(GEN(['node', '-e', 'process.exit(3)']), { 'src/alpha/index.mjs': 'export const x = 2;\n' }, { checks: [pre] });
+  assert.equal(dirty.run.generated[0].changed, true);
+  assert.match(of(dirty, 'generated')[0].message, /failed \(exit 3\) after regenerating/);
 });
 
 test('ARC-4: the entry\'s checks run in the gate, and a failing one is a finding', () => {

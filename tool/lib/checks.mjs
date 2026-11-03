@@ -79,7 +79,7 @@ export function committedGenerated(root, rows, { head, changed }) {
 const tail = (r) => (r.stdout + r.stderr).trim().split('\n').slice(-5).join(' ');
 
 // GAT-4: every row's regenerate command from the root, then the verify command of each row whose
-// paths it changed. Product code: without the GitHub tokens, within one suite timeout in all.
+// paths then differ from the commit (an install's prepare may have written them already). Product code: without the GitHub tokens, within one suite timeout in all.
 export function regenerate(root, rows, { timeout, exec = run }) {
   const end = Date.now() + timeout;
   const left = () => Math.max(1000, end - Date.now());
@@ -87,13 +87,12 @@ export function regenerate(root, rows, { timeout, exec = run }) {
   const status = (r) => git(['status', '--porcelain', '-z', '--untracked-files=all', '--', ...r.paths.map(normPath)], { cwd: root });
   const findings = [];
   const ran = [];
-  const before = rows.map(status);
   for (const r of rows) {
     const g = exec(r.regenerate[0], r.regenerate.slice(1), opts());
     if (g.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}): ${tail(g)}` });
   }
-  rows.forEach((r, i) => {
-    const changed = status(r) !== before[i];
+  for (const r of rows) {
+    const changed = status(r) !== '';
     const row = { paths: r.paths, changed, verify: null };
     if (changed) {
       const v = exec(r.verify[0], r.verify.slice(1), opts());
@@ -101,7 +100,7 @@ export function regenerate(root, rows, { timeout, exec = run }) {
       if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after regenerating: ${tail(v)}` });
     }
     ran.push(row);
-  });
+  }
   return { findings, ran };
 }
 
