@@ -94,6 +94,19 @@ export function undelivered(root, sb) {
     messages(readState(root, sb, `messages/${f}`)).filter((m) => m.outcome !== 'delivered').map((m) => ({ from: f.slice(0, -6), ...m })));
 }
 
+// Reports to route (P9, PLN-3): messages to bob from a job sender (any sender but root, bob and
+// the watcher) until a later message from bob names its id (<from>-<n>) in its text.
+export function toRoute(root, sb) {
+  const r = git(['ls-tree', '--name-only', '-z', `${ref(sb)}:messages`], { cwd: root, allowFail: true });
+  if (r.code !== 0) return [];
+  const all = r.stdout.split('\0').filter((f) => f.endsWith('.jsonl')).flatMap((f) => messages(readState(root, sb, `messages/${f}`)).map((m) => ({ from: f.slice(0, -6), ...m })));
+  const bob = all.filter((m) => m.from === 'bob');
+  return all.filter((m) => m.to === 'bob' && !['root', 'bob', 'watcher'].includes(m.from)).filter((m) => {
+    const id = new RegExp(`(^|[^\\w-])${m.from}-${m.n}(?!\\d)`);
+    return !bob.some((b) => b.at >= m.at && id.test(b.text));
+  });
+}
+
 // The address read from git at this moment: the session id, or null.
 export function address(root, sb, role) {
   const t = readState(root, sb, addressFile(role));

@@ -74,8 +74,10 @@ export const DEFAULTS = {
   // sweep: the live-session cap (PLT, measured 1 Nov), and the plan (run, pause or stop).
   live_cap: 24,
   plan: 'run',
-  // status --role bob: where the requirement files that give BOB its next work live.
+  // status --role bob: where the requirement files that give BOB its next work live, and the
+  // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
+  layers_file: 'build/layers.md',
 };
 
 export const CONFIG_FILE = 'process/config.json';

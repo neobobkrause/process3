@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -66,14 +66,25 @@ test('sweep step 1: a paused plan is heartbeat only', () => {
   assert.throws(() => run(root, { live: true }), /--live/);
 });
 
-test('sweep step 2: no BOB, a silent BOB, a BOB flagged REFRESH', () => {
+const wakeAt = (root, at) => writeState(root, 'process-state', 'wake', (d) => { mkdirSync(join(d, 'messages'), { recursive: true }); writeFileSync(join(d, 'messages/root.jsonl'), JSON.stringify({ at, row: 'sent', n: 1, to: 'bob', text: 'Sweep: x.' }) + '\n'); });
+
+test('sweep step 2: no BOB; a silent BOB is woken, then handed over two hours after the wake; REFRESH', () => {
   const root = withOrigin({}, { GIT_COMMITTER_DATE: OLD, GIT_AUTHOR_DATE: OLD });
   recordStart(root, 'root', R, { log: quiet });
   assert.match(run(root).todo[0], /start bob/);
   writeState(root, 'process-state', 'old bob', (d) => writeFileSync(join(d, 'addresses/bob.json'), JSON.stringify({ session: B, at: OLD })));
   const s = run(root);
   assert.match(s.found.join(), /BOB session_bob1 silent/);
-  assert.match(s.todo[0], /handover begin/);
+  assert.equal(s.todo.length, 1);
+  assert.match(s.todo[0], /wake BOB with one message: .*send bob "Sweep: BOB session_bob1 silent/);
+  // A wake within two hours is outstanding: nothing more for BOB.
+  wakeAt(root, new Date(Date.now() - 36e5).toISOString());
+  assert.equal(run(root).act, 'heartbeat');
+  // Woken over two hours ago and nothing written since: the handover.
+  wakeAt(root, new Date(Date.now() - 3 * 36e5).toISOString());
+  const h = run(root);
+  assert.match(h.found.join(), /BOB session_bob1 silent .*h, 3h after a wake/);
+  assert.match(h.todo[0], /handover begin/);
   // Fresh tranche, but ten refusals for BOB: REFRESH.
   const rows = Array.from({ length: 10 }, (_, i) => JSON.stringify({ row: 'refusal', id: `r${i}`, session: B, act: 'a', depth: 1 })).join('\n') + '\n';
   commit(root, { 'process/metrics/refusals.bob.jsonl': rows });
@@ -82,13 +93,14 @@ test('sweep step 2: no BOB, a silent BOB, a BOB flagged REFRESH', () => {
   assert.match(run(root).found.join(), /flagged REFRESH/);
 });
 
-test('sweep step 2: next work waiting and no job open is the same handover', () => {
+test('sweep step 2: an idle BOB with next work and no job open is woken, not handed over', () => {
   const root = withOrigin({ 'build/requirements/m.md': '- **R1** *(not yet met: x)* y\n' });
   recordStart(root, 'root', R, { log: quiet });
   recordStart(root, 'bob', B, { log: quiet });
   const s = run(root);
-  assert.match(s.found.join(), /BOB session_bob1 idle .*h with next work/);
-  assert.match(s.todo[0], /handover begin/);
+  assert.equal(s.todo.length, 1);
+  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work\."/);
+  assert.match(beat(root).found.join(), /BOB session_bob1 idle 0h with next work/);
   commit(root, { 'process/ledger/m.json': entry('m', { requirements: 'build/requirements/m.md' }) });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
@@ -138,6 +150,7 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   assert.throws(() => startRole(root, 'watcher', { slug: 'o/p', log: quiet }), /one per account/);
   const t = sweepTask(R);
   assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2').prompt.includes('`git fetch origin tr2`'));
+  assert.match(t.prompt, /start check --wake`; if it says the approvals changed, tell Bob by push notification and take no further step/);
   assert.match(t.prompt, new RegExp(`sweep --session ${R} --live`));
   assert.equal(t.call.cron_expression, '0 * * * *');
   const p = rootPrompt({ slug: 'o/p' });
