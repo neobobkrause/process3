@@ -6,13 +6,14 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { P3 } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
-import { readAddress } from './roles.mjs';
-import { fetchState, readState, writeState } from './state.mjs';
-import { status } from './status.mjs';
+import { readAddress, wakeSteps } from './roles.mjs';
+import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
+import { nextWork, status } from './status.mjs';
 import { fail, git, loadConfig, now } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 export const SILENT_HOURS = 2; // BOB with no write, a WORKING job with nothing pushed
+export const IDLE_HOURS = 1; // BOB with next work and no write: woken
 export const WATCH_HOURS = 4; // the heartbeat's age at which the watcher takes over
 export const FAR = 3; // "far over" a role's median: this many times it
 const H = 36e5;
@@ -29,7 +30,7 @@ export function readHeartbeat(root, sb) {
 // The prompt of ROOT's hourly sweep task, bound to ROOT's own session.
 export function sweepTask(session, tranche = 'tranche') {
   checkSession(session);
-  const prompt = `Sweep. First run \`git fetch origin ${tranche}\`, then \`git checkout -q --detach FETCH_HEAD\`, then \`git submodule update --init .process\` (a fresh container may hold an old checkout and has it empty). Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
+  const prompt = `Sweep. First run ${wakeSteps(tranche)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
   return { prompt, call: { name: 'sweep', cron_expression: '0 * * * *', prompt } };
 }
 
@@ -78,15 +79,23 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
     const { rows, sessions } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
     const tranche = `origin/${cfg.tranche}`;
     const t = Date.now();
-    // Step 2: BOB flagged REFRESH, or no write to the record in over two hours.
+    // Step 2: hand over BOB flagged REFRESH, or woken over two hours ago with no write to the
+    // record (its address, the tranche's tip, its messages or handoff) since. A wake is a message
+    // from root to bob; the first since BOB's last write is the one outstanding.
     const bob = addr.bob;
     if (!bob) { found.push('no BOB addressed'); todo.push(`start BOB: ${P3} start bob`); } else {
       const last = Math.max(Date.parse(bob.at) || 0, ct(root, [tranche]), ct(root, [`refs/remotes/origin/${sb}`, '--', 'messages/bob.jsonl', 'handoff/bob.md']));
       const refresh = sessions.some((s) => s.session === bob.session && s.refresh);
-      const quiet = t - last > SILENT_HOURS * H;
-      if (refresh || quiet) {
-        found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : `silent ${hours(t - last)}h`}`);
+      const wake = Math.min(...messages(readState(root, sb, messagesFile('root'))).filter((m) => m.to === 'bob').map((m) => Date.parse(m.at)).filter((x) => x > last));
+      if (refresh || t - wake > SILENT_HOURS * H) {
+        found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : `silent ${hours(t - last)}h, ${hours(t - wake)}h after a wake`}`);
         todo.push(`handover: ${P3} handover begin, and its steps`);
+      } else if (!Number.isFinite(wake)) {
+        // Step 3 for BOB: silent over two hours, or next work while no job is open or after an hour with no write: wake it.
+        const next = nextWork(root, cfg, rows, tranche, { log: () => {} }).length > 0;
+        const noJob = !rows.some((r) => r.tranche !== 'COMPLETE');
+        if (t - last > SILENT_HOURS * H) owed.push(`BOB ${bob.session} silent ${hours(t - last)}h`);
+        else if (next && (noJob || t - last > IDLE_HOURS * H)) owed.push(`BOB ${bob.session} idle ${hours(t - last)}h with next work`);
       }
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.

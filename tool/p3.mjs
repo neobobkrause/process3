@@ -11,7 +11,7 @@ import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } fro
 import { merge, mergePlain } from './lib/merge.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
-import { startCheck } from './lib/start.mjs';
+import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole } from './lib/roles.mjs';
 import { handoff, outcome, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
@@ -31,8 +31,8 @@ const one = (a, what) => a._[0] || fail(`name the ${what}`);
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
-  // status [--role job --module <id> | --role bob [--context <percent of the window used>]] [--offline]
-  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, offline: !!a.offline }); return 0; },
+  // status [--role job --module <id> | --role bob [--context <percent of the window used>] [--live <n>]] [--offline]
+  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, live: a.live, offline: !!a.offline }); return 0; },
 
   // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
   // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
@@ -60,9 +60,9 @@ const commands = {
   // or, with --reopen, a new attempt on a COMPLETE module whose last attempt merged.
   'job start': (a, root) => { jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen }); return 0; },
 
-  // job complete <id> [--not-verified "..."]... [--exempt-revert "<why>"] [--no-suite]
+  // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite]
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
-    notVerified: list(a['not-verified']).filter((x) => x !== true), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
+    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
   }).ok ? 0 : 1),
 
   // test <id>: the module's own suite, as the gate runs it.
@@ -142,7 +142,9 @@ const commands = {
   // start check [--branch <the branch the session started from; default the tranche>]: a
   // session's first command. Fetches that branch, compares HEAD and the approvals block with its
   // tip, prints both SHAs; exit 1 when either differs (Foundations, "Every session checks its start").
-  'start check': (a, root) => (startCheck(root, { branch: a.branch }).ok ? 0 : 1),
+  // It records the approvals it loaded under .git; start check --wake, at every later wake of
+  // BOB, ROOT or the watcher, exits 1 when the tip's approvals differ from that record.
+  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch }) : startCheck(root, { branch: a.branch })).ok ? 0 : 1),
 
   // start root | start bob | start watcher: the role's starting prompt (and create_session call).
   // start record <root|bob|watcher> <session id>: the address, written after the session was created.
