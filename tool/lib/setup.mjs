@@ -45,9 +45,10 @@ const hookKeys = (hooks) => Object.entries(hooks && typeof hooks === 'object' ? 
   [].concat(groups || []).flatMap((g) => [].concat(g?.hooks || []).map((h) => JSON.stringify([event, g?.matcher ?? '', h?.type ?? '', h?.command ?? '', h?.timeout ?? null]))));
 
 // The tranche's files, through git, so no session reads them through the contents API. With
-// at, a commit's files instead, nothing fetched.
+// at, a commit's files instead; the tranche is fetched either way, since the approvals and the
+// take-in still read it (review of PR 60).
 function tranche(root, name, at = null) {
-  if (!at) fetchBranch(root, name, { allowFail: true });
+  fetchBranch(root, name, { allowFail: true });
   const ref = at || `origin/${name}`;
   return (file) => {
     if (git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code !== 0 || !exists(root, ref, file)) return null;

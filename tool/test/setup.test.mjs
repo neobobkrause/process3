@@ -604,6 +604,13 @@ test('setup check --at HEAD judges the checkout\'s pin and files, not the tranch
   assert.match(state(head, 'shim-drift').detail, new RegExp(`equal the pin ${newPin.slice(0, 10)}'s shims`));
   assert.deepEqual(state(head, 'session-branch'), { id: 'session-branch', what: state(tip, 'session-branch').what, state: 'skipped', detail: "--at HEAD judges that commit, not the session's checkout" });
   assert.match(out[0], new RegExp(`^setup check for o/r, tranche tranche, at HEAD \\(${sha.slice(0, 10)}\\):`));
+  // --at still fetches the tranche, which the approvals and the take-in read: a stale
+  // origin/tranche is brought up to date (review of PR 60).
+  const moved = git(['rev-parse', 'HEAD'], { cwd: r });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: r });
+  git(['update-ref', 'refs/remotes/origin/tranche', `${moved}~1`], { cwd: r });
+  setupCheck(r, { slug: 'o/r', at: 'HEAD', io, log: quiet });
+  assert.equal(git(['rev-parse', 'origin/tranche'], { cwd: r }), moved);
   // A gap names the commit judged; an unknown ref is refused.
   git(['rm', '-q', '.claude/settings.json'], { cwd: r });
   git(['commit', '-q', '-m', 'drop settings'], { cwd: r });

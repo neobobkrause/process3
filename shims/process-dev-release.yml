@@ -159,7 +159,6 @@ jobs:
           mkdir "$RUNNER_TEMP/assets"
           tar -C "$RUNNER_TEMP/release" --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "$RUNNER_TEMP/assets/$name" .
           (cd "$RUNNER_TEMP/assets" && sha256sum "$name" > SHA256SUMS)
-          tar -tzf "$RUNNER_TEMP/assets/$name" | grep -v '/$' | sed 's/^/  /'
       - name: sign (only when release.sign_secret names a secret)
         if: steps.cfg.outputs.sign != ''
         working-directory: repo
