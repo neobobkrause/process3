@@ -62,6 +62,10 @@ test('never: a role session, a job still open, a pin move while one is open or u
 test('archive: a deferred job; any idle session whose parent is archived and that is not asking', () => {
   const list = [s('session_old', 'x', '01:00', { status: 'archived' }), s('session_d', 'job d', '10:00'), s('session_o', 'something', '10:00', { parent: 'session_old' })];
   assert.deepEqual(acts(list, { rows: [{ id: 'd', tranche: 'BLOCKED', blocked: 'deferred' }] }).acts.map((a) => a.id), ['session_d', 'session_o']);
+  // Not deferred: restarted (WORKING on its branch), or BLOCKED with no reason; no time on record: not idle.
+  assert.deepEqual(acts([s('session_d', 'job d', '10:00')], { rows: [{ id: 'd', tranche: 'BLOCKED', blocked: 'x', branch: 'WORKING' }] }).acts, []);
+  assert.deepEqual(acts([s('session_d', 'job d', '10:00')], { rows: [{ id: 'd', tranche: 'BLOCKED' }] }).acts, []);
+  assert.deepEqual(acts([{ id: 'session_t', title: 'job done', status: 'idle' }], { rows: [merged('done')] }).acts, []);
 });
 
 test('tell: an orphan asking, its work not done, goes to its live owner with its question', () => {
@@ -72,6 +76,7 @@ test('tell: an orphan asking, its work not done, goes to its live owner with its
   assert.deepEqual(r.acts.map((a) => [a.act, a.id, a.owner, a.question]), [
     ['tell', 'session_j', 'session_BOB', 'Which route?'],
     ['tell', 'session_b', C, '(read its last message with list_events)']]);
+  assert.equal(sessionActs(list, { rows: [working('m1')], roles: {}, now: NOW }).acts[0].owner, 'Bob by push notification');
 });
 
 test('sweep --sessions: prints each act, the line in found, and counts live from the list', () => {

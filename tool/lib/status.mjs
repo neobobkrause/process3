@@ -74,14 +74,15 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
     if (kind === 'roles') continue;
     const r = job && rows.find((y) => y.id === job);
     // Merged, or deferred (BLOCKED, its pull request closed); a module status does not list is open.
-    const open = job && !(r && (jobDone(r) || (r.tranche === 'BLOCKED' && !r.pr)));
+    const open = job && !(r && (jobDone(r) || (r.tranche === 'BLOCKED' && r.blocked && !r.pr && !/^WORKING/.test(String(r.branch || '')))));
     const done = (job && !open) || (/^pin move\b/.test(title) && pinOpen === false);
     const parent = byId.get(x.parent || x.parent_session_id || x.parent_id);
     const orphan = !!parent && isArchived(parent);
     const asking = lower(x.status_category || x.post_turn_summary?.status_category) === 'need_input';
-    if (!(isIdle(x) || asking) || (now - sessionTime(x)) / 6e4 <= SESSION_IDLE_MIN) continue;
+    // No time on the record: not known to be idle an hour.
+    if (!(isIdle(x) || asking) || !sessionTime(x) || (now - sessionTime(x)) / 6e4 <= SESSION_IDLE_MIN) continue;
     if (done || (orphan && !asking && !open)) acts.push({ act: 'archive', id, title });
-    else if (orphan && asking) acts.push({ act: 'tell', id, title, owner: (job ? roles.bob?.session : coordinator) || 'Bob', question: String(x.question || x.summary || x.post_turn_summary?.summary || '(read its last message with list_events)').replace(/\s+/g, ' ').slice(0, 300) });
+    else if (orphan && asking) acts.push({ act: 'tell', id, title, owner: (job ? roles.bob?.session : coordinator) || 'Bob by push notification', question: String(x.question || x.summary || x.post_turn_summary?.summary || '(read its last message with list_events)').replace(/\s+/g, ' ').slice(0, 300) });
   }
   const line = `sessions: ${Object.values(kinds).reduce((a, b) => a + b, 0)} live (roles ${kinds.roles}, jobs ${kinds.jobs}, builds ${kinds.builds}, other ${kinds.other}); leftovers ${acts.length}`;
   return { kinds, acts, line };
