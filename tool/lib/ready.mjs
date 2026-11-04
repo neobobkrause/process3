@@ -8,7 +8,7 @@
 // provider notice (job start reopens it itself) or for found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, jobStart } from './job.mjs';
-import { isArchived, isIdle, jobDone, jobSession, readSessions, status } from './status.mjs';
+import { isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
@@ -49,7 +49,7 @@ export function archivable(rows, listed) {
   const sessions = [];
   for (const d of done) {
     const js = jobSession(listed, d.id);
-    if (js && !isArchived(js) && isIdle(js)) sessions.push({ session: js.id || js.session_id || js.uuid, job: d.id, why: d.why });
+    if (js && !isArchived(js) && isIdle(js)) sessions.push({ session: sessionId(js), job: d.id, why: d.why });
   }
   return { jobs: done, sessions };
 }

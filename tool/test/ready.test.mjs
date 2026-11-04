@@ -144,18 +144,18 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
     { id: 'r', tranche: 'COMPLETE', branch: 'WORKING', pr: '#9 draft' },
   ];
   const listed = [
-    { id: 'session_m', title: 'job m', status: 'idle' },
-    { id: 'session_k', title: 'job k', status_bucket: 'completed' },
-    { id: 'session_w', title: 'job w', status: 'idle' },
-    { id: 'session_g', title: 'job gone', status: 'archived' },
-    { id: 'session_r', title: 'job r', status: 'idle' },
+    { id: 'session_m', title: 'job m', session_status: 'SESSION_STATUS_IDLE' },
+    { id: 'session_k', title: 'job k', session_status: 'SESSION_STATUS_RUNNING', status_bucket: 'review_ready' }, // idle by its bucket alone,
+    { id: 'session_w', title: 'job w', session_status: 'SESSION_STATUS_IDLE' },
+    { id: 'session_g', title: 'job gone', session_status: 'SESSION_STATUS_ARCHIVED' },
+    { id: 'session_r', title: 'job r', session_status: 'SESSION_STATUS_IDLE' },
   ];
   assert.deepEqual(archivable(rows, listed).sessions, [
     { session: 'session_m', job: 'm', why: 'merged' },
     { session: 'session_k', job: 'k', why: 'COMPLETE, PR #7 ready' },
   ]);
   const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
-  writeFileSync(file, JSON.stringify({ sessions: listed }));
+  writeFileSync(file, JSON.stringify({ ccr: { data: listed } }));
   const out = [];
   const r = startReady(root, { live: 1, sessions: file, remote: new Set(), log: (m) => out.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.deepEqual(r.waiting, ['b']);
