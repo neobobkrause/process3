@@ -9,6 +9,7 @@ import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metr
 import { noticeLine, notices } from './notice.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
+import { deployOwed } from './deploy.mjs';
 import { UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -127,11 +128,15 @@ export function status(root, { role, module, context, live, offline = false, log
   if (role === 'bob') {
     const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
-    out.layer = layerState(root, cfg, rows, ref, { closed: closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare }) });
+    const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
+    out.layer = layerState(root, cfg, rows, ref, { closed });
     // No job work until the tranche open's grants check has passed (Build Plan Phase 3).
     out.open = openState(root, cfg);
     if (out.open.state !== 'open') log(openLine(out.open));
     out.notices = owedNotices(root, cfg, rows, log);
+    // After a layer close, the deploy and walk (deploy dev), until a deploy row for that layer exists.
+    out.deploy = cfg.deploy && !halt ? deployOwed(root, cfg, closed) : null;
+    if (out.deploy !== null) log(`deploy and walk: ${P3} deploy dev (layer ${out.deploy} closed, not yet deployed)`);
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
     return out;
   }
