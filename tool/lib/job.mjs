@@ -64,7 +64,7 @@ const DEFAULT_ACTS = (id) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, takeIn, notices = [], rootId = null, watcherId = null, decisionMinutes = 30 }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, takeIn, notices = [], rootId = null, decisionMinutes = 30 }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -76,11 +76,11 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
   if (notices.length) {
     L.push('', '## Provider notices', '', 'For each, a module this one uses changed: confirm or adapt this module\'s code, with a test of its own for the change.');
-    for (const n of notices) L.push(`- \`${n.key}\`: provider \`${n.provider}\` changed ${n.ids.join(', ')} (PR ${n.pr}); its test: \`--test notice:${n.key}="<test file>::<test name>"\`.`);
+    for (const n of notices) L.push(`- \`${n.key}\`: \`${n.provider}\` changed ${n.ids.join(', ')} (PR ${n.pr}); \`--test notice:${n.key}=...\``);
   }
   if (restart) {
     L.push('', `You replace the job session that stopped. BOB saw: ${restart.why}`);
-    L.push(`Continue from pull request ${restart.pr} as it is (last commit \`${restart.last}\`; receipt ${restart.receipt}): read its commits and comments before you change anything. An act it was refused is never rerouted: report it to your coordinator.`);
+    L.push(`Continue from pull request ${restart.pr} as it is (last commit \`${restart.last}\`; receipt ${restart.receipt}): read its commits and comments first. An act it was refused is never rerouted: report it to your coordinator.`);
   }
   if (takeIn) {
     // The marker line (carry.mjs TAKEN): the pull request it names has a job.
@@ -99,12 +99,12 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n}. \`git submodule update --init .process\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9).`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and one \`--test notice:<key>=...\` for each provider notice above' : ''}. It checks, pushes, posts your receipt and marks the PR ready; if it stops part way, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and each notice\'s above' : ''}. It checks, pushes, posts your receipt and marks the PR ready; if it stops part way, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
   // The chain's last automatic step is the watcher (coordinator, 4 Nov); `address <role>` reads each.
-  L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then to the watcher, with the minutes (\`${P3} address <role>\` reads each). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
+  L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then the watcher, with the minutes, by send_message (\`${P3} address <role>\`). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
   L.push('', 'Give each judged act (a push, a session start) its own shell command: no `&&`, `||`, `;`, pipe or second line joins it to anything.');
   L.push('', '## Acts you may take', '');
@@ -126,7 +126,7 @@ function jobCoordinator(root, cfg, given, fetch) {
   if (fetch) fetchState(root, cfg.state_branch);
   const minutes = Number(cfg.targets?.decision_minutes ?? 30);
   if (!(minutes > 0)) fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`);
-  const escalate = { rootId: addressed('root'), watcherId: addressed('watcher'), decisionMinutes: minutes };
+  const escalate = { rootId: addressed('root'), decisionMinutes: minutes };
   if (given) return { coordinator: given, bob: false, ...escalate };
   const session = addressed('bob');
   if (!session) fail(`no coordinator: no BOB is addressed on ${cfg.state_branch} (${addressFile('bob')}); ROOT records one with start record bob <id>, and --coordinator <session id> overrides it for one start`);

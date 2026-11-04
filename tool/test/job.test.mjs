@@ -765,14 +765,14 @@ test('the START names the job\'s rulebook (TXT-5)', () => {
 // (review of PR 72: "push to job/<id> only" forbade the state branch it writes).
 test('the START: the escalation to ROOT after decision_minutes, its limits, and the wake as the job\'s act', () => {
   const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'] });
-  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', watcherId: 'session_01RAN5ek9qx8mduYhfE77Lde', decisionMinutes: 30 });
+  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', decisionMinutes: 30 });
   // The chain's last automatic step is the watcher, with the minutes unanswered (coordinator, 4 Nov).
-  assert.ok(t.includes('No answer from BOB in 30 min: send it once more, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd`, then to the watcher, with the minutes (`node .process/tool/p3.mjs address <role>` reads each).'));
+  assert.ok(t.includes('No answer from BOB in 30 min: send it once more, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd`, then the watcher, with the minutes, by send_message (`node .process/tool/p3.mjs address <role>`).'));
   assert.ok(t.includes('If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.'));
   assert.ok(t.includes('- the wake that job complete or block prints, and its send_message'));
   assert.ok(t.includes("pushing to any other branch yourself (the wake's send writes the state branch)"));
   assert.ok(Buffer.byteLength(t) <= 4096, `START ${Buffer.byteLength(t)} bytes`);
   const own = startText({ entry: { ...e, acts: ['only these'] }, slug: 'o/r', branch: 'job/alpha', tranche: 'tranche', coordinator: 's', attempt: 1, reading: { files: [], bytes: 0 } });
-  assert.ok(own.includes('No answer from BOB in 30 min: send it once more, then to ROOT, then to the watcher, with the minutes'), 'none addressed: address reads them');
+  assert.ok(own.includes('No answer from BOB in 30 min: send it once more, then to ROOT, then the watcher, with the minutes'), 'none addressed: address reads them');
   assert.ok(own.includes('- the wake that job complete or block prints'), 'an entry with its own acts keeps the wake');
 });

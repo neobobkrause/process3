@@ -74,15 +74,18 @@ test('the review brief carries its parts: objective, reading set, boundaries, ou
 
 // Second review of PR 72: the escalation and the wake pushed a replacement session's START, the one
 // the urgency work starts more often, over the screen. Restart with a provider notice, real ids.
-test('a replacement job START with a provider notice and the escalation to ROOT and the watcher is one screen at most', () => {
+test('a replacement or taken-in job START with two provider notices and the escalation to ROOT and the watcher is one screen at most', () => {
   const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'], reading: ['req/alpha.md', 'docs/alpha.md'], requirements: 'req/alpha.md' });
-  const t = startText({
-    entry: e, slug: SLUG, branch: 'job/alpha', tranche: 'tranche', coordinator: ID, bob: true, attempt: 1,
-    reading: { files: [{ file: 'req/alpha.md', bytes: 61 }, { file: 'docs/alpha.md', bytes: 16 }], bytes: 77 },
-    notices: [{ key: 'beta:41', provider: 'beta', ids: ['R2', 'R5'], pr: 41 }],
-    restart: { why: 'its session was archived', pr: `https://github.com/${SLUG}/pull/123`, last: 'abc1234 work in progress', receipt: 'none posted (WORKING)' },
-    rootId: ID, watcherId: ID, decisionMinutes: 30,
-  });
-  assert.ok(t.includes('then to the watcher'));
-  assert.ok(bytes(t) <= SCREEN, `restart START: ${bytes(t)} bytes, over ${SCREEN}`);
+  const notices = [{ key: 'beta:41', provider: 'beta', ids: ['R2', 'R5'], pr: 41 }, { key: 'gamma:52', provider: 'gamma', ids: ['R1'], pr: 52 }];
+  const base = { entry: e, slug: SLUG, branch: 'job/alpha', tranche: 'tranche', coordinator: ID, bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 61 }, { file: 'docs/alpha.md', bytes: 16 }], bytes: 77 }, notices, rootId: ID, decisionMinutes: 30 };
+  const cases = {
+    restart: { restart: { why: 'its session was archived', pr: `https://github.com/${SLUG}/pull/123`, last: 'abc1234 work in progress', receipt: 'none posted (WORKING)' } },
+    'take-in': { takeIn: { pr: 88, branch: 'feature/alpha', commits: ['a'.repeat(40), 'b'.repeat(40)] } },
+  };
+  for (const [name, c] of Object.entries(cases)) {
+    const t = startText({ ...base, ...c });
+    assert.ok(t.includes('then the watcher'));
+    assert.ok(t.includes('`--test notice:gamma:52=...`'));
+    assert.ok(bytes(t) <= SCREEN, `${name} START: ${bytes(t)} bytes, over ${SCREEN}`);
+  }
 });
