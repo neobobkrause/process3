@@ -45,3 +45,20 @@ test('each role prompt names its own rulebook, and only that one', () => {
     for (const other of RULEBOOKS.filter((r) => r !== role)) assert.ok(!p.includes(rulebook(other)), `${role} prompt names ${other}'s rulebook`);
   }
 });
+
+// Measured 4 Nov 00:05: ROOT took a process3-fix-or-restart choice to Bob, saying it could not
+// message the coordinator; its acts reached only BOB and Bob (P17).
+test('ROOT and the watcher carry the act to the coordinator session, and their rulebooks the rule with rule 9\'s test once', () => {
+  const a = 'a'.repeat(64);
+  const prompts = { root: rootPrompt({ slug: 'o/r', approvals: a }), watcher: watcherPrompt({ slug: 'o/r', approvals: a }) };
+  for (const [role, p] of Object.entries(prompts)) {
+    const acts = section(p, 'Acts you may take');
+    const act = acts.split('\n').find((l) => l.startsWith('- ') && l.includes('send_message') && l.includes('`coordinator` session'));
+    assert.ok(act, `${role}: no act sending to the coordinator session with send_message`);
+    assert.match(act, /technical question.*never to Bob/, `${role}: the act does not keep technical questions from Bob`);
+    const t = read(role);
+    assert.match(t, /Technical choices \(a process3 fix or not, a restart, a route\) go to the coordinator session named by `coordinator` in process\/config\.json, by send_message, never to Bob\./, `${role}: rulebook lacks the routing rule`);
+    assert.equal(t.split("rule 9's test").length - 1, 1, `${role}: rule 9's test stated other than once`);
+    assert.equal(t.split('his approvals or accounts, or an act only he can take').length - 1, 1, `${role}: the test's words other than once`);
+  }
+});
