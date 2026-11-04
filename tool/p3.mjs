@@ -204,10 +204,10 @@ const commands = {
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
     git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
-    deepen(root, cfg.tranche);
+    const deepened = deepen(root, cfg.tranche);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
-    const md = trancheReport(root, cfg, { slug, stateRead, io: { state: (p) => readState(root, cfg.state_branch, p) } });
+    const md = trancheReport(root, cfg, { slug, stateRead, deepened, io: { state: (p) => readState(root, cfg.state_branch, p) } });
     if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
     console.log(md);
     return 0;
