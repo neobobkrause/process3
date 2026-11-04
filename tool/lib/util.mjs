@@ -98,6 +98,10 @@ export const DEFAULTS = {
   clone: { clone_depth: 1 },
   // start check (SHM-5): the product's setup script, argv, run once per container; none by default.
   setup_script: null,
+  // Lanes (SES-14): each a name and the product's directory of its design knowledge. The UX lane
+  // is always there; the product names its directory. completion_file (PLN-4): none by default.
+  lanes: [{ name: 'ux', dir: null }],
+  completion_file: null,
   setup_timeout_minutes: 15,
 };
 
