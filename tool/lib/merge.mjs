@@ -369,6 +369,29 @@ export function workflowChanges(root, sha, changed, repo) {
   }
 }
 
+// The first close (bootstrap; coordinator, 4 Nov: the copy's main had no .process, no config and
+// no process workflows, so its first tranche close had no base config to read the tranche's name
+// and the owner from). A pull request into the default branch whose base holds neither the
+// config nor a pin. Nothing in it is weaker than a normal close: the owner is the tool's own
+// default (DEFAULTS, process3's reviewed code), never the head's; the head must be the tranche its
+// own config names, and that config's tranche, approvals and process_repo count only when each is
+// the default or took its value at that owner's commit through GitHub's website (pinChange, with
+// bootstrap); the head's pin must be released (pinChange: a pin where the base has none is a
+// change); a workflow may change only to the pin's own shim (workflowChanges); and the gate must
+// be one of the base's required checks, green on the head (mergePlain). A base with a config but
+// no pin, or a pin but no config, is not a bootstrap: it is judged as any close is.
+export const isBootstrap = (root, baseRef) => !blobAt(root, baseRef, CONFIG_FILE) && !pinAt(root, baseRef);
+export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
+  const no = `${base} has no Process3`;
+  if (!blobAt(root, sha, CONFIG_FILE)) fail(`${no}, and the head has no ${CONFIG_FILE}: the first close is the tranche its own config names`);
+  let t;
+  try { t = loadConfig(root, sha).tranche; } catch (e) { fail(`${no}, and the head's ${CONFIG_FILE} cannot be read (${e.message})`); }
+  if (typeof t !== 'string' || !t) fail(`${no}, and the head's ${CONFIG_FILE} names no tranche`);
+  if (head !== t) fail(`only the tranche ${t} merges into ${base}, not ${head}`);
+  if (!pinAt(root, sha)) fail(`${no}, and the head has no process pin: the first close brings a released one`);
+  log(`${no}: the first close, of the tranche ${t} its own config names, held to the owner's website commit`);
+}
+
 // Waits while a required check on the head is queued, in progress or not yet started (it failed
 // at once that way three times on 2 and 3 Nov), up to `minutes`; past that, only while a check
 // is in progress, up to the gate's cap from its start (a gate that runs many suites can be slow:
@@ -399,29 +422,6 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
     log(`waiting for ${pending.map(([n, st]) => `${n} (${st})`).join(', ')} on ${sha.slice(0, 10)}${t > until ? '; past the wait, still in progress' : ''}`);
     sleep(every);
   }
-}
-
-// The first close (bootstrap; coordinator, 4 Nov: the copy's main had no .process, no config and
-// no process workflows, so its first tranche close had no base config to read the tranche's name
-// and the owner from). A pull request into the default branch whose base holds neither the
-// config nor a pin. Nothing in it is weaker than a normal close: the owner is the tool's own
-// default (DEFAULTS, process3's reviewed code), never the head's; the head must be the tranche its
-// own config names, and that config's tranche, approvals and process_repo count only when each is
-// the default or took its value at that owner's commit through GitHub's website (pinChange, with
-// bootstrap); the head's pin must be released (pinChange: a pin where the base has none is a
-// change); a workflow may change only to the pin's own shim (workflowChanges); and the gate must
-// be one of the base's required checks, green on the head (mergePlain). A base with a config but
-// no pin, or a pin but no config, is not a bootstrap: it is judged as any close is.
-export const isBootstrap = (root, baseRef) => !blobAt(root, baseRef, CONFIG_FILE) && !pinAt(root, baseRef);
-export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
-  const no = `${base} has no Process3`;
-  if (!blobAt(root, sha, CONFIG_FILE)) fail(`${no}, and the head has no ${CONFIG_FILE}: the first close is the tranche its own config names`);
-  let t;
-  try { t = loadConfig(root, sha).tranche; } catch (e) { fail(`${no}, and the head's ${CONFIG_FILE} cannot be read (${e.message})`); }
-  if (typeof t !== 'string' || !t) fail(`${no}, and the head's ${CONFIG_FILE} names no tranche`);
-  if (head !== t) fail(`only the tranche ${t} merges into ${base}, not ${head}`);
-  if (!pinAt(root, sha)) fail(`${no}, and the head has no process pin: the first close brings a released one`);
-  log(`${no}: the first close, of the tranche ${t} its own config names, held to the owner's website commit`);
 }
 
 export function mergePlain(root, n, opts = {}) {
