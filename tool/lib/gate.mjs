@@ -186,7 +186,10 @@ export function gate(root, opts) {
     }
   }
   // Only records changed since the green code run: its comparison stands for these same files.
-  if (runRow.trigger === 'record-since-green' && plain?.length && lastGreen.refresh) runRow.refresh = lastGreen.refresh;
+  // Not when a generated file is among them (a generated path under a records path): its bytes
+  // changed after that comparison (review 4 of PR 95).
+  if (runRow.trigger === 'record-since-green' && plain?.length && lastGreen.refresh
+    && !diffNames(root, lastGreen.sha, head).some((f) => isGenerated(gen.rows, f))) runRow.refresh = lastGreen.refresh;
 
   // The receipt against this run: present, naming a commit on this branch, agreeing on the suite.
   if (job && !draft && runRow.trigger !== 'record') {

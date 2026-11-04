@@ -335,3 +335,21 @@ test('a refresh\'s record files count as inert only outside every module and unn
   assert.match(others, /process\/gen\.mjs/);
   assert.doesNotMatch(others, /process\/metrics/);
 });
+
+test('a generated file under a records path changed after the green refresh run is not covered by it (review 4 of PR 95)', () => {
+  // A second row, outside records, makes the first refresh a code run.
+  const p = product({ [BUNDLE]: fresh(SRC) });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  const base2 = commit(p.root, { 'gen/x.txt': 'old\n', 'process/config.json': { generated: [...CONFIG.generated, { paths: ['gen/x.txt'], regenerate: ['node', '-e', "require('fs').writeFileSync('gen/x.txt', 'x\\n')"], verify: ['node', '-e', '0'] }], records: ['process/', 'src/alpha/dist/'] } });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
+  const h1 = commit(p.root, { 'gen/x.txt': 'x\n' });
+  const g = gateIO();
+  const r1 = gate(p.root, { base: base2, head: h1, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet });
+  assert.equal(r1.run.refresh?.result, 'identical', JSON.stringify(r1.run));
+  git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
+  const h2 = commit(p.root, { [BUNDLE]: '{"from":"evil"}\n' });
+  const r2 = gate(p.root, { base: base2, head: h2, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet });
+  assert.equal(r2.run.trigger, 'record-since-green');
+  assert.equal(r2.run.refresh, undefined, 'the old comparison is not copied');
+});
