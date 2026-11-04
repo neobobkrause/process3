@@ -9,14 +9,17 @@
 // security: a change to a path the product lists in review_triggers.security_paths (its config,
 //   read at the tranche; globs: ** any depth, * within one name, ? one character; a path without
 //   them names a file or a directory). The product names its own files; none by default.
-// test: a test file of the module (under its entry's tests, with its suite's suffix) deleted, or,
-//   in one that existed at the base, net fewer assertion lines: lines removed from the base that
-//   match ASSERT outnumber the lines added that match it. ASSERT, the fixed forms: assert(...),
-//   assert.<x>(...), expect(...), and t.<x>(...) for the node:test and tap methods listed.
+// test (sharpened by the coordinator, 4 Nov 19:16, from the first 6 hand reviews): a test file of the
+//   module (under its entry's tests, with its suite's suffix) deleted; or, in one that existed at
+//   the base, a skip added (SKIP: test|it|describe.skip|todo|only( added), or a hunk that removes an
+//   assertion line (ASSERT) and adds none. A hunk that replaces assertions with others does not fire.
+//   ASSERT, the fixed forms: assert(...), assert.<x>(...), expect(...), and t.<x>(...) for the
+//   node:test and tap methods listed.
 import { git, underPath } from './util.mjs';
 
 export const ASSERT = /\b(?:assert|expect)(?:\.\w+)*\s*\(|\bt\.(?:assert|equal|notEqual|strictEqual|deepEqual|deepStrictEqual|same|notSame|ok|notOk|true|false|match|throws|doesNotThrow|rejects|is|not|truthy|falsy)\s*\(/;
-export const ASSERT_RULE = 'assertion lines are those matching assert(, assert.<x>(, expect(, or t.<assert|equal|notEqual|strictEqual|deepEqual|deepStrictEqual|same|notSame|ok|notOk|true|false|match|throws|doesNotThrow|rejects|is|not|truthy|falsy>(; a test file existing at the base fires when its removed assertion lines outnumber its added ones';
+export const SKIP = /\b(?:test|it|describe)\.(?:skip|todo|only)\s*\(/;
+export const ASSERT_RULE = 'assertion lines are those matching assert(, assert.<x>(, expect(, or t.<assert|equal|notEqual|strictEqual|deepEqual|deepStrictEqual|same|notSame|ok|notOk|true|false|match|throws|doesNotThrow|rejects|is|not|truthy|falsy>(, comments aside; a test file existing at the base fires on a hunk that removes an assertion line and adds none, or on an added test.skip, test.todo, .only or it.skip';
 // The hunks a review brief carries, at most this many lines; past it the brief names the command.
 export const HUNK_LINES = 400;
 
@@ -46,18 +49,25 @@ export function securityPaths(cfg) {
 const isTest = (entry, f) => (entry?.tests || []).some((t) => underPath(f, String(t).replace(/^\.\//, ''))) && f.endsWith(entry?.suite?.test_suffix || '.test.mjs');
 const isComment = (l) => /^\s*(?:\/\/|\/?\*)/.test(l);
 
-// Net assertion lines of one file's -U0 diff: removed and added lines matching ASSERT.
+// One file's -U0 diff, per hunk: removed and added assertion lines, and skips added.
+// Returns { removed, added, skips, bare: hunks that remove an assertion and add none }.
 export function assertCounts(diff) {
-  let removed = 0;
-  let added = 0;
+  const c = { removed: 0, added: 0, skips: 0, bare: 0 };
+  let h = null;
+  const end = () => { if (h && h.removed && !h.added) c.bare++; };
   for (const l of String(diff).split('\n')) {
     if (l.startsWith('---') || l.startsWith('+++')) continue;
+    if (l.startsWith('@@')) { end(); h = { removed: 0, added: 0 }; continue; }
+    if (l[0] !== '-' && l[0] !== '+') continue;
     const body = l.slice(1);
-    if (isComment(body) || !ASSERT.test(body)) continue;
-    if (l[0] === '-') removed++;
-    else if (l[0] === '+') added++;
+    if (isComment(body)) continue;
+    if (l[0] === '+' && SKIP.test(body)) c.skips++;
+    if (!ASSERT.test(body)) continue;
+    h ||= { removed: 0, added: 0 };
+    if (l[0] === '-') { c.removed++; h.removed++; } else { c.added++; h.added++; }
   }
-  return { removed, added };
+  end();
+  return c;
 }
 
 // The triggers a job's change fires: { fired: ['security'?, 'test'?], security: [files],
@@ -65,8 +75,10 @@ export function assertCounts(diff) {
 // fired them, for the review brief) }. base and head are revisions in root.
 export function reviewTriggers(root, { base, head, entry, cfg }) {
   const sec = securityPaths(cfg);
-  const status = git(['diff', '--no-renames', '--name-status', base, head], { cwd: root }).split('\n').filter(Boolean)
-    .map((l) => { const [s, ...f] = l.split('\t'); return { s: s[0], f: f.join('\t') }; });
+  // -z, as every diff in the tool: git quotes a path with non-ASCII bytes otherwise (review of PR 125).
+  const z = git(['diff', '--no-renames', '--name-status', '-z', base, head], { cwd: root }).split('\0');
+  const status = [];
+  for (let i = 0; i + 1 < z.length; i += 2) if (z[i]) status.push({ s: z[i][0], f: z[i + 1] });
   const security = status.filter((x) => sec.paths.some((g) => matchPath(x.f, g))).map((x) => x.f);
   const deleted = status.filter((x) => x.s === 'D' && isTest(entry, x.f)).map((x) => x.f);
   const loosened = [];
@@ -74,13 +86,13 @@ export function reviewTriggers(root, { base, head, entry, cfg }) {
   for (const x of status.filter((y) => y.s === 'M' && isTest(entry, y.f))) {
     const d = git(['diff', '--no-renames', '-U0', base, head, '--', x.f], { cwd: root });
     const c = assertCounts(d);
-    if (c.removed > c.added) { loosened.push({ file: x.f, ...c }); diffs[x.f] = d; }
+    if (c.bare || c.skips) { loosened.push({ file: x.f, ...c }); diffs[x.f] = d; }
   }
   const fired = [...(security.length ? ['security'] : []), ...(deleted.length || loosened.length ? ['test'] : [])];
   const why = [
     ...(security.length ? [`security paths changed: ${security.slice(0, 5).join(', ')}${security.length > 5 ? ` and ${security.length - 5} more` : ''}`] : []),
     ...(deleted.length ? [`test files deleted: ${deleted.slice(0, 5).join(', ')}`] : []),
-    ...loosened.slice(0, 5).map((l) => `${l.file}: ${l.removed} assertion lines removed, ${l.added} added`),
+    ...loosened.slice(0, 5).map((l) => `${l.file}: ${[l.bare ? `${l.bare} hunk${l.bare > 1 ? 's' : ''} removing assertions and adding none` : '', l.skips ? `${l.skips} skip${l.skips > 1 ? 's' : ''} added` : ''].filter(Boolean).join(', ')}`),
   ].join('; ');
   const parts = [];
   if (security.length) parts.push(git(['diff', '--no-renames', '-U3', base, head, '--', ...security], { cwd: root }));

@@ -94,13 +94,29 @@ test('a job that changes a listed security path (PR 95) is refused --no-review; 
 
 test('a test that existed at the base losing assertions fires; one changed in place or gaining them does not; a product with no security paths fires none for them', () => {
   const loose = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace('  assert.ok(g());\n', '') }));
-  assert.throws(() => merge(loose.root, 8, { slug: 'o/r', io: io(loose.head).io, noReview: 'x', log: quiet }), /test\/alpha\/a\.test\.mjs: 1 assertion lines removed, 0 added/);
+  assert.throws(() => merge(loose.root, 8, { slug: 'o/r', io: io(loose.head).io, noReview: 'x', log: quiet }), /test\/alpha\/a\.test\.mjs: 1 hunk removing assertions and adding none/);
   const t = reviewTriggers(loose.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: {} });
   assert.deepEqual(t.fired, ['test']);
   assert.match(t.hunks, /^-  assert\.ok\(g\(\)\);$/m, 'the exact hunk that fired it');
   const none = setup((root) => commit(root, { 'src/alpha/acts.mjs': 'export const ACTS = [];\n', 'test/alpha/a.test.mjs': TEST_BASE.replace('45', '40') + "test('b', () => { expect(h()).toBe(1); });\n" }), {});
   const n = reviewTriggers(none.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: { review_triggers: {} } });
   assert.deepEqual([n.fired, n.security_set], [[], false]);
+  // A hunk that replaces an assertion with another does not fire; an added skip does.
+  const swap = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace('  assert.ok(g());\n', '  assert.equal(g(), true);\n') }));
+  assert.deepEqual(reviewTriggers(swap.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: {} }).fired, []);
+  const skip = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace("test('a'", "test.skip('a'") }));
+  const k = reviewTriggers(skip.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: {} });
+  assert.deepEqual([k.fired, k.why], [['test'], 'test/alpha/a.test.mjs: 1 skip added']);
+});
+
+test('a path git would quote (non-ASCII) still fires both triggers (review of PR 125)', () => {
+  const { root } = setup((root) => { commit(root, { 'src/gate/café.mjs': 'x\n', 'test/alpha/é.test.mjs': TEST_BASE }); }, { review_triggers: { security_paths: ['src/gate/**'] } });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  git(['rm', '-q', 'test/alpha/é.test.mjs'], { cwd: root });
+  commit(root, { 'src/gate/café.mjs': 'y\n' });
+  const t = reviewTriggers(root, { base: 'HEAD~2', head: 'HEAD', entry: entry('alpha'), cfg: { review_triggers: { security_paths: ['src/gate/**'] } } });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.deepEqual([t.fired, t.security, t.deleted], [['security', 'test'], ['src/gate/café.mjs'], ['test/alpha/é.test.mjs']]);
 });
 
 test('review brief for a triggered job carries the trigger and its exact hunks, read from the clone', () => {
@@ -122,13 +138,17 @@ test('--no-review may not cite Q38 and needs a reason; --reviewed needs its meas
   assert.throws(() => reviewMeasures({ reviewed: 'x', reviewMinutes: 3, findings: 1, actedOn: 0, reviewCostUsd: '0' }), /above 0/);
   assert.deepEqual(reviewMeasures({ reviewed: 'x', reviewMinutes: '3', findings: '2', actedOn: '0' }), { review_minutes: 3, review_usd: 'unmeasured', findings: 2, findings_acted: 0 });
   assert.throws(() => reviewMeasures({ noReview: 'x', findings: 0 }), /drop --findings/);
+  // An empty value is not 0 (review of PR 125).
+  assert.throws(() => reviewMeasures({ reviewed: 'x', reviewMinutes: '', findings: 0, actedOn: 0 }), /--review-minutes/);
+  assert.throws(() => reviewMeasures({ reviewed: 'x', reviewMinutes: 3, findings: ' ', actedOn: 0 }), /--findings <n>/);
+  assert.throws(() => reviewRounds({ noReview: 'Q-38' }), /Q38/);
 });
 
 test('globs and assertion counts: ** any depth, * one name, a bare path a file or directory; comments are not assertions', () => {
   assert.equal(globRe('src/a'), null);
   assert.ok(matchPath('src/gate/x/y.mjs', 'src/gate/**') && matchPath('src/gate/y.mjs', 'src/**/y.mjs') && matchPath('src/a/b.mjs', 'src/a/'));
   assert.ok(!matchPath('src/gatex/y.mjs', 'src/gate/**') && !matchPath('src/a/b/c.mjs', 'src/a/*.mjs') && matchPath('src/a/c.mjs', './src/a/*.mjs'));
-  assert.deepEqual(assertCounts('--- a/x\n+++ b/x\n-  assert.equal(a, 1);\n-  // assert.ok(x)\n+  t.equal(a, 1);\n+  expect(b).toBe(2);\n-  t.ok(c)\n'), { removed: 2, added: 2 });
+  assert.deepEqual(assertCounts('--- a/x\n+++ b/x\n@@ -1 +1 @@\n-  assert.equal(a, 1);\n-  // assert.ok(x)\n+  t.equal(a, 1);\n+  expect(b).toBe(2);\n@@ -9 +9 @@\n-  t.ok(c)\n+  it.only(\'x\', f)\n'), { removed: 2, added: 2, skips: 1, bare: 1 });
 });
 
 test('the report line: merged, triggered by kind and share, reviews, findings, minutes and cost', () => {

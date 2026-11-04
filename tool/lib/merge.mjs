@@ -91,7 +91,7 @@ export function reviewRounds({ reviewed, noReview, rounds, decision } = {}) {
   if (reviewed === true) fail('--reviewed needs what the reviews found');
   if (noReview === true || (noReview !== undefined && !String(noReview).trim())) fail('--no-review needs why');
   // Q38 is no source for skipping review (coordinator, 4 Nov): the reason is said in its own words.
-  if (/\bQ38\b/i.test(String(noReview ?? ''))) fail('--no-review may not cite Q38: Q38 has no source; give the reason itself');
+  if (/\bQ[\s-]*38\b/i.test(String(noReview ?? ''))) fail('--no-review may not cite Q38: Q38 has no source; give the reason itself');
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   if (reviewed && noReview) fail('say one: --reviewed "<what>" or --no-review "<why>", not both');
   if (Array.isArray(decision) || Array.isArray(rounds)) fail('give --rounds and --decision once each');
@@ -119,18 +119,18 @@ export function reviewMeasures({ reviewed, reviewMinutes, reviewCostUsd, finding
   }
   const whole = (k, v) => {
     const x = Number(v);
-    if (v === undefined || v === true || !Number.isInteger(x) || x < 0) fail(`--reviewed needs ${k} <n>, a whole number 0 or more${v === undefined ? '' : `; not ${JSON.stringify(v)}`}: the review's measures go in the merge row (Bob, 4 Nov)`);
+    if (v === undefined || v === true || !String(v).trim() || !Number.isInteger(x) || x < 0) fail(`--reviewed needs ${k} <n>, a whole number 0 or more${v === undefined ? '' : `; not ${JSON.stringify(v)}`}: the review's measures go in the merge row (Bob, 4 Nov)`);
     return x;
   };
   const minutes = Number(reviewMinutes);
-  if (reviewMinutes === undefined || reviewMinutes === true || !Number.isFinite(minutes) || minutes < 0) fail(`--reviewed needs --review-minutes <n>, the minutes the review and its fix pass added before the merge${reviewMinutes === undefined ? '' : `; not ${JSON.stringify(reviewMinutes)}`}`);
+  if (reviewMinutes === undefined || reviewMinutes === true || !String(reviewMinutes).trim() || !Number.isFinite(minutes) || minutes < 0) fail(`--reviewed needs --review-minutes <n>, the minutes the review and its fix pass added before the merge${reviewMinutes === undefined ? '' : `; not ${JSON.stringify(reviewMinutes)}`}`);
   const f = whole('--findings', findings);
   const a = whole('--acted-on', actedOn);
   if (a > f) fail(`--acted-on ${a} is more than --findings ${f}`);
   let usd = 'unmeasured';
   if (reviewCostUsd !== undefined) {
     usd = Number(reviewCostUsd);
-    if (reviewCostUsd === true || !Number.isFinite(usd) || usd <= 0) fail(`--review-cost-usd <n>, above 0, or leave it out (unmeasured); not ${JSON.stringify(reviewCostUsd)}`);
+    if (reviewCostUsd === true || !String(reviewCostUsd).trim() || !Number.isFinite(usd) || usd <= 0) fail(`--review-cost-usd <n>, above 0, or leave it out (unmeasured); not ${JSON.stringify(reviewCostUsd)}`);
   }
   return { review_minutes: minutes, review_usd: usd, findings: f, findings_acted: a };
 }
