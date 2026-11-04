@@ -15,6 +15,7 @@ import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, isGenerated, refreshOthers } from './checks.mjs';
+import { closeWorkflows } from './workflows.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -364,19 +365,24 @@ export function pinChange(root, mb, sha, repo, at = {}) {
 // could rewrite a workflow, or add a job named like a required check (confirming review of
 // PR 14). A plain pull request may change a workflow file only to the process's own shim for
 // it, byte for byte, at the released process pin its head sets; any other change needs the
-// owner's word.
-export function workflowChanges(root, sha, changed, repo) {
+// owner's word. The tranche into main (`close`, normal or bootstrap) is judged by workflows.mjs
+// instead (Bob, 4 Nov: product workflow changes are not his to bring): a process shim must still
+// be the pin's own (rule 4); any other workflow file passes rules 1 to 3 there.
+export function workflowChanges(root, sha, changed, repo, close = null) {
   const files = changed.filter((f) => f.startsWith(WORKFLOWS));
   if (!files.length) return;
-  const owner = (why) => fail(`the pull request changes ${files.join(', ')}: ${why}. A workflow change needs the owner's word: bring it to Bob`);
+  const owner = (why) => fail(`the pull request changes ${files.join(', ')}: ${why}${close ? ' (rule 4)' : '. A workflow change needs the owner\'s word: bring it to Bob'}`);
   const pin = pinAt(root, sha);
   if (!pin) owner('there is no process pin to compare it with');
   if (!repo.released(pin)) owner(`the process pin ${pin.slice(0, 10)} is not a commit on process3's tranche or main`);
+  const product = [];
   for (const f of files) {
     const blob = blobAt(root, sha, f);
     const shim = repo.shim(pin, basename(f));
+    if (close && !shim && basename(f) !== 'process-gate.yml' && f.slice(WORKFLOWS.length) === basename(f)) { product.push(f); continue; }
     if (!blob || !shim || blob !== shim) owner(`${f} is not the process's own shim at ${pin.slice(0, 10)}`);
   }
+  if (product.length) closeWorkflows(root, sha, product, close);
 }
 
 // The first close (bootstrap; coordinator, 4 Nov: the copy's main had no .process, no config and
@@ -486,7 +492,7 @@ export function mergePlain(root, n, opts = {}) {
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
-  workflowChanges(root, pr.head.sha, changed, io.repo);
+  workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, required: () => io.requiredChecks(slug, base)?.checks.map((c) => c.context) ?? null } : null);
   const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
     intoMain: main, bootstrap: boot, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
