@@ -198,10 +198,18 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
   // it was ready: 0; with no merge row at all, the opening). Otherwise its layer's opening
   // (readyAt). { at, by, waited_on }.
   // When the module's ledger entry first reached ref (its adding commit's time), or null unread.
-  const entryMade = (m) => {
+  // Never in a shallow clone, whose cut shows every file as added at its boundary (confirming
+  // review of PR 100); the latest add at or before the first start, as a start needs the entry.
+  const shallowFile = git(['rev-parse', '--git-path', 'shallow'], { cwd: root, allowFail: true }).stdout.trim();
+  let cut = new Set();
+  try { cut = new Set(readFileSync(resolve(root, shallowFile), 'utf8').split('\n').map((x) => x.trim()).filter(Boolean)); } catch { cut = new Set(); }
+  const entryMade = (m, firstStart) => {
     if (!ref) return null;
-    const t = git(['log', '--diff-filter=A', '--format=%cI', ref, '--', entryFile(m)], { cwd: root, allowFail: true }).stdout.trim().split('\n').filter(Boolean).at(-1);
-    return t && Number.isFinite(Date.parse(t)) ? new Date(t).toISOString() : null;
+    const adds = git(['log', '--diff-filter=A', '--format=%H %cI', ref, '--', entryFile(m)], { cwd: root, allowFail: true }).stdout.trim().split('\n').filter(Boolean).map((l) => l.split(' '));
+    // An add at a shallow boundary is the cut, not the entry's creation: then nothing is known.
+    if (adds.some(([h]) => cut.has(h))) return null;
+    const before = adds.map(([, at]) => at).filter((at) => Number.isFinite(Date.parse(at)) && (!firstStart || Date.parse(at) <= Date.parse(firstStart)));
+    return before.length ? new Date(before[0]).toISOString() : null;
   };
   const mergesOf = (p) => allMerges.filter((r) => r.module === p).map((r) => r.at).sort();
   const readyOf = (m, firstStart) => {
@@ -224,7 +232,7 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
     if (early) return { at: null, by: 'uses', early };
     // The module had no ledger entry until later (a found mark's job, member-roster and money on
     // the copy, 4 Nov): it was ready when its entry was made, the later of the two.
-    const made = entryMade(m);
+    const made = entryMade(m, firstStart);
     if (made && Date.parse(made) > Date.parse(at)) return { at: made, by: 'entry', ...(on ? { waited_on: on } : {}) };
     return { at, by: 'uses', ...(on ? { waited_on: on } : {}) };
   };

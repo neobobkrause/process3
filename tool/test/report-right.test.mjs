@@ -2,6 +2,9 @@
 // metrics report and report tranche gave wrong or missing. Each test below failed before its fix.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { commit, makeRepo } from './helpers.mjs';
 import { leadCell, leadTimes, restartBatches } from '../lib/lead.mjs';
 import { overhead, refusalList, report as metricsReport } from '../lib/metrics.mjs';
@@ -225,4 +228,38 @@ test('ready to start: a module whose ledger entry was made after its provider me
   assert.equal(u3.minutes, 5, 'ready at its entry (40), not at q2\'s merge (30)');
   assert.equal(u3.ready_by, 'entry');
   assert.equal(u3.ready, t(40));
+});
+
+test('ready to start by entry: an add after the first start is never the ready time, and a re-added entry counts from its latest add before the start', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const at = (min, files, msg) => {
+    const prev = { ...process.env };
+    Object.assign(process.env, { GIT_COMMITTER_DATE: t(min), GIT_AUTHOR_DATE: t(min) });
+    try { commit(root, files, msg); } finally { for (const k of ['GIT_COMMITTER_DATE', 'GIT_AUTHOR_DATE']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } }
+  };
+  at(35, { 'process/ledger/u3.json': '{}' }, 'entry');
+  git(['rm', '-q', 'process/ledger/u3.json'], { cwd: root });
+  at(36, {}, 'drop');
+  git(['commit', '-q', '--allow-empty', '-m', 'noop'], { cwd: root });
+  at(40, { 'process/ledger/u3.json': '{"a":1}' }, 're-add');
+  at(60, { 'other.txt': 'y' }, 'later');
+  const cfg = loadConfig(root);
+  const rows = [start('p2', 1), merge('p2', 20, 1), start('q2', 2), merge('q2', 30, 2), start('u3', 45)];
+  const u3 = leadTimes(root, cfg, { ref: 'HEAD', rows, layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) }).jobs.find((j) => j.module === 'u3').ready_to_start;
+  assert.equal(u3.ready, t(40), 'the latest add before the start');
+  assert.equal(u3.minutes, 5);
+});
+
+test('ready to start by entry: in a shallow clone an add at the cut is not the entry\'s creation', () => {
+  const src = makeRepo({ 'README.md': 'x' });
+  const prev = { ...process.env };
+  Object.assign(process.env, { GIT_COMMITTER_DATE: t(40), GIT_AUTHOR_DATE: t(40) });
+  try { commit(src, { 'process/ledger/u3.json': '{}' }, 'entry'); commit(src, { 'b.txt': 'b' }, 'b'); } finally { for (const k of ['GIT_COMMITTER_DATE', 'GIT_AUTHOR_DATE']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } }
+  const root = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
+  git(['clone', '-q', '--depth', '1', `file://${src}`, root], { cwd: src });
+  const cfg = loadConfig(root);
+  const rows = [start('p2', 1), merge('p2', 20, 1), start('q2', 2), merge('q2', 30, 2), start('u3', 45)];
+  const u3 = leadTimes(root, cfg, { ref: 'HEAD', rows, layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) }).jobs.find((j) => j.module === 'u3').ready_to_start;
+  assert.equal(u3.ready_by, 'uses', 'the cut tells nothing: the provider merge stands');
+  assert.equal(u3.ready, t(30));
 });

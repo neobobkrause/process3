@@ -434,7 +434,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   for (const id of foundEntries(root, ref).filter((x) => !where.has(x))) {
     const ids = unmetIds(read(foundFile(id))).filter(isFound);
     const row = rows.find((r) => r.id === id);
-    const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
+    const open = !!row && !row.unstarted && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
     const u = uses.get(id) || [];
     if (ids.length && !open && !row?.blocked && u.filter((p) => p !== id).every(done)) ready.push({ id, file: foundFile(id), layer: null, found: ids, marks: [], entry: true });
   }

@@ -12,7 +12,7 @@ import { readRows } from '../lib/metrics.mjs';
 import { changedIds, noticeFile, noticeLine, notices, providerChange, providerNotice, recordAtMerge, unanswered, withdrawNotice } from '../lib/notice.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { owedNotices, status } from '../lib/status.mjs';
-import { noticeTriage, parseTriage, recordTriage, shares } from '../lib/triage.mjs';
+import { importFree, noticeTriage, parseTriage, recordTriage, shares } from '../lib/triage.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
 
@@ -684,4 +684,36 @@ test('the triage brief carries each user\'s files that import the provider, not 
   assert.match(r.briefs[0], /^- u01: src\/u01\/; src\/u01\/use\.mjs:2$/m);
   assert.match(r.briefs[0], /^- u02: src\/u02\/; no file imports p$/m);
   assert.doesNotMatch(r.briefs.join('\n'), /big\.mjs/);
+});
+
+test('triage at the merge clears only provable non-importers (confirming review of PR 100): an import the brief\'s grep misses, an open attempt, a provider with no entry', () => {
+  const mods = { modules: [
+    { id: 'money', paths: ['src/lib/money.ts'] },
+    { id: 'a', paths: ['src/a/'], uses: ['money'] },
+    { id: 'b', paths: ['src/b/'], uses: ['money'] },
+    { id: 'c', paths: ['src/c/'], uses: ['money'] },
+    { id: 'd', paths: ['src/d/'], uses: ['money'] },
+  ] };
+  const root = makeRepo({
+    'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
+    'process/modules.json': mods,
+    'src/lib/money.ts': 'export const x = 1;\n',
+    'src/a/i.ts': "import { x } from '../lib/money';\n", // no "money.ts" in the text
+    'src/b/i.ts': "import { y } from './own';\n",
+    'src/c/i.ts': 'export const z = 1;\n',
+    'src/d/i.ts': 'export const w = 1;\n',
+  });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  // d's job is open: its branch on origin holds a commit the tip lacks.
+  git(['checkout', '-q', '-b', 'job/d'], { cwd: root });
+  commit(root, { 'src/d/i.ts': "import { x } from '../lib/money';\n" });
+  git(['push', '-q', 'origin', 'job/d', 'main'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const cfg = loadConfig(root);
+  assert.deepEqual(importFree(root, cfg, ['a', 'b', 'c', 'd'], sha, 'money').map((m) => [m.id, m.line > 0]), [['b', true], ['c', true]]);
+  // A provider the modules file lacks: nothing is cleared.
+  assert.deepEqual(importFree(root, cfg, ['b', 'c'], sha, 'nope'), []);
 });

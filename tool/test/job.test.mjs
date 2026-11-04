@@ -837,10 +837,27 @@ test('--restart is refused for a COMPLETE module, without a branch or PR, and wi
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /no branch job\/alpha/);
   const f = fakeGitHub();
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request; --restart continues an open one \(an unfinished start resumes/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: true, find: pr, notes: () => [], log: quiet }), /--restart needs why/);
   const m = mergedOnce();
   assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; a new attempt on a merged module is --reopen/);
+});
+
+test('--restart on a BLOCKED job with no open pull request opens its draft again and launches the replacement (copy, 4 Nov: PR 194 by hand)', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  jobBlock(root, 'alpha', { reason: 'needs a provider fix', push: false, log: quiet });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const opened = [];
+  const r = jobStart(root, 'alpha', { coordinator: 's', restart: 'the provider fix merged', find: () => null, open: (slug, o) => { opened.push(o); return { number: 12, html_url: 'https://x/pull/12' }; }, notes: () => [], log: quiet });
+  assert.deepEqual(opened.map((o) => [o.head, o.base, o.draft]), [['job/alpha', 'tranche', true]]);
+  assert.equal(r.row.state, 'BLOCKED');
+  assert.equal(r.row.pr, 12);
+  assert.equal(r.subscribe.pullNumber, 12);
+  assert.match(r.start, /pull request https:\/\/x\/pull\/12 as it is/);
 });
 
 // P7: the receipt names the test for each mark the job struck.

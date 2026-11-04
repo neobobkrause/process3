@@ -208,7 +208,7 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
 export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
-  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, notes, log });
+  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, open, notes, log });
   if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
@@ -488,7 +488,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
 // its first commands fill .process there and run job sync, which checks out the branch and
 // brings the tranche in) and the subscribe call.
 export const STOPS = ['archived', 'idle'];
-function jobRestart(root, id, { coordinator, model, why, stop, find, notes, log }) {
+function jobRestart(root, id, { coordinator, model, why, stop, find, open = createPR, notes, log }) {
   if (why === true || !String(why ?? '').trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
   if (stop !== undefined && !STOPS.includes(stop)) fail(`--stop ${STOPS.join('|')}: how the replaced session stopped, not ${JSON.stringify(stop)}`);
   const cfg = loadConfig(root);
@@ -503,7 +503,15 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, notes, log 
   const state = entry.status?.state;
   if (state === 'COMPLETE') fail(`${id} is COMPLETE; a new attempt on a merged module is --reopen "<what>"`);
   if (!['WORKING', 'BLOCKED'].includes(state)) fail(`${id} is ${state}; --restart is for a WORKING or BLOCKED job`);
-  const pr = find(slug, branch) || fail(`${branch} has no open pull request; --restart continues an open one`);
+  // A BLOCKED job whose pull request is not open (closed, or never opened) gets its draft opened
+  // again here (copy, 4 Nov: BOB opened PR 194 by hand to get past this refusal). A WORKING job
+  // with no pull request is an unfinished start, which job start resumes.
+  let pr = find(slug, branch);
+  if (!pr && state !== 'BLOCKED') fail(`${branch} has no open pull request; --restart continues an open one (an unfinished start resumes with job start ${id})`);
+  if (!pr) {
+    pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: `job ${id}, BLOCKED: its draft pull request, opened again by job start --restart for the replacement session (${String(why).trim()}).`, draft: true });
+    log(`draft pull request opened for the BLOCKED ${branch}: ${pr.html_url || `#${pr.number}`}`);
+  }
   const last = git(['log', '-1', '--format=%h %s', `origin/${branch}`], { cwd: root });
   const tipSha = git(['rev-parse', `origin/${branch}`], { cwd: root });
   const r = latestReceipt(notes(slug, pr.number), pr.user?.login);
