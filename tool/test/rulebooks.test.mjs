@@ -63,6 +63,13 @@ test('ROOT and the watcher carry the act to the coordinator session, and their r
   }
 });
 
+// Bob, 4 Nov: urgency in process3's initial release; BOB's and a job's questions wait at most
+// targets.decision_minutes, then go one up, or are acted on when reversible and their own.
+test('BOB\'s and a job\'s rulebooks carry the time-boxed escalation', () => {
+  assert.match(read('bob'), /unanswered in `targets\.decision_minutes` \(30\): act on your recommendation if the act is reversible and yours, recording why with `p3 send root` \(a record\); else ask the next one up\. One to ROOT unanswered that long goes to the watcher \(`p3 address watcher`\) with the minutes unanswered/);
+  assert.match(read('job'), /unanswered in `targets\.decision_minutes` \(30\) goes once more to BOB, then to ROOT, then to the watcher with the minutes unanswered; you act on your own recommendation only when the act is reversible and in your module/);
+});
+
 // The escalation chain (Bob, 4 Nov: urgency fully supported in the initial release): ROOT's and
 // the watcher's half, in their prompts and rulebooks.
 test('ROOT and the watcher carry the escalation chain: act at once, decision_minutes, watch --escalated', () => {

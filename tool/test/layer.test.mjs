@@ -101,6 +101,16 @@ test('layer close: runs the suites on the tranche tip, records the close with it
   assert.equal(row.commit, git(['rev-parse', 'tranche'], { cwd: bare }));
   assert.deepEqual(row.deferred, { a: ['R1', 'R2'] });
   assert.match(out.join('\n'), /layer 1 closed at tranche .*; deferred: a 2[\s\S]*next work, layer 2[\s\S]*- build\/requirements\/d\.md: 1/);
+  // BOB closing (the default sender) is awake: no wake line.
+  assert.equal(r.wake, null);
+  assert.doesNotMatch(out.join('\n'), /wake BOB/);
+  // Another session's close gives BOB new work (measured 3-4 Nov: BOB idles until woken): its last
+  // line is the wake, runnable as printed, from --as.
+  const { root: other } = withOrigin({ ...base, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
+  const said = [];
+  const w = layerClose(other, '1', { io, as: 'coordinator', log: (m) => said.push(m) });
+  assert.equal(said.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "layer 1 closed: run status" --from coordinator`, delivered with send_message to the address it prints');
+  assert.equal(w.wake, said.at(-1));
   // Closed, it is no longer the open layer.
   assert.throws(() => layerClose(root, '1', { io, log: quiet }), /layer 1 is not the open layer; the open layer is 2/);
 });
