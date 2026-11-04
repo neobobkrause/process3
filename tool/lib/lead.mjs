@@ -10,7 +10,7 @@ import { branchModule, entryFile, jobBranch } from './ledger.mjs';
 import { jobBranchAt } from './metrics.mjs';
 import { readModules } from './notice.mjs';
 import { messages } from './state.mjs';
-import { DEFAULTS, git } from './util.mjs';
+import { DEFAULTS, git, rowCap } from './util.mjs';
 
 const U = 'unmeasured';
 const MIN = 60000;
@@ -243,13 +243,12 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
     return { at, by: 'uses', ...(on ? { waited_on: on } : {}) };
   };
   // What held a module past its ready time (a wait over its target), where the record shows it: a sweep at or after the
-  // ready time and before its start that found the job cap full (live at or over job_cap, or live_cap in older rows), or
+  // ready time and before its start that found the job cap full (live at or over the row's cap, rowCap), or
   // its ledger entry's state at the ready time (the tranche's history) when not OPEN.
   const causeOf = (m, ready, start) => {
     if (!ready || !start || Date.parse(start) <= Date.parse(ready)) return null;
-    const capOf = (r) => r.job_cap ?? r.live_cap;
-    const full = (sweeps || []).filter((r) => r.row === 'sweep' && typeof r.at === 'string' && r.at >= ready && r.at < start && Number.isFinite(r.live) && Number.isFinite(capOf(r)) && r.live >= capOf(r)).sort(byAt)[0];
-    if (full) return `job cap full (${full.live} of ${capOf(full)} at ${full.at})`;
+    const full = (sweeps || []).filter((r) => r.row === 'sweep' && typeof r.at === 'string' && r.at >= ready && r.at < start && Number.isFinite(r.live) && Number.isFinite(rowCap(r)) && r.live >= rowCap(r)).sort(byAt)[0];
+    if (full) return `job cap full (${full.live} of ${rowCap(full)} at ${full.at})`;
     const h = ref ? entryHistory(root, ref, m, ready) : null;
     const st = h ? stateAt(h, ready) : null;
     if (st && st !== 'OPEN') return `its entry ${st} at the ready time`;

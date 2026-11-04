@@ -51,7 +51,7 @@ test('sweep: nothing owed writes the heartbeat; over the live cap wakes BOB with
   recordStart(root, 'bob', B, { log: quiet });
   const r = run(root, { live: 3 });
   assert.equal(r.act, 'heartbeat');
-  assert.deepEqual(beat(root).found, ['jobs 3 of 20']);
+  assert.deepEqual(beat(root).found, ['job cap 20 (default): 3 job sessions live']);
   // The live count and cap go in the sweep row: lead times names a full cap as a wait's cause.
   const row = readState(root, 'process-state', SWEEP_ROWS_FILE).trim().split('\n').map((l) => JSON.parse(l)).at(-1);
   assert.deepEqual([row.live, row.job_cap], [3, 20]);
@@ -66,7 +66,7 @@ test('sweep step 1: a paused plan is heartbeat only', () => {
   const root = withOrigin({ 'process/config.json': { tranche: 'tranche', plan: 'pause' } });
   recordStart(root, 'root', R, { log: quiet });
   const r = run(root, { live: 30 });
-  assert.deepEqual([r.act, r.found], ['heartbeat', ['jobs 30 of 20', 'plan pause', '30 job sessions, over the job cap of 20: archive finished ones before starting more']]);
+  assert.deepEqual([r.act, r.found], ['heartbeat', ['job cap 20 (default): 30 job sessions live', 'plan pause', '30 job sessions, over the job cap of 20: archive finished ones before starting more']]);
   assert.throws(() => run(root, { live: true }), /--live/);
 });
 

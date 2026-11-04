@@ -71,7 +71,7 @@ const commands = {
     return 0;
   },
 
-  // job start --ready --live <n> [--coordinator <session>] [--model <m>]: BOB starts every startable job status lists, up to job_cap less n, n the job sessions (or counted from --sessions <file>).
+  // job start --ready --live <n> [--coordinator <session>] [--model <m>]: BOB starts every startable job status lists, up to the job cap (jobCap in lib/util.mjs) less n, n the account's job sessions (or counted from --sessions <file>).
   // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);

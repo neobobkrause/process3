@@ -71,3 +71,10 @@ export function openPassed(root, { tranche = 'tranche', outcome = {} } = {}) {
     .map(([act, depth]) => ({ row: 'grant', at, tranche, act, depth, outcome: outcome[`${act}|${depth}`] || 'ok', session: depth === 1 ? 'bob' : 'probe' }));
   onState(root, { 'metrics/tranche-open.jsonl': rows.map((r) => JSON.stringify(r) + '\n').join('') });
 }
+
+// The job cap is the account's P3_JOB_CAP (jobCap): set for one test, restored after it.
+export function setJobCap(t, n) {
+  const was = process.env.P3_JOB_CAP;
+  if (n === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = String(n);
+  t.after(() => { if (was === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = was; });
+}

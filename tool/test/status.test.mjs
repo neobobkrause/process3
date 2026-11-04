@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commit, makeRepo, entry, onState, openPassed } from './helpers.mjs';
+import { commit, makeRepo, entry, onState, openPassed, setJobCap } from './helpers.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +29,8 @@ test('status --role bob lists next work: unmet requirement files with no open jo
 
 const LAYERS = '# Layers\n\n| layer | what | modules |\n|---|---|---|\n| 0 | base | `done0` |\n| 1 | first | a, b, c, busy |\n| 2 | next | d |\n';
 
-test('status --role bob: next work only from the open layer, at most live_cap less the live sessions', () => {
+test('status --role bob: next work only from the open layer, at most the job cap less the job sessions', (t) => {
+  setJobCap(t, 5);
   const files = {
     'build/layers.md': LAYERS,
     'build/requirements/done0.md': unmet(0),
@@ -39,7 +40,6 @@ test('status --role bob: next work only from the open layer, at most live_cap le
     'build/requirements/busy.md': unmet(1),
     'build/requirements/d.md': unmet(1),
     'build/requirements/loose.md': unmet(1),
-    'process/config.json': { live_cap: 5 },
     'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md' }),
   };
   const root = makeRepo(files);
@@ -48,6 +48,7 @@ test('status --role bob: next work only from the open layer, at most live_cap le
   const r = status(root, { role: 'bob', offline: true, live: 3, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => x.file), ['build/requirements/b.md', 'build/requirements/a.md']);
   assert.match(out.join('\n'), /next work, layer 1 .*: 2 listed \(jobs 3 of 5\), 0 wait/);
+  assert.ok(out.includes('job cap 5 (P3_JOB_CAP): 3 job sessions live'), 'status prints the cap in force and its source');
   const four = [];
   status(root, { role: 'bob', offline: true, live: 4, log: (m) => four.push(m) });
   assert.match(four.join('\n'), /1 listed \(jobs 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)$/);
@@ -104,9 +105,9 @@ test('status --role bob: a job\'s report to bob is listed until a later message 
   assert.doesNotMatch(text, /job-m1-1:|root-1:/);
 });
 
-test('status --role bob: next work stops at live_cap', () => {
+test('status --role bob: next work stops at the job cap', (t) => {
+  setJobCap(t, 1);
   const full = makeRepo({
-    'process/config.json': { live_cap: 1 },
     'build/requirements/small.md': unmet(2),
     'process/ledger/busy.json': entry('busy'),
   });

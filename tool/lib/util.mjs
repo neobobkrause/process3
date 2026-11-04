@@ -93,9 +93,7 @@ export const DEFAULTS = {
   // status --role bob --context <percent>: REFRESH at this share of the window (SES-4).
   refresh_context: 60,
   reading_bob: ['CLAUDE.md'],
-  // The job cap (Bob, 4 Nov): job sessions running at once, roles, builds and other sessions not
-  // counted; Bob sets it. live_cap, its old name, is read as job_cap for one release. The plan: run, pause or stop.
-  job_cap: 20,
+  // The plan: run, pause or stop. The job cap is not a config key: jobCap reads it.
   plan: 'run',
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
@@ -245,10 +243,29 @@ export function configOf(c, where = CONFIG_FILE) {
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
-    job_cap: c.job_cap ?? c.live_cap ?? DEFAULTS.job_cap,
-    ...(c.job_cap === undefined && c.live_cap !== undefined ? { cap_note: `${where}: live_cap ${c.live_cap} is read as job_cap (the cap counts job sessions only); rename it job_cap` } : {}),
   };
 }
+
+// The job cap (Bob, 4 Nov): the job sessions running at once across the whole account, every
+// product (list_sessions is account-scoped); roles, builds and other sessions are not counted. One
+// value per account, P3_JOB_CAP in the account's cloud environment, default 20. The one place the
+// cap is read: job start --ready, status, the sweep and lead times call this and nothing else.
+// A product config's old live_cap (or job_cap) is ignored, with a note saying so.
+export const JOB_CAP_VAR = 'P3_JOB_CAP';
+const JOB_CAP_DEFAULT = 20;
+export function jobCap(cfg = {}, env = process.env) {
+  const raw = env[JOB_CAP_VAR];
+  const set = raw !== undefined && raw !== '';
+  const cap = set ? Number(raw) : JOB_CAP_DEFAULT;
+  if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
+  const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
+  return {
+    cap, from: set ? JOB_CAP_VAR : 'default', line: `job cap ${cap} (${set ? JOB_CAP_VAR : 'default'})`,
+    note: old.length ? `${CONFIG_FILE}: ${old.join(', ')} ignored; the job cap now comes from ${JOB_CAP_VAR} (default ${JOB_CAP_DEFAULT})` : null,
+  };
+}
+// The cap a sweep row recorded (job_cap; live_cap in rows written before 4 Nov).
+export const rowCap = (r) => r.job_cap ?? r.live_cap;
 
 // A path entry ending in / is a directory; any other names a file or a directory.
 export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('/') ? p : `${p}/`);

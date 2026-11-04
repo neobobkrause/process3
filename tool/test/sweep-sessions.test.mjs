@@ -103,7 +103,7 @@ test('sweep --sessions: prints each act, the line in found, and counts live from
     s('session_q', 'build z', '01:00', { updated_at: '2026-01-01T00:00:00Z', parent: 'session_gone', asking: true })] } }));
   const out = [];
   const r = sweep(root, { session: 'session_ROOT', sessions: file, offline: true, log: (l) => out.push(l) });
-  assert.ok(r.found.includes('jobs 0 of 20'));
+  assert.ok(r.found.includes('job cap 20 (default): 0 job sessions live, 3 sessions live in the account (every product, every role)'));
   assert.ok(r.found.includes('sessions: 3 live (roles 1, jobs 0, builds 1, other 1); leftovers 2'));
   assert.ok(r.todo.some((t) => /^archive session_o: archive_session session_o/.test(t)));
   assert.ok(r.todo.some((t) => t.startsWith(`tell ${C} session_q asks: (read its last message with list_events) (send it to ${C}`)));
