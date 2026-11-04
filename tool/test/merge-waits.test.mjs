@@ -250,3 +250,15 @@ test('notice triage, notice withdraw and merge run again on a merged pull reques
   const w = withdrawNotice(s.bob, loadConfig(s.bob), 'p:7', { getPR, slug: 'o/r', log: quiet, compare: s.compare });
   assert.equal(w.merge_commit, s.m);
 });
+
+test('a job branch that conflicts with the tranche is refused, naming job sync', () => {
+  const { root, head } = jobRepo();
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'src/alpha/a.mjs': 'the tranche says otherwise' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const f = jobIO(root, { gate: () => ({ status: 'completed', conclusion: 'success' }) });
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, every: 0, log: quiet }),
+    /^Error: job\/alpha conflicts with tranche; the job must bring itself up to date: node \.process\/tool\/p3\.mjs job sync alpha, then job complete alpha again$/);
+  assert.equal(remoteTip(root), head, 'nothing pushed');
+});

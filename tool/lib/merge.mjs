@@ -10,7 +10,7 @@ import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
-import { TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
+import { P3, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
@@ -161,7 +161,7 @@ export function merge(root, n, opts = {}) {
       const m = git(['merge', '-q', '--no-ff', '--no-edit', `origin/${cfg.tranche}`, '-m', `Bring ${branch} up to ${cfg.tranche}`], { cwd: wt, allowFail: true });
       if (m.code !== 0) {
         git(['merge', '--abort'], { cwd: wt, allowFail: true });
-        fail(`${branch} conflicts with ${cfg.tranche}; the job must bring itself up to date`);
+        fail(`${branch} conflicts with ${cfg.tranche}; the job must bring itself up to date: ${P3} job sync ${id}, then job complete ${id} again`);
       }
     }
     // One merge row per pull request since its last receipt: a rerun that finds this PR's row
