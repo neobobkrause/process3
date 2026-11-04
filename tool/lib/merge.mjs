@@ -121,7 +121,11 @@ export function merge(root, n, opts = {}) {
   const id = pr.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
   // A job's pull request already merged: merge again only records its provider notices, the step
   // a failed state-branch write left undone (idempotent).
-  if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
+  if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) {
+    // Its rows are on the tranche now, which no job merge writes to: a cost this late is not recorded.
+    if (jobCost !== null) log(`pull request ${n} is already merged: --job-cost-usd ${jobCost} is not recorded (a job's cost is written only by the merge that lands it)`);
+    return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
+  }
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
@@ -189,7 +193,16 @@ export function merge(root, n, opts = {}) {
       git(['add', '--', metricsFile(id)], { cwd: wt });
       git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
       tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-    } else log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
+    } else {
+      log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
+      // A rerun that brings the cost an earlier run lacked (review of PR 106: it was dropped):
+      // the priced row, committed and gated as the merged result, as a moved tranche is.
+      if (jobCost !== null && jobCostRow(wt, id, rows, { cost: jobCost, session: opts.jobSession, attempt: receipt.attempt, log }) !== null) {
+        git(['add', '--', metricsFile(id)], { cwd: wt });
+        git(['commit', '-q', '-m', `job cost for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
+        tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+      }
+    }
     if (tip !== pr.head.sha) {
       git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: wt });
       log(`pushed ${tip.slice(0, 10)} to ${branch}; the gate runs on the merged result`);
@@ -246,14 +259,16 @@ export function jobCostOf(v) {
 // unmeasured (so the report reads job_usd unmeasured, never low) and the call to read it is printed.
 export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console.log }) {
   const done = rows.filter((r) => r.event === 'complete').pop();
+  const priced = (r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.attempt === attempt && Number(r.cost_usd) > 0;
   const sid = sessionForm(typeof session === 'string' && session ? session : done?.session || null);
   if (cost === null) {
     // Measured already, by a job complete --cost-usd for this attempt: nothing more to write.
-    if (rows.some((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.attempt === attempt && Number(r.cost_usd) > 0)) return null;
+    if (rows.some(priced)) return null;
     appendRow(wt, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: 'unmeasured', cost_usd: 'unmeasured' });
-    log(`job ${id}'s cost: unmeasured. Read it with ${jobCostCall(sid)}, and pass it next time as --job-cost-usd <n>${sid ? '' : ' with --job-session <its id>'}; the merge goes on`);
+    log(`job ${id}'s cost: unmeasured. Read it with ${jobCostCall(sid)}, and pass it as --job-cost-usd <n>${sid ? '' : ' with --job-session <its id>'} if this merge is run again before it lands; the merge goes on`);
     return null;
   }
+  if (rows.some(priced)) { log(`job ${id}'s attempt ${attempt} is priced already: --job-cost-usd ${cost} is not written again`); return null; }
   const prior = sid ? rows.filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop() : null;
   const usd = Math.round(Math.max(0, cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4;
   appendRow(wt, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: usd });

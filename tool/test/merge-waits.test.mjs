@@ -262,3 +262,37 @@ test('a job branch that conflicts with the tranche is refused, naming job sync',
     /^Error: job\/alpha conflicts with tranche; the job must bring itself up to date: node \.process\/tool\/p3\.mjs job sync alpha, then job complete alpha again$/);
   assert.equal(remoteTip(root), head, 'nothing pushed');
 });
+
+// Review of PR 106: a rerun that brings the cost the first run lacked writes it, and the report
+// then reads the attempt priced, never unmeasured.
+test('merge run again with --job-cost-usd after a run without it writes the priced row', () => {
+  const { root, head } = jobRepo();
+  const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
+  const T = remoteTip(root);
+  const merged = [];
+  const again = jobIO(root, { merged, gate: () => ({ status: 'completed', conclusion: 'success' }) });
+  again.seen.push(head, T);
+  const logs = [];
+  assert.equal(merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, jobCostUsd: '4.2', jobSession: 'session_J', log: (m) => logs.push(m), wait: 0 }).merged, true);
+  const T2 = remoteTip(root);
+  assert.notEqual(T2, T, 'the priced row is pushed and gated');
+  assert.deepEqual(merged, [T2]);
+  assert.match(logs.join('\n'), /job alpha's cost: 4\.2 USD/);
+  git(['checkout', '-q', T2], { cwd: root });
+  const rows = readRows(root, 'alpha');
+  assert.equal(rows.filter((x) => x.row === 'merge').length, 1);
+  assert.deepEqual(rows.filter((x) => x.event === 'measured').map((x) => x.cost_usd), ['unmeasured', 4.2]);
+  git(['checkout', '-q', 'main'], { cwd: root });
+});
+
+test('the overhead report reads an attempt priced once a priced job row follows its unmeasured one; an attempt with only the unmeasured row stays unmeasured', async () => {
+  const { overhead } = await import('../lib/metrics.mjs');
+  const at = (m) => new Date(Date.UTC(2026, 10, 4, 12, m)).toISOString();
+  const base = [{ module: 'alpha', row: 'attempt', event: 'start', attempt: 1, at: at(0) }];
+  const un = { module: 'alpha', row: 'attempt', event: 'measured', role: 'job', attempt: 1, session: 'session_J', session_usd: 'unmeasured', cost_usd: 'unmeasured', at: at(5) };
+  const pr = { module: 'alpha', row: 'attempt', event: 'measured', role: 'job', attempt: 1, session: 'session_J', session_usd: 4.2, cost_usd: 4.2, at: at(9) };
+  const job = (rows) => overhead(rows).jobs.find((j) => j.module === 'alpha').job_usd;
+  assert.equal(job([...base, un]), 'unmeasured');
+  assert.equal(job([...base, un, pr]), 4.2);
+});
