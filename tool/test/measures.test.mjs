@@ -145,6 +145,7 @@ import { main } from '../p3.mjs';
 import { leadTimes, reportWaits } from '../lib/lead.mjs';
 import { trancheReport } from '../lib/report.mjs';
 import { loadConfig } from '../lib/util.mjs';
+const pick = ({ minutes, target, mark }) => ({ minutes, target, ...(mark ? { mark } : {}) });
 
 async function cli(root, argv, env = {}) {
   const cwd = process.cwd();
@@ -222,13 +223,13 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   });
   const a = lt.jobs.find((j) => j.module === 'a');
   const b = lt.jobs.find((j) => j.module === 'b');
-  assert.deepEqual(a.ready_to_start, { minutes: 4, target: 10 });
+  assert.deepEqual(pick(a.ready_to_start), { minutes: 4, target: 10 });
   assert.deepEqual(a.start_to_pr_ready, { minutes: 95, attempt: 1 });
   assert.deepEqual(a.green_to_merge, { minutes: 20, target: 15, mark: 'over', attempt: 1 });
   assert.deepEqual(a.blocked, { minutes: 45 }, 'blocked has no target: replace has');
-  assert.deepEqual(a.replace, [{ from: t(40), minutes: 45, stopped_by: 'BLOCKED', resumed: t(85), target: 30, mark: 'over' }]);
+  assert.deepEqual(a.replace, [{ from: t(40), minutes: 45, stopped_by: 'BLOCKED', source: 'blocked', resumed: t(85), target: 30, mark: 'over' }]);
   assert.deepEqual(a.report_wait, [{ from: 'a', n: 1, to: 'bob', minutes: 40, target: 30, mark: 'over' }, { from: 'a', n: 2, to: 'bob', minutes: 50, open: true, target: 30, mark: 'over' }]);
-  assert.deepEqual(b.ready_to_start, { minutes: 20, target: 10, mark: 'over' });
+  assert.deepEqual(pick(b.ready_to_start), { minutes: 20, target: 10, mark: 'over' });
   assert.deepEqual(lt.jobs.find((j) => j.module === 'c').blocked, { minutes: 50, open: true });
   assert.deepEqual(lt.close_to_next_start, [{ layer: 1, minutes: 20, target: 10, mark: 'over' }]);
   assert.equal(a.ready_to_start.minutes, 4, 'from the last ok grant row, not the refused one');
@@ -272,6 +273,6 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   assert.match(md2, /layer close to next job start: layer 1 20 min \(target 10, over\)/);
   const mr = await cli(root, ['metrics', 'report'], { GITHUB_REPOSITORY: 'o/r' });
   const lead = JSON.parse(mr.out).lead_times;
-  assert.deepEqual(lead.jobs.find((j) => j.module === 'a').ready_to_start, { minutes: 4, target: 10 });
+  assert.deepEqual(pick(lead.jobs.find((j) => j.module === 'a').ready_to_start), { minutes: 4, target: 10 });
   assert.deepEqual(lead.close_to_next_start, [{ layer: 1, minutes: 20, target: 10, mark: 'over' }]);
 });

@@ -13,6 +13,7 @@ import { git, loadConfig } from '../lib/util.mjs';
 import { main } from '../p3.mjs';
 
 const U = 'unmeasured';
+const pick = ({ minutes, target, mark }) => ({ minutes, target, ...(mark ? { mark } : {}) });
 const T0 = Date.parse('2026-11-01T00:00:00Z');
 const t = (min) => new Date(T0 + min * 60000).toISOString();
 const at = (min, fn) => { const e = { ...process.env }; process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = t(min); try { return fn(); } finally { process.env = e; } };
@@ -188,16 +189,16 @@ test('finding 7: blocked is informational; replace runs from the stop to the rep
   const lt = leadTimes(root, cfg, { ref: 'HEAD', rows, grants: opened(0), restarts, closed, jobRefs, now: t(400) });
   const by = Object.fromEntries(lt.jobs.map((j) => [j.module, j]));
   assert.deepEqual(by.y.blocked, { minutes: 180 }, 'no target, no mark');
-  assert.deepEqual(by.y.replace, [{ from: t(20), minutes: 15, stopped_by: 'BLOCKED', replaced: t(35), target: 30 }]);
+  assert.deepEqual(by.y.replace, [{ from: t(20), minutes: 15, stopped_by: 'BLOCKED', source: 'blocked', replaced: t(35), target: 30 }]);
   assert.deepEqual(by.z.blocked, { minutes: 0 }, 'the deferred block leaves the figures');
   assert.equal(by.z.replace, 'none');
   assert.equal(by.z.start_to_pr_ready, 'deferred');
-  assert.deepEqual(by.w.replace, [{ from: t(300), minutes: 40, stopped_by: 'last push', replaced: t(340), target: 30, mark: 'over' }]);
+  assert.deepEqual(by.w.replace, [{ from: t(300), minutes: 40, stopped_by: 'last push', source: 'last push', replaced: t(340), target: 30, mark: 'over' }]);
   assert.deepEqual(lt.summary.replace, { n: 2, median: 27.5, worst: 40, target: 30, worst_mark: 'over' });
   assert.equal(lt.summary.blocked.target, undefined);
   // Not deferred, z's block is open and over.
   const open = leadTimes(root, cfg, { ref: 'HEAD', rows, grants: opened(0), restarts, closed: [], jobRefs, now: t(400) });
-  assert.deepEqual(open.jobs.find((j) => j.module === 'z').replace, [{ from: t(20), minutes: 380, stopped_by: 'BLOCKED', open: true, target: 30, mark: 'over' }]);
+  assert.deepEqual(open.jobs.find((j) => j.module === 'z').replace, [{ from: t(20), minutes: 380, stopped_by: 'BLOCKED', source: 'blocked', open: true, target: 30, mark: 'over' }]);
 });
 
 test('finding 8: the median of an even count, an undecided layer close, and the opening as the first ok grant', () => {
@@ -210,7 +211,7 @@ test('finding 8: the median of an even count, an undecided layer close, and the 
   const grants = [{ row: 'grant', tranche: 'tranche', at: t(50), outcome: 'ok' }, { row: 'grant', tranche: 'tranche', at: t(1), outcome: 'ok' }];
   const lt = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('a', 5)], layers: new Map([['a', 1]]), grants, now: t(60) });
   assert.equal(lt.opened, t(1));
-  assert.deepEqual(lt.jobs[0].ready_to_start, { minutes: 4, target: 10 });
+  assert.deepEqual(pick(lt.jobs[0].ready_to_start), { minutes: 4, target: 10 });
   // A layer close whose commit report tranche cannot place prints unmeasured, not "no layer closed".
   at(-5, () => commit(root, { 'build/layers.md': '| 1 | a |\n' }, 'layers'));
   at(6, () => commit(root, { 'process/metrics/a.jsonl': JSON.stringify(start('a', 5)) + '\n' }, 'rows'));

@@ -70,7 +70,7 @@ export function survivalReport(root, { branch, main, days = 14, today = Date.now
   const surviving = prs.filter((p) => p.survived === true).length;
   const o = overhead(rows.filter((r) => Date.parse(r.at) <= cutoff));
   const num = (v) => (typeof v === 'number' ? v : 0);
-  const cost = o.jobs.reduce((s, j) => s + num(j.job_usd) + j.overhead_usd, 0) + num(o.unattributed_usd);
+  const cost = o.jobs.reduce((s, j) => s + num(j.job_usd) + num(j.overhead_usd), 0) + num(o.unattributed_usd);
   const unmeasured = [...new Set([...o.jobs.flatMap((j) => [...(typeof j.job_usd === 'number' ? [] : [`${j.module} job`]), ...j.unmeasured.map((u) => `${j.module} ${u}`)]), ...(o.unattributed_usd === 'unmeasured' ? ['BOB and ROOT (no priced row)'] : [])])];
   return {
     days: d, cutoff: new Date(cutoff).toISOString(), rule: SURVIVAL_RULE, cost_rule: SURVIVAL_COST_RULE,
