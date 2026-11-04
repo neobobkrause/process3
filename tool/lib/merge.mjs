@@ -384,7 +384,7 @@ export function mergePlain(root, n, opts = {}) {
   log(`merged pull request ${n} at ${r.sha} (${now()})`);
   // A pin move into the tranche gives BOB new acts (tranche open); nothing else wakes BOB.
   const pin = pinAt(root, pr.head.sha);
-  const wake = base === (baseCfg?.tranche || DEFAULTS.tranche) && pin && pin !== pinAt(root, mb) ? `${P3} send bob "pin moved to ${pin}: run status" --from <role>` : null;
+  const wake = base === (baseCfg?.tranche || DEFAULTS.tranche) && pin && pin !== pinAt(root, mb) ? `${P3} send bob "pin moved to ${pin}: run your wake steps (start check --wake prints a changed prompt), then status" --from <role>` : null;
   if (wake) log(`next act: wake BOB with \`${wake}\`, delivered with send_message to the address it prints`);
   return { merged: true, sha: r.sha, checks: names, wake };
 }
