@@ -153,12 +153,17 @@ test('watch --escalated: takes over once the message is decision_minutes old, fr
   assert.equal(due.act, 'take over');
   assert.match(due.why, new RegExp(`ROOT ${R} left a message unanswered 30 min, past 30`));
   assert.match(due.out, new RegExp(`start record root ${W}`));
+  setBeat(root, new Date(Date.now() - 5 * 36e5).toISOString());
+  assert.match(w({ escalated: '10' }).why, /heartbeat is 5h old/, 'an early escalation never holds back a due takeover');
+  assert.equal(w({ escalated: '10', full: true }).act, 'take over');
+  setBeat(root, new Date().toISOString());
   assert.throws(() => w({ escalated: true }), /--escalated takes the minutes/);
   assert.throws(() => w({ escalated: 'soon' }), /--escalated takes the minutes/);
   commit(root, { 'process/config.json': { tranche: 'tranche', targets: { decision_minutes: 10 } } }, 'ten minutes');
   assert.equal(w({ escalated: '12' }).act, 'take over');
   commit(root, { 'process/config.json': { tranche: 'tranche', targets: { decision_minutes: 0 } } }, 'none');
   assert.throws(() => w({ escalated: '12' }), /decision_minutes 0 .* not a positive number/);
+  assert.equal(w().act, 'end', 'a bad decision_minutes never blocks the daily watch');
 });
 
 test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () => {

@@ -145,10 +145,10 @@ export function watch(root, { session, full = false, escalated, offline = false,
   checkSession(session);
   const cfg = loadConfig(root);
   const sb = cfg.state_branch;
-  const wait = Number(cfg.targets.decision_minutes);
-  if (!Number.isFinite(wait) || wait <= 0) fail(`targets.decision_minutes ${JSON.stringify(cfg.targets.decision_minutes)} in process/config.json is not a positive number`);
-  let late = null;
+  let late = null, wait = null;
   if (escalated !== undefined) {
+    wait = Number(cfg.targets.decision_minutes);
+    if (!Number.isFinite(wait) || wait <= 0) fail(`targets.decision_minutes ${JSON.stringify(cfg.targets.decision_minutes)} in process/config.json is not a positive number`);
     const m = Number(escalated);
     if (escalated === true || escalated === '' || !Number.isFinite(m) || m < 0) fail(`--escalated takes the minutes the message to ROOT has gone unanswered; not ${JSON.stringify(escalated)}`);
     late = m;
@@ -160,7 +160,8 @@ export function watch(root, { session, full = false, escalated, offline = false,
   const hb = readHeartbeat(root, sb);
   const age = hb ? Date.now() - Date.parse(hb.at) : Infinity;
   const due = late !== null && late >= wait;
-  if (late !== null && !due) { log(`end: the escalation is ${late} of ${wait} minutes old; ROOT keeps it until then, then run watch again`); return { act: 'end', age }; }
+  // An escalation not yet due never holds back a takeover that is due anyway (full, or a stale heartbeat).
+  if (late !== null && !due && !full && age <= WATCH_HOURS * H) { log(`end: the escalation is ${late} of ${wait} minutes old; ROOT keeps it until then, then run watch again`); return { act: 'end', age }; }
   if (!full && !due && age <= WATCH_HOURS * H) { log(`end: ROOT ${rootId} swept ${hours(age)}h ago`); return { act: 'end', age }; }
   const why = full ? `ROOT ${rootId} is full` : due ? `ROOT ${rootId} left a message unanswered ${late} min, past ${wait}` : hb ? `ROOT ${rootId}'s heartbeat is ${hours(age)}h old` : `ROOT ${rootId} has no heartbeat`;
   log(`take over: ${why}. Each its own command:

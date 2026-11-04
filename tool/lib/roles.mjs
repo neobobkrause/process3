@@ -62,7 +62,7 @@ const ROOT_ACTS = [
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   COORD_ACT,
 ];
-const ROOT_NOT = 'Nothing else: create no other session or task than BOB, the watcher and the two tasks above, merge nothing, edit no task, archive nothing but an old BOB, edit no file by hand.';
+const ROOT_NOT = 'Nothing else: create no other session or task than BOB, the watcher and the two tasks above, merge nothing, edit no task, archive nothing but an old BOB, edit no file by hand. Keep your context empty.';
 
 const BOB_ACTS = [
   `run \`${P3} start check\`, \`${P3} status\`, \`${P3} address root\` and the tool's job, merge, metrics, setup, handoff and send commands`,
