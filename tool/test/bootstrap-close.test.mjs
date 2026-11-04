@@ -183,3 +183,21 @@ test('a bootstrap retry stops when the base gained Process3 while the merge wait
   assert.throws(() => mergePlain(r.root, 7, { ...q, io: f.io, wait: 0 }), /main gained Process3 while pull request 7 was checked as its first close/);
   assert.equal(tries, 1);
 });
+
+test('a bootstrap close re-reads the base after the wait: Process3 landing during it refuses before any merge (review 4 of PR 97)', () => {
+  const r = product();
+  const f = io(r);
+  let landed = false;
+  const read = f.io.checkRuns;
+  f.io.checkRuns = (...a) => {
+    if (!landed) {
+      landed = true;
+      git(['checkout', '-q', 'main'], { cwd: r.root });
+      commit(r.root, { 'process/config.json': { tranche: 'tranche' } }, 'Process3 lands on main');
+      git(['push', '-q', 'origin', 'main'], { cwd: r.root });
+    }
+    return read(...a);
+  };
+  assert.throws(() => mergePlain(r.root, 7, { ...q, io: f.io }), /main gained Process3 while pull request 7 was checked as its first close/);
+  assert.equal(f.calls.merged, null);
+});

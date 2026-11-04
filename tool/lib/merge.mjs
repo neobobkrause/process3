@@ -315,7 +315,7 @@ export function processRepo(dir = TOOL_ROOT) {
 // through GitHub's website (his direct edit, or his website merge of a pull request). The owner
 // is the base's, never the head's; at the first close (bootstrap: a base with no Process3) the
 // tool's default. Onboarding values are Bob's to confirm once (README, Onboarding).
-// at: { intoMain, ownerCommit(sha) -> { ok } }.
+// at: { intoMain, ownerCommit(sha) -> { ok }, baseRef: the base's tip }.
 export function pinChange(root, mb, sha, repo, at = {}) {
   const was = pinAt(root, mb);
   const now = pinAt(root, sha);
@@ -324,7 +324,7 @@ export function pinChange(root, mb, sha, repo, at = {}) {
     if (!repo.released(now)) fail(`the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
     if (was && !repo.descends(was, now)) fail(`the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
   }
-  const key = unanchored(root, mb, sha, at.intoMain ? at.ownerCommit : null);
+  const key = unanchored(root, mb, sha, at.intoMain ? at.ownerCommit : null, at.baseRef || mb);
   if (key) fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
 }
 
@@ -458,7 +458,7 @@ export function mergePlain(root, n, opts = {}) {
   workflowChanges(root, pr.head.sha, changed, io.repo);
   const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
+    intoMain: main, baseRef, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
   });
 
   let refreshed = [];
@@ -505,6 +505,13 @@ export function mergePlain(root, n, opts = {}) {
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);
   if (again.head?.sha !== pr.head.sha) fail(`pull request ${n} moved while it was checked; run merge again`);
+  // A first close stands only while the base still has no Process3: read again now, after the
+  // wait, from a fetch that must succeed (review 4 of PR 97).
+  const stillBoot = () => {
+    git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root });
+    if (!isBootstrap(root, baseRef)) fail(`${base} gained Process3 while pull request ${n} was checked as its first close; run merge again`);
+  };
+  if (boot) stillBoot();
   // The first close stands on the gate itself, not only on GitHub's ruleset.
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
@@ -516,8 +523,7 @@ export function mergePlain(root, n, opts = {}) {
     check: () => {
       const p = io.getPR(slug, n);
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
-      // A first close stands only while the base still has no Process3.
-      if (boot && !isBootstrap(root, baseRef)) fail(`${base} gained Process3 while pull request ${n} was checked as its first close; run merge again`);
+      if (boot) stillBoot();
     },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);

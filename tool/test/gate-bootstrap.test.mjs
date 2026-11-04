@@ -106,3 +106,20 @@ test('at the first close only run keys come from the head: records and the owner
   assert.equal(g.run.trigger, 'code', 'not the record fast path');
   assert.equal(g.run.suite, 'pass');
 });
+
+test('at the first close head run keys that overlap the defaults\' records are a finding, not a crash (review 2 of PR 97)', () => {
+  const r = product({ tranche: 'tranche', records: ['rec/'], lockfiles: ['package-lock.json'], generated: [{ paths: ['process/gen.json'], regenerate: ['true'], verify: ['true'] }] });
+  const g = runGate(r, lookupAt('none'));
+  assert.deepEqual(g.npm, []);
+  assert.match(g.findings.find((f) => f.check === 'config').message, /run keys cannot be used.*overlap/);
+});
+
+test('a base that deleted its config gives the gate its last config, and is no first close (review 5 of PR 97)', () => {
+  const r = product({ tranche: 'tranche', lockfiles: ['package-lock.json'], suite_timeout_minutes: 5 }, { mainFiles: { 'process/config.json': { tranche: 'tranche', lockfiles: ['package-lock.json'] } } });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  git(['rm', '-q', 'process/config.json'], { cwd: r.root });
+  r.base = commit(r.root, { 'gone.txt': 'x' }, 'drop the config');
+  const c = gateConfig(r.root, { base: r.base, head: r.head, branch: 'tranche', slug: 'o/r', io: ioWith(lookupAt('none')) });
+  assert.equal(c.bootstrap, undefined);
+  assert.deepEqual(c.cfg.lockfiles, ['package-lock.json']);
+});

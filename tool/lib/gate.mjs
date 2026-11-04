@@ -10,7 +10,7 @@ import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
-import { isBootstrap, unanchored } from './anchor.mjs';
+import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
 import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
@@ -52,7 +52,8 @@ export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${St
 // the anchor is a finding, and the gate runs with the defaults.
 export const RUN_KEYS = ['tranche', 'lockfiles', 'generated', 'suite_timeout_minutes'];
 export function gateConfig(root, { base, head, branch, slug, io = ghIO }) {
-  const cfg = loadConfig(root, base);
+  // A base that deleted its config is read by its last one, as merge reads it (review 5 of PR 97).
+  const cfg = loadConfig(root, lastConfigAt(root, base) || base);
   if (!isBootstrap(root, base) || !exists(root, head, CONFIG_FILE)) return { cfg, findings: [] };
   let raw;
   try { loadConfig(root, head); raw = JSON.parse(git(['show', `${head}:${CONFIG_FILE}`], { cwd: root })); } catch (e) {
@@ -61,7 +62,10 @@ export function gateConfig(root, { base, head, branch, slug, io = ghIO }) {
   if (branch !== (raw.tranche ?? cfg.tranche)) return { cfg, findings: [] };
   const key = unanchored(root, base, head, (c) => webCommitByOwner(root, c, cfg.approvals.owner, io.lookup || gh, slug));
   if (key) return { cfg, findings: [F('config', CONFIG_FILE, `the base has no Process3, and the head changes ${key} without the owner's website commit; the gate runs with the defaults`)] };
-  return { cfg: configOf(Object.fromEntries(RUN_KEYS.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]])), `the head's ${CONFIG_FILE}`), findings: [], bootstrap: true };
+  // Checked again over the defaults' records, which the head's run keys may overlap (review 2 of PR 97).
+  try { return { cfg: configOf(Object.fromEntries(RUN_KEYS.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]])), `the head's ${CONFIG_FILE}`), findings: [], bootstrap: true }; } catch (e) {
+    return { cfg, findings: [F('config', CONFIG_FILE, `the base has no Process3, and the head's run keys cannot be used (${e.message}); the gate runs with the defaults`)] };
+  }
 }
 
 // post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes

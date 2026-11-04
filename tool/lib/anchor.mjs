@@ -36,16 +36,21 @@ export function keySetAt(root, rev, key) {
 }
 export const processRepoSetAt = (root, rev) => keySetAt(root, rev, 'process_repo');
 
-// The first anchored key whose value at sha is not its value at base and did not take it at a
+// The first anchored key whose value at sha is not its value at base (by base's last config,
+// lastConfigAt, so a deleted config is still the one judged against) and did not take it at a
 // commit ownerCommit(sha) -> { ok } calls the owner's website commit; null when every key holds.
-// ownerCommit null: no change is accepted.
-export function unanchored(root, base, sha, ownerCommit) {
+// ownerCommit null: no change is accepted. tip: the base's tip; an owner's commit already in
+// it was superseded there (its value is not the base's now), so it grants nothing: a session
+// cannot restore a value the owner later replaced (review 1 of PR 97).
+export function unanchored(root, base, sha, ownerCommit, tip = base) {
+  const was = lastConfigAt(root, base) || base;
   for (const key of ANCHORED) {
     const value = keyAt(root, sha, key);
-    if (value === keyAt(root, base, key)) continue;
+    if (value === keyAt(root, was, key)) continue;
     if (ownerCommit && typeof value === 'string' && value !== 'unreadable') {
       const c = keySetAt(root, sha, key);
-      if (c && ownerCommit(c)?.ok === true) continue;
+      const inBase = c && git(['merge-base', '--is-ancestor', c, tip], { cwd: root, allowFail: true }).code === 0;
+      if (c && !inBase && ownerCommit(c)?.ok === true) continue;
     }
     return key;
   }

@@ -420,7 +420,7 @@ test('a forward pin move is judged on the whole history when the tool\'s clone i
 });
 
 // Build 22 (2 Nov): process_repo the tool already holds the owner's word for.
-import { processRepoSetAt } from '../lib/merge.mjs';
+import { keySetAt, processRepoSetAt } from '../lib/merge.mjs';
 import { readFileSync } from 'node:fs';
 const P3 = 'https://github.com/neobobkrause/process3';
 // GitHub says every commit is the owner's website commit.
@@ -735,6 +735,35 @@ test('the tranche into main carrying a changed approvals.owner needs main\'s own
   const rf = recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit('none') }).findings;
   assert.deepEqual(rf.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
   assert.deepEqual(recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit(change) }).findings, []);
+});
+
+// Review 1 of PR 97: an owner's website commit already in main, whose value main later replaced,
+// grants nothing: a session cannot bring back a value the owner revoked.
+test('the tranche into main cannot restore an approvals.owner the owner later replaced on main', () => {
+  const msg = /changes approvals in process\/config\.json; that needs the owner's word/;
+  const root = makeRepo({ 'README.md': 'x', 'process/config.json': JSON.stringify({ process_repo: P3 }) });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const W = commit(root, { 'process/config.json': JSON.stringify({ process_repo: P3, approvals: { owner: 'alice' } }) }, 'Bob names alice');
+  git(['branch', 'tranche'], { cwd: root });
+  commit(root, { 'process/config.json': JSON.stringify({ process_repo: P3 }) }, 'Bob takes it back');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  // A session brings main in and resolves the config back to alice.
+  git(['merge', '-q', '-s', 'ours', '-m', 'Bring tranche up to main', 'main'], { cwd: root });
+  write(root, { 'pin.txt': 'x' });
+  git(['add', '-A'], { cwd: root });
+  git(['update-index', '--add', '--cacheinfo', `160000,${PIN},.process`], { cwd: root });
+  git(['commit', '-q', '-m', 'the tranche moves on'], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const r = { root, sha, head: 'tranche' };
+  const f = intoMain(r, everyOwner);
+  assert.throws(() => mergePlain(root, 4, { ...q, noReview: 'x', io: f.io }), msg);
+  assert.equal(f.calls.merged, null);
+  // Before the fix: alice took her value at W, the owner's website commit, so it passed.
+  assert.equal(keySetAt(root, sha, 'approvals'), W);
 });
 
 // Build I (3 Nov): the review-round limit, held by merge.
