@@ -14,7 +14,6 @@ import { FOUND_MARK, depth, exists, fail, git, loadConfig } from './util.mjs';
 
 export const FOUND_DIR = 'process/found';
 export const NO_MODULE = `${FOUND_DIR}/no-module.md`;
-export const FOUND_HEADING = '## Found work';
 export const foundFile = (id) => `${FOUND_DIR}/${id}.md`;
 export const DEFAULT_SOURCE = 'found';
 
@@ -36,16 +35,42 @@ export function foundMarks(text) {
 
 export const foundLine = (n, finding, source) => `- **F${n}** *(not yet met: ${source})* ${finding}`;
 
-// The text with the line added under FOUND_HEADING (the heading added at the end when absent).
+// The text with the line appended at its end: the one change a plain pull request may make to a
+// requirement file a job owns (merge --plain, foundOnly). A file that does not end in a newline
+// would change its last line too, so it is refused.
 export function addFound(text, line, title) {
-  const t = text === null || text === undefined ? `# ${title}\n` : String(text);
-  const lines = t.replace(/\n+$/, '').split('\n');
-  const h = lines.findIndex((l) => l.trim() === FOUND_HEADING);
-  if (h < 0) return [...lines, '', FOUND_HEADING, '', line].join('\n') + '\n';
-  let j = h + 1;
-  while (j < lines.length && !/^#{1,2}\s/.test(lines[j])) j++;
-  while (j > h + 1 && !lines[j - 1].trim()) j--;
-  return [...lines.slice(0, j), ...(j === h + 1 ? [''] : []), line, ...lines.slice(j)].join('\n') + '\n';
+  if (text === null || text === undefined) return `# ${title}\n\n${line}\n`;
+  const t = String(text);
+  if (t && !t.endsWith('\n')) fail('the file does not end in a newline: appending would change its last line, which a plain pull request may not; its next job adds the mark');
+  return `${t}${line}\n`;
+}
+
+// An added line a plain pull request may carry into a requirement file a job owns: one unmet
+// found mark, `**F<n>** *(not yet met: <source>)* <finding>`, optionally a list item, with no other
+// mark in it.
+const FOUND_LINE = /^\s*(?:[-*]\s+)?\*\*(F\d+)\*\*\s*\*\(not yet met: [^)]*\)\*(.*)$/;
+export function foundLineId(line) {
+  const m = String(line).match(FOUND_LINE);
+  return m && !/\*\*[RF][\w.-]*\*\*|not yet met/i.test(m[2]) ? m[1] : null;
+}
+
+// Whether a diff of one file (git diff -U0 output) only adds found-mark lines whose ids the base
+// text lacks: nothing removed or changed, no other line added. { ok, why }.
+export function foundOnly(diff, baseText) {
+  const have = new Set([...String(baseText || '').matchAll(FOUND_MARK)].map((m) => `F${m[1]}`));
+  const body = String(diff).split('\n').filter((l) => !/^(diff |index |--- |\+\+\+ |@@ |new file mode|deleted file mode|old mode|new mode|similarity|rename )/.test(l));
+  const added = [];
+  for (const l of body) {
+    if (l === '' || l === '\\ No newline at end of file') continue;
+    if (l.startsWith('-')) return { ok: false, why: `it removes or changes a line: ${l.slice(1, 80)}` };
+    if (!l.startsWith('+')) continue;
+    const id = foundLineId(l.slice(1));
+    if (!id) return { ok: false, why: `it adds a line that is not one unmet found mark: ${l.slice(1, 80)}` };
+    if (have.has(id) || added.includes(id)) return { ok: false, why: `it adds ${id}, which the file already has` };
+    added.push(id);
+  }
+  if (body.some((l) => l === '\\ No newline at end of file')) return { ok: false, why: 'the file does not end in a newline' };
+  return added.length ? { ok: true, added } : { ok: false, why: 'it adds no found mark' };
 }
 
 const clean = (v, what) => {
@@ -104,14 +129,21 @@ export function found(root, module, finding, { from, write = false, offline = fa
     title = `Found work for ${module}`;
     where = m.reqText !== null ? "the module's requirement file" : `its found-work entry, since the module has no requirement file (${m.req}); its job starts once BOB gives it a requirement file and ledger entry, moving these marks there`;
   }
-  const n = nextFound(...texts);
+  // Numbered past the tranche's marks, the checkout's copy (a --write not yet merged) and every
+  // found/<module>-f<n> branch on origin (an act printed, its pull request not yet merged), so two
+  // findings for one module before the first merges never share a number (review of PR 75).
+  const key = module || 'no-module';
+  const local = [file, ...(module ? [foundFile(module)] : [])].map((f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null));
+  const heads = offline ? '' : git(['ls-remote', '--heads', 'origin', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  const pending = [...heads.matchAll(new RegExp(`refs/heads/found/${key}-f(\\d+)$`, 'gm'))].map((m) => `**F${m[1]}**`).join(' ');
+  const n = nextFound(...texts, ...local, pending);
   const line = foundLine(n, what, source);
   const branch = `found/${module || 'no-module'}-f${n}`;
   const P = 'node .process/tool/p3.mjs';
   log(`found work${module ? ` for ${module}` : ', no module'}: F${n} in ${file}, ${where}`);
   log(`BOB's act, a plain pull request into ${cfg.tranche}:`);
   log(`1. git switch -c ${branch} ${ref || cfg.tranche}`);
-  log(`2. in ${file}, under the heading "${FOUND_HEADING}" (added at the end when absent), add the line${write ? ' (written in this checkout now)' : ` (or run this command again with --write)`}:`);
+  log(`2. at the end of ${file}, add this one line and change nothing else (a plain pull request may only add found marks to a requirement file a job owns)${write ? '; written in this checkout now' : '; or run this command again with --write'}:`);
   log(`   ${line}`);
   log(`3. commit it ("found: ${module || 'no module'} F${n}"), git push -u origin ${branch}, and open the pull request into ${cfg.tranche}`);
   log(`4. \`${P} merge <that pull request> --plain --no-review "work found elsewhere: one found mark, no code"\``);

@@ -3,14 +3,15 @@
 // module is ready by open_by, whatever its layer; one that names no module waits for BOB to name one.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { entry, makeRepo, openPassed } from './helpers.mjs';
 import { NO_MODULE, addFound, found, foundMarks, nextFound } from '../lib/found.mjs';
 import { markedIds } from '../lib/job.mjs';
 import { trancheReport } from '../lib/report.mjs';
 import { status } from '../lib/status.mjs';
-import { loadConfig, overCap } from '../lib/util.mjs';
+import { git, loadConfig, overCap } from '../lib/util.mjs';
 
 const quiet = () => {};
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
@@ -57,12 +58,33 @@ test('found: BOB\'s plain-PR act adds an unmet found mark to the module\'s requi
   assert.match(t, /merge <that pull request> --plain --no-review "work found elsewhere: one found mark, no code"/);
   // Numbered per module: another module starts at F1.
   assert.equal(found(root, 'base', 'x', { offline: true, log: quiet }).mark, 'F1');
-  // --write adds the line under "## Found work"; the next is F4.
+  // --write appends the one line and changes nothing else (the diff merge --plain accepts); the next is F4.
+  const before = readFileSync(join(root, 'build/requirements/q2.md'), 'utf8');
   found(root, 'q2', 'second finding', { from: 'walk p3dev-l1', write: true, offline: true, log: quiet });
   const text = readFileSync(join(root, 'build/requirements/q2.md'), 'utf8');
-  assert.match(text, /## Found work\n\n- \*\*F3\*\* \*\(not yet met: walk p3dev-l1\)\* second finding\n$/);
+  assert.equal(text, `${before}- **F3** *(not yet met: walk p3dev-l1)* second finding\n`);
   assert.equal(found(root, 'q2', 'third', { offline: true, log: quiet }).mark, 'F4');
   assert.equal(found(root, 'q2', 'third', { offline: true, log: quiet }).line, '- **F4** *(not yet met: found)* third', 'default source');
+});
+
+test('found: with origin, two findings for one module before the first merges get two numbers: the checkout\'s copy and found/<module>-f<n> branches count', () => {
+  const root = repo();
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // Printed only, its branch pushed: the next is F2.
+  assert.equal(found(root, 'q2', 'one', { log: quiet }).mark, 'F1');
+  git(['push', '-q', 'origin', 'tranche:refs/heads/found/q2-f1'], { cwd: root });
+  assert.equal(found(root, 'q2', 'two', { log: quiet }).mark, 'F2');
+  // Written in the checkout (--write), not yet pushed: the next counts it too.
+  assert.equal(found(root, 'q2', 'two', { write: true, log: quiet }).mark, 'F2');
+  const third = found(root, 'q2', 'three', { write: true, log: quiet });
+  assert.equal(third.mark, 'F3');
+  assert.equal((readFileSync(join(root, 'build/requirements/q2.md'), 'utf8').match(/\*\*F2\*\*/g) || []).length, 1);
+  // Another module's branches do not count.
+  assert.equal(found(root, 'base', 'x', { log: quiet }).mark, 'F1');
 });
 
 test('found: a module with no requirement file gets a found-work entry; one that names no module goes to no-module; unknown modules and marks in the text are refused', () => {
@@ -87,7 +109,9 @@ test('found marks: parsed as unmet marks by the job and the cap, read back with 
   assert.equal(nextFound(t), 3);
   assert.deepEqual(foundMarks(t), [{ id: 'F2', source: 'walk p3dev-l1', finding: 'founder sign-in answers HTTP 200 without a session' }]);
   assert.match(overCap({ requirements_cap: null, requirements_cap_marks: 1 }, 'f.md', t) || '', /2 unmet marks/);
-  assert.equal(addFound(null, '- **F1** x', 'Found work for r'), '# Found work for r\n\n## Found work\n\n- **F1** x\n');
+  assert.equal(addFound(null, '- **F1** x', 'Found work for r'), '# Found work for r\n\n- **F1** x\n');
+  assert.equal(addFound('# a\n', '- **F1** x', 't'), '# a\n- **F1** x\n');
+  assert.throws(() => addFound('# a', '- **F1** x', 't'), /does not end in a newline/);
 });
 
 test('status: found work is next work as soon as its module is ready by open_by uses, whatever its layer, marked found; it never reopens or holds a layer', () => {

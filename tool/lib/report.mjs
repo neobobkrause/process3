@@ -207,7 +207,8 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const def = work.map((w) => {
     const c = w.layer === null ? null : closedBy.get(w.layer);
     const d = c?.deferred?.[w.m];
-    const ids = c ? (Array.isArray(d) ? d : d?.marks || []) : w.unmet;
+    // Found marks are never deferred: they are counted under Found work.
+    const ids = c ? (Array.isArray(d) ? d : d?.marks || []) : w.unmet.filter((x) => !isFound(x));
     return [w.m, c ? `layer ${w.layer} close` : undecided.has(w.layer) ? `tip (layer ${w.layer} close ${U})` : 'tip', ids.length, ids.join(', ') || 'none'];
   }).filter((r) => r[2] > 0);
   L.push(...(def.length ? table(['module', 'from', 'unmet', 'marks'], def) : ['None.']), '');
