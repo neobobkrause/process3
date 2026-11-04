@@ -1,8 +1,8 @@
 // Build Plan Phase 3, the release row: development releases only (Bob's word, 3 Nov).
 import assert from 'node:assert/strict';
-import { generateKeyPairSync, verify } from 'node:crypto';
+import { createHash, generateKeyPairSync, verify } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -224,6 +224,39 @@ test('the shim: parses; push to p3dev-release/** only; read-only checks and asse
   assert.match(pub, /--draft --latest=false --verify-tag/);
   assert.doesNotMatch(pub, /gh release edit|--draft=false|--prerelease=false|make_latest=true/);
   assert.match(pub, /refs\/tags\/\$TAG/);
+  // One archive of release.out with its paths kept, SHA256SUMS over it, signed there; no per-file assets.
+  assert.match(pub, /-p3dev-\$VERSION\.tar\.gz/);
+  assert.match(pub, /tar -C \\"\$RUNNER_TEMP\/release\\" [^"]*-czf \\"\$RUNNER_TEMP\/assets\/\$name\\" \./);
+  assert.match(pub, /sha256sum \\"\$name\\" > SHA256SUMS/);
+  assert.match(pub, /release sign \\"\$RUNNER_TEMP\/assets\\"/);
+  assert.match(pub, /find \\"\$RUNNER_TEMP\/assets\\" -maxdepth 1 -type f/);
+  assert.doesNotMatch(pub, /uniq -d|find \\"\$RUNNER_TEMP\/release\\"/);
+  const sign = w.jobs.publish.steps.find((s) => /release sign/.test(s.run || ''));
+  assert.equal(sign.if, "steps.cfg.outputs.sign != ''");
   // Each action is pinned by its full commit.
   for (const job of Object.values(w.jobs)) for (const s of job.steps) if (s.uses) assert.match(s.uses, /@[0-9a-f]{40}$/, s.uses);
+});
+
+// The shim's archive step, run as written: two files sharing a base name (the copy's two
+// worker.json, 4 Nov) both reach one archive with their paths, and SHA256SUMS covers it.
+test('the shim: the archive step keeps two same-named files under their paths, SHA256SUMS over the archive', (t) => {
+  const py = spawnSync('python3', ['-c', 'import sys,json,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', SHIM], { encoding: 'utf8' });
+  if (py.status !== 0) { t.skip('no YAML parser here'); return; }
+  const step = JSON.parse(py.stdout).jobs.publish.steps.find((s) => s.name === 'the archive and SHA256SUMS');
+  const tmp = mkdtempSync(join(tmpdir(), 'p3-arc-'));
+  write(join(tmp, 'release'), { 'a/worker.json': 'one', 'b/worker.json': 'two', 'top.txt': 't' });
+  const r = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: { ...process.env, RUNNER_TEMP: tmp, GITHUB_REPOSITORY: 'o/prod', ...step.env, VERSION: '0.4.0' } });
+  assert.equal(r.status, 0, r.stderr);
+  const name = 'prod-p3dev-0.4.0.tar.gz';
+  assert.deepEqual(readdirSync(join(tmp, 'assets')).sort(), ['SHA256SUMS', name]);
+  const list = spawnSync('tar', ['-tzf', join(tmp, 'assets', name)], { encoding: 'utf8' }).stdout.split('\n').filter((l) => l && !l.endsWith('/')).sort();
+  assert.deepEqual(list, ['./a/worker.json', './b/worker.json', './top.txt']);
+  const hash = createHash('sha256').update(readFileSync(join(tmp, 'assets', name))).digest('hex');
+  assert.equal(readFileSync(join(tmp, 'assets', 'SHA256SUMS'), 'utf8'), `${hash}  ${name}\n`);
+  // Signing the assets gives the same SHA256SUMS and a signature over it.
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  assert.deepEqual(releaseSign(join(tmp, 'assets'), { key: privateKey.export({ type: 'pkcs8', format: 'pem' }), log: quiet }).files, [name]);
+  const sums = readFileSync(join(tmp, 'assets', 'SHA256SUMS'));
+  assert.equal(String(sums), `${hash}  ${name}\n`);
+  assert.ok(verify(null, sums, publicKey, Buffer.from(readFileSync(join(tmp, 'assets', 'SHA256SUMS.sig'), 'utf8').trim(), 'base64')));
 });
