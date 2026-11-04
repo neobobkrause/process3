@@ -10,7 +10,7 @@ import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
-import { unanswered } from './notice.mjs';
+import { movedText, unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
@@ -77,7 +77,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
   if (notices.length) {
     L.push('', '## Provider notices', '', 'For each, a module this one uses changed: confirm or adapt this module\'s code, with a test of its own for the change.');
-    for (const n of notices) L.push(`- \`${n.key}\`: \`${n.provider}\` changed ${n.ids.join(', ')} (PR ${n.pr}); \`--test notice:${n.key}=...\``);
+    for (const n of notices) L.push(`- \`${n.key}\`: \`${n.provider}\` changed ${movedText(n)} (PR ${n.pr}); \`--test notice:${n.key}=...\``);
   }
   if (restart) {
     L.push('', `You replace the job session that stopped. BOB saw: ${restart.why}`);
