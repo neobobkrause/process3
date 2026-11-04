@@ -30,7 +30,7 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   // Review of PR 72: one rule for every gap would copy the process lines over CLAUDE.md and its approvals block.
   L.push(`5. \`${P3} setup check --at HEAD\`. For each gap, as it names: a workflow differing from or lacking the pin's shim, copy \`.process/shims/<f>\` to \`.github/workflows/<f>\`; CLAUDE.md lacking the process lines, replace the old process lines below the approvals block with those of \`.process/shims/CLAUDE.process.md\` ({tranche} as ${tranche}), changing nothing in the approvals block. Commit, and run it again. A gap in \`.claude/settings.json\` (the owner's file), or any other gap: send it to \`${report}\` and end.`);
   // 4 Nov: a pin move cut from an older tranche tip conflicted on the gitlink; branch from the tip as it is now.
-  L.push(`6. \`git fetch origin ${tranche} --depth 1\`, then \`git checkout -q -b ${branch} FETCH_HEAD\`, then \`git cherry-pick refs/p3/pin-base..p3-pin-work\`. If the cherry-pick stops on a conflict, \`git cherry-pick --abort\`, send \`${report}\` the conflict and end.`);
+  L.push(`6. \`git fetch origin ${tranche} --depth 1\`, then \`git checkout -q -b ${branch} FETCH_HEAD\`, then \`git cherry-pick refs/p3/pin-base..p3-pin-work\`. If the cherry-pick stops (a conflict, or nothing left to pick: the tip already carries the pin), \`git cherry-pick --abort\`, send \`${report}\` what it said and end.`);
   L.push(`7. \`${P3} setup check --at HEAD\` again: a gap, as in step 5.`);
   L.push(`8. \`${P3} pin check ${slug}\` (a pin move must not run beside another): if it refuses, send its exact words to \`${report}\` and end.`);
   L.push(`9. \`git push -u origin ${branch}\``);
@@ -79,7 +79,7 @@ export function pinMove(root, slug, { pin, tranche = 'tranche', report, why, sup
   const open = openPinMoves(slug, io);
   if (supersedes !== undefined) {
     const n = Number(supersedes);
-    if (Array.isArray(supersedes) || !Number.isInteger(n) || n < 1) fail(`--supersedes <the open pin move's pull request number>, once; not ${JSON.stringify(supersedes)}`);
+    if (typeof supersedes === 'boolean' || Array.isArray(supersedes) || !Number.isInteger(n) || n < 1) fail(`--supersedes <the open pin move's pull request number>, once; not ${JSON.stringify(supersedes)}`);
     const old = open.find((p) => p.number === n);
     if (!old) fail(`--supersedes ${n}: pull request ${n} is not an open pin move on ${slug}${open.length ? ` (open: ${named(open)})` : ''}`);
     if (old.head.ref === `p3/pin-${pin.slice(0, 10)}`) fail(`pull request ${n} already moves the pin to ${pin.slice(0, 10)}; wait for it`);

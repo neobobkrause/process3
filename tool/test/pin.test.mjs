@@ -81,6 +81,7 @@ test('pin move --supersedes <pr> closes that open pin move with a comment, keeps
     [[PR(106, 'p3/pin-0123456789'), PR(108, 'p3/pin-abcdef0123')], '106', /a pin move is open: PR 108 \(p3\/pin-abcdef0123\)/],
     [[PR(106, `p3/pin-${PIN.slice(0, 10)}`)], '106', /already moves the pin to aaaaaaaaaa/],
     [[PR(106, 'p3/pin-0123456789')], 'x', /--supersedes <the open pin move's pull request number>/],
+    [[PR(1, 'p3/pin-0123456789')], true, /--supersedes <the open pin move's pull request number>/],
   ]) {
     const g = pinIO(prs);
     assert.throws(() => pinMove(root, 'o/r', { pin: PIN, report: REPORT, why: 'w', supersedes: n, io: g.io, log: quiet }), msg);
