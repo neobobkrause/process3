@@ -70,7 +70,11 @@ function lines(src) {
     const t = raw.replace(/\r$/, '');
     if (!t.trim() || /^\s*#/.test(t)) return;
     if (/^(---|\.\.\.)(\s|$)/.test(t)) { if (out.length || t.startsWith('...')) no('it holds more than one document'); return; }
-    out.push({ n: i + 1, indent: t.length - t.trimStart().length, body: t.trimStart() });
+    const body = t.trimStart();
+    // A double-quoted key with an escape ("j\x6fbs":) is a key this reader would misread: GitHub
+    // decodes it (review 1 of PR 98).
+    if (/^(?:-\s+)?"(?:[^"\\]|\\.)*\\(?:[^"\\]|\\.)*"\s*:/.test(body)) no(`line ${i + 1} has a key with an escape`);
+    out.push({ n: i + 1, indent: t.length - t.trimStart().length, body });
   });
   return out;
 }
@@ -94,7 +98,7 @@ function children(ls, at, indent) {
     if (key === '<<' || /^[&*]/.test(key)) no(`line ${ls[i].n} uses a merge key or an alias`);
     if (seen.has(key)) no(`${key} appears twice in one block (line ${ls[i].n})`);
     seen.add(key);
-    kids.push({ key, value: value(m[2]), i });
+    kids.push({ key, value: value(m[2]), i, deeper: i + 1 < ls.length && ls[i + 1].indent > own });
   }
   return { kids, end: i };
 }
@@ -106,6 +110,7 @@ const LEVEL = { none: 0, read: 1, write: 2 };
 function permissions(ls, k) {
   if (!k) return undefined;
   const v = k.value;
+  if (/\\/.test(v)) no(`permissions at line ${ls[k.i].n} holds an escape`);
   if (/^[&*!]/.test(v)) no(`permissions at line ${ls[k.i].n} uses an anchor, alias or tag`);
   const flat = (pairs) => {
     const p = {};
@@ -121,6 +126,7 @@ function permissions(ls, k) {
   if (v === '') {
     const { kids } = children(ls, k.i, ls[k.i].indent);
     if (!kids.length) no(`permissions at line ${ls[k.i].n} is empty`);
+    if (kids.some((x) => x.deeper || /^[&*!|>]/.test(x.value))) no(`permissions at line ${ls[k.i].n} cannot be read`);
     return flat(kids.map((x) => [x.key, x.value]));
   }
   if (/^["']?read-all["']?$/.test(v)) return 'all-read';
@@ -134,6 +140,18 @@ function permissions(ls, k) {
   no(`permissions at line ${ls[k.i].n} cannot be read`);
 }
 
+// The events a workflow runs on: a scalar, a flow list, or a block of event keys; anything else
+// throws. Read only when rule 3 needs it.
+function events(ls, on) {
+  if (!on) return [];
+  const v = on.value;
+  if (v === '') return children(ls, on.i, 0).kids.map((k) => k.key);
+  const list = v.match(/^\[([^\[\]{}]*)\]$/);
+  if (list) return list[1].split(',').map((x) => unquote(x)).filter(Boolean);
+  if (/^[\w-]+$/.test(unquote(v))) return [unquote(v)];
+  no(`its on: at line ${ls[on.i].n} cannot be read`);
+}
+
 // What the rules read of one workflow file.
 export function readWorkflow(src) {
   const ls = lines(src);
@@ -141,19 +159,25 @@ export function readWorkflow(src) {
   const get = (name) => keys.find((k) => k.key === name);
   const jobsKey = get('jobs');
   const jobs = [];
-  if (jobsKey) {
+  if (jobsKey && jobsKey.value !== '{}') {
     if (jobsKey.value !== '') no('its jobs are not a block of jobs');
     const { kids } = children(ls, jobsKey.i, 0);
     for (const j of kids) {
       if (j.value !== '') no(`job ${j.key} is not a block`);
       const { kids: jk } = children(ls, j.i, ls[j.i].indent);
       const name = jk.find((x) => x.key === 'name');
-      jobs.push({ id: j.key, name: name ? unquote(name.value) : null, permissions: permissions(ls, jk.find((x) => x.key === 'permissions')) });
+      // One line, plain or quoted, no tag, anchor, block scalar or escape (review 1 of PR 98).
+      if (name && (name.deeper || !/^(?:"[^"\\]*"|'[^']*'|[^\s"'|>!&*%@`{\[-][^#]*)$/.test(name.value))) no(`job ${j.key}'s name at line ${ls[name.i].n} is not a one-line string this reader can read`);
+      jobs.push({ id: j.key, name: name ? unquote(name.value) : null, permissions: permissions(ls, jk.find((x) => x.key === 'permissions')), expands: jk.some((x) => x.key === 'strategy' || x.key === 'uses') });
     }
   }
-  // pull_request_target anywhere outside a comment: the reader does not judge where it sits.
-  const prt = /(^|[^\w-])pull_request_target([^\w-]|$)/.test(src.split('\n').map((l) => l.replace(/(^|\s)#.*$/, '')).join('\n'));
-  return { permissions: permissions(ls, get('permissions')), jobs, pullRequestTarget: prt };
+  // pull_request_target anywhere in the file, comments too: the reader does not judge where it
+  // sits (review 1 of PR 98: a "#" inside quotes hid it from a comment strip).
+  const prt = /pull_request_target/.test(src);
+  const on = get('on') || get('true');
+  // The `on` block may not hold an escape that could spell an event (review 1 of PR 98).
+  if (on) { const end = children(ls, on.i, 0).end; for (let i = on.i; i < end; i++) if (/"[^"]*\\/.test(ls[i].body)) no(`its on block holds an escape at line ${ls[i].n}`); }
+  return { permissions: permissions(ls, get('permissions')), jobs, pullRequestTarget: prt, events: () => events(ls, on) };
 }
 
 // The most each scope's token holds in any job: a job's own permissions, else the workflow's,
@@ -183,6 +207,12 @@ export function workflowRules(src, baseSrc, required) {
     if (taken.has(j.id.toLowerCase())) return `rule 2: it defines a job ${j.id}, the name of a required check or of a process job (${[...required, ...RESERVED_JOBS].join(', ')})`;
     if (j.name !== null && /\$\{\{/.test(j.name)) return `rule 2: job ${j.id}'s name ${j.name} is an expression, which could be a required check's name`;
     if (j.name !== null && taken.has(j.name.trim().toLowerCase())) return `rule 2: job ${j.id} is named ${j.name}, the name of a required check or of a process job`;
+    // A matrix job reports as "<name> (<values>)", a reusable workflow's jobs as "<name> / <job>"
+    // (review 1 of PR 98): no required check may begin so.
+    for (const x of [j.id, j.name].filter((y) => y !== null).map((y) => y.trim().toLowerCase())) {
+      const hit = [...taken].find((t) => t.startsWith(`${x} (`) || t.startsWith(`${x} /`));
+      if (hit) return `rule 2: job ${j.id}${j.expands ? ', a matrix or reusable-workflow job,' : ''} could report as the required check ${hit}`;
+    }
   }
   if (w.pullRequestTarget && !b?.pullRequestTarget) return `rule 3: it runs on pull_request_target${b ? ', which the base\'s copy does not' : ''}`;
   const now = held(w);
@@ -190,6 +220,14 @@ export function workflowRules(src, baseSrc, required) {
   const scopes = new Set([...Object.keys(now), ...Object.keys(was), ...SCOPES]);
   scopes.delete('*');
   const wider = [...scopes].filter((s) => at(now, s) > at(was, s)).sort();
+  if (!wider.length && b && [...scopes].some((s) => at(now, s) === 2)) {
+    // A file that holds a write token may not run on an event its base's copy does not (review 1 of PR 98).
+    let ev;
+    let was2;
+    try { ev = w.events(); was2 = b.events(); } catch (e) { if (e instanceof Unreadable) return `rule 3: its events cannot be read (${e.message})`; throw e; }
+    const added = ev.filter((x) => !was2.includes(x));
+    if (added.length) return `rule 3: it holds a write token and adds the event(s) ${added.join(', ')}, which the base's copy does not run on`;
+  }
   if (wider.length) return `rule 3: it widens ${wider.map((s) => `${s} to ${NAMES[at(now, s)]}`).join(', ')} beyond ${b ? 'the base\'s copy' : 'contents: read, all a new workflow may hold'}${w.jobs.some((j) => j.permissions === undefined) && w.permissions === undefined ? ' (a job with no permissions holds the repository default, read as write-all)' : ''}`;
   return null;
 }
@@ -212,7 +250,18 @@ export function plainMerge(root, tranche, c, { slug, io }) {
   const row = gateRuns(io.comments(slug, n)).filter((r) => r.sha === p2).pop();
   const bound = row && row.ok && isAnc(root, row.base, p1) && io.verify(slug, row, { pr: n, baseRef: tranche, merged: { branch: pr.head.ref } });
   if (!bound) return bad(`is PR ${n}'s merge, but the newest gate run on its head ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
-  return { ok: true, pr: n };
+  return { ok: true, pr: n, base: row.base };
+}
+
+// The gate that certified a pull request was the process's own only when the commits its run
+// merged held the pin's own process-gate.yml: a pull request runs its own copy of the workflow,
+// so a job or plain PR that changed process-gate.yml could certify itself (review 1 of PR 98).
+const GATE_FILE = '.github/workflows/process-gate.yml';
+const pinOf = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] || null;
+function realGate(root, rev, repo) {
+  const pin = pinOf(root, rev);
+  const b = blob(root, rev, GATE_FILE);
+  return !!(pin && b && repo?.released(pin) && repo.shim(pin, 'process-gate.yml') === b);
 }
 
 // Rule 1 for the files, on the tranche at sha over the merge base mb. Returns { f, why } for the
@@ -220,6 +269,7 @@ export function plainMerge(root, tranche, c, { slug, io }) {
 // A merge that brought the base in (a parent on the base) and left the file as that parent has
 // it introduces nothing the base does not already hold, so it passes.
 export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef }) {
+  if (!io.repo) fail('rule 1 needs process3 to read the gate shim');
   const chain = git(['rev-list', '--first-parent', sha, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
   const judged = new Map();
   const judge = (c) => {
@@ -245,6 +295,8 @@ export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef 
       if (p.length < 2) return r(`a direct commit on ${tranche}, not a merged pull request whose gate was green`);
       const v = judge(c);
       if (!v.ok) return r(`which ${v.why}`);
+      const ran = [p[1], ...(v.base ? [v.base] : [])].find((x) => !realGate(root, x, io.repo));
+      if (ran) return r(`PR ${v.pr}'s merge, but ${ran.slice(0, 10)}, which its gate ran on, does not hold the pin's own process-gate.yml, so that gate could be the PR's own`);
       if (blob(root, c, f) !== blob(root, p[1], f)) return r(`PR ${v.pr}'s merge, but the merge does not carry the file as the PR's gated head had it`);
     }
   }
@@ -257,12 +309,13 @@ export function closeWorkflows(root, sha, files, at) {
   const close = { ...at, io: { getPR, comments, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(at.io || {}) } };
   const refuse = (f, why) => fail(`the tranche changes ${f}: ${why}. A close may carry a product workflow change only through gated pull requests, with no job named like a required or process check and no wider permissions`);
   const required = close.required();
-  if (!Array.isArray(required)) fail(`the checks ${close.base} requires could not be read, so the tranche's workflow changes cannot be judged (rule 2)`);
+  if (!Array.isArray(required) || !required.length) fail(`the checks ${close.base} requires could not be read, or are none, so the tranche's workflow changes cannot be judged (rule 2)`);
   const one = gatedChanges(root, sha, close.mb, files, close);
   if (one) refuse(one.f, one.why);
   for (const f of files) {
     const src = text(root, sha, f);
     if (src === null) continue; // removed: rule 1 held its removal; it defines and grants nothing
+    if (!/\.ya?ml$/.test(f)) continue; // GitHub runs only .yml and .yaml files; rule 1 held it
     const why = workflowRules(src, text(root, close.baseRef, f), required);
     if (why) refuse(f, why);
   }

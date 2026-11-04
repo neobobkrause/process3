@@ -257,3 +257,40 @@ test('main merged into the tranche passes a workflow file it leaves as main has 
   assert.equal(close(build(null)).go().merged, true);
   assert.throws(close(build(IMAGES('\n          - { name: smuggled, context: x }'))).go, /container-images\.yml: rule 1: it was changed by [0-9a-f]{10}, which is not a merge of a pull request/);
 });
+
+test('review 1 of PR 98: escapes, odd names, matrix and reusable-workflow names, hidden triggers and new events are refused', () => {
+  const pr = ['gate', 'test (ubuntu-latest)', 'lint / unit'];
+  const refused = (src, re, base = null) => assert.match(workflowRules(src, base, pr) || '', re, src);
+  const P = 'on: push\npermissions:\n  contents: read\n';
+  // Escapes GitHub decodes.
+  refused('on: push\n"j\\x6fbs":\n  build:\n    permissions: write-all\n    name: gate\n', /rule 3: it cannot be read .*escape/);
+  refused(`${P}jobs:\n  build:\n    "permission\\x73": write-all\n`, /rule 3: it cannot be read .*escape/);
+  refused(`${P}jobs:\n  "g\\x61te":\n    runs-on: x\n`, /rule 3: it cannot be read .*escape/);
+  refused(`${P}jobs:\n  build:\n    name: "g\\x61te"\n`, /rule 3: it cannot be read .*name/);
+  refused('on: [push, "pull_request\\x5ftarget"]\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n', /rule 3: it cannot be read .*escape/);
+  // Names this reader cannot read as one line.
+  for (const n of ['>-\n      gate', '|\n      gate', '\n      gate', '!!str gate', '&a gate', '"ga\n      te"']) refused(`${P}jobs:\n  build:\n    name: ${n}\n    runs-on: x\n`, /rule 3: it cannot be read .*name/);
+  // Matrix and reusable-workflow check names.
+  refused(`${P}jobs:\n  test:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n    runs-on: x\n`, /rule 2: job test, a matrix or reusable-workflow job, could report as the required check test \(ubuntu-latest\)/);
+  refused(`${P}jobs:\n  lint:\n    uses: ./.github/workflows/u.yml\n`, /rule 2: job lint, a matrix or reusable-workflow job, could report as the required check lint \/ unit/);
+  // pull_request_target behind a quoted "#".
+  refused('on: { push: { branches: ["a #"] }, pull_request_target: {} }\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n', /rule 3: it runs on pull_request_target/);
+  // A write-holding file that adds an event; the same with paths changed only passes.
+  const rel = (on) => `on:\n${on}permissions:\n  contents: write\njobs:\n  a:\n    runs-on: x\n`;
+  refused(rel('  schedule:\n    - cron: "0 0 * * *"\n  release:\n'), /rule 3: it holds a write token and adds the event\(s\) schedule/, rel('  release:\n'));
+  assert.equal(workflowRules(rel('  push:\n    paths: ["b"]\n'), rel('  push:\n    paths: ["a"]\n'), pr), null);
+  // jobs: {} reads as no jobs.
+  assert.equal(workflowRules('on: push\njobs: {}\n', null, pr), null);
+});
+
+test('review 1 of PR 98: a PR whose gate ran on its own process-gate.yml does not certify a workflow change', () => {
+  // The PR changes process-gate.yml and adds foo.yml; a later PR restores the shim.
+  const r = product({ steps: [
+    { via: 'plain', files: { '.github/workflows/process-gate.yml': 'name: fake\non: pull_request\n', '.github/workflows/foo.yml': 'on: push\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n' } },
+    { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } },
+  ] });
+  assert.throws(close(r).go, /foo\.yml: rule 1: it was changed by [0-9a-f]{10}, PR 10's merge, but [0-9a-f]{10}, which its gate ran on, does not hold the pin's own process-gate\.yml/);
+  // No required checks read as none: refused.
+  const s = product({ steps: STYLE });
+  assert.throws(close(s, { rules: { checks: [] } }).go, /could not be read, or are none/);
+});
