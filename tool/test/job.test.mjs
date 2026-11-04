@@ -186,6 +186,18 @@ test('metrics report counts a refuted COMPLETE claim and gate minutes', () => {
   assert.match(r.cost_per_surviving_pr, /PR 7 not merged/);
 });
 
+// Copy, 4 Nov: PR 60's merge was recorded twice (02:11 and 02:18) and cost_per_surviving_pr listed it pending twice.
+test('metrics report lists a pull request with two merge rows once in cost_per_surviving_pr', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  appendRow(root, 'alpha', { row: 'merge', pr: 60 });
+  appendRow(root, 'alpha', { row: 'merge', pr: 60 });
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', 'rows'], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  const read = { comments: () => [], getPR: () => ({ merged_at: new Date().toISOString(), merge_commit_sha: sha }) };
+  assert.equal(report(root, 'o/r', 'HEAD', { read }).cost_per_surviving_pr.match(/PR 60 /g).length, 1);
+});
+
 // Findings from the review of PR 2.
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

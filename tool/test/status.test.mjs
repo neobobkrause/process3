@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commit, makeRepo, entry, onState, openPassed } from './helpers.mjs';
-import { git } from '../lib/util.mjs';
+import { git, loadConfig } from '../lib/util.mjs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const quiet = () => {};
-import { status } from '../lib/status.mjs';
+import { layerState, status } from '../lib/status.mjs';
 
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
 
@@ -140,6 +140,32 @@ test('status: a WORKING job that pushed and then went quiet past SILENT_HOURS is
   const out = [];
   status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.match(out.join('\n'), /idle:\n- stale: WORKING;.*; WORKING, no push for 5h; BOB's act: .* job start stale --restart "<why>"\nopen:\n- fresh: WORKING; PR unknown \(GitHub not read\), last activity unknown\n/);
+});
+
+// Copy, 4 Nov: file-safety was flagged "WORKING, nothing pushed" 7 minutes after its start commit,
+// while the flag for a job that pushed and went quiet waits SILENT_HOURS. Both wait now.
+test('status: a WORKING job with only its start commit is flagged nothing pushed past SILENT_HOURS, not when fresh', () => {
+  const root = makeRepo({ 'process/ledger/old.json': entry('old', { status: { state: 'WORKING' } }), 'process/ledger/new.json': entry('new', { status: { state: 'WORKING' } }) });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  for (const [id, at] of [['old', new Date(Date.now() - 5 * 36e5).toISOString()], ['new', new Date().toISOString()]]) {
+    git(['checkout', '-q', '-b', `job/${id}`, 'origin/tranche'], { cwd: root });
+    const old = process.env.GIT_COMMITTER_DATE;
+    process.env.GIT_COMMITTER_DATE = at;
+    try { commit(root, { [`src/${id}/a.js`]: '1' }, 'job start'); } finally { if (old === undefined) delete process.env.GIT_COMMITTER_DATE; else process.env.GIT_COMMITTER_DATE = old; }
+    git(['update-ref', `refs/remotes/origin/job/${id}`, 'HEAD'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+  }
+  const by = Object.fromEntries(status(root, { offline: true, log: quiet }).rows.map((r) => [r.id, r]));
+  assert.deepEqual([by.old.ahead, by.old.flag], [1, 'WORKING, nothing pushed']);
+  assert.deepEqual([by.new.ahead, by.new.flag], [1, undefined]);
+});
+
+// Review of PR 114: a restarted COMPLETE module, its fresh start commit unflagged and GitHub unread, is not merged.
+test('layerState: a COMPLETE module with a fresh WORKING start ahead on its branch is not counted merged', () => {
+  const root = makeRepo({ 'build/layers.md': '| 1 | a |\n', 'build/requirements/a.md': '# a\n' });
+  const row = (ahead) => [{ id: 'a', tranche: 'COMPLETE', branch: 'WORKING', ahead, pr: 'unknown (GitHub not read)' }];
+  const merged = (ahead) => layerState(root, loadConfig(root), row(ahead), null, { closed: [] }).layers[0].mods[0].merged;
+  assert.deepEqual([merged(1), merged(0)], [false, true]);
 });
 
 // --sessions (measured 3-4 Nov: a stopped job was flagged only after two hours with no push): BOB's

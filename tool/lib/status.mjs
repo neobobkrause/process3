@@ -96,6 +96,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     let e;
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
     const branch = `origin/job/${e.id}`;
+    const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements };
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
     if (e.status?.state === 'BLOCKED' && e.status.reason) row.blocked = e.status.reason;
@@ -112,8 +113,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       // branch is still read (owedNotices: a merged attempt's start row names an unrecorded answer).
       const merged = ahead === 0 && e.status?.state === 'COMPLETE';
       row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
-      // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
-      if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';
+      // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit for SILENT_HOURS (copy, 4 Nov: flagged 7 min after its start).
+      if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1 && tipAge() > SILENT_HOURS * 36e5) row.flag = 'WORKING, nothing pushed';
       if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
       if (!merged && s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
     }
@@ -136,7 +137,6 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     // With BOB's list_sessions (--sessions): a WORKING job with its draft open whose session is
     // archived, or idle with no push for targets.replace_minutes. BOB restarts its session.
     const restart = `BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
-    const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
     const js = listed && row.branch?.startsWith('WORKING') && !row.ready && row.pr?.startsWith('#') && (!row.flag || row.flag === 'WORKING, nothing pushed') ? jobSession(listed, e.id) : null;
     if (js && isArchived(js)) row.flag = `job session gone (${sessionId(js)} archived); ${restart}`;
     else if (js && isIdle(js) && tipAge() > replaceMs) row.flag = `job idle ${Math.round(replaceMs / 6e4)}m (${sessionId(js)} ${lower(js.status || js.status_bucket)}, no push for ${Math.round(tipAge() / 6e4)}m); ${restart}`;
@@ -144,7 +144,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     // request not ready and its branch tip older than SILENT_HOURS. BOB restarts its session.
     // The fallback when BOB's sessions are not given, or none matches the job.
     if (!row.flag && !row.ready && row.ahead > 1 && row.branch?.startsWith('WORKING')) {
-      const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
+      const age = tipAge();
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
     }
     // OPEN on the tranche, origin read, and no job branch and no pull request: never started.
@@ -301,7 +301,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const file = `${dir}/${id}.md`;
       const row = rows.find((r) => r.id === id || r.req === file);
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
-      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
+      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag && !(row.ahead > 0); // a restart's fresh start commit is unflagged
       const pr = row?.pr?.match(/^#(\d+)/)?.[1] ?? null;
       return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), found: found(file, id), row };
     }) }))

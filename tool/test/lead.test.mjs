@@ -262,3 +262,16 @@ test('review 1: a second restart in one block runs from the first; the summary c
   assert.equal(lt.summary.blocked.unmeasured, 1, 'v: no job branch');
   assert.equal(lt.summary.replace.unmeasured, 1);
 });
+
+// Copy, 4 Nov: report tranche printed "origin/tranche b46497aa7a", a merge hours old, with the tip
+// df6b8cde: the fetch failed unseen and the old ref was read. A failed fetch now refuses.
+test('report tranche and metrics report refuse when the tranche cannot be fetched, never reading a stale ref', async () => {
+  const { root } = withOrigin();
+  git(['remote', 'set-url', 'origin', join(tmpdir(), 'p3-no-such-origin.git')], { cwd: root });
+  for (const argv of [['report', 'tranche'], ['metrics', 'report']]) {
+    const r = await cli(root, argv, { GITHUB_REPOSITORY: 'o/r' });
+    assert.notEqual(r.code, 0, argv.join(' '));
+    assert.match(r.out, /git fetch .*tranche.* failed/, argv.join(' '));
+    assert.doesNotMatch(r.out, /at origin\/tranche/);
+  }
+});
