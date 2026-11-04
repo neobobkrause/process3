@@ -195,8 +195,8 @@ export function takenIn(root, { base, head = 'HEAD', id } = {}) {
       // its adder as missing from the range). Not honouring it leaves nothing out, so it gives no
       // finding, unless the tip's history holds commits of this range that it would leave out:
       // then it is judged below by the same checks as a row the range adds. Counted against the
-      // head, so a shallow
-      // clone, whose base history is cut, does not count the tip's own history as the range's.
+      // head, so a shallow clone, whose base history is cut, does not count the tip's own history
+      // as the range's.
       if (base && names(base, tip)) {
         if (!here) continue;
         const reach = (...extra) => Number(git(['rev-list', '--count', tip, ...not, ...extra], { cwd: root }));
