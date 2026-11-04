@@ -262,7 +262,9 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   for (const r of measured.filter(proc).sort((a, b) => String(a.at).localeCompare(String(b.at)))) last.set(r.session || `${r.module} ${r.at}`, r);
   const counted = [...measured.filter((r) => !proc(r)), ...last.values()];
   const pricedC = counted.filter((r) => Number.isFinite(Number(r.cost_usd)));
-  const total = pricedC.reduce((t, r) => t + Number(r.cost_usd), 0);
+  // A session that began before the opening: its cost since then, less its last priced row before.
+  const priorOf = (r) => (proc(r) && r.session ? Number(allMeasured.filter((x) => !inT(x) && proc(x) && x.session === r.session && Number.isFinite(Number(x.cost_usd))).sort((a, b) => String(a.at).localeCompare(String(b.at))).at(-1)?.cost_usd ?? 0) : 0);
+  const total = pricedC.reduce((t, r) => t + Math.max(0, Number(r.cost_usd) - priorOf(r)), 0);
   const before = allMeasured.filter((r) => !inT(r));
   L.push(`- total cost since the opening: ${!opened ? U : !counted.length ? `${U} (no measured row since the opening)` : pricedC.length === counted.length ? usd(total) : `${U} (${usd(total)} over ${pricedC.length} priced rows; ${counted.length - pricedC.length} without a cost)`}${opened && before.length ? `; ${before.length} measured rows older than this tranche (${[...new Set(before.map((r) => r.module))].sort().join(', ')}) left out` : ''}`);
   L.push(`- BOB and ROOT cost not attributed to a job: ${o ? usd(o.unattributed_usd) : U}`, '');

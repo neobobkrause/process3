@@ -48,13 +48,17 @@ test('1: open_by uses: a job is ready at the latest of the opening and its uses\
   // A provider merged before the tranche: the opening, the later.
   const older = leadTimes(root, cfg, { ref: 'HEAD', rows: [merge('q2', -50, 1), merge('p2', -40, 1), start('u3', 7)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
   assert.equal(older.jobs[0].ready_to_start.minutes, 7);
+  // Started before q2 merged, and again after: 0, not q2's merge to the second start.
+  const twice = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 5), merge('q2', 30, 2), start('n3', 60, 2)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
+  assert.equal(twice.jobs.find((j) => j.module === 'n3').ready_to_start.minutes, 0);
+  assert.equal(twice.jobs.find((j) => j.module === 'n3').ready_to_start.started_before, 'q2');
   // open_by layer: the layer rule, as before: layer 2 never closed, so u3 is unmeasured.
   const byLayer = leadTimes(root, { ...cfg, open_by: 'layer' }, { ref: 'HEAD', rows, layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
   assert.equal(byLayer.jobs.find((j) => j.module === 'u3').ready_to_start, U);
   // A provider unmerged and its job started first: the figure says so, and the summary counts it.
   const early = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 5)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
   assert.equal(early.jobs.find((j) => j.module === 'n3').ready_to_start, 'started before q2 (in its uses) merged; q2 not merged yet');
-  assert.equal(early.summary.ready_to_start.started_before_uses, 1);
+  assert.equal(early.summary.ready_to_start.started_before_uses, 1, 'counted even when no job\'s figure is in minutes');
 });
 
 test('1: a wait over its target names its cause where the record shows one: a sweep that found the live cap full', () => {
@@ -125,6 +129,15 @@ test('3: an overhead whose every part is unmeasured reads unmeasured, never $0.0
   const j = s.jobs.find((x) => x.module === 'standards');
   assert.equal(j.job_usd, 1.97);
   assert.equal(j.bob_usd, 4, 'BOB\'s row is overhead, split among the jobs active in its window');
+  assert.equal(j.reviews_usd, U, 'a BOB row naming the module is not its review: counted once, as BOB\'s part');
+  assert.equal(j.overhead_usd, 4);
+});
+
+test('3: the total since the opening counts a BOB session begun before it from its last row before, not its whole running cost', () => {
+  const { root } = repo([start('a', 5), measured('a', 6, 'job', 1, 's_a'), measured('bob', -10, 'bob', 5, 's_bob'), measured('bob', 20, 'bob', 8, 's_bob')]);
+  const md = tranche(root);
+  assert.match(md, /- total cost since the opening: \$4\.00/, '1 + (8 - 5)');
+  assert.match(md, /\| a \| 1 \| \$1\.00 \| unmeasured \| \$3\.00 \|/, 'overhead splits the same 3');
 });
 
 test('4: overhead counts this tranche\'s attempts: started here (on the tip or a job branch), not older modules', () => {

@@ -250,7 +250,8 @@ export function overhead(rows, layers = new Map(), { opened = null, jobRows = []
   const jobs = mods.map((m) => {
     const own = measured.filter((r) => r.module === m && inT(r));
     const job = sum(own.filter((r) => role(r) === 'job'));
-    const reviews = sum(own.filter((r) => role(r) !== 'job'));
+    // Reviews: the module's rows of any role but job, BOB and ROOT (their cost is split below).
+    const reviews = sum(own.filter((r) => role(r) !== 'job' && !PROCESS.has(role(r))));
     const part = (who) => (has(who) && !parts.get(m).gap.has(who) ? usd(parts.get(m)[who]) : 'unmeasured');
     const p = { reviews_usd: reviews, bob_usd: part('bob'), root_usd: part('root'), gate_usd: 'unmeasured' };
     // The overhead sums the measured parts; with none measured it is unmeasured, never 0.
