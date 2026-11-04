@@ -195,6 +195,11 @@ export function gate(root, opts) {
       } else if (!s.tests.total) findings.push(F('suite', e.tests[0], `zero tests ran in ${e.id}`));
     }
     if (tolerated.length) runRow.base_red = tolerated;
+    if (entry && cfg.smoke) {
+      const sm = smoke(root, cfg, { entry, entries, base: revertBase, rows: gen.rows, exec, log });
+      runRow.smoke = sm.row;
+      findings.push(...sm.findings);
+    }
     if (scope.length) {
       runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
@@ -496,6 +501,52 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
 
 // A fresh file for fail-reporter.mjs's lines, outside the checkout, removed at exit.
 const eventDirs = [];
+// The product's smoke list (`smoke` in the config, read at the base): a few tests of other
+// modules every job PR's gate runs beside the job's own suite, the cheap catch for a break
+// across modules (Bob, 4 Nov: users' suites in a job gate cost +7.6 min median and caught none
+// of 20 refuted claims). Each file runs by the module whose tests hold it, within `seconds` in
+// all (default 120); a file under the job's own test paths is the suite's. A test red at the base too is reported in the row, not a finding, as the
+// suite's base-red is; the receipt claims only the job's own suite.
+export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () => {} }) {
+  const { files, seconds = 120 } = cfg.smoke;
+  if (!Array.isArray(files) || files.some((f) => typeof f !== 'string') || !(seconds > 0)) {
+    return { row: { result: 'fail' }, findings: [F('config', CONFIG_FILE, 'smoke must be {"files": [test files], "seconds": <cap, default 120>}')] };
+  }
+  const findings = [];
+  const groups = new Map();
+  for (const f of files.filter((x) => !entry.tests.some((t) => underPath(x, t)))) {
+    const e = entries.find((m) => m.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(m)));
+    if (!e || !existsSync(join(root, f))) { findings.push(F('smoke', f, `smoke file ${f} is ${e ? 'missing' : 'not a test of any module'}`)); continue; }
+    groups.set(e, [...(groups.get(e) || []), f]);
+  }
+  let end = Date.now() + seconds * 1000;
+  const row = { files: 0, seconds: 0, base_red: [] };
+  const left = [...groups];
+  while (left.length) {
+    if (Date.now() >= end) { findings.push(F('smoke', left[0][1][0], `the ${seconds} s smoke cap is spent; not run: ${left.flatMap((g) => g[1]).join(', ')}`)); break; }
+    const [e, fs] = left.shift();
+    const s = runSuite(root, e, fs, { timeout: end - Date.now(), events: eventsFile() });
+    row.files += fs.length;
+    row.seconds += s.seconds;
+    if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
+    const out = /ETIMEDOUT/.test(s.output);
+    // Base-red has its own budget, as the suite's has (PR 117), and its time is not the cap's.
+    const t0 = Date.now();
+    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: seconds * 1000, ...(exec ? { exec } : {}), log });
+    end += Date.now() - t0;
+    if (br?.ok) {
+      row.base_red.push({ module: e.id, ...br.base_red });
+      log(`smoke: ${br.base_red.tests.length} failing test(s) of ${e.id} fail at the base ${String(base).slice(0, 10)} too: reported, not blocking:\n${br.base_red.tests.map((t) => `  ${t}`).join('\n')}`);
+      continue;
+    }
+    findings.push(F('smoke', fs[0], `smoke tests of ${e.id} failed (exit ${s.exit}${out ? `, over the ${seconds} s cap` : ''}): ${JSON.stringify(s.tests)}${br ? `; not base-red: ${br.why}` : ''}`));
+    log(s.output.split('\n').slice(-60).join('\n'));
+  }
+  row.result = findings.length ? 'fail' : row.base_red.length ? 'base-red' : 'pass';
+  if (!row.base_red.length) delete row.base_red;
+  return { row, findings };
+}
+
 function eventsFile() {
   if (!eventDirs.length) {
     eventDirs.push(mkdtempSync(join(tmpdir(), 'p3-failing-')));

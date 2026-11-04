@@ -154,7 +154,8 @@ export function baseRedOwed(mergeRows, runsOf) {
     let runs;
     try { runs = runsOf(r.pr); } catch { return null; }
     const green = runs.filter((g) => g.ok && g.trigger === 'code').pop();
-    for (const b of Array.isArray(green?.base_red) ? green.base_red : []) {
+    // A smoke test red at the base too (gate.mjs smoke) is owed as the suite's are.
+    for (const b of [green?.base_red, green?.smoke?.base_red].flatMap((x) => (Array.isArray(x) ? x : []))) {
       for (const t of Array.isArray(b?.tests) ? b.tests : []) out.push({ module: b.module ?? r.module, pr: r.pr, test: String(t), base: b.base });
     }
   }
