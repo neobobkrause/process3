@@ -123,7 +123,7 @@ test('the receipt check: a runner that fails more base-red tests than the job di
   const bad = run(s, receiptFor(s.head, { exit: 1, base_red: [RED, extra, extra] }));
   assert.equal(bad.run.receipt, 'disagrees');
   const f = bad.findings.find((x) => x.check === 'receipt');
-  assert.match(f.message, /not on the 1 the receipt excuses: bio-plane\/test\/m\/screens-sync\/contract\.test\.mjs::sync screen/);
+  assert.match(f.message, /the receipt excuses 1 that neither fail at the base nor passed in the gate's run: bio-plane\/test\/m\/screens-sync\/contract\.test\.mjs::sync screen honours its contract$/);
   assert.ok(!f.message.includes(RED), 'only the difference, not the tests both name');
 });
 
@@ -327,4 +327,50 @@ test('the test files reaching a sibling: through a helper, with or without its e
   const e = { ...entry('alpha'), tests: ['test/alpha/'] };
   assert.deepEqual(reachers(root, e, 'test/alpha/sib.mjs'), ['test/alpha/a.test.mjs', 'test/alpha/c.test.mjs']);
   assert.deepEqual(reachers(root, e, 'test/alpha/b.test.mjs'), ['test/alpha/b.test.mjs']);
+});
+
+// Copy plane PR 175 (gate run 41921838089 on 1a16b20ce4): the gate's suite failed only on base-red
+// tests (g41-shape R84; g55-alarm-l R88 twice); the receipt excused three others that failed in the
+// job's container and passed on the runner (t47 R48, worker R6, migrate-released).
+test('the receipt agrees when each test it excuses is base-red or passed in the gate\'s run', () => {
+  const gate = ['bio-plane/test/m/plane/g41-shape.test.mjs::R84 the shape holds', 'bio-plane/test/m/plane/g55-alarm-l.test.mjs::R88 the alarm fires'];
+  const job = ['bio-plane/test/m/plane/t47.test.mjs::R48 the row is read', 'bio-plane/test/m/plane/worker.test.mjs::R6 the worker answers', 'bio-plane/test/m/plane/migrate.test.mjs::migrate-released'];
+  const red = [{ module: 'plane', base: 'b'.repeat(40), tests: [gate[0], gate[1], gate[1]] }];
+  const c = { cmd: 'node --test', suite: true, exit: 1, base_red: job };
+  assert.equal(receiptAgrees(c, 'base-red', red, job), true, 'passed on the runner');
+  assert.equal(receiptAgrees({ ...c, base_red: [...job, gate[0]] }, 'base-red', red, job), true, 'and base-red');
+  assert.equal(receiptAgrees(c, 'base-red', red, job.slice(0, 2)), false, 'one the gate never saw pass');
+  assert.equal(receiptAgrees(c, 'base-red', red), false, 'no passes given: as before');
+});
+
+test('through the gate: a receipt excusing a test that passes on the runner agrees, kept in the row; one it never ran disagrees, named', () => {
+  const flaky = 'test/alpha/one.test.mjs::x is 1';
+  const isTwoOrOne = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('x is 1', () => a.ok(x >= 1));\n";
+  const s = setup({ 'test/alpha/red.test.mjs': redTest, 'test/alpha/one.test.mjs': isTwoOrOne }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = run(s, receiptFor(s.head, { exit: 1, base_red: [RED, flaky] }));
+  assert.deepEqual([r.run.suite, r.run.receipt, r.run.receipt_passed], ['base-red', 'agrees', [flaky]]);
+  assert.deepEqual(r.findings, []);
+  const ghost = 'test/alpha/gone.test.mjs::never ran';
+  const g = run(s, receiptFor(s.head, { exit: 1, base_red: [RED, flaky, ghost] }));
+  assert.equal(g.run.receipt, 'disagrees');
+  assert.match(g.findings.find((f) => f.check === 'receipt').message, /the receipt excuses 1 that neither fail at the base nor passed in the gate's run: test\/alpha\/gone\.test\.mjs::never ran$/);
+});
+
+test('a records-only run after the green code run takes the excused passes from that run\'s row', () => {
+  const flaky = 'test/alpha/one.test.mjs::x is 1';
+  const isTwoOrOne = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('x is 1', () => a.ok(x >= 1));\n";
+  const s = setup({ 'test/alpha/red.test.mjs': redTest, 'test/alpha/one.test.mjs': isTwoOrOne }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const io = fakeIO({ ...receiptFor(s.head, { exit: 1, base_red: [RED, flaky] }) });
+  const first = gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
+  assert.deepEqual([first.run.trigger, first.run.receipt, first.run.ok], ['code', 'agrees', true]);
+  const head = commit(s.root, { 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":2}\n' });
+  const again = (base_red) => {
+    io.state.comments.push({ id: io.state.comments.length + 1, body: block(RECEIPT, { ...receiptFor(head, { exit: 1, base_red }), attempt: 2 }), user: { login: 'civicsmith' } });
+    return gate(s.root, { base: s.base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
+  };
+  const r = again([RED, flaky]);
+  assert.deepEqual([r.run.trigger, r.run.receipt_measured, r.run.receipt], ['record-since-green', s.head, 'agrees']);
+  const w = again([RED, flaky, 'test/alpha/one.test.mjs::other']);
+  assert.equal(w.run.receipt, 'disagrees');
+  assert.match(w.findings.find((f) => f.check === 'receipt').message, new RegExp(`run on ${s.head.slice(0, 10)} failed only on tests that fail at the base too, and the receipt excuses 1 that neither fail at the base nor passed in the gate's run: test/alpha/one\\.test\\.mjs::other$`));
 });

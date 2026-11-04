@@ -73,6 +73,7 @@ export function gate(root, opts) {
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const mb = git(['merge-base', head, base], { cwd: root });
   const changed = diffNames(root, mb, head);
+  let gatePassed = null; // the ids the gate's own suite run saw pass (the receipt check)
   const runRow = { sha: head, base, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   const all = pr ? io.comments(slug, pr) : [];
   const prior = gateRuns(all);
@@ -201,6 +202,7 @@ export function gate(root, opts) {
       } else if (!s.tests.total) findings.push(F('suite', e.tests[0], `zero tests ran in ${e.id}`));
     }
     if (tolerated.length) runRow.base_red = tolerated;
+    gatePassed = new Set(results.flatMap((s) => (s.passing || []).map(testId)));
     if (entry && cfg.smoke) {
       const sm = smoke(root, cfg, { entry, entries, base: revertBase, rows: gen.rows, exec, log });
       runRow.smoke = sm.row;
@@ -279,10 +281,16 @@ export function gate(root, opts) {
       if (measured?.ok) runRow.receipt_measured = lastGreen.sha;
       else if (measured) runRow.receipt_unmeasured = measured.why;
       const red = measured?.ok ? lastGreen.base_red : runRow.base_red;
+      // The excused tests the gate's run saw pass (copy plane PR 175: three failed in the job's
+      // container and passed on the runner); kept in the row for a records-only run after it.
+      const passed = measured?.ok ? (Array.isArray(lastGreen.receipt_passed) ? lastGreen.receipt_passed : [])
+        : [...new Set(claimedRed(claimed))].filter((t) => gatePassed?.has(t));
+      if (!measured?.ok && passed.length) runRow.receipt_passed = passed;
       runRow.receipt = !onBranch ? 'wrong commit'
         : measured && !measured.ok ? 'unmeasured'
-          : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red) ? 'agrees' : 'disagrees';
-      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : claimedRed(claimed).length ? 'failed only on base-red tests' : 'failed'}; the gate's run${measured?.ok ? ` on ${String(lastGreen.sha).slice(0, 10)}` : ''} ${suite === 'pass' ? 'passed' : suite === 'base-red' ? `failed only on tests that fail at the base too${((u) => (u.length ? `, and not on the ${u.length} the receipt excuses: ${u.join('; ')}` : `, these ${redIds(red).length}: ${redIds(red).join('; ')}`))([...new Set(claimedRed(claimed))].filter((t) => !redIds(red).includes(t)))}` : 'failed'}`));
+          : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red, passed) ? 'agrees' : 'disagrees';
+      const unexplained = [...new Set(claimedRed(claimed))].filter((t) => !redIds(red).includes(t) && !passed.includes(t));
+      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : claimedRed(claimed).length ? 'failed only on base-red tests' : 'failed'}; the gate's run${measured?.ok ? ` on ${String(lastGreen.sha).slice(0, 10)}` : ''} ${suite === 'pass' ? 'passed' : suite === 'base-red' ? `failed only on tests that fail at the base too${unexplained.length ? `, and the receipt excuses ${unexplained.length} that neither fail at the base nor passed in the gate's run: ${unexplained.join('; ')}` : `, these ${redIds(red).length}: ${redIds(red).join('; ')}`}` : 'failed'}`));
       if (runRow.receipt === 'unmeasured') log(`receipt attempt ${receipt.attempt} is not checked: ${measured.why}`);
     }
   }
@@ -296,12 +304,15 @@ export function gate(root, opts) {
 // The receipt against the gate's suite. A base-red suite (basered.mjs) agrees with a receipt
 // whose suite passed (the job's own run, on its branch, had none of the base's failures) or
 // excused only tests the gate found failing at the base (copy PR 291: the runner's extra failures
-// are tolerated on its own evidence); naming base-red tests agrees with a suite that passed.
+// are tolerated on its own evidence) or saw pass itself (passed: copy plane PR 175, tests that
+// failed in the job's container and passed on the runner; the environment differs either way).
+// A test the gate saw failing is base-red there, or the suite is not base-red. Naming base-red
+// tests agrees with a suite that passed.
 const claimedRed = (c) => (Array.isArray(c?.base_red) ? c.base_red.filter((t) => typeof t === 'string' && /^[^:]+::./.test(t)) : []);
 const redIds = (rows) => (Array.isArray(rows) ? rows.flatMap((r) => (Array.isArray(r?.tests) ? r.tests : [])) : []);
-export function receiptAgrees(claimed, suite, red) {
+export function receiptAgrees(claimed, suite, red, passed = []) {
   const claim = claimed ? (claimed.exit === 0 ? 'pass' : claimedRed(claimed).length ? 'base-red' : 'fail') : 'none';
-  if (claim === suite) return claim !== 'base-red' || claimedRed(claimed).every((t) => redIds(red).includes(t));
+  if (claim === suite) return claim !== 'base-red' || claimedRed(claimed).every((t) => redIds(red).includes(t) || passed.includes(t));
   if (suite === 'base-red' && claim === 'pass') return true;
   return suite === 'pass' && claim === 'base-red';
 }
