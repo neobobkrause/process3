@@ -344,3 +344,15 @@ test('the tranche into main is judged by the tranche\'s pin only when process3\'
   v.base = git(['rev-parse', 'HEAD'], { cwd: v.prod });
   assert.equal(judgedBy(v, tip), v.b, 'an older pin never judges');
 });
+
+// A job's gate runs the modules that use it too (copy PR 95): a row base-red only in a user still
+// covers the job's own module; base-red in the module itself does not.
+test('a job merge whose row is base-red only in a user covers its module; base-red in the module does not', () => {
+  const p = product(2);
+  const row = (pr) => JSON.parse(p.comments.get(pr)[0].body.match(/\{[\s\S]*\}/)[0]).runs[0];
+  const setRow = (pr, over) => { p.comments.get(pr)[0].body = block(GATE, { runs: [{ ...row(pr), ...over }] }); };
+  setRow(1, { scope: ['m0', 'm1'], suite: 'base-red', base_red: [{ module: 'm1', tests: ['test/m1/x.test.mjs::x'] }] });
+  setRow(2, { suite: 'base-red', base_red: [{ module: 'm1', tests: ['test/m1/x.test.mjs::x'] }] });
+  const r = run(p);
+  assert.deepEqual([r.run.through.map((x) => x.id), r.run.scope], [['m0'], ['m1']]);
+});

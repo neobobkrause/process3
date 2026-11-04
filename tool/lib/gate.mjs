@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
-import { install, runSuite, suffixOf } from './suite.mjs';
+import { install, runSuite, suffixOf, testFiles } from './suite.mjs';
 import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
@@ -140,14 +140,16 @@ export function gate(root, opts) {
     ? measuredBy(root, cfg, jobReceipt, lastGreen) : null;
   const receiptRun = !!jobReceipt && (recordOnly || sinceGreen) && !stands?.ok;
 
+  let ownSuite;
   if (recordOnly && !jobReceipt) runRow.trigger = 'record';
   else if (draft) runRow.trigger = 'draft';
   else if (sinceGreen && !receiptRun) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
     runRow.trigger = 'code';
     if (receiptRun) log(`only records changed${sinceGreen ? ` since ${String(lastGreen.sha).slice(0, 10)}` : ''}, but no green code run measured receipt attempt ${jobReceipt.attempt}${stands ? ` (${stands.why})` : ''}: the gate runs the ${job} suite to check it`);
-    // A job's PR runs its module and those whose uses name it (copy PR 95 broke plane unseen;
-    // at any depth the copy's worst is 43 suite minutes of the job's 45, direct 29). Any other PR
+    // A job's PR runs its module and those whose uses name it that have tests yet (copy PR 95
+    // broke plane unseen; at any depth the copy's worst is 43 suite minutes of the job's 45,
+    // direct 29). The receipt is graded on the job's own suite. Any other PR
     // runs every module whose files it touches. The tranche (into main) runs only the modules
     // with a file its job merges did not gate.
     let touched = changed;
@@ -157,7 +159,7 @@ export function gate(root, opts) {
       runRow.through = c.through;
       runRow.uncovered = c.uncovered.length;
     }
-    const scope = entry ? [entry, ...entries.filter((e) => e.id !== job && e.uses?.includes(job))] : entries.filter((e) => touched.some((f) => inModule(e, f)));
+    const scope = entry ? [entry, ...entries.filter((e) => e.id !== job && e.uses?.includes(job) && testFiles(root, e).length)] : entries.filter((e) => touched.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
@@ -197,6 +199,7 @@ export function gate(root, opts) {
       } else if (!s.tests.total) findings.push(F('suite', e.tests[0], `zero tests ran in ${e.id}`));
     }
     if (tolerated.length) runRow.base_red = tolerated;
+    if (entry) ownSuite = results[0] && (results[0].exit === 0 ? 'pass' : results[0].baseRed ? 'base-red' : 'fail');
     if (scope.length) {
       runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
@@ -265,11 +268,11 @@ export function gate(root, opts) {
       // a green code gate): the receipt is checked against that run when it was made on the tree
       // that run tested, so the claim is of the same tree, suite and results.
       const measured = onBranch && runRow.trigger === 'record-since-green' ? measuredBy(root, cfg, receipt, lastGreen) : null;
-      const suite = measured?.ok ? lastGreen.suite : runRow.suite;
+      // Only the job's own suite is claimed: its users' results are not the receipt's.
+      const red = (measured?.ok ? lastGreen.base_red : runRow.base_red)?.filter((b) => b.module === job);
+      const suite = measured?.ok ? (red?.length ? 'base-red' : 'pass') : ownSuite ?? runRow.suite;
       if (measured?.ok) runRow.receipt_measured = lastGreen.sha;
       else if (measured) runRow.receipt_unmeasured = measured.why;
-      // Only the job's own suite is claimed: its users' base-red tests are not the receipt's.
-      const red = (measured?.ok ? lastGreen.base_red : runRow.base_red)?.filter((b) => b.module === job);
       runRow.receipt = !onBranch ? 'wrong commit'
         : measured && !measured.ok ? 'unmeasured'
           : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red) ? 'agrees' : 'disagrees';
@@ -436,8 +439,8 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   // head or an earlier commit of it; its base was the tranche, at or before the merge's.
   const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch } };
   const bound = (r) => isAnc(root, r.sha, p2) && isAnc(root, r.base, p1) && io.verify(slug, r, ctx);
-  // A base-red run (basered.mjs) does not cover: the tranche runs that suite again, tolerating nothing.
-  const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
+  // A run base-red (basered.mjs) in this module does not cover: the tranche runs it again, tolerating nothing.
+  const suiteRan = (r) => r?.ok && r.trigger === 'code' && ['pass', 'base-red'].includes(r.suite) && !r.base_red?.some((b) => b.module === id) && Array.isArray(r.scope) && r.scope.includes(id);
   const row = runs.filter((r) => r.sha === p2).pop();
   if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
   const tested = row.trigger === 'record-since-green'

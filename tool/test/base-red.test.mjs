@@ -173,7 +173,14 @@ test('a provider job that breaks a module using it is red at its own gate', () =
   const r = run(s, receiptFor(s.head));
   assert.deepEqual(r.run.scope, ['alpha', 'beta'], 'gamma does not use alpha and is not run');
   assert.equal(r.run.suite, 'fail');
-  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['suite', 'test/beta/'], ['receipt', 'process/ledger/alpha.json']]);
+  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['suite', 'test/beta/']], 'the receipt, of alpha\'s own suite, agrees');
+  assert.equal(r.run.receipt, 'agrees');
+});
+
+test('a user with no tests yet (its job not started) is not run, and does not block its provider', () => {
+  const s = setup(beta, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = run(s, receiptFor(s.head));
+  assert.deepEqual([r.run.scope, r.run.suite, r.run.ok], [['alpha'], 'pass', true]);
 });
 
 test('a user\'s base-red tests are tolerated and not the receipt\'s to name', () => {
