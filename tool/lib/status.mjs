@@ -301,7 +301,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const file = `${dir}/${id}.md`;
       const row = rows.find((r) => r.id === id || r.req === file);
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
-      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
+      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag && !(row.ahead > 0); // a restart's fresh start commit is unflagged
       const pr = row?.pr?.match(/^#(\d+)/)?.[1] ?? null;
       return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), found: found(file, id), row };
     }) }))

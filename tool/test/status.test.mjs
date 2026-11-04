@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commit, makeRepo, entry, onState, openPassed } from './helpers.mjs';
-import { git } from '../lib/util.mjs';
+import { git, loadConfig } from '../lib/util.mjs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const quiet = () => {};
-import { status } from '../lib/status.mjs';
+import { layerState, status } from '../lib/status.mjs';
 
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
 
@@ -158,6 +158,14 @@ test('status: a WORKING job with only its start commit is flagged nothing pushed
   const by = Object.fromEntries(status(root, { offline: true, log: quiet }).rows.map((r) => [r.id, r]));
   assert.deepEqual([by.old.ahead, by.old.flag], [1, 'WORKING, nothing pushed']);
   assert.deepEqual([by.new.ahead, by.new.flag], [1, undefined]);
+});
+
+// Review of PR 114: a restarted COMPLETE module, its fresh start commit unflagged and GitHub unread, is not merged.
+test('layerState: a COMPLETE module with a fresh WORKING start ahead on its branch is not counted merged', () => {
+  const root = makeRepo({ 'build/layers.md': '| 1 | a |\n', 'build/requirements/a.md': '# a\n' });
+  const row = (ahead) => [{ id: 'a', tranche: 'COMPLETE', branch: 'WORKING', ahead, pr: 'unknown (GitHub not read)' }];
+  const merged = (ahead) => layerState(root, loadConfig(root), row(ahead), null, { closed: [] }).layers[0].mods[0].merged;
+  assert.deepEqual([merged(1), merged(0)], [false, true]);
 });
 
 // --sessions (measured 3-4 Nov: a stopped job was flagged only after two hours with no push): BOB's
