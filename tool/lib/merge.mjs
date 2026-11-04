@@ -367,8 +367,9 @@ export function workflowChanges(root, sha, changed, repo) {
 
 // Waits while a required check on the head is queued, in progress or not yet started (it failed
 // at once that way three times on 2 and 3 Nov), up to `minutes`; past that, only while a check
-// is in progress, up to the gate's cap from its start (the tranche into main runs every changed
-// module's suite in one gate job: defect sweep 4 Nov, #13). Each round reads the pull request
+// is in progress, up to the gate's cap from its start (a gate that runs many suites can be slow:
+// defect sweep 4 Nov, #13; the tranche into main now runs only the suites its job merges did not
+// gate, gate.mjs trancheCover). Each round reads the pull request
 // (`pr`): a head that moved off sha stops the wait at once. GitHub judges the result.
 export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log } = {}) {
   const until = Date.now() + minutes * MINUTE;

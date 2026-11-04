@@ -5,6 +5,7 @@ import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
+import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
@@ -99,8 +100,16 @@ export function gate(root, opts) {
   else if (sinceGreen) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
     runRow.trigger = 'code';
-    // A job's PR runs its module; any other PR runs every module whose files it touches.
-    const scope = entry ? [entry] : entries.filter((e) => changed.some((f) => inModule(e, f)));
+    // A job's PR runs its module; any other PR runs every module whose files it touches. The
+    // tranche (into main) runs only the modules with a file its job merges did not gate.
+    let touched = changed;
+    if (!entry && branch && branch === cfg.tranche) {
+      const c = trancheCover(root, cfg, { head, mb, changed, entries, slug, io, log });
+      touched = c.uncovered;
+      runRow.through = c.through;
+      runRow.uncovered = c.uncovered.length;
+    }
+    const scope = entry ? [entry] : entries.filter((e) => touched.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
@@ -182,6 +191,90 @@ export function gate(root, opts) {
   // One new comment per run: the bot never edits, so an edited gate comment is not counted.
   if (pr && post) io.addComment(slug, pr, gateComment(runRow));
   return { run: runRow, findings, changed };
+}
+
+// The tranche into main (PR 89's report, 4 Nov): one gate job running every changed module's
+// suite would pass its 45 min cap on a tranche of 30+ modules, so main could never merge. Every
+// module file the tranche changes was last changed, on the tranche's first-parent history, by
+// some commit. When that commit is a job's merge whose gate was green on the merged result, the
+// file's state was tested there, and its suite is not run again: the gate names the job PR. Any
+// other file (a plain pull request, a direct commit, a conflict resolved bringing main in, a
+// merge that is not shown to be the gated result) falls back to its module's full suite.
+// A job merge counts when: it is GitHub's merge of the pull request its title names ("Merge job
+// PR <n>", as merge writes it), into the tranche, from job/<id>, whose head is the merge's second
+// parent; the merge's tree is that head's tree and its first parent is in that head (merge
+// brought the job up to the tranche, so nothing else came in); the head holds the merge row for
+// <n>; the newest gate row on that head is green, verified (verifyRow), and ran the module's
+// suite green (trigger code, or record-since-green after such a run); and the file is the
+// job's own (ownPaths, from the tranche's entry before the merge). A file of the module that is
+// not the job's own is not covered by it.
+const MERGE_TITLE = /^Merge job PR (\d+)$/;
+export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, log = () => {} }) {
+  const need = changed.filter((f) => !isRecordPath(cfg, f) && entries.some((e) => inModule(e, f)));
+  const last = new Map();
+  if (need.length) {
+    const left = new Set(need);
+    const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
+    for (const c of chain) {
+      if (!left.size) break;
+      const p = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+      if (!p.length) continue;
+      for (const f of diffNames(root, p[0], c)) if (left.delete(f)) last.set(f, c);
+    }
+  }
+  const judged = new Map();
+  const judge = (c) => {
+    if (!judged.has(c)) {
+      let v;
+      try { v = jobMerge(root, cfg, c, { slug, io }); } catch (e) { v = { ok: false, why: `could not be read (${printable(e.message, 200)})` }; }
+      judged.set(c, v);
+    }
+    return judged.get(c);
+  };
+  const uncovered = [];
+  const through = new Map();
+  for (const f of need) {
+    const c = last.get(f);
+    const v = c ? judge(c) : { ok: false, why: 'no commit on the tranche changes it' };
+    if (v.ok && v.own.some((p) => underPath(f, p))) {
+      log(`${f}: gated at its job's merge, PR ${v.pr} (${v.id}), merge ${c.slice(0, 10)}`);
+      const t = through.get(v.pr) || { pr: v.pr, id: v.id, merge: c, files: 0 };
+      t.files++;
+      through.set(v.pr, t);
+    } else {
+      uncovered.push(f);
+      log(`${f}: its suite runs: its last change on the tranche${c ? `, ${c.slice(0, 10)},` : ''} ${v.ok ? `is PR ${v.pr}'s merge, but the file is not ${v.id}'s own` : v.why}`);
+    }
+  }
+  return { uncovered, through: [...through.values()].sort((a, b) => a.pr - b.pr) };
+}
+
+function jobMerge(root, cfg, c, { slug, io }) {
+  const no = (why) => ({ ok: false, why });
+  const n = Number(git(['log', '-1', '--format=%s', c], { cwd: root }).match(MERGE_TITLE)?.[1]);
+  if (!n) return no('is not a job merge');
+  const p = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+  if (p.length !== 2) return no(`names PR ${n} but is not a merge of two parents`);
+  const [p1, p2] = p;
+  if (git(['rev-parse', `${c}^{tree}`], { cwd: root }) !== git(['rev-parse', `${p2}^{tree}`], { cwd: root })
+    || git(['merge-base', '--is-ancestor', p1, p2], { cwd: root, allowFail: true }).code !== 0) return no(`is PR ${n}'s merge, but not of a head brought up to the tranche`);
+  const pr = io.getPR(slug, n);
+  const id = pr?.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
+  if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
+  const t = git(['show', `${p2}:${metricsFile(id)}`], { cwd: root, allowFail: true });
+  if (!(t.code === 0 ? jsonl(t.stdout) : []).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
+  const runs = gateRuns(io.comments(slug, n));
+  const ctx = { pr: n, baseRef: cfg.tranche };
+  const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
+  const row = runs.filter((r) => r.sha === p2).pop();
+  if (!row || !row.ok || !io.verify(slug, row, ctx)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not verified' : 'red') : 'missing'}`);
+  const tested = row.trigger === 'record-since-green'
+    ? runs.filter((r) => r.sha === row.after).reverse().find((r) => suiteRan(r) && io.verify(slug, r, ctx))
+    : suiteRan(row) ? row : null;
+  if (!tested) return no(`is PR ${n}'s merge, but no verified green run of the ${id} suite stands behind its merged result`);
+  const e = git(['show', `${p1}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (e.code !== 0) return no(`is PR ${n}'s merge, but the tranche had no ledger entry for ${id}`);
+  return { ok: true, pr: n, id, own: ownPaths(JSON.parse(e.stdout)) };
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after
