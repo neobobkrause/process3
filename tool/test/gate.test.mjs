@@ -372,3 +372,72 @@ test('the gate race: whichever of the push\'s run and the ready run is kept judg
   assert.throws(() => run(s, broken, { draft: true }), /HTTP 502/);
   assert.equal(broken.state.comments.length, 1, 'no row posted');
 });
+
+// Copy, 4 Nov: PR 80 untracked rows.mjs (built, not committed); the gate regenerated it only after
+// the suite, so every suite importing it failed with ENOENT (41 of 113, bundler run 41767864311).
+test('the gate builds untracked generated files before the suite that imports them', () => {
+  const gen = "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/rows.mjs', 'export const rows = 3;\\n');\n";
+  const uses = "import test from 'node:test'; import a from 'node:assert'; import { rows } from '../../gen/rows.mjs'; import { x } from '../../src/alpha/index.mjs';\ntest('rows and x', () => { a.equal(rows, 3); a.equal(x, 2); });\n";
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+    'process/config.json': JSON.stringify({ generated: [{ paths: ['gen/rows.mjs'], regenerate: ['node', 'gen.mjs'], verify: ['node', '-e', 'process.exit(0)'] }] }),
+    'gen.mjs': gen,
+    '.gitignore': 'gen/rows.mjs\n',
+    'src/alpha/index.mjs': 'export const x = 1;\n',
+    'test/alpha/old.test.mjs': inertTest,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
+  const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/rows.test.mjs': uses });
+  assert.equal(existsSync(join(root, 'gen/rows.mjs')), false, 'not committed, not built yet');
+  const io = fakeIO(null);
+  io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'civicsmith' } }];
+  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
+  assert.equal(r.run.suite, 'pass', JSON.stringify(r.findings));
+  assert.deepEqual(r.run.built, ['gen/rows.mjs']);
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '', 'the built file is ignored, nothing to commit');
+});
+
+// Review of PR 80: a failed build is red once (not twice), the later GAT-4 step does not rebuild a
+// row this run built, and a job may not remove a committed generated file.
+function genProduct(genScript, extra = {}) {
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+    'process/config.json': JSON.stringify({ generated: [{ paths: ['gen/rows.mjs'], regenerate: ['node', 'gen.mjs'], verify: ['node', '-e', 'process.exit(0)'] }] }),
+    'gen.mjs': genScript,
+    '.gitignore': 'gen/rows.mjs\n',
+    'src/alpha/index.mjs': 'export const x = 1;\n',
+    'test/alpha/old.test.mjs': inertTest,
+    ...extra,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
+  return { root, base };
+}
+const ioFor = (head) => { const io = fakeIO(null); io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'civicsmith' } }]; return io; };
+
+test('a failed generated build is one finding, and no row is regenerated twice in a run', () => {
+  const counting = "import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';\nappendFileSync('runs.log', 'x');\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/rows.mjs', 'export const rows = 3;\\n');\n";
+  const ok = genProduct(counting, { '.gitignore': 'gen/rows.mjs\nruns.log\n' });
+  const h1 = commit(ok.root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r1 = gate(ok.root, { base: ok.base, head: h1, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(h1).io, log: quiet });
+  assert.equal(r1.run.suite, 'pass');
+  assert.equal(readFileSync(join(ok.root, 'runs.log'), 'utf8'), 'x', 'built once, not again by GAT-4');
+
+  const bad = genProduct("process.exit(1);\n");
+  const h2 = commit(bad.root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r2 = gate(bad.root, { base: bad.base, head: h2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(h2).io, log: quiet });
+  const gens = r2.findings.filter((f) => f.check === 'generated');
+  assert.equal(gens.length, 1, JSON.stringify(gens));
+  assert.match(gens[0].message, /failed \(exit 1\) building gen\/rows\.mjs/);
+});
+
+test('a job may not remove a committed generated file', () => {
+  const s = genProduct("process.exit(0);\n", { '.gitignore': '', 'gen/rows.mjs': 'export const rows = 3;\n' });
+  git(['rm', '-q', 'gen/rows.mjs'], { cwd: s.root });
+  const head = commit(s.root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = gate(s.root, { base: s.base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(head).io, log: quiet });
+  assert.ok(r.findings.some((f) => f.check === 'generated' && /a job does not remove it/.test(f.message)), JSON.stringify(r.findings));
+});

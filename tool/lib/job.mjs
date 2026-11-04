@@ -12,6 +12,7 @@ import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
 import { unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
+import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -630,7 +631,10 @@ export function jobComplete(root, id, opts = {}) {
   const inst = installModule(root, cfg, entry, { exec, log });
   for (const l of inst.ran) commands.push({ cmd: `npm ci (${l})`, exit: inst.findings.some((f) => f.file === l) ? 1 : 0 });
   for (const f of inst.findings.filter((x) => !inst.ran.includes(x.file))) commands.push({ cmd: `npm ci (${f.file})`, exit: 1, error: f.message });
-  const installed = !inst.findings.length;
+  // Generated files the commit does not track, built as the gate builds them before the suite.
+  const built = installed0(inst) ? buildModuleGenerated(root, cfg, { timeout, exec, log }) : null;
+  if (built) for (const c of built.commands) commands.push(c);
+  const installed = !inst.findings.length && !(built && built.findings.length);
   // The module's checks are product code: without the GitHub tokens, as the gate runs it.
   for (const c of installed ? entry.checks || [] : []) {
     const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
@@ -751,13 +755,27 @@ function installModule(root, cfg, entry, { exec, log }) {
   return inst;
 }
 
+const installed0 = (inst) => !inst.findings.length;
+// The `generated` rows' untracked paths, built before the suite as the gate does: { commands, findings }.
+function buildModuleGenerated(root, cfg, { timeout, exec, log }) {
+  const gen = generatedRows(cfg);
+  if (!gen.rows.length) return { commands: [], findings: [] };
+  const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
+  const commands = b.built.length || b.findings.length ? [{ cmd: `build generated (${[...b.built, ...b.findings.map((f) => f.file)].join(', ')})`, exit: b.findings.length ? 1 : 0 }] : [];
+  for (const f of b.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+  return { commands, findings: b.findings };
+}
+
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
 export function jobTest(root, id, { log = console.log, exec } = {}) {
   const cfg = loadConfig(root);
   const entry = readEntry(root, id);
   const inst = installModule(root, cfg, entry, { exec, log });
   if (inst.findings.length) return { ok: false, install: inst };
-  const s = runSuite(root, entry, undefined, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE });
+  const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
+  const built = buildModuleGenerated(root, cfg, { timeout, exec, log });
+  if (built.findings.length) return { ok: false, install: inst, generated: built };
+  const s = runSuite(root, entry, undefined, { timeout });
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
   return { ok: s.exit === 0, install: inst, ...s };
