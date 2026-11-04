@@ -417,7 +417,7 @@ const commands = {
     // job's, on any other branch every module's.
     const job = String(a.branch || '').match(/^job\/(.+)$/);
     const t = takenIn(root, { base, head, id: job ? job[1] : undefined });
-    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips });
+    const { commits, findings, notices, size_waived } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips });
     if (s.finding) findings.push(s.finding);
     findings.push(...t.findings);
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}${t.tips.length ? `, leaving out the earlier work taken in at ${t.tips.map((x) => x.slice(0, 10)).join(', ')}` : ''}`);
@@ -425,7 +425,7 @@ const commands = {
     const esc = (x, prop) => String(x).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
       .replace(prop ? /[:,]/g : /$^/, (c) => (c === ':' ? '%3A' : '%2C'));
     for (const n of notices) console.log(`::warning file=${esc(n.file, true)}::${esc(n.message)}`);
-    return report(findings, a.out, { commits, base, notices });
+    return report(findings, a.out, { commits, base, notices, ...(size_waived.length ? { size_waived } : {}) });
   },
 };
 

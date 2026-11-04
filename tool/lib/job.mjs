@@ -877,11 +877,12 @@ export function jobComplete(root, id, opts = {}) {
     kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
     commands, tests, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
     ...(again ? { after: again.after } : {}),
+    ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}),
   };
   try {
     if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt });
+    appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt, ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
     if (cost !== null) {
       // The session's cost since its own last row: a session that completes twice is counted once.
       const prior = readRows(root, id).filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop();

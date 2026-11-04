@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { mergeRetry, mergePlain } from '../lib/merge.mjs';
+import { mergeRetry, mergePlain, unreadable } from '../lib/merge.mjs';
 import { REFRESH_AT, REFUSALS_FILE, appendRow, bobMetricsFile, recordRefusal, refusalCounts } from '../lib/metrics.mjs';
 import { approvalsHash, loadedFile, startCheck, wakeCheck } from '../lib/start.mjs';
 import { status } from '../lib/status.mjs';
@@ -188,6 +188,42 @@ test('mergeRetry: any other refusal stops at once, and a changed pull request st
   calls = 0;
   assert.throws(() => mergeRetry(() => { calls++; return moved(); }, { wait: 0, log: quiet, check: () => { throw new Fail('pull request 4 changed while its base moved; run merge again'); } }), /changed while its base moved/);
   assert.equal(calls, 1);
+});
+
+const unread = () => { throw new Fail('gh api -X PUT failed: unexpected end of JSON input'); };
+const H40 = 'a'.repeat(40);
+
+test('mergeRetry: an unreadable reply reads the pull request back; merged with this head succeeds (4 Nov)', () => {
+  let calls = 0;
+  const r = mergeRetry(() => { calls++; return unread(); }, { wait: 0, log: quiet, reread: { read: () => ({ state: 'closed', merged: true, merge_commit_sha: 'm'.repeat(40), head: { sha: H40 } }), sha: H40 } });
+  assert.deepEqual([r.merged, r.sha, calls], [true, 'm'.repeat(40), 1]);
+  // An empty reply (gh exits 0 with nothing) is the same case.
+  assert.equal(mergeRetry(() => null, { wait: 0, log: quiet, reread: { read: () => ({ state: 'closed', merged: true, merge_commit_sha: 'm', head: { sha: H40 } }), sha: H40 } }).merged, true);
+});
+
+test('mergeRetry: an unreadable reply with the pull request open at the same head tries the PUT once more, only once', () => {
+  let calls = 0;
+  const open = { read: () => ({ state: 'open', merged: false, head: { sha: H40 } }), sha: H40 };
+  const r = mergeRetry(() => (++calls === 1 ? unread() : { merged: true, sha: 'm' }), { wait: 0, log: quiet, reread: open });
+  assert.deepEqual([r.merged, calls], [true, 2]);
+  calls = 0;
+  assert.throws(() => mergeRetry(() => { calls++; return unread(); }, { wait: 0, log: quiet, reread: open }), /could not be read.*after one more try/);
+  assert.equal(calls, 2);
+  // A head that moved, or a merge at another head, stops at once.
+  calls = 0;
+  assert.throws(() => mergeRetry(() => { calls++; return unread(); }, { wait: 0, log: quiet, reread: { read: () => ({ state: 'open', head: { sha: 'b'.repeat(40) } }), sha: H40 } }), /at another head/);
+  assert.throws(() => mergeRetry(unread, { wait: 0, log: quiet, reread: { read: () => ({ state: 'closed', merged: true, head: { sha: 'b'.repeat(40) } }), sha: H40 } }), /merged at another head/);
+  assert.equal(calls, 1);
+  // The once-more try runs the moved-base checks first: a base that moved meanwhile stops it.
+  calls = 0;
+  const seen = [];
+  assert.throws(() => mergeRetry(() => { calls++; return unread(); }, { wait: 0, log: quiet, reread: open, fetch: () => seen.push('fetch'), check: () => { seen.push('check'); throw new Fail('main moved past the merged result the gate checked; run merge again'); } }), /moved past/);
+  assert.deepEqual([calls, seen], [1, ['fetch', 'check']]);
+  // A refusal GitHub stated is not unreadable; without reread the error stands as before.
+  assert.equal(unreadable('gh api -X PUT failed: gh: Pull Request is not mergeable (HTTP 405)'), false);
+  assert.equal(unreadable('gh api -X PUT failed: {"message":"x"}'), false);
+  assert.equal(unreadable('gh api -X PUT failed: '), true);
+  assert.throws(() => mergeRetry(unread, { wait: 0, log: quiet }), /unexpected end of JSON input/);
 });
 
 test('merge --plain retries a moved base and merges the same head; a head that moved meanwhile stops it', () => {
