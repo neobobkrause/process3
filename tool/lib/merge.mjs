@@ -11,7 +11,7 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
-import { noticeLine, providerNotice, recordAtMerge } from './notice.mjs';
+import { noticeLine, providerChange, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
@@ -141,7 +141,7 @@ export function merge(root, n, opts = {}) {
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
     // The provider-change route: the notice this job leaves its users, and the notices its START
     // named, answered now that it merged. The merge stands if the write fails; the rows are printed.
-    const notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, requirements: baseEntry.requirements, log });
+    const notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, entry: baseEntry, log });
     return { merged: true, sha: r.sha, tip, notices: notes };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
@@ -151,9 +151,12 @@ export function merge(root, n, opts = {}) {
 
 // The provider-change route at a job's merge: the notice this job leaves its users, and the
 // notices its START named, answered now that it merged. The merge stands if the write fails;
-// merge <n> run again records them.
-function noticeStep(root, cfg, { id, n, mb, head, at, requirements, log }) {
-  const notice = requirements ? providerNotice(root, cfg, { provider: id, requirements, base: mb, head, pr: n, usersAt: at }) : null;
+// merge <n> run again records them. A notice is left only when the job changed a file of its
+// module's own source (the tranche's entry, less tests, requirements, docs and records); a job
+// that changed only those leaves none, and the line says why.
+function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
+  const { notice, why } = entry?.requirements ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
+  if (why) log(`no provider notice: ${why}`);
   const t = git(['show', `${at}:${metricsFile(id)}`], { cwd: root, allowFail: true });
   const answers = (t.code === 0 ? jsonl(t.stdout) : []).filter((x) => x.event === 'start').pop()?.notices || [];
   let notes = { rows: [] };
@@ -173,9 +176,9 @@ function noticesOnly(root, cfg, { id, n, pr, log }) {
   if (head.code !== 0) fail(`pull request ${n} merged at ${m.slice(0, 10)}, which is not a merge commit; its provider notices cannot be read`);
   const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
   const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
-  const requirements = entryText.code === 0 ? JSON.parse(entryText.stdout).requirements : null;
+  const entry = entryText.code === 0 ? JSON.parse(entryText.stdout) : null;
   log(`pull request ${n} is merged; recording only its provider notices`);
-  return { merged: true, sha: m, notices: noticeStep(root, cfg, { id, n, mb, head: head.stdout.trim(), at: m, requirements, log }) };
+  return { merged: true, sha: m, notices: noticeStep(root, cfg, { id, n, mb, head: head.stdout.trim(), at: m, entry, log }) };
 }
 
 // A merge GitHub refuses because its base moved ("Base branch was modified") fetches the base,

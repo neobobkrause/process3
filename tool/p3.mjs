@@ -26,6 +26,8 @@ import { checkRole, senderOf, handoverBegin, handoverConfirm, promptRefresh, rea
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { closedRows, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
+import { withdrawNotice } from './lib/notice.mjs';
+import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
@@ -100,13 +102,22 @@ const commands = {
   // move as one short session's create_session call (pin default: process3's tranche tip).
   'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why }); return 0; },
 
-  // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) with the brief
-  // printed; writes nothing. --record <file> --worker <id> --cost <cost>: the worker's lines to the
-  // state branch (a `not affected` with file:line evidence answers the notice for its module).
+  // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) per brief printed,
+  // in parallel when the list is over one worker's share; writes nothing. --record <file> --worker
+  // <id> --cost <cost>, once per worker: their lines to the state branch, only when every module
+  // has one (a `not affected` with file:line evidence answers the notice for its module).
   'notice triage': (a, root) => {
     const key = one(a, 'notice, <provider>:<pr>');
     if (a.record !== undefined) recordTriage(root, key, { file: a.record, worker: a.worker, cost: a.cost, as: senderOf(root, a.as) });
     else noticeTriage(root, key);
+    return 0;
+  },
+
+  // notice withdraw <provider>:<pr>: BOB's act, for a notice whose PR changed no file of the
+  // provider's own source (read from its merge commit; refused otherwise). Status then drops it.
+  'notice withdraw': (a, root) => {
+    const key = one(a, 'notice, <provider>:<pr>');
+    withdrawNotice(root, loadConfig(root), key, { getPR, slug: repoSlug(root), as: senderOf(root, a.as) });
     return 0;
   },
 
