@@ -318,7 +318,7 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
     const xs = values(k);
     const un = k === 'close_to_next_start' ? (Array.isArray(closes) ? closes.filter((c) => c.unmeasured).length : 0) : jobs.filter((j) => j[k] === U || (Array.isArray(j[k]) && j[k].includes(U))).length;
     const early = k === 'ready_to_start' ? jobs.filter((j) => typeof j[k] === 'string' && j[k].startsWith('started before')).length : 0;
-    if (!xs.length) return [k, early ? { n: 0, median: U, worst: U, started_before_uses: early } : U];
+    if (!xs.length) return [k, early ? { n: 0, median: U, worst: U, ...(un ? { unmeasured: un } : {}), started_before_uses: early } : U];
     const t = TARGET_OF[k] ? cfg.targets?.[TARGET_OF[k]] : null;
     const shut = xs.filter((x) => !x.open).map((x) => x.minutes);
     const md = median(shut);

@@ -58,7 +58,10 @@ test('1: open_by uses: a job is ready at the latest of the opening and its uses\
   // A provider unmerged and its job started first: the figure says so, and the summary counts it.
   const early = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 5)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
   assert.equal(early.jobs.find((j) => j.module === 'n3').ready_to_start, 'started before q2 (in its uses) merged; q2 not merged yet');
-  assert.equal(early.summary.ready_to_start.started_before_uses, 1, 'counted even when no job\'s figure is in minutes');
+  assert.equal(early.summary.ready_to_start.started_before_uses, 1);
+  // No job's figure in minutes (q2's uses name a module the layer map lacks): still counted.
+  const none = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 5)], layers: LAYERS, modules: [...MODULES.filter((m) => m.id !== 'q2'), { id: 'q2', uses: ['zz'] }], grants: grants(0), closed: [], now: t(100) });
+  assert.deepEqual(none.summary.ready_to_start, { n: 0, median: U, worst: U, unmeasured: 1, started_before_uses: 1 });
 });
 
 test('1: a wait over its target names its cause where the record shows one: a sweep that found the live cap full', () => {
