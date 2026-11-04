@@ -9,7 +9,7 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { SILENT_HOURS, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, status } from './status.mjs';
+import { SILENT_HOURS, capLine, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -72,20 +72,23 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   const found = [];
   const todo = [];
   const owed = [];
-  const cap = cfg.live_cap;
-  // --sessions <file>: list_sessions saved; the live count is read from it when --live is not given.
+  // --sessions <file>: list_sessions saved; the job count is read from it when --live is not given.
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
-  if (listed && live === undefined) live = listed.filter((x) => !isArchived(x)).length;
+  live = sessionsCount(listed, live, log);
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null }; // no BOB, or a paused plan: not read
-  // The live count and cap go in the sweep row: lead times names a full cap as a wait's cause.
+  // The account's job count and the cap go in the sweep row (live, job_cap, and with --sessions the
+  // account's sessions, every product and role, so a platform limit would show): lead times names a full cap as a wait's cause.
   let liveRow = {};
   if (live !== undefined) {
     const n = Number(live);
-    if (live === true || !Number.isInteger(n) || n < 0) fail(`--live <n>, the live sessions you count, not ${JSON.stringify(live)}`);
-    found.push(`live ${n} of ${cap}`);
-    liveRow = { live: n, live_cap: cap };
-    if (n > cap) owed.push(`${n} live sessions, over the cap of ${cap}: archive finished ones before starting more`);
+    if (live === true || !Number.isInteger(n) || n < 0) fail(`--live <n>, the account's job sessions you count, not ${JSON.stringify(live)}`);
+    const c = capLine(cfg, n, listed);
+    const cap = c.cap;
+    if (c.note) found.push(c.note);
+    found.push(c.line);
+    liveRow = { live: n, job_cap: cap, ...(listed ? { sessions: listed.filter((x) => !isArchived(x)).length } : {}) };
+    if (n > cap) owed.push(`${n} job sessions, over the job cap of ${cap}: archive finished ones before starting more`);
   }
   const plan = cfg.plan;
   if (plan === 'pause' || plan === 'stop') {

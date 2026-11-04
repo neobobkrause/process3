@@ -73,8 +73,8 @@ test('1: a wait over its target names its cause where the record shows one: a sw
   const sweeps = [{ row: 'sweep', at: t(31), live: 24, live_cap: 24 }, { row: 'sweep', at: t(35), live: 3, live_cap: 24 }];
   const lt = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('p2', 1), merge('p2', 20, 1), start('q2', 2), merge('q2', 30, 2), start('u3', 45)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], sweeps, now: t(100) });
   const u3 = lt.jobs.find((j) => j.module === 'u3').ready_to_start;
-  assert.equal(u3.cause, `live cap full (24 of 24 at ${t(31)})`);
-  assert.match(leadCell(u3), /cause: live cap full/);
+  assert.equal(u3.cause, `job cap full (24 of 24 at ${t(31)})`);
+  assert.match(leadCell(u3), /cause: job cap full/);
 });
 
 test('2: a refusal with no role is listed as role unknown by both commands, never dropped', () => {
