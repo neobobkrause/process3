@@ -96,6 +96,7 @@ test('layer close: runs the suites on the tranche tip, records the close with it
   const out = [];
   const r = layerClose(root, '1', { io, log: (m) => out.push(m) });
   assert.equal(r.ok, true);
+  assert.match(out.at(-1), /^next act: node \.process\/tool\/p3\.mjs job start --ready --live <n>/, 'BOB closing the layer starts its ready jobs next');
   const row = JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare }));
   assert.equal(row.layer, 1);
   assert.equal(row.commit, git(['rev-parse', 'tranche'], { cwd: bare }));
@@ -109,7 +110,7 @@ test('layer close: runs the suites on the tranche tip, records the close with it
   const { root: other } = withOrigin({ ...base, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
   const said = [];
   const w = layerClose(other, '1', { io, as: 'coordinator', log: (m) => said.push(m) });
-  assert.equal(said.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "layer 1 closed: run status" --from coordinator`, delivered with send_message to the address it prints');
+  assert.equal(said.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "layer 1 closed: node .process/tool/p3.mjs job start --ready --live <n>, then status" --from coordinator`, delivered with send_message to the address it prints');
   assert.equal(w.wake, said.at(-1));
   // Closed, it is no longer the open layer.
   assert.throws(() => layerClose(root, '1', { io, log: quiet }), /layer 1 is not the open layer; the open layer is 2/);

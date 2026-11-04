@@ -15,7 +15,7 @@ import { NOTICES_DIR, answerFile, mergedRange, notices } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { depth, exists, fail, git, list, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, normalize, resolve, sep } from 'node:path';
 
 export const TRIAGE_DIR = `${NOTICES_DIR}/triage`;
 export const triageFile = (user, key) => `${TRIAGE_DIR}/${user}-${key.replace(':', '-')}.json`;
@@ -227,4 +227,92 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   const wake = t.length ? wakeLine(`notice triage ${key} recorded`, as) : null;
   if (wake) log(wake);
   return { rows, left };
+}
+
+// Triage at the merge (coordinator, 4 Nov: every real ready-to-start wait on the copy since 06:00
+// was a notice waiting 33 to 57 minutes for BOB's batch triage). The merge that raises a notice
+// triages it in the same command by the rule the briefs already use (PR 89): a user module whose
+// paths hold no file importing the provider, as the gate's imports check finds an import, is
+// recorded not affected, its notice answered, with the modules file's line for it and the commit
+// read as its evidence. A module that imports the provider needs a worker's judgment: it stays
+// owed, and the merge names that one notice's `notice triage` as BOB's next act at once. A module
+// with no paths in the modules file is never judged here.
+export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = console.log } = {}) {
+  if (!notice?.key || !Array.isArray(notice.users) || !notice.users.length) return { rows: [], owed: [] };
+  const key = notice.key;
+  const sb = cfg.state_branch;
+  fetchState(root, sb, { fresh: true });
+  const tri = triageRows(root, sb);
+  const owed = notice.users.filter((u) => !tri.has(`${key}\0${u}`));
+  if (!owed.length) return { rows: [], owed: [] };
+  const sha = git(['rev-parse', ref], { cwd: root });
+  const clear = importFree(root, cfg, owed, sha, notice.provider);
+  const left = owed.filter((u) => !clear.some((m) => m.id === u));
+  const at = new Date().toISOString();
+  const common = { at, key, worker: 'merge: imports check', cost: '0' };
+  const want = clear.flatMap((m) => {
+    const evidence = `${cfg.modules_file}:${m.line} ${m.id} (${m.paths.join(', ')}) holds no file that imports ${notice.provider}, every code file under its paths read at ${sha.slice(0, 10)}`;
+    return [[triageFile(m.id, key), { row: 'triage', user: m.id, verdict: 'not affected', evidence, ...common }],
+      [answerFile(m.id, key), { row: 'answered', user: m.id, by: 'triage', evidence, ...common }]];
+  });
+  let rows = [];
+  if (want.length) {
+    rows = writeState(root, sb, `notice triage ${key} at its merge: ${clear.length} module(s) not affected by imports`, (wt) => {
+      const dir = resolve(wt, NOTICES_DIR) + sep;
+      const add = want.filter(([f]) => resolve(wt, f).startsWith(dir) && !existsSync(join(wt, f)));
+      for (const [f, row] of add) {
+        mkdirSync(dirname(join(wt, f)), { recursive: true });
+        writeFileSync(join(wt, f), JSON.stringify(row) + '\n');
+      }
+      return { rows: add.map(([, row]) => row) };
+    }).rows;
+  }
+  log(`notice triage ${key} at the merge: ${clear.length} of ${owed.length} not affected (no file imports ${notice.provider}), answered${left.length ? `; ${left.length} import it and owe a worker's judgment: ${left.join(', ')}` : ''}`);
+  const next = left.length ? `next act: ${P3} notice triage ${key} (${left.length} module${left.length === 1 ? '' : 's'}: a read-only worker judges them now, not in a later batch)` : null;
+  const wake = next && as !== 'bob' ? wakeLine(`notice ${key} owes triage of ${left.length}: ${P3} notice triage ${key}, then status`, as) : null;
+  if (next) log(wake || next);
+  return { rows, owed: left, next: wake || next };
+}
+
+// The users that provably import nothing of the provider at sha (confirming review of PR 100: the
+// brief's grep pre-filter may miss an import, which is harmless in a brief, not in a verdict).
+// Every code file under each user's paths that mentions import, require or from is read, and an
+// import counts as the gate's imports check counts it (the joined path's owner) or as the brief's
+// resolution does. Nothing is cleared when the provider has no modules-file entry or a path of
+// `.`, when git grep fails, for a user with no entry, no paths or no id line, or for a user whose
+// job branch on origin holds commits sha lacks (an open attempt may be adding the import).
+export function importFree(root, cfg, users, sha, provider) {
+  let modules = [];
+  try { modules = JSON.parse((exists(root, sha, cfg.modules_file) ? git(['show', `${sha}:${cfg.modules_file}`], { cwd: root }) : null) || '{}').modules || []; } catch { return []; }
+  if (!Array.isArray(modules)) return [];
+  const prov = modules.find((m) => m?.id === provider);
+  const provPaths = (prov?.paths || []).map((p) => String(p).replace(/\/$/, ''));
+  if (!provPaths.length || provPaths.some((p) => p === '.' || p === '')) return [];
+  const text = git(['show', `${sha}:${cfg.modules_file}`], { cwd: root, allowFail: true }).stdout.split('\n');
+  const all = new Set(git(['ls-tree', '-r', '--name-only', '-z', sha], { cwd: root }).split('\0').filter(Boolean));
+  const inProvider = (f) => !!f && ownerOf(modules, f)?.id === provider;
+  const heads = new Map(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => { const [h, r] = l.split('\t'); return [r.replace(/^refs\/heads\//, ''), h]; }));
+  const settled = (u) => {
+    const h = heads.get(`job/${u}`);
+    if (!h) return true;
+    return git(['merge-base', '--is-ancestor', h, sha], { cwd: root, allowFail: true }).code === 0;
+  };
+  const out = [];
+  for (const u of users) {
+    const m = modules.find((x) => x?.id === u);
+    const paths = m?.paths || [];
+    const i = text.findIndex((l) => new RegExp(`"id"\\s*:\\s*"${u.replace(/[-]/g, '\\-')}"`).test(l));
+    if (!paths.length || i < 0 || !settled(u)) continue;
+    const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...paths], { cwd: root, allowFail: true });
+    if (g.code !== 0 && g.code !== 1) continue;
+    const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);
+    let hit = false;
+    for (const f of files) {
+      const t = git(['show', `${sha}:${f}`], { cwd: root, allowFail: true });
+      if (t.code !== 0) { hit = true; break; }
+      if (specifiers(t.stdout).some(({ spec }) => inProvider(resolveSpec(f, spec, (x) => all.has(x))) || (spec.startsWith('.') && inProvider(normalize(join(dirname(f), spec)))))) { hit = true; break; }
+    }
+    if (!hit) out.push({ id: u, paths, line: i + 1 });
+  }
+  return out;
 }

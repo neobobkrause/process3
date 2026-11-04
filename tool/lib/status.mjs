@@ -62,6 +62,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
   let prs = null;
   let slug = null;
+  // The heads origin has, from the one ls-remote (null when offline or unread).
+  let originHeads = null;
   if (!offline) {
     try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
     // The tranche and the branches job/<id> of the ledger's entries that are not COMPLETE, or
@@ -79,6 +81,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     if (role === 'bob') { try { if (fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
     const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`) || noticed.has(e.id)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
+    if (ls.code === 0) originHeads = new Set(ls.stdout.split('\n').map((l) => l.trim().split('\t')[1]).filter(Boolean));
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
       && local.get(`refs/remotes/origin/${r.slice(11)}`) !== sha);
@@ -142,6 +145,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
     }
+    // OPEN on the tranche, origin read, and no job branch and no pull request: never started.
+    if (prs !== null && originHeads && !originHeads.has(`refs/heads/job/${e.id}`) && e.status?.state === 'OPEN' && !row.branch && !row.pr && !row.flag) row.unstarted = true;
     // A deferred module's pull request, GitHub unread: unknown, so the layer is held.
     if (prs === null && row.blocked && !row.pr) row.pr = 'unknown (GitHub not read)';
     rows.push(row);
@@ -173,7 +178,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, rows, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
     out.layer = layerState(root, cfg, rows, ref, { closed });
@@ -397,7 +402,7 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
       if (!u) continue;
       const missing = u.filter((p) => !where.has(p));
       if (missing.length && L.n > ls.cur.n) gaps.push({ id: m.id, layer: L.n, missing });
-      if (L.n > ls.cur.n && !missing.length && !m.open && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
+      if (L.n > ls.cur.n && !missing.length && (!m.open || m.row?.unstarted) && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
     }
   }
   return { ready, gaps };
@@ -420,7 +425,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const ready = [];
   for (const m of where.values()) {
-    if (!m.found.length || m.open || m.blocked) continue;
+    if (!m.found.length || (m.open && !m.row?.unstarted) || m.blocked) continue;
     const u = uses.get(m.id);
     // A module with no requirement file: its found-work entry is the file listed.
     if (u ? u.filter((p) => p !== m.id).every(done) : reached(m.layer)) ready.push(read(m.file) === null ? { ...m, file: foundFile(m.id), entry: true } : m);
@@ -429,7 +434,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   for (const id of foundEntries(root, ref).filter((x) => !where.has(x))) {
     const ids = unmetIds(read(foundFile(id))).filter(isFound);
     const row = rows.find((r) => r.id === id);
-    const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
+    const open = !!row && !row.unstarted && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
     const u = uses.get(id) || [];
     if (ids.length && !open && !row?.blocked && u.filter((p) => p !== id).every(done)) ready.push({ id, file: foundFile(id), layer: null, found: ids, marks: [], entry: true });
   }
@@ -447,7 +452,11 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
 // `notice triage`, and none of its modules is listed. A notice module of the open layer with unmet
 // marks stays in the layer's list, its one job answering both.
 export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {} } = {}) {
-  const open = rows.filter((r) => r.tranche !== 'COMPLETE');
+  // An entry written on the tranche and never started (OPEN, no job branch, no pull request) has
+  // no open job: it is next work, which `job start --ready` starts (copy, 4 Nov: four such
+  // entries were listed nowhere, so each waited for BOB to remember it).
+  // status marks it (unstarted) only when it read origin's branches and GitHub's pull requests.
+  const open = rows.filter((r) => r.tranche !== 'COMPLETE' && !r.unstarted);
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const taken = new Set(open.flatMap((r) => [r.req, `${dir}/${r.id}.md`]));
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
@@ -495,7 +504,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   // Read whole (git show without allowFail drops the last newline): the cap counts every byte.
   const whole = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : null) : read(f));
   // A user module triage judged affected: notice work, whatever its layer or marks.
-  const affected = Object.entries(owed).map(([u, ns]) => [u, ns.filter((n) => n.triage)]).filter(([, ns]) => ns.length);
+  const affected = Object.entries(owed).map(([u, ns]) => [u, ns.filter((n) => n.triage && !n.rerun)]).filter(([, ns]) => ns.length);
   const byFile = new Map(affected.map(([u, ns]) => [rows.find((r) => r.id === u)?.req || `${dir}/${u}.md`, ns]));
   const inLayer = new Set(files);
   const texts = new Map();
@@ -507,7 +516,8 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const text = textOf(file);
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
@@ -525,7 +535,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const shown = list.slice(0, n);
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
   const shownF = foundList.slice(0, Math.max(0, n - shown.length - shownN.length));
-  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`;
+  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}`;
   const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (live ${live} of ${cfg.live_cap}), ${a.length - b.length} wait`);
   if (list.length) {
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : waits(list, shown)}`);
