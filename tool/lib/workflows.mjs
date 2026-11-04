@@ -24,7 +24,7 @@
 // shim-only (merge.mjs workflowChanges).
 import { baseEverChanged, comments, gateRuns, getPR, prsFromBranch, verifyRow } from './github.mjs';
 import { branchBound, jobMerge } from './gate.mjs';
-import { recordSince, takenIn } from './record.mjs';
+import { recordSince } from './record.mjs';
 import { keySetAt } from './anchor.mjs';
 import { fail, git } from './util.mjs';
 
@@ -78,11 +78,12 @@ function lines(src) {
       if (t.replace(/^---/, '').replace(/\s#.*$/, '').trim()) no(`line ${i + 1} holds content after ---`);
       return;
     }
-    const body = t.trimStart();
+    const body = t.replace(/^ +/, '');
+    if (/^\s/.test(body)) no(`line ${i + 1} is indented with something other than spaces`);
     // A double-quoted key with an escape ("j\x6fbs":) is a key this reader would misread: GitHub
     // decodes it (review 1 of PR 98).
     if (/^(?:-\s+)?"(?:[^"\\]|\\.)*\\(?:[^"\\]|\\.)*"\s*:/.test(body)) no(`line ${i + 1} has a key with an escape`);
-    out.push({ n: i + 1, indent: t.length - t.trimStart().length, body });
+    out.push({ n: i + 1, indent: t.length - body.length, body });
   });
   return out;
 }
@@ -170,13 +171,16 @@ export function readWorkflow(src) {
   if (jobsKey && jobsKey.value !== '{}') {
     if (jobsKey.value !== '') no('its jobs are not a block of jobs');
     const { kids } = children(ls, jobsKey.i, 0);
+    const raw = src.split('\n');
     for (const j of kids) {
       if (j.value !== '') no(`job ${j.key} is not a block`);
-      const { kids: jk } = children(ls, j.i, ls[j.i].indent);
+      const { kids: jk, end } = children(ls, j.i, ls[j.i].indent);
+      // The job's own text, its id line to the line before the next key at its level or above.
+      const text = raw.slice(ls[j.i].n - 1, end < ls.length ? ls[end].n - 1 : raw.length).join('\n').replace(/\s+$/, '');
       const name = jk.find((x) => x.key === 'name');
       // One line, plain or quoted, no tag, anchor, block scalar or escape (review 1 of PR 98).
       if (name && (name.deeper || !/^(?:"[^"\\]*"|'(?:[^']|'')*'|[^\s"'|>!&*%@`{\[-][^#]*)$/.test(name.value))) no(`job ${j.key}'s name at line ${ls[name.i].n} is not a one-line string this reader can read`);
-      jobs.push({ id: j.key, name: name ? unquote(name.value) : null, permissions: permissions(ls, jk.find((x) => x.key === 'permissions')), expands: jk.some((x) => x.key === 'strategy' || x.key === 'uses') });
+      jobs.push({ id: j.key, name: name ? unquote(name.value) : null, permissions: permissions(ls, jk.find((x) => x.key === 'permissions')), expands: jk.some((x) => x.key === 'strategy' || x.key === 'uses'), text });
     }
   }
   // pull_request_target anywhere in the file, comments too: the reader does not judge where it
@@ -205,13 +209,37 @@ const at = (m, s) => m[s] ?? m['*'] ?? 0;
 const NAMES = ['none', 'read', 'write'];
 
 // Rules 2 and 3 for one file, against the base's copy (null: a new file). Returns why it fails, or null.
+// Only plain lines reach the reader (coordinator, 4 Nov 08:13; round 3 of PR 98: a lone \r,
+// U+0085, U+2028 or U+2029 is a YAML line break the reader did not split on). A leading BOM is
+// dropped; any line break but \n, or a BOM elsewhere, refuses the file; any other character
+// outside printable ASCII, \n and \t is allowed only on a line the base's copy holds unchanged.
+const BREAKS = /[\r\u0085\u2028\u2029\ufeff]/;
+export function plainText(src, baseSrc) {
+  const s = src.replace(/^\ufeff/, '');
+  const m = s.match(BREAKS);
+  if (m) return `rule 3: it holds ${m[0] === '\ufeff' ? 'a byte-order mark' : 'a line break other than \\n'} (U+${m[0].codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}) at offset ${m.index}`;
+  const base = new Set((baseSrc ?? '').replace(/^\ufeff/, '').split('\n'));
+  const bad = s.split('\n').findIndex((l) => /[^\x20-\x7e\t]/.test(l) && !base.has(l));
+  if (bad >= 0) return `rule 3: line ${bad + 1} holds a character outside printable ASCII that the base's copy does not hold on that line`;
+  return null;
+}
+
 export function workflowRules(src, baseSrc, required) {
+  const plain = plainText(src, baseSrc);
+  if (plain) return plain;
+  src = src.replace(/^\ufeff/, '');
+  if (baseSrc !== null) {
+    baseSrc = baseSrc.replace(/^\ufeff/, '');
+    if (BREAKS.test(baseSrc)) return 'rule 3: the base\'s copy holds a line break other than \\n, which this reader does not read';
+  }
   let w;
   let b = null;
   try { w = readWorkflow(src); } catch (e) { if (e instanceof Unreadable) return `rule 3: it cannot be read (${e.message})`; throw e; }
   if (baseSrc !== null) { try { b = readWorkflow(baseSrc); } catch (e) { if (e instanceof Unreadable) return `rule 3: the base's copy cannot be read (${e.message})`; throw e; } }
   const taken = new Set([...required, ...RESERVED_JOBS].map((x) => String(x).toLowerCase()));
   for (const j of w.jobs) {
+    // A job the base's copy already defines, byte for byte, is exempt (coordinator, 4 Nov 08:13).
+    if (b?.jobs.some((x) => x.id === j.id && x.text === j.text)) continue;
     if (taken.has(j.id.toLowerCase())) return `rule 2: it defines a job ${j.id}, the name of a required check or of a process job (${[...required, ...RESERVED_JOBS].join(', ')})`;
     if (j.name !== null && /\$\{\{/.test(j.name)) return `rule 2: job ${j.id}'s name ${j.name} is an expression, which could be a required check's name`;
     if (j.name !== null && taken.has(j.name.trim().toLowerCase())) return `rule 2: job ${j.id} is named ${j.name}, the name of a required check or of a process job`;
@@ -276,8 +304,10 @@ function realGate(root, rev, repo) {
 // by rules 2 to 4, as the record check leaves it out. The boundaries: the head's record_since
 // (recordSince: used only while the base has no config, and before every commit that adds it),
 // counted only when it is the base's commit or an ancestor of it, or took its value at the base
-// owner's website commit not already in the base (as record.mjs holds it); and every honoured
-// take-in tip (takenIn). A commit is earlier work when it is one of them or an ancestor of one.
+// owner's website commit not already in the base (as record.mjs holds it). A commit is earlier
+// work when it is that commit or an ancestor of it. Take-in tips do not count here (coordinator,
+// 4 Nov 08:13; round 3 of PR 98: a job's start row could name a direct post-setup commit): a
+// real take-in reaches the tranche through its job's merge, which rule 1 judges.
 // Anything after them is judged by rule 1.
 export function earlierWork(root, sha, { baseRef, ownerCommit } = {}) {
   const tips = [];
@@ -287,7 +317,6 @@ export function earlierWork(root, sha, { baseRef, ownerCommit } = {}) {
     const owned = set && !isAnc(root, set, baseRef) && ownerCommit?.(set)?.ok === true;
     if (isAnc(root, s.since, baseRef) || owned) tips.push(s.since);
   }
-  tips.push(...takenIn(root, { base: baseRef, head: sha }).tips);
   return (c) => tips.some((t) => t === c || isAnc(root, c, t));
 }
 

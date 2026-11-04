@@ -99,8 +99,11 @@ function product({ bootstrap = true, steps = [], ledger = [], pre = [] } = {}) {
     if (s.via === 'direct') { commit(root, s.files, 'a direct commit'); return; }
     const branch = s.via === 'job' ? `job/${s.id}` : `bob/wf${i}`;
     git(['checkout', '-q', '-b', branch], { cwd: root });
-    commit(root, s.files, 'the workflow change');
-    if (s.via === 'job') commit(root, { [`process/metrics/${s.id}.jsonl`]: JSON.stringify({ row: 'merge', pr: n }) + '\n' });
+    commit(root, typeof s.files === 'function' ? s.files(onto) : s.files, 'the workflow change');
+    if (s.via === 'job') {
+      const was = git(['show', `HEAD:process/metrics/${s.id}.jsonl`], { cwd: root, allowFail: true });
+      commit(root, { [`process/metrics/${s.id}.jsonl`]: (was.code === 0 ? was.stdout : '') + JSON.stringify({ row: 'merge', pr: n }) + '\n' });
+    }
     const tip = git(['rev-parse', 'HEAD'], { cwd: root });
     git(['checkout', '-q', 'tranche'], { cwd: root });
     git(['merge', '-q', '--no-ff', branch, '-m', s.via === 'job' ? `Merge job PR ${n}` : `Merge PR ${n}: ${branch} into tranche`], { cwd: root });
@@ -333,4 +336,39 @@ test('coordinator, 4 Nov 08:02: a workflow edit in the product\'s pre-Process3 h
   assert.throws(close(named, { owned: named.setAt }).go, /regression\.yml: rule 2: it defines a job gate/);
   const wide = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION().replace('contents: read', 'contents: write') }] });
   assert.throws(close(wide, { owned: wide.setAt }).go, /regression\.yml: rule 3: it widens contents to write/);
+});
+
+test('coordinator, 4 Nov 08:13: only plain lines reach the reader', () => {
+  const P = 'on: push\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n';
+  for (const [src, re] of [
+    [`${P}  # c\r  gate:\r    permissions: write-all\n`, /line break other than \\n \(U\+000D\)/],
+    [`${P.replace('jobs:', '# x\r\njobs:')}`, /U\+000D/],
+    ['on: push\x85permissions: write-all\x85jobs:\x85  gate:\x85    runs-on: x\n', /U\+0085/],
+    [`${P}  # c\u2028  gate:\n`, /U\+2028/],
+    [`${P}  # c\u2029  gate:\n`, /U\+2029/],
+    [`${P}\ufeff  b:\n    runs-on: x\n`, /byte-order mark \(U\+FEFF\)/],
+    [`${P}  b:\n    name: caf\u00e9\n`, /line 8 holds a character outside printable ASCII/],
+    [`${P.replace('    runs-on: x', '\u00a0   runs-on: x')}`, /outside printable ASCII/],
+  ]) assert.match(workflowRules(src, null, ['test']) || '', re, JSON.stringify(src));
+  // A leading BOM is dropped; a non-ASCII line the base's copy holds unchanged is allowed.
+  assert.equal(workflowRules(`\ufeff${P}`, null, ['test']), null);
+  const base = `# the fleet \u2014 its images\n${P}`;
+  assert.equal(workflowRules(`${base}    timeout-minutes: 5\n`, base, ['test']), null);
+  assert.match(workflowRules(`${base}    # new \u2014 line\n`, base, ['test']) || '', /line 8 holds a character outside printable ASCII/);
+});
+
+test('coordinator, 4 Nov 08:13: a take-in tip does not mark a direct commit as earlier work', () => {
+  // A direct post-setup commit D, then a job whose start row names D as its take-in tip.
+  const r = product({ ledger: ['m0'], steps: [
+    { via: 'direct', files: { '.github/workflows/regression.yml': REGRESSION(' site') } },
+    { via: 'job', id: 'm0', files: (d) => ({ 'process/metrics/m0.jsonl': JSON.stringify({ event: 'start', take_in: { tip: d } }) + '\n' }) },
+  ] });
+  assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
+});
+
+test('coordinator, 4 Nov 08:13: a job the base\'s copy defines byte for byte is exempt from rule 2', () => {
+  const base = 'on: push\npermissions:\n  contents: read\njobs:\n  smoke:\n    runs-on: x\n';
+  assert.equal(workflowRules(`${base}  other:\n    runs-on: y\n`, base, ['smoke']), null);
+  assert.match(workflowRules(base.replace('runs-on: x', 'runs-on: z'), base, ['smoke']) || '', /rule 2: it defines a job smoke/);
+  assert.match(workflowRules(`${base}  gate:\n    runs-on: y\n`, base, ['smoke']) || '', /rule 2: it defines a job gate/);
 });
