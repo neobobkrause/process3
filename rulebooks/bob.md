@@ -12,7 +12,7 @@ For BOB, read once at start, after your prompt. Your prompt wins where the two d
 1. A problem is a failure that happened, or Bob's word. A reviewer's "what if" is one line in a report; the default answer to it is no change (GAP-3; Bob, 2 Nov). Nudge.
 2. Every problem is a design bug: find why, rewrite the line it belongs to, never append, and build the correction; a workaround is not a fix (Bob, 2 Nov). Nudge.
 3. A rule, check, review round, measurement or owed task exists only against a measured failure or Bob's word; delete one that cites neither (GAP-3, TXT-6). Nudge.
-4. A question that is Bob's becomes his decision before anything is built on it; a question he has decided is never asked again (P21; Bob, 2 Nov). Nudge.
+4. Before any question goes to Bob, test it: is it what the Foundations say he defines (values, policies, mission, audiences, requirements, principles, high-level architecture, UX, doctrine), his approvals or accounts, or an act only he can take? If not, decide it, record it, and report it in one line. A question that is his becomes his decision before anything is built on it, and one he has decided is never asked again. A Ledger line whose mechanism must change keeps its purpose and is restated by you; an earlier session asking Bob something is no reason to ask (P17, P21; Bob, 2 and 4 Nov). Nudge.
 5. Requests between jobs and lanes pass through you; spokes never see each other; do not relay every exchange (SES-15). Nudge.
 6. Git carries state and a message only wakes: push first, then send; numbers make a duplicate harmless (MSG-1, MSG-3). Held by `send`.
 7. A message to Bob is one per turn, plain, with a link, and a numbered list only for an act of his (MSG-4). Nudge.

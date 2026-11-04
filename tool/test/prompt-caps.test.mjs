@@ -8,7 +8,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { entry, makeRepo } from './helpers.mjs';
-import { startRole } from '../lib/roles.mjs';
+import { handoverBegin, recordStart, startRole } from '../lib/roles.mjs';
 import { jobStart } from '../lib/job.mjs';
 import { briefText } from '../lib/review.mjs';
 import { git } from '../lib/util.mjs';
@@ -38,6 +38,10 @@ test('start root, start bob (fresh and by handover) and start watcher each print
     bob: startRole(root, 'bob', { slug: SLUG, address: addr, log: quiet }).prompt,
     watcher: startRole(root, 'watcher', { slug: SLUG, address: {}, log: quiet }).prompt,
   };
+  recordStart(root, 'root', ID, { log: quiet });
+  recordStart(root, 'bob', 'session_oldbob1', { log: quiet });
+  prompts['bob by handover'] = handoverBegin(root, { slug: SLUG, log: quiet }).prompt;
+  assert.ok(prompts['bob by handover'].includes('You replace BOB `session_oldbob1`'));
   for (const [role, p] of Object.entries(prompts)) {
     assert.match(p, /--approvals [0-9a-f]{64}/, `${role}: measured with a real approvals hash`);
     assert.ok(bytes(p) <= SCREEN, `${role}: ${bytes(p)} bytes, over ${SCREEN}`);
