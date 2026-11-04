@@ -1,6 +1,6 @@
 // Build Plan Phase 2, the deploy and walk: development deployments only (Bob's word, 3 Nov).
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -101,6 +101,30 @@ test('deploy dev: refused before a layer closes; dry run, deploy, walk, one row;
   git(['checkout', '-q', '--', '.'], { cwd: root });
   commit(root, { 'x.txt': 'x\n' });
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /not the tranche tip/);
+});
+
+test('deploy dev: a walk that prints 1,600 lines keeps every line in its file; the log has the tail, the cut notice and the path; masks hold in the file', () => {
+  const walk = node("console.log('::add-mask::' + 's3cr3t' + '-value'); for (let i = 1; i <= 1600; i++) console.log('screen ' + i + ' finding ' + 'x'.repeat(20) + (i === 1 ? ' s3cr3t' + '-value' : ''))");
+  const { root } = withOrigin(product({ ...DEP, walk }));
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
+  const out = [];
+  assert.equal(deployDev(root, { io: { ...io, logDir }, repo, log: (m) => out.push(m) }).ok, true);
+  const text = out.join('\n');
+  const file = join(logDir, '04-walk-node.log');
+  const whole = readFileSync(file, 'utf8');
+  for (let i = 1; i <= 1600; i++) assert.match(whole, new RegExp(`^screen ${i} finding`, 'm'));
+  assert.match(whole, /screen 1 finding x+ \*\*\*/);
+  assert.doesNotMatch(whole, /s3cr3t-value/);
+  assert.match(text, /screen 1600 finding/);
+  assert.doesNotMatch(text, /^screen 1 finding/m);
+  const cut = text.match(/\[(\d+) line\(s\) left out before this tail; the whole output is in (\S+)\]/);
+  assert.ok(cut, text.slice(0, 2000));
+  assert.equal(cut[2], file);
+  assert.equal(Number(cut[1]), whole.slice(0, -20000).match(/\n/g).length, 'the whole lines not shown');
+  assert.ok(Number(cut[1]) > 800);
+  assert.match(text, new RegExp(`full output: ${file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  assert.match(text, /each step's whole output is kept under /);
 });
 
 test('deploy dev: a dry-run step that does not print the guard line stops it before the deploy; the row records it and a later run may go', () => {

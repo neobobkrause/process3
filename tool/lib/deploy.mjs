@@ -3,14 +3,15 @@
 // after a layer close, from the clean tranche tip: the `deploy` block's dry run, refused unless
 // every dry-run step printed guard_line; then the deploy; then the walk; one row per run in
 // deploys/dev.jsonl on the state branch. The shape is release dev's.
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, onMainOf } from './status.mjs';
 import { install } from './suite.mjs';
-import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
+import { NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
 
 export const DEPLOYS_FILE = 'deploys/dev.jsonl';
 export const SLUG_PREFIX = 'p3dev-';
@@ -98,6 +99,9 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const t0 = Date.now();
   const masks = new Set();
   const results = [];
+  const logs = io.logDir || mkdtempSync(join(tmpdir(), `p3-deploy-${s}-`));
+  log(`each step's whole output is kept under ${logs}`);
+  const put = { out: (t) => log(t.replace(/\n$/, '')), err: (t) => log(t.replace(/\n$/, '')), note: log };
   const go = (stage, argvs, { guard = false } = {}) => {
     for (const a of argvs) {
       const argv = a.map((x) => x.split('{slug}').join(s));
@@ -106,10 +110,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
       const r = io.exec(argv[0], argv.slice(1), { cwd: root, timeout: dep.timeout_minutes * MINUTE, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
       collectMasks(r.stdout, masks);
       collectMasks(r.stderr, masks);
-      const out = redact(r.stdout, masks);
-      const err = redact(r.stderr, masks);
-      if (out.trim()) log(out.slice(-20000).replace(/\n$/, ''));
-      if (err.trim()) log(err.slice(-20000).replace(/\n$/, ''));
+      keepStep(logs, results.length + 1, `${stage}-${argv[0]}`, redact(r.stdout, masks), redact(r.stderr, masks), put);
       log('::endgroup::');
       const res = { stage, name: redact(argv.join(' '), masks), exit: r.code, seconds: Math.round(r.seconds) };
       if (guard) res.guard = r.stdout.split('\n').some((l) => l.trim() === dep.guard_line);

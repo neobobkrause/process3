@@ -7,7 +7,8 @@
 // The shim calls `release run` (each check or the assemble, as the gate runs a suite), `release
 // version` (the dispatched version, checked) and `release sign` (only when sign_secret is set).
 import { createHash, createPrivateKey, sign } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { block, getRun, parseBlock } from './github.mjs';
 import { P3 } from './job.mjs';
@@ -16,7 +17,7 @@ import { closedRows, layerState, status } from './status.mjs';
 import { loadRanges, platformRows } from './size.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
-import { NO_TOKENS, depth, fail, gh, git, loadConfig, now, repoSlug, run } from './util.mjs';
+import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
 
 export const SHIM = '.github/workflows/process-dev-release.yml';
 export const RUN_PREFIX = 'p3dev-release ';
@@ -163,7 +164,7 @@ function recordRelease(root, cfg, slug, url, { io, log }) {
 // release run checks|assemble --out <results.json>: run by the shim's read-only jobs. Installs
 // the lock files as the gate does, then each check (or the assemble) within its timeout and
 // without the GitHub tokens. The results go to --out; exit 1 when any failed.
-export function releaseRun(root, step, { out, log = console.log, exec = run } = {}) {
+export function releaseRun(root, step, { out, log = console.log, exec = run, logDir } = {}) {
   const cfg = loadConfig(root);
   const rel = releaseConfig(cfg);
   if (!['checks', 'assemble'].includes(step)) fail('release run checks | release run assemble');
@@ -177,11 +178,12 @@ export function releaseRun(root, step, { out, log = console.log, exec = run } = 
   if (b.built.length) results.push({ name: `build generated ${b.built.join(', ')}`, exit: 0, seconds: 0 });
   for (const f of b.findings) results.push({ name: `build generated ${f.file}`, exit: 1, seconds: 0, message: f.message });
   const list = inst.findings.length || b.findings.length ? [] : step === 'checks' ? rel.checks : [{ name: 'assemble', argv: rel.assemble, timeout_minutes: rel.assemble_timeout_minutes }];
+  const logs = list.length ? logDir || mkdtempSync(join(tmpdir(), `p3-release-${step}-`)) : null;
+  const put = { out: (t) => process.stdout.write(t), err: (t) => process.stderr.write(t), note: log };
   for (const c of list) {
     log(`::group::${c.name}`);
     const r = exec(c.argv[0], c.argv.slice(1), { cwd: root, timeout: c.timeout_minutes * MINUTE, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
-    process.stdout.write(r.stdout.slice(-20000));
-    process.stderr.write(r.stderr.slice(-20000));
+    keepStep(logs, results.length + 1, c.name, r.stdout, r.stderr, put);
     log('::endgroup::');
     const timedOut = r.seconds * 1000 >= c.timeout_minutes * MINUTE;
     results.push({ name: c.name, exit: r.code, seconds: Math.round(r.seconds), ...(timedOut && r.code !== 0 ? { message: `timed out after ${c.timeout_minutes} min` } : {}) });

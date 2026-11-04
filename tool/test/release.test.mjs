@@ -171,6 +171,24 @@ test('release run: each check within its timeout, results written; the assemble 
   assert.throws(() => releaseRun(empty, 'publish', { log: quiet }), /release run checks \| release run assemble/);
 });
 
+test('release run: a check that prints 1,600 lines keeps every line in its file; the log says how many were cut and where', () => {
+  const long = { name: 'long', argv: ['node', '-e', "for (let i = 1; i <= 1600; i++) console.log('line ' + i + ' ' + 'y'.repeat(20))"] };
+  const root = makeRepo({ 'process/config.json': { release: { checks: [long], assemble: ['node', '-e', '0'], out: 'rel' } } });
+  const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
+  const notes = [];
+  let shown = '';
+  const write = process.stdout.write;
+  process.stdout.write = (t) => { shown += t; return true; };
+  try { assert.equal(releaseRun(root, 'checks', { log: (m) => notes.push(m), logDir }).ok, true); } finally { process.stdout.write = write; }
+  const file = join(logDir, '01-long.log');
+  assert.equal(readFileSync(file, 'utf8').split('\n').filter((l) => l.startsWith('line ')).length, 1600);
+  assert.ok(shown.length === 20000 && shown.endsWith('line 1600 yyyyyyyyyyyyyyyyyyyy\n'));
+  const cut = notes.join('\n').match(/\[(\d+) line\(s\) left out before this tail; the whole output is in (\S+)\]/);
+  assert.equal(cut[2], file);
+  assert.equal(Number(cut[1]) + shown.split('\n').filter((l) => l).length, 1600, 'left out plus shown (the first perhaps in part) is every line');
+  assert.ok(notes.includes(`full output: ${file}`));
+});
+
 test('release sign: SHA256SUMS and an Ed25519 signature that verifies; no key, or another kind, refused', () => {
   const dir = mkdtempSync(join(tmpdir(), 'p3-rel-'));
   write(dir, { 'a.tgz': 'aaa', 'sub/b.json': 'bbb' });
