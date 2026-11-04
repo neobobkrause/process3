@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
-import { checkLedger, entryFile } from './ledger.mjs';
+import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { diffNames, entriesAt, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
@@ -115,7 +115,7 @@ export function merge(root, n, opts = {}) {
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
-  const id = pr.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
+  const id = branchModule(pr.head?.ref, ledgerIds(root, `origin/${cfg.tranche}`));
   // A job's pull request already merged: merge again only records its provider notices, the step
   // a failed state-branch write left undone (idempotent).
   if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) {
@@ -129,7 +129,7 @@ export function merge(root, n, opts = {}) {
   if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
   waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });
 
-  const branch = `job/${id}`;
+  const branch = pr.head.ref;
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
   if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
   // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's

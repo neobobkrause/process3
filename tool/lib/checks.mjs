@@ -114,11 +114,14 @@ export function refreshCheck(root, files, { ran, failed = false, others = [] }) 
 }
 
 const tail = (r) => (r.stdout + r.stderr).trim().split('\n').slice(-5).join(' ');
+// A failed command's own output for the log: the last 40 lines of its stdout and of its stderr
+// (run 41883960626: tail's five lines, joined, held none of the failed test's output).
+const lastLines = (r) => ['stdout', 'stderr'].filter((k) => String(r[k] || '').trim()).map((k) => `${k}, last 40 lines:\n${String(r[k]).trimEnd().split('\n').slice(-40).join('\n')}`).join('\n');
 
 // GAT-4: every row's regenerate command from the root, then the verify command of each row whose
 // paths then differ from the commit (an install's prepare may have written them already). Product code: without the GitHub tokens, within one suite timeout in all.
 // skip: rows this run already built (buildGenerated), regenerated once, not twice (review of PR 80).
-export function regenerate(root, rows, { timeout, exec = run, skip = new Set() }) {
+export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), log = () => {} }) {
   const end = Date.now() + timeout;
   const left = () => Math.max(1000, end - Date.now());
   const opts = () => ({ cwd: root, timeout: left(), unset: NO_TOKENS });
@@ -128,7 +131,10 @@ export function regenerate(root, rows, { timeout, exec = run, skip = new Set() }
   for (const r of rows) {
     if (skip.has(r)) continue;
     const g = exec(r.regenerate[0], r.regenerate.slice(1), opts());
-    if (g.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}): ${tail(g)}` });
+    if (g.code !== 0) {
+      findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}): ${tail(g)}` });
+      log(`${r.regenerate.join(' ')} failed (exit ${g.code}):\n${lastLines(g)}`);
+    }
   }
   for (const r of rows) {
     const changed = status(r) !== '';
@@ -136,8 +142,13 @@ export function regenerate(root, rows, { timeout, exec = run, skip = new Set() }
     if (changed) {
       const v = exec(r.verify[0], r.verify.slice(1), opts());
       row.verify = v.code;
-      if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after regenerating: ${tail(v)}` });
+      if (v.code !== 0) {
+        findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after regenerating: ${tail(v)}` });
+        log(`${r.verify.join(' ')} failed (exit ${v.code}) after regenerating ${r.paths.join(', ')}:\n${lastLines(v)}`);
+      }
     }
+    // Every row the gate row's generated lists, in the log too (run 41883960626 logged only the built rows).
+    log(`generated, regenerated: ${r.paths.join(', ')}: ${changed ? `changed, ${r.verify.join(' ')}: exit ${row.verify}` : 'unchanged'}`);
     ran.push(row);
   }
   return { findings, ran };
@@ -166,8 +177,10 @@ export function buildGenerated(root, rows, { ref = 'HEAD', timeout, exec = run, 
     ran.add(r);
     const g = exec(r.regenerate[0], r.regenerate.slice(1), { cwd: root, timeout: Math.max(1000, end - Date.now()), unset: NO_TOKENS });
     log(`generated, built (not committed): ${paths.join(', ')}: ${r.regenerate.join(' ')}: exit ${g.code}`);
-    if (g.code !== 0) findings.push({ check: 'generated', file: paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}) building ${paths.join(', ')}: ${tail(g)}` });
-    else built.push(...paths);
+    if (g.code !== 0) {
+      findings.push({ check: 'generated', file: paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}) building ${paths.join(', ')}: ${tail(g)}` });
+      log(lastLines(g));
+    } else built.push(...paths);
   }
   return { findings, built, ran };
 }

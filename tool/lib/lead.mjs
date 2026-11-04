@@ -6,7 +6,7 @@
 // history is missing for reads "unmeasured"; each is set beside its target.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { entryFile } from './ledger.mjs';
+import { branchModule, entryFile, jobBranch } from './ledger.mjs';
 import { readModules } from './notice.mjs';
 import { messages } from './state.mjs';
 import { DEFAULTS, git } from './util.mjs';
@@ -374,20 +374,22 @@ export function leadInputs(root, sb, read, tranche) {
 // for one: module -> its ref, or null when origin has no such branch; undefined when origin is
 // unread. In a shallow clone each is fetched --shallow-exclude=<main> (its commits main lacks),
 // before report.mjs's deepen() mends the tranche's history beneath them.
-export function fetchJobs(root, mods = null, main = 'main') {
+// Each module's branch is the one jobBranch names (ids: the ledger's, so job/<id>-<n> is <id>'s).
+export function fetchJobs(root, mods = null, main = 'main', ids = new Set()) {
   if (mods && !mods.length) return new Map();
   const ls = out(root, ['ls-remote', 'origin', 'refs/heads/job/*']);
   if (ls === null) return undefined;
-  const there = new Set(ls.split('\n').map((l) => l.split('\t')[1]).filter(Boolean));
-  mods ||= [...there].map((r) => r.slice('refs/heads/job/'.length)).sort();
+  const there = new Set(ls.split('\n').map((l) => l.split('\t')[1]?.trim().slice('refs/heads/'.length)).filter(Boolean));
+  mods ||= [...new Set([...there].map((h) => branchModule(h, ids)).filter(Boolean))].sort();
   const shallow = (out(root, ['rev-parse', '--is-shallow-repository']) || '').trim() === 'true';
   const map = new Map();
-  const spec = (m) => `+refs/heads/job/${m}:refs/remotes/origin/job/${m}`;
+  const at = (m) => jobBranch(m, there, ids);
+  const spec = (m) => `+refs/heads/${at(m)}:refs/remotes/origin/${at(m)}`;
   const fetch = (ms) => out(root, ['fetch', '-q', ...(shallow ? [`--shallow-exclude=${main}`] : []), 'origin', ...ms.map(spec)]) !== null;
-  const have = mods.filter((m) => there.has(`refs/heads/job/${m}`));
+  const have = mods.filter((m) => there.has(at(m)));
   for (const m of mods) if (!have.includes(m)) map.set(m, null);
-  if (have.length && fetch(have)) for (const m of have) map.set(m, `refs/remotes/origin/job/${m}`);
-  else for (const m of have) if (fetch([m])) map.set(m, `refs/remotes/origin/job/${m}`); // unfetched: left out, unmeasured
+  if (have.length && fetch(have)) for (const m of have) map.set(m, `refs/remotes/origin/${at(m)}`);
+  else for (const m of have) if (fetch([m])) map.set(m, `refs/remotes/origin/${at(m)}`); // unfetched: left out, unmeasured
   return map;
 }
 

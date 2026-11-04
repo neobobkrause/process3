@@ -9,7 +9,7 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { SILENT_HOURS, isArchived, layerState, nextWork, owedNotices, readSessions, sessionActs, status } from './status.mjs';
+import { SILENT_HOURS, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, status } from './status.mjs';
 import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -132,10 +132,10 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     for (const r of rows) {
       if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') owed.push(`${r.id}: BLOCKED`);
       else if (r.flag === 'WORKING, nothing pushed') {
-        const age = t - ct(root, [`origin/job/${r.id}`]);
+        const age = t - ct(root, [`origin/${refOf(r)}`]);
         if (age > SILENT_HOURS * H) owed.push(`${r.id}: WORKING, nothing pushed for ${hours(age)}h`);
       } else if (r.flag?.startsWith('WORKING, no push for')) {
-        owed.push(`${r.id}: WORKING, no push for ${hours(t - ct(root, [`origin/job/${r.id}`]))}h`);
+        owed.push(`${r.id}: WORKING, no push for ${hours(t - ct(root, [`origin/${refOf(r)}`]))}h`);
       }
     }
     owed.push(...overMedian(root, tranche, attempts));

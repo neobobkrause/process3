@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
-import { readLedgerTexts } from './ledger.mjs';
+import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
 import { idleByDay, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
@@ -120,7 +120,7 @@ export function deepen(root, tranche, main = 'main') {
 // tranche's history. Returns { jobRefs, jobRows, deepened }. A failed fetch refuses (copy, 4 Nov: a stale tip).
 export function leadFetch(root, cfg) {
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root });
-  const jobRefs = fetchJobs(root);
+  const jobRefs = fetchJobs(root, null, 'main', ledgerIds(root, `origin/${cfg.tranche}`));
   const jobRows = [...(jobRefs || new Map())].flatMap(([m, r]) => (r ? rowsAt(root, r).filter((x) => x.module === m) : []));
   return { jobRefs, jobRows, deepened: deepen(root, cfg.tranche) };
 }

@@ -2,7 +2,7 @@
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
-import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
+import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
@@ -54,6 +54,9 @@ export const isArchived = (x) => state(x) === 'archived';
 export const isIdle = (x) => state(x) === 'idle' || ['completed', 'failed', 'review_ready'].includes(lower(x.status_bucket));
 // A job's result recorded: COMPLETE (on the tranche, or on its branch, its pull request ready),
 // no attempt reopened and nothing flagged. Its idle sessions can go (job start --ready, sweep).
+// A status row's job branch: its ref when a --fresh-branch start moved it, else job/<id>.
+export const refOf = (r) => r.ref || `job/${r.id}`;
+const jobHeads = (h) => [...(h || [])].filter((x) => x.startsWith('refs/heads/job/')).map((x) => x.slice(11));
 export const jobDone = (r) => (r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
   && !/^(WORKING|BLOCKED)/.test(String(r.branch || '')) && !/draft|unknown/.test(String(r.pr || '')) && !r.flag;
 
@@ -126,9 +129,10 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     // on that branch only (the state branch is fetched here once; bobStatus reuses the fetch).
     const noticed = new Set();
     if (role === 'bob') { try { if (fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
-    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(`job/${e.id}`) || noticed.has(e.id)) ? [`refs/heads/job/${e.id}`] : []; } catch { return []; } })]);
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     if (ls.code === 0) originHeads = new Set(ls.stdout.split('\n').map((l) => l.trim().split('\t')[1]).filter(Boolean));
+    const kids = new Set(Object.keys(known).map((f) => f.slice(LEDGER_DIR.length + 1, -5)));
+    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); const jb = e.id && jobBranch(e.id, jobHeads(originHeads), kids); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(jb) || noticed.has(e.id)) ? [`refs/heads/${jb}`] : []; } catch { return []; } })]);
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
       && local.get(`refs/remotes/origin/${r.slice(11)}`) !== sha);
@@ -137,19 +141,24 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const haveTranche = haveRef();
   const onTranche = haveTranche ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
   const rows = [];
+  const ids = new Set(Object.keys(onTranche).map((f) => f.slice(LEDGER_DIR.length + 1, -5)));
+  // origin's job heads; with none read, the ones this clone has fetched.
+  const jheads = originHeads ? jobHeads(originHeads) : git(['for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin/job/'], { cwd: root }).split('\n').filter(Boolean);
   for (const [file, text] of Object.entries(onTranche)) {
     let e;
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
-    const branch = `origin/job/${e.id}`;
+    // The job's branch (ledger.mjs jobBranch): job/<id>, or a --fresh-branch start's job/<id>-<n>.
+    const jb = jobBranch(e.id, jheads, ids);
+    const branch = `origin/${jb}`;
     const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
-    const row = { id: e.id, tranche: e.status?.state, req: e.requirements };
+    const row = { id: e.id, tranche: e.status?.state, req: e.requirements, ...(jb !== `job/${e.id}` ? { ref: jb } : {}) };
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
     if (e.status?.state === 'BLOCKED' && e.status.reason) row.blocked = e.status.reason;
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
       try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
-      const ahead = haveTranche ? aheadBy(root, { slug, base: cfg.tranche, head: `job/${e.id}`, local: [tranche, branch], read: io.compare }) : null;
+      const ahead = haveTranche ? aheadBy(root, { slug, base: cfg.tranche, head: jb, local: [tranche, branch], read: io.compare }) : null;
       row.ahead = ahead;
       // A job whose pull request merged (its entry COMPLETE on the tranche, every commit of its
       // branch on the tranche) is the tranche's: its branch, not fetched once COMPLETE, can hold
@@ -163,7 +172,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
       if (!merged && s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
     }
-    const pr = prs?.find((p) => p.head?.ref === `job/${e.id}`);
+    const pr = prs?.find((p) => p.head?.ref === jb);
     if (pr) {
       row.pr = `#${pr.number}${pr.draft ? ' draft' : ' ready'}`;
       row.updated = pr.updated_at || null;
@@ -193,7 +202,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
     }
     // OPEN on the tranche, origin read, and no job branch and no pull request: never started.
-    if ((prs !== null || (offline && givenHeads)) && originHeads && !originHeads.has(`refs/heads/job/${e.id}`) && e.status?.state === 'OPEN' && !row.branch && !row.pr?.startsWith('#') && !row.flag) row.unstarted = true;
+    if ((prs !== null || (offline && givenHeads)) && originHeads && !originHeads.has(`refs/heads/${jb}`) && e.status?.state === 'OPEN' && !row.branch && !row.pr?.startsWith('#') && !row.flag) row.unstarted = true;
     // A deferred module's pull request, GitHub unread: unknown, so the layer is held.
     if (prs === null && row.blocked && !row.pr) row.pr = 'unknown (GitHub not read)';
     rows.push(row);
@@ -277,7 +286,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   }
   for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
   L.push(`merged: ${merged}`);
-  const jobs = new Set(rows.map((r) => `job/${r.id}`));
+  const jobs = new Set(rows.map(refOf));
   // Tranche carry (SHM-4): an open pull request no ledger entry owns stays under "to take in"
   // until a job takes it in or it is closed; one already taken in is listed as other.
   const carry = prs ? toTakeIn(root, { slug, ref: tranche, prs, files: prList }) : [];
@@ -441,7 +450,7 @@ export function noticeSlots(root, cfg, rows) {
     const row = rows.find((x) => x.id === u);
     let out = [];
     if (row?.branch) {
-      const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
+      const t = git(['show', `origin/${refOf(row)}:${metricsFile(u)}`], { cwd: root, allowFail: true });
       const keys = t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
       const open = row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#') || row.ahead > 0;
       if (!open) unrecorded[u] = keys;

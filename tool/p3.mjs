@@ -9,7 +9,7 @@ import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneAsk } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
-import { checkLedger } from './lib/ledger.mjs';
+import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
@@ -76,7 +76,8 @@ const commands = {
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --take-in, on work made before Process3, every file of it inside the module's paths;
-  // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job.
+  // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job;
+  // --fresh-branch "<why>", a new attempt on job/<id>-<n> cut from the tranche tip, when the job's branch cannot merge (the old branch is kept).
   // No job starts (a reopen included) until the tranche open's grants check has passed; a restart
   // continues a job already started.
   'job start': (a, root) => {
@@ -88,12 +89,12 @@ const commands = {
     }
     // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
     if (a.ready) {
-      if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap');
+      if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap'], a['fresh-branch']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap, --fresh-branch');
       return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions }).ok ? 0 : 1;
     }
-    if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
+    if ([a.reopen, a.restart, a['take-in'], a['fresh-branch']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart, --take-in and --fresh-branch');
     if (a.stop !== undefined && a.restart === undefined) fail('--stop archived|idle goes with --restart: how the replaced session stopped');
-    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], overCap: a['over-cap'] });
+    jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'] });
     return 0;
   },
 
@@ -419,8 +420,8 @@ const commands = {
     const s = recordSince(root, { base, head });
     // A take-in's earlier work, before its start commit, is left out (takenIn): on job/<id> that
     // job's, on any other branch every module's.
-    const job = String(a.branch || '').match(/^job\/(.+)$/);
-    const t = takenIn(root, { base, head, id: job ? job[1] : undefined });
+    const job = branchModule(String(a.branch || ''), ledgerIds(root, head));
+    const t = takenIn(root, { base, head, id: job || undefined });
     const { commits, findings, notices, size_waived } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips });
     if (s.finding) findings.push(s.finding);
     findings.push(...t.findings);
