@@ -32,6 +32,22 @@ export function openPRs(slug, base) {
   return Array.isArray(pages) ? pages.flat() : null;
 }
 
+// Every pull request, open, closed or merged, whose head is this repository's branch; null when
+// unreadable. Pull requests cannot be deleted, so this is every PR a run on the branch could be.
+export function prsFromBranch(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const owner = String(slug).split('/')[0];
+  const pages = read(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=all&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=100`]);
+  return Array.isArray(pages) ? pages.flat() : null;
+}
+
+// Whether a pull request's base was ever changed, by hand or by GitHub when the base branch was
+// deleted (issue events): the pulls API shows only the current base. null when unreadable.
+const BASE_CHANGES = ['base_ref_changed', 'automatic_base_change_succeeded', 'automatic_base_change_failed'];
+export function baseEverChanged(slug, n, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const pages = read(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/events?per_page=100`]);
+  return Array.isArray(pages) && pages.every(Array.isArray) ? pages.flat().some((e) => BASE_CHANGES.includes(e?.event)) : null;
+}
+
 export function createPR(slug, { head, base, title, body, draft = true }) {
   const pr = gh(['api', '-X', 'POST', `repos/${slug}/pulls`, '--input', '-'], {
     input: JSON.stringify({ head, base, title, body, draft }),
@@ -118,8 +134,10 @@ export function runArtifactRow(slug, id) {
     return JSON.parse(readFileSync(join(dir, 'gate.json'), 'utf8')).run || null;
   } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
 }
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'refresh'];
-export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifactRow }) {
+// scope and after too: the tranche cover trusts a row for the module it ran and the run it stood on.
+// refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh'];
+export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
   if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
@@ -127,8 +145,15 @@ export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifact
   // commit into a branch that carries a workflow of its own.
   // (Every pull request GitHub lists for the run must be into the tranche, in case it lists
   // all open PRs that share the head branch.)
+  // Once the pull request merges, GitHub lists none on its runs (measured on the copy 4 Nov:
+  // registers PR 86, run 41778833434; site PR 79, run 41779185745). A merged job PR's run is
+  // bound instead by what GitHub keeps (merged, passed only by the tranche cover once it has read
+  // the merged PR): the run was on the PR's branch, in this repository, and green; the caller
+  // binds the row's commits to the PR's head and the tranche.
   const prs = a.pull_requests || [];
-  if (a.event !== 'pull_request' || !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)) return false;
+  if (a.event !== 'pull_request') return false;
+  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)
+    : !merged || a.head_branch !== merged.branch || a.head_repository?.full_name !== slug || a.conclusion !== 'success') return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);
   return !!art && SAME.every((k) => JSON.stringify(art[k] ?? null) === JSON.stringify(row[k] ?? null));

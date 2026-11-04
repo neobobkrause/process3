@@ -162,7 +162,13 @@ export function recordSince(root, { base, head = 'HEAD' } = {}) {
 // writes: a full commit id; the first parent of a commit in the range that adds a start row
 // naming it; and no commit it leaves out writes the job's metrics file, so no job start, and
 // nothing made after one, can be hidden behind a later row. Otherwise it is a finding and
-// nothing is left out. On a branch other than job/<id> every module's rows are read.
+// nothing is left out. Only a row the range adds is judged so: one the base already holds was
+// judged where it landed, and gives no finding while not honouring it leaves nothing of the range
+// out (copy, 4 Nov, bundler and registers). Where it would, it is judged by the same checks as a
+// row the range adds, and honoured only if a commit in the range is its take-in (in a whole
+// history that commit cannot lie under the base: the tip and its history would lie there too).
+// Not honouring a row never hides a commit. On a branch other than job/<id> every module's rows
+// are read.
 export function takenIn(root, { base, head = 'HEAD', id } = {}) {
   const out = { tips: [], findings: [] };
   // On job/<id>, that job's rows; on any other branch (the tranche, its pull request into main),
@@ -180,8 +186,24 @@ export function takenIn(root, { base, head = 'HEAD', id } = {}) {
     const claimed = [...new Set(rowsAt(head).filter((r) => r.event === 'start' && r.take_in && 'tip' in r.take_in).map((r) => r.take_in.tip))];
     for (const tip of claimed) {
       const bad = (why) => out.findings.push({ check: 'record', file, line: 1, message: `the take-in tip ${String(tip).slice(0, 10)} is not used to leave out earlier work: ${why}` });
-      if (typeof tip !== 'string' || !/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(tip)) { bad('it is not a full commit id'); continue; }
-      if (git(['rev-parse', '-q', '--verify', `${tip}^{commit}`], { cwd: root, allowFail: true }).code !== 0) { bad('no such commit here'); continue; }
+      const full = typeof tip === 'string' && /^([0-9a-f]{40}|[0-9a-f]{64})$/.test(tip);
+      const here = full && git(['rev-parse', '-q', '--verify', `${tip}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+      // A row the base already holds came with an earlier attempt, a merge of the tranche or a
+      // job sync, and was judged where it landed (copy, 4 Nov: bundler's attempt 5 and registers
+      // met attempt 1's rows, their take-in commits hundreds of commits below the base; the
+      // session's clone was shallow, its base history cut above them, so the tip read as new and
+      // its adder as missing from the range). Not honouring it leaves nothing out, so it gives no
+      // finding, unless the tip's history holds commits of this range that it would leave out:
+      // then it is judged below by the same checks as a row the range adds. Counted against the
+      // head, so a shallow clone, whose base history is cut, does not count the tip's own history
+      // as the range's.
+      if (base && names(base, tip)) {
+        if (!here) continue;
+        const reach = (...extra) => Number(git(['rev-list', '--count', tip, ...not, ...extra], { cwd: root }));
+        if (reach() === reach(`^${head}`)) continue;
+      }
+      if (!full) { bad('it is not a full commit id'); continue; }
+      if (!here) { bad('no such commit here'); continue; }
       if (git(['rev-list', '--count', tip, ...not], { cwd: root }) === '0') continue; // already in the base: nothing to leave out
       range ||= git(['rev-list', '--parents', head, ...not], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' '));
       if (!range.some(([c, first]) => first === tip && names(c, tip) && !names(tip, tip))) { bad('no commit in the range has it as its first parent and adds the start row naming it'); continue; }

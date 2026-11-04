@@ -1,5 +1,7 @@
 # Process3 gate (GAT-1): the required check "gate" on every pull request tip. The tool runs at
-# the BASE's process pin, so a pull request that moves the pin is judged by the old one. The
+# the BASE's process pin, so a pull request that moves the pin is judged by the old one. The one
+# exception is the tranche into main, judged by the tranche's pin when process3's own history
+# shows it descends from main's (job gate only; job post stays at the base's pin). The
 # checkout is GitHub's merge of the head into the base: the suite runs on the merged result.
 # The record check runs here too: a pull_request_target workflow runs only from the default
 # branch (measured 1 Nov on process3), so a check judged wholly by the base cannot run from a
@@ -44,6 +46,11 @@ jobs:
         id: pin
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         run: |
           # The judge is the base's pin. Only a base with no Process3 at all (the setup pull
           # request) falls back to the head's pin; removing the pin later is a record finding.
@@ -58,12 +65,32 @@ jobs:
           else cfg=$(git show "HEAD:process/config.json" 2>/dev/null || echo '{}'); fi
           repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
+          # The tranche into main (build/main-gate-2, 4 Nov): main's pin can be older than the
+          # code that gated the tranche's jobs, and would run every suite past the 45 min cap.
+          # The tranche's own pin judges instead, only when it is a descendant of main's pin on
+          # process3's own main or tranche, checked in the clone of the base's process_repo: a
+          # later process, merged through process3's gate and review, that the tranche's job PRs
+          # were judged by. This step itself comes from the merge commit's workflow file, as every
+          # step does; merge's shim rule and Bob's ruleset stand behind that. Job post stays at
+          # the base's pin, so a row field the older checkRow refuses posts no comment (fails closed).
+          tranche=$(echo "$cfg" | jq -r '.tranche // empty')
+          if [ -n "$tranche" ] && [ "$HEAD_REF" = "$tranche" ] && [ "$BASE_REF" = "$DEFAULT_BRANCH" ] && [ "$SAME_REPO" = "true" ] \
+            && hpin=$(git rev-parse -q --verify "$HEAD_SHA:.process") && [ "$hpin" != "$pin" ]; then
+            p3() { git -C "$RUNNER_TEMP/process3" "$@"; }
+            if p3 merge-base --is-ancestor "$pin" "$hpin" 2>/dev/null \
+              && { p3 merge-base --is-ancestor "$hpin" refs/remotes/origin/main 2>/dev/null || p3 merge-base --is-ancestor "$hpin" refs/remotes/origin/tranche 2>/dev/null; }; then
+              echo "::notice::the tranche into $BASE_REF: the tranche's pin $hpin, a descendant of the base's $pin on process3, judges"
+              pin=$hpin
+            else
+              echo "::warning::the tranche's pin $hpin is not a descendant of the base's $pin on process3's main or tranche; the base's pin judges"
+            fi
+          fi
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ steps.pin.outputs.node }}
-      - name: record check (size, paths, approvals, ledger), by the base's pin, before any product code runs
+      - name: record check (size, paths, approvals, ledger), by the pin above, before any product code runs
         env:
           GH_TOKEN: ${{ github.token }}
           BASE: ${{ github.event.pull_request.base.sha }}
