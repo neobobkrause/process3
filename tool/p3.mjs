@@ -5,7 +5,7 @@
 // every product carries the shim without the legacy path; review B of PR 32)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
-import { pinMove } from './lib/pin.mjs';
+import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneAsk } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
@@ -100,7 +100,11 @@ const commands = {
   // pin move <product slug> --report <session id> --why "<what it unblocks>" [--pin <sha>] [--tranche <name>]:
   // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
   // move as one short session's create_session call (pin default: process3's tranche tip).
-  'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why }); return 0; },
+  // Refused while a pin move (a pull request from a p3/pin-* head) is open on the product;
+  // --supersedes <pr> closes that one as superseded (a comment and a close, its branch kept).
+  'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why, supersedes: a.supersedes }); return 0; },
+  // pin check <product slug>: the pin-move session's check right before it pushes; exit 1 while a pin move is open.
+  'pin check': (a) => { pinCheck(a._[0]); return 0; },
 
   // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) per brief printed,
   // in parallel when the list is over one worker's share; writes nothing. --record <file> --worker

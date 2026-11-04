@@ -808,3 +808,56 @@ test('merge --plain: a requirement file a job owns takes only added new unmet fo
   git(['checkout', '-q', 'main'], { cwd: both.root });
   assert.throws(() => mergePlain(both.root, 7, { ...q, noReview: 'x', io: plainIO({ ...both, sha }).io }), /changes module files, which go through a job: src\/alpha\/index\.mjs \(alpha\)/);
 });
+
+// Copy PR 108 (4 Nov): it conflicted on the .process gitlink, GitHub started no gate run on it,
+// and merge --plain waited 10+ minutes on "gate: not started". A pull request that cannot merge
+// is refused at once; one whose mergeable state is not yet computed is read again briefly.
+test('merge --plain refuses a conflicted pull request at once, before waiting on any check', () => {
+  const r = plainRepo();
+  for (const state of [{ mergeable: false, mergeable_state: 'dirty' }, { mergeable: false }, { mergeable: null, mergeable_state: 'dirty' }]) {
+    const checked = [];
+    const f = plainIO(r, { after: undefined, runs: () => { checked.push(1); return []; } });
+    const get = f.io.getPR;
+    f.io.getPR = (...a) => ({ ...get(...a), ...state });
+    assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', every: 0, io: f.io }), (e) => e.message === 'pull request 4 conflicts with tranche; nothing was merged');
+    assert.equal(checked.length, 0, 'no required check was waited on');
+    assert.equal(f.calls.merged, null);
+  }
+});
+
+test('merge --plain reads a not-yet-computed mergeable state again briefly, then goes on or refuses', () => {
+  const r = plainRepo();
+  const seq = (states) => {
+    const f = plainIO(r);
+    const get = f.io.getPR;
+    let i = 0;
+    f.io.getPR = (...a) => ({ ...get(...a), mergeable: states[Math.min(i++, states.length - 1)] });
+    return f;
+  };
+  const logs = [];
+  const ok = seq([null, null, true]);
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', mergeableEvery: 0, log: (m) => logs.push(m), io: ok.io }).merged, true);
+  assert.equal(logs.filter((l) => l === 'waiting for GitHub to compute whether pull request 4 can merge').length, 2);
+  const late = seq([null, false]);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', mergeableEvery: 0, io: late.io }), /pull request 4 conflicts with tranche; nothing was merged/);
+  assert.equal(late.calls.merged, null);
+});
+
+test('waitMergeable refuses when GitHub never computes the state within its minutes', async () => {
+  const { waitMergeable } = await import('../lib/merge.mjs');
+  const pr = { base: { ref: 'tranche' }, mergeable: null };
+  assert.throws(() => waitMergeable('o/r', 4, pr, { minutes: 0, every: 0, read: () => pr, log: () => {} }), /GitHub has not said whether pull request 4 can merge after 0 min; nothing was merged/);
+  assert.equal(waitMergeable('o/r', 4, { ...pr, mergeable: true }, { read: () => assert.fail('no read') }).mergeable, true);
+});
+
+test('merge (a job\'s) refuses a conflicted pull request at once, before reading its gate', () => {
+  const { root, head } = setup();
+  const f = io(head);
+  const get = f.io.getPR;
+  f.io.getPR = (...a) => ({ ...get(...a), mergeable: false, mergeable_state: 'dirty' });
+  let gateRead = 0;
+  f.io.checkRun = () => { gateRead++; return { status: 'completed', conclusion: 'success' }; };
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'r', rounds: 1, log: () => {} }), (e) => e.message === 'pull request 3 conflicts with tranche; nothing was merged');
+  assert.equal(gateRead, 0);
+  assert.equal(f.calls.merged, null);
+});
