@@ -1,13 +1,15 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
+import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
@@ -164,21 +166,36 @@ export function gate(root, opts) {
     // ARC-4: the entry's own checks, as job complete runs them.
     if (entry && !inst.length) findings.push(...entryChecks(root, entry, { timeout, log }));
     const results = [];
+    const tolerated = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout });
+      const s = runSuite(root, e, undefined, { timeout, events: eventsFile() });
       results.push(s);
       if (s.exit !== 0) {
-        findings.push(F('suite', e.tests[0], `the ${e.id} suite failed (exit ${s.exit}${/ETIMEDOUT/.test(s.output) ? ', timed out' : ''}): ${JSON.stringify(s.tests)}`));
+        // Base-red (basered.mjs): the failing tests run again at the tranche tip the PR merges
+        // into; failures the base has too are not the PR's. Never for the tranche into main,
+        // where every failure tolerated on the way is owed.
+        const left = timeout - s.seconds * 1000;
+        const br = branch !== cfg.tranche && !/ETIMEDOUT/.test(s.output) && left > 10000
+          ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout: left, ...(exec ? { exec } : {}), log })
+          : null;
+        if (br?.ok) {
+          s.baseRed = true;
+          tolerated.push({ module: e.id, ...br.base_red });
+          log(`the ${e.id} suite failed (exit ${s.exit}), but each of its ${br.base_red.tests.length} failing test(s) fails at the base ${String(revertBase).slice(0, 10)} too: tolerated as base-red, owed at the layer close and the tranche into main:\n${br.base_red.tests.map((t) => `  ${t}`).join('\n')}`);
+          continue;
+        }
+        findings.push(F('suite', e.tests[0], `the ${e.id} suite failed (exit ${s.exit}${/ETIMEDOUT/.test(s.output) ? ', timed out' : ''}): ${JSON.stringify(s.tests)}${br ? `; not base-red: ${br.why}` : ''}`));
         log(s.output.split('\n').slice(-60).join('\n'));
       } else if (!s.tests.total) findings.push(F('suite', e.tests[0], `zero tests ran in ${e.id}`));
     }
+    if (tolerated.length) runRow.base_red = tolerated;
     if (scope.length) {
-      runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : 'fail';
+      runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
       runRow.suite_seconds = results.reduce((t, s) => t + s.seconds, 0);
     }
     // JOB-12: the job's new or changed tests must fail with its change reverted.
-    if (entry && runRow.suite === 'pass') {
+    if (entry && ['pass', 'base-red'].includes(runRow.suite)) {
       const exempt = receipt?.module === job ? receipt.exempt?.revert : undefined;
       const tests = changed.filter((f) => entry.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(entry)) && existsSync(join(root, f)));
       // The requirements file's struck marks are not code: reverting them proves nothing.
@@ -189,7 +206,7 @@ export function gate(root, opts) {
       } else if (!code.length) {
         runRow.revert = 'no code changed';
       } else {
-        const r = revertCheck(root, entry, revertBase, code, tests, { timeout });
+        const r = revertCheck(root, entry, revertBase, code, tests, { timeout, tolerated: (runRow.base_red || []).flatMap((b) => b.tests) });
         runRow.revert = r.inert.length ? (exempt ? 'exempt' : 'fail') : 'pass';
         runRow.inert = r.inert;
         // A test that fails only because a new file is gone cannot load; it is not proof the
@@ -241,10 +258,11 @@ export function gate(root, opts) {
       const suite = measured?.ok ? lastGreen.suite : runRow.suite;
       if (measured?.ok) runRow.receipt_measured = lastGreen.sha;
       else if (measured) runRow.receipt_unmeasured = measured.why;
+      const red = measured?.ok ? lastGreen.base_red : runRow.base_red;
       runRow.receipt = !onBranch ? 'wrong commit'
         : measured && !measured.ok ? 'unmeasured'
-          : suite === 'skipped' ? 'present' : claim === suite ? 'agrees' : 'disagrees';
-      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : 'failed'}; the gate's run${measured?.ok ? ` on ${String(lastGreen.sha).slice(0, 10)}` : ''} ${suite === 'pass' ? 'passed' : 'failed'}`));
+          : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red) ? 'agrees' : 'disagrees';
+      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : claimedRed(claimed).length ? `failed only on base-red test(s) ${claimedRed(claimed).slice(0, 3).join('; ')}` : 'failed'}; the gate's run${measured?.ok ? ` on ${String(lastGreen.sha).slice(0, 10)}` : ''} ${suite === 'pass' ? 'passed' : suite === 'base-red' ? `failed only on test(s) that fail at the base too, ${redIds(red).slice(0, 3).join('; ')}` : 'failed'}`));
       if (runRow.receipt === 'unmeasured') log(`receipt attempt ${receipt.attempt} is not checked: ${measured.why}`);
     }
   }
@@ -257,13 +275,26 @@ export function gate(root, opts) {
   return { run: runRow, findings, changed };
 }
 
+// The receipt against the gate's suite. A base-red suite (basered.mjs) agrees with a receipt
+// whose suite passed (the job's own run, on its branch, had none of the base's failures) or
+// failed naming each test the gate tolerated (job complete records them); a receipt naming
+// base-red tests agrees with a suite that passed (the base was fixed since).
+const claimedRed = (c) => (Array.isArray(c?.base_red) ? c.base_red.filter((t) => typeof t === 'string' && /^[^:]+::./.test(t)) : []);
+const redIds = (rows) => (Array.isArray(rows) ? rows.flatMap((r) => (Array.isArray(r?.tests) ? r.tests : [])) : []);
+export function receiptAgrees(claimed, suite, red) {
+  const claim = claimed ? (claimed.exit === 0 ? 'pass' : claimedRed(claimed).length ? 'base-red' : 'fail') : 'none';
+  if (claim === suite) return claim !== 'base-red' || redIds(red).every((t) => claimedRed(claimed).includes(t));
+  if (suite === 'base-red' && claim === 'pass') return true;
+  return suite === 'pass' && claim === 'base-red';
+}
+
 // Whether the last green code run measured what a receipt claims: the receipt was made on a
 // commit whose files, records aside, are that run's (the same tree, so the same suite and
 // results), that run ran the job's suite, and a revert exemption that run relied on is still
 // claimed. { ok } or { ok: false, why }.
 function measuredBy(root, cfg, receipt, green) {
   const job = receipt.module;
-  if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, did not run the ${job} suite` };
+  if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail', 'base-red'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, did not run the ${job} suite` };
   const same = git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     && diffNames(root, green.sha, receipt.sha).every((f) => isRecordPath(cfg, f));
   if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${String(green.sha).slice(0, 10)}, tested` };
@@ -398,6 +429,7 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch } };
   const isAnc = (a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
   const bound = (r) => isAnc(r.sha, p2) && isAnc(r.base, p1) && io.verify(slug, r, ctx);
+  // A base-red run (basered.mjs) does not cover: the tranche runs that suite again, tolerating nothing.
   const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
   const row = runs.filter((r) => r.sha === p2).pop();
   if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
@@ -458,12 +490,26 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
   return { posted: true, comment, row };
 }
 
+// A fresh file for fail-reporter.mjs's lines, outside the checkout, removed at exit.
+const eventDirs = [];
+function eventsFile() {
+  if (!eventDirs.length) {
+    eventDirs.push(mkdtempSync(join(tmpdir(), 'p3-failing-')));
+    process.once('exit', () => rmSync(eventDirs[0], { recursive: true, force: true }));
+  }
+  return join(eventDirs[0], `${process.pid}-${eventDirs.length++}.jsonl`);
+}
+
 const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
 
 // Reverts the code files to the base, runs each test file alone, restores each file to HEAD
 // (removing any HEAD does not have). Returns the test files that still pass, and those that
 // failed only because something could not load. Runs in place: CI's checkout is disposable.
-export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
+// tolerated: the base-red test ids (basered.mjs). A file holding one fails at the revert whatever
+// the job's own tests do, so it counts as not inert only when a test other than those fails;
+// when its failures cannot be read per test, it proves nothing and counts as inert (review of
+// PR 101).
+export function revertCheck(root, entry, base, code, tests, { timeout, tolerated = [] } = {}) {
   const inert = [];
   const loadOnly = [];
   try {
@@ -472,8 +518,9 @@ export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
-      const r = runSuite(root, entry, [t], { timeout });
-      if (r.exit === 0) inert.push(t);
+      const holds = tolerated.some((id) => id.startsWith(`${t}::`));
+      const r = runSuite(root, entry, [t], { timeout, ...(holds ? { events: eventsFile() } : {}) });
+      if (r.exit === 0 || (holds && (!r.failing || r.failing.every((x) => tolerated.includes(testId(x)))))) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }
   } finally {

@@ -1,7 +1,8 @@
 // A module's own suite (GAT-2): the entry's command over the entry's test files, nothing else.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join, posix, relative } from 'node:path';
+import { dirname, isAbsolute, join, posix, relative } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NO_TOKENS, run, underPath } from './util.mjs';
 
 export const suffixOf = (entry) => entry.suite.test_suffix || '.test.mjs';
@@ -31,15 +32,41 @@ export function counts(text) {
 // Runs the suite over the given files (default: all of the entry's). Files are root-relative.
 // Product code never gets the GitHub or Actions tokens (NO_TOKENS); every other variable stays,
 // since a module's tests may use them (Bob, 2 Nov: deploy tokens are a standard condition).
+// opts.events: a file the failing tests are written to by fail-reporter.mjs (base-red), beside
+// the TAP the runner prints, when the command is the node test runner naming no reporter.
+export const REPORTER = join(dirname(fileURLToPath(import.meta.url)), 'fail-reporter.mjs');
+export const reportsEvents = (command) => /(^|\/)node$/.test(command[0]) && command.includes('--test') && !command.some((a) => a.startsWith('--test-reporter'));
 export function runSuite(root, entry, files = testFiles(root, entry), opts = {}) {
   const cwd = join(root, entry.suite.cwd);
-  const args = [...entry.suite.command.slice(1), ...files.map((f) => relative(cwd, join(root, f)))];
-  const shown = [entry.suite.command[0], ...args].join(' ');
+  const events = opts.events && reportsEvents(entry.suite.command)
+    ? ['--test-reporter=tap', '--test-reporter-destination=stdout', `--test-reporter=${pathToFileURL(REPORTER).href}`, `--test-reporter-destination=${opts.events}`] : [];
+  const own = entry.suite.command.slice(1);
+  const at = own.indexOf('--test') + 1; // the reporter flags right after --test, before any pattern
+  const args = [...own.slice(0, at), ...events, ...own.slice(at), ...files.map((f) => relative(cwd, join(root, f)))];
+  const shown = [entry.suite.command[0], ...args.filter((a) => !events.includes(a))].join(' ');
   if (!files.length) return { cmd: shown, cwd: entry.suite.cwd, exit: 1, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, output: 'no test files' };
   // A suite run from inside another test run must not report to the outer runner.
   const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, unset: ['NODE_TEST_CONTEXT', ...NO_TOKENS] });
   const output = r.stdout + r.stderr;
-  return { cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output };
+  return { cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output, failing: events.length ? readFailing(opts.events, root) : null };
+}
+
+// fail-reporter.mjs's lines: [{ file, name }], file relative to root, name the enclosing names
+// and the test's joined by " > " (a ">" inside a name escaped as "\>"), suites left out. null
+// when the file is missing or a line cannot be read.
+export function readFailing(file, root) {
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch { return null; }
+  const out = [];
+  for (const l of text.split('\n').filter(Boolean)) {
+    let e;
+    try { e = JSON.parse(l); } catch { return null; }
+    if (!e || !Array.isArray(e.path) || !e.path.length || !e.path.every((x) => typeof x === 'string')) return null;
+    if (e.type === 'suite') continue;
+    const f = typeof e.file === 'string' ? (isAbsolute(e.file) ? relative(root, e.file) : e.file).split('\\').join('/') : '(unknown)';
+    out.push({ file: f, name: e.path.map((x) => x.replace(/\\/g, '\\\\').replace(/>/g, '\\>')).join(' > ') });
+  }
+  return out;
 }
 
 // GAT-5: lock files installed where they sit, without the GitHub tokens. The gate
