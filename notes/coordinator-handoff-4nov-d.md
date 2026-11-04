@@ -31,7 +31,7 @@ OPEN (mine to drive):
 3. `p3dev-*` tag ruleset for Bob: first measure which identity creates the release tag and which identity sessions push as, from the first release run; then give Bob exact settings or say it cannot work.
 4. Fresh restarts write no restart.jsonl row (lead figures miss that stop).
 5. Build Plan gates (plan step 4) not yet updated with today's results.
-8. QUEUED after the first dev release: Process3 has no path to untrack a committed generated file (copy PR 306 refused, 20:47); program.mjs stays tracked meanwhile.
+8. QUEUED after the first dev release: Process3 (b): the gate accepts removing a generated file that .gitignore lists (copy PR 306 refused 20:47; tracked program.mjs is 6.9 MB and stale, R13/R32 base-red); then BOB untracks it and case-checker restarts on a fresh branch with only its test change.
 7. QUEUED (Bob, ~20:10): self-merge trial after the first dev release; design, prerequisites, measures and stop rules in notes/self-merge-trial.md.
 6. Nobody watches the coordinator's context: propose that the sweep reads the coordinator's context too and pushes Bob at 60%.
 
