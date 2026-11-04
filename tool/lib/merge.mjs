@@ -32,6 +32,23 @@ export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = che
   }
 }
 
+// A pull request GitHub says cannot merge (mergeable false, or mergeable_state dirty: it
+// conflicts with its base) is refused at once: GitHub starts no checks on it, so waiting on them
+// waited 10+ minutes on "gate: not started" (copy PR 108, 4 Nov). Not yet computed (null), it is
+// read again briefly, as checks are waited on; still unknown after `minutes`, it is refused.
+// Returns the pull request as last read.
+export function waitMergeable(slug, n, pr, { minutes = 2, every = 5000, read = getPR, log = console.log } = {}) {
+  const until = Date.now() + minutes * MINUTE;
+  for (;;) {
+    if (pr.mergeable === false || pr.mergeable_state === 'dirty') fail(`pull request ${n} conflicts with ${pr.base?.ref}; nothing was merged`);
+    if (pr.mergeable !== null) return pr;
+    if (Date.now() > until) fail(`GitHub has not said whether pull request ${n} can merge after ${minutes} min; nothing was merged`);
+    log(`waiting for GitHub to compute whether pull request ${n} can merge`);
+    sleep(every);
+    pr = read(slug, n);
+  }
+}
+
 // The review-round limit (build I, 3 Nov), held by merge: round 1 is the two fresh reviews, round
 // 2 the one fix pass and its confirming re-review of the fix. A merge states its rounds and
 // records them; a third round or more is refused unless the command names the decision that
@@ -70,6 +87,7 @@ export function merge(root, n, opts = {}) {
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
   if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
+  waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });
 
   // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
   const first = io.checkRun(slug, pr.head.sha, 'gate');
@@ -334,6 +352,8 @@ export function mergePlain(root, n, opts = {}) {
   if (isJob(head)) fail(`pull request ${n} is a job's (${head}); merge it without --plain`);
   if (isJob(base)) fail(`pull request ${n} is into ${base}, a job's branch`);
   const main = base === 'main' || base === pr.base.repo?.default_branch;
+  // Before anything waits on checks: a conflicted pull request gets none (copy PR 108, 4 Nov).
+  waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });
 
   // The base and head as GitHub has them, fetched so they are read here, not trusted.
   git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root });
