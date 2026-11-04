@@ -107,11 +107,21 @@ export function refreshOthers(cfg, rows, changed, entries = [], ignores = []) {
 // ignores it; the gate builds it (buildGenerated) and runs its row's verify. A job still may not
 // (committedGenerated, JOB-8). removedGenerated: the generated files the head no longer tracks.
 export const removedGenerated = (root, rows, changed, head) => changed.filter((f) => isGenerated(rows, f) && !exists(root, head, f));
-// The .gitignore files the change only adds lines to, present at `to`: the only other files an
-// untracking changes. A .gitignore that drops or alters a line is another file, as before.
-export function ignoreLines(root, from, to, changed) {
-  return changed.filter((f) => posix.basename(f) === '.gitignore' && exists(root, to, f)
-    && /^\d+\t0\t/.test(git(['diff', '--numstat', '--no-renames', from, to, '--', f], { cwd: root })));
+// The .gitignore files an untracking changes, and only those: each at the root or in a parent
+// directory of a file it untracks, at `to`, its change only adding lines, and each added line the
+// path of one of `files` from that directory (`a/b.mjs` or `/a/b.mjs`), a blank line or a comment.
+// Any other .gitignore change is another file, as before (review of PR 2 of build untrack-generated:
+// a wider pattern could change what a generator that honours .gitignore lists).
+export function ignoreLines(root, from, to, changed, files) {
+  return changed.filter((f) => {
+    if (posix.basename(f) !== '.gitignore' || !exists(root, to, f)) return false;
+    if (!/^\d+\t0\t/.test(git(['diff', '--numstat', '--no-renames', from, to, '--', f], { cwd: root }))) return false;
+    const dir = posix.dirname(f) === '.' ? '' : `${posix.dirname(f)}/`;
+    const mine = files.filter((x) => x.startsWith(dir)).map((x) => x.slice(dir.length));
+    const added = git(['diff', '-U0', '--no-renames', from, to, '--', f], { cwd: root }).split('\n')
+      .filter((l) => l.startsWith('+') && !l.startsWith('+++')).map((l) => l.slice(1).trim());
+    return mine.length > 0 && added.every((l) => l === '' || l.startsWith('#') || mine.includes(l.replace(/^\//, '')));
+  });
 }
 // Whether the checkout's .gitignore files ignore f (the gate's checkout is the head merged).
 export const ignoredHere = (root, f) => git(['check-ignore', '-q', '--no-index', '--', f], { cwd: root, allowFail: true }).code === 0;

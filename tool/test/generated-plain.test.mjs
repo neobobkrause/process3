@@ -266,7 +266,7 @@ const COUNTING = { generated: [{ ...CONFIG.generated[0], verify: ['node', '-e', 
 const verified = () => { try { return readFileSync(VERIFIED, 'utf8').length; } catch { return 0; } };
 
 test('untracking: base tracks the file and lists the row; head removes it and ignores it; the gate builds and verifies it, and merge --plain merges', () => {
-  const p = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }, COUNTING), `node_modules/\n${BUNDLE}\n`);
+  const p = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }, COUNTING), `# built where it is needed\n${BUNDLE}\n`);
   const before = verified();
   const g = gateIO();
   const logs = [];
@@ -315,6 +315,34 @@ test('untracking: the removal is refused without the ignore line, and when verif
   const rb = gateOn(bad, gateIO());
   assert.equal(rb.run.refresh.result, 'generated failed');
   assert.match(rb.findings.map((f) => f.message).join('\n'), /failed \(exit 3\) after building the untracked src\/alpha\/dist\/alpha\.bundle\.json/);
+});
+
+test('untracking: a .gitignore line other than the untracked path, or a .gitignore elsewhere, is another file', () => {
+  for (const [what, files] of [
+    ['a wider pattern', { '.gitignore': `${BUNDLE}\n*.sql\n` }],
+    ['a pattern covering it', { '.gitignore': 'src/alpha/dist/\n' }],
+    ['another module\'s new .gitignore', { '.gitignore': `/${BUNDLE}\n`, 'src/beta/.gitignore': '*.sql\n' }],
+  ]) {
+    const p = product({ 'process/metrics/alpha.jsonl': '{}\n' });
+    git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
+    commit(p.root, files);
+    untrack(p);
+    const g = gateIO();
+    const r = gateOn(p, g);
+    assert.equal(r.run.ok, false, what);
+    assert.equal(r.run.refresh.result, 'other files changed', what);
+    back(p);
+    assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /a refresh changes only|no green process-gate run/, what);
+  }
+  // Its own path from a nested .gitignore, anchored, with a comment, is the untracking's.
+  const n = product({ 'process/metrics/alpha.jsonl': '{}\n' });
+  untrack(n);
+  git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: n.root });
+  n.sha = commit(n.root, { 'src/alpha/.gitignore': '# built at deploy\n/dist/alpha.bundle.json\n' });
+  git(['push', '-q', '-f', 'origin', 'bob/refresh'], { cwd: n.root });
+  const rn = gateOn(n, gateIO());
+  assert.deepEqual(rn.findings, []);
+  assert.deepEqual(rn.run.refresh.untracked, [BUNDLE]);
 });
 
 test('untracking: a .gitignore change that drops or alters a line is another file', () => {

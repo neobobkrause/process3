@@ -124,7 +124,7 @@ export function gate(root, opts) {
   // Untracking (build untrack-generated): a removed generated file the head's .gitignore ignores
   // is built and verified, not compared; the .gitignore lines added for it are not other files.
   const untracked = plain?.length ? removedGenerated(root, gen.rows, plain, head).filter((f) => ignoredHere(root, f)) : [];
-  const ignores = untracked.length ? ignoreLines(root, mb, head, changed) : [];
+  const ignores = untracked.length ? ignoreLines(root, mb, head, changed, untracked) : [];
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
