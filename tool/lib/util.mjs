@@ -1,6 +1,6 @@
 // Shared helpers: running programs, git, GitHub through gh, config, arguments.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -375,10 +375,13 @@ let exitHook = false;
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
 function dropTemp(dir, root) {
   if (root) {
+    // git lists a worktree by its real path (a symlinked TMPDIR, macOS's /var, is resolved).
+    let real = dir;
+    try { real = realpathSync(dir); } catch {}
     const listed = git(['worktree', 'list', '--porcelain'], { cwd: root, allowFail: true }).stdout || '';
     for (const l of listed.split('\n')) {
       const p = l.startsWith('worktree ') ? l.slice(9) : null;
-      if (p && (p === dir || p.startsWith(`${dir}/`))) git(['worktree', 'remove', '--force', '--force', p], { cwd: root, allowFail: true });
+      if (p && [dir, real].some((d) => p === d || p.startsWith(`${d}/`))) git(['worktree', 'remove', '--force', '--force', p], { cwd: root, allowFail: true });
     }
   }
   rmSync(dir, { recursive: true, force: true });

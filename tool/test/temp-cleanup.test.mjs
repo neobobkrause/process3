@@ -2,9 +2,11 @@
 // disk. Every scratch directory in tool/lib comes from withTemp, removed on every way out, with
 // any worktree under it removed and pruned; a killed run's leftovers go at the next withTemp.
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { once } from 'node:events';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
@@ -127,3 +129,59 @@ test('every mkdtempSync in tool/lib is withTemp\'s, but the deploy and release s
   assert.deepEqual(sites.filter((s) => !allowed.some((r) => r.test(s))), []);
   assert.equal(sites.length, 3);
 });
+
+test('a scratch directory under a symlinked TMPDIR has its worktree removed by git, not only pruned', () => {
+  const real = mkdtempSync(join(tmpdir(), 'p3-real-'));
+  const link = join(mkdtempSync(join(tmpdir(), 'p3-link-')), 'tmp');
+  symlinkSync(real, link);
+  const root = makeRepo({ 'README.md': 'x' });
+  const was = process.env.TMPDIR;
+  process.env.TMPDIR = link;
+  const said = [];
+  try {
+    withTemp('p3-layer-', (d) => {
+      git(['worktree', 'add', '-q', '--detach', join(d, 'w'), 'HEAD'], { cwd: root });
+      // Locked: prune alone would keep its entry; only git worktree remove --force --force clears it.
+      git(['worktree', 'lock', join(d, 'w')], { cwd: root });
+      said.push(worktrees(root).listed);
+    }, { root });
+  } finally { process.env.TMPDIR = was; }
+  assert.deepEqual(said, [2]);
+  assert.deepEqual(readdirSync(real), []);
+  assert.deepEqual(worktrees(root), { listed: 1, entries: [] });
+});
+
+test('a scratch directory owned by another live process is kept; once it exits, the next withTemp removes it', async () => {
+  const t = mkdtempSync(join(tmpdir(), 'p3-tmpdir-'));
+  const was = process.env.TMPDIR;
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' });
+  try {
+    process.env.TMPDIR = t;
+    const d = join(t, 'p3-merge-other');
+    mkdirSync(d);
+    writeFileSync(join(d, TEMP_OWNER), String(child.pid));
+    withTemp('p3-row-', () => {});
+    assert.equal(existsSync(d), true, 'a live owner keeps it');
+    const gone = once(child, 'exit');
+    child.kill('SIGKILL');
+    await gone;
+    withTemp('p3-row-', () => {});
+    assert.equal(existsSync(d), false, 'a gone owner\'s directory is swept');
+  } finally { child.kill('SIGKILL'); if (was === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = was; }
+});
+
+test('process.exit inside withTemp, and nested withTemp, leave nothing behind', () => scratch((t) => {
+  const util = new URL('../lib/util.mjs', import.meta.url).href;
+  const root = makeRepo({ 'README.md': 'x' });
+  const code = `import { git, withTemp } from ${JSON.stringify(util)};
+    withTemp('p3-merge-', (a) => withTemp('p3-state-', (b) => {
+      git(['worktree', 'add', '-q', '--detach', b + '/s', 'HEAD'], { cwd: ${JSON.stringify(root)} });
+      process.exit(3);
+    }, { root: ${JSON.stringify(root)} }), { root: ${JSON.stringify(root)} });`;
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { env: { ...process.env, TMPDIR: t }, encoding: 'utf8' });
+  assert.equal(r.status, 3, r.stderr);
+  assert.deepEqual(scratchOnly(t), []);
+  assert.deepEqual(worktrees(root), { listed: 1, entries: [] });
+  assert.equal(withTemp('p3-merge-', () => withTemp('p3-state-', () => scratchOnly(t).length)), 2, 'nested: the outer is not swept by the inner');
+  assert.deepEqual(scratchOnly(t), []);
+}));
