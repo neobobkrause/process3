@@ -10,7 +10,7 @@
 // while a pull request from a p3/pin-* head is open on the product, unless --supersedes names it,
 // which closes it with a comment (its branch kept); the session checks again right before it
 // pushes, and branches from the tranche tip it fetches then. Nothing else is written.
-import { P3 } from './job.mjs';
+import { P3, TOOL_ROOT } from './job.mjs';
 import { addComment, editPR } from './github.mjs';
 import { fail, gh, git } from './util.mjs';
 
@@ -64,18 +64,19 @@ export function pinCheck(slug, { io = PIN_IO, log = console.log } = {}) {
   return { open: [] };
 }
 
-// pin defaults to process3's tranche tip on origin, fetched. supersedes: the number of the one
-// open pin move this one replaces, closed (comment, then close; the branch kept) before printing.
-export function pinMove(root, slug, { pin, tranche = 'tranche', report, why, supersedes, io = PIN_IO, log = console.log } = {}) {
+// pin: required, a commit of the process repo this tool runs from (copy, 4 Nov: with no --pin it
+// took the product's own tranche tip, and a positional sha was ignored). supersedes: the number of
+// the one open pin move this one replaces, closed (comment, then close; the branch kept) first.
+export function pinMove(root, slug, { pin, rest = [], tranche = 'tranche', report, why, supersedes, processRoot = TOOL_ROOT, io = PIN_IO, log = console.log } = {}) {
   if (!SLUG.test(String(slug ?? ''))) fail(`pin move <owner/repo>, the product's slug, not ${JSON.stringify(slug ?? '')}`);
+  if (rest.length) fail(`pin move takes only the slug; ${/^[0-9a-f]{7,40}$/.test(String(rest[0])) ? `give the commit as --pin ${rest[0]}` : `not ${JSON.stringify(rest[0])}`}`);
   if (!SESSION.test(String(report ?? ''))) fail('pin move needs --report <session id>: the session the pin move reports to (your own, from get_session)');
   if (typeof why !== 'string' || !why.trim()) fail('pin move needs --why "<what the fix unblocks>"');
   if (typeof tranche !== 'string' || !/^[\w./-]+$/.test(tranche)) fail(`--tranche <the product's tranche branch>, not ${JSON.stringify(tranche)}`);
-  if (pin === undefined) {
-    git(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche'], { cwd: root });
-    pin = git(['rev-parse', 'refs/remotes/origin/tranche'], { cwd: root });
-  }
-  if (!/^[0-9a-f]{40}$/.test(String(pin))) fail(`--pin <a process3 commit, 40 hex>, not ${JSON.stringify(pin)}`);
+  if (!/^[0-9a-f]{40}$/.test(String(pin))) fail(`pin move needs --pin <a process3 commit, 40 hex>${pin === undefined ? '' : `, not ${JSON.stringify(pin)}`}`);
+  const known = () => git(['cat-file', '-e', `${pin}^{commit}`], { cwd: processRoot, allowFail: true }).code === 0;
+  if (!known()) git(['fetch', '-q', 'origin', pin], { cwd: processRoot, allowFail: true });
+  if (!known()) fail(`--pin ${pin} is not a commit of the process repo (${processRoot}, nor its origin)`);
   const open = openPinMoves(slug, io);
   if (supersedes !== undefined) {
     const n = Number(supersedes);
