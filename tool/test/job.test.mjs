@@ -366,6 +366,25 @@ test('a COMPLETE job with fix commits after it completes attempt 2: checks, suit
   assert.equal(readRows(root, 'alpha').length, 4);
 });
 
+test('attempt 2 after the job merges an older tranche commit starts at its own first-parent commit, after attempt 1 (review of PR 81)', () => {
+  const { root, f } = completed();
+  const done = readRows(root, 'alpha').at(-1).at;
+  const env = { ...process.env };
+  try {
+    process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = '2020-01-01T00:00:00Z';
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    commit(root, { 'other.txt': 'older tranche work' });
+    git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+    git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  } finally { process.env = env; }
+  git(['merge', '-q', '--no-ff', '--no-edit', 'tranche'], { cwd: root });
+  const mergeAt = new Date(git(['log', '-1', '--format=%cI'], { cwd: root })).toISOString().replace(/\.\d+Z$/, 'Z');
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const s2 = readRows(root, 'alpha').filter((x) => x.event === 'start')[1];
+  assert.ok(s2.at >= done, `${s2.at} is not before attempt 1's complete ${done}`);
+  assert.equal(s2.at, mergeAt < done ? done : mergeAt);
+});
+
 test('attempt 2 on a red suite writes nothing and leaves attempt 1 COMPLETE', () => {
   const { root, f } = completed();
   const before = commit(root, { 'test/alpha/b.test.mjs': failing });

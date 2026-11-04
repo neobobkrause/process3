@@ -604,12 +604,16 @@ export function jobComplete(root, id, opts = {}) {
     if (!row?.receipt) fail(`${id} is COMPLETE but no receipt was saved; ask your coordinator`);
     if (at === git(['rev-parse', 'HEAD'], { cwd: root })) {
       if (opts.tests?.length || noSuite) log('the job is COMPLETE: its commands and tests stand as saved; only --exempt-revert and --not-verified amend the receipt');
-      return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert } });
+      return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert }, again: !!row.receipt.after });
     }
     // Commits after the COMPLETE commit, its pull request still open (copy PR 79, 4 Nov: the
     // gate went red and the job pushed fixes): a new attempt, checked and tested as a fresh
     // complete, with its own start row (nextAttempt counts them) dated at its first commit.
-    again = { after: at, pr: pr?.number ?? null, from: new Date(git(['log', '--reverse', '--format=%cI', `${at}..HEAD`], { cwd: root }).split('\n')[0]).toISOString().replace(/\.\d+Z$/, 'Z') };
+    // First-parent only: tranche commits merged in can be older than the COMPLETE commit, and a
+    // start dated before attempt 1's complete row would take that row from attempt 1 (review of
+    // PR 81); never before that row in any case.
+    const first = new Date(git(['log', '--first-parent', '--reverse', '--format=%cI', `${at}..HEAD`], { cwd: root }).split('\n')[0]).toISOString().replace(/\.\d+Z$/, 'Z');
+    again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
   } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
   const tests = struckTests(root, entry, base, opts.tests || [], lastStart?.notices || []);
