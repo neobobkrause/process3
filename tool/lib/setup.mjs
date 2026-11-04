@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
+import { generatedRows, oversizeGenerated } from './checks.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
@@ -390,7 +391,8 @@ export function setupCheck(root, { slug, at = null, conditions = loadConditions(
   log(openByLine);
   const size = sizeCheck(root, x, sha, { io, log });
   const carry = takeInCheck(root, x, { io, log });
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine };
+  const generated = generatedCheck(root, x, sha, { log });
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated };
 }
 
 // Which opening of next work is in force (open_by in process/config.json; status --role bob).
@@ -416,6 +418,24 @@ function sizeCheck(root, x, sha, { io, log }) {
   const c = compareRanges(s.figures, releases);
   for (const l of [...sizeLines(s), ...c.lines]) log(l);
   return { ...s, range: { state: c.state, outside: c.outside } };
+}
+
+// Generated files over max_file_bytes (the copy, 4 Nov: rows.mjs 5.2 MB, two bundles 8.9 and
+// 29 MB): no pull request can refresh one, since the record check refuses any commit that writes
+// it, so layer close's "regenerated files differ" never clears. Product work, informational: BOB
+// stops committing it (a job or plain pull request that removes it from the index and ignores
+// it) and builds it in release.assemble and the deploy; deploy dev and release run build every
+// generated path the commit does not track, and layer close no longer compares it.
+function generatedCheck(root, x, sha, { log }) {
+  const ref = sha || `origin/${x.cfg.tranche}`;
+  const max = Number(x.cfg.max_file_bytes ?? DEFAULTS.max_file_bytes);
+  const gen = generatedRows(x.cfg);
+  let over;
+  try { over = oversizeGenerated(root, gen.rows, ref, max); } catch (e) { log(`generated files: unmeasured, ${e.message}`); return null; }
+  if (!over.length) return { over: [] };
+  log(`product work: ${over.length} committed generated file${over.length === 1 ? '' : 's'} over max_file_bytes (${max}); no pull request can refresh one:`);
+  for (const o of over) log(`- ${o.file}: ${o.bytes} bytes; BOB's act: stop committing it (remove it from the index, ignore it) and build it in release.assemble and the deploy; deploy dev and release run build it from its \`generated\` row`);
+  return { over };
 }
 
 // Tranche carry (SHM-4): a product converting mid-tranche lists its open pull requests into the

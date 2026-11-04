@@ -81,8 +81,32 @@ test('handoff: one screen from status, on the state branch, refused when too lon
   status(root, { role: 'bob', log: (l) => again.push(l), io: { openPRs: () => [], checkRun: () => null } });
   assert.match(again.join('\n'), /process-state:handoff\/bob.md \d+/);
   assert.throws(() => status(root, { role: 'bob', context: 'high', offline: true, log: quiet }), /a number/);
-  assert.throws(() => handoff(root, SB, { tranche: s.tranche, lines: Array(50).fill('x'), log: quiet }), /one screen/);
   assert.throws(() => handoff(root, SB, { tranche: s.tranche, lines, notes: Array(6).fill('n'), log: quiet }), /at most 5/);
+});
+
+test('handoff: the size test measures the notes; a long status is capped by the screen rule, never a refusal', () => {
+  const { root } = withOrigin({ 'CLAUDE.md': '# Product\n' });
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  // The copy's shape, 4 Nov: status about 140 lines; every note length was refused.
+  const lines = Array.from({ length: 140 }, (_, i) => `- notice line ${i + 1}`);
+  const h = handoff(root, SB, { tranche: 'HEAD', lines, notes: ['short note', 'a second note'], log: quiet });
+  const count = h.text.split('\n').length - 1;
+  assert.ok(count <= 40 && Buffer.byteLength(h.text) <= 4096, `${count} lines`);
+  assert.ok(h.shown > 0 && h.shown < 140);
+  assert.match(h.text, new RegExp(`\\(${140 - h.shown} more status lines: status --role bob lists them all\\)`));
+  assert.match(h.text, /notes:\n- short note\n- a second note\n$/);
+  assert.match(h.text, /- notice line 1\n/);
+  git(['fetch', '-q', 'origin', SB], { cwd: root });
+  assert.equal(readState(root, SB, 'handoff/bob.md'), h.text);
+  // A status that fits is written whole, with no pointer line.
+  const whole = handoff(root, SB, { tranche: 'HEAD', lines: lines.slice(0, 5), notes: ['n'], log: quiet });
+  assert.equal(whole.shown, 5);
+  assert.doesNotMatch(whole.text, /more status line/);
+  // Notes that alone fill the screen are refused, by their own size, and nothing is written.
+  const tip = readState(root, SB, 'handoff/bob.md');
+  assert.throws(() => handoff(root, SB, { tranche: 'HEAD', lines, notes: Array(5).fill('x'.repeat(900)), log: quiet }), /the notes are 7 lines, \d+ bytes; .*shorten the notes/);
+  git(['fetch', '-q', 'origin', SB], { cwd: root });
+  assert.equal(readState(root, SB, 'handoff/bob.md'), tip);
 });
 
 test('status --role bob: owed, idle and open, with last activity; merged as a count', () => {

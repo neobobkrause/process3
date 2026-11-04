@@ -5,6 +5,7 @@
 // deploys/dev.jsonl on the state branch. The shape is release dev's.
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { buildGenerated, generatedRows } from './checks.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, onMainOf } from './status.mjs';
@@ -117,8 +118,13 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
     }
     return true;
   };
-  let ok = go('dry_run', dep.dry_run, { guard: true });
-  let stopped = ok ? null : 'dry_run';
+  // Generated files the tranche does not commit (over max_file_bytes, say) are built first.
+  const gen = generatedRows(cfg);
+  const b = buildGenerated(root, gen.rows, { ref: tip, timeout: dep.timeout_minutes * MINUTE, log, exec: (c, args, o) => io.exec(c, args, { ...o, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] }) });
+  if (b.built.length || b.findings.length) results.push({ stage: 'build', name: `generated: ${[...b.built, ...b.findings.map((f) => f.file)].join(', ')}`, exit: b.findings.length ? 1 : 0, seconds: 0 });
+  for (const f of b.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+  let ok = !b.findings.length && go('dry_run', dep.dry_run, { guard: true });
+  let stopped = b.findings.length ? 'build' : ok ? null : 'dry_run';
   if (ok) { ok = go('deploy', dep.deploy); if (!ok) stopped = 'deploy'; }
   if (ok) { ok = go('walk', dep.walk); if (!ok) stopped = 'walk'; }
   const minutes = Math.round((Date.now() - t0) / 6000) / 10;
@@ -129,6 +135,8 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   });
   if (stopped === 'dry_run') log(`refused: the dry run did not pass the guard (every dry-run step must exit 0 and print "${dep.guard_line}"); nothing was deployed`);
   log(`recorded development deployment ${s} at ${tip.slice(0, 10)}, layer ${layer}: ${ok ? 'deployed and walked' : `stopped at ${stopped}`}, ${minutes} min`);
-  if (!ok && stopped !== 'dry_run') log(`a finding enters as an entry by the route for work found elsewhere; \`${P3} deploy dev\` may be run again`);
+  if (!ok && stopped !== 'dry_run') log(`each finding enters by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "${stopped} ${s}"\` (or found "<finding>" when it names no module); \`${P3} deploy dev\` may be run again`);
+  // A walk can report findings and still exit 0: they enter by the same route.
+  if (ok) log(`findings of the walk, if any, enter by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "walk ${s}"\``);
   return { ok, row };
 }

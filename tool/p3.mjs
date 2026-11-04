@@ -14,6 +14,7 @@ import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs'
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { deployDev } from './lib/deploy.mjs';
+import { found } from './lib/found.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
 import { deepen, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -125,6 +126,20 @@ const commands = {
   // deferred (PLN-4), or the plan says close; BOB's acts.
   // tranche close --record: once the tranche is on main, the close on the state branch.
   'tranche close': (a, root) => (trancheClose(root, { record: !!a.record, report: !!(commands['report tranche'] || commands.report) }).ok ? 0 : 1),
+
+  // found <module> "<finding>" [--from <source, e.g. walk p3dev-l1>] [--write] [--offline]: the route
+  // for work found elsewhere. Prints BOB's plain pull request adding an unmet found mark
+  // **F<n>** *(not yet met: <source>)* to the module's requirement file, or to its found-work
+  // entry (process/found/<module>.md) where it has none; numbered per module. found "<finding>"
+  // (no module): process/found/no-module.md, listed by status under `found, no module`.
+  // --write also writes the line into the checkout. Writes nothing else.
+  found: (a, root) => {
+    if (a._.length < 1 || a._.length > 2) fail('found <module> "<finding>" [--from <source>], the finding in quotes; or found "<finding>" for one that names no module');
+    const [mod, text] = a._.length === 2 ? a._ : [null, a._[0]];
+    if (a.from === true) fail('--from <source>, e.g. --from "walk p3dev-l1"');
+    found(root, mod, String(text), { from: a.from, write: !!a.write, offline: !!a.offline });
+    return 0;
+  },
 
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),

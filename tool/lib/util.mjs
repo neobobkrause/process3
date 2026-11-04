@@ -115,8 +115,14 @@ export const DEFAULTS = {
 // open_by values (status --role bob): "uses" the default, "layer" the old behaviour.
 export const OPEN_BY = ['uses', 'layer'];
 
-// An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
-export const UNMET = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+// An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...), or a found
+// mark, **F<n>** *(not yet met: <source>)*, the route for work found elsewhere (found <module>).
+export const UNMET = /\*\*([RF][\w.-]+)\*\*\s*\*\(not yet met/g;
+// A mark id, met or not, as the struck-mark --test and the report read it.
+export const MARK_ID = /^[RF][\w.-]+$/;
+// A found mark, met or not: its number, and whether it is still unmet.
+export const FOUND_MARK = /\*\*F(\d+)\*\*(\s*\*\(not yet met)?/g;
+export const isFound = (id) => /^F\d+$/.test(String(id));
 
 // The requirements cap (REQ-6): the line that names a requirement file over requirements_cap
 // bytes, or over requirements_cap_marks unmet marks, as BOB's to split or consolidate before its

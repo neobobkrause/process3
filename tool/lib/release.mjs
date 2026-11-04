@@ -15,6 +15,7 @@ import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, layerState, status } from './status.mjs';
 import { loadRanges, platformRows } from './size.mjs';
 import { install } from './suite.mjs';
+import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 export const SHIM = '.github/workflows/process-dev-release.yml';
@@ -174,7 +175,13 @@ export function releaseRun(root, step, { out, log = console.log, exec = run } = 
   const results = [];
   const inst = install(root, cfg.lockfiles || [], { exec });
   for (const f of inst.findings) results.push({ name: `install ${f.file}`, exit: 1, seconds: 0, message: f.message });
-  const list = inst.findings.length ? [] : step === 'checks' ? rel.checks : [{ name: 'assemble', argv: rel.assemble, timeout_minutes: rel.assemble_timeout_minutes }];
+  // Generated files the commit does not track (over max_file_bytes, say) are built before the
+  // checks and the assemble, each job on its own checkout.
+  const gen = generatedRows(cfg);
+  const b = inst.findings.length ? { built: [], findings: [] } : buildGenerated(root, gen.rows, { timeout: rel.assemble_timeout_minutes * MINUTE, log, exec: (c, args, o) => exec(c, args, { ...o, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] }) });
+  if (b.built.length) results.push({ name: `build generated ${b.built.join(', ')}`, exit: 0, seconds: 0 });
+  for (const f of b.findings) results.push({ name: `build generated ${f.file}`, exit: 1, seconds: 0, message: f.message });
+  const list = inst.findings.length || b.findings.length ? [] : step === 'checks' ? rel.checks : [{ name: 'assemble', argv: rel.assemble, timeout_minutes: rel.assemble_timeout_minutes }];
   for (const c of list) {
     log(`::group::${c.name}`);
     const r = exec(c.argv[0], c.argv.slice(1), { cwd: root, timeout: c.timeout_minutes * MINUTE, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });

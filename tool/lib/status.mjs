@@ -13,7 +13,8 @@ import { openLine, openState } from './tranche.mjs';
 import { deployOwed } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
-import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
+import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
+import { OPEN_BY, UNMET, depth, isFound, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -233,7 +234,11 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const map = read(cfg.layers_file);
   if (map === null) return null;
-  const marks = (f) => [...(read(f) || '').matchAll(MARK)].map((m) => m[1]);
+  // Requirement marks (R) hold a layer; found marks (F, the route for work found elsewhere) never
+  // do: they are work by open_by whatever the layer, and never deferred at a close.
+  const ids = (f) => [...(read(f) || '').matchAll(MARK)].map((m) => m[1]);
+  const marks = (f) => ids(f).filter((x) => !isFound(x));
+  const found = (f, id) => [...ids(f), ...ids(foundFile(id))].filter(isFound);
   const recorded = new Set(closed.map((r) => r.layer));
   const layers = map.split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
     .filter((c) => c.length > 1 && /^\d+$/.test(c[0]))
@@ -243,7 +248,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
       const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag;
       const pr = row?.pr?.match(/^#(\d+)/)?.[1] ?? null;
-      return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), row };
+      return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), found: found(file, id), row };
     }) }))
     .sort((a, b) => a.n - b.n);
   // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
@@ -330,7 +335,7 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
   if (!modules) return { ready: [], gaps: [] };
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
-  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !owed[id]?.length; };
+  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !m.found.length && !owed[id]?.length; };
   const ready = [];
   const gaps = [];
   for (const L of ls.layers.filter((x) => x.n >= ls.cur.n && !x.closed)) {
@@ -343,6 +348,39 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
     }
   }
   return { ready, gaps };
+}
+
+// Found work (the route for work found elsewhere, found.mjs): each module with unmet found marks
+// and no open job, not BLOCKED, ready by open_by whatever its layer. "uses": every provider its
+// `uses` names is in the layer map and done (as readyByUses has it), or, with no `uses` entry,
+// its layer is open or closed; "layer": its layer is open or closed. A module the layer map
+// lacks (a found-work entry, FOUND_DIR/<id>.md, of a module with no requirement file) is ready
+// when its `uses` are done or it has none. Without a layer map nextWork lists every file.
+export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
+  if (!ls) return [];
+  const by = openBy(cfg);
+  const modules = by === 'uses' ? readModules(root, cfg, ref) || [] : [];
+  const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
+  const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, layer: L.n }])));
+  const done = (id) => { const m = where.get(id); return !!m && !m.open && !m.marks.length && !m.found.length && !owed[id]?.length; };
+  const reached = (n) => !ls.cur || n <= ls.cur.n;
+  const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
+  const ready = [];
+  for (const m of where.values()) {
+    if (!m.found.length || m.open || m.blocked) continue;
+    const u = uses.get(m.id);
+    // A module with no requirement file: its found-work entry is the file listed.
+    if (u ? u.filter((p) => p !== m.id).every(done) : reached(m.layer)) ready.push(read(m.file) === null ? { ...m, file: foundFile(m.id), entry: true } : m);
+  }
+  // Modules outside the layer map with a found-work entry of their own.
+  for (const id of foundEntries(root, ref).filter((x) => !where.has(x))) {
+    const ids = [...(read(foundFile(id)) || '').matchAll(MARK)].map((x) => x[1]).filter(isFound);
+    const row = rows.find((r) => r.id === id);
+    const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
+    const u = uses.get(id) || [];
+    if (ids.length && !open && !row?.blocked && u.filter((p) => p !== id).every(done)) ready.push({ id, file: foundFile(id), layer: null, found: ids, marks: [], entry: true });
+  }
+  return ready;
 }
 
 // Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
@@ -367,12 +405,16 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   // The cap debt (every requirement file over the cap in the open layer and the layers after it,
   // marks or none: 20 such files with no marks went unreported on the copy, 4 Nov).
   let ahead = [];
+  // Found work, ready by open_by (readyFound); without a layer map, every found-work entry.
+  let foundReady = [];
   if (ls) {
     layer = ls.cur?.n ?? null;
     for (const L of ls.layers) for (const m of L.mods) if (!layerOf.has(m.file)) layerOf.set(m.file, L.n);
     files = ls.ready || ls.pending ? [] : (ls.cur?.mods || []).map((m) => m.file);
     const byUses = readyByUses(root, cfg, ls, ref, owed);
     files.push(...byUses.ready.map((m) => m.file));
+    foundReady = readyFound(root, cfg, ls, ref, owed, rows);
+    for (const m of foundReady) if (m.entry && m.layer !== null) layerOf.set(m.file, m.layer);
     for (const g of byUses.gaps) log(`not ready, its uses not in ${cfg.layers_file}: ${g.id} (layer ${g.layer}) uses ${g.missing.join(', ')}`);
     ahead = ls.cur ? ls.layers.filter((L) => L.n >= ls.cur.n).flatMap((L) => L.mods.map((m) => m.file)) : [];
     // A layer closed with no `layer close` row: said once per layer, never silent (copy, 4 Nov).
@@ -390,10 +432,12 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
-    ahead = files;
+    ahead = [...files];
+    files.push(...foundEntries(root, ref).map(foundFile));
   } else {
     files = (existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
-    ahead = files;
+    ahead = [...files];
+    files.push(...foundEntries(root, null).map(foundFile));
   }
   // Read whole (git show without allowFail drops the last newline): the cap counts every byte.
   const whole = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : null) : read(f));
@@ -403,10 +447,15 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const inLayer = new Set(files);
   const texts = new Map();
   const textOf = (f) => (texts.has(f) ? texts.get(f) : (texts.set(f, whole(f)), texts.get(f)));
-  const all = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => {
+  const foundBy = new Set(foundReady.map((m) => m.file));
+  // A found-work entry's module is taken while its job is open (taken holds its requirement file).
+  const entryTaken = (f) => f.startsWith(`${FOUND_DIR}/`) && open.some((r) => foundFile(r.id) === f);
+  const all = [...new Set([...files, ...byFile.keys(), ...foundBy])].filter((f) => !taken.has(f) && !entryTaken(f)).map((file) => {
     const text = textOf(file);
-    return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
-  }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices);
+    const ids = [...(text || '').matchAll(MARK)].map((m) => m[1]);
+    const fids = ids.filter(isFound);
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+  }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
   all.sort((a, b) => later(a) - later(b) || a.count - b.count || a.file.localeCompare(b.file));
@@ -417,25 +466,38 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   if (debt.length) log(`cap debt: ${debt.length} requirement file${debt.length === 1 ? '' : 's'} over the cap${layer === null ? '' : ` from layer ${layer} on`}, ${debt.reduce((s, x) => s + Buffer.byteLength(x.t), 0)} bytes; each is split or consolidated before its job`);
   const layerWork = (x) => inLayer.has(x.file) && x.count > 0;
   const list = all.filter((x) => !x.over && layerWork(x));
-  const noticeList = all.filter((x) => !x.over && !layerWork(x));
+  const foundList = all.filter((x) => !x.over && !layerWork(x) && foundBy.has(x.file) && x.found);
+  const noticeList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x));
   const n = live === undefined ? Infinity : Math.max(0, cfg.live_cap - live);
   const shown = list.slice(0, n);
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
+  const shownF = foundList.slice(0, Math.max(0, n - shown.length - shownN.length));
+  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`;
   const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (live ${live} of ${cfg.live_cap}), ${a.length - b.length} wait`);
   if (list.length) {
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : waits(list, shown)}`);
-    for (const x of shown) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
+    for (const x of shown) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${tag(x)}`);
   }
   if (noticeList.length) {
     log(`notice work (triage judged these affected; not layer work; each job adapts or confirms the code and adds its test): ${waits(noticeList, shownN)}`);
     for (const x of shownN) log(`- ${x.file}: ${x.count}; provider notice ${x.notices.join(', ')}`);
+  }
+  if (foundList.length) {
+    log(`found work (work found elsewhere, ready by open_by ${openBy(cfg)}, whatever its layer; each job meets its found marks and adds its test): ${waits(foundList, shownF)}`);
+    for (const x of shownF) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${tag(x)}${x.file.startsWith(`${FOUND_DIR}/`) ? `; no requirement file: BOB gives the module its requirement file and ledger entry, moving these marks there, before its job` : ''}`);
+  }
+  // Findings that name no module (found.mjs): BOB's act is to name one.
+  const loose = noModuleFound(root, ref);
+  if (loose.length) {
+    log(`found, no module (${NO_MODULE}; BOB's act: name its module with \`${P3} found <module> "<finding>" --from "<source>"\`, deleting its line here in the same pull request):`);
+    for (const f of loose) log(`- ${f.id} (${f.source}): ${f.finding.slice(0, 100)}`);
   }
   // Triage owed: BOB's act (owedNotices printed it), counted as work for BOB (sweep passes the notices).
   const triage = [...new Set(Object.values(owed).flat().filter((x) => !x.triage && !x.rerun).map((x) => x.key))].map((key) => ({ triage: key }));
   // The completion round (PLN-4): once every layer is closed, the completion file's open items.
   const round = ls && !ls.cur ? completionWork(root, cfg, rows, ref, log) : [];
   // The returned list holds all of them: a split owed is still work for BOB (sweep counts it).
-  return [...list, ...noticeList, ...big, ...triage, ...round];
+  return [...list, ...noticeList, ...foundList, ...big, ...triage, ...round, ...loose.map((f) => ({ file: NO_MODULE, found_no_module: f.id }))];
 }
 
 // The completion file's open items, not deferred: a module item through job start as usual (its

@@ -11,7 +11,7 @@ import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState } from './state.mjs';
 import { unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath } from './util.mjs';
+import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, UNMET } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -475,8 +475,9 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   return { start, pr, launch, subscribe: subscribe.call, restarted: true };
 }
 
-// A requirement mark (P7), as status counts it: `**R36** *(not yet met: ...)*`.
-const MARK = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;
+// A requirement mark (P7), as status counts it: `**R36** *(not yet met: ...)*`, or a found mark
+// `**F2** *(not yet met: walk p3dev-l1)*` (found <module>).
+const MARK = UNMET;
 export const markedIds = (text) => [...String(text || '').matchAll(MARK)].map((m) => m[1]);
 
 // The marks the branch struck against the base, each with the test the job names for it with
@@ -495,8 +496,8 @@ function struckTests(root, entry, base, given, notices = []) {
       answered.set(k[1], { notice: k[1], file: k[2], name: k[3] });
       continue;
     }
-    const m = /^(R[\w.-]+)=(.+?)::(.+)$/.exec(String(g));
-    if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>"`);
+    const m = /^([RF][\w.-]+)=(.+?)::(.+)$/.exec(String(g));
+    if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>" (F<n>= for a found mark)`);
     if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
     named.set(m[1], { req: m[1], file: m[2], name: m[3] });
   }
