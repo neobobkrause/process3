@@ -112,3 +112,14 @@ test('deploy dev and release run build the uncommitted generated files before th
   assert.ok(existsSync(join(rel, 'gen/big.txt')));
   assert.equal(readFileSync(join(rel, 'gen/big.txt'), 'utf8').length, 4096);
 });
+
+// Copy, 4 Nov: `layer close 2` refused on membership 37/37 and credentials 33/33 failing with
+// ERR_MODULE_NOT_FOUND rows.mjs: layer close ran the suites before building the untracked file.
+test('layer close builds untracked generated files before the suites that import them', () => {
+  const uses = "import test from 'node:test'; import a from 'node:assert'; import { readFileSync } from 'node:fs';\ntest('big is built', () => a.equal(readFileSync('gen/big.txt', 'utf8').length, 4096));\n";
+  const { root } = withOrigin(product({}, { 'test/a/x.test.mjs': uses, '.gitignore': 'gen/big.txt\n' }));
+  const out = [];
+  const r = layerClose(root, '1', { io, log: (m) => out.push(m) });
+  assert.equal(r.ok, true, out.join('\n'));
+  assert.match(out.join('\n'), /a: suite exit 0/);
+});
