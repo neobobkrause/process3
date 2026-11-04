@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
-import { jobBlock, jobComplete, jobSender, jobStart, startText } from '../lib/job.mjs';
+import { jobBlock, jobComplete, jobSender, jobStart, jobTest, startText } from '../lib/job.mjs';
 import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
@@ -425,7 +425,6 @@ test('status: an unfinished start says to rerun job start; offline it does not c
 });
 
 // Build 1 (start loop): decision 14, the coordinator's subscription, and GAT-5 in `test`.
-import { jobTest } from '../lib/job.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { MARK, install, moduleLocks } from '../lib/suite.mjs';
 import { createHash } from 'node:crypto';
@@ -841,4 +840,29 @@ test('a mark at the end of a requirement line, after its bold title, is struck l
   assert.throws(() => run([]), /struck R1 with no --test/);
   assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 slices']), /no mark for R2 that this branch struck \(struck: R1\)/);
   assert.deepEqual(run(['R1=test/alpha/x.test.mjs::R1 slices']).receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 slices' }]);
+});
+
+// Copy, 4 Nov: with rows.mjs untracked, job test and job complete must build it as the gate does.
+import { existsSync as existsGen } from 'node:fs';
+test('job test and job complete build untracked generated files before the suite', () => {
+  const gen = "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/rows.mjs', 'export const rows = 3;\\n');\n";
+  const uses = "import test from 'node:test'; import a from 'node:assert'; import { rows } from '../../gen/rows.mjs';\ntest('rows', () => a.equal(rows, 3));\n";
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha'),
+    'process/config.json': JSON.stringify({ generated: [{ paths: ['gen/rows.mjs'], regenerate: ['node', 'gen.mjs'], verify: ['node', '-e', 'process.exit(0)'] }] }),
+    'gen.mjs': gen,
+    '.gitignore': 'gen/rows.mjs\n',
+    'req/alpha.md': '# alpha\n\nR1 does a thing.\n',
+    'test/alpha/a.test.mjs': uses,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  assert.equal(jobTest(root, 'alpha', { log: quiet }).ok, true);
+  git(['clean', '-qfdX'], { cwd: root });
+  assert.equal(existsGen(join(root, 'gen/rows.mjs')), false);
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  git(['clean', '-qfdX'], { cwd: root });
+  const c = jobComplete(root, 'alpha', { push: false, log: quiet });
+  assert.equal(c.ok, true, JSON.stringify(c.commands));
+  assert.ok(c.receipt.commands.some((x) => /^build generated \(gen\/rows\.mjs\)$/.test(x.cmd) && x.exit === 0));
 });

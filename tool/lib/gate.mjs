@@ -7,7 +7,7 @@ import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, veri
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
-import { committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
+import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
@@ -105,6 +105,13 @@ export function gate(root, opts) {
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
     findings.push(...inst);
+    // Generated files the commit does not track are built before the checks and the suite, as
+    // deploy and release build them (copy, 4 Nov: an untracked rows.mjs failed 41 of 113 tests).
+    if (scope.length && !inst.length && gen.rows.length) {
+      const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
+      runRow.built = b.built;
+      findings.push(...b.findings);
+    }
     // ARC-4: the entry's own checks, as job complete runs them.
     if (entry && !inst.length) findings.push(...entryChecks(root, entry, { timeout, log }));
     const results = [];

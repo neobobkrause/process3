@@ -372,3 +372,29 @@ test('the gate race: whichever of the push\'s run and the ready run is kept judg
   assert.throws(() => run(s, broken, { draft: true }), /HTTP 502/);
   assert.equal(broken.state.comments.length, 1, 'no row posted');
 });
+
+// Copy, 4 Nov: PR 80 untracked rows.mjs (built, not committed); the gate regenerated it only after
+// the suite, so every suite importing it failed with ENOENT (41 of 113, bundler run 41767864311).
+test('the gate builds untracked generated files before the suite that imports them', () => {
+  const gen = "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/rows.mjs', 'export const rows = 3;\\n');\n";
+  const uses = "import test from 'node:test'; import a from 'node:assert'; import { rows } from '../../gen/rows.mjs'; import { x } from '../../src/alpha/index.mjs';\ntest('rows and x', () => { a.equal(rows, 3); a.equal(x, 2); });\n";
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+    'process/config.json': JSON.stringify({ generated: [{ paths: ['gen/rows.mjs'], regenerate: ['node', 'gen.mjs'], verify: ['node', '-e', 'process.exit(0)'] }] }),
+    'gen.mjs': gen,
+    '.gitignore': 'gen/rows.mjs\n',
+    'src/alpha/index.mjs': 'export const x = 1;\n',
+    'test/alpha/old.test.mjs': inertTest,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
+  const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/rows.test.mjs': uses });
+  assert.equal(existsSync(join(root, 'gen/rows.mjs')), false, 'not committed, not built yet');
+  const io = fakeIO(null);
+  io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'civicsmith' } }];
+  const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
+  assert.equal(r.run.suite, 'pass', JSON.stringify(r.findings));
+  assert.deepEqual(r.run.built, ['gen/rows.mjs']);
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '', 'the built file is ignored, nothing to commit');
+});
