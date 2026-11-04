@@ -392,6 +392,20 @@ test('a plain pin move goes forward to a released process3 commit only', () => {
   assert.throws(go(p.v1, p.v1, { 'process/config.json': JSON.stringify({ process_repo: 'https://example.com/other' }) }), /changes process_repo in process\/config.json; that needs the owner's word/);
 });
 
+test('a forward pin move is judged on the whole history when the tool\'s clone is shallow (copy PR 53)', () => {
+  const p = process3Line();
+  // The tool's clone fetched only the new pin, depth 1, as a session did on 4 Nov.
+  const shallow = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'p');
+  git(['init', '-q', shallow], { cwd: p.dir });
+  git(['remote', 'add', 'origin', git(['remote', 'get-url', 'origin'], { cwd: p.dir })], { cwd: shallow });
+  git(['-c', 'protocol.file.allow=always', 'fetch', '-q', '--depth', '1', 'origin', p.v2], { cwd: shallow });
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: shallow }), 'true');
+  const r = pinPR(p.v1, p.v2);
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'a pin move', io: plainIO(r, { repo: processRepo(shallow) }).io }).merged, true);
+  const back = pinPR(p.v2, p.v1);
+  assert.throws(() => mergePlain(back.root, 4, { ...q, noReview: 'a pin move', io: plainIO(back, { repo: processRepo(shallow) }).io }), /no downgrade/, 'a downgrade is still refused');
+});
+
 // Build 22 (2 Nov): process_repo the tool already holds the owner's word for.
 import { processRepoSetAt } from '../lib/merge.mjs';
 import { readFileSync } from 'node:fs';
