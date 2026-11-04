@@ -26,6 +26,16 @@ export function changedIds(before, after) {
   return [...new Set([...a.keys(), ...b.keys()])].filter((id) => a.get(id) !== b.get(id)).sort();
 }
 
+// A requirement retired in a split: its line now carries a `*(retired: ...)*` mark it did not
+// carry before. A retirement moves the requirement and changes no behaviour, so it notifies no
+// user (coordinator, 4 Nov: instance-setup's split notified 17 modules of 28 retired ids).
+const RETIRED = /\*\(retired\b[^)]*\)\*/i;
+export function retiredIds(before, after, ids) {
+  const a = reqLines(before);
+  const b = reqLines(after);
+  return ids.filter((id) => RETIRED.test(b.get(id) || '') && !RETIRED.test(a.get(id) || ''));
+}
+
 // The modules file (`modules_file`) at ref (or the working tree): its modules, [] when unread;
 // null without a modules file configured or present.
 export function readModules(root, cfg, ref = null) {
@@ -74,14 +84,18 @@ const readEntry = (root, ref, id) => {
 // tranche may have gained a user).
 export function providerChange(root, cfg, { provider, requirements, base, head, pr, usersAt = head, entry }) {
   const at = (ref) => (requirements ? git(['show', `${ref}:${requirements}`], { cwd: root, allowFail: true }).stdout : '');
-  const ids = changedIds(at(base), at(head));
+  const [was, now] = [at(base), at(head)];
+  const changed = changedIds(was, now);
+  const retired = retiredIds(was, now, changed);
+  const ids = changed.filter((id) => !retired.includes(id));
+  const left = retired.length ? `left out ${retired.length} retired id(s), which change no behaviour: ${retired.join(', ')}` : null;
   const e = entry || readEntry(root, base, provider);
   const src = e ? sourceChanges(root, cfg, e, base, head) : [];
-  if (!ids.length && !src.length) return { notice: null, why: null };
+  if (!ids.length && !src.length) return { notice: null, why: retired.length ? `PR ${pr} only retired requirements (${retired.join(', ')}), which change no behaviour` : null, retired };
   const users = usersOf(root, cfg, provider, usersAt);
-  if (!users.length) return { notice: null, why: null };
+  if (!users.length) return { notice: null, why: null, retired };
   if (e && !src.length) {
-    return { notice: null, why: `PR ${pr} changed ${ids.join(', ')} but no file of ${provider}'s source (${sourcePaths(cfg, e).join(', ') || 'no source paths'}): only tests, requirements text, docs or records, which cannot change a user's behaviour; no notice for its ${users.length} user(s)` };
+    return { notice: null, retired, why: `PR ${pr} changed ${ids.join(', ')} but no file of ${provider}'s source (${sourcePaths(cfg, e).join(', ') || 'no source paths'}): only tests, requirements text, docs or records, which cannot change a user's behaviour; no notice for its ${users.length} user(s)` };
   }
   const notice = { key: noticeKey(provider, pr), provider, ids, pr, users };
   if (src.length) {
@@ -91,7 +105,7 @@ export function providerChange(root, cfg, { provider, requirements, base, head, 
       if (anyExportChange(x)) notice.exports = x;
     } catch (err) { notice.exports_unread = String(err.message || err).slice(0, 200); }
   }
-  return { notice, why: null };
+  return { notice, why: null, retired, left };
 }
 export const providerNotice = (root, cfg, opts) => providerChange(root, cfg, opts).notice;
 

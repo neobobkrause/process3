@@ -230,7 +230,7 @@ test('notice triage prints BOB\'s act and the worker\'s brief: the changed text 
   assert.match(text, /- R2\n  before: - \*\*R2\*\* checks a token\n  after:  - \*\*R2\*\* checks a token and its age/);
   assert.match(text, /- R4\n  before: \(none\)\n  after:  \(none\)/);
   assert.match(text, /<module>: not affected: <file>:<line>/);
-  assert.match(text, /- u1: src\/u1\/ \(1 files, 20 bytes\)\n- u2: src\/u2\/ \(2 files, 5 bytes\)$/);
+  assert.match(text, /- u1: src\/u1\/; no file imports p\n- u2: src\/u2\/; no file imports p$/);
   assert.deepEqual(r.owed, ['u1', 'u2']);
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/process-state'], { cwd: root }).split('\t')[0], before, 'nothing written');
 });
@@ -447,7 +447,7 @@ test('notice triage splits a 108-module list into parallel briefs and records on
     assert.match(text, new RegExp(`^- worker ${k} of 5: brief ${k} \\(${k < 5 ? 25 : 8} modules, \\d+ bytes\\)$`, 'm'));
     assert.match(r.briefs[k - 1], new RegExp(`^Read-only triage of provider notice p:77, share ${k} of 5\\.`));
   }
-  assert.match(r.briefs[4], /Modules \(8; paths, files, bytes\):\n- u101: src\/u101\//);
+  assert.match(r.briefs[4], /Modules \(8; paths; the files that import p, with their import lines\):\n- u101: src\/u101\//);
   assert.doesNotMatch(r.briefs[4], /- u100:/);
   // Each worker answers its share; four of five files leave 8 modules unjudged: nothing written.
   const dir = mkdtempSync(join(tmpdir(), 'p3-triage-'));
@@ -524,7 +524,9 @@ test('merge of a provider job that changed its exports with no requirement chang
   const brief = noticeTriage(root, 'p:50', { log: quiet, io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } }).brief;
   assert.match(brief, /changed its source in PR 50, with no requirement text changed/);
   assert.match(brief, /- removed: Accounts\.groupKeyState, Accounts\.keySet\n- changed: Accounts\.accountFor \(id\) -> \(id, \{ scope \}\)\n- added: Accounts\.groupKeySwitches/);
-  assert.match(brief, /decide whether it uses the changed behaviour or any export removed or changed/);
+  assert.match(brief, /decide whether the module uses the changed behaviour or any export removed or changed/);
+  // Each user with only its files that import the provider, and their import lines.
+  assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1\n- u2: src\/u2\/; no file imports p$/);
 });
 
 test('a source change with no export change still records a notice, with no exports named; a test-only change with no requirement change records none', () => {
@@ -591,4 +593,87 @@ test('the resumed and the replacement START leave out a notice withdrawn since t
   const replaced = jobStart(root, 'u1', { coordinator: 's', restart: 'its session stopped', find: () => pr, notes: () => [], log: quiet }).start;
   assert.match(replaced, /replacement session/);
   assert.doesNotMatch(replaced, /p:7|## Provider notices/);
+});
+
+// Coordinator, 4 Nov: instance-setup's split retired 28 ids and notified 17 modules.
+test('a split\'s retired ids notify no user; a reworded id in the same pull request still does, and merge says what it left out', () => {
+  const root = product();
+  const split = REQ.replace('*(not yet met: x)* signs a token', '*(retired: moved to q R1)* signs a token').replace('- **R3** keeps a log', '- **R3** *(retired: moved to q R2)*').replace('checks a token', 'checks a token and its age');
+  const done = JSON.stringify({ row: 'attempt', event: 'complete', at: new Date().toISOString() }) + '\n';
+  const p = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': split, 'process/metrics/p.jsonl': done });
+  const out = [];
+  const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  assert.deepEqual(r.notices.rows.map((x) => [x.key, x.ids]), [['p:7', ['R2']]]);
+  assert.match(out.join('\n'), /provider notice p:7: left out 2 retired id\(s\), which change no behaviour: R1, R3/);
+  // Only retirements, and no source change: no notice, and it says why.
+  const cfg = loadConfig(root);
+  git(['checkout', '-q', '-B', 'retire', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const head = commit(root, { 'req/p.md': REQ.replace('*(not yet met: x)* signs a token', '*(retired: moved to q R1)*') });
+  const only = providerChange(root, cfg, { provider: 'p', requirements: 'req/p.md', base, head, pr: 8 });
+  assert.equal(only.notice, null);
+  assert.match(only.why, /PR 8 only retired requirements \(R1\), which change no behaviour/);
+  // A source change still notifies, with the retired ids left out.
+  const src = commit(root, { 'src/p/a.mjs': 'y' });
+  const withSrc = providerChange(root, cfg, { provider: 'p', requirements: 'req/p.md', base, head: src, pr: 9 });
+  assert.deepEqual([withSrc.notice.ids, withSrc.notice.source], [[], 1]);
+  git(['checkout', '-q', 'main'], { cwd: root });
+});
+
+// Coordinator, 4 Nov: membership:77, untriaged, held 90+ modules out of next work.
+test('an untriaged notice holds no module: a module that uses a notice\'s user opens by uses; a notice triage judged affected still holds it', () => {
+  const ids = ['p', 'u1', 'u2', 'w'];
+  const root = makeRepo({
+    'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
+    'process/modules.json': { modules: [{ id: 'p', paths: ['src/p/'] }, { id: 'u1', paths: ['src/u1/'], uses: ['p'] }, { id: 'u2', paths: ['src/u2/'], uses: ['p'] }, { id: 'w', paths: ['src/w/'], uses: ['u2'] }] },
+    'build/layers.md': '| layer | modules |\n|---|---|\n| 1 | p, u2 |\n| 2 | u1 |\n| 3 | w |\n',
+    ...Object.fromEntries(ids.flatMap((id) => [
+      ...(id === 'u1' || id === 'w' ? [] : [[`process/ledger/${id}.json`, entry(id, { status: { state: 'COMPLETE' } })]]),
+      [`req/${id}.md`, id === 'u1' || id === 'w' ? `# ${id}\n\n- **R1** *(not yet met: x)* do\n` : `# ${id}\n\n- **R1** met\n`],
+    ])),
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: root });
+  openPassed(root);
+  onState(root, { [noticeFile('p:7')]: JSON.stringify({ ...NOTICE, users: ['u1', 'u2'] }) + '\n' });
+  const next = () => status(root, { role: 'bob', offline: true, log: quiet }).next.map((x) => x.file || x.triage);
+  // u1 (its own unmet marks, the notice's user) and w (layer 3, uses u2, the notice's other user).
+  assert.deepEqual(next(), ['req/u1.md', 'req/w.md', 'p:7']);
+  // Triage judges u2 affected: u2 is notice work, and w waits for it.
+  onState(root, { 'notices/triage/u2-p-7.json': JSON.stringify({ row: 'triage', key: 'p:7', user: 'u2', verdict: 'affected', evidence: 'src/u2/a.mjs:1 calls sign', worker: 'a', cost: '1' }) + '\n' });
+  assert.deepEqual(next(), ['req/u1.md', 'req/u2.md', 'p:7']);
+});
+
+test('the triage brief carries each user\'s files that import the provider, not its code: 90 users of 40 KB each are 4 briefs', () => {
+  const users = Array.from({ length: 90 }, (_, i) => `u${String(i + 1).padStart(2, '0')}`);
+  const big = `// ${'x'.repeat(40000)}\nexport const big = 1;\n`;
+  const root = makeRepo({
+    'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
+    'process/modules.json': { modules: [{ id: 'p', paths: ['src/p/'] }, ...users.map((u) => ({ id: u, paths: [`src/${u}/`], uses: ['p'] }))] },
+    'process/ledger/p.json': entry('p'),
+    'req/p.md': REQ,
+    'src/p/index.mjs': 'export const sign = 1;\n',
+    ...Object.fromEntries(users.flatMap((u, i) => [
+      [`src/${u}/big.mjs`, big],
+      // Every other user imports p; the rest only mention it.
+      [`src/${u}/use.mjs`, i % 2 ? `// p is not used here\nexport const ${u} = 1;\n` : `export const ${u} = 1;\nimport { sign } from '../p/index.mjs';\n`],
+    ])),
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: root });
+  const m = mergedJob(root, { 'src/p/index.mjs': 'export const sign = 2;\n', 'req/p.md': REQ.replace('*(not yet met: x)* ', '') });
+  onState(root, { [noticeFile('p:77')]: JSON.stringify({ ...NOTICE, key: 'p:77', pr: 77, ids: ['R1'], users }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const r = noticeTriage(root, 'p:77', { log: quiet, io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } });
+  assert.ok(r.briefs.length <= 4, `${r.briefs.length} briefs`);
+  assert.deepEqual(r.shares.flat(), users, 'every module in exactly one share');
+  assert.match(r.briefs[0], /^- u01: src\/u01\/; src\/u01\/use\.mjs:2$/m);
+  assert.match(r.briefs[0], /^- u02: src\/u02\/; no file imports p$/m);
+  assert.doesNotMatch(r.briefs.join('\n'), /big\.mjs/);
 });

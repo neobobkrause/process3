@@ -217,8 +217,9 @@ export function merge(root, n, opts = {}) {
 // or none, naming its export changes; a job that changed only those others leaves none, and the
 // line says why.
 function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
-  const { notice, why } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
+  const { notice, why, left } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
   if (why) log(`no provider notice: ${why}`);
+  if (notice && left) log(`provider notice ${notice.key}: ${left}`);
   const t = git(['show', `${at}:${metricsFile(id)}`], { cwd: root, allowFail: true });
   const answers = (t.code === 0 ? jsonl(t.stdout) : []).filter((x) => x.event === 'start').pop()?.notices || [];
   let notes = { rows: [] };

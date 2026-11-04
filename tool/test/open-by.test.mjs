@@ -67,15 +67,18 @@ test('open_by layer: the open layer only, as before', () => {
   assert.doesNotMatch(out.join('\n'), /not ready, its uses/);
 });
 
-test('open_by uses: a provider with an unanswered provider notice holds its users; an open job on a ready module takes it off the list', () => {
+test('open_by uses: a provider triage judged affected by a notice holds its users, an untriaged one does not; an open job on a ready module takes it off the list', () => {
   const root = repo();
   const cfg = loadConfig(root);
   const rows = status(root, { offline: true, log: quiet }).rows;
   const ls = layerState(root, cfg, rows, null, { closed: [] });
-  const owed = { q2: [{ key: 'base:9', provider: 'base', ids: ['R1'], pr: 9 }] };
-  const next = nextWork(root, cfg, rows, null, { log: quiet, state: ls, notices: owed });
-  // Not yet triaged, so q2 is no notice work yet (its triage is BOB's act); u3 and n3 wait on it.
-  assert.deepEqual(next.map((x) => x.file?.replace('build/requirements/', '') ?? x.triage), ['p2.md', 'e3.md', 'base:9']);
+  const notice = { key: 'base:9', provider: 'base', ids: ['R1'], pr: 9 };
+  const at = (owed) => nextWork(root, cfg, rows, null, { log: quiet, state: ls, notices: owed }).map((x) => x.file?.replace('build/requirements/', '') ?? x.triage);
+  // Not yet triaged: q2 is no notice work yet (its triage is BOB's act), and holds nothing
+  // (coordinator, 4 Nov: membership:77 untriaged held 90+ modules).
+  assert.deepEqual(at({ q2: [{ ...notice, triage: null }] }), ['p2.md', 'u3.md', 'n3.md', 'e3.md', 'base:9']);
+  // Judged affected: q2 is notice work, and u3 and n3 wait on it.
+  assert.deepEqual(at({ q2: [{ ...notice, triage: { verdict: 'affected', evidence: 'x:1' } }] }), ['p2.md', 'e3.md', 'q2.md']);
   const busy = repo({}, { 'process/ledger/u3.json': entry('u3', { requirements: 'build/requirements/u3.md' }) });
   const r = status(busy, { role: 'bob', offline: true, log: quiet });
   assert.deepEqual(r.next.map((x) => x.file.replace('build/requirements/', '')), ['p2.md', 'n3.md', 'e3.md']);

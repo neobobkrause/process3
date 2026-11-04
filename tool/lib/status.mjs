@@ -369,15 +369,20 @@ export function openBy(cfg) {
 
 // Dependency opening (open_by "uses"): the modules of the layers past the open one that are
 // ready. Ready: every module its `uses` (modules_file) names is in the layer map and done, with
-// no unmet marks, no open job and no unanswered provider notice of its own. A module with no
+// no unmet marks, no open job and no provider notice triage judged it affected by (noticeWork). A module with no
 // `uses` entry waits for its layer. gaps: each module past the open layer whose `uses` names a
 // module the layer map lacks: not ready. The open layer is unchanged.
+// A module owes notice work when triage judged it affected by a notice (or its merged job named
+// one whose answer was not recorded). A notice not yet triaged holds nothing: membership:77,
+// untriaged, held 90+ modules on the copy (coordinator, 4 Nov); triage answers it, or judges the
+// module affected, and then it holds the modules that use it.
+const noticeWork = (owed, id) => !!owed[id]?.some((n) => n.triage || n.rerun);
 export function readyByUses(root, cfg, ls, ref, owed = {}) {
   const modules = openBy(cfg) === 'uses' && ls?.cur ? readModules(root, cfg, ref) : null;
   if (!modules) return { ready: [], gaps: [] };
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
-  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !m.found.length && !owed[id]?.length; };
+  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !m.found.length && !noticeWork(owed, id); };
   const ready = [];
   const gaps = [];
   for (const L of ls.layers.filter((x) => x.n >= ls.cur.n && !x.closed)) {
@@ -404,7 +409,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   const modules = by === 'uses' ? readModules(root, cfg, ref) || [] : [];
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, layer: L.n }])));
-  const done = (id) => { const m = where.get(id); return !!m && !m.open && !m.marks.length && !m.found.length && !owed[id]?.length; };
+  const done = (id) => { const m = where.get(id); return !!m && !m.open && !m.marks.length && !m.found.length && !noticeWork(owed, id); };
   const reached = (n) => !ls.cur || n <= ls.cur.n;
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const ready = [];
