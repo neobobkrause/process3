@@ -258,6 +258,22 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   // it landed there; its block is not judged again (a release merge brought back from main).
   const landedOn = refs.filter((r) => r !== base && !anc(head, r));
   const landed = (sha) => landedOn.some((r) => anc(sha, r));
+  const trustedRefs = refs.filter((r) => r !== base);
+  const onTrusted = (sha) => trustedRefs.some((r) => anc(sha, r));
+  // A merge takes a trusted parent's version cleanly when every other parent left it as it was
+  // where the two diverged: what a three-way merge gives, so no older version is put back over a
+  // newer one (main's older approvals over the tranche's owner edit stay refused).
+  const mergeBases = new Map();
+  const mbOf = (a, b) => {
+    const k = `${a} ${b}`;
+    if (!mergeBases.has(k)) mergeBases.set(k, git(['merge-base', a, b], { cwd: root, allowFail: true }).stdout?.trim() || null);
+    return mergeBases.get(k);
+  };
+  const cleanFrom = (p, parents, read) => onTrusted(p) && parents.every((q) => {
+    if (q === p || read(q) === read(p)) return true;
+    const m = mbOf(p, q);
+    return Boolean(m) && read(m) === read(q);
+  });
   let top;
   const ownerSet = () => (top === undefined ? (top = ownerBlock(root, refs, afile, heading, ownerCommit)) : top);
   const blocks = new Map();
@@ -285,9 +301,12 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     try {
       const parents = git(['rev-list', '--parents', '-n', '1', sha], { cwd: root }).split(' ').slice(1);
       const files = introduced(root, sha, parents, { guarded, judged, base });
-      // The versions a merge's guarded file is compared with: the base's, and any parent's that
-      // was judged inside the range.
-      const parentsFor = (f) => (parents.length > 1 ? [...(base ? [base] : []), ...parents.filter((p) => judged(p, f))] : parents);
+      // The versions a merge's guarded file is compared with: the base's, any parent's that was
+      // judged inside the range, and any parent's on main or the tranche, whose versions were
+      // judged when they landed there, when the merge takes it cleanly (the copy, 4 Nov: a job's sync merge carrying the tranche's
+      // CLAUDE.md after an owner edit, refused once a later owner edit moved the base on). A side
+      // parent on no trusted ref counts only when judged in the range.
+      const parentsFor = (f) => (parents.length > 1 ? [...(base ? [base] : []), ...parents.filter((p) => judged(p, f) || cleanFrom(p, parents, (r) => show(root, r, f)))] : parents);
       const approvalsTouched = [];
       // The approvals block (build J): a commit whose block differs from a parent's, or from every
       // version already judged, changes it. It is accepted only when it is the owner's own website
@@ -296,7 +315,10 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       if (files.includes(afile) || parents.length > 1) {
         const now = blockOf(sha);
         const was = parents.length ? parentsFor(afile).map(blockOf) : [''];
-        const changed = parents.length ? (!was.includes(now) || parents.some((p) => blockOf(p) !== now)) : now !== '';
+        // A merge that takes, cleanly, the block of a parent on main or the tranche (owner-judged
+        // there) changes nothing; a side parent's block on no trusted ref does not count.
+        const fromTrusted = parents.length > 1 && parents.some((p) => blockOf(p) === now && cleanFrom(p, parents, blockOf));
+        const changed = parents.length ? !fromTrusted && (!was.includes(now) || parents.some((p) => blockOf(p) !== now)) : now !== '';
         // A merge may also carry the block the owner had set as one of its parents saw it (an
         // earlier owner edit, since overtaken), when the head ends on the current one (review A).
         const carried = () => blockOf(head) === ownerSet()?.block && parents.some((p) => ownerBlock(root, [p], afile, heading, ownerCommit)?.block === now);
