@@ -13,7 +13,7 @@ import { webCommitByOwner } from './record.mjs';
 import { P3, TOOL_ROOT } from './job.mjs';
 import { noticeLine, providerNotice, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -216,11 +216,13 @@ const blobAt = (root, rev, path) => {
 };
 
 // process3 as the tool's own clone holds it: whether a pin is released (a commit on its
-// tranche or main), and the blob of a shim at that pin.
+// tranche or main), and the blob of a shim at that pin. A shallow clone is made whole first:
+// ancestry read across a shallow cut is false, which refused a forward pin move as a downgrade
+// (copy PR 53, 4 Nov). process3's history is small.
 export function processRepo(dir = TOOL_ROOT) {
   let fetched = false;
   const fetch = () => {
-    if (!fetched) git(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/main:refs/remotes/origin/main'], { cwd: dir, allowFail: true });
+    if (!fetched) git(['fetch', '-q', ...(isShallow(dir) ? ['--unshallow'] : []), 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/main:refs/remotes/origin/main'], { cwd: dir, allowFail: true });
     fetched = true;
   };
   return {
