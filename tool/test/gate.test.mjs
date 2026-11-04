@@ -345,3 +345,30 @@ test('a job that adds a test for a mark its module already meets and strikes it 
   assert.equal(r.run.revert, 'no code changed');
   assert.deepEqual(r.findings, []);
 });
+
+// The gate race (copy PRs 55, 61, 62, 63, 4 Nov): job complete pushes, then marks ready. The
+// push's synchronize run carries draft: true in its payload, the ready_for_review run draft:
+// false; both are created in the same second and the concurrency group keeps one of them,
+// either one. The gate reads the pull request's draft state live, so whichever run is kept
+// gives the one full run on the head: the suite and the receipt.
+test('the gate race: whichever of the push\'s run and the ready run is kept judges the pull request as it is now', () => {
+  const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const live = (draft) => { const io = fakeIO(receiptFor(s.head)); io.io.getPR = () => ({ draft, user: { login: 'civicsmith' } }); return io; };
+  for (const eventDraft of [true, false]) {
+    const io = live(false);
+    const out = [];
+    const r = run(s, io, { draft: eventDraft, log: (m) => out.push(String(m)) });
+    assert.deepEqual([r.run.trigger, r.run.suite, r.run.receipt, r.run.ok], ['code', 'pass', 'agrees', true], `event draft ${eventDraft}`);
+    assert.equal(out.some((l) => /the event said draft/.test(l)), eventDraft);
+    assert.equal(r.run.event_draft, eventDraft ? true : undefined);
+    assert.equal(gateRuns(io.state.comments).length, 1, 'one row per kept run');
+  }
+  // Converted back to draft after the event: the live state wins the other way too.
+  const d = run(s, live(true), { draft: false });
+  assert.deepEqual([d.run.trigger, d.run.suite, d.run.receipt], ['draft', 'skipped', 'not checked']);
+  // A failed read stops the run: it never falls back to the event's stale state.
+  const broken = fakeIO(receiptFor(s.head));
+  broken.io.getPR = () => { throw new Error('HTTP 502'); };
+  assert.throws(() => run(s, broken, { draft: true }), /HTTP 502/);
+  assert.equal(broken.state.comments.length, 1, 'no row posted');
+});
