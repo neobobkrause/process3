@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { committedPaths, entryChecks, generatedRows, regenerate } from './checks.mjs';
+import { buildGenerated, committedPaths, entryChecks, generatedRows, regenerate } from './checks.mjs';
 import { normPath } from './suite.mjs';
 import { wakeLine } from './job.mjs';
 import { entryFile } from './ledger.mjs';
@@ -44,6 +44,10 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
   let built = [];
   try {
     findings.push(...install(wt, cfg.lockfiles, { exec }).findings);
+    // Generated files the tranche does not track are built before the suites, as the gate builds
+    // them (copy, 4 Nov: layer 2's close failed on an unbuilt rows.mjs, 37/37 and 33/33).
+    const gen0 = generatedRows(cfg);
+    if (!findings.length && gen0.rows.length) findings.push(...buildGenerated(wt, gen0.rows, { ref: sha, timeout, exec, log }).findings);
     for (const m of findings.length ? [] : ls.cur.mods) {
       if (m.blocked) { log(`${m.id}: deferred, BLOCKED (${m.blocked}); its work is not in the tranche, no suite to run`); continue; }
       if (!existsSync(join(wt, entryFile(m.id)))) { log(`${m.id}: no ledger entry, no suite to run`); continue; }
