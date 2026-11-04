@@ -9,6 +9,8 @@
 # creates a draft release, never published and never marked latest, with one archive of the
 # assembled files, <product>-p3dev-<version>.tar.gz (release.out, paths kept), and SHA256SUMS
 # over it. Signing (SHA256SUMS.sig) only when release.sign_secret in process/config.json names a secret.
+# The draft's body carries the release note's fields: the process pin, the product sizes (p3 size,
+# in job checks), the checks' results and the platform rows the pin's ranges.json names.
 # Copied into a product as .github/workflows/process-dev-release.yml.
 name: process-dev-release
 on:
@@ -51,13 +53,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ steps.cfg.outputs.node }}
+      # The product's size, read from git by the pin's tool before any product code runs (the
+      # release note's product sizes).
+      - name: the product's size
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" size --out "$RUNNER_TEMP/size.json"
       - name: release.checks, each within its own timeout
         run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run checks --out "$RUNNER_TEMP/checks.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: checks-result
-          path: ${{ runner.temp }}/checks.json
+          path: |
+            ${{ runner.temp }}/checks.json
+            ${{ runner.temp }}/size.json
           if-no-files-found: ignore
           overwrite: true
           retention-days: 90
@@ -130,6 +138,7 @@ jobs:
           pin=$(git -C repo rev-parse -q --verify "$GITHUB_SHA:.process") || { echo "::error::no process pin"; exit 1; }
           git clone -q --filter=blob:none "$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')" "$RUNNER_TEMP/process3"
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ steps.cfg.outputs.node }}
@@ -171,8 +180,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.v.outputs.tag }}
           VERSION: ${{ steps.v.outputs.version }}
+          PIN: ${{ steps.cfg.outputs.pin }}
         run: |
-          node "$RUNNER_TEMP/process3/tool/p3.mjs" release body "$RUNNER_TEMP/checks/checks.json" --version "$VERSION" --commit "$GITHUB_SHA" > "$RUNNER_TEMP/body.md"
+          node "$RUNNER_TEMP/process3/tool/p3.mjs" release body "$RUNNER_TEMP/checks/checks.json" --version "$VERSION" --commit "$GITHUB_SHA" --pin "$PIN" --size "$RUNNER_TEMP/checks/size.json" > "$RUNNER_TEMP/body.md"
           # The tag first, by the API: an existing tag fails here and is never moved.
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA" >/dev/null
           mapfile -d '' files < <(find "$RUNNER_TEMP/assets" -maxdepth 1 -type f -print0)

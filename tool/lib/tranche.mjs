@@ -12,6 +12,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
+import { completionItems, openItems } from './completion.mjs';
 import { P3 } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
@@ -195,6 +196,11 @@ export function trancheClose(root, { record = false, report = false, log = conso
     if (!ls) fail(`no layer map (${cfg.layers_file}) on ${t}, and the plan on ${t} is ${plan}, not close`);
     const open = ls.layers.filter((L) => !L.closed);
     if (open.length) fail(`layers not closed: ${open.map((L) => L.n).join(', ')}; the tranche closes when every layer is closed, or when the plan says close`);
+    // The completion round (PLN-4): every item done, or deferred with a reason on its line.
+    const c = completionItems(root, cfg, t);
+    if (c?.missing) fail(`completion_file ${c.file} is not on ${t}; the tranche closes when its completion round is done`);
+    const left = openItems(c);
+    if (left.length) fail(`completion round not done: ${left.map((x) => (x.malformed ? `${x.id} (not an item line)` : `${x.id} (${x.target})`)).join(', ')} open in ${c.file}; tick each when done, or mark it "deferred: <reason>"`);
   }
   const [owner, repo] = slug.split('/');
   const steps = [];

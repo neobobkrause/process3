@@ -3,9 +3,10 @@
 // Usage: node <clone>/tool/p3.mjs <command> [args]
 // p3-capability: gate-no-post (products' older shims grep for this line at the pin; keep it until
 // every product carries the shim without the legacy path; review B of PR 32)
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
 import { layerClose } from './lib/layer.mjs';
+import { laneAsk } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
@@ -15,6 +16,7 @@ import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './l
 import { deepen, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
+import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
@@ -98,7 +100,16 @@ const commands = {
     return trancheOpen(root, { depth: a.depth }).state === 'stopped' ? 1 : 0;
   },
 
-  // tranche close: refused unless every layer is closed or the plan says close; BOB's acts.
+  // lane ask <name> "<question>" --context <file>...: the ask recorded open on the state branch and
+  // BOB's act, a read-only worker's brief (SES-14). --record "<decision>" --worker <id> [--cost-usd <n>]: the decision.
+  'lane ask': (a, root) => {
+    if (a._.length !== 2) fail('lane ask <name> "<question>" --context <file>..., the question in quotes');
+    laneAsk(root, a._[0], a._[1], { context: a.context, record: a.record, worker: a.worker, cost: a['cost-usd'] });
+    return 0;
+  },
+
+  // tranche close: refused unless every layer is closed and the completion file's items are done or
+  // deferred (PLN-4), or the plan says close; BOB's acts.
   // tranche close --record: once the tranche is on main, the close on the state branch.
   'tranche close': (a, root) => (trancheClose(root, { record: !!a.record, report: !!(commands['report tranche'] || commands.report) }).ok ? 0 : 1),
 
@@ -205,8 +216,9 @@ const commands = {
   'release version': (a) => { console.log(versionOf(a.branch)); return 0; },
   // release sign <dir>: SHA256SUMS and its Ed25519 signature, the PEM key in P3_SIGN_KEY (only when release.sign_secret is set).
   'release sign': (a) => { releaseSign(one(a, 'directory')); return 0; },
-  // release body <checks.json> --version <v> --commit <sha>: the draft release's body.
-  'release body': (a) => { console.log(releaseBody(one(a, 'checks file'), { version: a.version, commit: a.commit })); return 0; },
+  // release body <checks.json> --version <v> --commit <sha> [--pin <sha>] [--size <size.json>]:
+  // the draft release's body: the checks, the process pin, the product sizes and the pin's platform rows.
+  'release body': (a) => { console.log(releaseBody(one(a, 'checks file'), { version: a.version, commit: a.commit, pin: a.pin, sizeFile: a.size })); return 0; },
 
   // review brief <pr> [--scope "<text>"]: prints the fresh-context brief a reviewer subagent is
   // given, filled from the pull request (build N). Writes nothing.
@@ -217,6 +229,21 @@ const commands = {
   // --at HEAD judges the checkout's own commit (its pin and files), not the tranche tip: a
   // pin-move pull request runs it before it merges. session-branch is skipped then.
   'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root), at: a.at === true ? fail('--at <ref>, e.g. --at HEAD') : a.at }).ok ? 0 : 1),
+
+  // size [--at <ref>] [--gate <gate.json>] [--out <size.json>]: the product as the process sees it
+  // (modules, layers, requirement files, suites, lock files, generated rows, tracked files), read
+  // from git at the ref (default HEAD), and against the pin's ranges.json. Writes nothing else.
+  size: (a, root) => {
+    if (a.at === true || a.gate === true || a.out === true) fail('size [--at <ref>] [--gate <gate.json>] [--out <size.json>]');
+    let gateRow = null;
+    if (a.gate) { try { gateRow = JSON.parse(readFileSync(a.gate, 'utf8')); } catch { fail(`--gate ${a.gate}: not a readable gate.json`); } }
+    let s;
+    try { s = measureSize(root, loadConfig(root, a.at), { ref: a.at || 'HEAD', gateRow }); } catch (e) { fail(e.message); }
+    const c = compareRanges(s.figures, loadRanges());
+    for (const l of [...sizeLines(s), ...c.lines]) console.log(l);
+    if (a.out) writeFileSync(a.out, JSON.stringify({ ...s, range: { state: c.state, outside: c.outside } }, null, 2) + '\n');
+    return 0;
+  },
 
   // start check [--branch <the branch the session started from; default the tranche>]: a
   // session's first command. Fetches that branch, compares HEAD and the approvals block with its

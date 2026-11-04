@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
+import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
 import { DEFAULTS, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
 
@@ -385,8 +386,24 @@ export function setupCheck(root, { slug, at = null, conditions = loadConditions(
   log(`setup check for ${slug}, tranche ${x.cfg.tranche}${at ? `, at ${x.where}` : ''}:`);
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
+  const size = sizeCheck(root, x, sha, { io, log });
   const carry = takeInCheck(root, x, { io, log });
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, carry };
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry };
+}
+
+// The product's size (p3 size) at the judged commit against the ranges.json of its pin (the
+// running clone's when the pin is unread): inside, outside per figure, or no certified range
+// yet. Informational: never a missing condition, so it stops no start.
+function sizeCheck(root, x, sha, { io, log }) {
+  const ref = sha || `origin/${x.cfg.tranche}`;
+  let s;
+  try { s = measureSize(root, x.cfg, { ref }); } catch (e) { log(`size: unmeasured, ${e.message}`); return null; }
+  let pin = null;
+  try { pin = x.pin(); } catch { pin = null; }
+  const releases = io.ranges || loadRanges(pin ? pin.file('ranges.json') : undefined);
+  const c = compareRanges(s.figures, releases);
+  for (const l of [...sizeLines(s), ...c.lines]) log(l);
+  return { ...s, range: { state: c.state, outside: c.outside } };
 }
 
 // Tranche carry (SHM-4): a product converting mid-tranche lists its open pull requests into the
