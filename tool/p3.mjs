@@ -111,12 +111,12 @@ const commands = {
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
   'layer close': (a, root) => (layerClose(root, one(a, 'layer number'), { as: senderOf(root, a.as) }).ok ? 0 : 1),
 
-  // pin move <product slug> --report <session id> --why "<what it unblocks>" [--pin <sha>] [--tranche <name>]:
+  // pin move <product slug> --report <session id> --why "<what it unblocks>" --pin <sha> [--tranche <name>]:
   // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
-  // move as one short session's create_session call (pin default: process3's tranche tip).
+  // move as one short session's create_session call; --pin is required, a process3 commit.
   // Refused while a pin move (a pull request from a p3/pin-* head) is open on the product;
   // --supersedes <pr> closes that one as superseded (a comment and a close, its branch kept).
-  'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why, supersedes: a.supersedes }); return 0; },
+  'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, rest: a._.slice(1), tranche: a.tranche, report: a.report, why: a.why, supersedes: a.supersedes }); return 0; },
   // pin check <product slug>: the pin-move session's check right before it pushes; exit 1 while a pin move is open.
   'pin check': (a) => { pinCheck(a._[0]); return 0; },
 
