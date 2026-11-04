@@ -690,9 +690,11 @@ test('the tranche into main may carry a tranche name the owner\'s website commit
   assert.equal(f.calls.merged, null);
 });
 
-// Review follow-ups, 2 Nov: pinChange lets the tranche carry its config into main as it is;
-// the record check is what stops a carried config from changing approvals.owner.
-test('the tranche into main carrying a changed approvals.owner passes pinChange, and the record check refuses it', () => {
+// Review of PR 96 (security gap, predating it): a normal close anchors the approvals as it
+// anchors process_repo and the tranche, so a tranche cannot name the owner the next close trusts.
+// The owner who judges is main's; the record check still refuses the same change on its own.
+test('the tranche into main carrying a changed approvals.owner needs main\'s owner\'s website commit', () => {
+  const msg = /changes approvals in process\/config\.json; that needs the owner's word: bring it to Bob/;
   const r = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ process_repo: P3 }) });
   const mainTip = git(['rev-parse', 'main'], { cwd: r.root });
   git(['checkout', '-q', 'tranche'], { cwd: r.root });
@@ -700,13 +702,38 @@ test('the tranche into main carrying a changed approvals.owner passes pinChange,
   git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
   git(['checkout', '-q', 'main'], { cwd: r.root });
   const mb = git(['merge-base', mainTip, change], { cwd: r.root });
-  assert.doesNotThrow(() => pinChange(r.root, mb, change, released, { intoMain: true, baseRef: 'origin/main', ownerCommit: () => ({ ok: false }) }));
+  assert.throws(() => pinChange(r.root, mb, change, released, { intoMain: true, ownerCommit: () => ({ ok: false }) }), msg);
+  r.sha = change;
+  const f = intoMain(r, ghCommit('none'));
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), msg);
+  assert.equal(f.calls.merged, null);
+  // The head's own named owner's website commit grants nothing: main's owner judges.
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(change, { author: 'civicsmith' })).io }), msg);
+  // The approvals file or heading, the same.
+  for (const approvals of [{ file: 'AGENTS.md' }, { heading: '## Anything goes' }]) {
+    const t = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ process_repo: P3 }) });
+    git(['checkout', '-q', 'tranche'], { cwd: t.root });
+    t.sha = commit(t.root, { 'process/config.json': JSON.stringify({ process_repo: P3, approvals }) }, 'a session moves the approvals');
+    git(['push', '-q', 'origin', 'tranche'], { cwd: t.root });
+    git(['checkout', '-q', 'main'], { cwd: t.root });
+    assert.throws(() => mergePlain(t.root, 4, { ...q, noReview: 'x', io: intoMain(t, ghCommit('none')).io }), msg, JSON.stringify(approvals));
+    assert.equal(mergePlain(t.root, 4, { ...q, noReview: 'x', io: intoMain(t, ghCommit(t.sha)).io }).merged, true, JSON.stringify(approvals));
+  }
+  // Main's owner's own website commit on the tranche: accepted, and nothing else changes.
+  const asked = [];
+  const ok = intoMain(r, ghCommit(change), asked);
+  assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: ok.io }).merged, true);
+  assert.deepEqual(asked, [change]);
+  // Into the tranche from a working branch there is no owner exception for the approvals either.
+  const w = makeRepoWith(JSON.stringify({ tranche: 'tranche' }), JSON.stringify({ tranche: 'tranche', approvals: { owner: 'civicsmith' } }));
+  const into = plainIO(w);
+  into.io.lookup = everyOwner;
+  assert.throws(() => mergePlain(w.root, 4, { ...q, noReview: 'x', io: into.io }), msg);
+  // The record check refuses the session's change as before.
   const cfgMain = loadConfig(r.root, mainTip);
   assert.equal(cfgMain.approvals.owner, D.approvals.owner);
-  const f = recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit('none') }).findings;
-  assert.deepEqual(f.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
-  assert.match(f[0].message, new RegExp(`commit ${change.slice(0, 10)} changes the approvals or record_since but is not neobobkrause's own commit`));
-  // The owner's own website commit may change it.
+  const rf = recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit('none') }).findings;
+  assert.deepEqual(rf.map((x) => [x.check, x.file]), [['approvals', 'process/config.json']]);
   assert.deepEqual(recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit(change) }).findings, []);
 });
 

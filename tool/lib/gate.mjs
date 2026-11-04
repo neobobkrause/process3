@@ -9,9 +9,11 @@ import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
-import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { webCommitByOwner } from './record.mjs';
+import { isBootstrap, unanchored } from './anchor.mjs';
+import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
-const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
+const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
@@ -36,16 +38,42 @@ export const ownPaths = (e) => [...e.paths, ...e.tests, ...(e.requirements ? [e.
 // The comment for one gate run: the lead line and the row, as job post writes it.
 export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${String(r.sha).slice(0, 10)}\`: ${r.ok ? 'green' : `red, ${r.findings} finding(s)`}, ${r.trigger}, ${r.minutes} min.`);
 
+// The config the gate runs with: the base's, the trusted side. At the first close (bootstrap: a
+// base with no Process3, anchor.mjs) the base has none, so the defaults would install no lock
+// file and build no generated row: a false red for every module the tranche cover leaves to its
+// suite (review of PR 96). Then only, for the tranche its own config names, the head's RUN_KEYS
+// are taken over the defaults, once its tranche, approvals and process_repo each are the default
+// or took their value at the default owner's website commit, as merge --plain holds the first
+// close (anchor.mjs unanchored). Safe because these say only how the suite runs, never what is
+// trusted: the suite, its tests, the lock files it installs and the generators it runs are the
+// head's code whatever the config says, so a head config can make the gate install or build
+// more, never pass a test that fails; the records (the fast paths), the owner and the receipt
+// stay the defaults'. The tranche is anchored, so the cover may read it. A head config that fails
+// the anchor is a finding, and the gate runs with the defaults.
+export const RUN_KEYS = ['tranche', 'lockfiles', 'generated', 'suite_timeout_minutes'];
+export function gateConfig(root, { base, head, branch, slug, io = ghIO }) {
+  const cfg = loadConfig(root, base);
+  if (!isBootstrap(root, base) || !exists(root, head, CONFIG_FILE)) return { cfg, findings: [] };
+  let raw;
+  try { loadConfig(root, head); raw = JSON.parse(git(['show', `${head}:${CONFIG_FILE}`], { cwd: root })); } catch (e) {
+    return { cfg, findings: [F('config', CONFIG_FILE, `the base has no Process3, and the head's ${CONFIG_FILE} cannot be read (${e.message}); the gate runs with the defaults`)] };
+  }
+  if (branch !== (raw.tranche ?? cfg.tranche)) return { cfg, findings: [] };
+  const key = unanchored(root, base, head, (c) => webCommitByOwner(root, c, cfg.approvals.owner, io.lookup || gh, slug));
+  if (key) return { cfg, findings: [F('config', CONFIG_FILE, `the base has no Process3, and the head changes ${key} without the owner's website commit; the gate runs with the defaults`)] };
+  return { cfg: configOf(Object.fromEntries(RUN_KEYS.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]])), `the head's ${CONFIG_FILE}`), findings: [], bootstrap: true };
+}
+
 // post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes
 // the comment from the run's artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
   const { base, head, branch, pr, draft: eventDraft = false, started = Date.now(), post = true, io = ghIO, exec, log = console.log } = opts;
-  const cfg = loadConfig(root, base); // the trusted side
-  const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const slug = opts.slug || repoSlug(root);
+  const { cfg, findings, bootstrap } = gateConfig(root, { base, head, branch, slug, io }); // the trusted side
+  if (bootstrap) log(`the base has no Process3: the gate runs with the head's ${RUN_KEYS.join(', ')}, its anchored keys held`);
+  const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const mb = git(['merge-base', head, base], { cwd: root });
   const changed = diffNames(root, mb, head);
-  const findings = [];
   const runRow = { sha: head, base, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   const all = pr ? io.comments(slug, pr) : [];
   const prior = gateRuns(all);
