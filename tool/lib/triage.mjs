@@ -9,9 +9,9 @@
 // One file per write on the state branch, added and never edited, as notices/ is.
 import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
-import { NOTICES_DIR, answerFile, notices } from './notice.mjs';
+import { NOTICES_DIR, answerFile, mergedRange, notices } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
+import { depth, exists, fail, git, list, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -57,20 +57,17 @@ function find(root, cfg, key) {
 
 // The provider's changed requirements, before and after, from the PR's merge commit (as merge
 // run again on a merged pull request reads it).
-function changes(root, cfg, n, { slug, read }) {
+function changes(root, cfg, n, { slug, read, compare }) {
   const pr = read(slug, n.pr);
   const m = pr?.merge_commit_sha;
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
-  git(['fetch', '-q', ...(isShallow(root) ? ['--depth=50'] : []), 'origin', m], { cwd: root, allowFail: true });
-  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
-  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; what it changed cannot be read`);
-  const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
+  const { head: h, mb } = mergedRange(root, m, { slug, n: n.pr, ...(compare ? { read: compare } : {}) });
   const entry = git(['show', `${mb}:process/ledger/${n.provider}.json`], { cwd: root, allowFail: true });
   let file = `${cfg.requirements_dir.replace(/\/$/, '')}/${n.provider}.md`;
   try { if (entry.code === 0) file = JSON.parse(entry.stdout).requirements || file; } catch { /* the default path */ }
   const at = (ref) => git(['show', `${ref}:${file}`], { cwd: root, allowFail: true }).stdout;
   const before = at(mb);
-  const after = at(head.stdout.trim());
+  const after = at(h);
   const line = (text, id) => String(text).split('\n').find((l) => l.includes(`**${id}**`))?.trim() || '(none)';
   return { file, ids: n.ids.map((id) => ({ id, before: line(before, id), after: line(after, id) })) };
 }
@@ -131,7 +128,7 @@ export function noticeTriage(root, key, { log = console.log, io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${tranche}`], { cwd: root, allowFail: true });
   const sha = git(['rev-parse', tranche], { cwd: root });
-  const changed = changes(root, cfg, n, { slug: io.slug || repoSlug(root), read: io.getPR || getPR });
+  const changed = changes(root, cfg, n, { slug: io.slug || repoSlug(root), read: io.getPR || getPR, compare: io.compare });
   const mods = sizes(root, cfg, owed, tranche);
   const parts = shares(mods, { bytes: cfg.triage_share_bytes, modules: cfg.triage_share_modules });
   if (parts.length === 1) {

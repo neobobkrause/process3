@@ -288,7 +288,7 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
 test('the head moving between the two reads refuses', () => {
   const r = plainRepo();
   const f = plainIO(r, { after: (p) => ({ ...p, head: { ...p.head, sha: 'e'.repeat(40) } }) });
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /moved while it was checked/);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /bob\/pin moved to e{10} while its checks on \w+ were awaited; run merge again/);
   assert.equal(f.calls.merged, null);
 });
 

@@ -9,6 +9,7 @@ import { anyExportChange, exportChanges } from './exports.mjs';
 import { entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
+import { compare } from './github.mjs';
 import { exists, fail, git, isRecordPath, isShallow, underPath } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -165,11 +166,38 @@ export function recordAtMerge(root, cfg, { notice, answers = [], user, pr }) {
   });
 }
 
+// A merged pull request's range as GitHub merged it: the merge commit m, the job's head m^2, and
+// the merge base of m's two parents. A shallow clone fetched m at depth 50 and asked git for the
+// base, which died once the base lay 50 or more commits back on either side (defect sweep 4 Nov,
+// #8). Now a shallow clone fetches m and its parents (depth 2), takes the base from GitHub's
+// compare (merge_base_commit) and fetches it at depth 1: only the trees at the base and m^2 are
+// read. A full clone asks git. `what` ends the refusals ("what it changed cannot be read").
+export function mergedRange(root, m, { slug, n, what = 'what it changed cannot be read', read = compare } = {}) {
+  const has = (rev) => git(['rev-parse', '-q', '--verify', `${rev}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+  const shallow = isShallow(root);
+  if (!has(`${m}^1`)) git(['fetch', '-q', ...(shallow ? ['--depth=2'] : []), 'origin', m], { cwd: root, allowFail: true });
+  if (!has(m)) fail(`pull request ${n} merged at ${m.slice(0, 10)}, which could not be fetched; ${what}`);
+  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
+  if (head.code !== 0) fail(`pull request ${n} merged at ${m.slice(0, 10)}, which is not a merge commit; ${what}`);
+  const h = head.stdout.trim();
+  const p1 = git(['rev-parse', `${m}^1`], { cwd: root });
+  if (!shallow) {
+    const mb = git(['merge-base', p1, h], { cwd: root, allowFail: true });
+    if (mb.code !== 0) fail(`pull request ${n}: no merge base of ${p1.slice(0, 10)} and ${h.slice(0, 10)}; ${what}`);
+    return { head: h, mb: mb.stdout.trim() };
+  }
+  const sha = slug ? read(slug, p1, h)?.merge_base_commit?.sha : null;
+  if (!/^[0-9a-f]{40,64}$/.test(sha || '')) fail(`this clone is shallow and GitHub did not give the merge base of pull request ${n} (${p1.slice(0, 10)} and ${h.slice(0, 10)}); ${what}; run it again`);
+  if (!has(sha)) git(['fetch', '-q', '--depth=1', 'origin', sha], { cwd: root, allowFail: true });
+  if (!has(sha)) fail(`this clone is shallow and could not fetch the merge base ${sha.slice(0, 10)} of pull request ${n}; ${what}; run it again`);
+  return { head: h, mb: sha };
+}
+
 // notice withdraw <provider>:<pr>: BOB's act, for a notice recorded before merge held the source
 // rule. The tool reads the PR's merge commit (as merge run again on a merged pull request does)
 // and refuses unless the PR changed no file of the provider's own source; then one file on the
 // state branch, added and never edited, and status drops the notice.
-export function withdrawNotice(root, cfg, key, { getPR, slug, as = 'bob', log = console.log }) {
+export function withdrawNotice(root, cfg, key, { getPR, slug, as = 'bob', log = console.log, compare: compareRead = compare }) {
   const sb = cfg.state_branch;
   if (!fetchState(root, sb, { fresh: true })) fail(`no ${sb} on origin: no provider notice ${key}`);
   const n = notices(root, sb).find((x) => x.key === key);
@@ -177,11 +205,7 @@ export function withdrawNotice(root, cfg, key, { getPR, slug, as = 'bob', log = 
   const pr = getPR(slug, n.pr);
   const m = pr?.merge_commit_sha;
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
-  git(['fetch', '-q', ...(isShallow(root) ? ['--depth=50'] : []), 'origin', m], { cwd: root, allowFail: true });
-  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
-  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; what it changed cannot be read`);
-  const h = head.stdout.trim();
-  const mb = git(['merge-base', `${m}^1`, h], { cwd: root });
+  const { head: h, mb } = mergedRange(root, m, { slug, n: n.pr, read: compareRead });
   const e = readEntry(root, mb, n.provider);
   if (!e) fail(`the tranche had no ledger entry for ${n.provider} at ${mb.slice(0, 10)}: its source paths cannot be read`);
   const src = sourceChanges(root, cfg, e, mb, h);

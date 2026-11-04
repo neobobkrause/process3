@@ -11,23 +11,53 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
-import { noticeLine, providerChange, recordAtMerge } from './notice.mjs';
+import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
+// Whether the job's metrics at rev hold a merge row for pull request n after its last receipt
+// (complete row): the tip an earlier merge run pushed, or one that brought it up to the tranche.
+const mergeRowSince = (rows, n) => rows.slice(rows.findLastIndex((r) => r.event === 'complete') + 1).some((r) => r.row === 'merge' && r.pr === n);
+const rowsAt = (root, rev, id) => { const t = git(['show', `${rev}:${metricsFile(id)}`], { cwd: root, allowFail: true }); return t.code === 0 ? jsonl(t.stdout) : []; };
 
-// Waits for a completed gate run on the commit; a cancelled run (superseded by another event on
-// the same tip) is waited past.
-export function waitForGate(slug, sha, { minutes = 30, every = 15000, read = checkRun, log = console.log } = {}) {
+// The gate job's own cap (timeout-minutes in shims/process-gate.yml) and the default wait on it:
+// the cap and a queue. merge waited 30 min and merge --plain 20 on a gate capped at 45, so a slow
+// gate failed the merge while it still ran (defect sweep 4 Nov, #6 and #13).
+export const GATE_CAP_MINUTES = 45;
+export const GATE_WAIT_MINUTES = 60;
+const RUNNING = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
+// Past the wait, a run still in progress is waited on until its own cap has passed since it
+// started (and a margin); nothing else is: not started, queued, or cancelled.
+const stillRunning = (run, t) => run?.status === 'in_progress'
+  && (Number.isFinite(Date.parse(run.started_at)) ? Date.parse(run.started_at) + (GATE_CAP_MINUTES + 5) * MINUTE > t : true);
+
+// Waits for a completed gate run on the commit. A cancelled run (superseded by another event on
+// the same tip) is waited past. Each round reads the pull request (`pr`): once its head is
+// neither the commit nor `was` (the head before the push, which GitHub may show for a moment),
+// the gate on the commit will never finish (the gate's concurrency group cancels it), so the wait
+// stops at once. After `minutes`, it goes on only while a run is in progress, up to its cap.
+export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = 15000, read = checkRun, pr, was, log = console.log } = {}) {
   const until = Date.now() + minutes * MINUTE;
+  let hard = null;
   for (;;) {
+    const p = pr?.();
+    if (p && p.state && p.state !== 'open') fail(`the pull request is ${p.merged ? 'merged' : p.state} while the gate on ${sha.slice(0, 10)} was awaited; run merge again`);
+    const at = p?.head?.sha;
+    if (at && at !== sha && at !== was) fail(`${p.head.ref || 'the branch'} moved to ${at.slice(0, 10)} while the gate on ${sha.slice(0, 10)} was awaited: that gate will not finish; run merge again`);
     const run = read(slug, sha, 'gate');
     if (run?.status === 'completed' && run.conclusion !== 'cancelled') return run;
-    if (Date.now() > until) fail(`the gate on ${sha.slice(0, 10)} did not finish within ${minutes} min`);
-    log(`waiting for the gate on ${sha.slice(0, 10)} (${run ? run.conclusion || run.status : 'not started'})`);
+    const t = Date.now();
+    if (t >= until) {
+      // A run in progress with no start time is waited on for one more cap at most.
+      if (run?.status === 'in_progress' && hard === null) hard = t + GATE_CAP_MINUTES * MINUTE;
+      if (!stillRunning(run, t) || (hard !== null && !Number.isFinite(Date.parse(run.started_at)) && t > hard)) {
+        fail(`the gate on ${sha.slice(0, 10)} did not finish within ${minutes} min (${run ? run.conclusion || run.status : 'not started'})`);
+      }
+    }
+    log(`waiting for the gate on ${sha.slice(0, 10)} (${run ? run.conclusion || run.status : 'not started'})${t > until ? '; past the wait, still in progress' : ''}`);
     sleep(every);
   }
 }
@@ -73,7 +103,7 @@ export function reviewRounds({ reviewed, noReview, rounds, decision } = {}) {
 }
 
 export function merge(root, n, opts = {}) {
-  const { reviewed, noReview, minutes = 30, log = console.log } = opts;
+  const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
   const io = { getPR, comments, checkRun, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
   const cfg = loadConfig(root);
@@ -82,15 +112,23 @@ export function merge(root, n, opts = {}) {
   const id = pr.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
   // A job's pull request already merged: merge again only records its provider notices, the step
   // a failed state-branch write left undone (idempotent).
-  if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) return noticesOnly(root, cfg, { id, n, pr, log });
+  if (id && pr.state === 'closed' && pr.merged && pr.merge_commit_sha) return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
   if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
   waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });
 
+  const branch = `job/${id}`;
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
+  // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
+  // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
+  const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
+  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log };
   // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
-  const first = io.checkRun(slug, pr.head.sha, 'gate');
+  let first = io.checkRun(slug, pr.head.sha, 'gate');
+  if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);
   if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
   const all = io.comments(slug, n);
   const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
@@ -100,10 +138,6 @@ export function merge(root, n, opts = {}) {
   const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
     .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
   if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it`);
-
-  const branch = `job/${id}`;
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
-  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
 
   // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
   // module and records, and nothing in the ledger but its own status. The paths come from the
@@ -130,17 +164,26 @@ export function merge(root, n, opts = {}) {
         fail(`${branch} conflicts with ${cfg.tranche}; the job must bring itself up to date`);
       }
     }
-    const done = readRows(wt, id).filter((r) => r.event === 'complete').pop();
-    appendRow(wt, id, {
-      row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
-      minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
-    });
-    git(['add', '--', metricsFile(id)], { cwd: wt });
-    git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
-    const tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-    git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: wt });
-    log(`pushed ${tip.slice(0, 10)} to ${branch}; the gate runs on the merged result`);
-    const run = waitForGate(slug, tip, { minutes, read: io.checkRun, log });
+    // One merge row per pull request since its last receipt: a rerun that finds this PR's row
+    // already on the branch writes none, and pushes only when the tranche moved since.
+    const rows = readRows(wt, id);
+    const hasRow = mergeRowSince(rows, n);
+    let tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+    if (!hasRow) {
+      const done = rows.filter((r) => r.event === 'complete').pop();
+      appendRow(wt, id, {
+        row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
+        minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
+      });
+      git(['add', '--', metricsFile(id)], { cwd: wt });
+      git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
+      tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+    } else log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
+    if (tip !== pr.head.sha) {
+      git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: wt });
+      log(`pushed ${tip.slice(0, 10)} to ${branch}; the gate runs on the merged result`);
+    } else log(`${branch} is already the merged result at ${tip.slice(0, 10)}; nothing to push`);
+    const run = tip === pr.head.sha ? first : waitForGate(slug, tip, { ...watch, was: pr.head.sha });
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
@@ -188,16 +231,13 @@ function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
   return notes;
 }
 
-function noticesOnly(root, cfg, { id, n, pr, log }) {
+function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) {
   const m = pr.merge_commit_sha;
-  git(['fetch', '-q', ...(git(['rev-parse', '--is-shallow-repository'], { cwd: root }) === 'true' ? ['--depth=50'] : []), 'origin', m], { cwd: root });
-  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
-  if (head.code !== 0) fail(`pull request ${n} merged at ${m.slice(0, 10)}, which is not a merge commit; its provider notices cannot be read`);
-  const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
+  const { head: h, mb } = mergedRange(root, m, { slug, n, what: 'its provider notices cannot be read', ...(compareRead ? { read: compareRead } : {}) });
   const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
   const entry = entryText.code === 0 ? JSON.parse(entryText.stdout) : null;
   log(`pull request ${n} is merged; recording only its provider notices`);
-  return { merged: true, sha: m, notices: noticeStep(root, cfg, { id, n, mb, head: head.stdout.trim(), at: m, entry, log }) };
+  return { merged: true, sha: m, notices: noticeStep(root, cfg, { id, n, mb, head: h, at: m, entry, log }) };
 }
 
 // A merge GitHub refuses because its base moved ("Base branch was modified") fetches the base,
@@ -325,21 +365,38 @@ export function workflowChanges(root, sha, changed, repo) {
 }
 
 // Waits while a required check on the head is queued, in progress or not yet started (it failed
-// at once that way three times on 2 and 3 Nov), up to `minutes`. GitHub judges the result.
-export function waitForChecks(slug, sha, names, { minutes = 20, every = 30000, read = checkRuns, log = console.log } = {}) {
+// at once that way three times on 2 and 3 Nov), up to `minutes`; past that, only while a check
+// is in progress, up to the gate's cap from its start (the tranche into main runs every changed
+// module's suite in one gate job: defect sweep 4 Nov, #13). Each round reads the pull request
+// (`pr`): a head that moved off sha stops the wait at once. GitHub judges the result.
+export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log } = {}) {
   const until = Date.now() + minutes * MINUTE;
+  const extended = new Map();
   for (;;) {
-    const states = names.map((name) => { const r = read(slug, sha, name)?.[0]; return [name, r ? (r.status === 'completed' ? r.conclusion : r.status) : 'not started']; });
-    const pending = states.filter(([, st]) => ['queued', 'in_progress', 'waiting', 'pending', 'requested', 'not started'].includes(st));
+    const p = pr?.();
+    if (p && p.state && p.state !== 'open') fail(`the pull request is ${p.merged ? 'merged' : p.state} while its checks on ${sha.slice(0, 10)} were awaited; run merge again`);
+    if (p?.head?.sha && p.head.sha !== sha) fail(`${p.head.ref || 'the head'} moved to ${p.head.sha.slice(0, 10)} while its checks on ${sha.slice(0, 10)} were awaited; run merge again`);
+    const runs = names.map((name) => [name, read(slug, sha, name)?.[0]]);
+    const states = runs.map(([name, r]) => [name, r ? (r.status === 'completed' ? r.conclusion : r.status) : 'not started']);
+    const pending = states.filter(([, st]) => RUNNING.includes(st) || st === 'not started');
     if (!pending.length) return states;
-    if (Date.now() > until) fail(`required checks still running on ${sha.slice(0, 10)} after ${minutes} min: ${pending.map(([n, st]) => `${n} ${st}`).join(', ')}`);
-    log(`waiting for ${pending.map(([n, st]) => `${n} (${st})`).join(', ')} on ${sha.slice(0, 10)}`);
+    const t = Date.now();
+    if (t >= until) {
+      const going = runs.filter(([name]) => pending.some(([n]) => n === name)).every(([name, r]) => {
+        if (r?.status !== 'in_progress') return false;
+        if (Number.isFinite(Date.parse(r.started_at))) return stillRunning(r, t);
+        if (!extended.has(name)) extended.set(name, t + GATE_CAP_MINUTES * MINUTE);
+        return t <= extended.get(name);
+      });
+      if (!going) fail(`required checks still running on ${sha.slice(0, 10)} after ${minutes} min: ${pending.map(([n, st]) => `${n} ${st}`).join(', ')}`);
+    }
+    log(`waiting for ${pending.map(([n, st]) => `${n} (${st})`).join(', ')} on ${sha.slice(0, 10)}${t > until ? '; past the wait, still in progress' : ''}`);
     sleep(every);
   }
 }
 
 export function mergePlain(root, n, opts = {}) {
-  const { reviewed, noReview, minutes = 20, log = console.log } = opts;
+  const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
   const io = { getPR, requiredChecks, checkRuns, mergePR, repo: processRepo(), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
   const slug = opts.slug || repoSlug(root);
@@ -401,7 +458,7 @@ export function mergePlain(root, n, opts = {}) {
   if (!rules) fail(`could not read the checks ${base} requires`);
   const names = [...new Set(rules.checks.map((c) => c.context))];
   if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
-  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, log });
+  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log });
   log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
   // The base must still be the one checked.
   const again = io.getPR(slug, n);
