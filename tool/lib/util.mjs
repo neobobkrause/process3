@@ -123,15 +123,15 @@ export const OPEN_BY = ['uses', 'layer'];
 // unmet when it holds the exact mark `*(not yet met` anywhere on that line: right after the id
 // (`**R36** *(not yet met: T40)*`), after a parenthetical (`**R23** (T53; DEC-151 (2)) *(not
 // yet met: T53)*`, PR 74), or at its end after the bold title (`**R127** (T53) **A piece is
-// read in bounds.** ... *(not yet met: T53)*`, 333 lines on the copy, 4 Nov; the coordinator's
+// read in bounds.** ... *(not yet met: T53)*`, 332 more marks on the copy's tranche, 4 Nov; the coordinator's
 // ruling under P17). Prose is never read: a line not starting with an id, a mark on another
-// line, or the words outside that italic form.
+// line, or the words outside that italic form. A line ends at \n or \r (review of PR 77).
 const REQ_LINE = String.raw`^[ \t]*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*(R[\w.-]+)\*\*`;
 const MARK_TEXT = '*(not yet met';
-export const UNMET = new RegExp(String.raw`${REQ_LINE}[^\n]*?\*\(not yet met`, 'gm');
+export const UNMET = new RegExp(String.raw`${REQ_LINE}[^\r\n]*?\*\(not yet met`, 'gm');
 // Every requirement line's id, and those still unmet, in file order.
 export function requirementMarks(text) {
-  const lines = [...String(text || '').matchAll(new RegExp(String.raw`${REQ_LINE}([^\n]*)`, 'gm'))];
+  const lines = [...String(text || '').matchAll(new RegExp(String.raw`${REQ_LINE}([^\r\n]*)`, 'gm'))];
   return { all: lines.map((m) => m[1]), unmet: lines.filter((m) => m[2].includes(MARK_TEXT)).map((m) => m[1]) };
 }
 export const unmetIds = (text) => requirementMarks(text).unmet;

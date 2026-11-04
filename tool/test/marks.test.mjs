@@ -46,6 +46,9 @@ test('marks: a requirement line holding "*(not yet met" anywhere is unmet, in ev
   assert.match(overCap({ requirements_cap: 1e9, requirements_cap_marks: 3 }, 'req/x.md', text), /7 unmet marks over 3/);
   // CRLF line ends read the same.
   assert.deepEqual(unmetIds(copy.join('\r\n')), unmet);
+  // A lone \r ends a line too: R1 holds no mark.
+  assert.deepEqual(unmetIds('- **R1** x\r- **R2** *(not yet met: T1)*'), ['R2']);
+  assert.deepEqual([...'- **R1** x\r- **R2** *(not yet met: T1)*'.matchAll(UNMET)].map((m) => m[1]), ['R2']);
 });
 
 test('marks: prose that only mentions "not yet met" is not a mark', () => {
