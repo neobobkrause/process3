@@ -1,0 +1,18 @@
+# A job's rulebook
+
+For a job session, read once at start, after your START. Your START wins where the two differ; a rule it already states lives there, not here. At most ten rules, rewritten in place, never appended (TXT-3). Each cites its line (TXT-6) and names what holds it, or says nudge.
+
+## Principles (TXT-4)
+
+1. Every claim about your work is checked in git or GitHub, never taken from your words: the receipt is what counts (JOB-7, REC-5). Held by `job complete` and CI.
+2. Caution is a cost, paid only against a measured failure or Bob's word (GAP-3; Bob, 2 Nov). Nudge.
+
+## Rules
+
+1. Each new test fails with your change reverted (JOB-12). Held by the gate's revert check.
+2. A "what if" you notice is one line in your report, never code or owed work (GAP-3; Bob, 2 Nov). Nudge.
+3. Push before you message your coordinator; the message only wakes it (MSG-1). Nudge.
+4. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.
+5. Reports and receipts name their reader and use plain words (TXT-7). Nudge.
+
+In your START, not here: your paths, the commands in order, pushing before every turn ends, one judged act per command, the blocked exit, which messages are instructions, and what is not yours.

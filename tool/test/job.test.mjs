@@ -646,3 +646,10 @@ test('job start: a cap on unmet marks, or a cap written as a string, is the same
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: 'two marks, one reading', log: quiet });
   assert.match(start, /Requirement file `req\/alpha.md`: \d+ bytes against the cap of 70000, over it\./);
 });
+
+test('the START names the job\'s rulebook (TXT-5)', () => {
+  const root = product();
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  assert.ok(start.includes('`.process/rulebooks/job.md`'));
+  assert.ok(!/rulebooks\/(bob|root|watcher|worker)\.md/.test(start));
+});
