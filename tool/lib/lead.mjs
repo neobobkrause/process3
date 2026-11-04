@@ -24,7 +24,7 @@ export const RESTARTS_FILE = 'metrics/restart.jsonl';
 export const TARGETS = DEFAULTS.targets;
 // Each figure and the target it is set beside (started to PR ready and blocked have none).
 const TARGET_OF = { ready_to_start: 'start_minutes', start_to_pr_ready: null, green_to_merge: 'merge_minutes', blocked: null, replace: 'replace_minutes', report_wait: 'decision_minutes', close_to_next_start: 'start_minutes' };
-export const LEAD_RULE = 'Only this tranche counts: it opened at the first ok grant row of its open after its last tranche close (none read: every figure unmeasured); its jobs are the modules with a start row since, each start row an attempt; BLOCKED time, stops and messages count from the opening. ready to start: the job\'s layer opened (the close row of the layer below it in the layer map, of this tranche as status counts it: its commit not on main; for the lowest layer, the tranche\'s opening) to its first start row since, 0 when it started before, unmeasured when the layer\'s opening is; per attempt (the job shows its worst, naming it): start to PR ready, the start row to its complete row (the receipt: the next complete row before the next start); green to merge, the first gate row with ok true on the receipt\'s pull request at or after the receipt to its merge row (unmerged: to now, open; no such row yet: not green); blocked (no target): the minutes its ledger entry spent BLOCKED, from the job branch\'s first-parent history while the job is unmerged (from a start row to its merge row) and the tranche\'s otherwise, each from the commit that made it BLOCKED to the next that did not (to now while it still is); replace: from each stop (a BLOCKED commit, as blocked reads it, or the stop a restart row names: the job\'s last push) to the replacement\'s start (the first restart row since; or the entry leaving BLOCKED; to now while neither); a block deferred at a layer close (its pull request closed unmerged) leaves blocked and replace; report wait: each message from the job (sender named as its module) to bob or root, to the first later message from that recipient naming it as <sender>-<n> (to now while none does); close to next start: each layer close row of this tranche to the first start row after it (to now while none). History not read, or cut before the opening in a shallow clone, reads unmeasured. A figure measured to now is marked open. Median (the mean of the two middles for an even count) over the figures not open; worst over all, open ones included and marked.';
+export const LEAD_RULE = 'Only this tranche counts: it opened at the first ok grant row of its open after its last tranche close, or with none since, of the open that close closed (none read: every figure unmeasured); its jobs are the modules with a start row since, at ref or on its job branch, each start row an attempt; BLOCKED time, stops and messages count from the opening. ready to start: the job\'s layer opened (the close row of the layer below it in the layer map, of this tranche as status counts it: its commit not on main; for the lowest layer, the tranche\'s opening) to its first start row since, 0 when it started before, unmeasured when the layer\'s opening is; per attempt (the job shows its worst, naming it): start to PR ready, the start row to its complete row (the receipt: the next complete row before the next start); green to merge, the first gate row with ok true on the receipt\'s pull request at or after the receipt to its merge row (unmerged: to now, open; no such row yet: not green); blocked (no target): the minutes its ledger entry spent BLOCKED, from the job branch\'s first-parent history while the job is unmerged (from a start row to its merge row) and the tranche\'s otherwise, each from the commit that made it BLOCKED to the next that did not (to now while it still is); replace: from each stop (a BLOCKED commit, as blocked reads it, or the stop a restart row names: the job\'s last push) to the replacement\'s start (the first restart row since; or the entry leaving BLOCKED; to now while neither; a later restart row in the same BLOCKED from the restart before it); a block deferred at a layer close (its pull request closed unmerged) leaves blocked and replace; report wait: each message from the job (sender named as its module) to bob or root, to the first later message from that recipient naming it as <sender>-<n> (to now while none does); close to next start: each layer close row of this tranche to the first start row after it (to now while none). History not read, or cut before the opening in a shallow clone, reads unmeasured. A figure measured to now is marked open. Median (the mean of the two middles for an even count) over the figures not open; worst over all, open ones included and marked; the jobs unmeasured counted.';
 
 // A message's wait for its answer: from S to R (bob or root), until R's first later message names S-n.
 export function reportWaits(msgs, now) {
@@ -114,17 +114,19 @@ const worstOf = (per) => {
   return { ...w.f, attempt: w.n, ...(un.length ? { unmeasured_attempts: un } : {}) };
 };
 
-// inputs: rows (metrics rows at ref), layers (module -> layer), closed (this tranche's layer
+// inputs: rows (metrics rows at ref), jobRows (each job branch's own rows, fetchJobs/leadFetch:
+// a start or complete row lives on job/<id> until its merge; the same row twice counts once), layers (module -> layer), closed (this tranche's layer
 // close rows, undecided ones marked undecided) / grants / restarts / msgs (state branch rows,
 // null when unread), jobRefs (module -> its job branch ref fetched this run, null when origin has
 // none; undefined when not read), comments(pr) (the pull request's gate runs; throws or null when
 // unread), now.
-export function leadTimes(root, cfg, { ref, rows, layers = new Map(), closed = null, grants = null, restarts = null, msgs = null, jobRefs, comments = () => null, now = new Date().toISOString() } = {}) {
+export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map(), closed = null, grants = null, restarts = null, msgs = null, jobRefs, comments = () => null, now = new Date().toISOString() } = {}) {
   const opened = (grants || []).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && r.outcome === 'ok' && typeof r.at === 'string').map((r) => r.at).sort()[0] || null;
   const targets = { ...TARGETS, ...(cfg.targets || {}) };
   if (!opened) return { rule: LEAD_RULE, targets, opened: U, jobs: U, close_to_next_start: U, summary: Object.fromEntries(Object.keys(TARGET_OF).map((k) => [k, U])) };
   const since = (r) => typeof r.at === 'string' && Date.parse(r.at) >= Date.parse(opened);
-  rows = rows.filter(since);
+  const seen = new Set();
+  rows = [...rows, ...jobRows].filter(since).filter((r) => { const k = JSON.stringify(r); if (seen.has(k)) return false; seen.add(k); return true; });
   const isStart = (r) => r.row === 'attempt' && r.event === 'start' && r.module;
   const mine = (closed || []).filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && typeof r.at === 'string');
   const decided = mine.filter((r) => !r.undecided);
@@ -176,10 +178,13 @@ export function leadTimes(root, cfg, { ref, rows, layers = new Map(), closed = n
     if (kept !== null && restarts !== null) {
       const rs = restarts.filter((r) => r.row === 'restart' && r.module === m && r.tranche === cfg.tranche && typeof r.at === 'string' && since(r)).sort(byAt);
       const used = new Set();
-      const fs = kept.map((b) => {
-        const r = rs.find((x) => !used.has(x) && Date.parse(x.at) >= Date.parse(b.from) && (b.to === null || Date.parse(x.at) <= Date.parse(b.to)));
-        if (r) { used.add(r); return { from: b.from, minutes: mins(b.from, r.at), stopped_by: 'BLOCKED', replaced: r.at }; }
-        return b.to ? { from: b.from, minutes: mins(b.from, b.to), stopped_by: 'BLOCKED', resumed: b.to } : { from: b.from, minutes: mins(b.from, now), stopped_by: 'BLOCKED', open: true };
+      // Within one BLOCKED interval the first restart answers the stop; each later one (the first
+      // replacement stopped too, or the command ran again) runs from the restart before it.
+      const fs = kept.flatMap((b) => {
+        const mine_ = rs.filter((x) => !used.has(x) && Date.parse(x.at) >= Date.parse(b.from) && (b.to === null || Date.parse(x.at) <= Date.parse(b.to)));
+        mine_.forEach((x) => used.add(x));
+        if (mine_.length) return mine_.map((r, i) => (i ? { from: mine_[i - 1].at, minutes: mins(mine_[i - 1].at, r.at), stopped_by: 'restart', replaced: r.at } : { from: b.from, minutes: mins(b.from, r.at), stopped_by: 'BLOCKED', replaced: r.at }));
+        return [b.to ? { from: b.from, minutes: mins(b.from, b.to), stopped_by: 'BLOCKED', resumed: b.to } : { from: b.from, minutes: mins(b.from, now), stopped_by: 'BLOCKED', open: true }];
       });
       for (const r of rs.filter((x) => !used.has(x))) {
         fs.push(typeof r.stopped === 'string' && Number.isFinite(Date.parse(r.stopped)) ? { from: later(r.stopped, opened), minutes: Math.max(0, mins(later(r.stopped, opened), r.at)), stopped_by: r.stopped_by || 'stopped', replaced: r.at } : U);
@@ -207,12 +212,13 @@ export function leadTimes(root, cfg, { ref, rows, layers = new Map(), closed = n
   const values = (key) => (key === 'close_to_next_start' ? (Array.isArray(closes) ? closes : []) : jobs.flatMap((j) => (Array.isArray(j[key]) ? j[key] : [j[key]]))).filter((x) => typeof x?.minutes === 'number');
   const summary = Object.fromEntries(Object.keys(TARGET_OF).map((k) => {
     const xs = values(k);
+    const un = k === 'close_to_next_start' ? (Array.isArray(closes) ? closes.filter((c) => c.unmeasured).length : 0) : jobs.filter((j) => j[k] === U || (Array.isArray(j[k]) && j[k].includes(U))).length;
     if (!xs.length) return [k, U];
     const t = TARGET_OF[k] ? cfg.targets?.[TARGET_OF[k]] : null;
     const shut = xs.filter((x) => !x.open).map((x) => x.minutes);
     const md = median(shut);
     const w = xs.reduce((a, b) => (b.minutes > a.minutes ? b : a));
-    return [k, { n: shut.length, ...(xs.length > shut.length ? { open: xs.length - shut.length } : {}), median: md, worst: w.minutes, ...(w.open ? { worst_open: true } : {}), ...(Number.isFinite(t) ? { target: t, ...(typeof md === 'number' && md > t ? { median_mark: 'over' } : {}), ...(w.minutes > t ? { worst_mark: 'over' } : {}) } : {}) }];
+    return [k, { n: shut.length, ...(xs.length > shut.length ? { open: xs.length - shut.length } : {}), ...(un ? { unmeasured: un } : {}), median: md, worst: w.minutes, ...(w.open ? { worst_open: true } : {}), ...(Number.isFinite(t) ? { target: t, ...(typeof md === 'number' && md > t ? { median_mark: 'over' } : {}), ...(w.minutes > t ? { worst_mark: 'over' } : {}) } : {}) }];
   }));
   return { rule: LEAD_RULE, targets, opened, jobs, close_to_next_start: closes, summary };
 }
@@ -226,21 +232,26 @@ export function leadInputs(root, sb, read, tranche) {
   const ls = out(root, ['ls-tree', '--name-only', '-z', `refs/remotes/origin/${sb}:messages`]);
   const msgs = ls === null ? null : ls.split('\0').filter((f) => f.endsWith('.jsonl')).flatMap((f) => messages(read(`messages/${f}`) || '').map((m) => ({ from: f.slice(0, -6), ...m })));
   const g = j('metrics/tranche-open.jsonl');
-  const since = (j('tranches/closed.jsonl') || []).filter((r) => r.row === 'tranche-closed' && r.tranche === tranche).map((r) => String(r.at)).sort().at(-1) || '';
+  // The grants after the last tranche close; none since it, the tranche read is the one that
+  // close closed: its grants between the close before it and that close.
+  const closes = (j('tranches/closed.jsonl') || []).filter((r) => r.row === 'tranche-closed' && r.tranche === tranche).map((r) => String(r.at)).sort();
+  let [lo, hi] = [closes.at(-1) || '', null];
+  if (g && closes.length && !g.some((r) => String(r.at) > lo)) [lo, hi] = [closes.at(-2) || '', closes.at(-1)];
   // A state branch without the file has no restart yet: none, not unread.
   const ok = out(root, ['rev-parse', '-q', '--verify', `refs/remotes/origin/${sb}^{commit}`]) !== null;
-  return { grants: g && g.filter((r) => String(r.at) > since), msgs, restarts: j(RESTARTS_FILE) || (ok ? [] : null) };
+  return { grants: g && g.filter((r) => String(r.at) > lo && (hi === null || String(r.at) <= hi)), msgs, restarts: j(RESTARTS_FILE) || (ok ? [] : null) };
 }
 
-// The job branches of the modules given, fetched now from origin, so a stale ref never stands in
+// The job branches of the modules given (all origin holds when none are), fetched now from origin, so a stale ref never stands in
 // for one: module -> its ref, or null when origin has no such branch; undefined when origin is
 // unread. In a shallow clone each is fetched --shallow-exclude=<main> (its commits main lacks),
 // before report.mjs's deepen() mends the tranche's history beneath them.
-export function fetchJobs(root, mods, main = 'main') {
-  if (!mods.length) return new Map();
+export function fetchJobs(root, mods = null, main = 'main') {
+  if (mods && !mods.length) return new Map();
   const ls = out(root, ['ls-remote', 'origin', 'refs/heads/job/*']);
   if (ls === null) return undefined;
   const there = new Set(ls.split('\n').map((l) => l.split('\t')[1]).filter(Boolean));
+  mods ||= [...there].map((r) => r.slice('refs/heads/job/'.length)).sort();
   const shallow = (out(root, ['rev-parse', '--is-shallow-repository']) || '').trim() === 'true';
   const map = new Map();
   const spec = (m) => `+refs/heads/job/${m}:refs/remotes/origin/job/${m}`;
@@ -259,4 +270,4 @@ export const leadCell = (f) => {
   if (!f || f.unmeasured || typeof f.minutes !== 'number') return U;
   return `${f.minutes} min${f.open ? ' (open)' : ''}${f.attempt !== undefined ? ` (attempt ${f.attempt}${f.unmeasured_attempts ? `; attempt ${f.unmeasured_attempts.join(', ')} ${U}` : ''})` : ''}${f.target !== undefined ? ` (target ${f.target}${f.mark ? ', over' : ''})` : ''}`;
 };
-export const leadSummaryCell = (s) => (s === U ? U : `median ${s.median}${s.median_mark ? ' over' : ''}, worst ${s.worst}${s.worst_open ? ' (open)' : ''}${s.worst_mark ? ' over' : ''}${s.target !== undefined ? ` (target ${s.target})` : ''}, n ${s.n}${s.open ? ` and ${s.open} open` : ''}`);
+export const leadSummaryCell = (s) => (s === U ? U : `median ${s.median}${s.median_mark ? ' over' : ''}, worst ${s.worst}${s.worst_open ? ' (open)' : ''}${s.worst_mark ? ' over' : ''}${s.target !== undefined ? ` (target ${s.target})` : ''}, n ${s.n}${s.open ? ` and ${s.open} open` : ''}${s.unmeasured ? `; ${s.unmeasured} ${U}` : ''}`);

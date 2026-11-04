@@ -170,10 +170,10 @@ const commands = {
     if (sub === 'report') {
       const cfg = loadConfig(root);
       const branch = a.branch || `origin/${cfg.tranche}`;
-      const { jobRefs } = leadFetch(root, cfg, branch);
+      const { jobRefs, jobRows } = leadFetch(root, cfg);
       let sweepRows = [];
-      let lead = { jobRefs };
-      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }), jobRefs }; } } catch { sweepRows = []; lead = { jobRefs }; } // unreadable: idle time and the state's lead times unmeasured
+      let lead = { jobRefs, jobRows };
+      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }), jobRefs, jobRows }; } } catch { sweepRows = []; lead = { jobRefs, jobRows }; } // unreadable: idle time and the state's lead times unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
       console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead }), null, 2));
       return 0;
@@ -237,10 +237,10 @@ const commands = {
     const cfg = loadConfig(root);
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
-    const { jobRefs, deepened } = leadFetch(root, cfg);
+    const { jobRefs, jobRows, deepened } = leadFetch(root, cfg);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
-    const md = trancheReport(root, cfg, { slug, stateRead, deepened, jobRefs, io: { state: (p) => readState(root, cfg.state_branch, p) } });
+    const md = trancheReport(root, cfg, { slug, stateRead, deepened, jobRefs, jobRows, io: { state: (p) => readState(root, cfg.state_branch, p) } });
     if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
     console.log(md);
     return 0;
