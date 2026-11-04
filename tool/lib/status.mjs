@@ -223,7 +223,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, rows, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, rows, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
     out.layer = layerState(root, cfg, rows, ref, { closed });
@@ -243,7 +243,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
 // activity; merged as a count; other open pull requests into the tranche; undelivered messages;
 // REFRESH from refusals and from context use; BOB's reading set with sizes.
-export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList, comments = (pr) => ghComments(slug, pr) }) {
+export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList, comments }) {
   const sb = cfg.state_branch;
   const L = [];
   let haveState = false;
@@ -265,9 +265,11 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   }
   // Bob, 4 Nov: every test tolerated as base-red on the tranche, at the top of owed work, oldest
   // first, with its module and its age since the first gate row that tolerated it. Report only.
-  if (!offline && slug) {
+  // Only status itself passes comments: one read per merged PR (job start --ready and measures
+  // call bobStatus too, and need none of it).
+  if (!offline && comments && haveState) {
     const red = baseRedAges(root, cfg, { tranche, comments, haveState });
-    groups.owed.unshift(...(red === null ? ['base-red: unread (the tranche\'s opening or a merged PR\'s gate rows)']
+    groups.owed.unshift(...(red === null ? ['base-red: unread (a merged PR\'s gate rows)']
       : red.map((o) => `base-red ${age(o.since)}: ${o.module} ${o.test} (PR ${o.pr})`)));
   }
   for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
@@ -306,10 +308,11 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
 }
 
 // The tranche's base-red tests (baseRedOwed over its merge rows since its opening), each once by
-// module and test, at its oldest tolerating row; oldest first. null: unread.
+// module and test, at its oldest tolerating row; oldest first. null: unread; none before the opening.
 export function baseRedAges(root, cfg, { tranche, comments, haveState }) {
-  const opened = haveState ? openedAt(leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche).grants, cfg) : null;
-  if (!opened) return null;
+  if (!haveState) return null;
+  const opened = openedAt(leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche).grants, cfg);
+  if (!opened) return [];
   const merges = [...new Map(rowsAt(root, tranche).filter((r) => r.row === 'merge' && Date.parse(r.at) >= Date.parse(opened)).map((r) => [r.pr, r])).values()];
   const owed = baseRedOwed(merges, (pr) => gateRuns(comments(pr) || []));
   if (!owed) return null;

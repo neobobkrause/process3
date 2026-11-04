@@ -158,8 +158,8 @@ export function baseRedOwed(mergeRows, runsOf) {
     const green = runs.filter((g) => g.ok && g.trigger === 'code').pop();
     for (const b of tolerated(green)) {
       for (const t of Array.isArray(b?.tests) ? b.tests : []) {
-        const since = runs.find((g) => tolerated(g).some((x) => Array.isArray(x?.tests) && x.tests.includes(t)))?.at ?? green.at;
-        out.push({ module: b.module ?? r.module, pr: r.pr, test: String(t), base: b.base, since });
+        const since = runs.find((g) => tolerated(g).some((x) => x?.module === b.module && Array.isArray(x?.tests) && x.tests.includes(t)))?.at;
+        out.push({ module: b.module ?? r.module, pr: r.pr, test: String(t), base: b.base, ...(since ? { since } : {}) });
       }
     }
   }

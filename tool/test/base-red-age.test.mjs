@@ -35,5 +35,14 @@ test('base-red ages: once per test, from its first tolerating row on any merged 
     ['lib', 'l::c', 12, at(7)],
   ]);
   assert.equal(baseRedAges(root, loadConfig(root), { tranche: 'origin/tranche', comments: () => { throw new Error('unread'); }, haveState: true }), null);
-  assert.equal(baseRedAges(root, loadConfig(root), { tranche: 'origin/tranche', comments, haveState: false }), null, 'no opening read: unread');
+  assert.equal(baseRedAges(root, loadConfig(root), { tranche: 'origin/tranche', comments, haveState: false }), null, 'the state branch unread: unread');
+  runs[11][0].base_red = [red('other', 'p::a')];
+  assert.equal(baseRedAges(root, loadConfig(root), { tranche: 'origin/tranche', comments, haveState: true })[0].since, at(3), 'another module\'s test of the same name is not its age');
+});
+
+test('base-red ages: none before the tranche opens', () => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  onState(root, { 'metrics/other.jsonl': '' });
+  assert.deepEqual(baseRedAges(root, loadConfig(root), { tranche: 'origin/tranche', comments: () => [], haveState: true }), []);
 });
