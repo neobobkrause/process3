@@ -1,3 +1,4 @@
+import { foundOnly } from '../lib/found.mjs';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -794,6 +795,11 @@ test('merge --plain: a requirement file a job owns takes only added new unmet fo
   refused((b) => b + '- **F2** met already\n', 'it adds a line that is not one unmet found mark');
   refused((b) => b + '- **F1** *(not yet met: walk p3dev-l1)* again\n', 'it adds F1, which the file already has');
   refused((b) => b + '- **F2** *(not yet met: x)* see **R1**\n', 'it adds a line that is not one unmet found mark');
+  // A content line that looks like a diff header ("-- x" removed, "++ x" added) is a change too.
+  refused((b) => b.replace('- **R2** met', '-- R2 met') + F2, 'it removes or changes a line');
+  refused((b) => b + '++ sneaky line\n' + F2, 'it adds a line that is not one unmet found mark: \\+\\+ sneaky');
+  // The header of a diff with no hunk is no change of lines: refused.
+  assert.equal(foundOnly('diff --git a/x b/x\nold mode 100644\nnew mode 100755\n', '').ok, false);
   // Module code beside the found marks still goes through a job.
   const both = foundRepo((b) => b + F2);
   git(['checkout', '-q', 'found/alpha-f2'], { cwd: both.root });

@@ -58,7 +58,12 @@ export function foundLineId(line) {
 // text lacks: nothing removed or changed, no other line added. { ok, why }.
 export function foundOnly(diff, baseText) {
   const have = new Set([...String(baseText || '').matchAll(FOUND_MARK)].map((m) => `F${m[1]}`));
-  const body = String(diff).split('\n').filter((l) => !/^(diff |index |--- |\+\+\+ |@@ |new file mode|deleted file mode|old mode|new mode|similarity|rename )/.test(l));
+  // Header lines only before the first hunk: inside one, a content line "-- x" or "++ x" reads as
+  // "--- x" or "+++ x" and is a change like any other (second review of PR 75).
+  const lines = String(diff).split('\n');
+  const first = lines.findIndex((l) => l.startsWith('@@ '));
+  if (first < 0 && lines.some((l) => l.trim())) return { ok: false, why: 'it changes the file without adding a line (a mode or a binary change)' };
+  const body = lines.slice(first + 1).filter((l) => !l.startsWith('@@ '));
   const added = [];
   for (const l of body) {
     if (l === '' || l === '\\ No newline at end of file') continue;
