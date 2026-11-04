@@ -164,9 +164,11 @@ export function recordSince(root, { base, head = 'HEAD' } = {}) {
 // nothing made after one, can be hidden behind a later row. Otherwise it is a finding and
 // nothing is left out. Only a row the range adds is judged so: one the base already holds was
 // judged where it landed, and gives no finding while not honouring it leaves nothing of the range
-// out (copy, 4 Nov, bundler and registers). Where it would, it is judged as a row the range adds;
-// its take-in commit then lies in the range, since one under the base would put the tip and its
-// whole history under the base too. On a branch other than job/<id> every module's rows are read.
+// out (copy, 4 Nov, bundler and registers). Where it would, it is judged by the same checks as a
+// row the range adds, and honoured only if a commit in the range is its take-in (in a whole
+// history that commit cannot lie under the base: the tip and its history would lie there too).
+// Not honouring a row never hides a commit. On a branch other than job/<id> every module's rows
+// are read.
 export function takenIn(root, { base, head = 'HEAD', id } = {}) {
   const out = { tips: [], findings: [] };
   // On job/<id>, that job's rows; on any other branch (the tranche, its pull request into main),
@@ -192,8 +194,8 @@ export function takenIn(root, { base, head = 'HEAD', id } = {}) {
       // session's clone was shallow, its base history cut above them, so the tip read as new and
       // its adder as missing from the range). Not honouring it leaves nothing out, so it gives no
       // finding, unless the tip's history holds commits of this range that it would leave out:
-      // then it is judged below, as a row the range adds (its take-in commit, the tip's child,
-      // cannot lie under the base, or the tip would too). Counted against the head, so a shallow
+      // then it is judged below by the same checks as a row the range adds. Counted against the
+      // head, so a shallow
       // clone, whose base history is cut, does not count the tip's own history as the range's.
       if (base && names(base, tip)) {
         if (!here) continue;

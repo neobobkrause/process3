@@ -284,3 +284,22 @@ test('a row the base holds cannot hide commits the range brings: a side branch m
     assert.ok(r.findings.some((f) => f.check === 'approvals' && f.message.includes(x.slice(0, 10))), JSON.stringify(r.findings));
   }
 });
+
+test('a forged row the base holds, its tip no full id or outside the head\'s history, is not honoured and hides nothing', () => {
+  const { root, base } = attempt2();
+  // An unrelated commit, never in the head's history, that changes the approvals.
+  git(['checkout', '-q', '-b', 'stray', 'main'], { cwd: root });
+  const x = commit(root, { 'CLAUDE.md': claude('may force-push') }, 'stray');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const file = 'process/metrics/alpha.jsonl';
+  const row = (tip) => JSON.stringify({ event: 'start', module: 'alpha', take_in: { branch: 'x', pr: null, commits: 1, tip } }) + '\n';
+  commit(root, { [file]: readFileSync(join(root, file), 'utf8') + row(x) + row(x.slice(0, 12)) }, 'forged rows on the tranche');
+  const at = sha(root, 'tranche');
+  git(['checkout', '-q', '-B', 'job/alpha', 'tranche'], { cwd: root });
+  const c = commit(root, { 'CLAUDE.md': claude('may merge to main') }, 'attempt changes the approvals');
+  assert.notEqual(at, base);
+  const r = check(root, at);
+  assert.deepEqual(r.tips, []);
+  assert.ok(r.findings.some((f) => f.check === 'approvals' && f.message.includes(c.slice(0, 10))), JSON.stringify(r.findings));
+  assert.ok(!r.findings.some((f) => f.check === 'record'), JSON.stringify(r.findings));
+});
