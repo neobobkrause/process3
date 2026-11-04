@@ -60,10 +60,10 @@ function find(root, cfg, key) {
 function changes(root, cfg, n, { slug, read }) {
   const pr = read(slug, n.pr);
   const m = pr?.merge_commit_sha;
-  if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: the text of ${n.ids.join(', ')} before and after cannot be read`);
+  if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
   git(['fetch', '-q', ...(isShallow(root) ? ['--depth=50'] : []), 'origin', m], { cwd: root, allowFail: true });
   const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
-  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; the requirement text cannot be read`);
+  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; what it changed cannot be read`);
   const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
   const entry = git(['show', `${mb}:process/ledger/${n.provider}.json`], { cwd: root, allowFail: true });
   let file = `${cfg.requirements_dir.replace(/\/$/, '')}/${n.provider}.md`;
@@ -104,10 +104,16 @@ export function briefText({ n, changed, mods, tranche, sha, share = null }) {
   return [
     `Read-only triage of provider notice ${n.key}${share ? `, share ${share.k} of ${share.of}` : ''}. Change nothing, run nothing that writes, and send nothing but your answer.`,
     '',
-    `Provider \`${n.provider}\` changed these requirements in PR ${n.pr} (${changed.file}):`,
-    ...changed.ids.flatMap((c) => [`- ${c.id}`, `  before: ${c.before}`, `  after:  ${c.after}`]),
+    ...(changed.ids.length ? [`Provider \`${n.provider}\` changed these requirements in PR ${n.pr} (${changed.file}):`,
+      ...changed.ids.flatMap((c) => [`- ${c.id}`, `  before: ${c.before}`, `  after:  ${c.after}`])]
+      : [`Provider \`${n.provider}\` changed its source in PR ${n.pr}, with no requirement text changed (${changed.file}); read the PR's change to the provider's source.`]),
+    ...(n.exports ? ['', `Its exported interface, as its users import it, changed in PR ${n.pr}:`,
+      ...(n.exports.removed.length ? [`- removed: ${n.exports.removed.join(', ')}`] : []),
+      ...n.exports.changed.map((c) => `- changed: ${c.name} ${c.before} -> ${c.after}`),
+      ...(n.exports.added.length ? [`- added: ${n.exports.added.join(', ')}`] : [])] : []),
+    ...(n.exports_unread ? ['', `Its exports could not be read (${n.exports_unread}); read the provider's change.`] : []),
     '',
-    `For each module below, read its code at ${tranche} ${sha.slice(0, 10)} and decide whether it uses the changed behaviour. Answer one line per module, exactly one of:`,
+    `For each module below, read its code at ${tranche} ${sha.slice(0, 10)} and decide whether it uses the changed behaviour${n.exports ? ' or any export removed or changed' : ''}. Answer one line per module, exactly one of:`,
     '<module>: affected: <file>:<line> <what there uses the changed behaviour>',
     '<module>: not affected: <file>:<line> <the evidence that it does not: its use of the provider, or where it would be>',
     'Every line cites a file:line. Judge every module below, each from what you read; nothing is recorded until every module of the notice has a line. No other lines matter.',

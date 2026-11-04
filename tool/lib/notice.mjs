@@ -5,6 +5,7 @@
 // Only a job that changed the provider's own source leaves one (coordinator, 4 Nov: on the copy,
 // membership PR 77 notified 108 users and credentials PR 74 39, for changes only to tests and
 // requirement marks, which cannot alter any user's behaviour).
+import { anyExportChange, exportChanges } from './exports.mjs';
 import { entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
@@ -62,20 +63,34 @@ const readEntry = (root, ref, id) => {
   try { return t.code === 0 ? JSON.parse(t.stdout) : null; } catch { return null; }
 };
 
-// The notice a merged job leaves, or null, and why not: its requirement file between base and
-// head, recorded only when the job also changed a file of the provider's own source (the entry
-// at base; with no entry readable, every change counts, so a notice is never lost to a bad read).
-// The users are read at usersAt, the merged result (the tranche may have gained a user).
+// The notice a merged job leaves, or null, and why not. A job that changed a file of the provider's
+// own source (the entry at base) leaves one whether or not its requirement file changed
+// (coordinator, 4 Nov: ai-accounts' T53 rewrite changed its exported interface with no mark
+// changed, and four users broke unwarned); it names the changed requirement ids and the export
+// names added, removed or changed (exports.mjs). A job that changed only tests, requirements text,
+// docs or records leaves none. With no entry readable, a requirement change still counts, so a
+// notice is never lost to a bad read. The users are read at usersAt, the merged result (the
+// tranche may have gained a user).
 export function providerChange(root, cfg, { provider, requirements, base, head, pr, usersAt = head, entry }) {
-  const at = (ref) => git(['show', `${ref}:${requirements}`], { cwd: root, allowFail: true }).stdout;
+  const at = (ref) => (requirements ? git(['show', `${ref}:${requirements}`], { cwd: root, allowFail: true }).stdout : '');
   const ids = changedIds(at(base), at(head));
-  const users = ids.length ? usersOf(root, cfg, provider, usersAt) : [];
-  if (!users.length) return { notice: null, why: null };
   const e = entry || readEntry(root, base, provider);
-  if (e && !sourceChanges(root, cfg, e, base, head).length) {
+  const src = e ? sourceChanges(root, cfg, e, base, head) : [];
+  if (!ids.length && !src.length) return { notice: null, why: null };
+  const users = usersOf(root, cfg, provider, usersAt);
+  if (!users.length) return { notice: null, why: null };
+  if (e && !src.length) {
     return { notice: null, why: `PR ${pr} changed ${ids.join(', ')} but no file of ${provider}'s source (${sourcePaths(cfg, e).join(', ') || 'no source paths'}): only tests, requirements text, docs or records, which cannot change a user's behaviour; no notice for its ${users.length} user(s)` };
   }
-  return { notice: { key: noticeKey(provider, pr), provider, ids, pr, users }, why: null };
+  const notice = { key: noticeKey(provider, pr), provider, ids, pr, users };
+  if (src.length) {
+    notice.source = src.length;
+    try {
+      const x = exportChanges(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
+      if (anyExportChange(x)) notice.exports = x;
+    } catch (err) { notice.exports_unread = String(err.message || err).slice(0, 200); }
+  }
+  return { notice, why: null };
 }
 export const providerNotice = (root, cfg, opts) => providerChange(root, cfg, opts).notice;
 
@@ -95,16 +110,28 @@ const listJson = (root, sb, dir) => {
 export const WITHDRAWN_DIR = `${NOTICES_DIR}/withdrawn`;
 export const withdrawFile = (key) => `${WITHDRAWN_DIR}/${fileOf(key)}.json`;
 
+// The keys of withdrawn notices, as the fetched state branch holds them.
+export const withdrawnKeys = (root, sb) => new Set(listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn').map((r) => r.key));
+
 // Every notice with the users that have not answered it, as the fetched state branch holds them;
 // a withdrawn notice (notice withdraw) is no notice.
 export function notices(root, sb) {
   const answered = new Set(listJson(root, sb, `${NOTICES_DIR}/answered`).map((r) => `${r.key}\0${r.user}`));
-  const withdrawn = new Set(listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn').map((r) => r.key));
+  const withdrawn = withdrawnKeys(root, sb);
   return listJson(root, sb, NOTICES_DIR).filter((r) => r.row === 'notice' && !withdrawn.has(r.key)).sort((a, b) => a.pr - b.pr)
     .map((n) => ({ ...n, open: n.users.filter((u) => !answered.has(`${n.key}\0${u}`)) }));
 }
 export const unanswered = (root, sb, user) => notices(root, sb).filter((n) => n.open.includes(user));
-export const noticeLine = (n) => `provider notice: ${n.provider} ${n.ids.join(', ')} (PR ${n.pr})`;
+// What a notice says moved: its requirement ids (or its source, when none changed), and its export
+// names removed, changed and added, at most `max` of each named.
+const few = (xs, max) => (xs.length > max ? `${xs.slice(0, max).join(', ')} and ${xs.length - max} more` : xs.join(', '));
+export function exportsText(x, max = 8) {
+  if (!x) return '';
+  return [['removed', x.removed], ['changed', (x.changed || []).map((c) => c.name)], ['added', x.added]]
+    .filter(([, xs]) => xs?.length).map(([w, xs]) => `${w} ${few(xs, max)}`).join('; ');
+}
+export const movedText = (n, max = 8) => [n.ids?.length ? n.ids.join(', ') : 'its source, no requirement text', n.exports ? `exports ${exportsText(n.exports, max)}` : ''].filter(Boolean).join('; ');
+export const noticeLine = (n) => `provider notice: ${n.provider} ${movedText(n)} (PR ${n.pr})`;
 
 // At a job's merge: the notice it leaves, and the notices its START named, answered by it. One
 // write; a file already there is kept, so a rerun adds nothing.

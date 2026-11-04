@@ -169,11 +169,12 @@ export function merge(root, n, opts = {}) {
 
 // The provider-change route at a job's merge: the notice this job leaves its users, and the
 // notices its START named, answered now that it merged. The merge stands if the write fails;
-// merge <n> run again records them. A notice is left only when the job changed a file of its
-// module's own source (the tranche's entry, less tests, requirements, docs and records); a job
-// that changed only those leaves none, and the line says why.
+// merge <n> run again records them. A notice is left when the job changed a file of its module's
+// own source (the tranche's entry, less tests, requirements, docs and records), requirement change
+// or none, naming its export changes; a job that changed only those others leaves none, and the
+// line says why.
 function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
-  const { notice, why } = entry?.requirements ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
+  const { notice, why } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
   if (why) log(`no provider notice: ${why}`);
   const t = git(['show', `${at}:${metricsFile(id)}`], { cwd: root, allowFail: true });
   const answers = (t.code === 0 ? jsonl(t.stdout) : []).filter((x) => x.event === 'start').pop()?.notices || [];
