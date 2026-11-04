@@ -82,6 +82,7 @@ test('size: suite time only from a gate row at most two weeks old', () => {
   const old = measureSize(root, cfgOf(), { gateRow: { run: { suite_seconds: 9, at: '2026-10-01T00:00:00Z' } }, at });
   assert.equal(old.figures.suite_seconds, null);
   assert.ok(old.notes.some((n) => /older than 14 days/.test(n)));
+  assert.ok(measureSize(root, cfgOf(), { gateRow: { run: { suite_seconds: 9, at: '2026-12-01T00:00:00Z' } }, at }).notes.some((n) => /dated in the future/.test(n)));
   assert.equal(measureSize(root, cfgOf(), { gateRow: { run: { suite: 'skipped', at: '2026-11-03T00:00:00Z' } }, at }).figures.suite_seconds, null);
 });
 
@@ -90,6 +91,7 @@ test('ranges: empty today; no certified range yet, inside, or outside named per 
   assert.deepEqual(loadRanges(), []);
   assert.deepEqual(loadRanges('not json'), []);
   assert.deepEqual(loadRanges(null), []);
+  assert.deepEqual(loadRanges('{"releases": [null, 3, {"release": "1"}]}'), [{ release: '1' }]);
   const figures = { modules: 40, requirement_largest_bytes: 140000, tracked_bytes: 5, suite_seconds: null };
   const none = compareRanges(figures, []);
   assert.equal(none.state, NO_RANGE);
@@ -163,7 +165,10 @@ test('release body: the release note\'s fields: pin, product sizes, checks, the 
   const named = releaseBody(checks, { version: '1', commit: 'abc', pin, sizeFile: size, ranges: [{ platform_rows: ['plt-1'] }] });
   assert.match(named, /platform rows the pin names: plt-1/);
   assert.doesNotMatch(named, /certif/i);
-  // Unread files say so; the body is still written.
+  // Unread files say so; the body is still written, also from the error file a failed p3 size --out writes.
+  const err = join(dir, 'err.json');
+  writeFileSync(err, JSON.stringify({ error: 'x', findings: [] }));
+  assert.match(releaseBody(checks, { version: '1', commit: 'abc', sizeFile: err }), /product sizes: unread/);
   const none = releaseBody('/nonexistent', { version: '1', commit: 'abc' });
   assert.match(none, /process pin: unread/);
   assert.match(none, /product sizes: unread/);

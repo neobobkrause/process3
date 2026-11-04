@@ -65,7 +65,7 @@ export function measureSize(root, cfg, { ref = 'HEAD', gateRow = null, at = Date
   if (row && typeof row.suite_seconds === 'number') {
     const age = (at - Date.parse(row.at)) / 86400000;
     if (age >= 0 && age <= GATE_ROW_DAYS) suiteSeconds = row.suite_seconds;
-    else notes.push(`suite_seconds: the gate row is ${Number.isFinite(age) ? `${Math.round(age)} day(s) old` : 'undated'}, older than ${GATE_ROW_DAYS} days`);
+    else notes.push(`suite_seconds: the gate row is ${!Number.isFinite(age) ? 'undated' : age < 0 ? 'dated in the future' : `${Math.round(age)} day(s) old, older than ${GATE_ROW_DAYS} days`}`);
   } else notes.push('suite_seconds: no recent gate row records it');
 
   const figures = {
@@ -102,7 +102,7 @@ export function sizeLines(s) {
 // ranges.json: { "releases": [{ "release", "at", "product": {figure: n}, "platform_rows": [id] }] }.
 // A missing or unreadable file reads as no release.
 export function loadRanges(text = existsSync(RANGES) ? readFileSync(RANGES, 'utf8') : null) {
-  try { const r = JSON.parse(text); return Array.isArray(r?.releases) ? r.releases : []; } catch { return []; }
+  try { const r = JSON.parse(text); return Array.isArray(r?.releases) ? r.releases.filter((x) => x && typeof x === 'object') : []; } catch { return []; }
 }
 
 // The size against the ranges: a figure is inside when it is at most the largest any certified

@@ -224,7 +224,7 @@ export function releaseBody(checksFile, { version, commit, pin = null, sizeFile 
   let checks = null;
   try { checks = JSON.parse(readFileSync(checksFile, 'utf8')).checks; } catch { checks = null; }
   let size = null;
-  if (sizeFile) { try { const s = JSON.parse(readFileSync(sizeFile, 'utf8')); size = { commit: s.commit, figures: s.figures, requirements_cap: s.requirements_cap, over_cap: s.over_cap }; } catch { size = null; } }
+  if (sizeFile) { try { const s = JSON.parse(readFileSync(sizeFile, 'utf8')); if (s?.figures && typeof s.figures === 'object') size = { commit: s.commit, figures: s.figures, requirements_cap: s.requirements_cap, over_cap: s.over_cap }; } catch { size = null; } }
   const rows = platformRows(ranges);
   const lead = [
     `Development release ${checkVersion(version)} at ${commit}. Development only: never published, never promoted to installed sites.`,
