@@ -118,7 +118,7 @@ export function runArtifactRow(slug, id) {
     return JSON.parse(readFileSync(join(dir, 'gate.json'), 'utf8')).run || null;
   } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
 }
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert'];
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'refresh'];
 export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);

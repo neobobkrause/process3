@@ -8,7 +8,7 @@ import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
-import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
+import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
@@ -84,6 +84,8 @@ export function gate(root, opts) {
     findings.push(...im.findings, ...committedGenerated(root, gen.rows, { head, changed }));
   }
 
+  // A plain pull request's changed files under the generated paths (not the tranche's own).
+  const plain = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f)) : null;
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
@@ -166,7 +168,17 @@ export function gate(root, opts) {
       runRow.generated = g.ran;
       findings.push(...g.findings);
     }
+    // A plain pull request may change a module's committed generated files only to what this
+    // regenerate wrote from its commit (copy PR 148); the row records the comparison, and merge
+    // --plain reads it.
+    if (plain) {
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated') });
+      if (c.refresh) runRow.refresh = c.refresh;
+      findings.push(...c.findings);
+    }
   }
+  // Only records changed since the green code run: its comparison stands for these same files.
+  if (runRow.trigger === 'record-since-green' && plain?.length && lastGreen.refresh) runRow.refresh = lastGreen.refresh;
 
   // The receipt against this run: present, naming a commit on this branch, agreeing on the suite.
   if (job && !draft && runRow.trigger !== 'record') {
@@ -179,9 +191,18 @@ export function gate(root, opts) {
       const claimed = receipt.commands?.find((c) => c.suite);
       const claim = claimed ? (claimed.exit === 0 ? 'pass' : 'fail') : 'none';
       if (!onBranch) findings.push(F('receipt', entryFile(job), `the receipt names ${String(receipt.sha).slice(0, 10)}, which is not on this branch`));
+      // Records only since the last green code run (copy PR 105, 4 Nov: a receipt-only commit after
+      // a green code gate): the receipt is checked against that run when it was made on the tree
+      // that run tested, so the claim is of the same tree, suite and results.
+      const measured = onBranch && runRow.trigger === 'record-since-green' ? measuredBy(root, cfg, receipt, lastGreen) : null;
+      const suite = measured?.ok ? lastGreen.suite : runRow.suite;
+      if (measured?.ok) runRow.receipt_measured = lastGreen.sha;
+      else if (measured) runRow.receipt_unmeasured = measured.why;
       runRow.receipt = !onBranch ? 'wrong commit'
-        : runRow.suite === 'skipped' ? 'present' : claim === runRow.suite ? 'agrees' : 'disagrees';
-      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : 'failed'}; the gate's run ${runRow.suite === 'pass' ? 'passed' : 'failed'}`));
+        : measured && !measured.ok ? 'unmeasured'
+          : suite === 'skipped' ? 'present' : claim === suite ? 'agrees' : 'disagrees';
+      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : 'failed'}; the gate's run${measured?.ok ? ` on ${String(lastGreen.sha).slice(0, 10)}` : ''} ${suite === 'pass' ? 'passed' : 'failed'}`));
+      if (runRow.receipt === 'unmeasured') log(`receipt attempt ${receipt.attempt} is not checked: ${measured.why}`);
     }
   }
 
@@ -191,6 +212,20 @@ export function gate(root, opts) {
   // One new comment per run: the bot never edits, so an edited gate comment is not counted.
   if (pr && post) io.addComment(slug, pr, gateComment(runRow));
   return { run: runRow, findings, changed };
+}
+
+// Whether the last green code run measured what a receipt claims: the receipt was made on a
+// commit whose files, records aside, are that run's (the same tree, so the same suite and
+// results), that run ran the job's suite, and a revert exemption that run relied on is still
+// claimed. { ok } or { ok: false, why }.
+function measuredBy(root, cfg, receipt, green) {
+  const job = receipt.module;
+  if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, did not run the ${job} suite` };
+  const same = git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
+    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordPath(cfg, f));
+  if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${String(green.sha).slice(0, 10)}, tested` };
+  if (green.revert === 'exempt' && !receipt.exempt?.revert) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, passed its revert check by an exemption this receipt does not claim` };
+  return { ok: true };
 }
 
 // The tranche into main (PR 89's report, 4 Nov): one gate job running every changed module's
