@@ -12,6 +12,7 @@
 // pushes, and branches from the tranche tip it fetches then. Nothing else is written.
 import { P3, TOOL_ROOT } from './job.mjs';
 import { addComment, editPR } from './github.mjs';
+import { processRepo } from './merge.mjs';
 import { fail, gh, git } from './util.mjs';
 
 const SLUG = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -64,7 +65,7 @@ export function pinCheck(slug, { io = PIN_IO, log = console.log } = {}) {
   return { open: [] };
 }
 
-// pin: required, a commit of the process repo this tool runs from (copy, 4 Nov: with no --pin it
+// pin: required, a commit on process3's tranche or main, read from the repo this tool runs from (copy, 4 Nov: with no --pin it
 // took the product's own tranche tip, and a positional sha was ignored). supersedes: the number of
 // the one open pin move this one replaces, closed (comment, then close; the branch kept) first.
 export function pinMove(root, slug, { pin, rest = [], tranche = 'tranche', report, why, supersedes, processRoot = TOOL_ROOT, io = PIN_IO, log = console.log } = {}) {
@@ -74,9 +75,8 @@ export function pinMove(root, slug, { pin, rest = [], tranche = 'tranche', repor
   if (typeof why !== 'string' || !why.trim()) fail('pin move needs --why "<what the fix unblocks>"');
   if (typeof tranche !== 'string' || !/^[\w./-]+$/.test(tranche)) fail(`--tranche <the product's tranche branch>, not ${JSON.stringify(tranche)}`);
   if (!/^[0-9a-f]{40}$/.test(String(pin))) fail(`pin move needs --pin <a process3 commit, 40 hex>${pin === undefined ? '' : `, not ${JSON.stringify(pin)}`}`);
-  const known = () => git(['cat-file', '-e', `${pin}^{commit}`], { cwd: processRoot, allowFail: true }).code === 0;
-  if (!known()) git(['fetch', '-q', 'origin', pin], { cwd: processRoot, allowFail: true });
-  if (!known()) fail(`--pin ${pin} is not a commit of the process repo (${processRoot}, nor its origin)`);
+  // The merge tool's own test (merge.mjs pinChange), before --supersedes closes anything; a tag's id is not a commit's.
+  if (!processRepo(processRoot).released(pin) || git(['cat-file', '-t', pin], { cwd: processRoot, allowFail: true }).stdout?.trim() !== 'commit') fail(`--pin ${pin} is not a commit on process3's tranche or main`);
   const open = openPinMoves(slug, io);
   if (supersedes !== undefined) {
     const n = Number(supersedes);

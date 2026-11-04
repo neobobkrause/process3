@@ -8,9 +8,18 @@ import { pinCheck, pinMove } from '../lib/pin.mjs';
 import { git } from '../lib/util.mjs';
 
 const quiet = () => {};
-// The process repo the pin must be a commit of (pinMove's processRoot; the tool's own repo by default).
-const PROC = makeRepo({ 'README.md': 'process' });
-const PIN = git(['rev-parse', 'HEAD'], { cwd: PROC });
+// The process repo (pinMove's processRoot; the tool's own by default): its origin's tranche holds
+// PIN; UNRELEASED is a local build commit on no released branch, TAG an annotated tag's object id.
+const ORIGIN = makeRepo({ 'README.md': 'process' });
+git(['branch', '-M', 'tranche'], { cwd: ORIGIN });
+git(['branch', 'main'], { cwd: ORIGIN });
+const PROC = makeRepo({ 'README.md': 'x' });
+git(['remote', 'add', 'origin', ORIGIN], { cwd: PROC });
+git(['fetch', '-q', 'origin'], { cwd: PROC });
+const PIN = git(['rev-parse', 'origin/tranche'], { cwd: PROC });
+const UNRELEASED = git(['rev-parse', 'HEAD'], { cwd: PROC });
+git(['tag', '-a', '-m', 'v', 'v1', PIN], { cwd: PROC });
+const TAG = git(['rev-parse', 'v1'], { cwd: PROC });
 const REPORT = 'session_01RAN5eniJPZwnDgHRYfWFQb';
 // The product's open pull requests, and the acts --supersedes takes, recorded.
 const pinIO = (prs = []) => {
@@ -45,7 +54,12 @@ test('pin move needs --pin, a commit of the process repo; refuses a positional s
   assert.throws(() => pinMove(root, 'o/r', { processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }), (e) => e.message === 'pin move needs --pin <a process3 commit, 40 hex>');
   assert.throws(() => pinMove(root, 'o/r', { pin: PIN, rest: [PIN.slice(0, 10)], processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }), new RegExp(`give the commit as --pin ${PIN.slice(0, 10)}`));
   assert.throws(() => pinMove(root, 'o/r', { rest: ['extra'], processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }), /takes only the slug; not "extra"/);
-  assert.throws(() => pinMove(root, 'o/r', { pin: own, processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }), new RegExp(`--pin ${own} is not a commit of the process repo`));
+  assert.throws(() => pinMove(root, 'o/r', { pin: own, processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }), new RegExp(`--pin ${own} is not a commit on process3's tranche or main`));
+  for (const pin of [UNRELEASED, TAG]) {
+    const f = pinIO([PR(106, 'p3/pin-0123456789')]);
+    assert.throws(() => pinMove(root, 'o/r', { pin, supersedes: '106', processRoot: PROC, report: REPORT, why: 'w', io: f.io, log: quiet }), /is not a commit on process3's tranche or main/);
+    assert.deepEqual(f.acts, [], 'refused before --supersedes closes anything');
+  }
   assert.equal(pinMove(root, 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }).pin, PIN);
   assert.throws(() => pinMove(root, 'nope', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet }), /owner\/repo/);
   assert.throws(() => pinMove(root, 'o/r', { pin: PIN, why: 'w', io: none, log: quiet }), /--report <session id>/);
