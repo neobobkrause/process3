@@ -193,7 +193,7 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   assert.ok(t.prompt.includes('`git fetch origin tranche`') && sweepTask(R, 'tr2', 'b'.repeat(64)).prompt.includes('`git fetch origin tr2`'));
   assert.throws(() => sweepTask(R), /needs the hash/);
   assert.match(t.prompt, /start check --wake --approvals b{64}`; if it says the approvals changed, tell Bob by push notification and take no further step/);
-  assert.match(t.prompt, new RegExp(`sweep --session ${R} --live`));
+  assert.match(t.prompt, new RegExp(`sweep --session ${R} --sessions`));
   assert.equal(t.call.cron_expression, '0 * * * *');
   const p = rootPrompt({ slug: 'o/p', approvals: 'b'.repeat(64) });
   for (const x of ['sweep task --session', 'start watcher', 'start record watcher', 'persistent_session_id', 'sweep --session']) assert.ok(p.includes(x), x);

@@ -8,8 +8,9 @@ import { P3, READY_START } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
-import { SILENT_HOURS, layerState, nextWork, owedNotices, status } from './status.mjs';
-import { Fail, fail, git, loadConfig, now } from './util.mjs';
+import { openPinMoves } from './pin.mjs';
+import { SILENT_HOURS, isArchived, layerState, nextWork, owedNotices, readSessions, sessionActs, status } from './status.mjs';
+import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 // One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
@@ -34,7 +35,7 @@ export function readHeartbeat(root, sb) {
 // approvals: the hash of the tranche tip's approvals when the task is made (tipApprovals).
 export function sweepTask(session, tranche = 'tranche', approvals) {
   checkSession(session);
-  const prompt = `Sweep. First run ${wakeSteps(tranche, approvals)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions> --context <the percent of the window get_session on yourself shows>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
+  const prompt = `Sweep. First run ${wakeSteps(tranche, approvals)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then save list_sessions (every session of the last day, archived ones included) as JSON and run \`${P3} sweep --session ${session} --sessions <that file> --context <the percent of the window get_session on yourself shows>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive only what it prints.`;
   return { prompt, call: { name: 'sweep', cron_expression: '0 * * * *', prompt } };
 }
 
@@ -55,7 +56,7 @@ function overMedian(root, ref, attempts) {
   return out;
 }
 
-export function sweep(root, { session, live, context, attempts = [], offline = false, io, log = console.log } = {}) {
+export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {
   checkSession(session);
   // ROOT's context (P2-G10): the share of its window ROOT's own session record shows (get_session on itself).
   const pct = context === undefined ? 'unmeasured' : Number(String(context).replace(/%$/, ''));
@@ -72,6 +73,10 @@ export function sweep(root, { session, live, context, attempts = [], offline = f
   const todo = [];
   const owed = [];
   const cap = cfg.live_cap;
+  // --sessions <file>: list_sessions saved; the live count is read from it when --live is not given.
+  if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
+  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
+  if (listed && live === undefined) live = listed.filter((x) => !isArchived(x)).length;
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null }; // no BOB, or a paused plan: not read
   // The live count and cap go in the sweep row: lead times names a full cap as a wait's cause.
   let liveRow = {};
@@ -134,6 +139,14 @@ export function sweep(root, { session, live, context, attempts = [], offline = f
       }
     }
     owed.push(...overMedian(root, tranche, attempts));
+    // The session list kept clean (Bob, 4 Nov): leftovers archived, orphaned questions passed on.
+    if (listed) {
+      let pinOpen = null;
+      if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
+      const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen });
+      found.push(s.line);
+      for (const a of s.acts) todo.push(a.act === 'archive' ? `archive ${a.id}: archive_session ${a.id} ("${a.title}", idle, its work done or its parent archived)` : `tell ${a.owner} ${a.id} asks: ${a.question} (send it to ${a.owner}${a.owner.startsWith('session_') ? ' with send_message' : ''}, naming ${a.id} "${a.title}", whose parent is archived)`);
+    }
   }
   if (owed.length) {
     found.push(...owed);

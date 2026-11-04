@@ -71,12 +71,12 @@ const ROOT_ACTS = [
   'archive an old BOB once it reports ready (nothing waits on it; a refusal is only reported)',
   `once, when list_triggers shows no sweep task of yours: create your hourly sweep task bound to this session (create_trigger, no persistent_session_id) with what \`${P3} sweep task --session <your id>\` prints; never fire it`,
   `in your first turn, only when \`${P3} address watcher\` shows none: start the watcher, \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then its daily task bound to it (create_trigger with persistent_session_id) with the call it printed`,
-  `when the sweep fires: \`${P3} sweep --session <your id> --live <n> --context <pct>\` (n: live sessions list_sessions shows; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` per attempt whose session record gives them) and do only what it prints; it reads step 0 to 3 and writes the heartbeat`,
+  `when the sweep fires: \`${P3} sweep --session <your id> --sessions <f> --context <pct>\` (f: list_sessions JSON; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` per attempt whose session record gives them) and do only what it prints; it reads step 0 to 3 and writes the heartbeat`,
   ESCALATION_ACT,
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   COORD_ACT,
 ];
-const ROOT_NOT = 'Nothing else: create no other session or task than BOB, the watcher and the two tasks above, merge nothing, edit no task, archive nothing but an old BOB, edit no file by hand. Keep your context empty.';
+const ROOT_NOT = 'Nothing else: create no other session or task than BOB, the watcher and the two tasks above, merge nothing, edit no task, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
 
 const BOB_ACTS = [
   `run \`${P3} start check\`, \`${P3} status\`, \`${P3} address root\` and the tool's job, merge, metrics, setup, handoff and send commands`,
