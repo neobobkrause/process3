@@ -6,7 +6,7 @@ import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editP
 import { ownPaths } from './gate.mjs';
 import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
-import { recordCheck, recordSince } from './record.mjs';
+import { recordCheck, recordSince, takenIn } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
@@ -652,8 +652,10 @@ export function jobComplete(root, id, opts = {}) {
   const ledger = checkLedger(root, { base, branch });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
   const since = recordSince(root, { base });
-  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since });
+  const taken = takenIn(root, { base, id });
+  const rec = recordCheck(root, loadConfig(root, base), { base, since: since.since, takenIn: taken.tips });
   if (since.finding) rec.findings.push(since.finding);
+  rec.findings.push(...taken.findings);
   commands.push({ cmd: `p3 record-check --base ${base.slice(0, 10)}`, exit: rec.findings.length ? 1 : 0, findings: rec.findings.length });
   // The module's stale lock files first, whether or not the suite runs: its checks may need
   // them too (GAT-5; confirming review of PR 11).
