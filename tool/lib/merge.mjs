@@ -10,6 +10,7 @@ import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
+import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
 import { P3, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
@@ -23,6 +24,7 @@ const MINUTE = 60000;
 // Whether the job's metrics at rev hold a merge row for pull request n after its last receipt
 // (complete row): the tip an earlier merge run pushed, or one that brought it up to the tranche.
 const mergeRowSince = (rows, n) => rows.slice(rows.findLastIndex((r) => r.event === 'complete') + 1).some((r) => r.row === 'merge' && r.pr === n);
+export { isBootstrap, keySetAt, processRepoSetAt };
 const rowsAt = (root, rev, id) => { const t = git(['show', `${rev}:${metricsFile(id)}`], { cwd: root, allowFail: true }); return t.code === 0 ? jsonl(t.stdout) : []; };
 
 // The gate job's own cap (timeout-minutes in shims/process-gate.yml) and the default wait on it:
@@ -285,10 +287,6 @@ export function mergePR(slug, n, sha, { title = `Merge job PR ${n}`, message } =
 // merge row and pushes nothing. Without a process/config.json (process3 itself) the defaults hold.
 const isJob = (ref) => /^job\//i.test(ref);
 const WORKFLOWS = '.github/workflows/';
-const blobAt = (root, rev, path) => {
-  const r = git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true });
-  return r.code === 0 ? r.stdout.trim() : null;
-};
 
 // process3 as the tool's own clone holds it: whether a pin is released (a commit on its
 // tranche or main), and the blob of a shim at that pin. A shallow clone is made whole first:
@@ -307,41 +305,18 @@ export function processRepo(dir = TOOL_ROOT) {
   };
 }
 
-const pinAt = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] || null;
-// A config key at a commit: 'unreadable' when the file is not a JSON object. The tranche's name
-// counts as its default when the config does not name it; the approvals as loadConfig reads them
-// (the defaults with the file's keys over them), as text, so two equal blocks compare equal.
-const keyAt = (root, rev, key) => {
-  const r = git(['show', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
-  let c = null;
-  if (r.code === 0) { try { c = JSON.parse(r.stdout); } catch { return 'unreadable'; } if (!c || typeof c !== 'object' || Array.isArray(c)) return 'unreadable'; }
-  if (key === 'approvals') return JSON.stringify({ ...DEFAULTS.approvals, ...(c?.approvals || {}) });
-  const v = c?.[key] ?? null;
-  return key === 'tranche' && v === null ? DEFAULTS.tranche : v;
-};
-
-// The commit on rev's first-parent history at which a config key took the value it has at rev:
-// the newest first-parent commit whose first parent holds another value (or that has none).
-export function keySetAt(root, rev, key) {
-  const value = keyAt(root, rev, key);
-  // Only a commit that changes the file against its first parent can change the value.
-  const touched = git(['log', '--first-parent', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root }).split('\n').filter(Boolean);
-  for (const c of touched) if (keyAt(root, `${c}^1`, key) !== value) return c;
-  return null;
-}
-export const processRepoSetAt = (root, rev) => keySetAt(root, rev, 'process_repo');
 
 // A plain pull request may move the process pin only forward, to a released process3 commit
 // (on its tranche or main) that descends from the base's pin: no unreleased pin, no downgrade.
-// Changing where the process comes from (process_repo), or which branch is the tranche
-// ("tranche"), needs the owner's word (third confirming review of PR 14; review follow-ups,
-// 2 Nov), except that the tranche into main may carry the tranche's value when the commit on
+// Changing an anchored key (anchor.mjs: process_repo, tranche, approvals) needs the owner's word
+// (third confirming review of PR 14; review follow-ups, 2 Nov; the approvals too, review of
+// PR 96: a tranche that changed approvals.owner would have named the owner the next close
+// trusts), except that the tranche into main may carry the tranche's value when the commit on
 // the tranche's first-parent history at which it took that value is the owner's own commit
-// through GitHub's website (his direct edit, or his website merge of a pull request). Onboarding
-// values are Bob's to confirm once (README, Onboarding). At the first close (bootstrap: a base
-// with no Process3) the approvals are held the same way: the base has none to trust, so the
-// head's count only when they are the defaults or took their value at the owner's website commit.
-// at: { intoMain, bootstrap, ownerCommit(sha) -> { ok } }.
+// through GitHub's website (his direct edit, or his website merge of a pull request). The owner
+// is the base's, never the head's; at the first close (bootstrap: a base with no Process3) the
+// tool's default. Onboarding values are Bob's to confirm once (README, Onboarding).
+// at: { intoMain, ownerCommit(sha) -> { ok }, baseRef: the base's tip }.
 export function pinChange(root, mb, sha, repo, at = {}) {
   const was = pinAt(root, mb);
   const now = pinAt(root, sha);
@@ -350,15 +325,12 @@ export function pinChange(root, mb, sha, repo, at = {}) {
     if (!repo.released(now)) fail(`the process pin ${now.slice(0, 10)} is not a commit on process3's tranche or main`);
     if (was && !repo.descends(was, now)) fail(`the process pin ${now.slice(0, 10)} does not descend from the base's pin ${was.slice(0, 10)}: no downgrade`);
   }
-  for (const key of ['process_repo', 'tranche', ...(at.bootstrap ? ['approvals'] : [])]) {
-    const value = keyAt(root, sha, key);
-    if (value === keyAt(root, mb, key)) continue;
-    if (at.intoMain && at.ownerCommit && typeof value === 'string' && value !== 'unreadable') {
-      const c = keySetAt(root, sha, key);
-      if (c && at.ownerCommit(c)?.ok === true) continue;
-    }
-    fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
-  }
+  // Deleting the config would make every anchored key read as its default: the owner's word (confirming review of PR 97).
+  if (blobAt(root, mb, CONFIG_FILE) && !blobAt(root, sha, CONFIG_FILE)) fail(`the pull request deletes ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
+  const key = unanchored(root, mb, sha, at.intoMain ? at.ownerCommit : null, at.baseRef || mb);
+  if (key) fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
+  const why = at.baseRef ? mergedUnanchored(root, at.baseRef, mb, sha) : null;
+  if (why) fail(`the pull request is refused: ${why}; that needs the owner's word: bring it to Bob`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
@@ -395,8 +367,8 @@ export function workflowChanges(root, sha, changed, repo, close = null) {
 // bootstrap); the head's pin must be released (pinChange: a pin where the base has none is a
 // change); a workflow may change only to the pin's own shim (workflowChanges); and the gate must
 // be one of the base's required checks, green on the head (mergePlain). A base with a config but
-// no pin, or a pin but no config, is not a bootstrap: it is judged as any close is.
-export const isBootstrap = (root, baseRef) => !blobAt(root, baseRef, CONFIG_FILE) && !pinAt(root, baseRef);
+// no pin, a pin but no config, or a config in its history it later deleted, is not a bootstrap:
+// it is judged as any close is, by its last config (anchor.mjs isBootstrap, lastConfigAt).
 export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
   const no = `${base} has no Process3`;
   if (!blobAt(root, sha, CONFIG_FILE)) fail(`${no}, and the head has no ${CONFIG_FILE}: the first close is the tranche its own config names`);
@@ -480,8 +452,9 @@ export function mergePlain(root, n, opts = {}) {
   const baseRef = `origin/${base}`;
   // The owner and the tranche's name are read from the base's config, never from the change it
   // judges or the working tree.
+  // A base that deleted its config is read by the last one it had (anchor.mjs lastConfigAt).
   let baseCfg = null;
-  try { baseCfg = loadConfig(root, baseRef); } catch { baseCfg = null; }
+  try { baseCfg = loadConfig(root, lastConfigAt(root, baseRef) || baseRef); } catch { baseCfg = null; }
   if (main && !baseCfg) fail(`${CONFIG_FILE} on ${base} cannot be read, so the tranche's name is unknown; only the tranche merges into ${base}`);
   const boot = main && isBootstrap(root, baseRef);
   if (main && !boot && head !== baseCfg.tranche) fail(`only the tranche ${baseCfg.tranche} merges into ${base}, not ${head}`);
@@ -495,7 +468,7 @@ export function mergePlain(root, n, opts = {}) {
   workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, required: () => io.requiredChecks(slug, base)?.checks.map((c) => c.context) ?? null } : null);
   const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
-    intoMain: main, bootstrap: boot, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
+    intoMain: main, baseRef, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
   });
 
   let refreshed = [];
@@ -542,6 +515,16 @@ export function mergePlain(root, n, opts = {}) {
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);
   if (again.head?.sha !== pr.head.sha) fail(`pull request ${n} moved while it was checked; run merge again`);
+  // Read the base again now, after the wait (it may have moved), from a fetch that must succeed:
+  // a first close stands only while the base still has no Process3 (review 4 of PR 97), and the
+  // anchored keys are judged on the merge with the base as it is (anchor.mjs mergedUnanchored).
+  const baseHolds = () => {
+    git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root });
+    if (boot && !isBootstrap(root, baseRef)) fail(`${base} gained Process3 while pull request ${n} was checked as its first close; run merge again`);
+    const why = mergedUnanchored(root, baseRef, git(['merge-base', baseRef, pr.head.sha], { cwd: root }), pr.head.sha);
+    if (why) fail(`pull request ${n} is refused: ${why}; that needs the owner's word: bring it to Bob`);
+  };
+  baseHolds();
   // The first close stands on the gate itself, not only on GitHub's ruleset.
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
@@ -553,6 +536,7 @@ export function mergePlain(root, n, opts = {}) {
     check: () => {
       const p = io.getPR(slug, n);
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
+      baseHolds();
     },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);

@@ -153,7 +153,53 @@ test('a base with Process3 is not a bootstrap: a normal close is unchanged', () 
   assert.equal(close(r, { rules: { checks: [{ context: 'ci' }] }, runs: { ci: [ok({ conclusion: 'failure' })] } }).go().merged, true, 'the ruleset, not the tool, judges a normal close\'s checks');
   // A head with no pin, into a main with a config and no pin: as before, no pin is no change.
   assert.equal(close(product({ config: { tranche: 'tranche', node: '22' }, pin: null, workflows: {}, mainFiles: { 'process/config.json': { tranche: 'tranche' } } })).go().merged, true);
-  // The approvals of a normal close are the record check's, not merge's.
+  // A normal close anchors the approvals too (review of PR 96): main's owner's website commit, or refused.
   const a = product({ config: { tranche: 'tranche', approvals: { file: 'AGENTS.md' } }, mainFiles: { 'process/config.json': { tranche: 'tranche' } } });
-  assert.equal(close(a, { owned: 'none' }).go().merged, true);
+  assert.throws(close(a, { owned: 'none' }).go, /changes approvals in process\/config\.json/);
+  assert.equal(close(a).go().merged, true);
+});
+
+test('a main that had a config and deleted it is a normal close by its last config, not a bootstrap', () => {
+  // Main's last config names bob/plan the tranche; a later commit deleted the config.
+  const r = product({ mainFiles: { 'process/config.json': { tranche: 'bob/plan' } } });
+  git(['checkout', '-q', 'main'], { cwd: r.root });
+  git(['rm', '-q', 'process/config.json'], { cwd: r.root });
+  git(['commit', '-q', '-m', 'drop the config'], { cwd: r.root });
+  git(['push', '-q', 'origin', 'main'], { cwd: r.root });
+  assert.equal(isBootstrap(r.root, 'origin/main'), false);
+  assert.throws(close(r).go, /only the tranche bob\/plan merges into main, not tranche/);
+});
+
+test('a bootstrap retry stops when the base gained Process3 while the merge waited', () => {
+  const r = product();
+  const f = io(r);
+  let tries = 0;
+  f.io.mergePR = () => {
+    tries++;
+    // Someone else's close lands first: main now holds a config.
+    git(['checkout', '-q', 'main'], { cwd: r.root });
+    commit(r.root, { 'process/config.json': { tranche: 'tranche' } }, 'Process3 lands on main');
+    git(['push', '-q', 'origin', 'main'], { cwd: r.root });
+    return { merged: false, message: 'Base branch was modified. Review and try the merge again.' };
+  };
+  assert.throws(() => mergePlain(r.root, 7, { ...q, io: f.io, wait: 0 }), /main gained Process3 while pull request 7 was checked as its first close/);
+  assert.equal(tries, 1);
+});
+
+test('a bootstrap close re-reads the base after the wait: Process3 landing during it refuses before any merge (review 4 of PR 97)', () => {
+  const r = product();
+  const f = io(r);
+  let landed = false;
+  const read = f.io.checkRuns;
+  f.io.checkRuns = (...a) => {
+    if (!landed) {
+      landed = true;
+      git(['checkout', '-q', 'main'], { cwd: r.root });
+      commit(r.root, { 'process/config.json': { tranche: 'tranche' } }, 'Process3 lands on main');
+      git(['push', '-q', 'origin', 'main'], { cwd: r.root });
+    }
+    return read(...a);
+  };
+  assert.throws(() => mergePlain(r.root, 7, { ...q, io: f.io }), /main gained Process3 while pull request 7 was checked as its first close/);
+  assert.equal(f.calls.merged, null);
 });

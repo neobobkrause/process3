@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { METRICS_DIR, metricsFile } from './metrics.mjs';
-import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -333,7 +333,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           // The approvals key (an absent owner is the default one) and record_since.
           const ap = (t2) => {
             try {
-              const c = JSON.parse(t2 || '{}');
+              const c = parseJSON(t2 || '{}');
               return { approvals: JSON.stringify({ ...DEFAULTS.approvals, ...(c.approvals || {}) }), since: c.record_since ?? null };
             } catch { return { approvals: 'unreadable', since: 'unreadable' }; }
           };
@@ -341,7 +341,8 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           const was = parents.length ? parentsFor(file).map((p) => ap(show(root, p, file))) : [ap(null)];
           // The approvals must equal a version already judged; so must record_since, unless it
           // names the base or an ancestor of it, which hides nothing the change brings.
-          const same = (w) => w.approvals === now.approvals && (JSON.stringify(w.since) === JSON.stringify(now.since) || onBase(now.since));
+          // An unreadable version (a duplicate key) equals none, so it never hides a change.
+          const same = (w) => w.approvals !== 'unreadable' && w.approvals === now.approvals && (JSON.stringify(w.since) === JSON.stringify(now.since) || onBase(now.since));
           if (!was.some(same)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
         }
       }
