@@ -10,6 +10,7 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { deployDev } from './lib/deploy.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
 import { deepen, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -195,6 +196,9 @@ const commands = {
   // has "release"; prints the push of p3dev-release/<v>, the run to watch and the record.
   // release dev --record <run url>: the run's row (version, commit, run, draft release, checks) on the state branch.
   'release dev': (a, root) => (releaseDev(root, { version: a.version === true ? fail('--version <v>') : a.version, record: a.record === true ? fail('--record <run url>') : a.record }).ok ? 0 : 1),
+  // deploy dev [--slug <s>]: BOB's development deployment and walk after a layer close (development
+  // only, the product's own Cloudflare account): dry run behind the guard line, deploy, walk, one row.
+  'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
   // release run checks|assemble [--out <results.json>]: the shim's read-only jobs (process-dev-release.yml).
   'release run': (a, root) => (releaseRun(root, one(a, 'step (checks or assemble)'), { out: a.out }).ok ? 0 : 1),
   // release version --branch <ref>: the version a p3dev-release/<v> branch names, printed (the shim's publish job).
