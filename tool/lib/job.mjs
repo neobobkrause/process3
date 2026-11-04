@@ -28,7 +28,8 @@ export const WAKE_END = ': run status';
 const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
 export const bobWake = (what, from) => {
   if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);
-  return `${P3} send bob ${JSON.stringify(`${what}${WAKE_END}`)} --from ${from}`;
+  // A text that already says to run status (the pin move's) is kept as it is.
+  return `${P3} send bob ${JSON.stringify(/(: run|, then) status$/.test(what) ? what : `${what}${WAKE_END}`)} --from ${from}`;
 };
 // A job's sender name: job-<id>, cut to a role name's 40 characters.
 export const jobSender = (id) => `job-${id}`.slice(0, 40).replace(/-+$/, '');

@@ -119,7 +119,16 @@ test('handover: begin prints the new BOB\'s prompt; confirm repoints and records
 // wake names a real sender: --as <role>, or a session id read from the addresses; none, BOB (no wake).
 test('a wake names a real sender and runs as printed; BOB itself gets none', () => {
   const addr = { root: { session: R }, bob: { session: B1 } };
-  assert.equal(senderOf(null, undefined), 'bob');
+  const env = process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  try {
+    delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
+    assert.equal(senderOf(null, undefined), 'bob');
+    // Absent --as: the role addressed to the calling session, from the container's id.
+    process.env.CLAUDE_CODE_REMOTE_SESSION_ID = R.replace(/^session_/, 'cse_');
+    assert.equal(senderOf(null, undefined, { address: addr }), 'root');
+    process.env.CLAUDE_CODE_REMOTE_SESSION_ID = 'cse_unaddressed';
+    assert.equal(senderOf(null, undefined, { address: addr }), 'bob');
+  } finally { if (env === undefined) delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID; else process.env.CLAUDE_CODE_REMOTE_SESSION_ID = env; }
   assert.equal(senderOf(null, 'coordinator'), 'coordinator');
   assert.equal(senderOf(null, R, { address: addr }), 'root');
   assert.equal(senderOf(null, B1, { address: addr }), 'bob');

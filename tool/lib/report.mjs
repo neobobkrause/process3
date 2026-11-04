@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { readLedgerTexts } from './ledger.mjs';
+import { leadCell, leadInputs, leadSummaryCell, leadTimes } from './lead.mjs';
 import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { exists, gh, git, isRecordPath } from './util.mjs';
@@ -242,6 +243,14 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const idle = sweeps === null ? U : idleByDay(sweeps);
   L.push('## BOB idle occurrences', '', 'Per UTC day, the sweeps that found acts listed for BOB and the longest BOB had been quiet at one (`metrics report` `bob_idle_by_day`).', '');
   L.push(...(Array.isArray(idle) ? table(['day', 'occurrences', 'longest quiet (h)', 'unmeasured sweeps'], idle.map((d) => [d.day, d.occurrences, d.longest_quiet_h, d.unmeasured_sweeps])) : [U]), '');
+
+  // Lead times
+  const lt = leadTimes(root, cfg, { ref: tip, rows, layers, now, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? { ...leadInputs(root, cfg.state_branch, read.state, cfg.tranche), closed: [...closedBy.values()] } : {}) });
+  L.push('## Lead times', '', `Minutes, each beside its target (\`targets\` in process/config.json); "over" marks one past it. ${lt.rule}`, '');
+  L.push(...(lt.jobs.length ? table(['job', 'ready to start', 'start to PR ready', 'green to merge', 'blocked', 'report wait'], lt.jobs.map((j) => [j.module, leadCell(j.ready_to_start), leadCell(j.start_to_pr_ready), leadCell(j.green_to_merge), leadCell(j.blocked), leadCell(j.report_wait)])) : ['No job has a start row.']), '');
+  L.push(`- layer close to next job start: ${Array.isArray(lt.close_to_next_start) ? (lt.close_to_next_start.length ? lt.close_to_next_start.map((c) => `layer ${c.layer} ${leadCell(c)}`).join('; ') : 'no layer closed') : U}`);
+  for (const [k, v] of Object.entries(lt.summary)) L.push(`- ${k.replace(/_/g, ' ')}: ${leadSummaryCell(v)}`);
+  L.push('');
 
   // Phase 3 overhead comparisons
   const jobs = [...new Set(rows.filter((r) => r.row === 'attempt' && r.event === 'start' && r.module).map((r) => r.module))].sort();

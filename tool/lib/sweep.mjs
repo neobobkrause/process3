@@ -34,7 +34,7 @@ export function readHeartbeat(root, sb) {
 // approvals: the hash of the tranche tip's approvals when the task is made (tipApprovals).
 export function sweepTask(session, tranche = 'tranche', approvals) {
   checkSession(session);
-  const prompt = `Sweep. First run ${wakeSteps(tranche, approvals)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
+  const prompt = `Sweep. First run ${wakeSteps(tranche, approvals)}; if it says the approvals changed, tell Bob by push notification and take no further step. Then run \`${P3} sweep --session ${session} --live <the live sessions you count with list_sessions> --context <the percent of the window get_session on yourself shows>\` and do only what it prints, each act its own command. Create nothing else, merge nothing, edit no task, archive nothing.`;
   return { prompt, call: { name: 'sweep', cron_expression: '0 * * * *', prompt } };
 }
 
@@ -55,8 +55,11 @@ function overMedian(root, ref, attempts) {
   return out;
 }
 
-export function sweep(root, { session, live, attempts = [], offline = false, io, log = console.log } = {}) {
+export function sweep(root, { session, live, context, attempts = [], offline = false, io, log = console.log } = {}) {
   checkSession(session);
+  // ROOT's context (P2-G10): the share of its window ROOT's own session record shows (get_session on itself).
+  const pct = context === undefined ? 'unmeasured' : Number(String(context).replace(/%$/, ''));
+  if (context === true || (pct !== 'unmeasured' && !(Number.isFinite(pct) && pct >= 0 && pct <= 100))) fail(`--context <percent of the window your session record shows>, 0 to 100, not ${JSON.stringify(context)}`);
   const cfg = loadConfig(root);
   const sb = cfg.state_branch;
   if (!offline) fetchState(root, sb);
@@ -140,7 +143,7 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, HEARTBEAT_FILE), JSON.stringify(beat) + '\n');
     mkdirSync(join(dir, 'metrics'), { recursive: true });
-    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle }) + '\n');
+    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct }) + '\n');
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

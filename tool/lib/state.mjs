@@ -106,8 +106,8 @@ export function toRoute(root, sb) {
   if (r.code !== 0) return [];
   const all = r.stdout.split('\0').filter((f) => f.endsWith('.jsonl')).flatMap((f) => messages(readState(root, sb, `messages/${f}`)).map((m) => ({ from: f.slice(0, -6), ...m })));
   const bob = all.filter((m) => m.from === 'bob');
-  // A wake (its text ends WAKE_END, as job.mjs's bobWake writes it) asks BOB to run status: nothing to route.
-  return all.filter((m) => m.to === 'bob' && !['root', 'bob', 'watcher'].includes(m.from) && !String(m.text).endsWith(': run status')).filter((m) => {
+  // A wake (its text ends ": run status" or, the pin move's, ", then status", as job.mjs's bobWake writes it) asks BOB to run status: nothing to route.
+  return all.filter((m) => m.to === 'bob' && !['root', 'bob', 'watcher'].includes(m.from) && !/(: run|, then) status$/.test(String(m.text))).filter((m) => {
     const id = new RegExp(`(^|[^\\w-])${m.from}-${m.n}(?!\\d)`);
     return !bob.some((b) => b.at >= m.at && id.test(b.text));
   });

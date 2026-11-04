@@ -387,7 +387,8 @@ export function mergePlain(root, n, opts = {}) {
   const pin = pinAt(root, pr.head.sha);
   const as = opts.as ?? 'bob';
   const moved = base === (baseCfg?.tranche || DEFAULTS.tranche) && pin && pin !== pinAt(root, mb);
-  const wake = moved && as !== 'bob' ? bobWake(`pin moved to ${pin}`, as) : null;
-  if (wake) log(wakeLine(`pin moved to ${pin}`, as));
+  const what = `pin moved to ${pin}: run your wake steps (start check --wake prints a changed prompt), then status`;
+  const wake = moved && as !== 'bob' ? bobWake(what, as) : null;
+  if (wake) log(wakeLine(what, as));
   return { merged: true, sha: r.sha, checks: names, wake };
 }
