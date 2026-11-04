@@ -39,6 +39,33 @@ export function validate(value, schema = SCHEMA, path = '') {
 
 export const entryFile = (id) => `${LEDGER_DIR}/${id}.json`;
 
+// A job's branch is the one its latest start row names (`branch`; job/<id> when it names none).
+// job start --fresh-branch cuts job/<id>-<n>, n the next free from 2, and writes that row there,
+// so the latest start row is on the highest-numbered job/<id>-<n> on origin whose own latest
+// start row names it (named(h); metrics.mjs jobBranchAt reads it), else job/<id>. A <id>-<n> that
+// is itself a module (ids: the ledger's; none read, no <id>-<n> counts) is that module's.
+export const startBranch = (rows, id) => rows.filter((r) => r.row === 'attempt' && r.event === 'start').pop()?.branch || `job/${id}`;
+const FRESH = /^(.+)-([1-9]\d*)$/;
+export function jobBranch(id, heads, ids = new Set(), named = () => true) {
+  const fresh = [...(heads || [])].map((h) => [h, ids.size && String(h).startsWith('job/') && !ids.has(h.slice(4)) ? FRESH.exec(h.slice(4)) : null])
+    .filter(([, m]) => m && m[1] === id).sort((a, b) => Number(b[1][2]) - Number(a[1][2]));
+  return fresh.find(([h]) => named(h))?.[0] || `job/${id}`;
+}
+// The module of a job branch: <x> of job/<x> when <x> is a module (or no ids are given), else
+// <id> of job/<id>-<n> when <id> is; null for a branch not job/*.
+export function branchModule(ref, ids = null) {
+  const x = /^job\/([a-z0-9-]+)$/.exec(ref || '')?.[1];
+  if (!x || !ids?.size || ids.has(x)) return x || null;
+  const m = FRESH.exec(x);
+  return m && ids.has(m[1]) ? m[1] : x;
+}
+export const ledgerIds = (root, ref) => new Set(git(['ls-tree', '--name-only', `${ref}:${LEDGER_DIR}`], { cwd: root, allowFail: true }).stdout.split('\n').filter((n) => n.endsWith('.json')).map((n) => n.slice(0, -5)));
+// origin's job heads, as 'job/...' names; null when origin is unread.
+export function originJobs(root) {
+  const r = git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true });
+  return r.code === 0 ? new Set(r.stdout.split('\n').map((l) => l.split('\t')[1]?.trim().replace(/^refs\/heads\//, '')).filter(Boolean)) : null;
+}
+
 // Entries as { file: text } from the worktree, or from a git ref when one is given.
 export function readLedgerTexts(root, ref) {
   const out = {};
@@ -91,15 +118,15 @@ export function checkLedger(root, { base, branch, ref } = {}) {
     if (e.id && file !== entryFile(e.id)) findings.push(finding(file, `id ${e.id} does not match its file name`));
     if (e.status?.state === 'BLOCKED' && !e.status.reason) findings.push(finding(file, 'BLOCKED needs a reason'));
   }
-  const job = branch && branch.match(/^job\/([a-z0-9-]+)$/);
+  const job = branch && branchModule(branch, ledgerIds(root, ref || 'HEAD'));
   if (base && job) {
-    const own = entryFile(job[1]);
+    const own = entryFile(job);
     const before = readLedgerTexts(root, base);
     for (const file of new Set([...Object.keys(before), ...Object.keys(head)])) {
       if (before[file]?.trimEnd() === head[file]?.trimEnd()) continue;
       if (!(file in before)) { findings.push(finding(file, 'a job may not add a ledger entry')); continue; }
       if (!(file in head)) { findings.push(finding(file, 'a job may not remove a ledger entry')); continue; }
-      if (file !== own) { findings.push(finding(file, `job ${job[1]} may change only its own entry`)); continue; }
+      if (file !== own) { findings.push(finding(file, `job ${job} may change only its own entry`)); continue; }
       let b;
       try { b = JSON.parse(before[file]); } catch { continue; }
       if (parsed[file] && fixed(b) !== fixed(parsed[file])) findings.push(finding(file, 'a job may change only the status field'));

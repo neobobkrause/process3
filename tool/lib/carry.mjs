@@ -5,7 +5,8 @@
 // pull request. Read-only: nothing is closed or rewritten here.
 import { entriesAt, ownPaths } from './gate.mjs';
 import { rowsAt } from './metrics.mjs';
-import { gh, underPath } from './util.mjs';
+import { branchModule } from './ledger.mjs';
+import { gh, git, underPath } from './util.mjs';
 
 // The marker line a take-in START carries (job start --take-in); a job pull request whose body
 // has it owns the pull request it names.
@@ -20,8 +21,10 @@ export const prFiles = (slug, n) => {
 // branch as this clone has it, and the marker in open job pull requests' bodies.
 function takenIn(root, ref, ids, prs) {
   const taken = new Set();
+  const all = new Set(ids);
+  const heads = git(['for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin/job/'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
   for (const id of ids) {
-    for (const r of [ref, `refs/remotes/origin/job/${id}`]) {
+    for (const r of [ref, ...heads.filter((h) => branchModule(h, all) === id).map((h) => `refs/remotes/origin/${h}`)]) {
       for (const row of rowsAt(root, r, id)) if (row.take_in?.pr) taken.add(Number(row.take_in.pr));
     }
   }
@@ -39,9 +42,9 @@ export function owningModule(entries, files) {
 // prs: the open pull requests into the base (GitHub's list); ref: the base's ledger.
 export function toTakeIn(root, { slug, ref, prs, files = prFiles }) {
   const entries = entriesAt(root, ref).filter((e) => e.id);
-  const heads = new Set(entries.map((e) => `job/${e.id}`));
-  const taken = takenIn(root, ref, entries.map((e) => e.id), prs || []);
-  return (prs || []).filter((p) => !heads.has(p.head?.ref) && !taken.has(p.number)).map((p) => {
+  const ids = new Set(entries.map((e) => e.id));
+  const taken = takenIn(root, ref, [...ids], prs || []);
+  return (prs || []).filter((p) => !ids.has(branchModule(p.head?.ref, ids)) && !taken.has(p.number)).map((p) => {
     let list = null;
     try { list = files(slug, p.number); } catch { list = null; }
     return { number: p.number, head: p.head?.ref, draft: !!p.draft, updated: p.updated_at || null, module: owningModule(entries, list) };

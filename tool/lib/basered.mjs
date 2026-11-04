@@ -94,7 +94,7 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     const inst = install(wt, cfg.lockfiles || [], { exec: timed });
     if (inst.findings.length) return no(`the base's install failed: ${inst.findings[0].message}`);
     if (rows.length) {
-      const b = buildGenerated(wt, rows, { timeout: left(), exec });
+      const b = buildGenerated(wt, rows, { timeout: left(), exec, log: (l) => log(`base ${base.slice(0, 10)}: ${l}`) });
       if (b.findings.length) return no(`the base's build failed: ${b.findings[0].message}`);
     }
     const s = runSuite(wt, entry, files, { timeout: left(), events: join(tmp, 'failing.jsonl') });

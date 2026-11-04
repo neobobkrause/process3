@@ -5,7 +5,7 @@ import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
-import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
+import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
 import { baseRed, testId } from './basered.mjs';
@@ -93,10 +93,13 @@ export function gate(root, opts) {
   // The receipt is read only from the pull request's opener (review of PR 13).
   const receipt = pr ? latestReceipt(all, opts.opener ?? live?.user?.login) : null;
 
-  const job = branch?.match(/^job\/([a-z0-9-]+)$/)?.[1];
   const entries = entriesAt(root, head);
+  const job = branchModule(branch, new Set(entries.map((e) => e.id)));
   const entry = job ? entries.find((e) => e.id === job) || null : null;
   if (job && !entry) findings.push(F('ledger', entryFile(job), `branch ${branch} has no ledger entry`));
+  // The job's branch is the one its latest start row names (a --fresh-branch start's job/<id>-<n>).
+  const named = entry && startBranch(rowsAt(root, head, job), job);
+  if (named && named !== branch) findings.push(F('ledger', metricsFile(job), `branch ${branch} is not job ${job}'s branch: its latest start row names ${named}`));
   findings.push(...checkLedger(root, { ref: head, base: mb, branch }));
 
   // A job writes only its module's files and tests, and its own records (ARC-2).
@@ -234,7 +237,7 @@ export function gate(root, opts) {
       // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
       if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
       // A row built before the suite runs again when it writes a refreshed file just removed.
-      const g = regenerate(root, gen.rows, { timeout, skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
+      const g = regenerate(root, gen.rows, { timeout, log, skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
       runRow.generated = g.ran;
       findings.push(...g.findings);
     }
@@ -427,10 +430,10 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   if (git(['rev-parse', `${c}^{tree}`], { cwd: root }) !== git(['rev-parse', `${p2}^{tree}`], { cwd: root })
     || git(['merge-base', '--is-ancestor', p1, p2], { cwd: root, allowFail: true }).code !== 0) return no(`is PR ${n}'s merge, but not of a head brought up to the tranche`);
   const pr = io.getPR(slug, n);
-  const id = pr?.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
+  const id = branchModule(pr?.head?.ref, ledgerIds(root, p1));
   if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2 || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
   if (!rowsAt(root, p2, id).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
-  const branch = `job/${id}`;
+  const branch = pr.head.ref;
   const why = branchBound(slug, branch, n, cfg.tranche, io);
   if (why) return no(why);
   const runs = gateRuns(io.comments(slug, n));
@@ -530,9 +533,11 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
     row.seconds += s.seconds;
     if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
     const out = /ETIMEDOUT/.test(s.output);
-    // Base-red has its own budget, as the suite's has (PR 117), and its time is not the cap's.
+    // Base-red has its own budget, the suite's (suite_timeout_minutes; PR 117), and its time is not
+    // the cap's (copy, 4 Nov: the base build of bundles.mjs timed out in about half the runs
+    // within the 120 s smoke cap, which the base install, build and run shared).
     const t0 = Date.now();
-    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: seconds * 1000, ...(exec ? { exec } : {}), log });
+    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, ...(exec ? { exec } : {}), log });
     end += Date.now() - t0;
     if (br?.ok) {
       row.base_red.push({ module: e.id, ...br.base_red });

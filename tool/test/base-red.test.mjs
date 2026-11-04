@@ -195,6 +195,14 @@ test('a smoke test red at the base too is reported in the row and does not block
   assert.deepEqual(baseRedOwed([{ pr: 5, module: 'alpha' }], () => [r.run]).map((o) => [o.module, o.test]), [['beta', 'test/beta/red.test.mjs::plane > has ai-catalogue']], 'owed as the suite\'s base-red is');
 });
 
+test('a smoke test\'s base-red run has the suite\'s budget, not the smoke cap', () => {
+  // 1 s at the head, inside the 3 s cap; 5 s at the base, over it (copy, 4 Nov: the base build timed out in the cap).
+  const red = "import { describe, test } from 'node:test'; import a from 'node:assert'; import { ms } from '../../src/alpha/wait.mjs';\ndescribe('plane', () => { test('has ai-catalogue', async () => { await new Promise((r) => setTimeout(r, ms)); a.fail('no ai-catalogue'); }); });\n";
+  const s = setup({ ...beta, 'test/beta/red.test.mjs': red, 'src/alpha/wait.mjs': 'export const ms = 5000;\n', 'process/config.json': { suite_timeout_minutes: 0.5, smoke: { files: ['test/beta/red.test.mjs'], seconds: 3 } } }, { ...change, 'src/alpha/wait.mjs': 'export const ms = 1000;\n' });
+  const r = run(s, receiptFor(s.head));
+  assert.deepEqual([r.findings, r.run.smoke.result], [[], 'base-red']);
+});
+
 test('the smoke cap: once spent, the files left are one finding; a job\'s own listed file it deleted is not a finding', () => {
   const slow = "import test from 'node:test';\ntest('slow', async () => { await new Promise((r) => setTimeout(r, 1500)); });\n";
   const s = setup({ ...beta, 'test/beta/s.test.mjs': slow, 'process/ledger/gamma.json': entry('gamma'), 'test/gamma/g.test.mjs': slow,

@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { comments, gateRuns, getPR } from './github.mjs';
 import { distinctRows, leadTimes, openedAt } from './lead.mjs';
+import { jobBranch, startBranch } from './ledger.mjs';
 import { DEFAULTS, fail, git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
@@ -106,6 +107,9 @@ export function rowsAt(root, ref, id) {
     return t.code === 0 ? parseLines(t.stdout) : [];
   });
 }
+
+// jobBranch, each job/<id>-<n> taken only when the latest start row at <prefix><branch> names it.
+export const jobBranchAt = (root, id, heads, ids, prefix = 'refs/remotes/origin/') => jobBranch(id, heads, ids, (h) => startBranch(rowsAt(root, `${prefix}${h}`, id), id) === h);
 
 export const nextAttempt = (root, id) => readRows(root, id).filter((r) => r.row === 'attempt' && r.event === 'start').length + 1;
 

@@ -62,7 +62,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
     const gen = generatedRows(cfg);
     findings.push(...gen.findings);
     if (!findings.length && gen.rows.length) {
-      const g = regenerate(wt, gen.rows, { timeout, exec });
+      const g = regenerate(wt, gen.rows, { timeout, exec, log });
       findings.push(...g.findings);
       // Only committed paths can differ from the tranche; the rest are built.
       for (const r of g.ran.filter((x) => x.changed)) {

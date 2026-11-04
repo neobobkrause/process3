@@ -13,6 +13,8 @@ import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { NOTICES_DIR, answerFile, mergedRange, noticeRecords } from './notice.mjs';
 import { fetchJobs } from './lead.mjs';
+import { jobBranch, ledgerIds, startBranch } from './ledger.mjs';
+import { rowsAt } from './metrics.mjs';
 import { noticeSlots, status } from './status.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
@@ -75,7 +77,7 @@ function find(root, cfg, key) {
   try {
     // Job branches first (only the untriaged users', when origin has them), so the rows status
     // builds read each START as status --role bob does; then status offline (no GitHub reads).
-    if (untriaged.length) fetchJobs(root, untriaged);
+    if (untriaged.length) fetchJobs(root, untriaged, 'main', ledgerIds(root, `origin/${cfg.tranche}`));
     const rows = status(root, { offline: true, log: () => {} }).rows || [];
     const want = new Set(noticeSlots(root, cfg, rows).slots.filter((x) => x.key === key && x.kind === 'triage').map((x) => x.user));
     owed = untriaged.filter((u) => want.has(u));
@@ -348,8 +350,11 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
   // other job branch, and ancestry asked of a missing commit was "unsettled" for every user with a
   // branch on origin.
   const has = (h) => git(['cat-file', '-e', `${h}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+  const ids = ledgerIds(root, sha);
+  const fetched = (h) => has(h) || (git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true }), has(h));
+  const branchOf = (u) => jobBranch(u, heads.keys(), ids, (b) => fetched(heads.get(b)) && startBranch(rowsAt(root, heads.get(b), u), u) === b);
   const settled = (u, paths) => {
-    const h = heads.get(`job/${u}`);
+    const h = heads.get(branchOf(u));
     if (!h) return true;
     if (!has(h)) git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true });
     if (!has(h)) return false;
@@ -368,7 +373,7 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     if (!m) { whys.set(u, `no entry in ${cfg.modules_file}`); continue; }
     if (!paths.length) { whys.set(u, `no paths in ${cfg.modules_file}`); continue; }
     if (i < 0) { whys.set(u, `no "id" line for it in ${cfg.modules_file}`); continue; }
-    if (!settled(u, paths)) { whys.set(u, `job/${u} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
+    if (!settled(u, paths)) { whys.set(u, `${branchOf(u)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
     const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...paths], { cwd: root, allowFail: true });
     if (g.code !== 0 && g.code !== 1) { whys.set(u, `git grep under its paths failed (exit ${g.code}: ${String(g.stderr || '').trim().split('\n').pop()})`); continue; }
     const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);

@@ -1,6 +1,7 @@
 // review brief <pr> [--scope "<text>"]: the fresh-context brief a reviewer subagent is given,
 // filled from the pull request (Phase 2 build N). Prints only; writes nothing.
 import { comments, getPR, latestReceipt } from './github.mjs';
+import { branchModule, ledgerIds } from './ledger.mjs';
 import { generatedRows } from './checks.mjs';
 import { rulebook } from './job.mjs';
 import { normPath } from './suite.mjs';
@@ -96,12 +97,12 @@ export function reviewBrief(root, n, { scope, log = console.log, io = {} } = {})
   if (!pr?.number) fail(`no pull request ${n} in ${slug}`);
   const files = listFiles(slug, n);
   let job = null;
-  const m = /^job\/(.+)$/.exec(pr.head?.ref || '');
-  if (m) {
-    const entry = contents(slug, `process/ledger/${m[1]}.json`, pr.head.sha);
+  const id = branchModule(pr.head?.ref, ledgerIds(root, `origin/${cfg.tranche}`));
+  if (id) {
+    const entry = contents(slug, `process/ledger/${id}.json`, pr.head.sha);
     let e = entry;
-    if (typeof entry === 'string') { try { e = JSON.parse(entry); } catch { fail(`process/ledger/${m[1]}.json at the head is not JSON`); } }
-    if (e?.requirements) job = { id: m[1], file: e.requirements, ids: requirementIds(contents(slug, e.requirements, pr.head.sha)), receipt: latestReceipt(notes(slug, pr.number), pr.user?.login) };
+    if (typeof entry === 'string') { try { e = JSON.parse(entry); } catch { fail(`process/ledger/${id}.json at the head is not JSON`); } }
+    if (e?.requirements) job = { id, file: e.requirements, ids: requirementIds(contents(slug, e.requirements, pr.head.sha)), receipt: latestReceipt(notes(slug, pr.number), pr.user?.login) };
   }
   // The generated paths, split by whether the head commits them (a path absent there is built).
   const generated = job ? { built: [], committed: [] } : null;
