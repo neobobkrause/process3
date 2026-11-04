@@ -24,8 +24,9 @@ export const MAX_LINES = 30;
 
 // The tranche's process pin and its files, read from the tool's own repository: the pin commit
 // is fetched by its id, --depth 1, when the clone lacks it. null when the tranche has no pin.
-export function pinOf(root, name, toolRoot = TOOL) {
-  const tree = git(['ls-tree', `origin/${name}`, '--', '.process'], { cwd: root, allowFail: true });
+// With ref, the pin of that commit instead (setup check --at HEAD).
+export function pinOf(root, name, toolRoot = TOOL, ref = `origin/${name}`) {
+  const tree = git(['ls-tree', ref, '--', '.process'], { cwd: root, allowFail: true });
   const sha = tree.code === 0 ? tree.stdout.match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] : null;
   if (!sha) return null;
   if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: toolRoot, allowFail: true }).code !== 0) {
@@ -43,10 +44,11 @@ export function pinOf(root, name, toolRoot = TOOL) {
 const hookKeys = (hooks) => Object.entries(hooks && typeof hooks === 'object' ? hooks : {}).flatMap(([event, groups]) =>
   [].concat(groups || []).flatMap((g) => [].concat(g?.hooks || []).map((h) => JSON.stringify([event, g?.matcher ?? '', h?.type ?? '', h?.command ?? '', h?.timeout ?? null]))));
 
-// The tranche's files, through git, so no session reads them through the contents API.
-function tranche(root, name, fetch = true) {
-  if (fetch) fetchBranch(root, name, { allowFail: true });
-  const ref = `origin/${name}`;
+// The tranche's files, through git, so no session reads them through the contents API. With
+// at, a commit's files instead, nothing fetched.
+function tranche(root, name, at = null) {
+  if (!at) fetchBranch(root, name, { allowFail: true });
+  const ref = at || `origin/${name}`;
   return (file) => {
     if (git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code !== 0 || !exists(root, ref, file)) return null;
     return git(['show', `${ref}:${file}`], { cwd: root });
@@ -150,14 +152,14 @@ const readers = {
 
   'deny-list': (c, x) => {
     const text = x.file('.claude/settings.json');
-    if (text === null) return missing(`no .claude/settings.json on ${x.cfg.tranche}`);
+    if (text === null) return missing(`no .claude/settings.json on ${x.where}`);
     let deny;
-    try { deny = JSON.parse(text).permissions?.deny || []; } catch { return missing(`.claude/settings.json on ${x.cfg.tranche} is not JSON`); }
+    try { deny = JSON.parse(text).permissions?.deny || []; } catch { return missing(`.claude/settings.json on ${x.where} is not JSON`); }
     const gaps = [
       ...c.value.deny.filter((d) => !deny.includes(d)).map((d) => `lacks ${d}`),
       ...deny.filter((d) => c.value.push_commands.some((cmd) => bashRuleMatches(d, cmd))).map((d) => `holds ${d}, which blocks a session's push of its own branch`),
     ];
-    return gaps.length ? missing(gaps.join('; ')) : set(`${deny.length} deny rules on ${x.cfg.tranche}`);
+    return gaps.length ? missing(gaps.join('; ')) : set(`${deny.length} deny rules on ${x.where}`);
   },
 
   'artifact-retention': (c, x) => {
@@ -218,19 +220,20 @@ const readers = {
   approvals: (c, x) => {
     const { file, heading, owner } = x.cfg.approvals;
     const text = x.file(file);
-    if (text === null) return missing(`no ${file} on ${x.cfg.tranche}`);
+    if (text === null) return missing(`no ${file} on ${x.where}`);
     // Counted as the record check counts them, which flags a second approvals heading.
     const count = text.split('\n').filter((l) => /^#{1,6}\s.*approv/i.test(l.trim())).length;
-    if (!approvalsBlock(text, heading)) return missing(`${file} on ${x.cfg.tranche} has no "${heading}" block`);
-    if (count > 1) return missing(`${file} on ${x.cfg.tranche} has ${count} approvals headings; only one block may exist`);
+    if (!approvalsBlock(text, heading)) return missing(`${file} on ${x.where} has no "${heading}" block`);
+    if (count > 1) return missing(`${file} on ${x.where} has ${count} approvals headings; only one block may exist`);
     const top = x.ownerBlock(file, heading, owner);
     if (!top) return missing(`no approvals block on ${x.cfg.tranche} or ${x.main} was last set by ${owner}'s own commit through GitHub's website`);
-    if (top.block !== approvalsBlock(text, heading)) return missing(`the approvals on ${x.cfg.tranche} are not the block ${owner} last set through GitHub's website: that is commit ${top.sha.slice(0, 10)}'s, on ${top.ref}. ${owner} sets it again on the website, or a merge carries it to ${x.cfg.tranche}`);
+    if (top.block !== approvalsBlock(text, heading)) return missing(`the approvals on ${x.where} are not the block ${owner} last set through GitHub's website: that is commit ${top.sha.slice(0, 10)}'s, on ${top.ref}. ${owner} sets it again on the website, or a merge carries it to ${x.cfg.tranche}`);
     return set(`one block, the one ${owner}'s website commit ${top.sha.slice(0, 10)} set`);
   },
 
   // The session's own checkout (Bob, 2 Nov): start check's own test, against the tranche.
   'session-branch': (c, x) => {
+    if (x.at) return { state: 'skipped', detail: `--at ${x.at} judges that commit, not the session's checkout` };
     const r = x.onTranche();
     return r.ok ? set(`HEAD is the tip of ${x.cfg.tranche}, with its approvals`) : missing(`HEAD ${String(r.head).slice(0, 10)} is not the tip of ${x.cfg.tranche} (${String(r.tip).slice(0, 10)}) with its approvals. Start the session from the ${x.cfg.tranche} branch, or bring it up to date (git pull origin ${x.cfg.tranche})`);
   },
@@ -253,12 +256,12 @@ const readers = {
   // approvals (never written by the tool), and is under thirty lines without them.
   'process-lines': (c, x) => {
     const pin = x.pin();
-    if (!pin) return missing(`no .process pin on ${x.cfg.tranche}`);
+    if (!pin) return missing(`no .process pin on ${x.where}`);
     const shim = pin.file(PROCESS_LINES);
     if (shim === null) return { state: 'not configured', detail: `the pin ${pin.sha.slice(0, 10)} has no ${PROCESS_LINES}` };
     const { file, heading } = x.cfg.approvals;
     const text = x.file(file);
-    if (text === null) return missing(`no ${file} on ${x.cfg.tranche}`);
+    if (text === null) return missing(`no ${file} on ${x.where}`);
     const want = shim.replaceAll('{tranche}', x.cfg.tranche).replace(/\n+$/, '').split('\n');
     const block = approvalsBlock(text, heading);
     const all = text.replace(/\n+$/, '').split('\n');
@@ -268,8 +271,8 @@ const readers = {
     const keep = 'and changes nothing in the approvals block';
     const gaps = [];
     const has = rest.some((_, i) => want.every((w, k) => rest[i + k] === w));
-    if (!has) gaps.push(`${file} on ${x.cfg.tranche} lacks the process lines of the pin ${pin.sha.slice(0, 10)} exactly: ${pr} puts the lines of .process/${PROCESS_LINES} (with {tranche} as ${x.cfg.tranche}) in ${file} below the approvals block, ${keep}`);
-    if (rest.length >= MAX_LINES) gaps.push(`${file} on ${x.cfg.tranche} is ${rest.length} lines without the approvals block, not under ${MAX_LINES}: ${pr} moves what else it holds to another file, ${keep}`);
+    if (!has) gaps.push(`${file} on ${x.where} lacks the process lines of the pin ${pin.sha.slice(0, 10)} exactly: ${pr} puts the lines of .process/${PROCESS_LINES} (with {tranche} as ${x.cfg.tranche}) in ${file} below the approvals block, ${keep}`);
+    if (rest.length >= MAX_LINES) gaps.push(`${file} on ${x.where} is ${rest.length} lines without the approvals block, not under ${MAX_LINES}: ${pr} moves what else it holds to another file, ${keep}`);
     return gaps.length ? missing(gaps.join('; ')) : set(`the process lines of the pin ${pin.sha.slice(0, 10)}, ${rest.length} lines besides the approvals`);
   },
 
@@ -277,7 +280,7 @@ const readers = {
   // settings file carries only the hooks the pin allows (ENF-1).
   'shim-drift': (c, x) => {
     const pin = x.pin();
-    if (!pin) return missing(`no .process pin on ${x.cfg.tranche}`);
+    if (!pin) return missing(`no .process pin on ${x.where}`);
     const gaps = [];
     // The development release shim is needed only by a product whose config has "release", or that carries it.
     const shims = pin.list('shims').filter((f) => /\.ya?ml$/.test(f))
@@ -291,7 +294,7 @@ const readers = {
     try { allowed = allowText === null ? [] : hookKeys(JSON.parse(allowText).hooks); } catch { gaps.push(`the pin's ${HOOKS_SHIM} is not JSON`); }
     const text = x.file('.claude/settings.json');
     let hooks = {};
-    try { hooks = text === null ? {} : JSON.parse(text).hooks; } catch { gaps.push(`.claude/settings.json on ${x.cfg.tranche} is not JSON`); }
+    try { hooks = text === null ? {} : JSON.parse(text).hooks; } catch { gaps.push(`.claude/settings.json on ${x.where} is not JSON`); }
     const extra = hookKeys(hooks).filter((k) => !allowed.includes(k));
     for (const k of extra) {
       const [event, , , command] = JSON.parse(k);
@@ -302,10 +305,10 @@ const readers = {
 
   coordinator: (c, x) => {
     const text = x.file('process/config.json');
-    if (text === null) return missing(`no process/config.json on ${x.cfg.tranche}`);
+    if (text === null) return missing(`no process/config.json on ${x.where}`);
     let coord;
-    try { coord = JSON.parse(text).coordinator; } catch { return missing(`process/config.json on ${x.cfg.tranche} is not JSON`); }
-    return typeof coord === 'string' && coord.trim() ? set(coord) : missing(`process/config.json on ${x.cfg.tranche} names no coordinator`);
+    try { coord = JSON.parse(text).coordinator; } catch { return missing(`process/config.json on ${x.where} is not JSON`); }
+    return typeof coord === 'string' && coord.trim() ? set(coord) : missing(`process/config.json on ${x.where} names no coordinator`);
   },
 };
 export const READERS = Object.keys(readers);
@@ -323,11 +326,20 @@ export function fileLog(x, ref, file, root) {
 }
 
 // Every condition, read or confirmed. ok is false when any condition is missing; unmeasured,
-// not configured and confirmed conditions do not stop a start.
-export function setupCheck(root, { slug, conditions = loadConditions(), io = {}, log = console.log } = {}) {
+// not configured, skipped and confirmed conditions do not stop a start. With at (setup check
+// --at HEAD, before a pin-move pull request merges), that commit's pin and files are judged
+// instead of the tranche tip's, and session-branch is skipped.
+export function setupCheck(root, { slug, at = null, conditions = loadConditions(), io = {}, log = console.log } = {}) {
   const local = loadConfig(root);
-  const x = { slug, main: 'main', api: io.api || api, env: io.env || process.env };
-  x.file = io.file || tranche(root, local.tranche);
+  let sha = null;
+  if (at) {
+    const r = git(['rev-parse', '-q', '--verify', `${at}^{commit}`], { cwd: root, allowFail: true });
+    if (r.code !== 0) fail(`setup check --at ${at}: not a commit here`);
+    sha = r.stdout.trim();
+  }
+  const x = { slug, main: 'main', at, api: io.api || api, env: io.env || process.env };
+  x.where = at ? `${at} (${sha.slice(0, 10)})` : local.tranche;
+  x.file = io.file || tranche(root, local.tranche, sha);
   // The tranche's own config, when it has one, names the required check and the approvals'
   // file, heading and owner, never the session's own checkout (review of PR 24).
   let tcfg = {};
@@ -352,7 +364,7 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
   });
   x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, log: () => {} }));
   let pinned;
-  x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche)) : pinned);
+  x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche, io.toolRoot || TOOL, sha || `origin/${x.cfg.tranche}`)) : pinned);
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
   x.required = [].concat(x.cfg.required_check || 'gate');
   const cache = new Map();
@@ -369,11 +381,11 @@ export function setupCheck(root, { slug, conditions = loadConditions(), io = {},
     return { id: c.id, what: c.what, ...r };
   });
   const gaps = results.filter((r) => r.state === 'missing');
-  log(`setup check for ${slug}, tranche ${x.cfg.tranche}:`);
+  log(`setup check for ${slug}, tranche ${x.cfg.tranche}${at ? `, at ${x.where}` : ''}:`);
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
   const carry = takeInCheck(root, x, { io, log });
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, carry };
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, carry };
 }
 
 // Tranche carry (SHM-4): a product converting mid-tranche lists its open pull requests into the

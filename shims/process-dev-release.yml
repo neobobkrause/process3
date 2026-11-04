@@ -6,8 +6,9 @@
 # Three jobs, as process-gate.yml keeps tokens from product code: checks and assemble run product
 # code on read-only tokens; publish holds contents: write and runs no product code: it pushes the
 # tag p3dev-<version> itself (a draft release has no tag until published, measured 3 Nov) and
-# creates a draft release, never published and never marked latest, with the assembled files.
-# Signing only when release.sign_secret in process/config.json names a secret.
+# creates a draft release, never published and never marked latest, with one archive of the
+# assembled files, <product>-p3dev-<version>.tar.gz (release.out, paths kept), and SHA256SUMS
+# over it. Signing (SHA256SUMS.sig) only when release.sign_secret in process/config.json names a secret.
 # Copied into a product as .github/workflows/process-dev-release.yml.
 name: process-dev-release
 on:
@@ -148,12 +149,23 @@ jobs:
         with:
           name: checks-result
           path: ${{ runner.temp }}/checks
+      # One archive of release.out, its paths kept (two files may share a base name), and
+      # SHA256SUMS over it: the release's only assets, with the signature when signing.
+      - name: the archive and SHA256SUMS
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          name="${GITHUB_REPOSITORY#*/}-p3dev-$VERSION.tar.gz"
+          mkdir "$RUNNER_TEMP/assets"
+          tar -C "$RUNNER_TEMP/release" --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -czf "$RUNNER_TEMP/assets/$name" .
+          (cd "$RUNNER_TEMP/assets" && sha256sum "$name" > SHA256SUMS)
+          tar -tzf "$RUNNER_TEMP/assets/$name" | grep -v '/$' | sed 's/^/  /'
       - name: sign (only when release.sign_secret names a secret)
         if: steps.cfg.outputs.sign != ''
         working-directory: repo
         env:
           P3_SIGN_KEY: ${{ secrets[steps.cfg.outputs.sign] }}
-        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release sign "$RUNNER_TEMP/release"
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release sign "$RUNNER_TEMP/assets"
       - name: the tag and the draft release (never published, never latest)
         working-directory: repo
         env:
@@ -161,12 +173,10 @@ jobs:
           TAG: ${{ steps.v.outputs.tag }}
           VERSION: ${{ steps.v.outputs.version }}
         run: |
-          dups=$(find "$RUNNER_TEMP/release" -type f -printf '%f\n' | sort | uniq -d)
-          [ -z "$dups" ] || { echo "::error::two release files share a name: $dups"; exit 1; }
           node "$RUNNER_TEMP/process3/tool/p3.mjs" release body "$RUNNER_TEMP/checks/checks.json" --version "$VERSION" --commit "$GITHUB_SHA" > "$RUNNER_TEMP/body.md"
           # The tag first, by the API: an existing tag fails here and is never moved.
           gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA" >/dev/null
-          mapfile -d '' files < <(find "$RUNNER_TEMP/release" -type f -print0)
+          mapfile -d '' files < <(find "$RUNNER_TEMP/assets" -maxdepth 1 -type f -print0)
           url=$(gh release create "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --draft --latest=false --verify-tag --title "$TAG (development)" --notes-file "$RUNNER_TEMP/body.md")
           echo "draft release: $url"
           echo "Development release $VERSION (draft, never published): $url" >> "$GITHUB_STEP_SUMMARY"

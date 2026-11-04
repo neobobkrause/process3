@@ -210,7 +210,9 @@ const commands = {
 
   // setup check: the product's setup, read-only, against setup/conditions.json; exit 1 when a
   // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
-  'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root) }).ok ? 0 : 1),
+  // --at HEAD judges the checkout's own commit (its pin and files), not the tranche tip: a
+  // pin-move pull request runs it before it merges. session-branch is skipped then.
+  'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root), at: a.at === true ? fail('--at <ref>, e.g. --at HEAD') : a.at }).ok ? 0 : 1),
 
   // start check [--branch <the branch the session started from; default the tranche>]: a
   // session's first command. Fetches that branch, compares HEAD and the approvals block with its
