@@ -30,13 +30,13 @@ function bash(script, cwd, env) {
 
 // A stub npx: records its calls; `install` lays a chrome down under the build's location,
 // `--dry-run` prints that location as playwright does.
-function stubNpx(calls, { noChrome = false, failFirst = 0 } = {}) {
+function stubNpx(calls, { noChrome = false, failFirst = 0, failDry = false } = {}) {
   const bin = mkdtempSync(join(tmpdir(), 'p3-npx-'));
   const home = join(bin, 'ms-playwright');
   writeFileSync(join(bin, 'npx'), `#!/bin/bash
 echo "$*" >> ${calls}
 v=\${2#playwright-core@}; loc=${home}/chromium-$v
-if [ "$4" = "--dry-run" ]; then printf 'browser: chromium version 141\\n  Install location:    %s\\n  Download url: x\\n\\nbrowser: ffmpeg\\n  Install location:    ${home}/ffmpeg-1011\\n\\nbrowser: chromium-headless-shell\\n  Install location:    ${home}/chromium_headless_shell-$v\\n' "$loc"; exit 0; fi
+if [ "$4" = "--dry-run" ]; then ${failDry ? 'echo "unknown option --dry-run" >&2; exit 1; ' : ''}printf 'browser: chromium version 141\\n  Install location:    %s\\n  Download url: x\\n\\nbrowser: ffmpeg\\n  Install location:    ${home}/ffmpeg-1011\\n\\nbrowser: chromium-headless-shell\\n  Install location:    ${home}/chromium_headless_shell-$v\\n' "$loc"; exit 0; fi
 n=$(grep -c -- --with-deps ${calls}); if [ "$n" -le ${failFirst} ]; then exit 1; fi
 mkdir -p "${home}/chromium_headless_shell-$v/chrome-linux"; printf x > "${home}/chromium_headless_shell-$v/chrome-linux/headless_shell"
 ${noChrome ? '' : `mkdir -p "$loc/chrome-linux"; printf '#!/bin/bash\\necho "Chromium 141.0.%s"\\n' "$v" > "$loc/chrome-linux/chrome"; chmod +x "$loc/chrome-linux/chrome"`}
@@ -91,6 +91,10 @@ test('the install: each pinned build with its system libraries, CHROMIUM names t
   assert.notEqual(bad.status, 0);
   assert.match(bad.stdout, /::error::browser: playwright-core 1\.56\.1 installed no Chromium/);
   assert.equal(bad.env, '');
+  // A failed dry run is the same stop, with its line.
+  const dry = bash(stepRun('install the browser'), dir, { PATH: stubNpx(join(dir, 'c5'), { failDry: true }).PATH, VERSIONS: '1.56.1' });
+  assert.notEqual(dry.status, 0);
+  assert.match(dry.stdout, /::error::browser: playwright-core 1\.56\.1 installed no Chromium under $/m);
   // One failed install is tried again; two stop the gate, saying why.
   const once = bash(stepRun('install the browser'), dir, { PATH: stubNpx(join(dir, 'c3'), { failFirst: 1 }).PATH, VERSIONS: '1.56.1' });
   assert.equal(once.status, 0, once.stderr);
@@ -105,9 +109,17 @@ test('the browser steps sit after the record check and before the gate, cached b
   const at = (s) => gateJob.indexOf(s);
   assert.ok(at('record-check --base') < at("- name: the browser the product's lock files pin"));
   assert.ok(at('- name: install the browser') < at('- name: gate\n'));
-  const cache = gateJob.slice(at('uses: actions/cache@'), at('- name: install the browser'));
-  assert.match(cache, /if: steps\.browser\.outputs\.versions != ''/);
-  assert.match(cache, /key: p3-chromium-\$\{\{ runner\.os \}\}-\$\{\{ steps\.browser\.outputs\.versions \}\}/);
+  const KEY = /key: p3-chromium-\$\{\{ runner\.os \}\}-\$\{\{ steps\.browser\.outputs\.versions \}\}/;
+  const restore = gateJob.slice(at('uses: actions/cache/restore@'), at('- name: install the browser'));
+  assert.match(restore, /if: steps\.browser\.outputs\.versions != ''/);
+  assert.match(restore, KEY);
+  // Saved after the install and before the gate step (no product code has run), on a miss only;
+  // no step saves after the gate.
+  const save = gateJob.slice(at('uses: actions/cache/save@'), at('- name: gate\n'));
+  assert.ok(at('- name: install the browser') < at('uses: actions/cache/save@') && save.length > 0);
+  assert.match(save, /if: steps\.browser\.outputs\.versions != '' && steps\.browser-cache\.outputs\.cache-hit != 'true'/);
+  assert.match(save, KEY);
+  assert.doesNotMatch(gateJob, /uses: actions\/cache@/, 'not the combined action, whose save runs at the end of the job');
   const install = gateJob.slice(at('- name: install the browser'), at('- name: gate\n'));
   assert.match(install, /^ {8}if: steps\.browser\.outputs\.versions != ''$/m);
   assert.match(install, /^ {8}timeout-minutes: 10$/m, 'a bound of its own inside the 45-minute job');
