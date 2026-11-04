@@ -51,6 +51,9 @@ test('sweep: nothing owed writes the heartbeat; over the live cap wakes BOB with
   const r = run(root, { live: 3 });
   assert.equal(r.act, 'heartbeat');
   assert.deepEqual(beat(root).found, ['live 3 of 24']);
+  // The live count and cap go in the sweep row: lead times names a full cap as a wait's cause.
+  const row = readState(root, 'process-state', SWEEP_ROWS_FILE).trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+  assert.deepEqual([row.live, row.live_cap], [3, 24]);
   assert.deepEqual(beat(root).done, ['heartbeat only']);
   const o = run(root, { live: 25 });
   assert.equal(o.todo.length, 1);

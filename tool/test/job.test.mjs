@@ -756,6 +756,10 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   assert.match(r.start, /\| `req\/alpha.md` \| \d+ \|/);
   assert.equal(r.launch.source_revision, git(['rev-parse', 'origin/tranche'], { cwd: root }), 'the tranche tip commit');
   assert.deepEqual(r.subscribe.pullNumber, 9);
+  // --stop: how the replaced session stopped, in the row (lead times' replace names its source).
+  const again = jobStart(root, 'alpha', { coordinator: 's', restart: 'archived by mistake', stop: 'archived', find: () => pr, notes: () => [], log: quiet });
+  assert.equal(again.row.stop, 'archived');
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', stop: 'gone', find: () => pr, notes: () => [], log: quiet }), /--stop archived\|idle/);
 });
 
 test('--restart is refused for a COMPLETE module, without a branch or PR, and without a why', () => {

@@ -10,6 +10,9 @@ const req = (...ids) => `# x\n\n${ids.map(([id, met]) => `- **${id}**${met ? '' 
 const jl = (...rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n';
 const NOW = '2099-01-01T00:00:00.000Z';
 const at = (h) => new Date(Date.UTC(2026, 10, 1, h)).toISOString();
+// The tranche's opening, as lead times reads it: its first ok grant row, on the state branch.
+const OPEN = '2026-11-01T00:30:00.000Z';
+const grants = jl({ row: 'grant', tranche: 'tranche', at: OPEN, act: 'push', depth: 1, outcome: 'ok' });
 
 function fixture() {
   const root = makeRepo({
@@ -53,6 +56,7 @@ test('report tranche: every section from the record, and unmeasured where the re
   const state = {
     'metrics/sweep.jsonl': jl({ at: at(5), row: 'sweep', bob_acts: true, bob_quiet_h: 1.5 }, { at: at(6), row: 'sweep' }),
     'addresses/bob.json': JSON.stringify({ session: 's_bob' }),
+    'metrics/tranche-open.jsonl': grants,
     'layers/closed.jsonl': jl(
       { row: 'closed', layer: 1, tranche: 'tranche', commit: tip, at: at(7), deferred: { a: ['R2'] } },
       { row: 'closed', layer: 2, tranche: 'tranche', commit: base, at: at(7), deferred: {} },
@@ -66,7 +70,9 @@ test('report tranche: every section from the record, and unmeasured where the re
   assert.match(md, /^# Tranche report: tranche/);
   assert.match(md, /still open; measured to now/);
   assert.match(md, /- elapsed: [\d.]+ h/);
-  assert.match(md, /Pull requests merged into tranche: 2 \(1 job merges recorded/, 'times compared as instants, not as strings with different offsets');
+  assert.match(md, /- opened: 2026-11-01T00:30:00\.000Z \(the first ok grant row/, 'one source: the grant row lead times reads');
+  assert.match(md, /- tranche opened: 2026-11-01T00:30:00\.000Z/);
+  assert.match(md, /Pull requests merged into tranche: 3 \(job merges recorded: 1 distinct pull requests since the opening \(1 merge rows\)/);
   assert.ok(md.includes(`### Layer 1 (closed 2026-11-01T07:00:00.000Z at ${tip.slice(0, 10)})`), "this tranche's close, at a commit main lacked");
   assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
   assert.match(md, /### Layer 2 \(not closed\)/);
@@ -76,12 +82,12 @@ test('report tranche: every section from the record, and unmeasured where the re
   // Overhead is metrics report's: a's job $4, BOB's $2 split over a and b (both active), b's job unmeasured.
   assert.match(md, /\| a \| 1 \| \$4\.00 \| unmeasured \| \$1\.00 \| unmeasured \| unmeasured \| \$1\.00 \| 20% \|/);
   assert.match(md, /\| b \| 1 \| unmeasured \|.*\| unmeasured \| reviews, root, gate \|/);
-  assert.match(md, /- total cost: \$6\.00/);
+  assert.match(md, /- total cost since the opening: \$6\.00/);
   assert.match(md, /\| job \| push \| 2 \|/);
-  assert.match(md, /\| unmeasured \| merge \| 1 \|/, 'a session no record names has its role unmeasured');
+  assert.match(md, /\| role unknown \| merge \| 1 \|/, 'a session no record names reads role unknown, never dropped');
   assert.match(md, /\| 2026-11-01 \| 1 \| 1\.5 \| 1 \|/);
   assert.match(md, /- sessions per job: unmeasured \(1 of 2 jobs measured: 1\)/);
-  assert.match(md, /- gate runs per merged job: 2 \(2 runs over 1 merges\)/);
+  assert.match(md, /- gate runs per merged job: 2 \(2 runs over 1 distinct pull requests merged since the opening\)/);
   assert.match(md, /- record-only commits: 1 of 2 commits in the tranche/);
 });
 
@@ -89,7 +95,8 @@ test('report tranche: no state branch, no GitHub, a merged span, no main', () =>
   const root = fixture();
   const cfg = loadConfig(root);
   const md = trancheReport(root, cfg, { now: NOW, io: { merged: () => null, comments: () => { throw new Error('no'); } } });
-  assert.match(md, /Pull requests merged into tranche: unmeasured \(GitHub not read\); job merges recorded: 1/);
+  assert.match(md, /Pull requests merged into tranche: unmeasured \(GitHub not read\); job merges since the opening unmeasured/);
+  assert.match(md, /- opened: unmeasured/, 'the opening has one source, the state branch\'s grant rows');
   assert.match(md, /### Layer 1 \(closed: unmeasured, state branch not read\)/);
   assert.match(md, /\| a \| tip \| 1 \| R2 \|/);
   assert.match(md, /## BOB idle occurrences[\s\S]*?\nunmeasured\n/);
@@ -109,7 +116,7 @@ test('report tranche: no state branch, no GitHub, a merged span, no main', () =>
   const bare = trancheReport(root, cfg, { now: NOW, io: { merged: () => null } });
   assert.match(bare, /- opened: unmeasured/);
   assert.match(bare, /- elapsed: unmeasured/);
-  assert.match(bare, /\| a \| OPEN \| #11 \| unmeasured \|/);
+  assert.match(bare, /\| a \| OPEN \| unmeasured \| unmeasured \|/);
   assert.match(bare, /- record-only commits: unmeasured/);
 });
 
@@ -120,7 +127,8 @@ test('report tranche: a BOB session counts its last cost once in the total', () 
     { at: at(8), module: 'bob', row: 'attempt', event: 'measured', role: 'bob', session: 's_bob', cost_usd: 5 },
   ) }, 'bob again');
   git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
-  assert.match(trancheReport(root, loadConfig(root), { now: NOW, io: { merged: () => null } }), /- total cost: \$9\.00/);
+  const state = { 'metrics/tranche-open.jsonl': grants };
+  assert.match(trancheReport(root, loadConfig(root), { now: NOW, stateRead: true, io: { state: (p) => state[p] ?? null, merged: () => null } }), /- total cost since the opening: \$9\.00/);
 });
 
 test('report tranche: in a shallow clone the span is unmeasured, and a close is placed by GitHub\'s compare', () => {
@@ -150,13 +158,11 @@ test('report tranche: in a depth-1 clone, deepen fetches the tranche\'s own comm
   git(['checkout', '-q', 'origin/tranche'], { cwd: root });
   const cfg = loadConfig(root);
   const run = () => trancheReport(root, cfg, { now: NOW, io: { merged: () => null } });
-  assert.match(run(), /- opened: unmeasured/, 'depth 1 alone holds no opening');
+  assert.match(run(), /\| a \| OPEN \| unmeasured \| unmeasured \|/, 'depth 1 alone holds no base: marks met unmeasured');
   deepen(root, 'tranche');
   assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }), 'true', 'still shallow: main\'s history not fetched');
   const md = run();
-  assert.match(md, /- opened: 2026-11-01T10:00:00\+02:00/);
-  assert.match(md, /- elapsed: [\d.]+ h/);
-  assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
+  assert.match(md, /\| a \| OPEN \| unmeasured \| 1 \(R1\) \|/, 'marks met from the base; merged PRs need the opening, not read here');
   assert.match(md, /- record-only commits: 1 of 2 commits in the tranche/);
   assert.equal(span(root, 'origin/tranche', 'origin/main').base, git(['rev-parse', 'main'], { cwd: src }));
   // A cut whose parent is not main's (a failed deepen, the tip's parent fetched alone) is unmeasured.
@@ -199,11 +205,10 @@ test('report tranche: in a depth-1 clone of a tranche that main was merged into,
   const cfg = loadConfig(root);
   const run = (r, deepened) => trancheReport(r, cfg, { now: NOW, deepened, io: { merged: () => null } });
   const want = run(full, deepen(full, "tranche"));
-  assert.match(want, /- opened: 2026-11-01T10:00:00\+02:00/);
-  assert.match(want, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
+  assert.match(want, /\| a \| OPEN \| unmeasured \| 1 \(R1\) \|/);
   assert.match(want, /- record-only commits: 2 of 3 commits in the tranche/, 'the commits merged in from main are main\'s');
   const before = run(root, null);
-  assert.match(before, /- opened: unmeasured/);
+  assert.match(before, /\| a \| OPEN \| unmeasured \| unmeasured \|/);
   assert.match(before, /- record-only commits: unmeasured/);
   const deep = deepen(root, 'tranche');
   assert.equal(deep.base, git(['rev-parse', 'main~3'], { cwd: src }), 'main before the tranche\'s first commit');
@@ -225,7 +230,6 @@ test('report tranche: in a depth-1 clone where main moved since the tranche open
   assert.deepEqual(deep, { base: git(['rev-parse', 'main^'], { cwd: src }), onMain: [] });
   assert.deepEqual(span(root, 'origin/tranche', 'origin/main'), { open: 'unmeasured', close: null, base: null }, 'cut history alone cannot place the base on main');
   const md = trancheReport(root, cfg, { now: NOW, deepened: deep, io: { merged: () => null } });
-  assert.match(md, /- opened: 2026-11-01T10:00:00\+02:00/);
-  assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
+  assert.match(md, /\| a \| OPEN \| unmeasured \| 1 \(R1\) \|/);
   assert.match(md, /- record-only commits: 1 of 2 commits in the tranche/);
 });

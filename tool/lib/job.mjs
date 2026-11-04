@@ -198,8 +198,8 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
-  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, find, notes, log });
+export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
+  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, notes, log });
   if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
@@ -477,8 +477,10 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
 // commit that made it BLOCKED, else its branch's last push), then prints the START, the
 // create_session call from the tranche tip's commit (so the session loads the tip's approvals;
 // its first commands check out the branch) and the subscribe call.
-function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
+export const STOPS = ['archived', 'idle'];
+function jobRestart(root, id, { coordinator, model, why, stop, find, notes, log }) {
   if (why === true || !String(why ?? '').trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
+  if (stop !== undefined && !STOPS.includes(stop)) fail(`--stop ${STOPS.join('|')}: how the replaced session stopped, not ${JSON.stringify(stop)}`);
   const cfg = loadConfig(root);
   const slug = repoSlug(root);
   const branch = `job/${id}`;
@@ -513,7 +515,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
     while (k > 0 && h[k - 1].state === 'BLOCKED') k--;
     stopped = h.length && h.at(-1).state === 'BLOCKED' && (k > 0 || !isShallow(root)) ? h[k].at : null;
   }
-  const row = { row: 'restart', at: now(), tranche: cfg.tranche, module: id, why: String(why).trim(), pr: pr.number, state, stopped, stopped_by: state === 'BLOCKED' ? 'BLOCKED' : 'last push' };
+  const row = { row: 'restart', at: now(), tranche: cfg.tranche, module: id, why: String(why).trim(), pr: pr.number, state, stopped, stopped_by: state === 'BLOCKED' ? 'BLOCKED' : 'last push', ...(stop && state !== 'BLOCKED' ? { stop } : {}) };
   writeState(root, cfg.state_branch, `restart ${id}`, (wt) => {
     const p = join(wt, RESTARTS_FILE);
     mkdirSync(dirname(p), { recursive: true });
