@@ -81,3 +81,14 @@ test('ROOT and the watcher carry the escalation chain: act at once, decision_min
   assert.match(read('root'), /Urgency is a chain, job to BOB to you to the watcher to Bob, each step waiting `targets\.decision_minutes`.*never left for the sweep.*an irreversible one waits \(Bob, 4 Nov\)/);
   assert.match(read('watcher'), /Urgency is a chain, job to BOB to ROOT to you to Bob.*`watch --escalated <minutes>`.*Push to Bob only what passes rule 2's test, or that ROOT and BOB are both gone/);
 });
+
+// 4 Nov: BOB's prompt told it to start only modules with no unmerged earlier work, while status
+// listed a take-in for registers; BOB held the job and asked. The prompt now sends it by --take-in.
+import { bobPrompt as bobPromptForTakeIn } from '../lib/roles.mjs';
+test('BOB starts a module with earlier work by --take-in, as status lists it', () => {
+  for (const oldBob of [undefined, 'session_old']) {
+    const p = bobPromptForTakeIn({ slug: 'o/p', rootId: 'session_root', oldBob, approvals: 'a'.repeat(64) });
+    assert.match(p, /--take-in` when status lists earlier work/);
+    assert.doesNotMatch(p, /no unmerged earlier work/);
+  }
+});
