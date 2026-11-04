@@ -1,7 +1,8 @@
 // Take-in scope of the record check (copy PR 86, 4 Nov): the earlier work a take-in brings,
 // before its start commit, is left out; the start commit and everything after it are judged.
 import assert from 'node:assert/strict';
-import { readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
@@ -184,4 +185,102 @@ test('on the tranche, a take-in tip whose history holds another job\'s work not 
   assert.deepEqual(t.tips, []);
   assert.ok(t.findings.some((f) => f.message.includes(tip.slice(0, 10)) && /writes under process\/metrics/.test(f.message)), JSON.stringify(t.findings));
   assert.ok(recordCheck(root, cfg, { base, lookup: session, takenIn: t.tips }).findings.some((f) => f.check === 'approvals' && f.message.includes(hide.slice(0, 10))));
+});
+
+// Copy, 4 Nov (bundler attempt 5, registers): a later attempt's range carries attempt 1's take-in
+// row, its take-in commit far under the base. In the session's shallow clone the base's history is
+// cut above that commit, so the tip read as new and its adder as missing from the range. A row the
+// base already holds was judged where it landed; it leaves nothing out and gives no finding.
+function attempt2({ deep = 12 } = {}) {
+  const t = merged();
+  const { root } = t;
+  // The tranche moves on well past the take-in; the next attempt starts job/alpha on it again
+  // (as bundler's attempt 5 did) and works.
+  for (let i = 0; i < deep; i++) commit(root, { [`src/beta/n${i}.mjs`]: `export const n = ${i};\n` }, `tranche ${i}`);
+  const base = sha(root, 'tranche');
+  git(['checkout', '-q', '-B', 'job/alpha', 'tranche'], { cwd: root });
+  commit(root, { 'process/metrics/alpha.jsonl': readFileSync(join(root, 'process/metrics/alpha.jsonl'), 'utf8') + JSON.stringify({ event: 'start', module: 'alpha', attempt: 2 }) + '\n' }, 'job start alpha (attempt 2)');
+  commit(root, { 'src/alpha/z.mjs': 'export const z = 2;\n' }, 'attempt 2');
+  return { ...t, base };
+}
+
+// A clone cut a few commits under the head, as shallowBase leaves one: the range is whole, the
+// base's own history is not, and the take-in tip is here through another fetch.
+function shallow(src, branch, tip, depth = 4) {
+  const clone = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
+  git(['init', '-q', clone], { cwd: src });
+  git(['config', 'uploadpack.allowAnySHA1InWant', 'true'], { cwd: src });
+  git(['remote', 'add', 'origin', `file://${src}`], { cwd: clone });
+  git(['fetch', '-q', `--depth=${depth}`, 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: clone });
+  git(['update-ref', 'HEAD', `refs/remotes/origin/${branch}`], { cwd: clone });
+  if (tip) git(['fetch', '-q', '--depth=1', 'origin', tip], { cwd: clone });
+  return clone;
+}
+
+test('an attempt-2 range carrying attempt 1\'s take-in row passes, in a full clone and a shallow one', () => {
+  const { root, tip, base } = attempt2();
+  assert.deepEqual(check(root, base).findings, []);
+  const clone = shallow(root, 'job/alpha', tip);
+  assert.ok(git(['rev-list', '--count', tip, `^${base}`], { cwd: clone }) !== '0', 'the cut base does not hold the tip here');
+  const r = check(clone, base);
+  assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
+  assert.deepEqual(r.tips, []);
+  assert.equal(r.commits, 2, 'the attempt\'s start and work are judged');
+  // Its tip missing from the clone altogether is no finding either: the row was judged on the base.
+  assert.deepEqual(check(shallow(root, 'job/alpha', null), base).findings, []);
+});
+
+test('a later commit of an attempt-2 range is still judged in a shallow clone', () => {
+  const { root, tip, base } = attempt2();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const c = commit(root, { 'CLAUDE.md': claude('may force-push') }, 'attempt 2 changes the approvals');
+  const r = check(shallow(root, 'job/alpha', tip), base);
+  assert.ok(r.findings.some((f) => f.check === 'approvals' && f.message.includes(c.slice(0, 10))), JSON.stringify(r.findings));
+});
+
+test('a tranche merge bringing another job\'s take-in row gives no finding on that job, whatever rows it reads', () => {
+  const { root, tip, base: tr } = attempt2();
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  write(root, { 'process/ledger/beta.json': entry('beta') });
+  commit(root, {}, 'beta entry');
+  jobStart(root, 'beta', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/beta'], { cwd: root });
+  commit(root, { 'src/beta/w.mjs': 'export const w = 1;\n' }, 'beta works');
+  const base = git(['merge-base', 'job/beta', 'tranche'], { cwd: root });
+  assert.notEqual(base, tr);
+  for (const at of [root, shallow(root, 'job/beta', tip)]) {
+    for (const id of ['beta', undefined]) {
+      const t = takenIn(at, { base, id });
+      assert.deepEqual(t, { tips: [], findings: [] }, `${id}: ${JSON.stringify(t)}`);
+      assert.deepEqual(recordCheck(at, cfg, { base, lookup: session, takenIn: t.tips }).findings, []);
+    }
+  }
+});
+
+test('a row the base holds cannot hide commits the range brings: a side branch merged later is judged', () => {
+  const root = product();
+  // A side branch, made before the base, that changes the approvals; the base holds a forged row
+  // naming its tip, with no take-in behind it.
+  git(['checkout', '-q', '-b', 'side', 'tranche'], { cwd: root });
+  const x = commit(root, { 'CLAUDE.md': claude('may force-push') }, 'side changes the approvals');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  write(root, { 'process/ledger/alpha.json': entry('alpha') });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const file = 'process/metrics/alpha.jsonl';
+  write(root, { [file]: readFileSync(join(root, file), 'utf8') + JSON.stringify({ event: 'start', module: 'alpha', take_in: { branch: 'side', pr: null, commits: 1, tip: x } }) + '\n' });
+  commit(root, {}, 'forged row');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'alpha into tranche', 'job/alpha'], { cwd: root });
+  const base = sha(root, 'tranche');
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Bring job/alpha up to tranche', 'tranche'], { cwd: root });
+  // The range merges the side branch, with the tranche as its first parent.
+  git(['merge', '-q', '--no-ff', '-m', 'merge side', 'side'], { cwd: root });
+  for (const at of [root, shallow(root, 'job/alpha', null, 6)]) {
+    const r = check(at, base);
+    assert.deepEqual(r.tips, []);
+    assert.ok(r.findings.some((f) => f.check === 'record' && f.message.includes(x.slice(0, 10)) && /no commit in the range has it as its first parent/.test(f.message)), JSON.stringify(r.findings));
+    assert.ok(r.findings.some((f) => f.check === 'approvals' && f.message.includes(x.slice(0, 10))), JSON.stringify(r.findings));
+  }
 });
