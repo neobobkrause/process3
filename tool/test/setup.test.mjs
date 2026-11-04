@@ -563,3 +563,57 @@ test('approvals: a newer owner block on main that the tranche lacks is missing',
   assert.equal(a.detail, `the approvals on tranche are not the block neobobkrause last set through GitHub's website: that is commit ${o2.slice(0, 10)}'s, on origin/main. neobobkrause sets it again on the website, or a merge carries it to tranche`);
 });
 
+
+// A pin-move pull request (copy PR 50, 4 Nov): the tranche pins an old process commit without
+// the process lines; the branch moves the pin and adds them. The default judges the tranche's
+// old pin; --at HEAD judges the checkout's own commit, its pin and files, and skips session-branch.
+test('setup check --at HEAD judges the checkout\'s pin and files, not the tranche tip', () => {
+  const tool = makeRepo({ 'README.md': 't' });
+  const oldPin = git(['rev-parse', 'HEAD'], { cwd: tool });
+  write(tool, Object.fromEntries(readdirSync(SHIMS).map((f) => [`shims/${f}`, shim(f)])));
+  git(['add', '-A'], { cwd: tool });
+  git(['commit', '-q', '-m', 'shims'], { cwd: tool });
+  const newPin = git(['rev-parse', 'HEAD'], { cwd: tool });
+  const r = makeRepo({ 'README.md': 'x' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: r });
+  git(['remote', 'add', 'origin', bare], { cwd: r });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: r });
+  const w = world();
+  const pinAt = (sha) => { git(['update-index', '--add', '--cacheinfo', `160000,${sha},.process`], { cwd: r }); git(['commit', '-q', '-m', `pin ${sha.slice(0, 7)}`], { cwd: r }); };
+  const oldFiles = { ...w.files, 'CLAUDE.md': "## Standing approvals from Bob\n\nThe owner's words.\n" };
+  commit(r, oldFiles, 'setup');
+  pinAt(oldPin);
+  git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
+  git(['checkout', '-q', '-b', 'build/pin-move'], { cwd: r });
+  commit(r, { 'CLAUDE.md': w.files['CLAUDE.md'] }, 'process lines');
+  pinAt(newPin);
+  const io = { api: w.io.api, env: w.env, cf: w.io.cf, ownerBlock: w.io.ownerBlock, toolRoot: tool, onTranche: () => ({ ok: false, head: 'b'.repeat(40), tip: 'c'.repeat(40) }) };
+  w.files = oldFiles; // the stubbed owner block reads the tranche's approvals, the same block
+  const tip = setupCheck(r, { slug: 'o/r', io, log: quiet });
+  assert.equal(state(tip, 'process-lines').state, 'not configured');
+  assert.equal(state(tip, 'process-lines').detail, `the pin ${oldPin.slice(0, 10)} has no shims/CLAUDE.process.md`);
+  assert.equal(state(tip, 'shim-drift').state, 'missing');
+  assert.equal(state(tip, 'session-branch').state, 'missing');
+  const out = [];
+  const head = setupCheck(r, { slug: 'o/r', at: 'HEAD', io, log: (m) => out.push(m) });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: r });
+  assert.equal(head.ok, true, out.join('\n'));
+  assert.equal(head.at, sha);
+  assert.match(state(head, 'process-lines').detail, new RegExp(`^the process lines of the pin ${newPin.slice(0, 10)}`));
+  assert.match(state(head, 'shim-drift').detail, new RegExp(`equal the pin ${newPin.slice(0, 10)}'s shims`));
+  assert.deepEqual(state(head, 'session-branch'), { id: 'session-branch', what: state(tip, 'session-branch').what, state: 'skipped', detail: "--at HEAD judges that commit, not the session's checkout" });
+  assert.match(out[0], new RegExp(`^setup check for o/r, tranche tranche, at HEAD \\(${sha.slice(0, 10)}\\):`));
+  // --at still fetches the tranche, which the approvals and the take-in read: a stale
+  // origin/tranche is brought up to date (review of PR 60).
+  const moved = git(['rev-parse', 'HEAD'], { cwd: r });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: r });
+  git(['update-ref', 'refs/remotes/origin/tranche', `${moved}~1`], { cwd: r });
+  setupCheck(r, { slug: 'o/r', at: 'HEAD', io, log: quiet });
+  assert.equal(git(['rev-parse', 'origin/tranche'], { cwd: r }), moved);
+  // A gap names the commit judged; an unknown ref is refused.
+  git(['rm', '-q', '.claude/settings.json'], { cwd: r });
+  git(['commit', '-q', '-m', 'drop settings'], { cwd: r });
+  assert.match(state(setupCheck(r, { slug: 'o/r', at: 'HEAD', io, log: quiet }), 'deny-list').detail, /^no \.claude\/settings\.json on HEAD \([0-9a-f]{10}\)$/);
+  assert.throws(() => setupCheck(r, { slug: 'o/r', at: 'nope', io, log: quiet }), /setup check --at nope: not a commit here/);
+});
