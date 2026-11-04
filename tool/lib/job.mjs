@@ -572,16 +572,26 @@ export const markedIds = (text) => unmetIds(text);
 // The marks the branch struck against the base, each with the test the job names for it with
 // --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
 // before anything is marked or pushed when one is missing or does not hold. A mark is struck only
-// when its id is not retired in a split and did not become unmet in another requirement file on
-// this branch: a moved id owes no test, which would only pin the id (coordinator, 4 Nov).
+// when its id is not retired in a split and did not become unmet, with the same text, in another
+// requirement file this branch changed: a moved id owes no test, which would only pin the id
+// (coordinator, 4 Nov). Ids are numbered per file, so the id alone is not a move (review of PR 122).
 // Provider notices are answered by the START row at merge or by a triage row, never by a test.
 function struckTests(root, entry, base, given) {
   const at = (ref, f = entry.requirements) => git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
   const [was, now] = [at(base), at('HEAD')];
   const left = new Set(markedIds(now));
   const files = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t).requirements; } catch { return null; } }).filter((f) => f && f !== entry.requirements);
-  const moved = new Set(files('HEAD').flatMap((f) => markedIds(at('HEAD', f)).filter((r) => !markedIds(at(base, f)).includes(r))));
-  const struck = markedIds(was).filter((r) => !left.has(r) && !moved.has(r) && !retiredIds(was, now, [r]).length);
+  const body = (t) => new Map(String(t).split('\n').map((l) => [l.match(/\*\*([RF][\w.-]+)\*\*/)?.[1], l.replace(/\*\(not yet met.*?\)\*/g, '').replace(/^[\s*+\d.-]*/, '').replace(/\s+/g, ' ').trim()]).filter(([id]) => id));
+  const gone = markedIds(was).filter((r) => !left.has(r));
+  const other = new Set(gone.length ? files('HEAD') : []);
+  const mine = body(was);
+  const moved = new Set(git(['diff', '--name-only', base, 'HEAD'], { cwd: root }).split('\n').filter((f) => other.has(f)).flatMap((f) => {
+    const [b, h] = [new Set(markedIds(at(base, f))), at('HEAD', f)];
+    const lines = body(h);
+    return markedIds(h).filter((r) => !b.has(r) && lines.get(r) === mine.get(r));
+  }));
+  const retired = new Set(retiredIds(was, now, gone));
+  const struck = gone.filter((r) => !moved.has(r) && !retired.has(r));
   const named = new Map();
   for (const g of given) {
     if (/^notice:/.test(String(g))) continue; // accepted and ignored, for jobs started when the START asked for it
