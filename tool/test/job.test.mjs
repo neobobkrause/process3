@@ -78,6 +78,36 @@ test('job complete --cost-usd writes the job\'s own cost row, its session\'s cos
   assert.equal(o.jobs.find((j) => j.module === 'alpha').job_usd, 2.5);
 });
 
+test('job complete refuses a zero or, from the command, a missing --cost-usd, naming where to read it, before anything runs', () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  const where = /get_session on your own session \(no session_id\), the field external_metadata\.usage\.cost_usd/;
+  assert.throws(() => jobComplete(root, 'alpha', { push: false, costUsd: '0', session: 's1', log: quiet }), where);
+  assert.throws(() => jobComplete(root, 'alpha', { push: false, costUsd: '0', session: 's1', log: quiet }), /0 is a figure not read/);
+  assert.throws(() => jobComplete(root, 'alpha', { push: false, requireCost: true, session: 's1', log: quiet }), /job complete alpha needs --cost-usd <your session's cost so far: get_session on your own session \(no session_id\), the field external_metadata\.usage\.cost_usd>; nothing was run/);
+  assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
+  assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'measured').length, 0);
+});
+
+test('job complete names its session in get_session\'s form (cse_ to session_) and takes the delta from that session\'s last priced row in either form', () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  appendRow(root, 'alpha', { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 'session_X', session_usd: 1, cost_usd: 1 });
+  // A zero row the old tool wrote (the copy's signatures a4): never the delta's base.
+  appendRow(root, 'alpha', { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 'cse_X', session_usd: 0, cost_usd: 0 });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  const was = process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  process.env.CLAUDE_CODE_REMOTE_SESSION_ID = 'cse_X';
+  try { assert.equal(jobComplete(root, 'alpha', { push: false, costUsd: '3.16', log: quiet }).ok, true); } finally {
+    if (was === undefined) delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID; else process.env.CLAUDE_CODE_REMOTE_SESSION_ID = was;
+  }
+  const m = readRows(root, 'alpha').filter((r) => r.event === 'measured').pop();
+  assert.deepEqual([m.session, m.session_usd, m.cost_usd], ['session_X', 3.16, 2.16]);
+});
+
 test('job complete refuses on a red suite and leaves the status alone', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
@@ -1072,4 +1102,23 @@ test('job test and job complete build untracked generated files before the suite
   const c = jobComplete(root, 'alpha', { push: false, log: quiet });
   assert.equal(c.ok, true, JSON.stringify(c.commands));
   assert.ok(c.receipt.commands.some((x) => /^build generated \(gen\/rows\.mjs\)$/.test(x.cmd) && x.exit === 0));
+});
+
+// The command line requires the job's cost (coordinator, 4 Nov): refused before anything runs.
+import { main } from '../p3.mjs';
+test('p3 job complete without --cost-usd is refused, naming get_session\'s external_metadata.usage.cost_usd', async () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  const cwd = process.cwd();
+  const old = { log: console.log, err: console.error };
+  const lines = [];
+  console.log = (...x) => lines.push(x.join(' '));
+  console.error = (...x) => lines.push(x.join(' '));
+  let code;
+  try { process.chdir(root); code = await main(['job', 'complete', 'alpha']); } finally { process.chdir(cwd); console.log = old.log; console.error = old.err; }
+  assert.equal(code, 1);
+  assert.match(lines.join('\n'), /p3 job complete: job complete alpha needs --cost-usd <your session's cost so far: get_session on your own session \(no session_id\), the field external_metadata\.usage\.cost_usd>; nothing was run/);
+  assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
 });

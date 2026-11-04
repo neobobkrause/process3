@@ -8,7 +8,7 @@
 // provider notice (job start reopens it itself) or for found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, jobStart } from './job.mjs';
-import { status } from './status.mjs';
+import { isArchived, isIdle, jobSession, readSessions, status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
@@ -36,7 +36,30 @@ export function startable(next, { onOrigin = () => false } = {}) {
   return { go, skip };
 }
 
-export function startReady(root, { live, coordinator, model, log = console.log, read = status, start = jobStart, remote } = {}) {
+// The sessions BOB can archive to free a slot when the cap holds a ready job back (coordinator,
+// 4 Nov: 23 of 24 live at 09:16): each job's latest session whose job is COMPLETE (on its branch
+// or merged), not archived and idle. With list_sessions saved (--sessions), the ids; without,
+// the jobs, so BOB knows whose sessions to look for.
+export function archivable(rows, listed) {
+  const done = (rows || []).filter((r) => r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
+    .map((r) => ({ id: r.id, why: r.pr && r.pr !== 'merged' ? `COMPLETE, PR ${r.pr}` : 'merged' }));
+  if (!listed) return { jobs: done, sessions: null };
+  const sessions = [];
+  for (const d of done) {
+    const js = jobSession(listed, d.id);
+    if (js && !isArchived(js) && isIdle(js)) sessions.push({ session: js.id || js.session_id || js.uuid, job: d.id, why: d.why });
+  }
+  return { jobs: done, sessions };
+}
+
+// Whether status lists startable jobs: the wake BOB receives leads with the start when so.
+export function readyCount(root, { read = status } = {}) {
+  const out = read(root, { role: 'bob', log: () => {} });
+  const heads = new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
+  return startable(out?.next, { onOrigin: (id) => heads.has(id) }).go.length;
+}
+
+export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, remote } = {}) {
   const n = Number(live);
   if (live === undefined || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the live sessions list_sessions shows (every role), so the cap holds');
   const quiet = [];
@@ -48,6 +71,12 @@ export function startReady(root, { live, coordinator, model, log = console.log, 
   const now = go.slice(0, cap);
   const wait = go.slice(now.length);
   log(`ready: ${go.length} startable (live ${n}, cap ${cfg.live_cap}); starting ${now.length}${wait.length ? `, ${wait.length} wait for the cap: ${wait.map((x) => x.id).join(', ')}` : ''}`);
+  if (wait.length) {
+    // The cap holds jobs back: the idle sessions of COMPLETE or merged jobs BOB can archive.
+    const a = archivable(out.rows, sessions === undefined || sessions === true ? null : readSessions(sessions));
+    if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);
+    else log(`the cap holds ${wait.length} back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: ${a.jobs.map((x) => `job ${x.id} (${x.why})`).join('; ') || 'none'}. Save list_sessions as JSON and pass --sessions <file> for the session ids`);
+  }
   for (const s of skip) log(`not started: ${s.id || s.file}: ${s.why}`);
   const started = [];
   const failed = [];

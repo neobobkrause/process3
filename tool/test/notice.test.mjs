@@ -7,12 +7,12 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { jobComplete, jobStart } from '../lib/job.mjs';
-import { merge } from '../lib/merge.mjs';
+import { merge, triageLast } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { changedIds, noticeFile, noticeLine, notices, providerChange, providerNotice, recordAtMerge, unanswered, withdrawNotice } from '../lib/notice.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { owedNotices, status } from '../lib/status.mjs';
-import { importFree, noticeTriage, parseTriage, recordTriage, shares } from '../lib/triage.mjs';
+import { importFree, noticeTriage, parseTriage, recordTriage, shares, triageAtMerge } from '../lib/triage.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
 
@@ -533,7 +533,11 @@ test('merge of a provider job that changed its exports with no requirement chang
   assert.match(brief, /decide whether the module uses the changed behaviour or any export removed or changed/);
   // Each user with only its files that import the provider, and their import lines.
   // u2, importing nothing of p, was answered at the merge; only u1 is left for the worker.
-  assert.match(out.join('\n'), /notice triage p:50 at the merge: 1 of 2 not affected \(no file imports p\), answered; 1 import it and owe a worker's judgment: u1/);
+  assert.match(out.join('\n'), /notice triage p:50 at the merge: 1 of 2 not affected \(no file imports p\), answered: u2; 1 owe a worker's judgment\n- u1: not cleared: src\/u1\/a\.mjs imports p/);
+  // The ready jobs' start comes first after the merge line, and the triage outcome is the last line.
+  const at = out.findIndex((l) => /^merged pull request 50/.test(l));
+  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
+  assert.match(out.at(-1), /^notice triage at the merge: 1 owe a worker's judgment; next act: node \.process\/tool\/p3\.mjs notice triage p:50/);
   assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1$/);
 });
 
@@ -551,6 +555,8 @@ test('a source change with no export change still records a notice, with no expo
   const r2 = merge(root2, 52, { slug: 'o/r', io: io2, reviewed: 'fresh', rounds: 1, log: (x) => out.push(x) });
   assert.deepEqual(r2.notices.rows, []);
   assert.match(out.join('\n'), /provider notices for PR 52: nothing to record/);
+  // Never silent: a merge that leaves no notice says no triage ran, and why.
+  assert.match(out.join('\n'), /notice triage at the merge: none to run \(the merge left no provider notice\)/);
 });
 
 // Round 2 of PR 79, asked by the coordinator 4 Nov: a job STARTed before BOB withdrew its notice
@@ -716,4 +722,58 @@ test('triage at the merge clears only provable non-importers (confirming review 
   assert.deepEqual(importFree(root, cfg, ['a', 'b', 'c', 'd'], sha, 'money').map((m) => [m.id, m.line > 0]), [['b', true], ['c', true]]);
   // A provider the modules file lacks: nothing is cleared.
   assert.deepEqual(importFree(root, cfg, ['b', 'c'], sha, 'nope'), []);
+});
+
+test('triage at the merge is never silent (copy, 4 Nov: question-explorer:199 left no row and no line BOB read): each user left owed is named with why; every early return prints', () => {
+  const mods = { modules: [
+    { id: 'money', paths: ['src/lib/money.ts'] },
+    { id: 'a', paths: ['src/a/'] },
+    { id: 'c', paths: ['src/c/'] },
+    { id: 'd', paths: ['src/d/'] },
+    { id: 'e', paths: ['src/e/'] },
+    { id: 'n', paths: [] },
+  ] };
+  const root = makeRepo({
+    'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
+    'process/modules.json': mods,
+    'src/lib/money.ts': 'export const x = 1;\n',
+    'src/a/i.ts': "import { x } from '../lib/money';\n",
+    'src/c/i.ts': 'export const z = 1;\n',
+    'src/d/i.ts': 'export const w = 1;\n',
+    'src/e/i.ts': 'export const v = 1;\n',
+  });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  // d's open attempt changes its paths; e's (a BLOCKED job, as plane on the copy) changes none of them.
+  git(['checkout', '-q', '-b', 'job/d'], { cwd: root });
+  commit(root, { 'src/d/i.ts': "import { x } from '../lib/money';\n" });
+  git(['checkout', '-q', '-b', 'job/e', 'main'], { cwd: root });
+  commit(root, { 'notes/e.md': 'blocked\n' });
+  git(['push', '-q', 'origin', 'job/d', 'job/e', 'main'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  // BOB's clone is shallow and holds no job branch: their tips are fetched, not taken as unsettled.
+  const shallow = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
+  git(['clone', '-q', '--depth', '1', '--branch', 'main', `file://${bare}`, shallow], { cwd: root });
+  const cfg = loadConfig(shallow);
+  const whys = new Map();
+  assert.deepEqual(importFree(shallow, cfg, ['a', 'c', 'd', 'e', 'n', 'zz'], sha, 'money', whys).map((m) => m.id), ['c', 'e']);
+  assert.deepEqual(Object.fromEntries(whys), {
+    a: 'src/a/i.ts imports money',
+    d: `job/d on origin changes its paths from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`,
+    n: 'no paths in process/modules.json',
+    zz: 'no entry in process/modules.json',
+  });
+  const w2 = new Map();
+  assert.deepEqual(importFree(shallow, cfg, ['c'], sha, 'nope', w2), []);
+  assert.equal(w2.get('c'), 'the provider nope has no paths in process/modules.json');
+  // A notice with no users prints why nothing ran.
+  const out = [];
+  assert.deepEqual(triageAtMerge(shallow, cfg, { key: 'money:1', provider: 'money', users: [] }, { ref: sha, log: (l) => out.push(l) }).rows, []);
+  assert.match(out.join('\n'), /^notice triage money:1 at the merge: nothing to triage \(the notice names no user module\)$/);
+  // The merge's last line: a failure names the act; an owed triage names it; none owed says so.
+  assert.equal(triageLast({ error: 'the push of process-state failed: Internal Server Error\nmore', next: 'node .process/tool/p3.mjs notice triage money:1' }), 'notice triage at the merge FAILED (the push of process-state failed: Internal Server Error); next act: node .process/tool/p3.mjs notice triage money:1');
+  assert.equal(triageLast({ rows: [{}, {}], owed: [] }), 'notice triage at the merge: 2 row(s) written, none owed');
+  assert.equal(triageLast({ rows: [], owed: [], why: 'all triaged' }), 'notice triage at the merge: all triaged, none owed');
 });
