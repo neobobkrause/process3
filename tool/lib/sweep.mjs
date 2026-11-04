@@ -4,7 +4,7 @@
 // address and prints the watcher's decision. The session makes every call.
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { P3 } from './job.mjs';
+import { P3, READY_START } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
@@ -120,7 +120,7 @@ export function sweep(root, { session, live, context, attempts = [], offline = f
         // Step 3 for BOB: silent over two hours, or next work while no job is open or after an hour with no write: wake it.
         const noJob = !rows.some((r) => r.tranche !== 'COMPLETE');
         if (t - last > SILENT_HOURS * H) owed.push(`BOB ${bob.session} silent ${hours(t - last)}h`);
-        else if (next && (noJob || t - last > IDLE_HOURS * H)) owed.push(`BOB ${bob.session} idle ${hours(t - last)}h with next work`);
+        else if (next && (noJob || t - last > IDLE_HOURS * H)) owed.push(`BOB ${bob.session} idle ${hours(t - last)}h with next work: run ${READY_START}`);
       }
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.

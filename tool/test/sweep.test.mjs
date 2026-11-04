@@ -103,7 +103,7 @@ test('sweep step 2: an idle BOB with next work and no job open is woken, not han
   recordStart(root, 'bob', B, { log: quiet });
   const s = run(root);
   assert.equal(s.todo.length, 1);
-  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work\."/);
+  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work: run node \.process\/tool\/p3\.mjs job start --ready --live <n>\."/);
   assert.match(beat(root).found.join(), /BOB session_bob1 idle 0h with next work/);
   commit(root, { 'process/ledger/m.json': entry('m', { requirements: 'build/requirements/m.md' }) });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
@@ -268,7 +268,7 @@ test('sweep: a layer ready to close is BOB\'s act; a bad open_by is a finding an
   const s = run(root);
   assert.match(s.found.join('; '), /layer 1 ready to close/);
   assert.equal(s.todo.length, 1);
-  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work\."/);
+  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work: run node \.process\/tool\/p3\.mjs job start --ready --live <n>\."/);
 
   const bad = withOrigin({ 'process/config.json': { tranche: 'tranche', open_by: 'bogus' }, 'build/layers.md': layers, 'build/requirements/a.md': '- **R1** *(not yet met: x)* y\n', 'build/requirements/d.md': '- **R1** *(not yet met: x)* y\n' });
   recordStart(bad, 'root', R, { log: quiet });

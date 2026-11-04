@@ -12,7 +12,7 @@ import { readRows } from '../lib/metrics.mjs';
 import { changedIds, noticeFile, noticeLine, notices, providerChange, providerNotice, recordAtMerge, unanswered, withdrawNotice } from '../lib/notice.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { owedNotices, status } from '../lib/status.mjs';
-import { noticeTriage, parseTriage, recordTriage, shares } from '../lib/triage.mjs';
+import { importFree, noticeTriage, parseTriage, recordTriage, shares } from '../lib/triage.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
 
@@ -282,14 +282,20 @@ test('merge of the provider\'s job records the notice; merge of a user\'s job an
   const p = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': REQ.replace('*(not yet met: x)* ', ''), 'process/metrics/p.jsonl': done });
   const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, log: quiet });
   assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.ids, x.users]), [['notice', 'p:7', ['R1'], ['u1', 'u2']]]);
+  // Triage at the merge: neither user has a file importing p, so both are answered not affected.
+  assert.deepEqual(r.triage.rows.filter((x) => x.row === 'triage').map((x) => [x.user, x.verdict]), [['u1', 'not affected'], ['u2', 'not affected']]);
+  assert.deepEqual(r.triage.owed, []);
+  assert.equal(r.triage.next, null);
+  assert.match(r.triage.rows[0].evidence, /^process\/modules\.json:\d+ u1 \(src\/u1\/\) holds no file that imports p/);
+  // u1's job, which named the notice, merges after: its answer is already on the state branch.
   const start = JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n';
   const u = mergeFixture(root, 'u1', { 'test/u1/p.test.mjs': passing('x'), 'process/metrics/u1.jsonl': start + done });
   const r2 = merge(root, 9, { slug: 'o/r', io: u, reviewed: 'fresh', rounds: 1, log: quiet });
-  assert.deepEqual(r2.notices.rows.map((x) => [x.row, x.key, x.user]), [['answered', 'p:7', 'u1']]);
+  assert.deepEqual(r2.notices.rows, []);
   const sb = loadConfig(root).state_branch;
   fetchState(root, sb, { fresh: true });
-  assert.equal(JSON.parse(readState(root, sb, 'notices/answered/u1-p-7.json')).key, 'p:7');
-  assert.deepEqual(notices(root, sb)[0].open, ['u2']);
+  assert.equal(JSON.parse(readState(root, sb, 'notices/answered/u1-p-7.json')).by, 'triage');
+  assert.deepEqual(notices(root, sb)[0].open, []);
 });
 
 test('merge run again on a merged job pull request records only its provider notices, once', () => {
@@ -526,7 +532,9 @@ test('merge of a provider job that changed its exports with no requirement chang
   assert.match(brief, /- removed: Accounts\.groupKeyState, Accounts\.keySet\n- changed: Accounts\.accountFor \(id\) -> \(id, \{ scope \}\)\n- added: Accounts\.groupKeySwitches/);
   assert.match(brief, /decide whether the module uses the changed behaviour or any export removed or changed/);
   // Each user with only its files that import the provider, and their import lines.
-  assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1\n- u2: src\/u2\/; no file imports p$/);
+  // u2, importing nothing of p, was answered at the merge; only u1 is left for the worker.
+  assert.match(out.join('\n'), /notice triage p:50 at the merge: 1 of 2 not affected \(no file imports p\), answered; 1 import it and owe a worker's judgment: u1/);
+  assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1$/);
 });
 
 test('a source change with no export change still records a notice, with no exports named; a test-only change with no requirement change records none', () => {
@@ -676,4 +684,36 @@ test('the triage brief carries each user\'s files that import the provider, not 
   assert.match(r.briefs[0], /^- u01: src\/u01\/; src\/u01\/use\.mjs:2$/m);
   assert.match(r.briefs[0], /^- u02: src\/u02\/; no file imports p$/m);
   assert.doesNotMatch(r.briefs.join('\n'), /big\.mjs/);
+});
+
+test('triage at the merge clears only provable non-importers (confirming review of PR 100): an import the brief\'s grep misses, an open attempt, a provider with no entry', () => {
+  const mods = { modules: [
+    { id: 'money', paths: ['src/lib/money.ts'] },
+    { id: 'a', paths: ['src/a/'], uses: ['money'] },
+    { id: 'b', paths: ['src/b/'], uses: ['money'] },
+    { id: 'c', paths: ['src/c/'], uses: ['money'] },
+    { id: 'd', paths: ['src/d/'], uses: ['money'] },
+  ] };
+  const root = makeRepo({
+    'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
+    'process/modules.json': mods,
+    'src/lib/money.ts': 'export const x = 1;\n',
+    'src/a/i.ts': "import { x } from '../lib/money';\n", // no "money.ts" in the text
+    'src/b/i.ts': "import { y } from './own';\n",
+    'src/c/i.ts': 'export const z = 1;\n',
+    'src/d/i.ts': 'export const w = 1;\n',
+  });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  // d's job is open: its branch on origin holds a commit the tip lacks.
+  git(['checkout', '-q', '-b', 'job/d'], { cwd: root });
+  commit(root, { 'src/d/i.ts': "import { x } from '../lib/money';\n" });
+  git(['push', '-q', 'origin', 'job/d', 'main'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const cfg = loadConfig(root);
+  assert.deepEqual(importFree(root, cfg, ['a', 'b', 'c', 'd'], sha, 'money').map((m) => [m.id, m.line > 0]), [['b', true], ['c', true]]);
+  // A provider the modules file lacks: nothing is cleared.
+  assert.deepEqual(importFree(root, cfg, ['b', 'c'], sha, 'nope'), []);
 });

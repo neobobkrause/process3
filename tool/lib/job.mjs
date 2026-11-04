@@ -27,6 +27,10 @@ export const P3 = 'node .process/tool/p3.mjs';
 // refused by send): the role that runs the act, --as <role> (default bob for BOB's own acts), a
 // job's job-<id>. BOB itself is awake: no wake. A wake's text ends ": run status"; it routes nothing.
 export const WAKE_END = ': run status';
+// The act after every act that can make a job ready (a merge, a layer close, a triage, a wake):
+// one command starts every ready job up to the cap, so readiness waits on no choice (ready.mjs).
+export const READY_START = `${P3} job start --ready --live <n>`;
+export const READY_NEXT = `next act: ${READY_START} (n: the live sessions list_sessions shows), then create_session with each launch it prints`;
 const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
 export const bobWake = (what, from) => {
   if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);
@@ -103,7 +107,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming the test that asserts it${notices.length ? ', and each notice\'s above' : ''}. It pushes, posts your receipt and marks the PR ready; if it stops, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>" --cost-usd <get_session cost>\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test${notices.length ? ', and each notice\'s above' : ''}. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -204,7 +208,7 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
 export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
-  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, notes, log });
+  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, open, notes, log });
   if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
@@ -258,7 +262,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     log(`${existing ? 'the draft pull request already open' : 'draft pull request'}: ${pr.html_url}`);
     const subscribe = subscribeFor(slug, pr);
     log(subscribe.text);
-    return { start, pr, launch, subscribe: subscribe.call, attempt: startRow?.attempt || 1, resumed: true };
+    return { start, pr, launch, subscribe: subscribe.call, attempt: startRow?.attempt || 1, resumed: true, created: !existing };
   }
 
   // Validate from the tranche before touching the checkout.
@@ -484,7 +488,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
 // its first commands fill .process there and run job sync, which checks out the branch and
 // brings the tranche in) and the subscribe call.
 export const STOPS = ['archived', 'idle'];
-function jobRestart(root, id, { coordinator, model, why, stop, find, notes, log }) {
+function jobRestart(root, id, { coordinator, model, why, stop, find, open = createPR, notes, log }) {
   if (why === true || !String(why ?? '').trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
   if (stop !== undefined && !STOPS.includes(stop)) fail(`--stop ${STOPS.join('|')}: how the replaced session stopped, not ${JSON.stringify(stop)}`);
   const cfg = loadConfig(root);
@@ -499,7 +503,15 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, notes, log 
   const state = entry.status?.state;
   if (state === 'COMPLETE') fail(`${id} is COMPLETE; a new attempt on a merged module is --reopen "<what>"`);
   if (!['WORKING', 'BLOCKED'].includes(state)) fail(`${id} is ${state}; --restart is for a WORKING or BLOCKED job`);
-  const pr = find(slug, branch) || fail(`${branch} has no open pull request; --restart continues an open one`);
+  // A BLOCKED job whose pull request is not open (closed, or never opened) gets its draft opened
+  // again here (copy, 4 Nov: BOB opened PR 194 by hand to get past this refusal). A WORKING job
+  // with no pull request is an unfinished start, which job start resumes.
+  let pr = find(slug, branch);
+  if (!pr && state !== 'BLOCKED') fail(`${branch} has no open pull request; --restart continues an open one (an unfinished start resumes with job start ${id})`);
+  if (!pr) {
+    pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: `job ${id}, BLOCKED: its draft pull request, opened again by job start --restart for the replacement session (${String(why).trim()}).`, draft: true });
+    log(`draft pull request opened for the BLOCKED ${branch}: ${pr.html_url || `#${pr.number}`}`);
+  }
   const last = git(['log', '-1', '--format=%h %s', `origin/${branch}`], { cwd: root });
   const tipSha = git(['rev-parse', `origin/${branch}`], { cwd: root });
   const r = latestReceipt(notes(slug, pr.number), pr.user?.login);
@@ -738,7 +750,14 @@ export function jobSync(root, id, { push = true, compare: cmp = compare, log = c
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing, or,
 // with commits after the COMPLETE commit and its pull request open, completes a new attempt.
 export function jobComplete(root, id, opts = {}) {
-  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log } = opts;
+  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log, costUsd, session } = opts;
+  // The job's own cost (coordinator, 4 Nov: job_usd unmeasured for all 52 jobs on the copy): its
+  // session's cost so far, from get_session, written as a measured job row with the complete row.
+  const cost = costUsd === undefined ? null : Number(costUsd);
+  if (costUsd !== undefined && (costUsd === true || !Number.isFinite(cost) || cost < 0)) fail(`--cost-usd <your session's cost so far, from get_session on yourself>, not ${JSON.stringify(costUsd)}`);
+  // The session: --session, else the id the cloud session's environment gives (an id, not a secret).
+  const sid = typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null;
+  if (cost !== null && !sid) fail('--cost-usd needs the session it is the cost of: --session <your session id>; the row counts only that session\'s cost since its last row');
   const io = { findPR, addComment, markReady, comments, toDraft, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
@@ -836,6 +855,11 @@ export function jobComplete(root, id, opts = {}) {
     if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
     appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt });
+    if (cost !== null) {
+      // The session's cost since its own last row: a session that completes twice is counted once.
+      const prior = readRows(root, id).filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.session === sid && Number.isFinite(Number(r.session_usd))).pop();
+      appendRow(root, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: Math.round(Math.max(0, cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4 });
+    }
     receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
   } catch (e) {
     restore(root, [entryFile(id), metricsFile(id)]);

@@ -63,6 +63,21 @@ test('job complete runs the checks and the suite, then sets COMPLETE and builds 
   assert.equal(r.receipt.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
 });
 
+test('job complete --cost-usd writes the job\'s own cost row, its session\'s cost since its last row; a bad value is refused before anything runs', () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  assert.throws(() => jobComplete(root, 'alpha', { push: false, costUsd: 'lots', session: 's1', log: quiet }), /--cost-usd <your session's cost so far/);
+  assert.equal(jobComplete(root, 'alpha', { push: false, costUsd: '2.5', session: 's1', log: quiet }).ok, true);
+  const rows = readRows(root, 'alpha');
+  const m = rows.filter((r) => r.event === 'measured');
+  assert.deepEqual(m.map((r) => [r.role, r.session, r.session_usd, r.cost_usd]), [['job', 's1', 2.5, 2.5]]);
+  // The report reads it as the job's cost.
+  const o = overhead(rows);
+  assert.equal(o.jobs.find((j) => j.module === 'alpha').job_usd, 2.5);
+});
+
 test('job complete refuses on a red suite and leaves the status alone', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
@@ -822,10 +837,27 @@ test('--restart is refused for a COMPLETE module, without a branch or PR, and wi
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /no branch job\/alpha/);
   const f = fakeGitHub();
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request; --restart continues an open one \(an unfinished start resumes/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: true, find: pr, notes: () => [], log: quiet }), /--restart needs why/);
   const m = mergedOnce();
   assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; a new attempt on a merged module is --reopen/);
+});
+
+test('--restart on a BLOCKED job with no open pull request opens its draft again and launches the replacement (copy, 4 Nov: PR 194 by hand)', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  jobBlock(root, 'alpha', { reason: 'needs a provider fix', push: false, log: quiet });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const opened = [];
+  const r = jobStart(root, 'alpha', { coordinator: 's', restart: 'the provider fix merged', find: () => null, open: (slug, o) => { opened.push(o); return { number: 12, html_url: 'https://x/pull/12' }; }, notes: () => [], log: quiet });
+  assert.deepEqual(opened.map((o) => [o.head, o.base, o.draft]), [['job/alpha', 'tranche', true]]);
+  assert.equal(r.row.state, 'BLOCKED');
+  assert.equal(r.row.pr, 12);
+  assert.equal(r.subscribe.pullNumber, 12);
+  assert.match(r.start, /pull request https:\/\/x\/pull\/12 as it is/);
 });
 
 // P7: the receipt names the test for each mark the job struck.
