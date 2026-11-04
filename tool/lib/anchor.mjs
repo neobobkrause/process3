@@ -57,12 +57,14 @@ export function unanchored(root, base, sha, ownerCommit, tip = base) {
   return null;
 }
 
-// The newest commit on rev's history that holds the config: rev itself, or, when a later commit
-// deleted it, the last one that had it (a main that deleted its config is judged by its last
-// one, never as a first close). null when no commit the clone holds ever had one.
+// The newest commit on rev's first-parent history that holds the config: rev itself, or, when a
+// later commit deleted it, the last one that had it (a main that deleted its config is judged by
+// its last one, never as a first close). First-parent only: in date order a session's side
+// branch, dated ahead, would choose which config counts (confirming review of PR 97). null when
+// no commit the clone holds ever had one.
 export function lastConfigAt(root, rev) {
   if (blobAt(root, rev, CONFIG_FILE)) return rev;
-  const touched = git(['log', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root, allowFail: true }).stdout?.split('\n').filter(Boolean) || [];
+  const touched = git(['log', '--first-parent', '--full-history', '--format=%H', rev, '--', CONFIG_FILE], { cwd: root, allowFail: true }).stdout?.split('\n').filter(Boolean) || [];
   return touched.find((c) => blobAt(root, c, CONFIG_FILE)) || null;
 }
 
