@@ -24,6 +24,8 @@
 // shim-only (merge.mjs workflowChanges).
 import { baseEverChanged, comments, gateRuns, getPR, prsFromBranch, verifyRow } from './github.mjs';
 import { branchBound, jobMerge } from './gate.mjs';
+import { recordSince, takenIn } from './record.mjs';
+import { keySetAt } from './anchor.mjs';
 import { fail, git } from './util.mjs';
 
 export const RESERVED_JOBS = ['gate', 'post', 'ci', 'record'];
@@ -270,12 +272,32 @@ function realGate(root, rev, repo) {
   return !!(pin && b && repo?.released(pin) && repo.shim(pin, 'process-gate.yml') === b);
 }
 
+// The product's history before Process3 (coordinator, 4 Nov, 08:02): earlier work, judged whole
+// by rules 2 to 4, as the record check leaves it out. The boundaries: the head's record_since
+// (recordSince: used only while the base has no config, and before every commit that adds it),
+// counted only when it is the base's commit or an ancestor of it, or took its value at the base
+// owner's website commit not already in the base (as record.mjs holds it); and every honoured
+// take-in tip (takenIn). A commit is earlier work when it is one of them or an ancestor of one.
+// Anything after them is judged by rule 1.
+export function earlierWork(root, sha, { baseRef, ownerCommit } = {}) {
+  const tips = [];
+  const s = recordSince(root, { base: baseRef, head: sha });
+  if (s.since) {
+    const set = keySetAt(root, sha, 'record_since');
+    const owned = set && !isAnc(root, set, baseRef) && ownerCommit?.(set)?.ok === true;
+    if (isAnc(root, s.since, baseRef) || owned) tips.push(s.since);
+  }
+  tips.push(...takenIn(root, { base: baseRef, head: sha }).tips);
+  return (c) => tips.some((t) => t === c || isAnc(root, c, t));
+}
+
 // Rule 1 for the files, on the tranche at sha over the merge base mb. Returns { f, why } for the
 // first file that fails, or null.
 // A merge that brought the base in (a parent on the base) and left the file as that parent has
 // it introduces nothing the base does not already hold, so it passes.
-export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef }) {
+export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef, ownerCommit }) {
   if (!io.repo) fail('rule 1 needs process3 to read the gate shim');
+  const earlier = earlierWork(root, sha, { baseRef, ownerCommit });
   const chain = git(['rev-list', '--first-parent', sha, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
   const judged = new Map();
   const judge = (c) => {
@@ -290,6 +312,7 @@ export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef 
     return judged.get(c);
   };
   for (const c of chain) {
+    if (earlier(c)) continue;
     const p = parents(root, c);
     const touched = p.length
       ? git(['diff', '--no-renames', '--name-only', '-z', p[0], c, '--', ...files], { cwd: root }).split('\0').filter(Boolean)

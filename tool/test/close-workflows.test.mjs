@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import { mergePlain } from '../lib/merge.mjs';
 import { readWorkflow, workflowRules } from '../lib/workflows.mjs';
 import { BOT, GATE, block } from '../lib/github.mjs';
-import { git } from '../lib/util.mjs';
+import { DEFAULTS, git } from '../lib/util.mjs';
 import { entry, makeRepo, write } from './helpers.mjs';
 
 // A commit of only these files: `git add -A` would drop the pin's gitlink, which has no checkout.
@@ -72,7 +72,7 @@ function processRepo(root) {
 // A product: main with the product workflows (and, unless bootstrap, Process3); a tranche that
 // takes Process3 and then each change in `steps`, in order: { via: 'plain' | 'job' | 'direct',
 // files, red, unverified }. Plain and job changes merge as merge --plain and merge write them.
-function product({ bootstrap = true, steps = [], ledger = [] } = {}) {
+function product({ bootstrap = true, steps = [], ledger = [], pre = [] } = {}) {
   const mainFiles = { 'README.md': 'x', '.github/workflows/container-images.yml': IMAGES(), '.github/workflows/regression.yml': REGRESSION() };
   for (const id of ledger) mainFiles[`process/ledger/${id}.json`] = entry(id, { paths: ['.github/workflows/regression.yml'], tests: [`test/${id}/`] });
   if (!bootstrap) mainFiles['process/config.json'] = { tranche: 'tranche' };
@@ -82,8 +82,12 @@ function product({ bootstrap = true, steps = [], ledger = [] } = {}) {
   git(['init', '-q', '--bare', bare], { cwd: root });
   git(['remote', 'add', 'origin', bare], { cwd: root });
   git(['checkout', '-q', '-b', 'tranche'], { cwd: root });
+  // Earlier work: direct commits on the tranche before Process3, left out by record_since.
+  let since = null;
+  for (const files of pre) since = commit(root, files, 'earlier work, before Process3');
+  let setAt = null;
   if (bootstrap) {
-    commit(root, { 'process/config.json': { tranche: 'tranche' }, '.github/workflows/process-gate.yml': SHIM }, 'Process3 setup on the tranche');
+    setAt = commit(root, { 'process/config.json': { tranche: 'tranche', ...(since ? { record_since: since } : {}) }, '.github/workflows/process-gate.yml': SHIM }, 'Process3 setup on the tranche');
     git(['update-index', '--add', '--cacheinfo', `160000,${PIN},.process`], { cwd: root });
     git(['commit', '-q', '-m', 'the pin'], { cwd: root });
   } else commit(root, { '.github/workflows/process-gate.yml': SHIM }, 'the shim');
@@ -110,10 +114,10 @@ function product({ bootstrap = true, steps = [], ledger = [] } = {}) {
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  return { root, sha, prs, comments };
+  return { root, sha, prs, comments, setAt };
 }
 
-function io(r, { rules = { checks: [{ context: 'gate' }] } } = {}) {
+function io(r, { rules = { checks: [{ context: 'gate' }] }, owned = null } = {}) {
   const calls = { merged: null };
   const main = () => ({ state: 'open', draft: false, mergeable: true, base: { ref: 'main', repo: { full_name: 'o/r', default_branch: 'main' } }, head: { ref: 'tranche', sha: r.sha, repo: { full_name: 'o/r' } } });
   return {
@@ -127,7 +131,9 @@ function io(r, { rules = { checks: [{ context: 'gate' }] } } = {}) {
       requiredChecks: () => rules,
       checkRuns: () => [{ status: 'completed', conclusion: 'success', started_at: '2026-11-04T06:00:00Z' }],
       repo: processRepo(r.root),
-      lookup: () => ({ author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } }),
+      lookup: (args) => (owned && args[1].split('/').pop() === owned
+        ? { author: { login: DEFAULTS.approvals.owner }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } }
+        : { author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } }),
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -310,4 +316,21 @@ test('confirming review of PR 98: tagged keys and flow-mapping documents are ref
   // A job PR whose head holds its own process-gate.yml.
   const r = product({ ledger: ['m0'], steps: [{ via: 'job', id: 'm0', files: { '.github/workflows/process-gate.yml': 'name: fake\non: pull_request\n', '.github/workflows/regression.yml': REGRESSION(' site') } }, { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } }] });
   assert.throws(close(r).go, /regression\.yml: rule 1: .*PR 10's merge, but [0-9a-f]{10}, which its gate ran on, does not hold the pin's own process-gate\.yml/);
+});
+
+test('coordinator, 4 Nov 08:02: a workflow edit in the product\'s pre-Process3 history is judged whole by rules 2 to 4', () => {
+  const edit = { '.github/workflows/regression.yml': REGRESSION(' site') };
+  // record_since set at the owner's website commit: the earlier direct commit passes.
+  const r = product({ pre: [edit] });
+  assert.equal(close(r, { owned: r.setAt }).go().merged, true);
+  // The same record_since set by a session: not honoured, so rule 1 refuses the direct commit.
+  assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
+  // A post-boundary direct commit is refused even with the boundary honoured.
+  const after = product({ pre: [edit], steps: [{ via: 'direct', files: { '.github/workflows/regression.yml': REGRESSION(' site agent') } }] });
+  assert.throws(close(after, { owned: after.setAt }).go, /rule 1: .*a direct commit on tranche/);
+  // A pre-boundary edit that fails rule 2 or rule 3 is refused.
+  const named = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION() + '  gate:\n    runs-on: x\n' }] });
+  assert.throws(close(named, { owned: named.setAt }).go, /regression\.yml: rule 2: it defines a job gate/);
+  const wide = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION().replace('contents: read', 'contents: write') }] });
+  assert.throws(close(wide, { owned: wide.setAt }).go, /regression\.yml: rule 3: it widens contents to write/);
 });

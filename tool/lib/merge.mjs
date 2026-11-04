@@ -465,7 +465,7 @@ export function mergePlain(root, n, opts = {}) {
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
-  workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, required: () => io.requiredChecks(slug, base)?.checks.map((c) => c.context) ?? null } : null);
+  workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, required: () => io.requiredChecks(slug, base)?.checks.map((c) => c.context) ?? null, ownerCommit: (c) => (baseCfg?.approvals.owner ? webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug) : { ok: false }) } : null);
   const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
     intoMain: main, baseRef, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
