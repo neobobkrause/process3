@@ -22,7 +22,7 @@ import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mj
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
-import { status } from './lib/status.mjs';
+import { closedRows, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
@@ -166,7 +166,7 @@ const commands = {
       const branch = a.branch || `origin/${cfg.tranche}`;
       let sweepRows = [];
       let lead = {};
-      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p)); } } catch { sweepRows = []; lead = {}; } // unreadable: idle time and the state's lead times unmeasured
+      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }) }; } } catch { sweepRows = []; lead = {}; } // unreadable: idle time and the state's lead times unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
       console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead }), null, 2));
       return 0;

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commit, makeRepo } from './helpers.mjs';
+import { commit, makeRepo, onState } from './helpers.mjs';
 import { statelessWake, survivalReport } from '../lib/measures.mjs';
 import { WAKES_FILE, readRows, recordWake, report, rootContext, wakes } from '../lib/metrics.mjs';
 import { recordStart, rootPrompt } from '../lib/roles.mjs';
@@ -193,7 +193,7 @@ test('metrics survival in a shallow clone: unmeasured offline, measured once it 
   assert.deepEqual(on.prs.map((p) => [p.pr, p.tranche, p.main, p.survived]), [[1, 'stands', 'stands', true]]);
 });
 
-test('lead times: each figure from its rows, beside its target, over marked, unmeasured where a row is missing', () => {
+test('lead times: each figure from its rows, beside its target, over marked, unmeasured where a row is missing', async () => {
   const root = withOrigin();
   const t = (min) => new Date(Date.parse('2026-11-01T00:00:00Z') + min * 60000).toISOString();
   const at = (min, fn) => { const e = { ...process.env }; process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = t(min); try { fn(); } finally { process.env = e; } };
@@ -203,11 +203,17 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   const rows = [
     { at: t(5), module: 'a', row: 'attempt', event: 'start' }, { at: t(100), module: 'a', row: 'attempt', event: 'complete', pr: 7 },
     { at: t(130), module: 'a', row: 'merge', pr: 7 }, { at: t(70), module: 'b', row: 'attempt', event: 'start' },
+    { at: t(120), module: 'c', row: 'attempt', event: 'start' },
   ];
+  // c is BLOCKED on its own job branch (job block commits there), not merged: open, counted to now.
+  const back = git(['rev-parse', 'HEAD'], { cwd: root });
+  at(150, () => commit(root, { 'process/ledger/c.json': { id: 'c', status: { state: 'BLOCKED', reason: 'x' } } }, 'c blocked'));
+  git(['update-ref', 'refs/remotes/origin/job/c', 'HEAD'], { cwd: root });
+  git(['reset', '-q', '--hard', back], { cwd: root });
   const cfg = loadConfig(root);
   const lt = leadTimes(root, cfg, {
     ref: 'HEAD', rows, layers: new Map([['a', 1], ['b', 2]]), now: t(200),
-    grants: [{ row: 'grant', tranche: 'tranche', at: t(1) }], closed: [{ row: 'closed', tranche: 'tranche', layer: 1, at: t(50) }],
+    grants: [{ row: 'grant', tranche: 'tranche', at: t(1), outcome: 'ok' }, { row: 'grant', tranche: 'tranche', at: t(3), outcome: 'refused' }], closed: [{ row: 'closed', tranche: 'tranche', layer: 1, at: t(50) }],
     msgs: [{ from: 'a', n: 1, to: 'bob', at: t(10), text: 'report' }, { from: 'bob', n: 1, to: 'a', at: t(50), text: 'a-1: done' }, { from: 'a', n: 2, to: 'bob', at: t(150), text: 'again' }],
     comments: () => [{ ok: false, at: t(105) }, { ok: true, at: t(110) }],
   });
@@ -219,7 +225,9 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   assert.deepEqual(a.blocked, { minutes: 45, target: 30, mark: 'over' });
   assert.deepEqual(a.report_wait, [{ from: 'a', n: 1, to: 'bob', minutes: 40, target: 30, mark: 'over' }, { from: 'a', n: 2, to: 'bob', minutes: 50, open: true, target: 30, mark: 'over' }]);
   assert.deepEqual(b.ready_to_start, { minutes: 20, target: 10, mark: 'over' });
+  assert.deepEqual(lt.jobs.find((j) => j.module === 'c').blocked, { minutes: 50, open: true, target: 30, mark: 'over' });
   assert.deepEqual(lt.close_to_next_start, [{ layer: 1, minutes: 20, target: 10, mark: 'over' }]);
+  assert.equal(a.ready_to_start.minutes, 4, 'from the last ok grant row, not the refused one');
   assert.deepEqual(lt.summary.green_to_merge, { n: 1, median: 20, worst: 20, target: 15, median_mark: 'over', worst_mark: 'over' });
   assert.equal(lt.summary.report_wait.n, 1, 'an open wait is not in the median');
   assert.equal(lt.targets.merge_minutes, 15);
@@ -229,6 +237,10 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   assert.equal(none.jobs[0].green_to_merge, 'unmeasured');
   assert.equal(none.jobs[0].report_wait, 'unmeasured');
   assert.equal(none.close_to_next_start, 'unmeasured');
+  // process/config.json's targets: a partial one keeps the other defaults.
+  commit(root, { 'process/config.json': { tranche: 'tranche', targets: { merge_minutes: 45 } } }, 'targets');
+  assert.deepEqual(loadConfig(root).targets, { start_minutes: 10, merge_minutes: 45, decision_minutes: 30, replace_minutes: 30 });
+  commit(root, { 'process/config.json': { tranche: 'tranche' } }, 'targets back');
   // A target from process/config.json replaces its default.
   assert.equal(leadTimes(root, { ...cfg, targets: { ...cfg.targets, merge_minutes: 30 } }, { ref: 'HEAD', rows, comments: () => [{ ok: true, at: t(110) }] }).jobs[0].green_to_merge.mark, undefined);
   assert.equal(reportWaits([{ from: 'bob', n: 3, to: 'root', at: t(0) }, { from: 'root', n: 1, to: 'bob', at: t(5), text: 'bob-3 ok' }], t(9))[0].minutes, 5);
@@ -238,6 +250,22 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   git(['fetch', '-q', 'origin'], { cwd: root });
   const md = trancheReport(root, cfg, { now: t(200), io: { merged: () => null, comments: () => [], compare: () => null } });
   assert.match(md, /## Lead times[\s\S]*\| job \| ready to start \|/);
-  assert.match(md, /- green to merge: (unmeasured|median)/);
-  assert.ok(report(root, 'o/r', 'HEAD', { read: { comments: () => [], getPR: () => null }, cfg }).lead_times.summary);
+  assert.match(md, /- green to merge: unmeasured/);
+  // With the state branch read, each report measures from its rows: this tranche's open and a layer close.
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  onState(root, {
+    'metrics/tranche-open.jsonl': JSON.stringify({ row: 'grant', tranche: 'tranche', at: t(1), outcome: 'ok', act: 'push', depth: 1 }) + '\n',
+    'layers/closed.jsonl': JSON.stringify({ row: 'closed', tranche: 'tranche', layer: 1, at: t(50), commit: sha }) + '\n',
+  });
+  commit(root, { 'build/layers.md': '| 1 | a |\n| 2 | b |\n' }, 'layers');
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const md2 = trancheReport(root, cfg, { now: t(200), stateRead: true, io: { state: (p) => readState(root, 'process-state', p), merged: () => null, comments: () => [], compare: () => null } });
+  assert.match(md2, /\| a \| 4 min \(target 10\) \|/);
+  assert.match(md2, /layer close to next job start: layer 1 20 min \(target 10, over\)/);
+  const mr = await cli(root, ['metrics', 'report'], { GITHUB_REPOSITORY: 'o/r' });
+  const lead = JSON.parse(mr.out).lead_times;
+  assert.deepEqual(lead.jobs.find((j) => j.module === 'a').ready_to_start, { minutes: 4, target: 10 });
+  assert.deepEqual(lead.close_to_next_start, [{ layer: 1, minutes: 20, target: 10, mark: 'over' }]);
 });

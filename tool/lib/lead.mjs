@@ -4,7 +4,7 @@
 // Every figure a row is missing for reads "unmeasured"; each is set beside its target.
 import { entryFile } from './ledger.mjs';
 import { messages } from './state.mjs';
-import { git } from './util.mjs';
+import { DEFAULTS, git } from './util.mjs';
 
 const U = 'unmeasured';
 const MIN = 60000;
@@ -12,10 +12,10 @@ const out = (root, args) => { const r = git(args, { cwd: root, allowFail: true }
 const mins = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / MIN * 10) / 10;
 const first = (xs) => xs.sort((a, b) => a.at.localeCompare(b.at))[0];
 
-export const TARGETS = { start_minutes: 10, merge_minutes: 15, decision_minutes: 30, replace_minutes: 30 };
+export const TARGETS = DEFAULTS.targets;
 // Each figure and the target it is set beside (started to PR ready has none).
 const TARGET_OF = { ready_to_start: 'start_minutes', start_to_pr_ready: null, green_to_merge: 'merge_minutes', blocked: 'replace_minutes', report_wait: 'decision_minutes', close_to_next_start: 'start_minutes' };
-export const LEAD_RULE = 'ready to start: the job\'s layer opened (the close row of the layer below it in the layer map; for the lowest layer, the tranche open\'s last grant row) to its first start row since, 0 when it started before; start to PR ready: that start row to the next complete row (the receipt); green to merge: the first gate row with ok true on its pull request at or after that receipt to its merge row; blocked: the minutes its ledger entry on the tranche spent BLOCKED, from each commit that made it BLOCKED to the next that did not (to now while it still is); report wait: each message from the job (sender named as its module) to bob or root, to the first later message from that recipient naming it as <sender>-<n> (to now while none does); close to next start: each layer close row of this tranche to the first start row after it (to now while none). A figure measured to now is marked open. Median and worst are over the measured figures.';
+export const LEAD_RULE = 'ready to start: the job\'s layer opened (the close row of the layer below it in the layer map, of this tranche as status counts it: its commit not on main; for the lowest layer, the last ok grant row of this tranche\'s open, after its last tranche close) to its first start row since, 0 when it started before; start to PR ready: that start row to the next complete row (the receipt); green to merge: the first gate row with ok true on its pull request at or after that receipt to its merge row; blocked: the minutes its ledger entry spent BLOCKED, in the tranche\'s history and its job branch\'s (where job block commits it), from each commit that made it BLOCKED to the next that did not (to now while it still is); report wait: each message from the job (sender named as its module) to bob or root, to the first later message from that recipient naming it as <sender>-<n> (to now while none does); close to next start: each layer close row of this tranche to the first start row after it (to now while none). A figure measured to now is marked open. Median and worst are over the measured figures.';
 
 // A message's wait for its answer: from S to R (bob or root), until R's first later message names S-n.
 export function reportWaits(msgs, now) {
@@ -27,9 +27,12 @@ export function reportWaits(msgs, now) {
   });
 }
 
-// The minutes a ledger entry spent BLOCKED, from its history on ref (null when unread).
+// The minutes a ledger entry spent BLOCKED, from its history on ref and on its job branch, where
+// job block commits BLOCKED before any merge (null when unread).
 function blockedMinutes(root, ref, id, now) {
-  const log = out(root, ['log', '--reverse', '--format=%H %cI', ref, '--', entryFile(id)]);
+  const job = `refs/remotes/origin/job/${id}`;
+  const refs = [ref, ...(out(root, ['rev-parse', '-q', '--verify', job]) ? [job] : [])];
+  const log = out(root, ['log', '--reverse', '--date-order', '--format=%H %cI', ...refs, '--', entryFile(id)]);
   if (log === null) return null;
   let since = null;
   let total = 0;
@@ -57,7 +60,7 @@ const fig = (cfg, key, v) => {
 export function leadTimes(root, cfg, { ref, rows, layers = new Map(), closed = null, grants = null, msgs = null, comments = () => null, now = new Date().toISOString() } = {}) {
   rows = rows.filter((r) => typeof r.at === 'string');
   const mine = (closed || []).filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && typeof r.at === 'string');
-  const opened = (grants || []).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && typeof r.at === 'string').map((r) => r.at).sort().at(-1) || null;
+  const opened = (grants || []).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && r.outcome === 'ok' && typeof r.at === 'string').map((r) => r.at).sort().at(-1) || null;
   const levels = [...new Set(layers.values())].sort((a, b) => a - b);
   const readyAt = (layer) => {
     if (layer === undefined) return null;
@@ -112,13 +115,17 @@ export function leadTimes(root, cfg, { ref, rows, layers = new Map(), closed = n
   return { rule: LEAD_RULE, targets: { ...TARGETS, ...(cfg.targets || {}) }, jobs, close_to_next_start: closes, summary };
 }
 
-// The state branch's rows lead times read: layer closes, tranche open grants and every message
-// (each with its sender, from its file's name). read(path) -> text or null; null when unread.
-export function leadInputs(root, sb, read) {
+// The state branch's rows lead times read: every message (each with its sender, from its file's
+// name), and this tranche's open, the grant rows after its last tranche close (tranche.mjs's
+// rule). read(path) -> text or null; each null when unread. Layer closes come from the caller,
+// filtered as status counts them (closedRows: this tranche, its commit not on main).
+export function leadInputs(root, sb, read, tranche) {
   const j = (p) => { const t = read(p); return t === null ? null : t.split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }); };
   const ls = out(root, ['ls-tree', '--name-only', '-z', `refs/remotes/origin/${sb}:messages`]);
   const msgs = ls === null ? null : ls.split('\0').filter((f) => f.endsWith('.jsonl')).flatMap((f) => messages(read(`messages/${f}`) || '').map((m) => ({ from: f.slice(0, -6), ...m })));
-  return { closed: j('layers/closed.jsonl'), grants: j('metrics/tranche-open.jsonl'), msgs };
+  const g = j('metrics/tranche-open.jsonl');
+  const since = (j('tranches/closed.jsonl') || []).filter((r) => r.row === 'tranche-closed' && r.tranche === tranche).map((r) => String(r.at)).sort().at(-1) || '';
+  return { grants: g && g.filter((r) => String(r.at) > since), msgs };
 }
 
 // One line per figure for report tranche: "<minutes> min (target <t>[, over])", or unmeasured.

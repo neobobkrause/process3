@@ -245,7 +245,7 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push(...(Array.isArray(idle) ? table(['day', 'occurrences', 'longest quiet (h)', 'unmeasured sweeps'], idle.map((d) => [d.day, d.occurrences, d.longest_quiet_h, d.unmeasured_sweeps])) : [U]), '');
 
   // Lead times
-  const lt = leadTimes(root, cfg, { ref: tip, rows, layers, now, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? leadInputs(root, cfg.state_branch, read.state) : {}) });
+  const lt = leadTimes(root, cfg, { ref: tip, rows, layers, now, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? { ...leadInputs(root, cfg.state_branch, read.state, cfg.tranche), closed: [...closedBy.values()] } : {}) });
   L.push('## Lead times', '', `Minutes, each beside its target (\`targets\` in process/config.json); "over" marks one past it. ${lt.rule}`, '');
   L.push(...(lt.jobs.length ? table(['job', 'ready to start', 'start to PR ready', 'green to merge', 'blocked', 'report wait'], lt.jobs.map((j) => [j.module, leadCell(j.ready_to_start), leadCell(j.start_to_pr_ready), leadCell(j.green_to_merge), leadCell(j.blocked), leadCell(j.report_wait)])) : ['No job has a start row.']), '');
   L.push(`- layer close to next job start: ${Array.isArray(lt.close_to_next_start) ? (lt.close_to_next_start.length ? lt.close_to_next_start.map((c) => `layer ${c.layer} ${leadCell(c)}`).join('; ') : 'no layer closed') : U}`);
