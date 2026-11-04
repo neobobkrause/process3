@@ -15,7 +15,7 @@ import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { deployDev } from './lib/deploy.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
-import { deepen, trancheReport } from './lib/report.mjs';
+import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
@@ -27,7 +27,7 @@ import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
-import { Fail, depth, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
+import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -164,9 +164,10 @@ const commands = {
     if (sub === 'report') {
       const cfg = loadConfig(root);
       const branch = a.branch || `origin/${cfg.tranche}`;
+      const { jobRefs } = leadFetch(root, cfg, branch);
       let sweepRows = [];
-      let lead = {};
-      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }) }; } } catch { sweepRows = []; lead = {}; } // unreadable: idle time and the state's lead times unmeasured
+      let lead = { jobRefs };
+      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }), jobRefs }; } } catch { sweepRows = []; lead = { jobRefs }; } // unreadable: idle time and the state's lead times unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
       console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead }), null, 2));
       return 0;
@@ -230,11 +231,10 @@ const commands = {
     const cfg = loadConfig(root);
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
-    git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
-    const deepened = deepen(root, cfg.tranche);
+    const { jobRefs, deepened } = leadFetch(root, cfg);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
-    const md = trancheReport(root, cfg, { slug, stateRead, deepened, io: { state: (p) => readState(root, cfg.state_branch, p) } });
+    const md = trancheReport(root, cfg, { slug, stateRead, deepened, jobRefs, io: { state: (p) => readState(root, cfg.state_branch, p) } });
     if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
     console.log(md);
     return 0;
