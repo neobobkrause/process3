@@ -99,7 +99,7 @@ test('merge run again on the merge-row tip whose gate outran the wait waits on t
   const { root, head } = jobRepo();
   // The first run pushes the merge row; its gate is still queued when the wait ends.
   const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
   const T = remoteTip(root);
   assert.notEqual(T, head);
   // The rerun: the gate on T is in progress, then green.
@@ -108,7 +108,7 @@ test('merge run again on the merge-row tip whose gate outran the wait waits on t
   const again = jobIO(root, { merged, gate: () => (++reads < 3 ? { status: 'in_progress' } : { status: 'completed', conclusion: 'success' }) });
   again.seen.push(head, T);
   const logs = [];
-  const r = merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, every: 0, log: (m) => logs.push(m), wait: 0 });
+  const r = merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, every: 0, log: (m) => logs.push(m), wait: 0 });
   assert.equal(r.merged, true);
   assert.deepEqual(merged, [T], 'merges the tip the first run pushed');
   assert.equal(remoteTip(root), T, 'nothing pushed');
@@ -122,13 +122,13 @@ test('merge run again after the tranche moved brings the tip up to it, but write
   const { root, head } = jobRepo();
   // The first run gives up on a gate still queued; T goes green after, and the tranche moves.
   const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
   const T = remoteTip(root);
   moveTranche(root, 'fix.txt');
   const merged = [];
   const again = jobIO(root, { merged, gate: () => ({ status: 'completed', conclusion: 'success' }) });
   again.seen.push(head, T);
-  assert.equal(merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, log: quiet, wait: 0 }).merged, true);
+  assert.equal(merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet, wait: 0 }).merged, true);
   const T2 = remoteTip(root);
   assert.notEqual(T2, T);
   assert.deepEqual(merged, [T2]);
@@ -155,7 +155,7 @@ test('merge stops waiting at once when the job pushes over the merge-row tip', (
       return { status: 'completed', conclusion: 'cancelled' };
     }),
   });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, every: 0, log: quiet }), /job\/alpha moved to \w+ while the gate on \w+ was awaited/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, every: 0, log: quiet }), /job\/alpha moved to \w+ while the gate on \w+ was awaited/);
 });
 
 // #13 ------------------------------------------------------------------------------------------
@@ -244,7 +244,7 @@ test('notice triage, notice withdraw and merge run again on a merged pull reques
   const out = [];
   noticeTriage(s.bob, 'p:7', { log: (x) => out.push(x), io: { slug: 'o/r', getPR, compare: s.compare } });
   assert.match(out.join('\n'), /- R1\n  before: - \*\*R1\*\* \*\(not yet met: x\)\* signs a token\n  after:  - \*\*R1\*\* signs a token/);
-  const r = merge(s.bob, 7, { slug: 'o/r', io: { getPR, compare: s.compare }, reviewed: 'fresh', rounds: 1, log: quiet });
+  const r = merge(s.bob, 7, { slug: 'o/r', io: { getPR, compare: s.compare }, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.equal(r.merged, true);
   assert.deepEqual(r.notices.rows, []);
   const w = withdrawNotice(s.bob, loadConfig(s.bob), 'p:7', { getPR, slug: 'o/r', log: quiet, compare: s.compare });
@@ -258,7 +258,7 @@ test('a job branch that conflicts with the tranche is refused, naming job sync',
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   const f = jobIO(root, { gate: () => ({ status: 'completed', conclusion: 'success' }) });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, every: 0, log: quiet }),
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, every: 0, log: quiet }),
     /^Error: job\/alpha conflicts with tranche; the job must bring itself up to date: node \.process\/tool\/p3\.mjs job sync alpha, then job complete alpha again$/);
   assert.equal(remoteTip(root), head, 'nothing pushed');
 });
@@ -268,13 +268,13 @@ test('a job branch that conflicts with the tranche is refused, naming job sync',
 test('merge run again with --job-cost-usd after a run without it writes the priced row', () => {
   const { root, head } = jobRepo();
   const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
   const T = remoteTip(root);
   const merged = [];
   const again = jobIO(root, { merged, gate: () => ({ status: 'completed', conclusion: 'success' }) });
   again.seen.push(head, T);
   const logs = [];
-  assert.equal(merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, jobCostUsd: '4.2', jobSession: 'session_J', log: (m) => logs.push(m), wait: 0 }).merged, true);
+  assert.equal(merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, jobCostUsd: '4.2', jobSession: 'session_J', log: (m) => logs.push(m), wait: 0 }).merged, true);
   const T2 = remoteTip(root);
   assert.notEqual(T2, T, 'the priced row is pushed and gated');
   assert.deepEqual(merged, [T2]);

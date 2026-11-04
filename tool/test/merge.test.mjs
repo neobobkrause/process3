@@ -47,7 +47,7 @@ test('merge brings the branch up to the tranche, writes the merge row, and merge
   const { root, head } = setup();
   const f = io(head);
   const said = [];
-  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker, no gaps', rounds: 2, log: (m) => said.push(m) });
+  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker, no gaps', rounds: 2, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => said.push(m) });
   assert.equal(r.merged, true);
   // The merge may make jobs ready: its last line is the one command that starts them.
   assert.equal(said.at(-1), 'next act: node .process/tool/p3.mjs job start --ready --live <n> (n: the live sessions list_sessions shows), then create_session with each launch it prints');
@@ -74,7 +74,7 @@ test('merge tries again when GitHub says the base moved, and merges the same tip
   const pr = f.io.getPR;
   let reads = 0;
   f.io.getPR = (...x) => { reads++; const p = pr(...x); return reads > 1 ? { ...p, head: { ...p.head, sha: git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0] } } : p; };
-  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', rounds: 1, log: () => {}, wait: 0 });
+  const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {}, wait: 0 });
   assert.equal(r.merged, true);
   assert.equal(tries, 2);
   assert.equal(f.calls.merged, r.tip);
@@ -96,7 +96,7 @@ test('merge does not retry onto a tranche that moved past the merged result the 
   const pr = f.io.getPR;
   let reads = 0;
   f.io.getPR = (...x) => { reads++; const p = pr(...x); return reads > 1 ? { ...p, head: { ...p.head, sha: git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0] } } : p; };
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', rounds: 1, log: () => {}, wait: 0 }), /moved past the merged result the gate checked/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {}, wait: 0 }), /moved past the merged result the gate checked/);
   assert.equal(tries, 1);
 });
 
@@ -797,9 +797,9 @@ test('review rounds: stated and recorded; a third round needs a recorded decisio
 
 test('merge and merge --plain refuse a third round without a decision, and record it with one', () => {
   const { root, head } = setup();
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'x', rounds: 3, log: () => {} }), /limit is 2/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'x', rounds: 3, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }), /limit is 2/);
   const f = io(head);
-  assert.equal(merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'x', rounds: 3, decision: "Bob's word", log: () => {} }).merged, true);
+  assert.equal(merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'x', rounds: 3, reviewMinutes: 5, findings: 0, actedOn: 0, decision: "Bob's word", log: () => {} }).merged, true);
   const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
   git(['checkout', '-q', tip], { cwd: root });
   const row = readRows(root, 'alpha').at(-1);
@@ -924,7 +924,7 @@ test('merge (a job\'s) refuses a conflicted pull request at once, before reading
   f.io.getPR = (...a) => ({ ...get(...a), mergeable: false, mergeable_state: 'dirty' });
   let gateRead = 0;
   f.io.checkRun = () => { gateRead++; return { status: 'completed', conclusion: 'success' }; };
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'r', rounds: 1, log: () => {} }), (e) => e.message === 'pull request 3 conflicts with tranche; nothing was merged');
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'r', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }), (e) => e.message === 'pull request 3 conflicts with tranche; nothing was merged');
   assert.equal(gateRead, 0);
   assert.equal(f.calls.merged, null);
 });
@@ -942,7 +942,7 @@ test('merge --job-cost-usd writes the job\'s measured row, its session from the 
   git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   const said = [];
-  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '3.5', log: (m) => said.push(m) });
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, jobCostUsd: '3.5', log: (m) => said.push(m) });
   assert.equal(r.merged, true);
   git(['checkout', '-q', r.tip], { cwd: root });
   const got = readRows(root, 'alpha');
@@ -960,7 +960,7 @@ test('merge without --job-cost-usd still merges, records the cost unmeasured and
   git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   const said = [];
-  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, log: (m) => said.push(m) });
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => said.push(m) });
   assert.equal(r.merged, true, 'never blocked on cost');
   assert.ok(said.some((l) => l.includes('job alpha\'s cost: unmeasured. Read it with get_session {"session_id": "session_J"}, the field external_metadata.usage.cost_usd')), said.join('\n'));
   git(['checkout', '-q', r.tip], { cwd: root });
@@ -972,7 +972,7 @@ test('merge without --job-cost-usd still merges, records the cost unmeasured and
 test('merge refuses a zero or unreadable --job-cost-usd before anything runs', () => {
   const { root, head } = setup();
   const f = io(head);
-  for (const v of ['0', 'lots', true]) assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, jobCostUsd: v, log: () => {} }), /--job-cost-usd <the job's session cost: get_session/);
+  for (const v of ['0', 'lots', true]) assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, jobCostUsd: v, log: () => {} }), /--job-cost-usd <the job's session cost: get_session/);
   assert.equal(f.calls.merged, null);
 });
 
@@ -992,7 +992,7 @@ test('merge --job-cost-usd no higher than the session\'s last row records the de
     { row: 'attempt', event: 'complete', attempt: 1, session: 'session_J' },
   ]);
   const said = [];
-  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '3.25', log: (m) => said.push(m) });
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, jobCostUsd: '3.25', log: (m) => said.push(m) });
   assert.equal(r.merged, true);
   git(['checkout', '-q', r.tip], { cwd: root });
   const m = readRows(root, 'alpha').filter((x) => x.event === 'measured').pop();
@@ -1007,7 +1007,7 @@ test('merge --job-cost-usd with no session on the complete row takes the session
     { row: 'attempt', event: 'measured', role: 'job', attempt: 1, session: 'session_J', session_usd: 3.25, cost_usd: 'unmeasured' },
     { row: 'attempt', event: 'complete', attempt: 1 },
   ]);
-  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '4.04', log: () => {} });
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, jobCostUsd: '4.04', log: () => {} });
   git(['checkout', '-q', r.tip], { cwd: root });
   const m = readRows(root, 'alpha').filter((x) => x.event === 'measured').pop();
   assert.deepEqual([m.session, m.session_usd, m.cost_usd], ['session_J', 4.04, 0.79]);
@@ -1019,7 +1019,7 @@ test('merge --job-cost-usd takes no session from an earlier attempt: a restart i
     { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 'session_J', session_usd: 3.25, cost_usd: 3.25 },
     { row: 'attempt', event: 'complete', attempt: 1 },
   ]);
-  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '2', log: () => {} });
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, jobCostUsd: '2', log: () => {} });
   git(['checkout', '-q', r.tip], { cwd: root });
   const m = readRows(root, 'alpha').filter((x) => x.event === 'measured').pop();
   assert.deepEqual([m.session, m.session_usd, m.cost_usd], [null, 2, 2]);

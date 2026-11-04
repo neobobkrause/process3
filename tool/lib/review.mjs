@@ -5,7 +5,8 @@ import { branchModule, ledgerIds } from './ledger.mjs';
 import { generatedRows } from './checks.mjs';
 import { rulebook } from './job.mjs';
 import { normPath } from './suite.mjs';
-import { fail, gh, loadConfig, repoSlug, underPath } from './util.mjs';
+import { ASSERT_RULE, reviewTriggers } from './triggers.mjs';
+import { fail, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 // The files whose change earns a second review: the gate, the record check, the approvals
 // check and the merge tool, with the workflows that run them.
@@ -34,7 +35,29 @@ function suiteLine(job, generated) {
   return L.join(' ');
 }
 
-export function briefText({ pr, files, job, owner, approvalsFile, scope, generated }) {
+// The review triggers' section (triggers.mjs): what fired, and the exact hunks that fired it.
+function triggerLines(t) {
+  if (!t) return [];
+  if (t.error) return ['', '## Review triggers', `Not read here (${t.error}); \`merge\` computes them again and refuses --no-review when one fires.`];
+  if (!t.fired.length) return ['', '## Review triggers', `None fired${t.bad ? ` (${t.bad}: no security path was read)` : t.security_set ? '' : ' (the product lists no review_triggers.security_paths)'}.`];
+  return ['', '## Review triggers', `Fired: ${t.fired.join(' and ')}. ${t.why}.`,
+    'Bob\'s decision (4 Nov): these merge only after this review. Judge each hunk below first: a security list narrowed or widened without a requirement that says so; a test deleted while the code it tested is still live; an assertion removed or loosened so the change passes. Each is a fix unless a requirement or recorded decision makes it right.',
+    ...(t.fired.includes('test') ? [`(${ASSERT_RULE}.)`] : []),
+    '', '```diff', t.hunks.trimEnd(), '```'];
+}
+
+// The triggers for a job's pull request, from this clone: the tranche and the job's branch
+// fetched, their merge base, the tranche's copy of the entry and config.
+export function localTriggers(root, cfg, branch, id) {
+  try {
+    git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+    const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
+    const entry = JSON.parse(git(['show', `${mb}:process/ledger/${id}.json`], { cwd: root }));
+    return reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
+  } catch (e) { return { error: String(e.message).split('\n')[0].slice(0, 200) }; }
+}
+
+export function briefText({ pr, files, job, owner, approvalsFile, scope, generated, triggers }) {
   const second = files.filter((f) => SECOND_REVIEW.some((p) => underPath(f, p)));
   const L = [];
   L.push(`# Review brief: pull request ${pr.number}, "${pr.title}"`);
@@ -60,6 +83,7 @@ export function briefText({ pr, files, job, owner, approvalsFile, scope, generat
     }
   }
   L.push(`Changed files (${files.length}):`, ...files.map((f) => `- ${f}`));
+  L.push(...triggerLines(triggers));
   L.push('', '## Owner-only files');
   L.push(`The approvals block of ${approvalsFile} and .claude/settings.json are the owner's. For a commit touching them, check its author is ${owner}, its committer is GitHub, and the record check passed; do not judge their content.`);
   L.push('', '## Pins');
@@ -91,7 +115,7 @@ const prFiles = (slug, n) => {
 export function reviewBrief(root, n, { scope, log = console.log, io = {} } = {}) {
   if (!/^\d+$/.test(String(n))) fail('review brief <pr number> [--scope "<text>"]');
   if (scope === true) fail('--scope needs its text');
-  const { read = getPR, files: listFiles = prFiles, contents = raw, notes = comments, tracked = tracks, slug = repoSlug(root) } = io;
+  const { read = getPR, files: listFiles = prFiles, contents = raw, notes = comments, tracked = tracks, triggers: readTriggers = localTriggers, slug = repoSlug(root) } = io;
   const cfg = loadConfig(root);
   const pr = read(slug, n);
   if (!pr?.number) fail(`no pull request ${n} in ${slug}`);
@@ -107,7 +131,8 @@ export function reviewBrief(root, n, { scope, log = console.log, io = {} } = {})
   // The generated paths, split by whether the head commits them (a path absent there is built).
   const generated = job ? { built: [], committed: [] } : null;
   if (job) for (const r of generatedRows(cfg).rows) for (const p of r.paths) (tracked(slug, normPath(p), pr.head.sha) ? generated.committed : generated.built).push(normPath(p));
-  const text = briefText({ pr, files, job, owner: cfg.approvals.owner, approvalsFile: cfg.approvals.file, scope, generated });
+  const triggers = id ? readTriggers(root, cfg, pr.head.ref, id) : null;
+  const text = briefText({ pr, files, job, owner: cfg.approvals.owner, approvalsFile: cfg.approvals.file, scope, generated, triggers });
   log(text.trimEnd());
   return text;
 }
