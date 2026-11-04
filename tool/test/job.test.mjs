@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
 import { jobBlock, jobComplete, jobSender, jobStart, jobTest, startText } from '../lib/job.mjs';
+import { merge } from '../lib/merge.mjs';
 import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
@@ -131,13 +132,14 @@ function withOrigin() {
 import { join } from 'node:path';
 
 function fakeGitHub() {
-  const state = { comments: [], ready: 0, prs: 0, failReady: true };
+  const state = { comments: [], ready: 0, prs: 0, failReady: true, drafted: 0, readyAfterDraft: 0 };
   return {
     state,
     open: (slug, p) => { state.prs++; return { number: 9, html_url: 'pr', draft: true, ...p }; },
     find: () => null,
     gh: {
-      findPR: () => ({ number: 9, draft: state.ready === 0, user: { login: 'civicsmith' } }),
+      findPR: () => ({ number: 9, draft: state.ready === 0 || state.drafted > state.readyAfterDraft, user: { login: 'civicsmith' } }),
+      toDraft: () => { state.drafted++; state.readyAfterDraft = state.ready; return { draft: true }; },
       comments: () => state.comments,
       addComment: (s, n, body) => { state.comments.push({ body, html_url: `c${state.comments.length}`, user: { login: 'civicsmith' } }); return { html_url: 'c' }; },
       markReady: () => { if (state.failReady) { state.failReady = false; throw new Error('network'); } state.ready++; },
@@ -314,6 +316,121 @@ test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job
   jobComplete(w, 'alpha', { gh: g.gh, exemptRevert: 'why', log: quiet });
   assert.equal(g.state.comments.length, 2);
   assert.equal(parseBlock(g.state.comments[1].body, 'p3:receipt').exempt.revert, 'why');
+});
+
+// Copy PR 79, 4 Nov: job site was COMPLETE, its gate went red, and it pushed fixes; job complete
+// refused ("commits were added after it"), --reopen needs a merged PR and --restart WORKING.
+// With the pull request open, a rerun after new commits completes a new attempt.
+function redAndFixed() {
+  const { root, f } = completed();
+  const first = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/job/alpha'], { cwd: root });
+  const fix = commit(root, { 'test/alpha/c.test.mjs': passing });
+  return { root, f, first, fix };
+}
+
+test('a COMPLETE job with fix commits after it completes attempt 2: checks, suite, start row, COMPLETE, receipt, draft then ready', () => {
+  const { root, f, first, fix } = redAndFixed();
+  const fixAt = new Date(git(['log', '-1', '--format=%cI', fix], { cwd: root })).toISOString().replace(/\.\d+Z$/, 'Z');
+  assert.equal(f.state.ready, 1);
+  const r = jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'browser test skips in CI without Chromium', log: quiet });
+  assert.equal(r.ok, true);
+  assert.equal(r.receipt.attempt, 2);
+  assert.equal(r.receipt.after, first, 'names the COMPLETE commit it follows');
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.equal(r.receipt.sha, tip);
+  assert.notEqual(tip, fix, 'a new COMPLETE commit');
+  assert.equal(git(['rev-parse', 'HEAD^'], { cwd: root }), fix);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed');
+  const suite = r.receipt.commands.find((c) => c.suite);
+  assert.deepEqual([suite.exit, suite.tests.total], [0, 2], 'the suite ran again, with the fix');
+  assert.deepEqual(r.receipt.exempt, { revert: 'browser test skips in CI without Chromium' });
+  assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
+  const rows = readRows(root, 'alpha');
+  assert.deepEqual(rows.map((x) => [x.event, x.attempt]), [['start', 1], ['complete', 1], ['start', 2], ['complete', 2]]);
+  assert.equal(rows[2].at, fixAt, 'attempt 2 starts at its first commit');
+  assert.deepEqual(rows[2].again, { after: first, pr: 9 });
+  assert.equal(rows[3].receipt.attempt, 2);
+  // Only its records (the entry is unchanged when both completes fall in the same second).
+  const names = git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }).split('\n');
+  assert.ok(names.includes('process/metrics/alpha.jsonl') && names.every((n) => ['process/ledger/alpha.json', 'process/metrics/alpha.jsonl'].includes(n)), names.join(', '));
+  assert.equal(f.state.drafted, 1, 'made a draft before the push');
+  assert.equal(f.state.ready, 2, 'ready again after the receipt');
+  assert.equal(f.state.comments.length, 2);
+  const posted = parseBlock(f.state.comments[1].body, 'p3:receipt');
+  assert.equal(posted.attempt, 2);
+  assert.match(f.state.comments[1].body, /\nReceipt for job `alpha`, attempt 2,/);
+  // A plain rerun at the new COMPLETE commit posts nothing and starts no attempt 3.
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(f.state.comments.length, 2);
+  assert.equal(readRows(root, 'alpha').length, 4);
+});
+
+test('attempt 2 after the job merges an older tranche commit starts at its own first-parent commit, after attempt 1 (review of PR 81)', () => {
+  const { root, f } = completed();
+  const done = readRows(root, 'alpha').at(-1).at;
+  const env = { ...process.env };
+  try {
+    process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = '2020-01-01T00:00:00Z';
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    commit(root, { 'other.txt': 'older tranche work' });
+    git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+    git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  } finally { process.env = env; }
+  git(['merge', '-q', '--no-ff', '--no-edit', 'tranche'], { cwd: root });
+  const mergeAt = new Date(git(['log', '-1', '--format=%cI'], { cwd: root })).toISOString().replace(/\.\d+Z$/, 'Z');
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const s2 = readRows(root, 'alpha').filter((x) => x.event === 'start')[1];
+  assert.ok(s2.at >= done, `${s2.at} is not before attempt 1's complete ${done}`);
+  assert.equal(s2.at, mergeAt < done ? done : mergeAt);
+});
+
+test('attempt 2 on a red suite writes nothing and leaves attempt 1 COMPLETE', () => {
+  const { root, f } = completed();
+  const before = commit(root, { 'test/alpha/b.test.mjs': failing });
+  assert.equal(jobComplete(root, 'alpha', { gh: f.gh, log: quiet }).ok, false);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), before);
+  assert.equal(readRows(root, 'alpha').length, 2);
+  assert.equal(f.state.comments.length, 1);
+});
+
+test('the same-commit amendment works on attempt 2 and keeps its attempt number', () => {
+  const { root, f } = redAndFixed();
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
+  assert.equal(f.state.comments.length, 3);
+  assert.match(f.state.comments[2].body, /\nAmended receipt for job `alpha`, attempt 2,/);
+  const r = parseBlock(f.state.comments[2].body, 'p3:receipt');
+  assert.deepEqual([r.attempt, r.sha, r.exempt.revert], [2, tip, 'why']);
+  assert.equal(readRows(root, 'alpha').filter((x) => x.event === 'start').length, 2);
+});
+
+test('a COMPLETE job whose pull request merged is refused, and named --reopen', () => {
+  const { root, f } = completed();
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
+  f.gh.findPR = () => null;
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --reopen/);
+  assert.equal(readRows(root, 'alpha').length, 2);
+});
+
+test('merge passes on a green gate run that checked attempt 2, and refuses one that checked attempt 1', () => {
+  const { root, f } = redAndFixed();
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'agrees', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
+  const mk = (gate) => ({
+    getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
+    comments: () => [...f.state.comments, gate],
+    checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
+    verify: () => true,
+    mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
+  });
+  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, log: quiet }), /checked receipt attempt 2/);
+  const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, log: quiet });
+  assert.equal(r.merged, true);
 });
 
 // --reopen (Bob's decision 1A, 2 Nov 2026).

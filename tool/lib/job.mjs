@@ -576,10 +576,11 @@ const onBranch = (root, id) => {
 };
 
 // The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
-// Safe to run again: on an entry already COMPLETE it only finishes the steps still missing.
+// Safe to run again: on an entry already COMPLETE it only finishes the steps still missing, or,
+// with commits after the COMPLETE commit and its pull request open, completes a new attempt.
 export function jobComplete(root, id, opts = {}) {
   const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log } = opts;
-  const io = { findPR, addComment, markReady, comments, ...(opts.gh || {}) };
+  const io = { findPR, addComment, markReady, comments, toDraft, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
   // A COMPLETE job may move .process to a newer pin to amend its receipt with that pin's tool;
@@ -593,20 +594,30 @@ export function jobComplete(root, id, opts = {}) {
   const base = push && isShallow(root) ? shallowBase(root, slug, cfg.tranche, branch, opts.compare || compare)
     : git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
   const pr = push ? io.findPR(slug, branch) : null;
-  if (push && !pr) fail(`no open pull request from ${branch}`);
   const entry = readEntry(root, id);
+  if (push && !pr) fail(entry.status.state === 'COMPLETE' ? `${id} is COMPLETE and ${branch} has no open pull request; a new attempt on a merged module is job start ${id} --reopen "<what it must do>"` : `no open pull request from ${branch}`);
+  let again = null;
 
   if (entry.status.state === 'COMPLETE') {
     // Resume: the receipt was saved in the COMPLETE commit's row; its SHA is that commit.
     const row = readRows(root, id).filter((r) => r.event === 'complete').pop();
     const at = git(['log', '-1', '--format=%H', '--', metricsFile(id)], { cwd: root });
     if (!row?.receipt) fail(`${id} is COMPLETE but no receipt was saved; ask your coordinator`);
-    if (at !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`${id} is COMPLETE, but commits were added after it; ask your coordinator`);
-    if (opts.tests?.length || noSuite) log('the job is COMPLETE: its commands and tests stand as saved; only --exempt-revert and --not-verified amend the receipt');
-    return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert } });
-  }
-  if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
-  const tests = struckTests(root, entry, base, opts.tests || [], readRows(root, id).filter((r) => r.event === 'start').pop()?.notices || []);
+    if (at === git(['rev-parse', 'HEAD'], { cwd: root })) {
+      if (opts.tests?.length || noSuite) log('the job is COMPLETE: its commands and tests stand as saved; only --exempt-revert and --not-verified amend the receipt');
+      return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert }, again: !!row.receipt.after });
+    }
+    // Commits after the COMPLETE commit, its pull request still open (copy PR 79, 4 Nov: the
+    // gate went red and the job pushed fixes): a new attempt, checked and tested as a fresh
+    // complete, with its own start row (nextAttempt counts them) dated at its first commit.
+    // First-parent only: tranche commits merged in can be older than the COMPLETE commit, and a
+    // start dated before attempt 1's complete row would take that row from attempt 1 (review of
+    // PR 81); never before that row in any case.
+    const first = new Date(git(['log', '--first-parent', '--reverse', '--format=%cI', `${at}..HEAD`], { cwd: root }).split('\n')[0]).toISOString().replace(/\.\d+Z$/, 'Z');
+    again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
+  } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
+  const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
+  const tests = struckTests(root, entry, base, opts.tests || [], lastStart?.notices || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
@@ -643,13 +654,15 @@ export function jobComplete(root, id, opts = {}) {
     log('not complete: fix these and run job complete again, or block.');
     return { ok: false, commands };
   }
-  const attempt = nextAttempt(root, id) - 1;
+  const attempt = again ? nextAttempt(root, id) : nextAttempt(root, id) - 1;
   // The receipt is saved in the COMPLETE commit, so a rerun after a failed push can post it.
   const receipt = {
     kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
     commands, tests, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
+    ...(again ? { after: again.after } : {}),
   };
   try {
+    if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
     appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt });
     receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
@@ -657,7 +670,7 @@ export function jobComplete(root, id, opts = {}) {
     restore(root, [entryFile(id), metricsFile(id)]);
     throw e;
   }
-  return finish(root, { id, slug, pr, branch, push, io, log, receipt });
+  return finish(root, { id, slug, pr, branch, push, io, log, receipt, again: !!again });
 }
 
 // A COMPLETE job's rerun with --exempt-revert or --not-verified: the saved receipt (its commands
@@ -681,13 +694,16 @@ const sameClaims = (a, b) => JSON.stringify([a?.exempt || {}, a?.not_verified ||
 // Push, confirm the push landed (REC-5), post the receipt once, mark ready. Each step is
 // skipped when it is already done, so a half-finished job complete can simply run again.
 // An amended receipt is posted unless the newest one already makes the same claims.
-function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = null }) {
+// A new attempt on a ready pull request first makes it a draft again, so the push's gate run
+// skips and the run on ready reads the new receipt, as on a first complete.
+function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = null, again = false }) {
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
   if (!push) {
     const a = amend && amendReceipt(receipt, amend);
     return { ok: true, receipt: a || receipt };
   }
   if (remoteTip(root, branch) !== sha) {
+    if (again && !pr.draft) pr = { ...pr, ...io.toDraft(slug, pr), draft: true };
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again`);
   }
