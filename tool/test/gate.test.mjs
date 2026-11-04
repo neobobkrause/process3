@@ -360,6 +360,7 @@ test('the gate race: whichever of the push\'s run and the ready run is kept judg
     const r = run(s, io, { draft: eventDraft, log: (m) => out.push(String(m)) });
     assert.deepEqual([r.run.trigger, r.run.suite, r.run.receipt, r.run.ok], ['code', 'pass', 'agrees', true], `event draft ${eventDraft}`);
     assert.equal(out.some((l) => /the event said draft/.test(l)), eventDraft);
+    assert.equal(r.run.event_draft, eventDraft ? true : undefined);
     assert.equal(gateRuns(io.state.comments).length, 1, 'one row per kept run');
   }
   // Converted back to draft after the event: the live state wins the other way too.

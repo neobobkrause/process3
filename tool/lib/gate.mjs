@@ -56,7 +56,11 @@ export function gate(root, opts) {
   // live, whichever run is kept judges the pull request as it is. A failed read stops the run.
   const live = pr ? io.getPR(slug, pr) : null;
   const draft = typeof live?.draft === 'boolean' ? live.draft : eventDraft;
-  if (draft !== eventDraft) log(`the pull request is ${draft ? 'a draft' : 'ready'} now; the event said ${eventDraft ? 'draft' : 'ready'}: the gate judges it as it is now`);
+  if (draft !== eventDraft) {
+    // Kept in the row too, so a run the race touched is visible without its log (review 1 of PR 74).
+    runRow.event_draft = eventDraft;
+    log(`the pull request is ${draft ? 'a draft' : 'ready'} now; the event said ${eventDraft ? 'draft' : 'ready'}: the gate judges it as it is now`);
+  }
   // The receipt is read only from the pull request's opener (review of PR 13).
   const receipt = pr ? latestReceipt(all, opts.opener ?? live?.user?.login) : null;
 
