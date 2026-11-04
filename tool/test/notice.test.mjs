@@ -114,6 +114,19 @@ test('job start <user> puts the notice in the START and its start row; job compl
   assert.deepEqual(r.receipt.tests, [{ notice: 'p:7', file: 'test/u1/p.test.mjs', name: 'u1 reads the token age p now checks' }]);
 });
 
+test('job complete needs no test for a notice its START named that was withdrawn since', () => {
+  const root = product();
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
+  jobStart(root, 'u1', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/u1'], { cwd: root });
+  assert.deepEqual(readRows(root, 'u1')[0].notices, ['p:7']);
+  commit(root, { 'test/u1/b.test.mjs': passing('u1 b') });
+  assert.throws(() => jobComplete(root, 'u1', { push: false, log: quiet }), /provider notice p:7 has no --test/);
+  onState(root, { 'notices/withdrawn/p-7.json': JSON.stringify({ row: 'withdrawn', key: 'p:7' }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  assert.equal(jobComplete(root, 'u1', { push: false, log: quiet }).ok, true);
+});
+
 test('job start on a COMPLETE user with a notice reopens it to answer the notice', () => {
   const root = product();
   git(['checkout', '-q', 'tranche'], { cwd: root });

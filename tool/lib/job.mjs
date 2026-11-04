@@ -10,7 +10,7 @@ import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
-import { unanswered } from './notice.mjs';
+import { unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
@@ -605,7 +605,11 @@ export function jobComplete(root, id, opts = {}) {
     return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert } });
   }
   if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
-  const tests = struckTests(root, entry, base, opts.tests || [], readRows(root, id).filter((r) => r.event === 'start').pop()?.notices || []);
+  // A notice the START named and BOB withdrew since needs no test (unread state: every one does).
+  let gone = new Set();
+  try { if (fetchState(root, cfg.state_branch, { fresh: true })) gone = withdrawnKeys(root, cfg.state_branch); } catch { /* every named notice stands */ }
+  const named = (readRows(root, id).filter((r) => r.event === 'start').pop()?.notices || []).filter((k) => !gone.has(k));
+  const tests = struckTests(root, entry, base, opts.tests || [], named);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });

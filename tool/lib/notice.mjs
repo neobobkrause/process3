@@ -95,11 +95,14 @@ const listJson = (root, sb, dir) => {
 export const WITHDRAWN_DIR = `${NOTICES_DIR}/withdrawn`;
 export const withdrawFile = (key) => `${WITHDRAWN_DIR}/${fileOf(key)}.json`;
 
+// The keys of withdrawn notices, as the fetched state branch holds them.
+export const withdrawnKeys = (root, sb) => new Set(listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn').map((r) => r.key));
+
 // Every notice with the users that have not answered it, as the fetched state branch holds them;
 // a withdrawn notice (notice withdraw) is no notice.
 export function notices(root, sb) {
   const answered = new Set(listJson(root, sb, `${NOTICES_DIR}/answered`).map((r) => `${r.key}\0${r.user}`));
-  const withdrawn = new Set(listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn').map((r) => r.key));
+  const withdrawn = withdrawnKeys(root, sb);
   return listJson(root, sb, NOTICES_DIR).filter((r) => r.row === 'notice' && !withdrawn.has(r.key)).sort((a, b) => a.pr - b.pr)
     .map((n) => ({ ...n, open: n.users.filter((u) => !answered.has(`${n.key}\0${u}`)) }));
 }
