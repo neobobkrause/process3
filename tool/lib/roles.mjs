@@ -123,7 +123,7 @@ export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche 
   L.push(`1. \`git submodule update --init .process\` (the pinned process clone arrives empty).`);
   L.push(`2. \`${P3} start check\`. If it fails, act on nothing, send ROOT both SHAs and end.`);
   L.push(`3. list_sessions, its result saved as a JSON file, then \`${P3} status --role bob --live <n> --sessions <that file>\` (n: the live sessions it shows, every role).`);
-  const work = 'take up what status shows. When it lists next work, choose modules from it whose own suite runs in minutes, whose requirements are real, and that have no unmerged earlier work; write their ledger entries and start their jobs. Never end your turn while status shows work you can start, review or merge; end it only when blocked, every job is running, or the cap is reached. Ask Bob nothing technical.';
+  const work = 'take up what status shows. When it lists next work, choose modules from it whose own suite runs in minutes, and whose requirements are real; write their ledger entries and start their jobs, by `--take-in` when status lists earlier work. Never end your turn while status shows work you can start, review or merge; end it only when blocked, every job is running, or the cap is reached. Ask Bob nothing technical.';
   if (oldBob) {
     L.push(`4. You replace BOB \`${oldBob}\`. Read your one-screen handoff, written by the old BOB: \`git show origin/${sb}:handoff/bob.md\` after \`git fetch origin ${sb}\`. Report running to ROOT, act on the messages queued while you started, then ${work} The old BOB forwards what it receives to you until it reports ready.`);
   } else L.push(`4. Report running to ROOT, then ${work}`);
