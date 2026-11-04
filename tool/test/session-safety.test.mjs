@@ -246,9 +246,9 @@ test('pushRetry: a conflict stops it with nothing pushed; another rejection stop
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/tranche'], { cwd: root }).split('\t')[0], theirs);
   assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), ours, 'the merge was aborted');
   assert.equal(git(['status', '--porcelain'], { cwd: root }), '');
-  // A rejection that is not fetch-first (a non-fast-forward the local side already knows of).
+  // A non-fast-forward the local side already knows of is a moved ref too: it merges, and conflicts.
   git(['fetch', '-q', 'origin'], { cwd: root });
-  assert.throws(() => pushRetry(root, 'tranche', { wait: 0, log: quiet }), /the push of tranche failed/);
+  assert.throws(() => pushRetry(root, 'tranche', { wait: 0, log: quiet }), /does not merge cleanly; nothing was pushed/);
 });
 
 // A push that fails the given ways first (calling before() each time, to move origin as another
@@ -293,6 +293,32 @@ test('pushRetry: a 500 then success pushes; a 500 whose push landed is not pushe
   const push = flaky(root, 'tranche', [E500], () => git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root }));
   assert.equal(pushRetry(root, 'tranche', { wait: 0, log: quiet, push, redo: () => { redone++; } }), landed);
   assert.equal(redone, 0);
+  // Landed, then another writer pushed on top: ours is returned, not theirs.
+  const { root: r2, bare } = withOrigin({ 'README.md': 'x' });
+  const other = clone(bare);
+  const mine = commit(r2, { 'c.txt': 'c' });
+  const p2 = flaky(r2, 'tranche', [E500], () => {
+    git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: r2 });
+    git(['pull', '-q', '--ff-only', 'origin', 'tranche'], { cwd: other });
+    commit(other, { 'd.txt': 'd' });
+    git(['push', '-q', 'origin', 'tranche'], { cwd: other });
+  });
+  assert.equal(pushRetry(r2, 'tranche', { wait: 0, log: quiet, push: p2, redo: () => { redone++; } }), mine);
+  assert.notEqual(tipOf(r2, 'tranche'), mine);
+  assert.equal(redone, 0);
+  // A 500 on the last try whose push landed is reported as pushed, not refused.
+  const last = commit(root, { 'e.txt': 'e' });
+  const p3 = flaky(root, 'tranche', [E500, E500], (n) => { if (n === 1) git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root }); });
+  assert.equal(pushRetry(root, 'tranche', { wait: 0, log: quiet, tries: 2, push: p3 }), last);
+});
+
+test('pushRetry: the real wordings of a moved ref and a server error are retried', async () => {
+  const { REF_MOVED, SERVER_ERROR } = await import('../lib/util.mjs');
+  for (const w of [' ! [rejected]        HEAD -> process-state (non-fast-forward)', ' ! [rejected] HEAD -> x (fetch first)', LOCK('process-state'), ' ! [remote rejected] HEAD -> x (stale info)']) assert.match(w, REF_MOVED);
+  for (const w of [' ! [remote rejected] b -> b (Internal Server Error)', 'error: RPC failed; HTTP 500 curl 22 The requested URL returned error: 500', 'fatal: unable to access: Received HTTP code 503 from proxy after CONNECT', E500]) assert.match(w, SERVER_ERROR);
+  for (const w of ['remote: Permission to o/r.git denied', ' ! [remote rejected] HEAD -> x (protected branch hook declined)', 'fatal: port 5432 is busy']) {
+    assert.doesNotMatch(w, REF_MOVED); assert.doesNotMatch(w, SERVER_ERROR);
+  }
 });
 
 test('pushRetry: gives up after the last try with the remote\'s words; other failures stop at once', () => {

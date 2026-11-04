@@ -263,14 +263,15 @@ export const BASE_MOVED = /Base branch was modified/i;
 export const FETCH_FIRST = /\(fetch first\)|fetch first/i;
 const pause = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 
-// A push the remote turned away because another writer moved the ref under it: git's fetch-first,
+// A push the remote turned away because another writer moved the ref under it: git's fetch-first
+// or non-fast-forward (the latter when the new tip is already local, e.g. two writers in one clone),
 // and the remote's "cannot lock ref ... is at X but expected Y" / "failed to update ref" / "stale
 // info" when the move lands between its check and its update (p3 sweep twice, and send delivered,
 // on the copy, 4 Nov). A 5xx from GitHub (500s on pushes 09:49-10:26, 4 Nov) is retried the same
 // way: the push may or may not have landed, so the fetched tip is checked first.
 export const PUSH_TRIES = 5;
-export const REF_MOVED = /fetch first|cannot lock ref|but expected|failed to update ref|stale info/i;
-export const SERVER_ERROR = /(?:error|HTTP(?:\/[\d.]+)?)[: ]+5\d\d\b|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out/i;
+export const REF_MOVED = /fetch first|non-fast-forward|cannot lock ref|but expected|failed to update ref|stale info/i;
+export const SERVER_ERROR = /(?:error|HTTP(?:\/[\d.]+)?(?: code)?)[: ]+5\d\d\b|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out/i;
 const jitter = (ms) => Math.round(ms * (0.75 + Math.random() * 0.5));
 
 // Pushes HEAD to a branch (the state branch's push). On a moved-ref rejection or a server error it
@@ -290,13 +291,18 @@ export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = 
     const why = r.stderr.trim();
     const moved = REF_MOVED.test(why);
     if (!moved && !SERVER_ERROR.test(why)) fail(`the push of ${branch} failed: ${why}`);
-    if (t >= tries) fail(`the push of ${branch} was refused ${tries} times (${moved ? `${branch} kept moving` : 'the server kept failing'}); run it again later. The last refusal: ${why}`);
+    if (t >= tries) {
+      // A 5xx push may have landed: look before saying it did not, so a re-run does not write twice.
+      if (!moved && git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd, allowFail: true }).code === 0
+        && git(['merge-base', '--is-ancestor', 'HEAD', `refs/remotes/origin/${branch}`], { cwd, allowFail: true }).code === 0) return git(['rev-parse', 'HEAD'], { cwd });
+      fail(`the push of ${branch} was refused ${tries} times (${moved ? `${branch} kept moving` : 'the server kept failing'}); run it again later. The last refusal: ${why}`);
+    }
     log(`${moved ? `${branch} moved on origin` : 'the push hit a server error'}; fetching and trying again (${t + 1} of ${tries})`);
     pause(jitter(wait * 2 ** (t - 1)));
     const f = git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd, allowFail: true });
     if (f.code !== 0) { log(`the fetch of ${branch} failed (${f.stderr.trim()}); pushing again as it was`); continue; }
     const theirs = `refs/remotes/origin/${branch}`;
-    if (git(['merge-base', '--is-ancestor', 'HEAD', theirs], { cwd, allowFail: true }).code === 0) return git(['rev-parse', theirs], { cwd });
+    if (git(['merge-base', '--is-ancestor', 'HEAD', theirs], { cwd, allowFail: true }).code === 0) return git(['rev-parse', 'HEAD'], { cwd }); // ours landed (another writer may be on top)
     if (git(['merge-base', '--is-ancestor', theirs, 'HEAD'], { cwd, allowFail: true }).code === 0) continue; // origin did not move: push the same commit again
     if (redo) {
       git(['reset', '-q', '--hard', theirs], { cwd });
