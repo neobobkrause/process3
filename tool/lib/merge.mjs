@@ -301,6 +301,10 @@ export function mergeRetry(call, { fetch = () => {}, check = () => {}, tries = R
       if (!again && p?.state === 'open' && !p.merged && p.head?.sha === reread.sha) {
         again = true;
         log(`GitHub's reply to the merge could not be read (${unread}); the pull request is open with the same head, so the merge is tried once more`);
+        // The same checks as a moved base: the base may have moved, or the PR been retargeted,
+        // while the reply was lost (review of PR 102).
+        fetch();
+        check();
         t--;
         continue;
       }

@@ -57,7 +57,7 @@ export function ownerBlock(root, refs, file, heading, isOwner, { history, need }
   };
   let best = null;
   for (const ref of refs) {
-    const r = history ? history(ref) : git(['log', '--format=%H %ct %ce %P', ref, '--', file], { cwd: root, allowFail: true });
+    const r = history ? history(ref) : git(['--literal-pathspecs', 'log', '--format=%H %ct %ce %P', ref, '--', file], { cwd: root, allowFail: true });
     if (r.code !== 0) continue;
     const tip = blockOf(ref);
     for (const l of r.stdout.split('\n').filter(Boolean)) {
@@ -72,7 +72,7 @@ export function ownerBlock(root, refs, file, heading, isOwner, { history, need }
 
 // A path's tree entry at a commit, mode and object together, so a mode-only change counts.
 const entryOf = (root, rev, file) => {
-  const out = git(['ls-tree', '-z', rev, '--', file], { cwd: root });
+  const out = git(['--literal-pathspecs', 'ls-tree', '-z', rev, '--', file], { cwd: root });
   const hit = out.split('\0').find((l) => l.endsWith(`\t${file}`));
   return hit ? hit.split('\t')[0].replace(/ \w+ /, ' ') : null;
 };
@@ -291,7 +291,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const inRange = new Set(commits);
   const guarded = (f) => isOwnerSetting(f) || isInstructionFile(f) || f === afile || f === CONFIG_FILE || KEEP.includes(f);
   // Another parent's version was judged when the last commit that set it lies in the range.
-  const judged = (p, f) => inRange.has(git(['log', '-1', '--format=%H', p, '--', f], { cwd: root }).trim());
+  const judged = (p, f) => inRange.has(git(['--literal-pathspecs', 'log', '-1', '--format=%H', p, '--', f], { cwd: root }).trim());
   // A commit where this shallow clone's history is cut shows no parents: diffed as a root
   // commit, every file would read as its change, named for a commit that never made it (copy,
   // 4 Nov). It is not judged; the check says it could not read it.
@@ -335,7 +335,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         }
       }
       for (const file of files) {
-        const ls = git(['ls-tree', '-z', sha, '--', file], { cwd: root });
+        const ls = git(['--literal-pathspecs', 'ls-tree', '-z', sha, '--', file], { cwd: root });
         if (PROTECTED.some((p) => underPath(file, p))) {
           notices.push({ check: 'protected', file, line: 1, message: `commit ${short} changes a protected path; it needs the fresh-context review (rule 5)` });
         }
@@ -392,7 +392,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const atHead = new Map();
   const headSize = (file) => {
     if (!atHead.has(file)) {
-      const ls = git(['ls-tree', '-z', head, '--', file], { cwd: root });
+      const ls = git(['--literal-pathspecs', 'ls-tree', '-z', head, '--', file], { cwd: root });
       const [mode, , blob] = (ls.split('\t')[0] || '').split(' ');
       atHead.set(file, !ls || mode === '160000' ? 0 : Number(git(['cat-file', '-s', blob], { cwd: root })));
     }

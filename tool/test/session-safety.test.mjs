@@ -214,6 +214,11 @@ test('mergeRetry: an unreadable reply with the pull request open at the same hea
   assert.throws(() => mergeRetry(() => { calls++; return unread(); }, { wait: 0, log: quiet, reread: { read: () => ({ state: 'open', head: { sha: 'b'.repeat(40) } }), sha: H40 } }), /at another head/);
   assert.throws(() => mergeRetry(unread, { wait: 0, log: quiet, reread: { read: () => ({ state: 'closed', merged: true, head: { sha: 'b'.repeat(40) } }), sha: H40 } }), /merged at another head/);
   assert.equal(calls, 1);
+  // The once-more try runs the moved-base checks first: a base that moved meanwhile stops it.
+  calls = 0;
+  const seen = [];
+  assert.throws(() => mergeRetry(() => { calls++; return unread(); }, { wait: 0, log: quiet, reread: open, fetch: () => seen.push('fetch'), check: () => { seen.push('check'); throw new Fail('main moved past the merged result the gate checked; run merge again'); } }), /moved past/);
+  assert.deepEqual([calls, seen], [1, ['fetch', 'check']]);
   // A refusal GitHub stated is not unreadable; without reread the error stands as before.
   assert.equal(unreadable('gh api -X PUT failed: gh: Pull Request is not mergeable (HTTP 405)'), false);
   assert.equal(unreadable('gh api -X PUT failed: {"message":"x"}'), false);

@@ -38,6 +38,15 @@ test('an oversize write the head later splits under the limit is waived and list
   assert.ok(r.notices.some((n) => n.check === 'size' && /waived/.test(n.message)));
 });
 
+test('a file name with pathspec magic is measured as itself, not as the path it names (review of PR 102)', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { ':(top)big.bin': 'y'.repeat(1000), 'big.bin': 'small' });
+  const r = recordCheck(root, cfg, { base, lookup: session });
+  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['size', ':(top)big.bin']]);
+  assert.deepEqual(r.size_waived, []);
+});
+
 test('an oversize blob over twice the limit stays a finding though the head later shrinks it (3 MiB shape)', () => {
   const root = makeRepo({ 'README.md': 'x' });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
