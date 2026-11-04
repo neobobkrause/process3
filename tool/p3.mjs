@@ -288,8 +288,9 @@ const commands = {
     return 0;
   },
 
-  // watch --session <the watcher's id> [--full]: the watcher's daily decision.
-  watch: (a, root) => { watch(root, { session: a.session, full: !!a.full }); return 0; },
+  // watch --session <the watcher's id> [--full | --escalated <minutes>]: the watcher's decision,
+  // daily or at once on an escalation.
+  watch: (a, root) => { watch(root, { session: a.session, full: !!a.full, escalated: a.escalated }); return 0; },
 
   // address <root|bob|watcher>: the address as the state branch holds it now.
   address: (a, root) => {

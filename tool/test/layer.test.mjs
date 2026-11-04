@@ -64,7 +64,7 @@ test('a closed layer: the next layer is listed, its deferred marks shown and not
   assert.deepEqual(r.next.map((x) => x.file), ['build/requirements/d.md']);
   assert.deepEqual(r.layer.deferred, [{ layer: 1, id: 'a', count: 2 }]);
   assert.match(out.join('\n'), /deferred at layer close \(not work\):\n- a \(layer 1\): 2\n/);
-  assert.match(out.join('\n'), /next work, layer 2 .*\n- build\/requirements\/d\.md: 1$/);
+  assert.match(out.join('\n'), /next work, layer 2 .*\n- build\/requirements\/d\.md: 1 \(layer 2\)$/);
   // A row whose commit is already on main (a tranche merged before) does not count.
   git(['update-ref', 'refs/remotes/origin/main', tip], { cwd: root });
   assert.equal(status(root, { role: 'bob', offline: true, log: quiet }).layer.cur.n, 1);

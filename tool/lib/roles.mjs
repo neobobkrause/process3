@@ -45,20 +45,24 @@ const PRIORITIES = [
 // acts reached only BOB and Bob took a process3-fix-or-restart choice to Bob, saying it could not
 // message the coordinator). The test of what goes to Bob instead is in their rulebooks.
 const COORD_ACT = 'send a technical question (a fix, a restart, a route) to the `coordinator` session in config with send_message, never to Bob; push-notify Bob only what passes your rulebook\'s test';
+// The escalation chain (Bob, 4 Nov: urgency fully supported): job to BOB to ROOT to watcher to
+// Bob, each step waiting targets.decision_minutes. ROOT's half; the watcher's is watch --escalated.
+const ESCALATION_ACT = 'on an escalation about a silent BOB, at once: get_session on BOB; if archived, or idle past `targets.decision_minutes` with it unanswered, hand over now (rulebook rule 6)';
 
 const ROOT_ACTS = [
-  `run the tool's \`start check\` and \`status\` and \`${P3} address <role>\``,
+  "run the tool's `start check`, `status` and `address <role>`",
   `start BOB when none is addressed: \`${P3} start bob\`, then create_session with the call it prints, then \`${P3} start record bob <new id>\``,
-  `replace BOB by the handover: \`${P3} handover begin\`, create_session with the call it prints, \`${P3} handover confirm <new id>\`, then message the old BOB as the steps say`,
+  `replace BOB by the handover: \`${P3} handover begin\`, then the steps it prints (create_session, \`handover confirm\`, a message to the old BOB)`,
   'message and interrupt the addressed BOB (interrupt restarts a BOB stopped by three refusals in a row)',
-  'archive an old BOB once it reports ready (housekeeping: nothing waits on it; a refusal is only reported to Bob)',
-  `once, when list_triggers shows no sweep task bound to this session: create your hourly sweep task bound to this session (create_trigger, no persistent_session_id) with what \`${P3} sweep task --session <your id>\` prints; never fire it by hand`,
-  `once per account, in your first turn, only when \`${P3} address watcher\` shows none (you never replace one): start the watcher, \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then its daily task bound to it (create_trigger with persistent_session_id) with the call it printed`,
+  'archive an old BOB once it reports ready (nothing waits on it; a refusal is only reported)',
+  `once, when list_triggers shows no sweep task of yours: create your hourly sweep task bound to this session (create_trigger, no persistent_session_id) with what \`${P3} sweep task --session <your id>\` prints; never fire it`,
+  `in your first turn, only when \`${P3} address watcher\` shows none: start the watcher, \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then its daily task bound to it (create_trigger with persistent_session_id) with the call it printed`,
   `when the sweep fires: \`${P3} sweep --session <your id> --live <n>\` (n: the live sessions list_sessions shows; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` for each attempt whose session record gives them) and do only what it prints; it reads step 0 to 3 and writes the heartbeat`,
+  ESCALATION_ACT,
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   COORD_ACT,
 ];
-const ROOT_NOT = 'Nothing else: create no other session or task than BOB, the watcher and the two tasks above, merge nothing, edit no task, archive nothing but an old BOB, edit no file by hand. Your context stays empty so you last.';
+const ROOT_NOT = 'Nothing else: create no other session or task than BOB, the watcher and the two tasks above, merge nothing, edit no task, archive nothing but an old BOB, edit no file by hand. Keep your context empty.';
 
 const BOB_ACTS = [
   `run \`${P3} start check\`, \`${P3} status\`, \`${P3} address root\` and the tool's job, merge, metrics, setup, handoff and send commands`,
@@ -136,7 +140,7 @@ export function watcherPrompt({ slug, tranche = 'tranche', approvals }) {
   L.push(`1. ${wakeSteps(tranche, approvals)}. If it says the approvals changed, tell Bob by push notification and take no further step.`);
   L.push(`2. \`${P3} address root\`; read that session's last events with list_events. Add \`--full\` below only if ROOT reported its context full or its last turn failed on a full context.`);
   L.push(`3. \`${P3} watch --session <your id>\`. If it says end, end the turn. If it says take over, do its steps, each its own command: \`${P3} start record root <your id>\`, create your hourly sweep task bound to yourself with what \`${P3} sweep task --session <your id>\` prints, and tell Bob by push notification. From then you are ROOT.`);
-  L.push('', '## Acts you may take', '', `- ${COORD_ACT}`, '', 'Nothing else: create no session, merge nothing, edit no task, archive nothing.');
+  L.push('', '## Acts you may take', '', `- on a message that ROOT left one unanswered past \`targets.decision_minutes\`, at once, not at your daily wake: steps 1 and 2, then step 3 with \`--escalated <minutes unanswered>\` in place of \`--full\``, `- ${COORD_ACT}`, '', 'Nothing else: create no session, merge nothing, edit no task, archive nothing.');
   return sized(L);
 }
 

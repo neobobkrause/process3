@@ -7,7 +7,7 @@ import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
-import { DEFAULTS, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
+import { DEFAULTS, OPEN_BY, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
 export const loadConditions = (file = CONDITIONS) => JSON.parse(readFileSync(file, 'utf8')).conditions;
@@ -386,9 +386,21 @@ export function setupCheck(root, { slug, at = null, conditions = loadConditions(
   log(`setup check for ${slug}, tranche ${x.cfg.tranche}${at ? `, at ${x.where}` : ''}:`);
   for (const r of results) log(`- ${r.state}: ${r.id}: ${r.detail}`);
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
+  const openByLine = openByCheck(x.cfg);
+  log(openByLine);
   const size = sizeCheck(root, x, sha, { io, log });
   const carry = takeInCheck(root, x, { io, log });
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry };
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine };
+}
+
+// Which opening of next work is in force (open_by in process/config.json; status --role bob).
+// Informational, never a missing condition: status itself refuses a value it does not know.
+function openByCheck(cfg) {
+  const v = cfg.open_by ?? 'uses';
+  if (!OPEN_BY.includes(v)) return `next work opens by: ${JSON.stringify(v)} is not one of ${OPEN_BY.map((o) => `"${o}"`).join(', ')}; status --role bob refuses it`;
+  return v === 'uses'
+    ? `next work opens by: uses (open_by); past the open layer, each module whose providers (\`uses\` in ${cfg.modules_file || 'modules_file, not set: none'}) are done`
+    : 'next work opens by: layer (open_by); the open layer\'s modules only';
 }
 
 // The product's size (p3 size) at the judged commit against the ranges.json of its pin (the

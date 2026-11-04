@@ -85,6 +85,9 @@ export const DEFAULTS = {
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
   layers_file: 'build/layers.md',
+  // status --role bob: how next work opens past the open layer. "uses": also every module whose
+  // providers (its `uses` in modules_file) are all done; "layer": the open layer's modules only.
+  open_by: 'uses',
   // The requirements cap (Build Plan, Phase 3; REQ-6, P6): a module's requirement file over this
   // many bytes is BOB's to split or consolidate before its job opens, a trigger, never a refusal.
   // Provisional, from layers 1 to 6 of the product's tranche (3 Nov: 109 files, median 32,829,
@@ -103,11 +106,15 @@ export const DEFAULTS = {
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
-  // Targets: status --role bob --sessions flags a job whose session is idle with no push for
-  // replace_minutes (measured 3-4 Nov: a stopped job was flagged only after two hours); a report
-  // or question unanswered in decision_minutes is escalated (Bob, 4 Nov: urgency in the release).
-  targets: { replace_minutes: 30, decision_minutes: 30 },
+  // Targets (Bob, 4 Nov: urgency in the release). decision_minutes: the escalation chain, job to
+  // BOB to ROOT to watcher to Bob, each step waiting this long for an answer before the next is
+  // asked. replace_minutes: status --role bob --sessions flags a job whose session is idle with no
+  // push this long (measured 3-4 Nov: a stopped job was flagged only after two hours).
+  targets: { decision_minutes: 30, replace_minutes: 30 },
 };
+
+// open_by values (status --role bob): "uses" the default, "layer" the old behaviour.
+export const OPEN_BY = ['uses', 'layer'];
 
 // An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
 export const UNMET = /\*\*(R[\w.-]+)\*\*\s*\*\(not yet met/g;

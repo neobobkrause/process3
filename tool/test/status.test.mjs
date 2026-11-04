@@ -50,14 +50,19 @@ test('status --role bob: next work only from the open layer, at most live_cap le
   assert.match(out.join('\n'), /next work, layer 1 .*: 2 listed \(live 3 of 5\), 0 wait/);
   const four = [];
   status(root, { role: 'bob', offline: true, live: 4, log: (m) => four.push(m) });
-  assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1$/);
+  assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)$/);
   // Layer 1 stays open while busy's job is open, though no file in it is unmet but busy's.
   const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
   openPassed(held);
   assert.deepEqual(status(held, { role: 'bob', offline: true, log: quiet }).next, []);
-  // Its job complete and its marks gone, layer 1 closes and layer 2 opens.
+  // Its job complete and its marks gone, layer 1 owes its close (work merged in this tranche);
+  // once that job is on main, layer 1 closes implicitly and layer 2 opens.
   const closed = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0), 'build/requirements/busy.md': unmet(0), 'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md', status: { state: 'COMPLETE' } }) });
   openPassed(closed);
+  const owes = [];
+  assert.deepEqual(status(closed, { role: 'bob', offline: true, log: (m) => owes.push(m) }).next, []);
+  assert.match(owes.join('\n'), /layer 1 ready to close: .* layer close 1/);
+  git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: closed });
   assert.deepEqual(status(closed, { role: 'bob', offline: true, log: quiet }).next.map((x) => x.file), ['build/requirements/d.md']);
   assert.throws(() => status(root, { role: 'bob', offline: true, live: 'x', log: quiet }), /--live/);
 });
@@ -249,5 +254,5 @@ test('status --role bob: cap debt counts every requirement file over the cap fro
   assert.match(text, new RegExp(`^cap debt: 2 requirement files over the cap from layer 2 on, ${bytes} bytes; each is split or consolidated before its job$`, 'm'));
   assert.match(text, /^split or consolidate before its job: build\/requirements\/a.md \d+ over 300$/m);
   assert.doesNotMatch(text, /split or consolidate before its job: build\/requirements\/c.md/);
-  assert.match(text, /next work, layer 2 .*\n- build\/requirements\/b.md: 1$/);
+  assert.match(text, /next work, layer 2 .*\n- build\/requirements\/b.md: 1 \(layer 2\)$/);
 });

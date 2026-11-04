@@ -137,19 +137,33 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
   return { act: todo.length ? 'act' : 'heartbeat', found: beat.found, todo, tip };
 }
 
-// watch --session <the watcher's id> [--full]: take over as ROOT when ROOT is full (the session
-// read ROOT's record and passes --full) or its heartbeat is older than four hours; otherwise end.
-export function watch(root, { session, full = false, offline = false, log = console.log } = {}) {
+// watch --session <the watcher's id> [--full | --escalated <minutes>]: take over as ROOT when ROOT
+// is full (the session read ROOT's record and passes --full), when a message to ROOT has gone
+// unanswered for targets.decision_minutes (--escalated, the escalation chain; Bob, 4 Nov), or
+// when its heartbeat is older than four hours; otherwise end.
+export function watch(root, { session, full = false, escalated, offline = false, log = console.log } = {}) {
   checkSession(session);
-  const sb = loadConfig(root).state_branch;
+  const cfg = loadConfig(root);
+  const sb = cfg.state_branch;
+  let late = null, wait = null;
+  if (escalated !== undefined) {
+    wait = Number(cfg.targets.decision_minutes);
+    if (!Number.isFinite(wait) || wait <= 0) fail(`targets.decision_minutes ${JSON.stringify(cfg.targets.decision_minutes)} in process/config.json is not a positive number`);
+    const m = Number(escalated);
+    if (escalated === true || escalated === '' || !Number.isFinite(m) || m < 0) fail(`--escalated takes the minutes the message to ROOT has gone unanswered; not ${JSON.stringify(escalated)}`);
+    late = m;
+  }
   if (!offline) fetchState(root, sb);
   const rootId = readAddress(root, { fetch: false }).root?.session;
-  if (!rootId) { log('end: no ROOT is addressed; starting the first ROOT is Bob\'s'); return { act: 'end' }; }
+  if (!rootId) { log(`end: no ROOT is addressed; starting the first ROOT is Bob's${late !== null ? '; tell Bob by push notification, with the escalation' : ''}`); return { act: 'end' }; }
   if (rootId === session) { log('end: you are ROOT; your sweep runs here'); return { act: 'end' }; }
   const hb = readHeartbeat(root, sb);
   const age = hb ? Date.now() - Date.parse(hb.at) : Infinity;
-  if (!full && age <= WATCH_HOURS * H) { log(`end: ROOT ${rootId} swept ${hours(age)}h ago`); return { act: 'end', age }; }
-  const why = full ? `ROOT ${rootId} is full` : hb ? `ROOT ${rootId}'s heartbeat is ${hours(age)}h old` : `ROOT ${rootId} has no heartbeat`;
+  const due = late !== null && late >= wait;
+  // An escalation not yet due never holds back a takeover that is due anyway (full, or a stale heartbeat).
+  if (late !== null && !due && !full && age <= WATCH_HOURS * H) { log(`end: the escalation is ${late} of ${wait} minutes old; ROOT keeps it until then, then run watch again`); return { act: 'end', age }; }
+  if (!full && !due && age <= WATCH_HOURS * H) { log(`end: ROOT ${rootId} swept ${hours(age)}h ago`); return { act: 'end', age }; }
+  const why = full ? `ROOT ${rootId} is full` : due ? `ROOT ${rootId} left a message unanswered ${late} min, past ${wait}` : hb ? `ROOT ${rootId}'s heartbeat is ${hours(age)}h old` : `ROOT ${rootId} has no heartbeat`;
   log(`take over: ${why}. Each its own command:
 1. ${P3} start record root ${session}
 2. ${P3} sweep task --session ${session}, then create_trigger bound to this session with what it prints
