@@ -165,6 +165,41 @@ export function overCap(cfg, file, text) {
 
 export const CONFIG_FILE = 'process/config.json';
 
+// The first key that appears twice in one object of a JSON text already known to parse; null
+// when none. JSON.parse keeps the last, so a diff that adds a duplicate above a key changes
+// nothing alone and changes the value once another diff, merged line by line, removes the key
+// below it (second confirming review of PR 97): the config is never read with one.
+export function duplicateKey(text) {
+  const stack = [];
+  let key = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      let j = i + 1;
+      while (text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+      const top = stack.at(-1);
+      if (key && top instanceof Set) {
+        const k = JSON.parse(text.slice(i, j + 1));
+        if (top.has(k)) return k;
+        top.add(k);
+        key = false;
+      }
+      i = j;
+    } else if (ch === '{') { stack.push(new Set()); key = true; }
+    else if (ch === '[') { stack.push(null); key = false; }
+    else if (ch === '}' || ch === ']') stack.pop();
+    else if (ch === ',') key = stack.at(-1) instanceof Set;
+  }
+  return null;
+}
+// JSON.parse, refusing a key that appears twice in one object.
+export function parseJSON(text) {
+  const v = JSON.parse(text);
+  const d = duplicateKey(text);
+  if (d !== null) throw new SyntaxError(`the key ${JSON.stringify(d)} appears twice in one object`);
+  return v;
+}
+
 // process/config.json in the product; every field optional. With a ref, read from that commit:
 // a check reads its config from the trusted base, never from the change it judges.
 export function loadConfig(root, ref) {
@@ -173,7 +208,7 @@ export function loadConfig(root, ref) {
     if (exists(root, ref, CONFIG_FILE)) text = git(['show', `${ref}:${CONFIG_FILE}`], { cwd: root });
   } else if (existsSync(join(root, CONFIG_FILE))) text = readFileSync(join(root, CONFIG_FILE), 'utf8');
   let c = {};
-  try { c = text ? JSON.parse(text) : {}; } catch (e) { fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not JSON: ${e.message}`); }
+  try { c = text ? parseJSON(text) : {}; } catch (e) { fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not JSON: ${e.message}`); }
   if (c === null || typeof c !== 'object' || Array.isArray(c)) fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not a JSON object`);
   return configOf(c, `${CONFIG_FILE}${ref ? ` at ${ref}` : ''}`);
 }
@@ -190,6 +225,8 @@ export function configOf(c, where = CONFIG_FILE) {
   }
   return {
     ...DEFAULTS, ...c,
+    // A null tranche is the default one, as the anchor reads it (second confirming review of PR 97).
+    tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
   };

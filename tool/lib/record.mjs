@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { METRICS_DIR, metricsFile } from './metrics.mjs';
-import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -333,7 +333,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           // The approvals key (an absent owner is the default one) and record_since.
           const ap = (t2) => {
             try {
-              const c = JSON.parse(t2 || '{}');
+              const c = parseJSON(t2 || '{}');
               return { approvals: JSON.stringify({ ...DEFAULTS.approvals, ...(c.approvals || {}) }), since: c.record_since ?? null };
             } catch { return { approvals: 'unreadable', since: 'unreadable' }; }
           };

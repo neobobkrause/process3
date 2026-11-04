@@ -10,7 +10,7 @@ import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
-import { blobAt, isBootstrap, keySetAt, lastConfigAt, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
+import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
 import { P3, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
@@ -328,6 +328,8 @@ export function pinChange(root, mb, sha, repo, at = {}) {
   if (blobAt(root, mb, CONFIG_FILE) && !blobAt(root, sha, CONFIG_FILE)) fail(`the pull request deletes ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
   const key = unanchored(root, mb, sha, at.intoMain ? at.ownerCommit : null, at.baseRef || mb);
   if (key) fail(`the pull request changes ${key} in ${CONFIG_FILE}; that needs the owner's word: bring it to Bob`);
+  const why = at.baseRef ? mergedUnanchored(root, at.baseRef, mb, sha) : null;
+  if (why) fail(`the pull request is refused: ${why}; that needs the owner's word: bring it to Bob`);
 }
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
@@ -507,13 +509,16 @@ export function mergePlain(root, n, opts = {}) {
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);
   if (again.head?.sha !== pr.head.sha) fail(`pull request ${n} moved while it was checked; run merge again`);
-  // A first close stands only while the base still has no Process3: read again now, after the
-  // wait, from a fetch that must succeed (review 4 of PR 97).
-  const stillBoot = () => {
+  // Read the base again now, after the wait (it may have moved), from a fetch that must succeed:
+  // a first close stands only while the base still has no Process3 (review 4 of PR 97), and the
+  // anchored keys are judged on the merge with the base as it is (anchor.mjs mergedUnanchored).
+  const baseHolds = () => {
     git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root });
-    if (!isBootstrap(root, baseRef)) fail(`${base} gained Process3 while pull request ${n} was checked as its first close; run merge again`);
+    if (boot && !isBootstrap(root, baseRef)) fail(`${base} gained Process3 while pull request ${n} was checked as its first close; run merge again`);
+    const why = mergedUnanchored(root, baseRef, git(['merge-base', baseRef, pr.head.sha], { cwd: root }), pr.head.sha);
+    if (why) fail(`pull request ${n} is refused: ${why}; that needs the owner's word: bring it to Bob`);
   };
-  if (boot) stillBoot();
+  baseHolds();
   // The first close stands on the gate itself, not only on GitHub's ruleset.
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
@@ -525,7 +530,7 @@ export function mergePlain(root, n, opts = {}) {
     check: () => {
       const p = io.getPR(slug, n);
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
-      if (boot) stillBoot();
+      baseHolds();
     },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);

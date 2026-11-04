@@ -3,7 +3,7 @@
 // and owner). A change to any of them needs the owner's word: either it is unchanged from the
 // base, or it took its value at the owner's own commit through GitHub's website. The owner who
 // judges is always the base's (or, at the first close, the tool's default), never the head's.
-import { CONFIG_FILE, DEFAULTS, git } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, git, parseJSON } from './util.mjs';
 
 export const ANCHORED = ['process_repo', 'tranche', 'approvals'];
 
@@ -16,10 +16,11 @@ export const pinAt = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cw
 // A config key at a commit: 'unreadable' when the file is not a JSON object. The tranche's name
 // counts as its default when the config does not name it; the approvals as loadConfig reads them
 // (the defaults with the file's keys over them), as text, so two equal blocks compare equal.
+// A key twice in one object reads as unreadable (util.mjs duplicateKey). rev may be a tree.
 export const keyAt = (root, rev, key) => {
   const r = git(['show', `${rev}:${CONFIG_FILE}`], { cwd: root, allowFail: true });
   let c = null;
-  if (r.code === 0) { try { c = JSON.parse(r.stdout); } catch { return 'unreadable'; } if (!c || typeof c !== 'object' || Array.isArray(c)) return 'unreadable'; }
+  if (r.code === 0) { try { c = parseJSON(r.stdout); } catch { return 'unreadable'; } if (!c || typeof c !== 'object' || Array.isArray(c)) return 'unreadable'; }
   if (key === 'approvals') return JSON.stringify({ ...DEFAULTS.approvals, ...(c?.approvals || {}) });
   const v = c?.[key] ?? null;
   return key === 'tranche' && v === null ? DEFAULTS.tranche : v;
@@ -70,3 +71,24 @@ export function lastConfigAt(root, rev) {
 
 // The first close (bootstrap): a base that holds no pin and whose history never held the config.
 export const isBootstrap = (root, baseRef) => !lastConfigAt(root, baseRef) && !pinAt(root, baseRef);
+
+// The anchored keys as GitHub's merge would leave them: the base's tip merged with sha, as git
+// merges it (merge-tree). Each pull request is judged head against merge base, but what lands is
+// a line-by-line merge, and two changes judged alone can compose into a value neither holds, or
+// undo the owner's later change on the base (second confirming review of PR 97). So each key in
+// the merge must be the head's when the head changes it (judged by unanchored), else the base
+// tip's. Returns why not, or null.
+export function mergedUnanchored(root, tip, mb, sha) {
+  const r = git(['merge-tree', '--write-tree', tip, sha], { cwd: root, allowFail: true });
+  if (r.code !== 0) return `it does not merge cleanly with the base as it is`;
+  const tree = r.stdout.split('\n')[0].trim();
+  const was = lastConfigAt(root, tip);
+  if (was && !blobAt(root, tree, CONFIG_FILE)) return `merged with the base as it is, it would delete ${CONFIG_FILE}`;
+  const from = lastConfigAt(root, mb) || mb;
+  for (const key of ANCHORED) {
+    const head = keyAt(root, sha, key);
+    const want = head !== keyAt(root, from, key) ? head : keyAt(root, was || tip, key);
+    if (keyAt(root, tree, key) !== want) return `merged with the base as it is, it would leave ${key} in ${CONFIG_FILE} at neither the base's value nor the head's judged one`;
+  }
+  return null;
+}
