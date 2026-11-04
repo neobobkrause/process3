@@ -146,6 +146,21 @@ function recordOnly(root, cfg, base, main, tip, deep) {
 // io: { state(path) -> text|null (the state branch, null when unread), merged() -> merged PRs into
 // the tranche or null, comments(pr) -> the PR's comments }. stateRead: whether the branch was read.
 // deepened: deepen()'s result in a shallow clone.
+// The base-red tests on each merged PR's newest green gate run: [{ module, pr, test, base }], or
+// null when a PR's comments could not be read.
+export function baseRedOwed(mergeRows, runsOf) {
+  const out = [];
+  for (const r of mergeRows) {
+    let runs;
+    try { runs = runsOf(r.pr); } catch { return null; }
+    const green = runs.filter((g) => g.ok && g.trigger === 'code').pop();
+    for (const b of Array.isArray(green?.base_red) ? green.base_red : []) {
+      for (const t of Array.isArray(b?.tests) ? b.tests : []) out.push({ module: b.module ?? r.module, pr: r.pr, test: String(t), base: b.base });
+    }
+  }
+  return out;
+}
+
 export function trancheReport(root, cfg, { slug, now = new Date().toISOString(), stateRead = false, deepened = null, jobRefs, jobRows = [], io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   const tip = gitOut(root, ['rev-parse', '--verify', '-q', tranche]) ? tranche : 'HEAD';
@@ -317,5 +332,11 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push(`Attempts: ${ATTEMPTS_RULE}.`, '');
   if (perJob.length) L.push(...table(['job', 'attempts started', 'job sessions measured'], perJob), '');
   else if (!opened) L.push(`Per job: ${U} (the tranche's opening not read).`, '');
+
+  // Base-red (basered.mjs): failures a job's gate tolerated because the tranche had them too.
+  // Merged green, they are still owed: the layer close and the tranche into main run them again.
+  L.push('## Base-red tests owed', '', 'Failing tests a merged job\'s gate tolerated because they failed at the tranche tip it merged into too. The layer close and the tranche into main run them again with no tolerance.', '');
+  const owed = baseRedOwed(mergeRows, (pr) => gateRuns(read.comments(pr) || []));
+  L.push(...(owed === null ? [U] : owed.length ? table(['job', 'PR', 'test', 'base'], owed.map((o) => [o.module, `#${o.pr}`, o.test, String(o.base).slice(0, 10)])) : ['None.']), '');
   return L.join('\n');
 }

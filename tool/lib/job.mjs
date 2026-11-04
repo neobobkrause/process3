@@ -13,6 +13,7 @@ import { RESTARTS_FILE, entryHistory } from './lead.mjs';
 import { movedText, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
+import { baseRed, failingTests } from './basered.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -812,14 +813,23 @@ export function jobComplete(root, id, opts = {}) {
     if (noSuite) notv.push('the module suite was not run by job complete');
     else if (installed) {
       const s = runSuite(root, entry, undefined, { timeout });
-      commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
-      if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
+      const c = { cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true };
+      commands.push(c);
+      if (s.exit !== 0) {
+        log(s.output.split('\n').slice(-40).join('\n'));
+        // Base-red, as the gate judges it (basered.mjs): failures the tranche's tip has too are
+        // not the job's; the receipt names them, and the gate checks them again.
+        const tip = git(['rev-parse', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
+        const br = baseRed(root, entry, { base: tip, failing: failingTests(s.output, root), cfg, rows: generatedRows(cfg).rows, timeout: Math.max(1000, timeout - s.seconds * 1000), ...(exec ? { exec } : {}), log });
+        if (br.ok) { c.base_red = br.base_red.tests; log(`the suite's ${c.base_red.length} failing test(s) fail at ${cfg.tranche}'s tip ${tip.slice(0, 10)} too: base-red, named in the receipt`); }
+        else log(`not base-red: ${br.why}`);
+      }
     }
   } finally {
     if (built) restoreGenerated(root, built.ran, log);
   }
   for (const f of [...ledger, ...rec.findings]) log(`${f.check}: ${f.file}:${f.line}: ${f.message}`);
-  const failed = commands.filter((c) => c.exit !== 0);
+  const failed = commands.filter((c) => c.exit !== 0 && !c.base_red);
   if (failed.length) {
     for (const c of failed) log(`failed (exit ${c.exit}): ${c.cmd}`);
     log('not complete: fix these and run job complete again, or block.');
