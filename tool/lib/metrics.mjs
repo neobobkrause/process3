@@ -289,7 +289,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
   const rows = rowsAt(root, branch);
   const opened = openedAt(lead.grants, cfg);
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
-  const merges = rows.filter((r) => r.row === 'merge');
+  const merges = [...new Map(rows.filter((r) => r.row === 'merge').map((r) => [String(r.pr), r])).values()]; // each PR once (copy, 4 Nov: PR 60's merge recorded twice)
   const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
   let refuted = 0;
   let gateMinutes = 0;

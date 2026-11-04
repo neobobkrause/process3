@@ -142,6 +142,24 @@ test('status: a WORKING job that pushed and then went quiet past SILENT_HOURS is
   assert.match(out.join('\n'), /idle:\n- stale: WORKING;.*; WORKING, no push for 5h; BOB's act: .* job start stale --restart "<why>"\nopen:\n- fresh: WORKING; PR unknown \(GitHub not read\), last activity unknown\n/);
 });
 
+// Copy, 4 Nov: file-safety was flagged "WORKING, nothing pushed" 7 minutes after its start commit,
+// while the flag for a job that pushed and went quiet waits SILENT_HOURS. Both wait now.
+test('status: a WORKING job with only its start commit is flagged nothing pushed past SILENT_HOURS, not when fresh', () => {
+  const root = makeRepo({ 'process/ledger/old.json': entry('old', { status: { state: 'WORKING' } }), 'process/ledger/new.json': entry('new', { status: { state: 'WORKING' } }) });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  for (const [id, at] of [['old', new Date(Date.now() - 5 * 36e5).toISOString()], ['new', new Date().toISOString()]]) {
+    git(['checkout', '-q', '-b', `job/${id}`, 'origin/tranche'], { cwd: root });
+    const old = process.env.GIT_COMMITTER_DATE;
+    process.env.GIT_COMMITTER_DATE = at;
+    try { commit(root, { [`src/${id}/a.js`]: '1' }, 'job start'); } finally { if (old === undefined) delete process.env.GIT_COMMITTER_DATE; else process.env.GIT_COMMITTER_DATE = old; }
+    git(['update-ref', `refs/remotes/origin/job/${id}`, 'HEAD'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+  }
+  const by = Object.fromEntries(status(root, { offline: true, log: quiet }).rows.map((r) => [r.id, r]));
+  assert.deepEqual([by.old.ahead, by.old.flag], [1, 'WORKING, nothing pushed']);
+  assert.deepEqual([by.new.ahead, by.new.flag], [1, undefined]);
+});
+
 // --sessions (measured 3-4 Nov: a stopped job was flagged only after two hours with no push): BOB's
 // own list_sessions JSON; a job whose session is archived, or idle with no push for
 // targets.replace_minutes, is flagged with the restart; a running one, or none given, is not.

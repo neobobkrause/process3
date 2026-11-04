@@ -117,9 +117,9 @@ export function deepen(root, tranche, main = 'main') {
 // What lead times read, fetched for metrics report and report tranche: the tranche and main,
 // every job branch origin holds (fetchJobs: fresh, never a stale ref) with its own rows (a start
 // or complete row lives there until the merge), then, in a shallow clone, deepen() for the
-// tranche's history. Returns { jobRefs, jobRows, deepened }.
+// tranche's history. Returns { jobRefs, jobRows, deepened }. A failed fetch refuses (copy, 4 Nov: a stale tip).
 export function leadFetch(root, cfg) {
-  git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
+  git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root });
   const jobRefs = fetchJobs(root);
   const jobRows = [...(jobRefs || new Map())].flatMap(([m, r]) => (r ? rowsAt(root, r).filter((x) => x.module === m) : []));
   return { jobRefs, jobRows, deepened: deepen(root, cfg.tranche) };
