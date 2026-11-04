@@ -15,6 +15,7 @@ import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, layerState, status } from './status.mjs';
 import { loadRanges, platformRows } from './size.mjs';
+import { redact } from './deploy.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -180,10 +181,11 @@ export function releaseRun(root, step, { out, log = console.log, exec = run, log
   const list = inst.findings.length || b.findings.length ? [] : step === 'checks' ? rel.checks : [{ name: 'assemble', argv: rel.assemble, timeout_minutes: rel.assemble_timeout_minutes }];
   const logs = list.length ? logDir || mkdtempSync(join(tmpdir(), `p3-release-${step}-`)) : null;
   const put = { out: (t) => process.stdout.write(t), err: (t) => process.stderr.write(t), note: log };
+  const masks = new Set();
   for (const c of list) {
     log(`::group::${c.name}`);
     const r = exec(c.argv[0], c.argv.slice(1), { cwd: root, timeout: c.timeout_minutes * MINUTE, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
-    keepStep(logs, results.length + 1, c.name, r.stdout, r.stderr, put);
+    keepStep(logs, results.length + 1, c.name, redact(r.stdout, masks), redact(r.stderr, masks), put);
     log('::endgroup::');
     const timedOut = r.seconds * 1000 >= c.timeout_minutes * MINUTE;
     results.push({ name: c.name, exit: r.code, seconds: Math.round(r.seconds), ...(timedOut && r.code !== 0 ? { message: `timed out after ${c.timeout_minutes} min` } : {}) });

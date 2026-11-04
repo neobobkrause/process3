@@ -172,7 +172,7 @@ test('release run: each check within its timeout, results written; the assemble 
 });
 
 test('release run: a check that prints 1,600 lines keeps every line in its file; the log says how many were cut and where', () => {
-  const long = { name: 'long', argv: ['node', '-e', "for (let i = 1; i <= 1600; i++) console.log('line ' + i + ' ' + 'y'.repeat(20))"] };
+  const long = { name: 'long', argv: ['node', '-e', "console.log('::add-mask::k3y' + 'v'); for (let i = 1; i <= 1600; i++) console.log('line ' + i + ' ' + 'y'.repeat(20) + (i === 1 ? ' k3y' + 'v' : ''))"] };
   const root = makeRepo({ 'process/config.json': { release: { checks: [long], assemble: ['node', '-e', '0'], out: 'rel' } } });
   const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
   const notes = [];
@@ -182,6 +182,8 @@ test('release run: a check that prints 1,600 lines keeps every line in its file;
   try { assert.equal(releaseRun(root, 'checks', { log: (m) => notes.push(m), logDir }).ok, true); } finally { process.stdout.write = write; }
   const file = join(logDir, '01-long.log');
   assert.equal(readFileSync(file, 'utf8').split('\n').filter((l) => l.startsWith('line ')).length, 1600);
+  assert.match(readFileSync(file, 'utf8'), /^line 1 y+ \*\*\*$/m, 'masked values are *** in the file too');
+  assert.doesNotMatch(readFileSync(file, 'utf8'), /k3yv/);
   assert.ok(shown.length === 20000 && shown.endsWith('line 1600 yyyyyyyyyyyyyyyyyyyy\n'));
   const cut = notes.join('\n').match(/\[(\d+) line\(s\) left out before this tail; the whole output is in (\S+)\]/);
   assert.equal(cut[2], file);

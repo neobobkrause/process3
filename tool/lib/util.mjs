@@ -14,7 +14,7 @@ export function keepStep(dir, n, name, out, err, put, max = 20000) {
     if (text.length > max) put.note(`[${(text.slice(0, -max).match(/\n/g) || []).length} line(s) left out before this tail; the whole output is in ${file}]`);
     write(text.slice(-max));
   }
-  put.note(`full output: ${file}`);
+  if (out.trim() || err.trim()) put.note(`full output: ${file}`);
   return file;
 }
 

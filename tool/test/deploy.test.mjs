@@ -1,6 +1,6 @@
 // Build Plan Phase 2, the deploy and walk: development deployments only (Bob's word, 3 Nov).
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -103,15 +103,23 @@ test('deploy dev: refused before a layer closes; dry run, deploy, walk, one row;
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /not the tranche tip/);
 });
 
-test('deploy dev: a walk that prints 1,600 lines keeps every line in its file; the log has the tail, the cut notice and the path; masks hold in the file', () => {
-  const walk = node("console.log('::add-mask::' + 's3cr3t' + '-value'); for (let i = 1; i <= 1600; i++) console.log('screen ' + i + ' finding ' + 'x'.repeat(20) + (i === 1 ? ' s3cr3t' + '-value' : ''))");
-  const { root } = withOrigin(product({ ...DEP, walk }));
+test('deploy dev: a walk that prints 1,600 lines keeps every line in its file; the log has the tail, the cut notice and the path; its reports go to the state branch, counted in the row', () => {
+  const walk = node(`const fs = require('fs'); const v = 's3cr3t' + '-value'; console.log('::add-mask::' + v);
+    const steps = []; const failures = [];
+    for (let i = 1; i <= 1600; i++) { console.log('screen ' + i + ' finding ' + 'x'.repeat(20) + (i === 1 ? ' ' + v : '')); steps.push({ journey: 'j', label: 's' + i, ok: i % 100 !== 0 }); if (i % 100 === 0) failures.push({ kind: i === 100 ? 'http-500' : 'layout', detail: 'at ' + i + (i === 100 ? ' ' + v : '') }); }
+    fs.mkdirSync('out/live', { recursive: true });
+    fs.writeFileSync('out/live/report.json', JSON.stringify({ arm: 'live', steps, failures }, null, 1));
+    fs.writeFileSync('out/live/report.txt', steps.map((x) => (x.ok ? 'ok   ' : 'FAIL ') + x.label).join('\\n') + '\\n');
+    fs.writeFileSync('out/live/big.txt', 'z'.repeat(300 * 1024));`);
+  const reports = ['out/live/report.json', 'out/live/report.txt', 'out/live/big.txt', 'out/live/none.txt'];
+  const { root, bare } = withOrigin({ ...product({ ...DEP, walk, walk_reports: reports }), 'process/config.json': { deploy: { ...DEP, walk, walk_reports: reports }, max_file_bytes: 200 * 1024 } });
   assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
   const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
   const out = [];
-  assert.equal(deployDev(root, { io: { ...io, logDir }, repo, log: (m) => out.push(m) }).ok, true);
+  const r = deployDev(root, { io: { ...io, logDir }, repo, log: (m) => out.push(m) });
   const text = out.join('\n');
-  const file = join(logDir, '04-walk-node.log');
+  assert.equal(r.ok, true, text);
+  const file = join(logDir, readdirSync(logDir).find((f) => /-walk\.log$/.test(f)));
   const whole = readFileSync(file, 'utf8');
   for (let i = 1; i <= 1600; i++) assert.match(whole, new RegExp(`^screen ${i} finding`, 'm'));
   assert.match(whole, /screen 1 finding x+ \*\*\*/);
@@ -122,9 +130,22 @@ test('deploy dev: a walk that prints 1,600 lines keeps every line in its file; t
   assert.ok(cut, text.slice(0, 2000));
   assert.equal(cut[2], file);
   assert.equal(Number(cut[1]), whole.slice(0, -20000).match(/\n/g).length, 'the whole lines not shown');
-  assert.ok(Number(cut[1]) > 800);
-  assert.match(text, new RegExp(`full output: ${file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-  assert.match(text, /each step's whole output is kept under /);
+  assert.ok(text.includes(`full output: ${file}`));
+  // The reports: kept whole on the state branch, the row's counts, masked values as ***.
+  const w = rows(bare).at(-1).walk;
+  assert.deepEqual({ ...w, reports: undefined }, { steps: 1600, steps_ok: 1584, failures: 16, by_kind: { 'http-500': 1, layout: 15 }, reports: undefined });
+  const dir = w.reports[0].stored.replace(/\/report\.json$/, '');
+  assert.match(dir, /^deploys\/p3dev-l1\/\d{4}-\d\d-\d\dT[\d-]+Z$/);
+  assert.deepEqual(w.reports.map((x) => x.stored), [`${dir}/report.json`, `${dir}/report.txt`, 'not stored, 307200 bytes', 'not written by this walk']);
+  assert.equal(git(['show', `process-state:${dir}/report.txt`], { cwd: bare }).split('\n').length, 1600);
+  const stored = git(['show', `process-state:${dir}/report.json`], { cwd: bare });
+  assert.equal(JSON.parse(stored).steps.length, 1600);
+  assert.match(stored, /at 100 \*\*\*/);
+  assert.doesNotMatch(stored, /s3cr3t-value/);
+  assert.throws(() => git(['show', `process-state:${dir}/big.txt`], { cwd: bare }));
+  assert.match(text, /walk: 1600 steps, 1584 ok, 16 failures/);
+  assert.throws(() => deployConfig(cfgWith({ ...DEP, walk_reports: ['a/r.txt', 'b/r.txt'] })), /walk_reports/);
+  assert.throws(() => deployConfig(cfgWith({ ...DEP, walk_reports: ['../r.txt'] })), /walk_reports/);
 });
 
 test('deploy dev: a dry-run step that does not print the guard line stops it before the deploy; the row records it and a later run may go', () => {
