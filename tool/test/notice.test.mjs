@@ -542,3 +542,53 @@ test('a source change with no export change still records a notice, with no expo
   assert.deepEqual(r2.notices.rows, []);
   assert.match(out.join('\n'), /provider notices for PR 52: nothing to record/);
 });
+
+// Round 2 of PR 79, asked by the coordinator 4 Nov: a job STARTed before BOB withdrew its notice
+// owes no test for it, and its resumed or replacement START no longer asks for one.
+function startedThenWithdrawn() {
+  const root = product();
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const gh = { open: (slug, p) => ({ number: 9, html_url: 'pr', draft: true, ...p }), find: () => null, setup: () => ({ ok: true, missing: [] }) };
+  const { start } = jobStart(root, 'u1', { coordinator: 's', ...gh, log: quiet });
+  assert.match(start, /`--test notice:p:7=\.\.\.`/);
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
+  onState(root, { 'notices/withdrawn/p-7.json': JSON.stringify({ row: 'withdrawn', key: 'p:7' }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  return { root, gh };
+}
+
+test('a START whose notice was withdrawn since: job complete owes no test for it, and a --test given for it is accepted and not recorded', () => {
+  const { root } = startedThenWithdrawn();
+  git(['checkout', '-q', 'job/u1'], { cwd: root });
+  assert.deepEqual(readRows(root, 'u1')[0].notices, ['p:7']);
+  commit(root, { 'test/u1/p.test.mjs': passing('u1 reads p') });
+  const out = [];
+  const r = jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::u1 reads p'], log: (m) => out.push(m) });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.receipt.tests, []);
+  assert.match(out.join('\n'), /--test notice:p:7: the provider notice was withdrawn; no test is owed for it, and this one is not recorded/);
+  // Not withdrawn, the same START still owes it (no --test: refused).
+  const { root: r2 } = startedThenWithdrawn();
+  git(['push', '-q', 'origin', '--delete', 'process-state'], { cwd: r2 });
+  git(['checkout', '-q', 'job/u1'], { cwd: r2 });
+  commit(r2, { 'test/u1/p.test.mjs': passing('u1 reads p') });
+  assert.throws(() => jobComplete(r2, 'u1', { push: false, log: quiet }), /provider notice p:7 has no --test/);
+});
+
+test('a START whose notice was withdrawn since: job complete with no --test completes', () => {
+  const { root } = startedThenWithdrawn();
+  git(['checkout', '-q', 'job/u1'], { cwd: root });
+  commit(root, { 'test/u1/b.test.mjs': passing('u1 b') });
+  assert.equal(jobComplete(root, 'u1', { push: false, log: quiet }).ok, true);
+});
+
+test('the resumed and the replacement START leave out a notice withdrawn since the start, and ask no test for it', () => {
+  const { root, gh } = startedThenWithdrawn();
+  const resumed = jobStart(root, 'u1', { coordinator: 's', ...gh, find: () => ({ number: 9 }), log: quiet }).start;
+  assert.doesNotMatch(resumed, /p:7|## Provider notices/);
+  const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'job' } };
+  const replaced = jobStart(root, 'u1', { coordinator: 's', restart: 'its session stopped', find: () => pr, notes: () => [], log: quiet }).start;
+  assert.match(replaced, /replacement session/);
+  assert.doesNotMatch(replaced, /p:7|## Provider notices/);
+});

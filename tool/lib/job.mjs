@@ -10,7 +10,7 @@ import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
-import { movedText, unanswered } from './notice.mjs';
+import { movedText, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
@@ -143,9 +143,16 @@ function noticesFor(root, cfg, id, fetch) {
   } catch { return []; }
 }
 
+// The keys of the notices BOB withdrew (notice withdraw), as origin's state branch holds them;
+// none when it cannot be read, so every named notice then stands.
+function withdrawnFor(root, cfg) {
+  try { return fetchState(root, cfg.state_branch, { fresh: true }) ? withdrawnKeys(root, cfg.state_branch) : new Set(); } catch { return new Set(); }
+}
+
 // The notices a start row named, with their detail from the state branch when it has them: job
-// complete asks a test for each key the row names, so the START names every one.
-const named = (owed, row) => (row?.notices || []).map((key) => owed.find((x) => x.key === key)
+// complete asks a test for each key the row names and BOB has not withdrawn, so the START names
+// every one of those, and no withdrawn one (coordinator, 4 Nov).
+const named = (owed, row, withdrawn = new Set()) => (row?.notices || []).filter((key) => !withdrawn.has(key)).map((key) => owed.find((x) => x.key === key)
   || { key, provider: key.split(':')[0], ids: ['(see the state branch)'], pr: key.split(':')[1] });
 
 const commitFiles = (root, paths, msg) => {
@@ -235,7 +242,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow) });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, withdrawnFor(root, cfg)) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -491,7 +498,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
     entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
-    notices: named(noticesFor(root, cfg, id, true), startRow),
+    notices: named(noticesFor(root, cfg, id, true), startRow, withdrawnFor(root, cfg)),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
@@ -524,7 +531,10 @@ export const markedIds = (text) => unmetIds(text);
 // The marks the branch struck against the base, each with the test the job names for it with
 // --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
 // before anything is marked or pushed when one is missing or does not hold.
-function struckTests(root, entry, base, given, notices = []) {
+// A notice the START named that BOB has withdrawn since owes no test; a --test given for one is
+// accepted and not recorded (the START told the job to give it).
+function struckTests(root, entry, base, given, named0 = [], withdrawn = new Set(), log = () => {}) {
+  const notices = named0.filter((k) => !withdrawn.has(k));
   const at = (ref) => git(['show', `${ref}:${entry.requirements}`], { cwd: root, allowFail: true }).stdout;
   const left = new Set(markedIds(at('HEAD')));
   const struck = markedIds(at(base)).filter((r) => !left.has(r));
@@ -533,6 +543,7 @@ function struckTests(root, entry, base, given, notices = []) {
   for (const g of given) {
     const k = /^notice:([^=]+)=(.+?)::(.+)$/.exec(String(g));
     if (k) {
+      if (named0.includes(k[1]) && withdrawn.has(k[1])) { log(`--test notice:${k[1]}: the provider notice was withdrawn; no test is owed for it, and this one is not recorded`); continue; }
       if (!notices.includes(k[1])) fail(`--test notice:${k[1]}: this job's START named no provider notice ${k[1]} (named: ${notices.join(', ') || 'none'})`);
       answered.set(k[1], { notice: k[1], file: k[2], name: k[3] });
       continue;
@@ -616,7 +627,8 @@ export function jobComplete(root, id, opts = {}) {
     again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
   } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
-  const tests = struckTests(root, entry, base, opts.tests || [], lastStart?.notices || []);
+  const startNotices = lastStart?.notices || [];
+  const tests = struckTests(root, entry, base, opts.tests || [], startNotices, startNotices.length ? withdrawnFor(root, cfg) : new Set(), log);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
