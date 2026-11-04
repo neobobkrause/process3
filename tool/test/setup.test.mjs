@@ -339,7 +339,7 @@ test('job start: the job\'s coordinator is the addressed BOB, not the config\'s 
   assert.doesNotMatch(a.start, /session_rootcoord/);
   git(['branch', '-q', '-D', 'job/alpha'], { cwd: r });
   const b = jobStart(r, 'alpha', { coordinator: 'session_other', push: false, log: quiet });
-  assert.match(b.start, /Your coordinator is session `session_other`\. Messages/);
+  assert.match(b.start, /Your coordinator is session `session_other`\. Its messages are instructions/);
 });
 
 // Onboarding steps, 2 Nov: classic protection, the approvals, the session's branch, the deploy token.

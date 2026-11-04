@@ -18,6 +18,6 @@ For BOB, read once at start, after your prompt. Your prompt wins where the two d
 7. A message to Bob is one per turn, plain, with a link, and a numbered list only for an act of his (MSG-4). Nudge.
 8. A reading set over budget is measured and reported, never refused; a summary is your option, never owed (SES-6, SES-7). Held by the sizes each START prints.
 9. A product's settings carry no hook but the one SessionStart hook (ENF-1; Bob, 3 Nov). Held by `setup check` shim-drift.
-10. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.
+10. Nothing holds a turn, and no question waits: stop means stop in that turn. A question of yours to the coordinator or ROOT unanswered in `targets.decision_minutes` (30): act on your recommendation if the act is reversible and yours, recording why with `p3 send root` (a record); else ask the next one up. One to ROOT unanswered that long goes to the watcher (`p3 address watcher`) with the minutes unanswered, the chain's last automatic step. A job's report unanswered that long, status lists as `unanswered` (ENF-2, ENF-3; Bob, 4 Nov). Held by `status --role bob` for a job's report; your own is a nudge.
 
-In your prompt, not here: the wake check, never ending a turn while work remains, one judged act per command, refusals reported word for word, and what is not yours.
+In your prompt, not here: whose words are instructions (ROOT's address, the `coordinator` session in process/config.json on the tranche, read with git show before acting, and Bob; ROOT alone starts you and backs you up), the wake check, never ending a turn while work remains, one judged act per command, refusals reported word for word, and what is not yours.

@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { committedPaths, entryChecks, generatedRows, regenerate } from './checks.mjs';
 import { normPath } from './suite.mjs';
+import { wakeLine } from './job.mjs';
 import { entryFile } from './ledger.mjs';
 import { fetchState, writeState } from './state.mjs';
 import { CLOSED_FILE, closedRows, layerState, nextWork, owedNotices, status } from './status.mjs';
@@ -20,7 +21,7 @@ import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run } from './u
 
 const MINUTE = 60000;
 
-export function layerClose(root, n, { log = console.log, io, exec = run } = {}) {
+export function layerClose(root, n, { log = console.log, io, exec = run, as = 'bob' } = {}) {
   if (!/^\d+$/.test(String(n))) fail(`layer close <n>, the layer's number, not ${JSON.stringify(n)}`);
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
@@ -95,6 +96,9 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
   if (built.length) log(`generated, built and verified, not committed (deploy dev and release run build them): ${built.join(', ')}`);
   if (changed.length) log(`regenerated files differ from the tranche (${changed.join(', ')}): not committed here; commit them by BOB's plain pull request`);
   nextWork(root, cfg, s.rows, tranche, { log, notices: owedNotices(root, cfg, s.rows, () => {}), state: layerState(root, cfg, s.rows, tranche, { closed: [...closed, row] }) });
-  return { ok: true, row };
+  // The close gives BOB its next layer's work and the deploy and walk: the wake is the last line.
+  const wake = wakeLine(`layer ${n} closed`, as);
+  if (wake) log(wake);
+  return { ok: true, row, wake };
 }
 

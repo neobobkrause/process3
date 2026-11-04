@@ -13,7 +13,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { P3 } from './job.mjs';
+import { P3, wakeLine } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
@@ -121,7 +121,7 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
 
 // tranche open --record "<act>|<depth>|<outcome>"... --session <id>: one row per act on the state
 // branch, in one push; a refusal also as metrics refusal's row in this checkout.
-export function recordOpen(root, records, { session, depth, bob, log = console.log } = {}) {
+export function recordOpen(root, records, { session, depth, bob, as = 'bob', log = console.log } = {}) {
   const cfg = loadConfig(root);
   if (typeof session !== 'string' || !session.trim()) fail('--record needs --session <the session that took the act>');
   const rows = records.map((x) => {
@@ -146,16 +146,21 @@ export function recordOpen(root, records, { session, depth, bob, log = console.l
   // The refusal row after the push, so a failed push rerun does not count one refusal twice.
   for (const r of rows.filter((x) => x.outcome === 'refused')) recordRefusal(root, { session: r.session, act: `tranche open: ${r.act}`, depth: r.depth });
   for (const r of rows) log(`recorded ${r.act} at depth ${r.depth}: ${r.outcome}${r.outcome === 'refused' ? ` (and in ${'process/metrics/refusals.bob.jsonl'}; commit it by BOB's plain pull request)` : ''}`);
+  // The record that passes the open lets jobs start: the wake of BOB is the last line.
+  const wake = before.state !== 'open' && openState(root, cfg, { depth: d }).state === 'open' ? wakeLine('tranche open passed', as) : null;
+  if (wake) log(wake);
   return rows;
 }
 
 // tranche open --check: open, pending or stopped; exit 0 only when open.
-export function checkOpen(root, { depth, log = console.log } = {}) {
+export function checkOpen(root, { depth, as = 'bob', log = console.log } = {}) {
   const cfg = loadConfig(root);
   fetchState(root, cfg.state_branch, { fresh: true });
   const o = openState(root, cfg, { depth });
   log(openLine(o));
   if (o.state === 'pending') log(`not yet recorded: ${o.missing.map((g) => `${g.act} at depth ${g.depth}`).join(', ')}`);
+  const wake = o.state === 'open' ? wakeLine('tranche open passed', as) : null;
+  if (wake) log(wake);
   return o;
 }
 
