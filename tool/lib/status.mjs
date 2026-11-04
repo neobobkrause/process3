@@ -13,7 +13,7 @@ import { openLine, openState } from './tranche.mjs';
 import { deployOwed } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
-import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
+import { OPEN_BY, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -217,8 +217,6 @@ export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
     .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }
 
-const MARK = UNMET;
-
 // The layers (Build Plan, Phase 3, INT-4): the layer map (layers_file), a table row whose first
 // cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
 // or when none of its modules has unmet marks or an open job. The open layer is the lowest not
@@ -233,7 +231,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const map = read(cfg.layers_file);
   if (map === null) return null;
-  const marks = (f) => [...(read(f) || '').matchAll(MARK)].map((m) => m[1]);
+  const marks = (f) => unmetIds(read(f));
   const recorded = new Set(closed.map((r) => r.layer));
   const layers = map.split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
     .filter((c) => c.length > 1 && /^\d+$/.test(c[0]))
@@ -405,7 +403,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const textOf = (f) => (texts.has(f) ? texts.get(f) : (texts.set(f, whole(f)), texts.get(f)));
   const all = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => {
     const text = textOf(file);
-    return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: unmetIds(text).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices);
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);

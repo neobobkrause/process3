@@ -38,7 +38,7 @@ export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${St
 // post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes
 // the comment from the run's artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
-  const { base, head, branch, pr, draft = false, started = Date.now(), post = true, io = ghIO, exec, log = console.log } = opts;
+  const { base, head, branch, pr, draft: eventDraft = false, started = Date.now(), post = true, io = ghIO, exec, log = console.log } = opts;
   const cfg = loadConfig(root, base); // the trusted side
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const slug = opts.slug || repoSlug(root);
@@ -48,8 +48,17 @@ export function gate(root, opts) {
   const runRow = { sha: head, base, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   const all = pr ? io.comments(slug, pr) : [];
   const prior = gateRuns(all);
+  // The pull request as it is now. Its draft state is read live, not from the event (the gate
+  // race, measured on the copy 4 Nov, PRs 55, 61, 62, 63): job complete pushes, then marks
+  // ready, so one head gets a synchronize run whose payload says draft and a ready_for_review
+  // run, created in the same second; the concurrency group keeps one, and when the push's run
+  // was kept it skipped the suite and the receipt, and a re-run replays the same payload. Read
+  // live, whichever run is kept judges the pull request as it is. A failed read stops the run.
+  const live = pr ? io.getPR(slug, pr) : null;
+  const draft = typeof live?.draft === 'boolean' ? live.draft : eventDraft;
+  if (draft !== eventDraft) log(`the pull request is ${draft ? 'a draft' : 'ready'} now; the event said ${eventDraft ? 'draft' : 'ready'}: the gate judges it as it is now`);
   // The receipt is read only from the pull request's opener (review of PR 13).
-  const receipt = pr ? latestReceipt(all, opts.opener ?? io.getPR(slug, pr)?.user?.login) : null;
+  const receipt = pr ? latestReceipt(all, opts.opener ?? live?.user?.login) : null;
 
   const job = branch?.match(/^job\/([a-z0-9-]+)$/)?.[1];
   const entries = entriesAt(root, head);

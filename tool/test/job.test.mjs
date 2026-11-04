@@ -746,3 +746,40 @@ test('the START names the job\'s rulebook (TXT-5)', () => {
   assert.ok(start.includes('`.process/rulebooks/job.md`'));
   assert.ok(!/rulebooks\/(bob|root|watcher|worker)\.md/.test(start));
 });
+
+// The gate race: finish's order is push, confirm it landed, receipt, then ready. The gate reads
+// the draft state live (gate.test), so the push's run, if it is the one kept, judges the
+// pull request ready; the receipt is posted before either run can read it.
+test('job complete marks ready last: after the push landed and the receipt is posted', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  f.state.failReady = false;
+  const seen = [];
+  const remote = () => git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  f.gh.addComment = ((add) => (...a) => { seen.push(['receipt', remote()]); return add(...a); })(f.gh.addComment);
+  f.gh.markReady = () => { seen.push(['ready', remote(), f.state.comments.length]); f.state.ready++; };
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.deepEqual(seen, [['receipt', tip], ['ready', tip, 1]]);
+});
+
+test('a mark with a parenthetical between its id and "(not yet met" is struck like any other, and needs its --test', () => {
+  const root = product();
+  // The copy's own shape (local-facts R23 and R25, 4 Nov), nested parentheses and all.
+  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) *(not yet met: T53; per C3)* **Does x.** Test: x.\n- **R2** (T53; `jurisdictions` R41) *(not yet met: T53; PLATFORM)* does y.\n' });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    'req/alpha.md': '# alpha\n\n- **R1** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) **Does x.** Test: x.\n- **R2** (T53; `jurisdictions` R41) *(not yet met: T53; PLATFORM)* does y.\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x', () => {});\n",
+    'src/alpha/x.mjs': 'export const x = 1;\n',
+  });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  assert.throws(() => run([]), /struck R1 with no --test/);
+  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck \(struck: R1\)/);
+  assert.deepEqual(run(['R1=test/alpha/x.test.mjs::R1 x']).receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x' }]);
+});
