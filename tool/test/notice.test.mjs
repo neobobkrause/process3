@@ -84,7 +84,7 @@ test('job start <user> puts the notice in the START and its start row; job compl
   assert.match(start, /## Provider notices/);
   assert.match(start, /`p:7`: provider `p` changed R1, R2, R4 \(PR 7\)/);
   assert.match(start, /confirm or adapt this module's code/);
-  assert.match(start, /add or update this module's own test that exercises it/);
+  assert.match(start, /confirm or adapt this module's code, with a test of its own for the change/);
   assert.match(start, /--test notice:p:7="<test file>::<test name>"/);
   git(['checkout', '-q', 'job/u1'], { cwd: root });
   assert.deepEqual(readRows(root, 'u1')[0].notices, ['p:7']);

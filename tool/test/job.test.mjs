@@ -431,9 +431,8 @@ test('the START divides the labour: deploys and releases are the coordinator\'s,
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const line = start.split('\n').find((l) => l.startsWith('Not yours'));
-  assert.match(line, /^Not yours, and this line wins over any act listed above it:/);
-  assert.match(line, /Deploying, releasing, release signing and acting on a live site are the coordinator's acts in a round, not the job's/);
-  assert.match(line, /local builds and tests that use wrangler or miniflare are part of your work/);
+  assert.match(line, /^Not yours, and this line wins over any act above:/);
+  assert.match(line, /deploying, releasing, release signing and acting on a live site \(the coordinator's; local wrangler and miniflare builds and tests are yours\)/);
   assert.doesNotMatch(start, /keys|secret|Cloudflare account/);
 });
 
@@ -604,7 +603,7 @@ test('the START says each judged act is its own shell command, never chained wit
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const lines = start.split('\n').filter((l) => /judged act/.test(l));
-  assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).']);
+  assert.deepEqual(lines, ['Give each judged act (a push, a session start) its own shell command: no `&&`, `||`, `;`, pipe or second line joins it to anything.']);
 });
 
 // JOB-6: recovery by replacement.
@@ -623,8 +622,8 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   assert.equal(refs(), before, 'no branch, no push');
   assert.equal(f.state.prs, 1, 'no new pull request');
   assert.match(r.start, /attempt 1, replacement session/);
-  assert.match(r.start, /As BOB saw it: its session stopped answering after 40 minutes/);
-  assert.match(r.start, /pull request https:\/\/x\/pull\/9, last commit `[0-9a-f]+ half the work`, receipt none posted \(WORKING\)/);
+  assert.match(r.start, /BOB saw: its session stopped answering after 40 minutes/);
+  assert.match(r.start, /pull request https:\/\/x\/pull\/9 as it is \(last commit `[0-9a-f]+ half the work`; receipt none posted \(WORKING\)\)/);
   assert.match(r.start, /refused is never rerouted/);
   assert.match(r.start, /1\. `git fetch --depth 1 origin job\/alpha:refs\/remotes\/origin\/job\/alpha`/);
   assert.match(r.start, /2\. `git checkout -q -b job\/alpha origin\/job\/alpha`/);
@@ -766,13 +765,14 @@ test('the START names the job\'s rulebook (TXT-5)', () => {
 // (review of PR 72: "push to job/<id> only" forbade the state branch it writes).
 test('the START: the escalation to ROOT after decision_minutes, its limits, and the wake as the job\'s act', () => {
   const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'] });
-  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', decisionMinutes: 30 });
-  assert.ok(t.includes('A report or question you sent BOB with no answer in 30 minutes: send it once more to BOB, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd` with send_message (`node .process/tool/p3.mjs address root` reads its address).'));
-  assert.ok(t.includes('If the act is reversible and within your own module, act on your recommended option and record why in your pull request; never for a merge, a push outside your branch, or anything this START says is not yours.'));
-  assert.ok(t.includes('- the wake of BOB that job complete or block prints: its `node .process/tool/p3.mjs send`, and its send_message'));
-  assert.ok(t.includes("pushing to any other branch yourself (the tool's send writes the state branch)"));
+  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', watcherId: 'session_01RAN5ek9qx8mduYhfE77Lde', decisionMinutes: 30 });
+  // The chain's last automatic step is the watcher, with the minutes unanswered (coordinator, 4 Nov).
+  assert.ok(t.includes('No answer from BOB in 30 min: send it once more, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd`, then to the watcher, with the minutes (`node .process/tool/p3.mjs address <role>` reads each).'));
+  assert.ok(t.includes('If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.'));
+  assert.ok(t.includes('- the wake that job complete or block prints, and its send_message'));
+  assert.ok(t.includes("pushing to any other branch yourself (the wake's send writes the state branch)"));
   assert.ok(Buffer.byteLength(t) <= 4096, `START ${Buffer.byteLength(t)} bytes`);
   const own = startText({ entry: { ...e, acts: ['only these'] }, slug: 'o/r', branch: 'job/alpha', tranche: 'tranche', coordinator: 's', attempt: 1, reading: { files: [], bytes: 0 } });
-  assert.ok(own.includes('- the wake of BOB that job complete or block prints'), 'an entry with its own acts keeps the wake');
-  assert.ok(own.includes('no answer in 30 minutes: send it once more to BOB, then to ROOT with send_message'), 'no ROOT addressed: address root reads it');
+  assert.ok(own.includes('No answer from BOB in 30 min: send it once more, then to ROOT, then to the watcher, with the minutes'), 'none addressed: address reads them');
+  assert.ok(own.includes('- the wake that job complete or block prints'), 'an entry with its own acts keeps the wake');
 });

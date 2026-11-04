@@ -222,6 +222,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.slice(0, 100)}`));
   // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
   const target = Number(cfg.targets?.decision_minutes ?? 30);
+  if (!(target > 0)) fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`);
   for (const m of reports) {
     const mins = Math.floor((Date.now() - Date.parse(m.at)) / 6e4);
     if (mins > target) L.push(`unanswered ${m.from}-${m.n} ${mins}m (target ${target})`);

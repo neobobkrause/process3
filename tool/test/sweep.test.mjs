@@ -248,3 +248,28 @@ test('sweep row: an untriaged provider notice alone is an act for BOB', () => {
   run(root);
   assert.equal(JSON.parse(readState(root, 'process-state', SWEEP_ROWS_FILE)).bob_acts, true);
 });
+
+// Coordinator, 4 Nov (from PR 69's report): a layer ready to close lists no next work, so the
+// sweep, the backstop, missed it; and a bad open_by made nextWork throw inside the sweep.
+test('sweep: a layer ready to close is BOB\'s act; a bad open_by is a finding and the heartbeat is still written', () => {
+  const layers = '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n| 2 | next | d |\n';
+  const root = withOrigin({
+    'build/layers.md': layers,
+    'build/requirements/a.md': '- **R1** *(not yet met: x)* y\n',
+    'build/requirements/d.md': '- **R1** *(not yet met: x)* y\n',
+    'process/ledger/a.json': entry('a', { requirements: 'build/requirements/a.md', status: { state: 'COMPLETE' } }),
+  });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const s = run(root);
+  assert.match(s.found.join('; '), /layer 1 ready to close/);
+  assert.equal(s.todo.length, 1);
+  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work\."/);
+
+  const bad = withOrigin({ 'process/config.json': { tranche: 'tranche', open_by: 'bogus' }, 'build/layers.md': layers, 'build/requirements/a.md': '- **R1** *(not yet met: x)* y\n', 'build/requirements/d.md': '- **R1** *(not yet met: x)* y\n' });
+  recordStart(bad, 'root', R, { log: quiet });
+  recordStart(bad, 'bob', B, { log: quiet });
+  const b = run(bad);
+  assert.match(b.found.join('; '), /config: open_by "bogus" in process\/config\.json is not one of/);
+  assert.match(beat(bad).found.join('; '), /config: open_by "bogus"/);
+});

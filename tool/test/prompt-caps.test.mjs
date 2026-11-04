@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { entry, makeRepo } from './helpers.mjs';
 import { handoverBegin, recordStart, startRole } from '../lib/roles.mjs';
-import { jobStart } from '../lib/job.mjs';
+import { jobStart, startText } from '../lib/job.mjs';
 import { briefText } from '../lib/review.mjs';
 import { git } from '../lib/util.mjs';
 
@@ -70,4 +70,19 @@ test('a job START with a typical entry is one screen at most', () => {
 test('the review brief carries its parts: objective, reading set, boundaries, output with every gap in one pass', () => {
   const t = briefText({ pr: { number: 60, title: 'Prompt caps', base: { ref: 'tranche' }, head: { ref: 'build/prompt-caps', sha: 'f'.repeat(40) } }, files: ['tool/lib/roles.mjs'], job: null, owner: 'neobobkrause', approvalsFile: 'CLAUDE.md' });
   for (const part of ['# Review brief: pull request 60', 'Read your rulebook', 'Changed files (1):', '## You are read-only', '## Output', 'Every gap in one pass']) assert.ok(t.includes(part), part);
+});
+
+// Second review of PR 72: the escalation and the wake pushed a replacement session's START, the one
+// the urgency work starts more often, over the screen. Restart with a provider notice, real ids.
+test('a replacement job START with a provider notice and the escalation to ROOT and the watcher is one screen at most', () => {
+  const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'], reading: ['req/alpha.md', 'docs/alpha.md'], requirements: 'req/alpha.md' });
+  const t = startText({
+    entry: e, slug: SLUG, branch: 'job/alpha', tranche: 'tranche', coordinator: ID, bob: true, attempt: 1,
+    reading: { files: [{ file: 'req/alpha.md', bytes: 61 }, { file: 'docs/alpha.md', bytes: 16 }], bytes: 77 },
+    notices: [{ key: 'beta:41', provider: 'beta', ids: ['R2', 'R5'], pr: 41 }],
+    restart: { why: 'its session was archived', pr: `https://github.com/${SLUG}/pull/123`, last: 'abc1234 work in progress', receipt: 'none posted (WORKING)' },
+    rootId: ID, watcherId: ID, decisionMinutes: 30,
+  });
+  assert.ok(t.includes('then to the watcher'));
+  assert.ok(bytes(t) <= SCREEN, `restart START: ${bytes(t)} bytes, over ${SCREEN}`);
 });
