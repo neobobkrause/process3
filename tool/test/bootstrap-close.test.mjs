@@ -127,10 +127,12 @@ test('a bootstrap close is refused with an unreleased pin, or none', () => {
   assert.throws(close(product({ pin: null })).go, /main has no Process3, and the head has no process pin/);
 });
 
-test('a bootstrap close is refused with a workflow change that is not the pin\'s own shim', () => {
+test('a bootstrap close is refused with a process shim that is not the pin\'s own, or an ungated product workflow change', () => {
   // The copy, 4 Nov: container-images.yml and regression.yml changed on the tranche by sessions.
   const r = product({ workflows: { 'process-gate.yml': SHIM, 'regression.yml': 'on: push\njobs: {}\n' } });
-  assert.throws(close(r).go, /regression\.yml is not the process's own shim at aaaaaaaaaa.*owner's word/);
+  // Since Bob's word of 4 Nov a product workflow is judged by the close rules (close-workflows.test.mjs), not
+  // sent to him: here it came in by an ungated commit.
+  assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
   const s = product({ workflows: { 'process-gate.yml': SHIM + '# edited\n' } });
   assert.throws(close(s).go, /process-gate\.yml is not the process's own shim/);
 });

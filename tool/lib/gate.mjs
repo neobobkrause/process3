@@ -357,7 +357,25 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
   return { uncovered, through: [...through.values()].sort((a, b) => a.pr - b.pr) };
 }
 
-function jobMerge(root, cfg, c, { slug, io }) {
+// The merged PR's runs list no pull request (verifyRow), so a run is bound to it by its branch.
+// That holds only while every pull request ever opened from the branch is into the tranche: a PR
+// from the branch into another base runs that base's workflow file, which could upload any row
+// (review of PR 94). Pull requests cannot be deleted, so the list is complete; unread, no binding.
+// The list shows each PR's base as it is now; one retargeted to the tranche may have run another
+// base's workflow first (confirming review of PR 94). Any base change, or an unread history,
+// refuses. Returns why the branch does not bind, or null. Used by the job merges' cover and by
+// a close's workflow changes (workflows.mjs).
+export function branchBound(slug, branch, n, tranche, io) {
+  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
+  if (!Array.isArray(from) || !from.some((x) => x.number === n)) return `is PR ${n}'s merge, but the pull requests from ${branch} could not be read`;
+  const elsewhere = from.filter((x) => x.base?.ref !== tranche).map((x) => x.number);
+  if (elsewhere.length) return `is PR ${n}'s merge, but ${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`;
+  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
+  if (moved.length) return `is PR ${n}'s merge, but the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`;
+  return null;
+}
+
+export function jobMerge(root, cfg, c, { slug, io }) {
   const no = (why) => ({ ok: false, why });
   const n = Number(git(['log', '-1', '--format=%s', c], { cwd: root }).match(MERGE_TITLE)?.[1]);
   if (!n) return no('is not a job merge');
@@ -371,19 +389,9 @@ function jobMerge(root, cfg, c, { slug, io }) {
   if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2 || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
   const t = git(['show', `${p2}:${metricsFile(id)}`], { cwd: root, allowFail: true });
   if (!(t.code === 0 ? jsonl(t.stdout) : []).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
-  // The merged PR's runs list no pull request (verifyRow), so a run is bound to it by its branch.
-  // That holds only while every pull request ever opened from job/<id> is into the tranche: a PR
-  // from the branch into another base runs that base's workflow file, which could upload any row
-  // (review of PR 94). Pull requests cannot be deleted, so the list is complete; unread, no cover.
   const branch = `job/${id}`;
-  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
-  if (!Array.isArray(from) || !from.some((x) => x.number === n)) return no(`is PR ${n}'s merge, but the pull requests from ${branch} could not be read`);
-  const elsewhere = from.filter((x) => x.base?.ref !== cfg.tranche).map((x) => x.number);
-  if (elsewhere.length) return no(`is PR ${n}'s merge, but ${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`);
-  // The list shows each PR's base as it is now; one retargeted to the tranche may have run another
-  // base's workflow first (confirming review of PR 94). Any base change, or an unread history, refuses.
-  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
-  if (moved.length) return no(`is PR ${n}'s merge, but the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`);
+  const why = branchBound(slug, branch, n, cfg.tranche, io);
+  if (why) return no(why);
   const runs = gateRuns(io.comments(slug, n));
   // The row is bound to the PR here: its run was on job/<id> (verifyRow); its commit is the PR's
   // head or an earlier commit of it; its base was the tranche, at or before the merge's.
