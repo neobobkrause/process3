@@ -18,7 +18,7 @@ import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
-import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
+import { checkRole, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
@@ -262,7 +262,14 @@ const commands = {
   // It records the approvals it loaded under .git; start check --wake, at every later wake of
   // BOB, ROOT or the watcher, exits 1 when the tip's approvals differ from that record, or with
   // --approvals <hash> (from the starting or task prompt) from that hash.
-  'start check': (a, root) => ((a.wake ? wakeCheck(root, { branch: a.branch, approvals: a.approvals }) : startCheck(root, { branch: a.branch, setup: true })).ok ? 0 : 1),
+  // With --wake, once the approvals hold, the calling role's prompt against the one it started
+  // from: a changed prompt is printed once, with its pin, and recorded (prompt refresh).
+  'start check': (a, root) => {
+    if (!a.wake) return startCheck(root, { branch: a.branch, setup: true }).ok ? 0 : 1;
+    if (!wakeCheck(root, { branch: a.branch, approvals: a.approvals }).ok) return 1;
+    promptRefresh(root, { session: typeof a.session === 'string' ? a.session : undefined });
+    return 0;
+  },
 
   // start root | start bob | start watcher: the role's starting prompt (and create_session call).
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.

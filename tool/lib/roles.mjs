@@ -4,8 +4,10 @@
 // session calls it; start record <role> <id> writes the address. Handover is split the same way.
 // The address files (addresses/<role>.json on the state branch) are written only here, through
 // state.mjs's writeState: a worktree of its own, pushed with fetch-and-retry, never forced.
+import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { P3, rulebookLine } from './job.mjs';
 import { approvalsHash } from './start.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
@@ -31,9 +33,10 @@ export function readAddress(root, { fetch = true } = {}) {
   return out;
 }
 
-const setAddress = (dir, role, session, at) => {
+// prompt: { hash, old_bob } of the prompt the role was started from (or last delivered at a wake).
+const setAddress = (dir, role, session, at, prompt) => {
   mkdirSync(join(dir, 'addresses'), { recursive: true });
-  writeFileSync(join(dir, addressFile(role)), JSON.stringify({ session, at }, null, 2) + '\n');
+  writeFileSync(join(dir, addressFile(role)), JSON.stringify({ session, at, ...(prompt ? { prompt } : {}) }, null, 2) + '\n');
 };
 
 const PRIORITIES = [
@@ -186,7 +189,8 @@ export function recordStart(root, role, id, opts = {}) {
   if (role === 'bob' && a.bob && a.bob.session !== id) fail(`BOB ${a.bob.session} is addressed; a new BOB is recorded by handover confirm`);
   const at = now();
   const sb = loadConfig(root).state_branch;
-  const { tip } = writeState(root, sb, `address: ${role} ${id}`, (dir) => setAddress(dir, role, id, at));
+  const prompt = promptRecord(root, role, { address: { ...a, [role]: { session: id } } });
+  const { tip } = writeState(root, sb, `address: ${role} ${id}`, (dir) => setAddress(dir, role, id, at, prompt));
   (opts.log || console.log)(`${role} is ${id} (${at}); ${sb} at ${tip}`);
   return { role, session: id, at, tip };
 }
@@ -217,11 +221,68 @@ export function handoverConfirm(root, id, opts = {}) {
   if (old === id) fail(`${id} is already the addressed BOB`);
   const at = now();
   const sb = loadConfig(root).state_branch;
+  const prompt = promptRecord(root, 'bob', { address: a, oldBob: old });
   const { tip } = writeState(root, sb, `handover: bob ${old} -> ${id}`, (dir) => {
-    setAddress(dir, 'bob', id, at);
+    setAddress(dir, 'bob', id, at, prompt);
     mkdirSync(join(dir, 'metrics'), { recursive: true });
     appendFileSync(join(dir, HANDOVER_FILE), JSON.stringify({ at, row: 'handover', old, new: id }) + '\n');
   });
   (opts.log || console.log)(`BOB is now ${id} (was ${old}, ${at}); ${sb} at ${tip}. Message the old BOB as the steps said.`);
   return { old, new: id, at, tip };
+}
+
+// Prompt refresh (measured 4 Nov 00:05: a ROOT ran for hours on the prompt it started with, after
+// the pin had moved past it). start record and handover confirm store the hash of the prompt the
+// role was started from; start check --wake compares it with the prompt this pin prints for the
+// role, and, when they differ, prints the new prompt once and records its hash.
+const sha = (t) => createHash('sha256').update(t).digest('hex');
+const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
+export const pinOf = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_DIR });
+
+// The prompt this pin prints for a role, with the identity it was started with (BOB's old BOB).
+export function currentPrompt(root, role, { address = readAddress(root), oldBob, slug = repoSlug(root), cfg = loadConfig(root) } = {}) {
+  checkRole(role);
+  const { approvals } = tipApprovals(root, cfg);
+  if (role === 'root') return rootPrompt({ slug, tranche: cfg.tranche, approvals });
+  if (role === 'watcher') return watcherPrompt({ slug, tranche: cfg.tranche, approvals });
+  const rootId = address.root?.session || fail('no ROOT is addressed; BOB\'s prompt names it');
+  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals });
+}
+
+// { hash, old_bob } for the address file; null when this checkout cannot print the prompt (no
+// origin, no ROOT for a BOB): the first wake then delivers the prompt and records it.
+function promptRecord(root, role, opts = {}) {
+  try { return { hash: sha(currentPrompt(root, role, opts)), ...(opts.oldBob ? { old_bob: opts.oldBob } : {}) }; } catch { return null; }
+}
+
+// Which act gives a role a fresh session when a new rule cannot apply mid-session.
+const FRESH = {
+  root: 'a changed first command or start needs a fresh ROOT: send the coordinator one message asking for ROOT\'s handover (the watcher\'s takeover, `watch --full`)',
+  bob: 'a changed first command or start needs a fresh BOB: send ROOT one message asking for your handover (`handover begin`)',
+  watcher: 'a changed first command or start needs a fresh watcher: tell the coordinator (`start watcher --replace`)',
+};
+
+// The calling session, from --session or the container's CLAUDE_CODE_REMOTE_SESSION_ID (cse_<id>).
+const callerSession = (session) => session || (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
+
+// start check --wake, after the approvals check: the calling role's prompt against the one it was
+// started from. Prints nothing for a session that holds no address (a job); ROOT wins over the
+// watcher for a watcher that took over.
+export function promptRefresh(root, { session, pin = pinOf(), slug, log = console.log } = {}) {
+  const me = callerSession(session);
+  if (!me) return { act: 'none', why: 'no session id' };
+  const address = readAddress(root);
+  const role = ROLES.find((r) => address[r]?.session === me);
+  if (!role) return { act: 'none', why: 'not an addressed role' };
+  const rec = address[role];
+  const oldBob = role === 'bob' ? rec.prompt?.old_bob : undefined;
+  const prompt = currentPrompt(root, role, { address, oldBob, ...(slug ? { slug } : {}) });
+  const h = sha(prompt);
+  if (rec.prompt?.hash === h) { log(`start check --wake: your prompt is the one this pin prints (${role})`); return { act: 'same', role }; }
+  log(`prompt changed at ${pin}: read the new prompt below and act by it`);
+  log(prompt, size(prompt));
+  log(`Acts by the new prompt from this wake on; ${FRESH[role]}.`);
+  const sb = loadConfig(root).state_branch;
+  writeState(root, sb, `prompt: ${role} ${me} at ${pin.slice(0, 10)}`, (dir) => setAddress(dir, role, me, rec.at, { hash: h, ...(oldBob ? { old_bob: oldBob } : {}) }));
+  return { act: 'changed', role, prompt, hash: h };
 }

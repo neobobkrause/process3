@@ -263,7 +263,7 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   const moved = mergePlain(r.root, 4, { ...q, noReview: 'a pin move', io: f.io, log: (m) => logs.push(m) });
   assert.equal(moved.merged, true);
   // The pin moved into the tranche: the next act wakes BOB, delivered with send_message.
-  assert.equal(moved.wake, `node .process/tool/p3.mjs send bob "pin moved to ${p.pin}: run status" --from <role>`);
+  assert.equal(moved.wake, `node .process/tool/p3.mjs send bob "pin moved to ${p.pin}: run your wake steps (start check --wake prints a changed prompt), then status" --from <role>`);
   assert.ok(logs.includes(`next act: wake BOB with \`${moved.wake}\`, delivered with send_message to the address it prints`));
   // Not the shim byte for byte, or a pin that is not on process3's tranche or main: refused.
   const off = pinMove(p.pin, shim + ' ');

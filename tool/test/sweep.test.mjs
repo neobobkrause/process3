@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, entry, makeRepo } from './helpers.mjs';
-import { readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
+import { handoverConfirm, promptRefresh, readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
 import { readState, writeState } from '../lib/state.mjs';
 import { HEARTBEAT_FILE, SWEEP_ROWS_FILE, sweep, sweepTask, watch } from '../lib/sweep.mjs';
 import { git } from '../lib/util.mjs';
@@ -247,4 +247,41 @@ test('sweep row: an untriaged provider notice alone is an act for BOB', () => {
   });
   run(root);
   assert.equal(JSON.parse(readState(root, 'process-state', SWEEP_ROWS_FILE)).bob_acts, true);
+});
+
+// Prompt refresh (measured 4 Nov 00:05: a ROOT ran on its starting prompt after the pin moved).
+test('start check --wake prompt refresh: an old prompt hash at a new pin prints the new prompt once, then records it', () => {
+  const root = withOrigin();
+  const out = [];
+  const pr = (o = {}) => { out.length = 0; return promptRefresh(root, { pin: 'f'.repeat(40), log: (...l) => out.push(l.join(' ')), ...o }); };
+  recordStart(root, 'root', R, { log: quiet });
+  assert.match(readAddress(root).root.prompt.hash, /^[0-9a-f]{64}$/, 'start record stores the prompt hash');
+  assert.equal(pr({ session: R }).act, 'same');
+  // An old prompt: the hash this pin's prompt no longer has.
+  const sb = 'process-state';
+  writeState(root, sb, 'old prompt', (d) => writeFileSync(join(d, 'addresses/root.json'), JSON.stringify({ session: R, at: OLD, prompt: { hash: '0'.repeat(64) } }) + '\n'));
+  const r = pr({ session: R });
+  assert.equal(r.act, 'changed');
+  const text = out.join('\n');
+  assert.match(text, new RegExp(`^prompt changed at ${'f'.repeat(40)}: read the new prompt below and act by it`));
+  assert.ok(text.includes('# ROOT\n') && text.includes('## Acts you may take'), 'the new prompt itself');
+  assert.ok(Buffer.byteLength(r.prompt) <= 4096, 'within its cap');
+  assert.match(text, /fresh ROOT: send the coordinator one message asking for ROOT's handover/);
+  assert.equal(readAddress(root).root.at, OLD, 'the address keeps its time');
+  assert.equal(pr({ session: R }).act, 'same', 'delivered once');
+  // A ROOT started before prompt records: its first wake delivers the prompt.
+  writeState(root, sb, 'no record', (d) => writeFileSync(join(d, 'addresses/root.json'), JSON.stringify({ session: R, at: OLD }) + '\n'));
+  const old = process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  process.env.CLAUDE_CODE_REMOTE_SESSION_ID = R.replace(/^session_/, 'cse_');
+  try { assert.equal(pr().act, 'changed', 'the session found from the container'); } finally { if (old === undefined) delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID; else process.env.CLAUDE_CODE_REMOTE_SESSION_ID = old; }
+  // BOB by handover keeps its old BOB in the prompt it compares; a job holds no address.
+  recordStart(root, 'bob', B, { log: quiet });
+  handoverConfirm(root, 'session_bob2', { log: quiet });
+  assert.equal(readAddress(root).bob.prompt.old_bob, B);
+  assert.equal(pr({ session: 'session_bob2' }).act, 'same');
+  writeState(root, sb, 'old bob prompt', (d) => writeFileSync(join(d, 'addresses/bob.json'), JSON.stringify({ session: 'session_bob2', at: OLD, prompt: { hash: '1'.repeat(64), old_bob: B } }) + '\n'));
+  const b = pr({ session: 'session_bob2' });
+  assert.ok(b.prompt.includes(`You replace BOB \`${B}\``));
+  assert.match(out.join('\n'), /fresh BOB: send ROOT one message asking for your handover \(`handover begin`\)/);
+  assert.equal(pr({ session: 'session_job1' }).act, 'none');
 });
