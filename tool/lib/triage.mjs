@@ -13,7 +13,8 @@ import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { NOTICES_DIR, answerFile, mergedRange, noticeRecords } from './notice.mjs';
 import { fetchJobs } from './lead.mjs';
-import { jobBranch, ledgerIds } from './ledger.mjs';
+import { jobBranch, ledgerIds, startBranch } from './ledger.mjs';
+import { rowsAt } from './metrics.mjs';
 import { noticeSlots, status } from './status.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
@@ -350,8 +351,10 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
   // branch on origin.
   const has = (h) => git(['cat-file', '-e', `${h}^{commit}`], { cwd: root, allowFail: true }).code === 0;
   const ids = ledgerIds(root, sha);
+  const fetched = (h) => has(h) || (git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true }), has(h));
+  const branchOf = (u) => jobBranch(u, heads.keys(), ids, (b) => fetched(heads.get(b)) && startBranch(rowsAt(root, heads.get(b), u), u) === b);
   const settled = (u, paths) => {
-    const h = heads.get(jobBranch(u, heads.keys(), ids));
+    const h = heads.get(branchOf(u));
     if (!h) return true;
     if (!has(h)) git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true });
     if (!has(h)) return false;
@@ -370,7 +373,7 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     if (!m) { whys.set(u, `no entry in ${cfg.modules_file}`); continue; }
     if (!paths.length) { whys.set(u, `no paths in ${cfg.modules_file}`); continue; }
     if (i < 0) { whys.set(u, `no "id" line for it in ${cfg.modules_file}`); continue; }
-    if (!settled(u, paths)) { whys.set(u, `${jobBranch(u, heads.keys(), ids)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
+    if (!settled(u, paths)) { whys.set(u, `${branchOf(u)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
     const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...paths], { cwd: root, allowFail: true });
     if (g.code !== 0 && g.code !== 1) { whys.set(u, `git grep under its paths failed (exit ${g.code}: ${String(g.stderr || '').trim().split('\n').pop()})`); continue; }
     const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);

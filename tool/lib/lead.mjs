@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { branchModule, entryFile, jobBranch } from './ledger.mjs';
+import { jobBranchAt } from './metrics.mjs';
 import { readModules } from './notice.mjs';
 import { messages } from './state.mjs';
 import { DEFAULTS, git } from './util.mjs';
@@ -383,13 +384,17 @@ export function fetchJobs(root, mods = null, main = 'main', ids = new Set()) {
   mods ||= [...new Set([...there].map((h) => branchModule(h, ids)).filter(Boolean))].sort();
   const shallow = (out(root, ['rev-parse', '--is-shallow-repository']) || '').trim() === 'true';
   const map = new Map();
-  const at = (m) => jobBranch(m, there, ids);
-  const spec = (m) => `+refs/heads/${at(m)}:refs/remotes/origin/${at(m)}`;
-  const fetch = (ms) => out(root, ['fetch', '-q', ...(shallow ? [`--shallow-exclude=${main}`] : []), 'origin', ...ms.map(spec)]) !== null;
-  const have = mods.filter((m) => there.has(at(m)));
+  // Every branch of the module is fetched (an abandoned job/<id>'s start rows still count), and
+  // the module maps to the one its latest start row names.
+  const all = (m) => [...there].filter((h) => h === `job/${m}` || jobBranch(m, [h], ids) === h);
+  const at = (m) => jobBranchAt(root, m, all(m), ids);
+  const spec = (m) => all(m).map((h) => `+refs/heads/${h}:refs/remotes/origin/${h}`);
+  const fetch = (ms) => out(root, ['fetch', '-q', ...(shallow ? [`--shallow-exclude=${main}`] : []), 'origin', ...ms.flatMap(spec)]) !== null;
+  const have = mods.filter((m) => all(m).length);
   for (const m of mods) if (!have.includes(m)) map.set(m, null);
-  if (have.length && fetch(have)) for (const m of have) map.set(m, `refs/remotes/origin/${at(m)}`);
-  else for (const m of have) if (fetch([m])) map.set(m, `refs/remotes/origin/${at(m)}`); // unfetched: left out, unmeasured
+  if (have.length && fetch(have)) for (const m of have) map.set(m, there.has(at(m)) ? `refs/remotes/origin/${at(m)}` : null);
+  else for (const m of have) if (fetch([m])) map.set(m, there.has(at(m)) ? `refs/remotes/origin/${at(m)}` : null); // unfetched: left out, unmeasured
+  map.branches = (m) => all(m).map((h) => `refs/remotes/origin/${h}`);
   return map;
 }
 

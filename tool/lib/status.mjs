@@ -5,7 +5,7 @@ import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs }
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
-import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
+import { REFRESH_AT, jobBranchAt, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
@@ -132,7 +132,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     if (ls.code === 0) originHeads = new Set(ls.stdout.split('\n').map((l) => l.trim().split('\t')[1]).filter(Boolean));
     const kids = new Set(Object.keys(known).map((f) => f.slice(LEDGER_DIR.length + 1, -5)));
-    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); const jb = e.id && jobBranch(e.id, jobHeads(originHeads), kids); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(jb) || noticed.has(e.id)) ? [`refs/heads/${jb}`] : []; } catch { return []; } })]);
+    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); const jb = e.id && jobBranch(e.id, jobHeads(originHeads), kids); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(jb) || noticed.has(e.id)) ? [...new Set([`refs/heads/job/${e.id}`, `refs/heads/${jb}`])] : []; } catch { return []; } })]);
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
       && local.get(`refs/remotes/origin/${r.slice(11)}`) !== sha);
@@ -148,7 +148,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     let e;
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
     // The job's branch (ledger.mjs jobBranch): job/<id>, or a --fresh-branch start's job/<id>-<n>.
-    const jb = jobBranch(e.id, jheads, ids);
+    const jb = jobBranchAt(root, e.id, jheads, ids);
     const branch = `origin/${jb}`;
     const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements, ...(jb !== `job/${e.id}` ? { ref: jb } : {}) };

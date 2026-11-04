@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
 import { checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
-import { appendRow, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
+import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
 import { recordCheck, recordSince, takenIn } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
@@ -242,8 +242,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
   const ids = ledgerIds(root, from);
   const heads = push ? originJobs(root) : localJobs(root);
-  if (!heads) fail('origin\'s job branches could not be read; nothing was started');
-  let branch = jobBranch(id, heads, ids);
+  let branch = branchOf(root, id, heads, ids, push);
   // --fresh-branch (coordinator, 4 Nov: job/case-checker held a commit the record check refuses,
   // which only a force-push or a branch delete could clear): the next free job/<id>-<n>, cut from
   // the tranche tip; the old branch is left as it is, and the start row names both and why.
@@ -254,7 +253,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     let n = 2;
     while (heads.has(`job/${id}-${n}`) || ids.has(`${id}-${n}`)) n += 1;
     if (push) fetchRef(root, branch);
-    const prior = rowsAt(root, push ? `origin/${branch}` : branch, id).filter((r) => r.row === 'attempt' && r.event === 'start').length;
+    const starts = rowsAt(root, push ? `origin/${branch}` : branch, id).filter((r) => r.row === 'attempt' && r.event === 'start');
+    // A fresh start whose push landed and whose pull request did not open resumes; it is not cut again.
+    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} without --fresh-branch and it resumes`);
+    const prior = starts.length;
     fresh0 = { from: branch, why: String(fresh).trim(), prior };
     branch = `job/${id}-${n}`;
   }
@@ -534,7 +536,7 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
   const lead = jobCoordinator(root, cfg, coordinator, true);
   model ||= cfg.roles?.job?.model;
   fetchRef(root, cfg.tranche);
-  const branch = jobBranch(id, originJobs(root) || [], ledgerIds(root, `origin/${cfg.tranche}`));
+  const branch = branchOf(root, id, originJobs(root), ledgerIds(root, `origin/${cfg.tranche}`), true);
   if (!remoteTip(root, branch)) fail(`no branch ${branch} on origin; --restart replaces the session of an open job`);
   fetchRef(root, branch);
   const entry = JSON.parse(git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root }));
@@ -665,6 +667,12 @@ const onBranch = (root, id) => {
   if (b !== want) fail(`run this on branch ${want}, not ${b || 'a detached HEAD'}`);
   return b;
 };
+// The job's branch (ledger.mjs jobBranch): each job/<id>-<n> fetched first, so its own start row is read.
+function branchOf(root, id, heads, ids, push) {
+  if (!heads) fail('origin\'s job branches could not be read; nothing was done');
+  if (push) for (const h of heads) if (h !== `job/${id}` && jobBranch(id, [h], ids) === h) fetchRef(root, h);
+  return jobBranchAt(root, id, heads, ids, push ? 'refs/remotes/origin/' : 'refs/heads/');
+}
 // This checkout's job/* branches, as originJobs gives origin's (no origin: tests).
 const localJobs = (root) => new Set(git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/job/'], { cwd: root }).split('\n').filter(Boolean));
 
@@ -747,7 +755,8 @@ function mergeIn(root, ref, { id, name, ff, msg, log }) {
 // then `git submodule update .process`, so the tool is the branch's pin. Pushes nothing.
 export function jobSync(root, id, { push = true, compare: cmp = compare, log = console.log } = {}) {
   const cfg = loadConfig(root);
-  const branch = push ? jobBranch(id, originJobs(root) || [], ledgerIds(root, `origin/${cfg.tranche}`)) : startBranch(readRows(root, id), id);
+  if (push) fetchRef(root, cfg.tranche);
+  const branch = push ? branchOf(root, id, originJobs(root), ledgerIds(root, `origin/${cfg.tranche}`), true) : startBranch(readRows(root, id), id);
   const slug = push ? repoSlug(root) : 'local/local';
   if (dirty(root, true)) fail('commit your work first: tracked files have changes; nothing was merged');
   const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();

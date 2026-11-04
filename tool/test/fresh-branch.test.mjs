@@ -94,9 +94,41 @@ test('a failed verify logs the last 40 lines of its stdout and stderr, and every
   const g = regenerate(root, rows, { timeout: 60000, exec, log: (l) => log.push(l) });
   const text = log.join('\n');
   assert.equal(g.ran.length, 2);
-  assert.match(text, /verify a failed \(exit 1\) after regenerating gen\/a\.mjs:\nstdout, last 40 lines:\nout 20\n/);
+  assert.match(text, /verify a failed \(exit 1\) after regenerating gen\/a\.mjs:\nstdout, failure lines and last 40 lines:\nout 20\n/);
   assert.doesNotMatch(text, /\nout 19\n/);
-  assert.match(text, /stderr, last 40 lines:\nAssertionError: expected 2\n {4}at x\.test\.mjs:3/);
+  assert.match(text, /stderr, failure lines and last 40 lines:\nAssertionError: expected 2\n {4}at x\.test\.mjs:3/);
   assert.match(text, /generated, regenerated: gen\/a\.mjs: changed, verify a: exit 1/);
   assert.match(text, /generated, regenerated: gen\/b\.mjs: unchanged/);
+});
+
+test('a failed verify keeps its failure lines in the log and names the first in its finding', () => {
+  const root = makeRepo({ 'gen/a.mjs': 'old\n' });
+  const out = ['TAP version 13', 'not ok 1 - bundles match program.mjs', ...Array.from({ length: 50 }, (_, i) => `# line ${i}`)].join('\n');
+  const exec = (cmd) => (cmd === 'regen' ? (writeFileSync(join(root, 'gen/a.mjs'), 'new\n'), { code: 0, stdout: '', stderr: '' }) : { code: 1, stdout: out, stderr: '' });
+  const log = [];
+  const g = regenerate(root, [{ paths: ['gen/a.mjs'], regenerate: ['regen'], verify: ['verify'] }], { timeout: 60000, exec, log: (l) => log.push(l) });
+  assert.match(log.join('\n'), /lines:\nnot ok 1 - bundles match program\.mjs\n# line 10\n/);
+  assert.equal(g.findings[0].message, 'verify failed (exit 1) after regenerating: not ok 1 - bundles match program.mjs');
+});
+
+test('regenerate runs in config order: a built row after a regenerated row is built again from its output', () => {
+  const root = makeRepo({ 'gen/program.mjs': 'p1\n' });
+  const order = [];
+  const exec = (cmd, args) => { order.push(args[0]); return { code: 0, stdout: '', stderr: '' }; };
+  const row = (x) => ({ paths: [`gen/${x}`], regenerate: ['regen', x], verify: ['verify', x] });
+  const [early, program, bundle] = [row('early'), row('program'), row('bundle')];
+  regenerate(root, [early, program, bundle], { timeout: 60000, exec, skip: new Set([early, bundle]) });
+  assert.deepEqual(order.slice(0, 2), ['program', 'bundle'], 'the built row before every regenerated row is not built twice; the one after is');
+});
+
+test('a job/<id>-<n> its own start row does not name is not the job\'s branch, an unread ledger counts none, and a fresh start not yet opened is not cut again', () => {
+  assert.equal(jobBranch('api', ['job/api', 'job/api-2'], new Set()), 'job/api', 'no ids read: no <id>-<n> counts');
+  assert.equal(branchModule('job/api-2', new Set()), 'api-2');
+  const root = product();
+  git(['branch', 'job/alpha-2', 'main'], { cwd: root }); // work made before Process3, no start row
+  const r = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  assert.match(r.start, /Your branch is `job\/alpha`/);
+  const f = jobStart(root, 'alpha', { coordinator: 's', fresh: 'stuck', push: false, log: quiet });
+  assert.match(f.start, /Your branch is `job\/alpha-3`/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', fresh: 'again', push: false, log: quiet }), /job\/alpha-3 is a fresh start not yet opened; run job start alpha without --fresh-branch/);
 });

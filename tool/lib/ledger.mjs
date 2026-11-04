@@ -41,25 +41,21 @@ export const entryFile = (id) => `${LEDGER_DIR}/${id}.json`;
 
 // A job's branch is the one its latest start row names (`branch`; job/<id> when it names none).
 // job start --fresh-branch cuts job/<id>-<n>, n the next free from 2, and writes that row there,
-// so the latest start row is on the highest-numbered of job/<id>, job/<id>-<n> that origin
-// holds: jobBranch reads it from origin's heads ('job/...'). A <id>-<n> that is itself a module
-// (ids: the ledger's) is that module's branch, never <id>'s.
+// so the latest start row is on the highest-numbered job/<id>-<n> on origin whose own latest
+// start row names it (named(h); metrics.mjs jobBranchAt reads it), else job/<id>. A <id>-<n> that
+// is itself a module (ids: the ledger's; none read, no <id>-<n> counts) is that module's.
 export const startBranch = (rows, id) => rows.filter((r) => r.row === 'attempt' && r.event === 'start').pop()?.branch || `job/${id}`;
 const FRESH = /^(.+)-([1-9]\d*)$/;
-export function jobBranch(id, heads, ids = new Set()) {
-  let best = `job/${id}`;
-  let n = 1;
-  for (const h of heads || []) {
-    const m = String(h).startsWith('job/') && !ids.has(h.slice(4)) ? FRESH.exec(h.slice(4)) : null;
-    if (m && m[1] === id && Number(m[2]) > n) [best, n] = [h, Number(m[2])];
-  }
-  return best;
+export function jobBranch(id, heads, ids = new Set(), named = () => true) {
+  const fresh = [...(heads || [])].map((h) => [h, ids.size && String(h).startsWith('job/') && !ids.has(h.slice(4)) ? FRESH.exec(h.slice(4)) : null])
+    .filter(([, m]) => m && m[1] === id).sort((a, b) => Number(b[1][2]) - Number(a[1][2]));
+  return fresh.find(([h]) => named(h))?.[0] || `job/${id}`;
 }
 // The module of a job branch: <x> of job/<x> when <x> is a module (or no ids are given), else
 // <id> of job/<id>-<n> when <id> is; null for a branch not job/*.
 export function branchModule(ref, ids = null) {
   const x = /^job\/([a-z0-9-]+)$/.exec(ref || '')?.[1];
-  if (!x || !ids || ids.has(x)) return x || null;
+  if (!x || !ids?.size || ids.has(x)) return x || null;
   const m = FRESH.exec(x);
   return m && ids.has(m[1]) ? m[1] : x;
 }

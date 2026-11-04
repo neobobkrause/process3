@@ -121,7 +121,7 @@ export function deepen(root, tranche, main = 'main') {
 export function leadFetch(root, cfg) {
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root });
   const jobRefs = fetchJobs(root, null, 'main', ledgerIds(root, `origin/${cfg.tranche}`));
-  const jobRows = [...(jobRefs || new Map())].flatMap(([m, r]) => (r ? rowsAt(root, r).filter((x) => x.module === m) : []));
+  const jobRows = [...(jobRefs || new Map())].flatMap(([m]) => jobRefs.branches(m).flatMap((r) => rowsAt(root, r).filter((x) => x.module === m)));
   return { jobRefs, jobRows, deepened: deepen(root, cfg.tranche) };
 }
 

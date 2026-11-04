@@ -113,14 +113,23 @@ export function refreshCheck(root, files, { ran, failed = false, others = [] }) 
   };
 }
 
-const tail = (r) => (r.stdout + r.stderr).trim().split('\n').slice(-5).join(' ');
-// A failed command's own output for the log: the last 40 lines of its stdout and of its stderr
-// (run 41883960626: tail's five lines, joined, held none of the failed test's output).
-const lastLines = (r) => ['stdout', 'stderr'].filter((k) => String(r[k] || '').trim()).map((k) => `${k}, last 40 lines:\n${String(r[k]).trimEnd().split('\n').slice(-40).join('\n')}`).join('\n');
+// A failed command's output (run 41883960626: its last five lines, joined, were node --test's
+// summary and held none of the failure). The finding: its first failure line, else its last five
+// lines. The log: of stdout and of stderr each, every failure line and the last 40 lines.
+const FAILED = /^\s*(FAIL|not ok|!|✖)|Error/;
+const lines = (t) => String(t || '').trimEnd().split('\n');
+const tail = (r) => [...lines(r.stdout), ...lines(r.stderr)].find((l) => FAILED.test(l))?.trim() || (r.stdout + r.stderr).trim().split('\n').slice(-5).join(' ');
+const lastLines = (r) => ['stdout', 'stderr'].filter((k) => String(r[k] || '').trim()).map((k) => {
+  const all = lines(r[k]);
+  return `${k}, failure lines and last 40 lines:\n${all.filter((l, i) => i >= all.length - 40 || FAILED.test(l)).join('\n')}`;
+}).join('\n');
 
 // GAT-4: every row's regenerate command from the root, then the verify command of each row whose
 // paths then differ from the commit (an install's prepare may have written them already). Product code: without the GitHub tokens, within one suite timeout in all.
-// skip: rows this run already built (buildGenerated), regenerated once, not twice (review of PR 80).
+// skip: rows this run already built (buildGenerated), regenerated once, not twice (review of PR 80),
+// unless a row before it in config order was regenerated here: one ordered pass, so a built row
+// reading an earlier row's output is built again from it (copy, 4 Nov: bundles built from the
+// tracked program.mjs, then program.mjs regenerated, read STALE BUNDLE).
 export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), log = () => {} }) {
   const end = Date.now() + timeout;
   const left = () => Math.max(1000, end - Date.now());
@@ -128,8 +137,10 @@ export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), 
   const status = (r) => git(['status', '--porcelain', '-z', '--untracked-files=all', '--', ...r.paths.map(normPath)], { cwd: root });
   const findings = [];
   const ran = [];
+  let earlier = false;
   for (const r of rows) {
-    if (skip.has(r)) continue;
+    if (skip.has(r) && !earlier) continue;
+    earlier = true;
     const g = exec(r.regenerate[0], r.regenerate.slice(1), opts());
     if (g.code !== 0) {
       findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}): ${tail(g)}` });
