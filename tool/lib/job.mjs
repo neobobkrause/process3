@@ -574,7 +574,7 @@ export function shallowBase(root, slug, tranche, branch, read = compare) {
   if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', '--depth=1', 'origin', sha], { cwd: root });
   const count = () => Number(git(['rev-list', '--count', `refs/remotes/origin/${branch}`, `^${sha}`], { cwd: root }));
   const tr = `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`;
-  for (let n = 32; count() !== c.ahead_by; n *= 4) {
+  for (let n = 32; count() !== c.ahead_by; n *= 2) {
     if (!isShallow(root)) break;
     const r = n > 32768
       ? git(['fetch', '-q', '--unshallow', 'origin', tr, ref], { cwd: root, allowFail: true })
