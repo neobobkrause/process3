@@ -135,7 +135,7 @@ export function status(root, { role, module, context, live, offline = false, log
     if (out.open.state !== 'open') log(openLine(out.open));
     out.notices = owedNotices(root, cfg, rows, log);
     // After a layer close, the deploy and walk (deploy dev), until a deploy row for that layer exists.
-    out.deploy = cfg.deploy && !halt ? deployOwed(root, cfg, closed) : null;
+    out.deploy = cfg.deploy && !halt ? deployOwed(root, cfg, closed, { slug: offline ? null : slug, read: io.compare }) : null;
     if (out.deploy !== null) log(`deploy and walk: ${P3} deploy dev (layer ${out.deploy} closed, not yet deployed)`);
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
     return out;
@@ -197,12 +197,16 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
 // compare when online (a shallow clone's history, and a stale origin/main, cannot say; review of
 // PR 48), else the local ancestry.
 export const CLOSED_FILE = 'layers/closed.jsonl';
-export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
-  const onMain = (sha) => {
+// Whether a commit is on main: GitHub's compare when online, else the local ancestry.
+export function onMainOf(root, { slug = null, read = compare } = {}) {
+  return (sha) => {
     const c = slug ? read(slug, 'main', sha) : null;
     if (Number.isInteger(c?.ahead_by)) return c.ahead_by === 0;
     return git(['merge-base', '--is-ancestor', sha, 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
   };
+}
+export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
+  const onMain = onMainOf(root, { slug, read });
   return (readState(root, cfg.state_branch, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } })
     .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }

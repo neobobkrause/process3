@@ -92,7 +92,7 @@ Everything this releases is for development only (Bob's word, 3 Nov): no public 
 | `dry_run` | an argv, or a list of argvs; each must print `guard_line` |
 | `deploy` | an argv, or a list of argvs, run once the dry run passed |
 | `walk` | an argv, or a list of argvs, the walkers, run once the deploy passed |
-| `guard_line` | the line each dry-run step must print, for example `p3dev guard: passed` |
+| `guard_line` | the line each dry-run step must print on its standard output, as a line of its own (trimmed), for example `p3dev guard: passed` |
 | `timeout_minutes` | per step; default 30 |
 
 A development deployment is removed with `wrangler delete`. The product binds no Workers KV, so the deploy token carries no KV scope (`setup/conditions.json`, `deploy-token`), and `wrangler delete` may then exit with an error about Workers KV after the delete itself succeeded. Count that follow-up error as success only after confirming the script is gone: a read of `accounts/{account}/workers/scripts/{name}` answers 404 (or the script is absent from the account's list of scripts). Any other error, or a script still there, is a failed removal.

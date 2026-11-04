@@ -8,7 +8,7 @@ import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, redact } from '../lib
 import { layerClose } from '../lib/layer.mjs';
 import { status } from '../lib/status.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
-import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
+import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
 
 const quiet = () => {};
 const GUARD = 'p3dev guard: passed';
@@ -136,4 +136,20 @@ test('status --role bob: "deploy and walk" after a layer close until a deploy ro
   assert.match(see(), /deploy and walk: node \.process\/tool\/p3\.mjs deploy dev \(layer 1 closed, not yet deployed\)/);
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, true);
   assert.doesNotMatch(see(), /deploy and walk/);
+});
+
+test('deploy dev: a deploy row of an earlier tranche, its commit on main, does not count (review of PR 59)', () => {
+  const { root } = withOrigin(product());
+  const old = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/main'], { cwd: root });
+  git(['fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main'], { cwd: root });
+  onState(root, { [DEPLOYS_FILE]: JSON.stringify({ row: 'dev-deploy', tranche: 'tranche', slug: 'p3dev-l1', commit: old, layer: 1, ok: true }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  commit(root, { 'y.txt': 'y\n' });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  git(['checkout', '-q', 'origin/tranche'], { cwd: root });
+  const r = deployDev(root, { io, repo, log: quiet });
+  assert.equal(r.ok, true, 'the stale row on main does not make layer 1 deployed');
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /layer 1 is deployed/);
 });

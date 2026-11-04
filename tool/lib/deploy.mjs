@@ -7,7 +7,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
-import { closedRows } from './status.mjs';
+import { closedRows, onMainOf } from './status.mjs';
 import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 export const DEPLOYS_FILE = 'deploys/dev.jsonl';
@@ -58,13 +58,18 @@ export function redact(text, masks) {
   return s;
 }
 
-// The deploy rows of this tranche; the last closed layer; whether it is owed a deploy (a layer
-// has closed with no successful deploy row for it). A failed run is recorded and can be run again.
-export const deployRows = (root, cfg) => jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.row === 'dev-deploy' && r.tranche === cfg.tranche);
-export function deployOwed(root, cfg, closed) {
+// The deploy rows of this tranche: its name, and its commit not yet on main (a row from a tranche
+// already merged into main is stale, as closedRows has it); the last closed layer; whether it is
+// owed a deploy (a layer has closed with no successful deploy row for it). A failed run is
+// recorded and can be run again.
+export function deployRows(root, cfg, at = {}) {
+  const onMain = onMainOf(root, at);
+  return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.row === 'dev-deploy' && r.tranche === cfg.tranche && !onMain(String(r.commit)));
+}
+export function deployOwed(root, cfg, closed, at = {}) {
   if (!closed.length) return null;
   const layer = Math.max(...closed.map((r) => r.layer));
-  return deployRows(root, cfg).some((r) => r.layer === layer && r.ok) ? null : layer;
+  return deployRows(root, cfg, at).some((r) => r.layer === layer && r.ok) ? null : layer;
 }
 
 const defaultIO = { exec: run };
@@ -81,9 +86,10 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const dirty = git(['status', '--porcelain', '--untracked-files=no'], { cwd: root });
   if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
   fetchState(root, cfg.state_branch, { fresh: true });
-  const closed = closedRows(root, cfg, { slug: repo, ...(io.compare ? { read: io.compare } : {}) });
+  const at = { slug: repo, ...(io.compare ? { read: io.compare } : {}) };
+  const closed = closedRows(root, cfg, at);
   if (!closed.length) fail('no development deployment now: no layer of this tranche has closed');
-  const layer = deployOwed(root, cfg, closed);
+  const layer = deployOwed(root, cfg, closed, at);
   if (layer === null) fail(`no development deployment now: no layer has closed since the last recorded deploy (layer ${Math.max(...closed.map((r) => r.layer))} is deployed)`);
   const s = checkSlug(slug === undefined ? `${dep.slug_prefix}l${layer}` : String(slug));
   log(`development deployment ${s} of ${cfg.tranche} ${tip.slice(0, 10)}, layer ${layer} closed; development only`);
