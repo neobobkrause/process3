@@ -171,20 +171,21 @@ test('a later attempt claiming what the code run did not find disagrees, and is 
   assert.match(r.findings.find((f) => f.check === 'receipt').message, new RegExp(`the receipt claims the suite failed; the gate's run on ${j.code.slice(0, 10)} passed`));
 });
 
-test('a later attempt made on code no run measured stays unchecked, and merge says what clears it', () => {
+test('a later attempt made on code no run measured gets a code run that checks it, and merge says what clears an old row', () => {
+  // The fast path cannot stand on the earlier run (copy PR 247): the gate runs the suite on this head.
   const j = jobPR();
   const r = j.again(receiptOf(3, j.c0));
-  assert.equal(r.run.receipt, 'unmeasured');
-  assert.match(r.run.receipt_unmeasured, new RegExp(`names ${j.c0.slice(0, 10)}, whose code is not what the last green code run, on ${j.code.slice(0, 10)}, tested`));
-  // A revert exemption the code run relied on, not claimed by the later attempt, is not measured either.
+  assert.deepEqual([r.run.trigger, r.run.suite, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['code', 'pass', 'agrees', 3, true]);
+  // A revert exemption the code run relied on, not claimed by the later attempt, is not measured
+  // either: the code run checks the revert again, and the unclaimed exemption does not hold.
   const k = jobPR({ testFile: PASS, exempt: 'a refactor' });
   const e = k.again(receiptOf(3, k.head));
-  assert.equal(e.run.receipt, 'unmeasured');
-  assert.match(e.run.receipt_unmeasured, /passed its revert check by an exemption this receipt does not claim/);
-  assert.equal(k.again(receiptOf(3, k.head, 0, { exempt: { revert: 'a refactor' } })).run.receipt, 'agrees');
+  assert.deepEqual([e.run.trigger, e.run.revert, e.run.ok], ['code', 'fail', false]);
+  const claimed = k.again(receiptOf(3, k.head, 0, { exempt: { revert: 'a refactor' } }));
+  assert.deepEqual([claimed.run.trigger, claimed.run.receipt], ['record-since-green', 'agrees']);
 
   // merge's refusal names the act: a code change, or a new gate event at a pin that checks the receipt.
-  const row = { sha: j.head, trigger: 'record-since-green', after: j.code, ok: true, receipt: 'unmeasured', receipt_attempt: 3, receipt_unmeasured: r.run.receipt_unmeasured };
+  const row = { sha: j.head, trigger: 'record-since-green', after: j.code, ok: true, receipt: 'unmeasured', receipt_attempt: 3, receipt_unmeasured: `it names ${j.c0.slice(0, 10)}, whose code is not what the last green code run, on ${j.code.slice(0, 10)}, tested` };
   assert.match(unagreed([row], j.head, 3), /left the receipt unmeasured: it names .*No run measured what attempt 3 claims: push a code change so the gate runs the suite, or, once the product's pin checks a receipt against the last green code run, give the gate on .* a new event \(edit the pull request/);
   // The row PR 105 met, from a pin before this check: "present".
   const old = { sha: j.head, trigger: 'record-since-green', after: j.code, ok: true, receipt: 'present', receipt_attempt: 3 };
