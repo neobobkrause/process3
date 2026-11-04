@@ -7,8 +7,7 @@
 // A generated path the tranche does not track is built, not committed (deploy dev and release
 // run build it): it is regenerated and verified, never compared (a file over max_file_bytes can
 // never be refreshed by a pull request, so "differ" would never clear).
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { buildGenerated, committedPaths, entryChecks, generatedRows, regenerate } from './checks.mjs';
 import { normPath } from './suite.mjs';
@@ -17,7 +16,7 @@ import { entryFile } from './ledger.mjs';
 import { fetchState, writeState } from './state.mjs';
 import { CLOSED_FILE, closedRows, layerState, nextWork, owedNotices, status } from './status.mjs';
 import { install, runSuite } from './suite.mjs';
-import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
+import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -36,13 +35,13 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
   if (!ls.ready) fail(`layer ${n} is not ready to close: ${ls.cur.mods.filter((m) => (m.blocked ? m.pr : m.open || (!m.merged && m.marks.length))).map((m) => `${m.id} ${m.blocked ? `is BLOCKED (${m.blocked}) with PR #${m.pr} still open: BOB closes it unmerged first, never deleting its branch` : m.open ? 'has an open job' : m.row?.flag ? `is flagged: ${m.row.flag}` : 'has no merged job and unmet marks'}`).join('; ')}`);
   const sha = git(['rev-parse', tranche], { cwd: root });
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
-  const wt = join(mkdtempSync(join(tmpdir(), 'p3-layer-')), 'w');
-  git(['worktree', 'add', '-q', '--detach', wt, sha], { cwd: root });
   const findings = [];
   const suites = [];
   let changed = [];
   let built = [];
-  try {
+  withTemp('p3-layer-', (tmp) => {
+    const wt = join(tmp, 'w');
+    git(['worktree', 'add', '-q', '--detach', wt, sha], { cwd: root });
     findings.push(...install(wt, cfg.lockfiles, { exec }).findings);
     // Generated files the tranche does not track are built before the suites, as the gate builds
     // them (copy, 4 Nov: layer 2's close failed on an unbuilt rows.mjs, 37/37 and 33/33).
@@ -77,10 +76,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
         if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after building: ${(v.stdout + v.stderr).trim().split('\n').slice(-5).join(' ')}` });
       }
     }
-  } finally {
-    git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
-    rmSync(dirname(wt), { recursive: true, force: true });
-  }
+  }, { root });
   if (findings.length) {
     for (const f of findings) log(`${f.check}: ${f.file}: ${f.message}`);
     log(`layer ${n} not closed: ${findings.length} finding(s) on ${sha.slice(0, 10)}; nothing recorded`);

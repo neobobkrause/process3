@@ -179,6 +179,7 @@ export function releaseRun(root, step, { out, log = console.log, exec = run, log
   if (b.built.length) results.push({ name: `build generated ${b.built.join(', ')}`, exit: 0, seconds: 0 });
   for (const f of b.findings) results.push({ name: `build generated ${f.file}`, exit: 1, seconds: 0, message: f.message });
   const list = inst.findings.length || b.findings.length ? [] : step === 'checks' ? rel.checks : [{ name: 'assemble', argv: rel.assemble, timeout_minutes: rel.assemble_timeout_minutes }];
+  // Kept on purpose, not withTemp: the step logs are the evidence the release's output names (util.mjs keepStep).
   const logs = !list.length ? null : logDir ? (mkdirSync(logDir, { recursive: true }), logDir) : mkdtempSync(join(tmpdir(), `p3-release-${step}-`));
   const put = { out: (t) => process.stdout.write(t), err: (t) => process.stderr.write(t), note: log };
   const masks = new Set();

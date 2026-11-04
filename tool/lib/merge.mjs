@@ -2,8 +2,6 @@
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
@@ -18,7 +16,7 @@ import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -201,9 +199,9 @@ export function merge(root, n, opts = {}) {
   if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
-  const wt = join(mkdtempSync(join(tmpdir(), 'p3-merge-')), id);
-  git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
-  try {
+  return withTemp('p3-merge-', (tmp) => {
+    const wt = join(tmp, id);
+    git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
     if (git(['merge-base', '--is-ancestor', `origin/${cfg.tranche}`, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
       const m = git(['merge', '-q', '--no-ff', '--no-edit', `origin/${cfg.tranche}`, '-m', `Bring ${branch} up to ${cfg.tranche}`], { cwd: wt, allowFail: true });
       if (m.code !== 0) {
@@ -288,10 +286,7 @@ export function merge(root, n, opts = {}) {
     // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
     return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
-  } finally {
-    git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
-    rmSync(wt, { recursive: true, force: true });
-  }
+  }, { root });
 }
 
 // --job-cost-usd: a figure above 0, or none (null). 0 is a figure not read: no job costs nothing.

@@ -13,13 +13,12 @@
 // The base tree is written from the base's blobs (cat-file, replace refs off), not checked out,
 // so no filter or attribute the PR's code may have planted in .git applies to it. Residual: a
 // process the PR's tests left running, or loose objects rewritten in place.
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { install, runSuite } from './suite.mjs';
 import { buildGenerated } from './checks.mjs';
-import { NO_TOKENS, exists, run } from './util.mjs';
+import { NO_TOKENS, exists, run, withTemp } from './util.mjs';
 
 // More tolerated failures than this is not a base that is a little red: the row stays small.
 export const MAX_BASE_RED = 50;
@@ -79,9 +78,7 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
   if (missing.length) return no(`new failing test file(s) not on the base: ${missing.slice(0, 5).join(', ')}`);
   const end = Date.now() + timeout;
   const left = () => Math.max(1000, end - Date.now());
-  const tmp = mkdtempSync(join(tmpdir(), 'p3-base-red-'));
-  const wt = join(tmp, 'base');
-  try {
+  return withTemp('p3-base-red-', (tmp) => { const wt = join(tmp, 'base'); try {
     mkdirSync(wt);
     writeTree(root, base, wt);
     // A repository of its own, one commit of the base's tree, so a test that reads git sees one
@@ -108,7 +105,5 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     return { ok: true, base_red: { base, tests: failing.map(testId), run: evidence } };
   } catch (e) {
     return no(`the base's tree could not be prepared: ${String(e.message).slice(0, 300)}`);
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
+  } });
 }
