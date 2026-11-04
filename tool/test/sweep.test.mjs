@@ -8,6 +8,7 @@ import { handoverConfirm, promptRefresh, readAddress, recordStart, rootPrompt, s
 import { readState, writeState } from '../lib/state.mjs';
 import { HEARTBEAT_FILE, SWEEP_ROWS_FILE, sweep, sweepTask, watch } from '../lib/sweep.mjs';
 import { git } from '../lib/util.mjs';
+import { status } from '../lib/status.mjs';
 
 const quiet = () => {};
 const R = 'session_root1';
@@ -343,6 +344,9 @@ test('sweep: a merged job\'s branch, BLOCKED when last fetched, is not listed BL
   git(['fetch', '-q', 'origin'], { cwd: root });
   const r = run(root);
   assert.doesNotMatch(r.found.join('|'), /m: BLOCKED/);
+  // Its branch is still read (owedNotices reads a merged attempt's start row through it): no flag, no blocked.
+  const row = status(root, { offline: true, log: quiet }).rows.find((x) => x.id === 'm');
+  assert.deepEqual([row.branch, row.ahead, row.flag, row.blocked], ['BLOCKED (waits on x)', 0, undefined, undefined]);
   // A branch with work the tranche lacks still raises its flag, COMPLETE entry or not.
   git(['checkout', '-q', 'job/m'], { cwd: root });
   commit(root, { 'm.txt': 'a reopened attempt' });

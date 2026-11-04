@@ -103,10 +103,10 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       // A job whose pull request merged (its entry COMPLETE on the tranche, every commit of its
       // branch on the tranche) is the tranche's: its branch, not fetched once COMPLETE, can hold
       // the status it had when last fetched, and raises no flag (ROOT, 4 Nov: sweep listed the
-      // merged instance-setup and wizard-scripts as BLOCKED every hour from such a ref), and is
-      // listed as the tranche's entry is, not as open work.
+      // merged instance-setup and wizard-scripts as BLOCKED every hour from such a ref). Its
+      // branch is still read (owedNotices: a merged attempt's start row names an unrecorded answer).
       const merged = ahead === 0 && e.status?.state === 'COMPLETE';
-      if (!merged) row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
+      row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
       if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';
       if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
