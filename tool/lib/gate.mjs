@@ -107,9 +107,11 @@ export function gate(root, opts) {
     findings.push(...inst);
     // Generated files the commit does not track are built before the checks and the suite, as
     // deploy and release build them (copy, 4 Nov: an untracked rows.mjs failed 41 of 113 tests).
+    let builtRows = new Set();
     if (scope.length && !inst.length && gen.rows.length) {
       const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
       runRow.built = b.built;
+      builtRows = b.ran;
       findings.push(...b.findings);
     }
     // ARC-4: the entry's own checks, as job complete runs them.
@@ -151,7 +153,7 @@ export function gate(root, opts) {
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
     if (scope.length && gen.rows.length) {
-      const g = regenerate(root, gen.rows, { timeout });
+      const g = regenerate(root, gen.rows, { timeout, skip: builtRows });
       runRow.generated = g.ran;
       findings.push(...g.findings);
     }
