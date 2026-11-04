@@ -292,3 +292,29 @@ test('a row that builds an uncommitted path and writes a refreshed one is regene
   assert.deepEqual(r.run.built, ['src/alpha/dist/rows.mjs']);
   assert.equal(r.run.refresh.result, 'identical', JSON.stringify(r.findings));
 });
+
+test('a refresh compares every generated file it changes, those no module owns too (review 3 of PR 95)', () => {
+  // Row B (the bundle) reads gen/schema.txt, written by row A, which no module owns; B runs first.
+  const genB = "import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';\nmkdirSync('src/alpha/dist', { recursive: true });\nwriteFileSync('src/alpha/dist/alpha.bundle.json', JSON.stringify({ from: readFileSync('gen/schema.txt', 'utf8') }) + '\\n');\n";
+  const genA = "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/schema.txt', 'real\\n');\n";
+  const p = product({ 'gen/schema.txt': 'evil\n', [BUNDLE]: fresh('evil\n') });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  const rows = [{ paths: [BUNDLE], regenerate: ['node', 'genB.mjs'], verify: ['node', '-e', '0'] }, { paths: ['gen/schema.txt'], regenerate: ['node', 'genA.mjs'], verify: ['node', '-e', '0'] }];
+  const base2 = commit(p.root, { 'genA.mjs': genA, 'genB.mjs': genB, 'gen/schema.txt': 'real\n', 'process/config.json': { generated: rows } });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', '-X', 'ours', 'tranche'], { cwd: p.root });
+  const head = git(['rev-parse', 'HEAD'], { cwd: p.root });
+  assert.equal(git(['show', `${head}:gen/schema.txt`], { cwd: p.root }), 'evil');
+  const g = gateIO();
+  const r = gate(p.root, { base: base2, head, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet });
+  assert.deepEqual(r.run.refresh.files.sort(), [BUNDLE, 'gen/schema.txt'].sort());
+  assert.ok(r.run.refresh.differ.includes('gen/schema.txt'), JSON.stringify(r.run.refresh));
+  assert.equal(r.run.ok, false);
+  git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root }); git(['clean', '-qfd'], { cwd: p.root }); git(['checkout', '-q', 'main'], { cwd: p.root });
+  p.sha = head;
+  git(['push', '-q', 'origin', 'tranche', 'bob/refresh'], { cwd: p.root });
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /changes generated module files \((gen\/schema\.txt, src\/alpha\/dist\/alpha\.bundle\.json|src\/alpha\/dist\/alpha\.bundle\.json, gen\/schema\.txt)\): no green process-gate run/);
+  // A row naming only the bundle, forged green, does not cover the schema either.
+  const forged = { sha: head, base: base2, ok: true, refresh: { files: [BUNDLE], result: 'identical', differ: [] } };
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, [{ id: 1, body: block(GATE, { runs: [forged] }), user: { login: BOT } }], () => true).io }), /no green process-gate run/);
+});

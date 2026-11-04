@@ -84,9 +84,12 @@ export function gate(root, opts) {
     findings.push(...im.findings, ...committedGenerated(root, gen.rows, { head, changed }));
   }
 
-  // A plain pull request's changed files under the generated paths that a module owns (not the
-  // tranche's own). A generated file no module owns merges plain as any file does, unchecked here.
-  const plain = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f) && entries.some((e) => inModule(e, f))) : null;
+  // A plain pull request (not the tranche's own) that changes a generated file a module owns is a
+  // refresh: every generated file it changes is removed, regenerated and compared, the ones no
+  // module owns too, since a generator may read them (review 3 of PR 95). A plain pull request
+  // that changes only generated files no module owns merges as any file does, unchecked here.
+  const genChanged = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f)) : [];
+  const plain = !job && branch !== cfg.tranche ? (genChanged.some((f) => entries.some((e) => inModule(e, f))) ? genChanged : []) : null;
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
