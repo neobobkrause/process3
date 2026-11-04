@@ -13,6 +13,7 @@ import { block, getRun, parseBlock } from './github.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, layerState, status } from './status.mjs';
+import { loadRanges, platformRows } from './size.mjs';
 import { install } from './suite.mjs';
 import { NO_TOKENS, depth, fail, gh, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
@@ -214,11 +215,24 @@ export function releaseSign(dir, { key = process.env.P3_SIGN_KEY, log = console.
   return { files };
 }
 
-// release body <checks.json> --version <v> --commit <sha>: the draft release's body, with the
-// checks' results in a block that --record reads back.
-export function releaseBody(checksFile, { version, commit }) {
+// release body <checks.json> --version <v> --commit <sha> [--pin <sha>] [--size <size.json>]:
+// the draft release's body, with the release note's fields in a block that --record reads back:
+// the checks' results, the process pin, the product sizes (p3 size --out, from the checks job)
+// and the platform rows the pin's ranges.json names. Development only: the body claims no
+// certification, and an empty ranges.json names no platform row.
+export function releaseBody(checksFile, { version, commit, pin = null, sizeFile = null, ranges = loadRanges() }) {
   let checks = null;
   try { checks = JSON.parse(readFileSync(checksFile, 'utf8')).checks; } catch { checks = null; }
-  const lead = `Development release ${checkVersion(version)} at ${commit}. Development only: never published, never promoted to installed sites.`;
-  return block(MARKER, { version, commit, checks }, lead);
+  let size = null;
+  if (sizeFile) { try { const s = JSON.parse(readFileSync(sizeFile, 'utf8')); size = { commit: s.commit, figures: s.figures, requirements_cap: s.requirements_cap, over_cap: s.over_cap }; } catch { size = null; } }
+  const rows = platformRows(ranges);
+  const lead = [
+    `Development release ${checkVersion(version)} at ${commit}. Development only: never published, never promoted to installed sites.`,
+    '',
+    `- process pin: ${pin || 'unread'}`,
+    `- product sizes: ${size ? Object.entries(size.figures).map(([k, v]) => `${k} ${v === null ? 'unmeasured' : v}`).join(', ') : 'unread'}`,
+    `- checks: ${Array.isArray(checks) ? `${checks.filter((c) => c.exit === 0).length} of ${checks.length} passed` : 'unread'}`,
+    `- platform rows the pin names: ${rows.length ? rows.join(', ') : 'none yet'}`,
+  ].join('\n');
+  return block(MARKER, { version, commit, checks, pin, size, platform_rows: rows }, lead);
 }
