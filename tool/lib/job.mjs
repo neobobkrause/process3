@@ -1,6 +1,5 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
@@ -15,7 +14,7 @@ import { movedText, retiredIds, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { baseRed } from './basered.mjs';
-import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
+import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -898,9 +897,7 @@ export function jobComplete(root, id, opts = {}) {
     }
     if (noSuite) notv.push('the module suite was not run by job complete');
     else if (installed) {
-      const evDir = mkdtempSync(join(tmpdir(), 'p3-failing-'));
-      const s = runSuite(root, entry, undefined, { timeout, events: join(evDir, 'failing.jsonl') });
-      rmSync(evDir, { recursive: true, force: true });
+      const s = withTemp('p3-failing-', (evDir) => runSuite(root, entry, undefined, { timeout, events: join(evDir, 'failing.jsonl') }));
       const c = { cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true };
       commands.push(c);
       if (s.exit !== 0 && /ETIMEDOUT/.test(s.output)) log(s.output.split('\n').slice(-40).join('\n') + '\nthe suite timed out: no base-red run, as at the gate');

@@ -1,8 +1,7 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
@@ -12,7 +11,7 @@ import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
-import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
@@ -181,7 +180,7 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout, events: eventsFile() });
+      const s = withEvents((events) => runSuite(root, e, undefined, { timeout, events }));
       results.push(s);
       if (s.exit !== 0) {
         // Base-red (basered.mjs): the failing tests run again at the tranche tip the PR merges
@@ -507,8 +506,7 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
   return { posted: true, comment, row };
 }
 
-// A fresh file for fail-reporter.mjs's lines, outside the checkout, removed at exit.
-const eventDirs = [];
+// A fresh file for fail-reporter.mjs's lines, outside the checkout, removed once read (withTemp).
 // The product's smoke list (`smoke` in the config, read at the base): a few tests of other
 // modules every job PR's gate runs beside the job's own suite, the cheap catch for a break
 // across modules (Bob, 4 Nov: users' suites in a job gate cost +7.6 min median and caught none
@@ -533,7 +531,7 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
   while (left.length) {
     if (Date.now() >= end) { findings.push(F('smoke', left[0][1][0], `the ${seconds} s smoke cap is spent; not run: ${left.flatMap((g) => g[1]).join(', ')}`)); break; }
     const [e, fs] = left.shift();
-    const s = runSuite(root, e, fs, { timeout: end - Date.now(), events: eventsFile() });
+    const s = withEvents((events) => runSuite(root, e, fs, { timeout: end - Date.now(), events }));
     row.files += fs.length;
     row.seconds += s.seconds;
     if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
@@ -557,13 +555,7 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
   return { row, findings };
 }
 
-function eventsFile() {
-  if (!eventDirs.length) {
-    eventDirs.push(mkdtempSync(join(tmpdir(), 'p3-failing-')));
-    process.once('exit', () => rmSync(eventDirs[0], { recursive: true, force: true }));
-  }
-  return join(eventDirs[0], `${process.pid}-${eventDirs.length++}.jsonl`);
-}
+const withEvents = (fn) => withTemp('p3-failing-', (d) => fn(join(d, 'failing.jsonl')));
 
 const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
 
@@ -584,7 +576,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout, tolerated
     }
     for (const t of tests) {
       const holds = tolerated.some((id) => id.startsWith(`${t}::`));
-      const r = runSuite(root, entry, [t], { timeout, ...(holds ? { events: eventsFile() } : {}) });
+      const r = holds ? withEvents((events) => runSuite(root, entry, [t], { timeout, events })) : runSuite(root, entry, [t], { timeout });
       if (r.exit === 0 || (holds && (!r.failing || r.failing.every((x) => tolerated.includes(testId(x)))))) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }

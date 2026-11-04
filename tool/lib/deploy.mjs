@@ -143,6 +143,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const t0 = Date.now();
   const masks = new Set();
   const results = [];
+  // Kept on purpose, not withTemp: the step logs are the evidence this deploy's output names (util.mjs keepStep).
   const logs = io.logDir || mkdtempSync(join(tmpdir(), `p3-deploy-${s}-`));
   log(`each step's whole output is kept under ${logs}`);
   const put = { out: (t) => log(t.replace(/\n$/, '')), err: (t) => log(t.replace(/\n$/, '')), note: log };

@@ -1,14 +1,20 @@
 // Shared helpers: running programs, git, GitHub through gh, config, arguments.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
 // and where the whole is (copy, 4 Nov: a 1,564-line walk report showed only its last 138 lines).
+// These step-log directories (deploy's p3-deploy-*, release's p3-release-*) are kept on purpose,
+// outside withTemp: they are the evidence the output names. Kept small: a log over STEP_LOG_MAX
+// bytes keeps its tail and says how much went.
+export const STEP_LOG_MAX = 4 * 1024 * 1024;
 export function keepStep(dir, n, name, out, err, put, max = 20000) {
   const file = join(dir, `${String(n).padStart(2, '0')}-${name.replace(/[^\w.-]+/g, '-').slice(0, 60)}.log`);
-  writeFileSync(file, `${out}${err ? `\n--- stderr ---\n${err}` : ''}`);
+  const whole = `${out}${err ? `\n--- stderr ---\n${err}` : ''}`;
+  writeFileSync(file, whole.length > STEP_LOG_MAX ? `[${whole.length - STEP_LOG_MAX} characters left out before this tail]\n${whole.slice(-STEP_LOG_MAX)}` : whole);
   for (const [text, write] of [[out, put.out], [err, put.err]]) {
     if (!text.trim()) continue;
     if (text.length > max) put.note(`[${(text.slice(0, -max).match(/\n/g) || []).length} line(s) left out before this tail; the whole output is in ${file}]`);
@@ -351,4 +357,61 @@ export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = 
       fail(`${branch} moved on origin and does not merge cleanly; nothing was pushed`);
     }
   }
+}
+
+// Scratch directories (copy, 4 Nov: merge left a 690 MB p3-merge-* tree on every run, 110 of them
+// filled BOB's disk). Every scratch directory in tool/lib comes from withTemp, which removes it
+// on every way out of fn: success, refusal or throw. With root, a worktree added under it is
+// removed and pruned from root's .git/worktrees too. A process killed mid-way (a timeout's
+// SIGTERM or SIGKILL runs no finally, and merge sleeps in Atomics.wait) is cleaned by the next
+// withTemp: a scratch directory whose owner process is gone, or one an older tool left (no owner
+// file) over TEMP_STALE_HOURS old, is removed. Kept on purpose, outside withTemp: the
+// development deploy's and release's step-log directories, the evidence their output names.
+export const TEMP_PREFIXES = ['p3-merge-', 'p3-state-', 'p3-layer-', 'p3-row-', 'p3-failing-', 'p3-base-red-'];
+export const TEMP_OWNER = '.p3-owner';
+export const TEMP_STALE_HOURS = 3;
+const temps = new Map();
+let exitHook = false;
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+function dropTemp(dir, root) {
+  if (root) {
+    const listed = git(['worktree', 'list', '--porcelain'], { cwd: root, allowFail: true }).stdout || '';
+    for (const l of listed.split('\n')) {
+      const p = l.startsWith('worktree ') ? l.slice(9) : null;
+      if (p && (p === dir || p.startsWith(`${dir}/`))) git(['worktree', 'remove', '--force', '--force', p], { cwd: root, allowFail: true });
+    }
+  }
+  rmSync(dir, { recursive: true, force: true });
+  if (root) git(['worktree', 'prune'], { cwd: root, allowFail: true });
+  temps.delete(dir);
+}
+// Removes the scratch directories of processes no longer running; with root, prunes its worktrees.
+export function sweepTemp(root, { base = tmpdir(), now = Date.now() } = {}) {
+  const gone = [];
+  let names = [];
+  try { names = readdirSync(base); } catch { return gone; }
+  for (const n of names) {
+    if (!TEMP_PREFIXES.some((p) => n.startsWith(p))) continue;
+    const d = join(base, n);
+    try {
+      let owner = null;
+      try { owner = Number(readFileSync(join(d, TEMP_OWNER), 'utf8')); } catch {}
+      const stale = owner ? owner !== process.pid && !alive(owner) : now - statSync(d).mtimeMs > TEMP_STALE_HOURS * 3600000;
+      if (!stale) continue;
+      rmSync(d, { recursive: true, force: true });
+      gone.push(d);
+    } catch {}
+  }
+  if (root && gone.length) git(['worktree', 'prune'], { cwd: root, allowFail: true });
+  return gone;
+}
+export function withTemp(prefix, fn, { root } = {}) {
+  if (!TEMP_PREFIXES.includes(prefix)) fail(`withTemp: ${prefix} is not a scratch prefix (TEMP_PREFIXES)`);
+  sweepTemp(root);
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  writeFileSync(join(dir, TEMP_OWNER), String(process.pid));
+  // process.exit inside fn runs no finally: what is still held goes at exit.
+  if (!exitHook) { exitHook = true; process.once('exit', () => { for (const [d, r] of temps) dropTemp(d, r); }); }
+  temps.set(dir, root);
+  try { return fn(dir); } finally { dropTemp(dir, root); }
 }
