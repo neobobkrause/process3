@@ -657,6 +657,7 @@ test('--restart with --fresh-branch starts an OPEN module on a fresh branch and 
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, restart: 'x', stop: 'idle', fresh: 'y', open: f.open, find: f.find, log: quiet }), /--stop goes with a --restart on the job's own branch/);
   const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, restart: 'session stopped', fresh: 'branch holds a refused file', open: f.open, find: f.find, log: quiet });
   assert.match(r.start, /Your branch is `job\/alpha-2`/);
+  assert.match(r.start, /replaces a job session that stopped, on a fresh branch cut from the tranche\. BOB saw: session stopped/);
   const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha-2'], { cwd: root }).split('\t')[0];
   const row = JSON.parse(git(['show', `${tip}:process/metrics/alpha.jsonl`], { cwd: root }).trim().split('\n').pop());
   assert.deepEqual([row.attempt, row.restart, row.fresh.why], [2, 'session stopped', 'branch holds a refused file']);

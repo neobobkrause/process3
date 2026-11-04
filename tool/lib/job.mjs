@@ -91,7 +91,7 @@ const DEFAULT_ACTS = (branch) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, takeIn, notices = [], rootId = null, decisionMinutes = 30 }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, takeIn, notices = [], rootId = null, decisionMinutes = 30 }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -100,6 +100,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push('', `Your work: meet the open requirements in \`${entry.requirements}\` by changing only these paths: ${[...entry.paths, ...entry.tests].map((p) => `\`${p}\``).join(', ')}, and by striking in \`${entry.requirements}\` the marks you meet. Your branch is \`${branch}\`; your draft PR into \`${tranche}\` is open. Done means merged; BOB merges.`);
   if (entry.prior_work) L.push('', `Prior work: ${entry.prior_work}`);
   if (reopen) L.push('', `This attempt reopens the module after an earlier attempt merged. What it must do: ${reopen}`);
+  if (freshRestart) L.push('', `This attempt replaces a job session that stopped, on a fresh branch cut from the tranche. BOB saw: ${freshRestart}`);
   // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
   if (notices.length) {
     L.push('', '## Provider notices', '', 'For each, a module this one uses changed: confirm or adapt this module\'s code; the merge records the answer.');
@@ -353,7 +354,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const entry = readEntry(root, id);
     const attempt = Math.max(nextAttempt(root, id), (fresh0?.prior ?? 0) + 1);
     const reading = readingSet(root, entry, [], cfg);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, notices: owed });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
     appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(branch !== `job/${id}` ? { branch } : {}), ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
