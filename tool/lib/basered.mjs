@@ -4,7 +4,11 @@
 // PR's merged state, its failing test files run again at the base (the tranche tip the PR merges
 // into) in a tree of their own, with the same install and build steps, within what is left of the
 // suite timeout. A failure is tolerated only when a test of the same file and full name fails at
-// the base too, as many times; a test missing at the base, or passing there, is the PR's. The
+// the base too, as many times; a test passing at the base, or missing from a file the base run
+// reported, is the PR's. A file the base run reported nothing from (it timed out, crashed, or
+// never reached it) is no verdict either way: a refusal that names it and asks for a rerun (copy
+// PR 290, 4 Nov: five tests a sibling module declares were called "pass or missing" because the
+// base ran the sibling, which runs nothing, not the test file that imports it). The
 // comparison is by identity, not by error: a base-red test that fails for a new reason is not
 // told apart.
 // Identity comes from fail-reporter.mjs, the runner's structured events written to a file of
@@ -13,11 +17,11 @@
 // The base tree is written from the base's blobs (cat-file, replace refs off), not checked out,
 // so no filter or attribute the PR's code may have planted in .git applies to it. Residual: a
 // process the PR's tests left running, or loose objects rewritten in place.
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { install, runSuite } from './suite.mjs';
+import { basename, dirname, join } from 'node:path';
+import { install, runSuite, testFiles } from './suite.mjs';
 import { buildGenerated } from './checks.mjs';
 import { NO_TOKENS, exists, run } from './util.mjs';
 
@@ -97,14 +101,47 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
       const b = buildGenerated(wt, rows, { timeout: left(), exec, log: (l) => log(`base ${base.slice(0, 10)}: ${l}`) });
       if (b.findings.length) return no(`the base's build failed: ${b.findings[0].message}`);
     }
-    const s = runSuite(wt, entry, files, { timeout: left(), events: join(tmp, 'failing.jsonl') });
-    const evidence = { base, cmd: s.cmd, exit: s.exit, seconds: s.seconds, tests: s.tests };
-    if (!s.failing) return no(`the base's run of ${files.length} file(s) could not be read per test (exit ${s.exit})`, { run: evidence });
-    const red = counted(s.failing);
-    const own = [];
-    for (const [id, n] of counted(failing)) if ((red.get(id) || 0) < n) own.push(id);
-    log(`base-red: of ${failing.length} failing test(s), ${own.length} do not fail at the base ${base.slice(0, 10)}`);
-    if (own.length) return no(`${own.length} failing test(s) pass or are missing at the base ${base.slice(0, 10)}: ${own.slice(0, 5).join('; ')}`, { run: evidence });
+    // A failing test's file is where its test() was called: a sibling module a test file imports
+    // runs nothing alone, so the base runs the test files that name it.
+    const own0 = testFiles(wt, entry);
+    const runs = new Map(); // file -> the test files that reach it at the base
+    for (const f of files) {
+      if (own0.includes(f)) { runs.set(f, [f]); continue; }
+      const name = basename(f);
+      runs.set(f, own0.filter((t) => { try { return readFileSync(join(wt, t), 'utf8').includes(name); } catch { return false; } }));
+    }
+    const toRun = [...new Set([...runs.values()].flat())].sort();
+    const unreached = files.filter((f) => !runs.get(f).length);
+    const s = toRun.length ? runSuite(wt, entry, toRun, { timeout: left(), events: join(tmp, 'failing.jsonl') }) : null;
+    const evidence = s ? { base, cmd: s.cmd, exit: s.exit, seconds: s.seconds, tests: s.tests, ...(s.timedOut ? { timed_out: true } : {}) } : { base, cmd: null };
+    if (s && !s.failing) return no(`the base's run of ${toRun.length} file(s) could not be read per test (exit ${s.exit})`, { run: evidence });
+    const reported = new Set(s ? s.reported : []);
+    const whole = new Set(s ? s.whole : []);
+    const red = counted(s ? s.failing : []);
+    const green = new Set(s ? s.passing.map(testId) : []);
+    const why = (f) => !runs.get(f).length ? 'not a test file the suite runs, and no test file at the base names it'
+      : s.timedOut ? `the run timed out after ${Math.round(s.seconds)} s`
+        : runs.get(f).some((t) => whole.has(t)) ? `${runs.get(f).filter((t) => whole.has(t)).join(', ')} failed as a whole there (a load failure or an early exit), exit ${s.exit}`
+          : !reported.has(f) ? `no result from it, exit ${s.exit}${runs.get(f)[0] === f ? '' : ` running ${runs.get(f).join(', ')}`}` : null;
+    const passes = [];
+    const lacks = [];
+    const fewer = [];
+    const open = new Map();
+    for (const [id, n] of counted(failing)) {
+      if ((red.get(id) || 0) >= n) continue;
+      const f = id.slice(0, id.indexOf('::'));
+      const w = why(f);
+      if (w) open.set(f, w);
+      else (red.get(id) ? fewer : green.has(id) ? passes : lacks).push(id);
+    }
+    const at = base.slice(0, 10);
+    log(`base-red: of ${failing.length} failing test(s), ${passes.length} pass at the base ${at}, ${lacks.length} are missing there, ${fewer.length} fail there fewer times, ${[...open.keys()].length} file(s) the base run did not complete${unreached.length ? `; ${unreached.length} reached by no test file` : ''}`);
+    const parts = [];
+    if (passes.length) parts.push(`${passes.length} failing test(s) pass at the base ${at}: ${passes.slice(0, 5).join('; ')}`);
+    if (lacks.length) parts.push(`${lacks.length} failing test(s) are missing at the base ${at}, whose run reported their files: ${lacks.slice(0, 5).join('; ')}`);
+    if (fewer.length) parts.push(`${fewer.length} failing test(s) fail fewer times at the base ${at} than here: ${fewer.slice(0, 5).join('; ')}`);
+    if (open.size) parts.push(`the base run did not complete for ${[...open].slice(0, 5).map(([f, w]) => `${f} (${w})`).join(', ')}: no verdict on its tests; rerun`);
+    if (parts.length) return no(parts.join('; '), { run: evidence, ...(open.size && !passes.length && !lacks.length && !fewer.length ? { incomplete: [...open.keys()] } : {}) });
     return { ok: true, base_red: { base, tests: failing.map(testId), run: evidence } };
   } catch (e) {
     return no(`the base's tree could not be prepared: ${String(e.message).slice(0, 300)}`);

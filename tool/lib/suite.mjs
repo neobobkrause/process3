@@ -48,26 +48,39 @@ export function runSuite(root, entry, files = testFiles(root, entry), opts = {})
   // A suite run from inside another test run must not report to the outer runner.
   const r = run(entry.suite.command[0], args, { cwd, timeout: opts.timeout, unset: ['NODE_TEST_CONTEXT', ...NO_TOKENS] });
   const output = r.stdout + r.stderr;
-  return { cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output, failing: events.length ? readFailing(opts.events, root) : null };
+  const ev = events.length ? readResults(opts.events, root) : null;
+  return {
+    cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output, timedOut: /ETIMEDOUT/.test(r.stderr),
+    failing: ev && ev.failing, passing: ev && ev.passing, reported: ev && ev.reported, whole: ev && ev.whole,
+  };
 }
 
-// fail-reporter.mjs's lines: [{ file, name }], file relative to root, name the enclosing names
-// and the test's joined by " > " (a ">" inside a name escaped as "\>"), suites left out. null
+// fail-reporter.mjs's lines: { failing, passing: [{ file, name }], reported, whole: [file] }, file
+// relative to root, name the enclosing names and the test's joined by " > " (a ">" inside a name
+// escaped as "\>"), suites left out of the lists but their files reported. reported: every file
+// a result came from, so a file the run never reached is told from one whose tests passed;
+// whole: the files that failed as a whole (a load failure or an early exit), still in failing. null
 // when the file is missing or a line cannot be read.
-export function readFailing(file, root) {
+export function readResults(file, root) {
   let text;
   try { text = readFileSync(file, 'utf8'); } catch { return null; }
-  const out = [];
+  const failing = [];
+  const passing = [];
+  const reported = new Set();
+  const whole = new Set();
   for (const l of text.split('\n').filter(Boolean)) {
     let e;
     try { e = JSON.parse(l); } catch { return null; }
     if (!e || !Array.isArray(e.path) || !e.path.length || !e.path.every((x) => typeof x === 'string')) return null;
-    if (e.type === 'suite') continue;
     const f = typeof e.file === 'string' ? (isAbsolute(e.file) ? relative(root, e.file) : e.file).split('\\').join('/') : '(unknown)';
-    out.push({ file: f, name: e.path.map((x) => x.replace(/\\/g, '\\\\').replace(/>/g, '\\>')).join(' > ') });
+    reported.add(f);
+    if (e.whole === true && e.ok !== true) whole.add(f);
+    if (e.type === 'suite') continue;
+    (e.ok === true ? passing : failing).push({ file: f, name: e.path.map((x) => x.replace(/\\/g, '\\\\').replace(/>/g, '\\>')).join(' > ') });
   }
-  return out;
+  return { failing, passing, reported: [...reported], whole: [...whole] };
 }
+export const readFailing = (file, root) => readResults(file, root)?.failing ?? null;
 
 // GAT-5: lock files installed where they sit, without the GitHub tokens. The gate
 // installs every lock file on its fresh checkout; `test` and `job complete` install their
