@@ -8,7 +8,7 @@ import { P3 } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
-import { SILENT_HOURS, nextWork, status } from './status.mjs';
+import { SILENT_HOURS, nextWork, owedNotices, status } from './status.mjs';
 import { fail, git, loadConfig, now } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -93,7 +93,7 @@ export function sweep(root, { session, live, attempts = [], offline = false, io,
       const refresh = sessions.some((s) => s.session === bob.session && s.refresh);
       const wake = Math.min(...messages(readState(root, sb, messagesFile('root'))).filter((m) => m.to === 'bob').map((m) => Date.parse(m.at)).filter((x) => x > last));
       // BOB's idle time: acts listed for it (next work, or a job owed or blocked) while it is quiet.
-      const next = nextWork(root, cfg, rows, tranche, { log: () => {} }).length > 0;
+      const next = nextWork(root, cfg, rows, tranche, { log: () => {}, notices: owedNotices(root, cfg, rows, () => {}) }).length > 0;
       const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success') || (r.flag && !r.flag.startsWith('WORKING')));
       idle = { bob_acts: acts, bob_quiet_h: acts ? hours(t - last) : null };
       if (refresh || t - wake > SILENT_HOURS * H) {

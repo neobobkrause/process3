@@ -361,7 +361,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const big = all.filter((x) => x.over);
   for (const x of big) log(x.over);
   const debt = [...new Set(ahead)].map((f) => ({ f, t: textOf(f) })).filter((x) => overCap(cfg, x.f, x.t));
-  if (debt.length) log(`cap debt: ${debt.length} requirement file${debt.length === 1 ? '' : 's'} over the cap from layer ${layer ?? '(no layer map)'} on, ${debt.reduce((s, x) => s + Buffer.byteLength(x.t), 0)} bytes; each is split or consolidated before its job`);
+  if (debt.length) log(`cap debt: ${debt.length} requirement file${debt.length === 1 ? '' : 's'} over the cap${layer === null ? '' : ` from layer ${layer} on`}, ${debt.reduce((s, x) => s + Buffer.byteLength(x.t), 0)} bytes; each is split or consolidated before its job`);
   const layerWork = (x) => inLayer.has(x.file) && x.count > 0;
   const list = all.filter((x) => !x.over && layerWork(x));
   const noticeList = all.filter((x) => !x.over && !layerWork(x));
@@ -377,7 +377,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     log(`notice work (triage judged these affected; not layer work; each job adapts or confirms the code and adds its test): ${waits(noticeList, shownN)}`);
     for (const x of shownN) log(`- ${x.file}: ${x.count}; provider notice ${x.notices.join(', ')}`);
   }
-  // Triage owed: BOB's act (owedNotices printed it), counted as work for BOB (sweep).
+  // Triage owed: BOB's act (owedNotices printed it), counted as work for BOB (sweep passes the notices).
   const triage = [...new Set(Object.values(owed).flat().filter((x) => !x.triage && !x.rerun).map((x) => x.key))].map((key) => ({ triage: key }));
   // The completion round (PLN-4): once every layer is closed, the completion file's open items.
   const round = ls && !ls.cur ? completionWork(root, cfg, rows, ref, log) : [];
