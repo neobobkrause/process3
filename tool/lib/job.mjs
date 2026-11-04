@@ -100,7 +100,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n}. \`git submodule update --init .process\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9).`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and each notice\'s above' : ''}. It checks, pushes, posts your receipt and marks the PR ready; if it stops part way, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming the test that asserts it${notices.length ? ', and each notice\'s above' : ''}. It checks, pushes, posts your receipt and marks the PR ready; if it stops part way, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -537,8 +537,8 @@ function struckTests(root, entry, base, given, notices = []) {
       answered.set(k[1], { notice: k[1], file: k[2], name: k[3] });
       continue;
     }
-    const m = /^(R[\w.-]+)=(.+?)::(.+)$/.exec(String(g));
-    if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>"`);
+    const m = /^([RF][\w.-]+)=(.+?)::(.+)$/.exec(String(g));
+    if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>" (F<n>= for a found mark)`);
     if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
     named.set(m[1], { req: m[1], file: m[2], name: m[3] });
   }

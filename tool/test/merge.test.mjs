@@ -1,3 +1,4 @@
+import { foundOnly } from '../lib/found.mjs';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -743,4 +744,67 @@ test('merge and merge --plain refuse a third round without a decision, and recor
   const g = plainIO(r);
   assert.equal(mergePlain(r.root, 4, { ...q, io: g.io, reviewed: 'x', rounds: 3, decision: "Bob's word" }).merged, true);
   assert.equal(g.calls.merged.message, "Reviewed: x\nReview rounds: 3\nDecision: Bob's word");
+});
+
+// The route for work found elsewhere (coordinator, 4 Nov): BOB's plain pull request adding the
+// walk's found marks was refused, "changes module files, which go through a job", since a job owns
+// its requirement file (PR 46). A diff to it that only adds new unmet found-mark lines merges plain.
+function foundRepo(after) {
+  const BASE = '# Alpha\n\n- **R1** *(not yet met: x)* one\n- **R2** met\n- **F1** *(not yet met: walk p3dev-l1)* old finding\n';
+  const root = makeRepo({
+    'README.md': 'x', '.github/workflows/process-gate.yml': 'on: pull_request\n', 'process/config.json': {},
+    'process/ledger/alpha.json': entry('alpha', { paths: ['src/alpha/', 'req/alpha.md'] }), 'req/alpha.md': BASE,
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['checkout', '-q', '-b', 'found/alpha-f2', 'tranche'], { cwd: root });
+  const sha = commit(root, { 'req/alpha.md': after(BASE) });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['push', '-q', 'origin', 'main', 'tranche', 'found/alpha-f2'], { cwd: root });
+  return { root, sha, head: 'found/alpha-f2' };
+}
+
+test('merge --plain: a requirement file a job owns takes only added new unmet found marks; any other edit goes through a job', () => {
+  const F2 = '- **F2** *(not yet met: walk p3dev-l1)* founder sign-in answers HTTP 200 without a session\n';
+  const F3 = '- **F3** *(not yet met: deploy p3dev-l1)* ROLLOUT NOT CONFIRMED on agent-runner\n';
+  // Only added F lines: merges plain.
+  for (const add of [F2, F2 + F3]) {
+    const ok = foundRepo((b) => b + add);
+    const f = plainIO(ok);
+    assert.equal(mergePlain(ok.root, 7, { ...q, noReview: 'work found elsewhere: found marks only', io: f.io }).merged, true);
+    assert.equal(f.calls.merged.sha, ok.sha);
+  }
+  const refused = (after, why) => {
+    const r = foundRepo(after);
+    const f = plainIO(r);
+    assert.throws(() => mergePlain(r.root, 7, { ...q, noReview: 'x', io: f.io }), new RegExp(`changes module files, which go through a job: req/alpha\\.md \\(alpha\\); a plain pull request may only add new unmet found marks to a requirement file \\(req/alpha\\.md: ${why}`));
+    assert.equal(f.calls.merged, null);
+  };
+  // An added F line plus any other edit: refused.
+  refused((b) => b.replace('one', 'one, reworded') + F2, 'it removes or changes a line');
+  refused((b) => b + '\n## Found work\n' + F2, 'it adds a line that is not one unmet found mark');
+  refused((b) => b + '## Found work\n' + F2, 'it adds a line that is not one unmet found mark: ## Found work');
+  // An added R mark: refused.
+  refused((b) => b + '- **R3** *(not yet met: walk p3dev-l1)* new\n', 'it adds a line that is not one unmet found mark: - \\*\\*R3\\*\\*');
+  // A removed line: refused, and striking a found mark is a job's.
+  refused((b) => b.replace('- **R2** met\n', ''), 'it removes or changes a line');
+  refused((b) => b.replace('*(not yet met: walk p3dev-l1)* old', 'old'), 'it removes or changes a line');
+  // An F line that is met, reuses a number, or hides another mark: refused.
+  refused((b) => b + '- **F2** met already\n', 'it adds a line that is not one unmet found mark');
+  refused((b) => b + '- **F1** *(not yet met: walk p3dev-l1)* again\n', 'it adds F1, which the file already has');
+  refused((b) => b + '- **F2** *(not yet met: x)* see **R1**\n', 'it adds a line that is not one unmet found mark');
+  // A content line that looks like a diff header ("-- x" removed, "++ x" added) is a change too.
+  refused((b) => b.replace('- **R2** met', '-- R2 met') + F2, 'it removes or changes a line');
+  refused((b) => b + '++ sneaky line\n' + F2, 'it adds a line that is not one unmet found mark: \\+\\+ sneaky');
+  // The header of a diff with no hunk is no change of lines: refused.
+  assert.equal(foundOnly('diff --git a/x b/x\nold mode 100644\nnew mode 100755\n', '').ok, false);
+  // Module code beside the found marks still goes through a job.
+  const both = foundRepo((b) => b + F2);
+  git(['checkout', '-q', 'found/alpha-f2'], { cwd: both.root });
+  const sha = commit(both.root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  git(['push', '-q', 'origin', 'found/alpha-f2'], { cwd: both.root });
+  git(['checkout', '-q', 'main'], { cwd: both.root });
+  assert.throws(() => mergePlain(both.root, 7, { ...q, noReview: 'x', io: plainIO({ ...both, sha }).io }), /changes module files, which go through a job: src\/alpha\/index\.mjs \(alpha\)/);
 });

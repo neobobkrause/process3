@@ -9,7 +9,8 @@ import { readLedgerTexts } from './ledger.mjs';
 import { fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes } from './lead.mjs';
 import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
-import { depth, exists, gh, git, isRecordPath, requirementMarks } from './util.mjs';
+import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
+import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
 
 const U = 'unmeasured';
 const usd = (x) => (typeof x === 'number' ? `$${(Math.round(x * 100) / 100).toFixed(2)}` : U);
@@ -126,7 +127,8 @@ export function leadFetch(root, cfg) {
 
 const hours = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 36e5 * 10) / 10;
 
-// The mark ids of a requirement file: all, and those still "(not yet met" (util's one parser).
+// The mark ids of a requirement file: all, and those still "(not yet met" (util's one parser),
+// requirement marks (R) and found marks (F) alike.
 const marks = requirementMarks;
 
 // The tranche's own commits (merges left out): in tip, not in base, nor on main (main itself
@@ -213,10 +215,27 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const def = work.map((w) => {
     const c = w.layer === null ? null : closedBy.get(w.layer);
     const d = c?.deferred?.[w.m];
-    const ids = c ? (Array.isArray(d) ? d : d?.marks || []) : w.unmet;
+    // Found marks are never deferred: they are counted under Found work.
+    const ids = c ? (Array.isArray(d) ? d : d?.marks || []) : w.unmet.filter((x) => !isFound(x));
     return [w.m, c ? `layer ${w.layer} close` : undecided.has(w.layer) ? `tip (layer ${w.layer} close ${U})` : 'tip', ids.length, ids.join(', ') || 'none'];
   }).filter((r) => r[2] > 0);
   L.push(...(def.length ? table(['module', 'from', 'unmet', 'marks'], def) : ['None.']), '');
+
+  // Found work (found <module>): the found marks in the record, per module, its requirement file
+  // and its found-work entry together, and those that name no module. Met: struck since the
+  // tranche opened; found in this tranche: absent at its opening.
+  const fileIds = (ref, f) => marks(show(ref, f));
+  const entries = [...new Set([...mods, ...(gitOut(root, ['ls-tree', '--name-only', `${tip}:${FOUND_DIR}`]) || '').split('\n').filter((n) => n.endsWith('.md') && `${FOUND_DIR}/${n}` !== NO_MODULE).map((n) => n.slice(0, -3))])].sort();
+  const foundRows = [...entries.map((m) => [m, [reqFile(m), foundFile(m)]]), ['(no module)', [NO_MODULE]]].map(([m, fs]) => {
+    const at = (ref) => (ref ? fs.reduce((o, f) => { const k = fileIds(ref, f); return { all: [...o.all, ...k.all.filter(isFound)], unmet: [...o.unmet, ...k.unmet.filter(isFound)] }; }, { all: [], unmet: [] }) : null);
+    const tipIds = at(tip);
+    const base = s.base ? at(s.base) : null;
+    return { m, all: tipIds.all, unmet: tipIds.unmet, added: base ? tipIds.all.filter((x) => !base.all.includes(x)).length : U, met: base ? base.unmet.filter((x) => !tipIds.unmet.includes(x)).length : U };
+  }).filter((r) => r.all.length);
+  L.push('## Found work', '', 'Found marks (`found <module>`: walk, deploy and other findings) in the record at the tip, per module; "found here" are those absent when the tranche opened, "met" those struck since.', '');
+  const sum = (k) => (foundRows.every((r) => typeof r[k] === 'number') ? foundRows.reduce((t, r) => t + r[k], 0) : U);
+  L.push(`Found marks ${foundRows.reduce((t, r) => t + r.all.length, 0)}; unmet ${foundRows.reduce((t, r) => t + r.unmet.length, 0)}; found here ${sum('added')}; met here ${sum('met')}.`, '');
+  L.push(...(foundRows.length ? table(['module', 'found marks', 'unmet', 'found here', 'met here'], foundRows.map((r) => [r.m, r.all.length, r.unmet.join(', ') || 'none', r.added, r.met])) : ['None.']), '');
 
   // Cost and overhead
   const o = overhead(rows, layers);

@@ -13,6 +13,7 @@ import { webCommitByOwner } from './record.mjs';
 import { TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
 import { noticeLine, providerNotice, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
+import { foundOnly } from './found.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -355,8 +356,21 @@ export function mergePlain(root, n, opts = {}) {
   // only work that came through the gate. The tranche's name is the base's.
   if (!baseCfg || head !== baseCfg.tranche) {
     const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
-    const hit = changed.flatMap((f) => entries.filter((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p))).map((e) => `${f} (${e.id})`));
-    if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}`);
+    // One exception (the route for work found elsewhere, coordinator, 4 Nov): a change to a
+    // module's requirement file that only adds new unmet found marks, `**F<n>** *(not yet met:
+    // <source>)*` lines, nothing removed or changed, merges plain. Any other change still goes through a job.
+    const why = [];
+    const owned = (f, e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p));
+    const found = (f, e) => {
+      if (!e.requirements || f !== String(e.requirements).replace(/^\.\//, '')) return false;
+      const diff = git(['diff', '--no-renames', '-U0', mb, pr.head.sha, '--', f], { cwd: root });
+      const before = git(['show', `${mb}:${f}`], { cwd: root, allowFail: true });
+      const r = foundOnly(diff, before.code === 0 ? before.stdout : '');
+      if (!r.ok) why.push(`${f}: ${r.why}`);
+      return r.ok;
+    };
+    const hit = changed.flatMap((f) => entries.filter((e) => owned(f, e) && !found(f, e)).map((e) => `${f} (${e.id})`));
+    if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}${why.length ? `; a plain pull request may only add new unmet found marks to a requirement file (${why.slice(0, 3).join('; ')})` : ''}`);
   }
 
   const rules = io.requiredChecks(slug, base);

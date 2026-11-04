@@ -104,6 +104,47 @@ export function regenerate(root, rows, { timeout, exec = run }) {
   return { findings, ran };
 }
 
+// Generated files over max_file_bytes (build of 4 Nov: rows.mjs 5.2 MB, two bundles 8.9 and 29 MB
+// on the copy) can never be refreshed by a pull request, since the record check refuses any
+// commit that writes one. The line chosen: such a file is not committed at all; it is built at
+// deploy and release. A `generated` path is committed when the ref tracks a file at or under it.
+// committedPaths: the row's paths the ref tracks; the others are built, never compared.
+const tracked = (root, ref, p) => git(['ls-tree', '-r', '--name-only', '-z', ref, '--', normPath(p)], { cwd: root, allowFail: true }).stdout.split('\0').filter(Boolean);
+export const committedPaths = (root, ref, row) => row.paths.filter((p) => tracked(root, ref, p).length > 0);
+
+// The generated paths a commit does not track: built, not committed (deploy dev and release run
+// build them before their own steps). Each row with one is regenerated, from the root, without
+// the GitHub tokens, within the timeout in all; a failed regenerate is a finding.
+export function buildGenerated(root, rows, { ref = 'HEAD', timeout, exec = run, log = () => {} } = {}) {
+  const end = Date.now() + timeout;
+  const findings = [];
+  const built = [];
+  for (const r of rows) {
+    const have = new Set(committedPaths(root, ref, r));
+    const paths = r.paths.filter((p) => !have.has(p));
+    if (!paths.length) continue;
+    const g = exec(r.regenerate[0], r.regenerate.slice(1), { cwd: root, timeout: Math.max(1000, end - Date.now()), unset: NO_TOKENS });
+    log(`generated, built (not committed): ${paths.join(', ')}: ${r.regenerate.join(' ')}: exit ${g.code}`);
+    if (g.code !== 0) findings.push({ check: 'generated', file: paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}) building ${paths.join(', ')}: ${tail(g)}` });
+    else built.push(...paths);
+  }
+  return { findings, built };
+}
+
+// Committed generated files over max_file_bytes at the ref: [{ file, bytes }].
+export function oversizeGenerated(root, rows, ref, max) {
+  const out = [];
+  for (const r of rows) for (const p of r.paths) {
+    const ls = git(['ls-tree', '-r', '-l', '-z', ref, '--', normPath(p)], { cwd: root, allowFail: true }).stdout.split('\0').filter(Boolean);
+    for (const l of ls) {
+      const [meta, file] = l.split('\t');
+      const bytes = Number(meta.trim().split(/\s+/)[3]);
+      if (Number.isFinite(bytes) && bytes > max && !out.some((x) => x.file === file)) out.push({ file, bytes });
+    }
+  }
+  return out;
+}
+
 // ARC-4: the entry's own `checks`, run from the root as job complete runs them.
 export function entryChecks(root, entry, { timeout, exec = run, log = () => {} }) {
   const findings = [];

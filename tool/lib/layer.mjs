@@ -4,16 +4,20 @@
 // row's regenerate and verify. Green, the close is one row on the state branch (CLOSED_FILE):
 // one push, no pull request, since BOB is its one writer and status already reads that branch.
 // Regenerated files are not committed here: that is BOB's plain pull request, named in the output.
+// A generated path the tranche does not track is built, not committed (deploy dev and release
+// run build it): it is regenerated and verified, never compared (a file over max_file_bytes can
+// never be refreshed by a pull request, so "differ" would never clear).
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { entryChecks, generatedRows, regenerate } from './checks.mjs';
+import { committedPaths, entryChecks, generatedRows, regenerate } from './checks.mjs';
+import { normPath } from './suite.mjs';
 import { wakeLine } from './job.mjs';
 import { entryFile } from './ledger.mjs';
 import { fetchState, writeState } from './state.mjs';
 import { CLOSED_FILE, closedRows, layerState, nextWork, owedNotices, status } from './status.mjs';
 import { install, runSuite } from './suite.mjs';
-import { depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
+import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -37,6 +41,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
   const findings = [];
   const suites = [];
   let changed = [];
+  let built = [];
   try {
     findings.push(...install(wt, cfg.lockfiles, { exec }).findings);
     for (const m of findings.length ? [] : ls.cur.mods) {
@@ -55,7 +60,18 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
     if (!findings.length && gen.rows.length) {
       const g = regenerate(wt, gen.rows, { timeout, exec });
       findings.push(...g.findings);
-      changed = g.ran.filter((r) => r.changed).flatMap((r) => r.paths);
+      // Only committed paths can differ from the tranche; the rest are built.
+      for (const r of g.ran.filter((x) => x.changed)) {
+        const mine = committedPaths(wt, sha, r);
+        changed.push(...mine.filter((p) => git(['status', '--porcelain', '-z', '--untracked-files=all', '--', normPath(p)], { cwd: wt }) !== ''));
+      }
+      built = gen.rows.flatMap((r) => { const c = new Set(committedPaths(wt, sha, r)); return r.paths.filter((p) => !c.has(p)); });
+      // A built row is verified even when git shows no change (its paths ignored by .gitignore).
+      for (const [i, r] of gen.rows.entries()) {
+        if (g.ran[i]?.verify !== null || !r.paths.some((p) => built.includes(p))) continue;
+        const v = exec(r.verify[0], r.verify.slice(1), { cwd: wt, timeout, unset: NO_TOKENS });
+        if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after building: ${(v.stdout + v.stderr).trim().split('\n').slice(-5).join(' ')}` });
+      }
     }
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
@@ -77,6 +93,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
     return {};
   });
   log(`layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}; deferred: ${Object.entries(deferred).map(([id, d]) => (Array.isArray(d) ? `${id} ${d.length}` : `${id} ${d.marks.length} (BLOCKED: ${d.reason})`)).join(', ') || 'none'}`);
+  if (built.length) log(`generated, built and verified, not committed (deploy dev and release run build them): ${built.join(', ')}`);
   if (changed.length) log(`regenerated files differ from the tranche (${changed.join(', ')}): not committed here; commit them by BOB's plain pull request`);
   nextWork(root, cfg, s.rows, tranche, { log, notices: owedNotices(root, cfg, s.rows, () => {}), state: layerState(root, cfg, s.rows, tranche, { closed: [...closed, row] }) });
   // The close gives BOB its next layer's work and the deploy and walk: the wake is the last line.

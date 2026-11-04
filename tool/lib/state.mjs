@@ -64,21 +64,33 @@ const put = (wt, path, text, append = false) => {
 };
 
 // The one-screen handoff: pointers from git and the given status lines, and at most a few prose
-// lines. Refused, nothing written, when over one screen.
+// lines. The size test measures the notes: refused, nothing written, only when the header and the
+// notes, with one status line, are over one screen. The status lines are capped by the screen
+// rule: those that fit, then one line pointing at status --role bob for the rest (a 140-line
+// status refused every handoff, at any note length, on the copy, 4 Nov).
+export const morePointer = (k) => `(${k} more status line${k === 1 ? '' : 's'}: status --role bob lists them all)`;
 export function handoff(root, sb, { role = 'bob', tranche, lines, notes = [], log = console.log }) {
   roleName(role, 'the role');
   const tip = git(['log', '-1', '--format=%H %s', tranche], { cwd: root });
   if (notes.length > HANDOFF_MAX.notes) fail(`at most ${HANDOFF_MAX.notes} notes`);
-  const text = [`# Handoff for ${role}, ${now()}`, `tranche ${tip}`, '', ...lines,
-    ...(notes.length ? ['', 'notes:', ...notes.map((n) => `- ${String(n).replace(/\s+/g, ' ').trim()}`)] : [])].join('\n') + '\n';
-  const count = text.split('\n').length - 1;
-  if (count > HANDOFF_MAX.lines || Buffer.byteLength(text) > HANDOFF_MAX.bytes) {
-    fail(`the handoff is ${count} lines, ${Buffer.byteLength(text)} bytes; one screen is ${HANDOFF_MAX.lines} lines and ${HANDOFF_MAX.bytes} bytes: shorten the notes, or merge or close what status lists`);
+  const head = [`# Handoff for ${role}, ${now()}`, `tranche ${tip}`, ''];
+  const tail = notes.length ? ['', 'notes:', ...notes.map((n) => `- ${String(n).replace(/\s+/g, ' ').trim()}`)] : [];
+  const join_ = (body) => [...head, ...body, ...tail].join('\n') + '\n';
+  const size = (t) => ({ count: t.split('\n').length - 1, bytes: Buffer.byteLength(t) });
+  const fits = (t) => { const z = size(t); return z.count <= HANDOFF_MAX.lines && z.bytes <= HANDOFF_MAX.bytes; };
+  if (!fits(join_(lines.length ? [morePointer(lines.length)] : []))) {
+    const n = size(tail.join('\n') + (tail.length ? '\n' : ''));
+    fail(`the notes are ${n.count} lines, ${n.bytes} bytes; with the handoff's header and one status line they are over one screen (${HANDOFF_MAX.lines} lines and ${HANDOFF_MAX.bytes} bytes): shorten the notes`);
   }
+  let k = lines.length;
+  const body = (j) => (j < lines.length ? [...lines.slice(0, j), morePointer(lines.length - j)] : lines);
+  while (k > 0 && !fits(join_(body(k)))) k--;
+  const text = join_(body(k));
   const w = writeState(root, sb, `handoff for ${role}`, (wt) => put(wt, handoffFile(role), text));
   log(text);
+  if (k < lines.length) log(`status capped by the screen rule: ${k} of ${lines.length} status lines in the handoff, the rest named by its pointer line`);
   log(`handoff written to ${sb}:${handoffFile(role)} at ${w.tip.slice(0, 10)}`);
-  return { text, tip: w.tip };
+  return { text, tip: w.tip, shown: k, of: lines.length };
 }
 
 // Messages, per sender: sent rows { n, to, text } and outcome rows { n, outcome }.
