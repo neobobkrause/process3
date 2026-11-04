@@ -1,7 +1,22 @@
 // Shared helpers: running programs, git, GitHub through gh, config, arguments.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+// A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
+// characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
+// and where the whole is (copy, 4 Nov: a 1,564-line walk report showed only its last 138 lines).
+export function keepStep(dir, n, name, out, err, put, max = 20000) {
+  const file = join(dir, `${String(n).padStart(2, '0')}-${name.replace(/[^\w.-]+/g, '-').slice(0, 60)}.log`);
+  writeFileSync(file, `${out}${err ? `\n--- stderr ---\n${err}` : ''}`);
+  for (const [text, write] of [[out, put.out], [err, put.err]]) {
+    if (!text.trim()) continue;
+    if (text.length > max) put.note(`[${(text.slice(0, -max).match(/\n/g) || []).length} line(s) left out before this tail; the whole output is in ${file}]`);
+    write(text.slice(-max));
+  }
+  if (out.trim() || err.trim()) put.note(`full output: ${file}`);
+  return file;
+}
 
 export class Fail extends Error {}
 export const fail = (msg) => { throw new Fail(msg); };
