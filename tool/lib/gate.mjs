@@ -84,8 +84,9 @@ export function gate(root, opts) {
     findings.push(...im.findings, ...committedGenerated(root, gen.rows, { head, changed }));
   }
 
-  // A plain pull request's changed files under the generated paths (not the tranche's own).
-  const plain = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f)) : null;
+  // A plain pull request's changed files under the generated paths that a module owns (not the
+  // tranche's own). A generated file no module owns merges plain as any file does, unchecked here.
+  const plain = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f) && entries.some((e) => inModule(e, f))) : null;
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
@@ -164,6 +165,9 @@ export function gate(root, opts) {
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
     if (scope.length && gen.rows.length) {
+      // A refreshed file is removed first, so a clean status after the regenerate means the
+      // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
+      if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
       const g = regenerate(root, gen.rows, { timeout, skip: builtRows });
       runRow.generated = g.ran;
       findings.push(...g.findings);
@@ -172,7 +176,7 @@ export function gate(root, opts) {
     // regenerate wrote from its commit (copy PR 148); the row records the comparison, and merge
     // --plain reads it.
     if (plain) {
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated') });
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), rows: gen.rows, changed });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }

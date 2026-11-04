@@ -213,3 +213,60 @@ test('merge refuses an unchecked later attempt with the words that clear it', ()
   };
   assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /checked receipt attempt 3 and agreed with it; its newest run left the receipt present: .* push a code change so the gate runs the suite, or re-run the gate on/);
 });
+
+// Review 1 of PR 95.
+test('a regenerate that writes nothing cannot pass a hand-edited file, and a changed generator is refused', () => {
+  // The generator, unchanged, skips work when its output exists: the gate removes the file first.
+  const lazy = "import { existsSync } from 'node:fs';\nif (!existsSync('src/alpha/dist/alpha.bundle.json')) await import('./gen-real.mjs');\n";
+  const p = product({ [BUNDLE]: '{"from":"evil"}\n' });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  const base2 = commit(p.root, { 'gen.mjs': lazy, 'gen-real.mjs': GEN });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
+  const head = git(['rev-parse', 'HEAD'], { cwd: p.root });
+  const r = gate(p.root, { base: base2, head, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
+  assert.equal(r.run.refresh.result, 'differs', JSON.stringify(r.run.refresh));
+  assert.equal(r.run.ok, false);
+
+  // A pull request that rewrites the generator to write nothing, with its "refreshed" file.
+  const q2 = product({ [BUNDLE]: '{"from":"evil"}\n', 'gen.mjs': '// nothing\n' });
+  const g = gateIO();
+  const r2 = gateOn(q2, g);
+  assert.equal(r2.run.refresh.result, 'generator changed');
+  assert.match(r2.findings.find((f) => f.file === 'gen.mjs').message, /changes gen\.mjs, which its generated rows run/);
+  back(q2);
+  assert.throws(() => mergePlain(q2.root, 148, { ...q, io: plainIO(q2, g.state.comments, g.io.verify).io }), /changes generated module files and gen\.mjs, which their generated rows run/);
+});
+
+test('a refresh that removes a committed generated file is refused, even when the path is ignored', () => {
+  const p = product({ '.gitignore': `${BUNDLE}\n` });
+  git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
+  git(['rm', '-q', '--cached', BUNDLE], { cwd: p.root });
+  git(['commit', '-q', '-m', 'stop committing it'], { cwd: p.root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: p.root });
+  const r = gate(p.root, { base: p.base, head: sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
+  assert.deepEqual([r.run.refresh.result, r.run.refresh.differ], ['differs', [BUNDLE]]);
+  assert.match(r.findings.find((f) => f.file === BUNDLE).message, /is removed/);
+});
+
+test('a generated file no module owns is not the refresh check\'s: the gate stays green', () => {
+  const root = makeRepo({ 'process/config.json': { generated: [{ paths: ['docs/x.json'], regenerate: ['node', '-e', '0'], verify: ['node', '-e', '0'] }] }, 'process/ledger/alpha.json': entry('alpha'), 'docs/x.json': '1\n' });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'bob/docs'], { cwd: root });
+  const head = commit(root, { 'docs/x.json': '2\n' });
+  const r = gate(root, { base, head, branch: 'bob/docs', pr: 9, slug: 'o/r', io: gateIO().io, log: quiet });
+  assert.deepEqual([r.run.ok, r.run.refresh], [true, undefined], JSON.stringify(r.findings));
+});
+
+test('merge --plain needs the refresh row on the base as it is now', () => {
+  const p = product({ [BUNDLE]: fresh(SRC) });
+  const g = gateIO();
+  gateOn(p, g);
+  back(p);
+  git(['checkout', '-q', 'tranche'], { cwd: p.root });
+  commit(p.root, { 'README.md': 'the tranche moved\n' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: p.root });
+  git(['checkout', '-q', 'main'], { cwd: p.root });
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /against tranche as it is regenerated them byte-identical \(its newest run: identical\); tranche moved since its newest run, so re-run the gate/);
+});
