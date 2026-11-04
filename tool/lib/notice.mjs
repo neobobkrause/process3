@@ -19,16 +19,22 @@ export function changedIds(before, after) {
   return [...new Set([...a.keys(), ...b.keys()])].filter((id) => a.get(id) !== b.get(id)).sort();
 }
 
-// The modules that name the provider in their `uses`, from the modules file at ref (or the
-// working tree); none without a modules file.
-export function usersOf(root, cfg, provider, ref = null) {
+// The modules file (`modules_file`) at ref (or the working tree): its modules, [] when unread;
+// null without a modules file configured or present.
+export function readModules(root, cfg, ref = null) {
   const f = cfg.modules_file;
-  if (!f) return [];
+  if (!f) return null;
   let text = null;
   if (ref) text = exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null;
   else if (existsSync(join(root, f))) text = readFileSync(join(root, f), 'utf8');
-  let modules = [];
-  try { modules = JSON.parse(text || '{}').modules || []; } catch { modules = []; }
+  if (text === null) return null;
+  try { const m = JSON.parse(text || '{}').modules; return Array.isArray(m) ? m : []; } catch { return []; }
+}
+
+// The modules that name the provider in their `uses`, from the modules file at ref (or the
+// working tree); none without a modules file.
+export function usersOf(root, cfg, provider, ref = null) {
+  const modules = readModules(root, cfg, ref) || [];
   return modules.filter((m) => m?.id && m.id !== provider && (m.uses || []).includes(provider)).map((m) => m.id).sort();
 }
 
