@@ -318,3 +318,20 @@ test('a refresh compares every generated file it changes, those no module owns t
   const forged = { sha: head, base: base2, ok: true, refresh: { files: [BUNDLE], result: 'identical', differ: [] } };
   assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, [{ id: 1, body: block(GATE, { runs: [forged] }), user: { login: BOT } }], () => true).io }), /no green process-gate run/);
 });
+
+test('a refresh\'s record files count as inert only outside every module and unnamed by a row\'s commands', () => {
+  // records: process/ and src/alpha/notes/ (a module's path); the generator named under process/.
+  const cfgRows = { records: ['process/', 'src/alpha/notes/'], generated: [{ paths: [BUNDLE], regenerate: ['node', 'process/gen.mjs'], verify: ['node', '-e', '0'] }] };
+  const p = product({ [BUNDLE]: fresh(SRC), 'src/alpha/notes/n.md': 'x\n', 'process/gen.mjs': GEN, 'process/metrics/alpha.jsonl': '{}\n' });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  const base2 = commit(p.root, { 'process/config.json': cfgRows, 'process/gen.mjs': '// the base generator\n' + GEN });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', '-X', 'ours', 'tranche'], { cwd: p.root });
+  const head = git(['rev-parse', 'HEAD'], { cwd: p.root });
+  const r = gate(p.root, { base: base2, head, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
+  assert.equal(r.run.refresh.result, 'other files changed');
+  const others = r.findings.find((f) => /a refresh changes only/.test(f.message)).message;
+  assert.match(others, /src\/alpha\/notes\/n\.md/);
+  assert.match(others, /process\/gen\.mjs/);
+  assert.doesNotMatch(others, /process\/metrics/);
+});

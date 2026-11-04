@@ -491,7 +491,7 @@ export function mergePlain(root, n, opts = {}) {
     // The gate's row must have compared every generated file the refresh changes, owned or not
     // (review 3 of PR 95).
     refreshed = hits.length ? changed.filter((f) => isGenerated(gen, f)) : [];
-    const others = refreshed.length ? refreshOthers(baseCfg, gen, changed) : [];
+    const others = refreshed.length ? refreshOthers(baseCfg, gen, changed, entries) : [];
     if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`);
   }
 

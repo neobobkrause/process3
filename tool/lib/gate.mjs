@@ -180,7 +180,7 @@ export function gate(root, opts) {
     // regenerate wrote from its commit (copy PR 148); the row records the comparison, and merge
     // --plain reads it.
     if (plain) {
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: refreshOthers(cfg, gen.rows, changed) });
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: refreshOthers(cfg, gen.rows, changed, entriesAt(root, base)) });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }

@@ -90,7 +90,14 @@ export const isGenerated = (rows, f) => rows.some((r) => r.paths.some((p) => und
 // clean regenerate by a changed generator proves nothing (reviews of PR 95). ran: whether this run
 // regenerated the rows; failed: a generated row's build, regenerate or verify failed in this run
 // (its finding stands). Returns the row's record, { files, result, differ }, and findings.
-export const refreshOthers = (cfg, rows, changed) => changed.filter((f) => !isGenerated(rows, f) && !cfg.records.some((r) => underPath(f, r)));
+// A changed record counts as inert only when it lies outside every module's paths and tests
+// (entries: the base's ledger) and is no file a row's commands name; the generated paths are
+// compared anyway. Residual: a record a generator reads without naming it (review 3 of PR 95).
+export function refreshOthers(cfg, rows, changed, entries = []) {
+  const named = new Set(rows.flatMap((r) => [...r.regenerate.slice(1), ...r.verify.slice(1)]).map((a) => normPath(a)));
+  const inModule = (f) => entries.some((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, normPath(p))));
+  return changed.filter((f) => !isGenerated(rows, f) && (!cfg.records.some((r) => underPath(f, r)) || inModule(f) || named.has(f)));
+}
 export function refreshCheck(root, files, { ran, failed = false, others = [] }) {
   if (!files.length) return { refresh: null, findings: [] };
   const F = (file, message) => ({ check: 'generated', file, line: 1, message });
