@@ -83,7 +83,7 @@ const BOB_ACTS = [
   'start, message, interrupt and archive the job and lane sessions you start, and read their session records',
   'git on the tranche and the state branch, through the tool; merges only through the tool\'s merge',
   'review: start a read-only review worker per pull request, one review and one fix pass',
-  'development deployments and releases as Bob\'s standing approvals allow',
+  'development releases, and deploys at tranche end, as Bob\'s standing approvals allow',
   'tell Bob by push notification when a decision is his, with options and a recommendation',
 ];
 const BOB_NOT = 'Not yours: starting or replacing BOB or ROOT, editing `.claude/` or CLAUDE.md, pushing to main, a public release.';

@@ -1,15 +1,17 @@
 // deploy dev (Build Plan Phase 2, the deploy and walk; Bob's word, 3 Nov: development
-// deployments only, in the product's own Cloudflare account under his approvals). BOB runs it
-// after a layer close, from the clean tranche tip: the `deploy` block's dry run, refused unless
-// every dry-run step printed guard_line; then the deploy; then the walk; one row per run in
-// deploys/dev.jsonl on the state branch. The shape is release dev's.
+// deployments only, in the product's own Cloudflare account under his approvals). BOB runs it at
+// the end of the tranche only, never between layers (Bob, 4 Nov), from the clean tranche tip: the
+// `deploy` block's dry run, refused unless every dry-run step printed guard_line; then the deploy;
+// then the walk; one row per run in deploys/dev.jsonl on the state branch. The shape is release dev's.
 import { appendFileSync, closeSync, constants, fstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, sep } from 'node:path';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
-import { closedRows, onMainOf } from './status.mjs';
+import { completionItems, openItems } from './completion.mjs';
+import { FOUND_DIR, foundMarks } from './found.mjs';
+import { closedRows, layerState, onMainOf, status } from './status.mjs';
 import { install } from './suite.mjs';
 import { NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
 
@@ -106,18 +108,47 @@ export function redact(text, masks) {
 }
 
 // The deploy rows of this tranche: its name, and its commit not yet on main (a row from a tranche
-// already merged into main is stale, as closedRows has it); the last closed layer; whether it is
-// owed a deploy (a layer has closed with no successful deploy row for it). A failed run is
-// recorded and can be run again.
+// already merged into main is stale, as closedRows has it). A failed run is recorded and can be run again.
 export function deployRows(root, cfg, at = {}) {
   const onMain = onMainOf(root, at);
   return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.row === 'dev-deploy' && r.tranche === cfg.tranche && !onMain(String(r.commit)));
 }
-export function deployOwed(root, cfg, closed, at = {}) {
-  if (!closed.length) return null;
-  const layer = Math.max(...closed.map((r) => r.layer));
-  return deployRows(root, cfg, at).some((r) => r.layer === layer && r.ok) ? null : layer;
+
+// The end of the tranche (Bob, 4 Nov): every layer of the plan closed, or the plan (as `ref`
+// holds it, tranche close's reading) says close. Only then is a deploy and walk owed or allowed.
+export function trancheEnd(cfg, ls, plan = cfg.plan, closed = []) {
+  if (plan === 'close') return { end: true, layer: Math.max(0, ...closed.map((r) => r.layer)) || null };
+  if (!ls) return { end: false, why: `there is no layer map (${cfg.layers_file}) and the plan is not close` };
+  const open = ls.layers.filter((L) => !L.closed).map((L) => L.n);
+  if (open.length) return { end: false, why: `layer${open.length > 1 ? 's' : ''} ${open.join(', ')} of the plan not closed` };
+  return { end: true, layer: Math.max(0, ...ls.layers.map((L) => L.n)) || null };
 }
+
+// The latest deploy row's findings and how many are recorded: a failed run counts one at least,
+// a walk its report's failures; recorded are the unmet found marks at `ref` whose source names its
+// slug (\`found ... --from "walk <slug>"\`), and the completion items deferred naming it (known gaps).
+export function walkFindings(root, cfg, ref, at = {}) {
+  const last = deployRows(root, cfg, at).at(-1) || null;
+  if (!last) return { last, failing: 0, marks: 0, recorded: 0 };
+  const failing = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0);
+  const files = (d) => { const r = git(['ls-tree', '--name-only', `${ref}:${d}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.split('\n').filter((n) => n.endsWith('.md')).map((n) => `${d}/${n}`) : []; };
+  const naming = (t) => String(t).split(/[^a-z0-9-]+/).includes(last.slug);
+  let marks = 0;
+  for (const f of [...files(cfg.requirements_dir.replace(/\/$/, '')), ...files(FOUND_DIR)]) marks += foundMarks(git(['show', `${ref}:${f}`], { cwd: root })).filter((m) => naming(m.source)).length;
+  const gaps = (completionItems(root, cfg, ref)?.items || []).filter((x) => x.deferred && naming(x.what)).length;
+  return { last, failing, marks, recorded: marks + gaps };
+}
+
+// Owed at the end of the tranche: none yet, or the tranche moved past the latest one and its
+// round is done (no completion item open, no found mark of its walk unmet). Null when not owed.
+export function deployOwed(root, cfg, end, w, { ref, tip }) {
+  if (!end.end) return null;
+  if (!w.last) return 'the end of the tranche, not yet deployed';
+  if (w.last.commit === tip || w.marks || openItems(completionItems(root, cfg, ref)).length) return null;
+  return `the tranche moved past ${String(w.last.commit).slice(0, 10)}, its round merged`;
+}
+// The hold on tranche close: the latest run failed or its walk found failures, not all recorded.
+export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${w.last.slug} at ${String(w.last.commit).slice(0, 10)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${w.last.slug}"\`) with its completion item, or a known gap (its completion item "deferred: <reason>" naming ${w.last.slug}), or deploy dev again after the round's merges` : null);
 
 const defaultIO = { exec: run };
 
@@ -134,12 +165,17 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
   fetchState(root, cfg.state_branch, { fresh: true });
   const at = { slug: repo, ...(io.compare ? { read: io.compare } : {}) };
+  // The end of the tranche, read as tranche close reads it: the plan as the tranche holds it.
   const closed = closedRows(root, cfg, at);
-  if (!closed.length) fail('no development deployment now: no layer of this tranche has closed');
-  const layer = deployOwed(root, cfg, closed, at);
-  if (layer === null) fail(`no development deployment now: no layer has closed since the last recorded deploy (layer ${Math.max(...closed.map((r) => r.layer))} is deployed)`);
-  const s = checkSlug(slug === undefined ? `${dep.slug_prefix}l${layer}` : String(slug));
-  log(`development deployment ${s} of ${cfg.tranche} ${tip.slice(0, 10)}, layer ${layer} closed; development only`);
+  let plan = null;
+  try { plan = loadConfig(root, t).plan; } catch { plan = null; }
+  const end = trancheEnd(cfg, plan === 'close' ? null : layerState(root, cfg, status(root, { log: () => {}, io: io.status }).rows, t, { closed }), plan, closed);
+  if (!end.end) fail(`no development deployment now: the deploy and walk come at the end of the tranche, never between layers (${end.why}); it becomes due when every layer of the plan is closed, or the plan says close`);
+  const w = walkFindings(root, cfg, t, at);
+  if (w.last && w.last.ok && !w.failing && w.last.commit === tip) fail(`no development deployment now: ${tip.slice(0, 10)} is deployed and walked clean (${w.last.slug}); the next round's merges make the next one`);
+  const layer = end.layer;
+  const s = checkSlug(slug === undefined ? `${dep.slug_prefix}${layer === null ? 'end' : `l${layer}`}` : String(slug));
+  log(`development deployment ${s} of ${cfg.tranche} ${tip.slice(0, 10)}, the end of the tranche; development only`);
   const t0 = Date.now();
   const masks = new Set();
   const results = [];
@@ -207,7 +243,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   for (const k of stored) writeFileSync(join(logs, `report-${basename(k.from)}`), k.text);
   writeFileSync(join(logs, 'row.json'), JSON.stringify(row) + '\n');
   try {
-    writeState(root, cfg.state_branch, `development deployment ${s}, layer ${layer}: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
+    writeState(root, cfg.state_branch, `development deployment ${s}, the end of the tranche: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
       for (const k of stored) { mkdirSync(join(wt, dir), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
       mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
       appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify(row) + '\n');
@@ -217,9 +253,12 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
     throw e;
   }
   if (stopped === 'dry_run') log(`refused: the dry run did not pass the guard (every dry-run step must exit 0 and print "${dep.guard_line}"); nothing was deployed`);
-  log(`recorded development deployment ${s} at ${tip.slice(0, 10)}, layer ${layer}: ${ok ? 'deployed and walked' : `stopped at ${stopped}`}, ${minutes} min`);
-  if (!ok && stopped !== 'dry_run') log(`each finding enters by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "${stopped} ${s}"\` (or found "<finding>" when it names no module); \`${P3} deploy dev\` may be run again`);
+  log(`recorded development deployment ${s} at ${tip.slice(0, 10)}: ${ok ? 'deployed and walked' : `stopped at ${stopped}`}, ${minutes} min`);
+  // Findings enter as found marks and become the completion round's jobs (PLN-4); tranche close
+  // waits on them (walkHold); after the round's merges, deploy dev again.
+  const round = `, each with its item in the completion round (${cfg.completion_file || 'completion_file'}); tranche close waits until each is recorded; after the round's merges, \`${P3} deploy dev\` again`;
+  if (!ok && stopped !== 'dry_run') log(`each finding enters by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "${stopped} ${s}"\` (or found "<finding>" when it names no module)${round}`);
   // A walk can report findings and still exit 0: they enter by the same route.
-  if (ok) log(`findings of the walk, if any, enter by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "walk ${s}"\``);
+  if (ok) log(`findings of the walk, if any, enter by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "walk ${s}"\`${round}`);
   return { ok, row };
 }

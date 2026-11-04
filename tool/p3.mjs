@@ -306,7 +306,7 @@ const commands = {
   // has "release"; prints the dispatch on the tranche, the run to watch and the record.
   // release dev --record <run url>: the run's row (version, commit, run, draft release, checks) on the state branch.
   'release dev': (a, root) => (releaseDev(root, { version: a.version === true ? fail('--version <v>') : a.version, record: a.record === true ? fail('--record <run url>') : a.record }).ok ? 0 : 1),
-  // deploy dev [--slug <s>]: BOB's development deployment and walk after a layer close (development
+  // deploy dev [--slug <s>]: BOB's development deployment and walk at the end of the tranche (development
   // only, the product's own Cloudflare account): dry run behind the guard line, deploy, walk, one row.
   'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
   // release run checks|assemble [--out <results.json>] [--log-dir <dir>]: the shim's read-only jobs

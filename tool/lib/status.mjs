@@ -10,7 +10,7 @@ import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { deployOwed } from './deploy.mjs';
+import { deployOwed, trancheEnd, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
@@ -261,9 +261,18 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     out.open = openState(root, cfg);
     if (out.open.state !== 'open') log(openLine(out.open));
     out.notices = owedNotices(root, cfg, rows, log);
-    // After a layer close, the deploy and walk (deploy dev), until a deploy row for that layer exists.
-    out.deploy = cfg.deploy && !halt ? deployOwed(root, cfg, closed, { slug: offline ? null : slug, read: io.compare }) : null;
-    if (out.deploy !== null) log(`deploy and walk: ${P3} deploy dev (layer ${out.deploy} closed, not yet deployed)`);
+    // The deploy and walk at the end of the tranche only, never between layers (Bob, 4 Nov); it
+    // never holds job starts: next work is listed beside it. Its unrecorded findings hold the close.
+    out.deploy = null;
+    const end = cfg.deploy && !halt ? trancheEnd(cfg, out.layer, cfg.plan, closed) : { end: false };
+    if (end.end) {
+      const at = { ref: ref || 'HEAD', tip: git(['rev-parse', ref || 'HEAD'], { cwd: root }) };
+      const w = walkFindings(root, cfg, at.ref, { slug: offline ? null : slug, read: io.compare });
+      out.deploy = deployOwed(root, cfg, end, w, at);
+      if (out.deploy !== null) log(`deploy and walk: ${P3} deploy dev (${out.deploy}); job starts do not wait for it`);
+      const hold = walkHold(w);
+      if (hold) log(`tranche close waits: ${hold}`);
+    }
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
     return out;
   }
@@ -404,7 +413,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
     .sort((a, b) => a.n - b.n);
   // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
   // main lacks (origin/main unread counts as here). A layer that had such work closes only by
-  // `layer close`, its checks, close row and deploy and walk; one with none closes implicitly.
+  // `layer close`, its checks and close row; one with none closes implicitly.
   const blob = (at, f) => {
     if (at) { const r = git(['rev-parse', '-q', '--verify', `${at}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; }
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;

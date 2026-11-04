@@ -6,13 +6,15 @@
 // stops the open and BOB brings it to Bob; a refused or declined archive or task deletion is
 // counted and reported only. The act is never reworded or rerouted. The throwaway branches are
 // kept, never deleted.
-// Close: once every layer is closed (or the plan says close), main into the tranche and the
+// Close: once every layer is closed (or the plan says close), and with a `deploy` block once the
+// deploy and walk ran and its findings are recorded (walkHold), main into the tranche and the
 // tranche into main, each by a plain pull request through merge --plain; then --record writes the
 // close on the state branch, as layer close does.
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
+import { walkFindings, walkHold } from './deploy.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
@@ -206,6 +208,14 @@ export function trancheClose(root, { record = false, report = false, log = conso
     if (c?.missing) fail(`completion_file ${c.file} is not on ${t}; the tranche closes when its completion round is done`);
     const left = openItems(c);
     if (left.length) fail(`completion round not done: ${left.map((x) => (x.malformed ? `${x.id} (not an item line)` : `${x.id} (${x.target})`)).join(', ')} open in ${c.file}; tick each when done, or mark it "deferred: <reason>"`);
+  }
+  // The deploy and walk at the end of the tranche (Bob, 4 Nov): one run at least, and the latest's
+  // findings each recorded, as a found mark owed or a known gap, or a fresh run after the round.
+  if (cfg.deploy) {
+    const w = walkFindings(root, cfg, t, { slug, read });
+    if (!w.last) fail(`the deploy and walk are owed at the end of the tranche, before its close: ${P3} deploy dev`);
+    const hold = walkHold(w);
+    if (hold) fail(`tranche close waits: ${hold}`);
   }
   const [owner, repo] = slug.split('/');
   const steps = [];
