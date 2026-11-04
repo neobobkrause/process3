@@ -156,3 +156,4 @@
 - 11:43 pin c790f06 on the copy: PR 221 (98cdfe7), BOB woken pin-25; interface-assets re-runs job complete. No pin move open; no process3 build open.
 - 11:49 BOB: PR 105's mandatory --cost-usd blocks completes (usage appears in get_session only after a turn ends). Coordinator's rule was wrong. build/cost-at-merge started: cost recorded at merge from the job's idle session (--job-cost-usd), never blocking; complete no longer requires it.
 - 12:16 PR 106 merged (8f472b4): complete no longer needs cost; merge --job-cost-usd writes the job row, else unmeasured with the get_session call; 622/622. Pin move started 12:16.
+- 12:27 pin 8f472b4 on the copy: PR 231 (4c43c78), BOB woken pin-26 and told the cost-at-merge acts. Re-measure since 11:37 running (session_01RAN5emRc1itH42jhDPZjHq).
