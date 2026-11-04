@@ -63,7 +63,7 @@ function changes(root, cfg, n, { slug, read }) {
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
   git(['fetch', '-q', ...(isShallow(root) ? ['--depth=50'] : []), 'origin', m], { cwd: root, allowFail: true });
   const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
-  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; the requirement text cannot be read`);
+  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; what it changed cannot be read`);
   const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
   const entry = git(['show', `${mb}:process/ledger/${n.provider}.json`], { cwd: root, allowFail: true });
   let file = `${cfg.requirements_dir.replace(/\/$/, '')}/${n.provider}.md`;

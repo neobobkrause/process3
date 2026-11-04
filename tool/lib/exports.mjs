@@ -97,14 +97,22 @@ export function surfaceOf(read, file, inModule, seen = new Set()) {
     const to = resolveIn(m[3]);
     if (to) for (const part of m[1].split(',')) { const [a, as] = part.trim().split(/\s+as\s+/); if (a) imports.set((as || a).trim(), { file: to, name: a.trim() }); }
   }
+  // A class's methods: its own over those of the class it extends, that class read from this
+  // file (exported or not, declared before or after; review of PR 82) or from the module file it
+  // is imported from.
+  const visiting = new Set();
   const classSurface = (name, open, ext) => {
     const own = methods(raw, b, open);
     let inherited = new Map();
-    if (ext) {
+    if (ext && !visiting.has(name)) {
+      visiting.add(name);
       const src = imports.get(ext);
-      const base = src ? surfaceOf(read, src.file, inModule, new Set(seen)) : out;
-      const key = src ? src.name : ext;
-      inherited = new Map([...base].filter(([k]) => k.startsWith(`${key}.`)).map(([k, v]) => [k.slice(key.length + 1), v]));
+      if (!src && local.get(ext)?.members) inherited = local.get(ext).members();
+      else if (src) {
+        const base = surfaceOf(read, src.file, inModule, new Set(seen));
+        inherited = new Map([...base].filter(([k]) => k.startsWith(`${src.name}.`)).map(([k, v]) => [k.slice(src.name.length + 1), v]));
+      }
+      visiting.delete(name);
     }
     return new Map([...inherited, ...own]);
   };
@@ -187,8 +195,8 @@ export function entryFiles(root, ref, { isProviderSource, providerPaths }) {
   return mine.filter((f) => /(^|\/)index\.[^/]+$/.test(f)).sort();
 }
 
-// The surface of a provider at ref: entry file -> Map(name -> signature), flattened to `file: name`
-// keys only where two entry files export one name differently.
+// The surface of a provider at ref: the names every entry file exports, one map; where two entry
+// files export one name, the later file in path order wins.
 export function surfaceAt(root, ref, opts) {
   const files = entryFiles(root, ref, opts);
   const cache = new Map();

@@ -242,7 +242,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, withdrawnFor(root, cfg)) });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -498,7 +498,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
     entry, slug, branch, tranche: cfg.tranche, ...lead, attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
-    notices: named(noticesFor(root, cfg, id, true), startRow, withdrawnFor(root, cfg)),
+    notices: named(noticesFor(root, cfg, id, true), startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
