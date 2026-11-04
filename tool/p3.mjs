@@ -11,6 +11,7 @@ import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
+import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { deployDev } from './lib/deploy.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
@@ -153,9 +154,10 @@ const commands = {
       const cfg = loadConfig(root);
       const branch = a.branch || `origin/${cfg.tranche}`;
       let sweepRows = [];
-      try { if (fetchState(root, cfg.state_branch)) sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); } catch { sweepRows = []; } // unreadable: idle time unmeasured
+      let lead = {};
+      try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); lead = leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p)); } } catch { sweepRows = []; lead = {}; } // unreadable: idle time and the state's lead times unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
-      console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context }), null, 2));
+      console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead }), null, 2));
       return 0;
     }
     if (sub === 'survival') {
@@ -287,12 +289,12 @@ const commands = {
     return 0;
   },
 
-  // sweep --session <id> [--live <n>] [--context <percent>] [--attempt "<who>:<role>:<minutes>:<usd>"]...: ROOT's
+  // sweep --session <id> [--live <n>] [--context <percent>] [--offline] [--attempt "<who>:<role>:<minutes>:<usd>"]...: ROOT's
   // hourly routine; prints what ROOT must do and writes the heartbeat. sweep task --session <id>:
   // the hourly task's prompt and create_trigger call.
   sweep: (a, root) => {
     if (a._[0] === 'task') { const t = sweepTask(a.session, loadConfig(root).tranche, tipApprovals(root).approvals); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
-    sweep(root, { session: a.session, live: a.live, context: a.context, attempts: list(a.attempt).filter((x) => x !== true) });
+    sweep(root, { session: a.session, live: a.live, context: a.context, offline: !!a.offline, attempts: list(a.attempt).filter((x) => x !== true) });
     return 0;
   },
 

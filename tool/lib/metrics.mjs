@@ -5,7 +5,8 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { comments, gateRuns, getPR } from './github.mjs';
-import { fail, git, now } from './util.mjs';
+import { leadTimes } from './lead.mjs';
+import { DEFAULTS, fail, git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
@@ -229,7 +230,7 @@ export function overhead(rows, layers = new Map()) {
 
 // The two health metrics and the figures that explain them, from rows and pull requests.
 // sweepRows: the state branch's sweep rows; layers: the layer map's text (layers_file).
-export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null, refreshAt = 60 } = {}) {
+export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null, refreshAt = 60, cfg = DEFAULTS, lead = {} } = {}) {
   const rows = allRows(root);
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
   const merges = rows.filter((r) => r.row === 'merge');
@@ -275,5 +276,6 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     root_context: rootContext(sweepRows, refreshAt),
     wakes: wakes(rows),
     overhead: overhead(rows, layerOf(layers)),
+    lead_times: leadTimes(root, cfg, { ref: branch, rows, layers: layerOf(layers), ...lead, comments: (pr) => gateRuns(read.comments(slug, pr) || []) }),
   };
 }

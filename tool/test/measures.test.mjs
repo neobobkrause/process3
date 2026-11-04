@@ -137,3 +137,107 @@ test('bob wake --stateless prints the fresh BOB\'s call and its size, writing no
     assert.throws(() => recordWake(root, { session: 'session_s1', tokens: 1, usd: 1, mode: 'stateless', ...bad }), /a wake needs/);
   }
 });
+
+// Findings from the review of PR 70: the command line, a shallow clone, and the lead times.
+import { main } from '../p3.mjs';
+import { leadTimes, reportWaits } from '../lib/lead.mjs';
+import { trancheReport } from '../lib/report.mjs';
+import { loadConfig } from '../lib/util.mjs';
+
+async function cli(root, argv, env = {}) {
+  const cwd = process.cwd();
+  const old = { log: console.log, err: console.error, env: { ...process.env } };
+  const lines = [];
+  console.log = (...x) => lines.push(x.join(' '));
+  console.error = (...x) => lines.push(x.join(' '));
+  Object.assign(process.env, env);
+  try { process.chdir(root); const code = await main(argv); return { code, out: lines.join('\n') }; } finally { process.chdir(cwd); console.log = old.log; console.error = old.err; process.env = old.env; }
+}
+
+test('the command line: sweep --context, metrics wake, metrics survival and bob wake --stateless', async () => {
+  const root = withOrigin();
+  recordStart(root, 'root', R, { log: quiet });
+  assert.equal((await cli(root, ['sweep', '--session', R, '--live', '1', '--context', '33', '--offline'])).code, 0);
+  assert.equal(JSON.parse(readState(root, 'process-state', SWEEP_ROWS_FILE).trim().split('\n').at(-1)).root_context, 33);
+  const w = await cli(root, ['metrics', 'wake', '--session', 'session_s1', '--tokens', '10', '--usd', '0.5', '--mode', 'stateless']);
+  assert.equal(w.code, 0);
+  assert.deepEqual(['session', 'tokens', 'cost_usd', 'mode'].map((k) => JSON.parse(w.out)[k]), ['session_s1', 10, 0.5, 'stateless']);
+  assert.equal((await cli(root, ['metrics', 'wake', '--session', 'session_s1', '--tokens', '10', '--mode', 'stateless'])).code, 1);
+  const s = await cli(root, ['metrics', 'survival']);
+  assert.equal(s.code, 0);
+  assert.equal(JSON.parse(s.out).days, 14);
+  assert.equal(JSON.parse((await cli(root, ['metrics', 'survival', '--days', '3', '--offline'])).out).days, 3);
+  assert.match((await cli(root, ['metrics', 'survival', '--days', 'soon'])).out, /--days <n>/);
+  const b = await cli(root, ['bob', 'wake', '--stateless', '--offline', '--live', '1'], { GITHUB_REPOSITORY: 'o/r' });
+  assert.equal(b.code, 0);
+  assert.match(b.out, /prompt: \d+ bytes[\s\S]*"source_url": "https:\/\/github.com\/o\/r"/);
+  assert.equal((await cli(root, ['bob', 'wake'], { GITHUB_REPOSITORY: 'o/r' })).code, 1);
+});
+
+test('metrics survival in a shallow clone: unmeasured offline, measured once it fetches the history whole', async () => {
+  const src = makeRepo({ 'README.md': 'x', 'process/config.json': { tranche: 'tranche' } });
+  git(['branch', 'tranche'], { cwd: src });
+  git(['checkout', '-q', 'tranche'], { cwd: src });
+  mergeJob(src, 'a', 1, 20, { 'src/a.js': 'one\n' });
+  commit(src, { 'later.txt': 'x' }, 'later');
+  git(['branch', '-f', 'main', 'tranche'], { cwd: src });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: src });
+  git(['push', '-q', bare, 'main', 'tranche'], { cwd: src });
+  const clone = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
+  git(['clone', '-q', '--depth', '2', '--branch', 'tranche', `file://${bare}`, clone], { cwd: src }); // the merge commit, its parents cut
+  const off = JSON.parse((await cli(clone, ['metrics', 'survival', '--offline'])).out);
+  assert.deepEqual(off.prs.map((p) => [p.pr, p.survived]), [[1, 'unmeasured']]);
+  assert.match(off.prs[0].why, /shallow/);
+  const on = JSON.parse((await cli(clone, ['metrics', 'survival'])).out);
+  assert.deepEqual(on.prs.map((p) => [p.pr, p.tranche, p.main, p.survived]), [[1, 'stands', 'stands', true]]);
+});
+
+test('lead times: each figure from its rows, beside its target, over marked, unmeasured where a row is missing', () => {
+  const root = withOrigin();
+  const t = (min) => new Date(Date.parse('2026-11-01T00:00:00Z') + min * 60000).toISOString();
+  const at = (min, fn) => { const e = { ...process.env }; process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = t(min); try { fn(); } finally { process.env = e; } };
+  at(0, () => commit(root, { 'process/ledger/a.json': { id: 'a', status: { state: 'WORKING' } } }, 'a working'));
+  at(40, () => commit(root, { 'process/ledger/a.json': { id: 'a', status: { state: 'BLOCKED', reason: 'x' } } }, 'a blocked'));
+  at(85, () => commit(root, { 'process/ledger/a.json': { id: 'a', status: { state: 'WORKING' } } }, 'a again'));
+  const rows = [
+    { at: t(5), module: 'a', row: 'attempt', event: 'start' }, { at: t(100), module: 'a', row: 'attempt', event: 'complete', pr: 7 },
+    { at: t(130), module: 'a', row: 'merge', pr: 7 }, { at: t(70), module: 'b', row: 'attempt', event: 'start' },
+  ];
+  const cfg = loadConfig(root);
+  const lt = leadTimes(root, cfg, {
+    ref: 'HEAD', rows, layers: new Map([['a', 1], ['b', 2]]), now: t(200),
+    grants: [{ row: 'grant', tranche: 'tranche', at: t(1) }], closed: [{ row: 'closed', tranche: 'tranche', layer: 1, at: t(50) }],
+    msgs: [{ from: 'a', n: 1, to: 'bob', at: t(10), text: 'report' }, { from: 'bob', n: 1, to: 'a', at: t(50), text: 'a-1: done' }, { from: 'a', n: 2, to: 'bob', at: t(150), text: 'again' }],
+    comments: () => [{ ok: false, at: t(105) }, { ok: true, at: t(110) }],
+  });
+  const a = lt.jobs.find((j) => j.module === 'a');
+  const b = lt.jobs.find((j) => j.module === 'b');
+  assert.deepEqual(a.ready_to_start, { minutes: 4, target: 10 });
+  assert.deepEqual(a.start_to_pr_ready, { minutes: 95 });
+  assert.deepEqual(a.green_to_merge, { minutes: 20, target: 15, mark: 'over' });
+  assert.deepEqual(a.blocked, { minutes: 45, target: 30, mark: 'over' });
+  assert.deepEqual(a.report_wait, [{ from: 'a', n: 1, to: 'bob', minutes: 40, target: 30, mark: 'over' }, { from: 'a', n: 2, to: 'bob', minutes: 50, open: true, target: 30, mark: 'over' }]);
+  assert.deepEqual(b.ready_to_start, { minutes: 20, target: 10, mark: 'over' });
+  assert.deepEqual(lt.close_to_next_start, [{ layer: 1, minutes: 20, target: 10, mark: 'over' }]);
+  assert.deepEqual(lt.summary.green_to_merge, { n: 1, median: 20, worst: 20, target: 15, median_mark: 'over', worst_mark: 'over' });
+  assert.equal(lt.summary.report_wait.n, 1, 'an open wait is not in the median');
+  assert.equal(lt.targets.merge_minutes, 15);
+  // Rows missing: no state branch read, no gate rows.
+  const none = leadTimes(root, cfg, { ref: 'HEAD', rows, layers: new Map([['a', 1]]), comments: () => { throw new Error('offline'); } });
+  assert.equal(none.jobs[0].ready_to_start, 'unmeasured');
+  assert.equal(none.jobs[0].green_to_merge, 'unmeasured');
+  assert.equal(none.jobs[0].report_wait, 'unmeasured');
+  assert.equal(none.close_to_next_start, 'unmeasured');
+  // A target from process/config.json replaces its default.
+  assert.equal(leadTimes(root, { ...cfg, targets: { ...cfg.targets, merge_minutes: 30 } }, { ref: 'HEAD', rows, comments: () => [{ ok: true, at: t(110) }] }).jobs[0].green_to_merge.mark, undefined);
+  assert.equal(reportWaits([{ from: 'bob', n: 3, to: 'root', at: t(0) }, { from: 'root', n: 1, to: 'bob', at: t(5), text: 'bob-3 ok' }], t(9))[0].minutes, 5);
+  // Both reports print them.
+  commit(root, { 'process/metrics/a.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' }, 'rows');
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const md = trancheReport(root, cfg, { now: t(200), io: { merged: () => null, comments: () => [], compare: () => null } });
+  assert.match(md, /## Lead times[\s\S]*\| job \| ready to start \|/);
+  assert.match(md, /- green to merge: (unmeasured|median)/);
+  assert.ok(report(root, 'o/r', 'HEAD', { read: { comments: () => [], getPR: () => null }, cfg }).lead_times.summary);
+});

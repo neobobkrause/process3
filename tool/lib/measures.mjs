@@ -1,8 +1,6 @@
 // Measures for the Build Plan's gate rows that had none: the 14-day survival of merged job pull
 // requests and their cost (P3-G5), and one BOB wake as a fresh stateless session (P3-A1, SES-16).
 // Both read and print; neither writes the record.
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { P3, rulebookLine } from './job.mjs';
 import { METRICS_DIR, overhead, rowsAt } from './metrics.mjs';
 import { readAddress, tipApprovals } from './roles.mjs';
@@ -56,14 +54,18 @@ export function survivalReport(root, { branch, main, days = 14, today = Date.now
   for (const [pr, f] of found) if (f.row?.module && !merges.has(pr)) merges.set(pr, f.row);
   const prs = [];
   let pending = 0;
+  // A shallow clone's cut history reads a job's change wrong (its merge's parents missing, blame
+  // stopped at the cut): every pull request is then unmeasured, never guessed.
+  const cut = out(root, ['rev-parse', '--is-shallow-repository']) === 'true';
   for (const [pr, r] of merges) {
     if (Date.parse(r.at) > cutoff) { pending++; continue; }
     const m = found.get(pr)?.m;
-    if (!m) { prs.push({ module: r.module, pr, merged_at: r.at, survived: 'unmeasured', why: 'its merge commit is not in this clone\'s history' }); continue; }
+    const why = cut ? 'this clone is shallow (its history is cut); run it without --offline to fetch the tranche and main whole' : !m ? 'its merge commit is not in this clone\'s history' : null;
+    if (why) { prs.push({ module: r.module, pr, merged_at: r.at, survived: 'unmeasured', why }); continue; }
     const t = standsOn(root, m, branch);
     const onMain = main && out(root, ['merge-base', '--is-ancestor', m, main]) !== null;
     const mm = onMain ? standsOn(root, m, main) : null;
-    prs.push({ module: r.module, pr, merged_at: r.at, merge: m.slice(0, 10), tranche: t ? `undone: ${t}` : 'stands', main: onMain ? (mm ? `undone: ${mm}` : 'stands') : 'not merged there', survived: !t && !mm });
+    prs.push({ module: r.module, pr, merged_at: r.at, merge: m.slice(0, 10), tranche: t ? `undone: ${t}` : 'stands', main: !main ? 'unmeasured: main not read' : onMain ? (mm ? `undone: ${mm}` : 'stands') : 'not merged there', survived: !t && !mm });
   }
   const surviving = prs.filter((p) => p.survived === true).length;
   const o = overhead(rows.filter((r) => Date.parse(r.at) <= cutoff));
@@ -79,7 +81,7 @@ export function survivalReport(root, { branch, main, days = 14, today = Date.now
   };
 }
 
-// In a shallow clone the history survival reads is cut: fetch the tranche and main whole first.
+// Survival reads whole history: fetch the tranche and main, --unshallow in a shallow clone.
 export function wholeHistory(root, tranche) {
   for (const b of [tranche, 'main']) {
     const shallow = out(root, ['rev-parse', '--is-shallow-repository']) === 'true';
@@ -95,7 +97,8 @@ export function statelessWake(root, { slug, live, context, offline = false, tip,
   const lines = [];
   status(root, { role: 'bob', live, context, offline, log: (l) => lines.push(l) });
   const rootId = readAddress(root, { fetch: false }).root?.session || 'none addressed';
-  const files = cfg.reading_bob.map((f) => { const p = join(root, f); return `## ${f}\n\n${existsSync(p) ? readFileSync(p, 'utf8').trimEnd() : '(missing)'}`; });
+  // The reading set as the call's own revision holds it, not the working tree.
+  const files = cfg.reading_bob.map((f) => `## ${f}\n\n${(out(root, ['show', `${rev}:${f}`]) ?? '(missing)').trimEnd()}`);
   const prompt = [
     '# BOB, one stateless wake', '',
     `You are BOB for ${slug} for this one wake: a fresh session that remembers no earlier wake. Your coordinator is ROOT, session \`${rootId}\`. Below are your reading set and \`${P3} status --role bob\` as it read at ${now()}. Act on it, each judged act its own command, leave in the record what the next wake needs, and end.`, '',

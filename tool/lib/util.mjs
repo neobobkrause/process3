@@ -103,6 +103,8 @@ export const DEFAULTS = {
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
+  // Lead times (metrics report, report tranche): proposed targets in minutes, each figure set beside its own.
+  targets: { start_minutes: 10, merge_minutes: 15, decision_minutes: 30, replace_minutes: 30 },
 };
 
 // An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
@@ -140,6 +142,7 @@ export function loadConfig(root, ref) {
   return {
     ...DEFAULTS, ...c,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
+    targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
   };
 }
 
