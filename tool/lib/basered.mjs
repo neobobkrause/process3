@@ -21,7 +21,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, w
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { install, runSuite, testFiles } from './suite.mjs';
+import { install, runSuite, testFiles, testTreeFiles } from './suite.mjs';
 import { buildGenerated } from './checks.mjs';
 import { NO_TOKENS, exists, run } from './util.mjs';
 
@@ -63,6 +63,31 @@ export function writeTree(root, sha, dir) {
   }
 }
 
+// The test files that reach f, a module a failing test's id names: f itself when it is one, else
+// those importing it, directly or through other files under the test paths, by a specifier ending
+// in its name (with or without its extension; a mention in prose does not count). Sorted.
+const SCRIPT = /\.(c|m)?(j|t)sx?$/;
+export function reachers(dir, entry, f) {
+  const own = testFiles(dir, entry);
+  if (own.includes(f)) return [f];
+  const all = testTreeFiles(dir, entry).filter((p) => SCRIPT.test(p));
+  const text = new Map();
+  const read = (p) => { if (!text.has(p)) { try { text.set(p, readFileSync(join(dir, p), 'utf8')); } catch { text.set(p, ''); } } return text.get(p); };
+  const seen = new Set([f]);
+  const out = new Set();
+  for (let next = [f]; next.length;) {
+    const g = next.shift();
+    const stem = basename(g).replace(SCRIPT, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const spec = new RegExp(`/${stem}(\\.(c|m)?(j|t)sx?)?['"\`]`);
+    for (const p of all) {
+      if (seen.has(p) || !spec.test(read(p))) continue;
+      seen.add(p);
+      if (own.includes(p)) out.add(p); else next.push(p);
+    }
+  }
+  return [...out].sort();
+}
+
 const counted = (tests) => {
   const m = new Map();
   for (const t of tests) m.set(testId(t), (m.get(testId(t)) || 0) + 1);
@@ -102,13 +127,15 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
       if (b.findings.length) return no(`the base's build failed: ${b.findings[0].message}`);
     }
     // A failing test's file is where its test() was called: a sibling module a test file imports
-    // runs nothing alone, so the base runs the test files that name it.
-    const own0 = testFiles(wt, entry);
+    // runs nothing alone, so the base runs the test files that reach it; they must be the same
+    // here and at the base, or the base's count of a test's failures is over other runs of it.
     const runs = new Map(); // file -> the test files that reach it at the base
+    const differ = new Map();
     for (const f of files) {
-      if (own0.includes(f)) { runs.set(f, [f]); continue; }
-      const name = basename(f);
-      runs.set(f, own0.filter((t) => { try { return readFileSync(join(wt, t), 'utf8').includes(name); } catch { return false; } }));
+      const there = reachers(wt, entry, f);
+      const here = reachers(root, entry, f);
+      runs.set(f, there);
+      if (there.join('\n') !== here.join('\n')) differ.set(f, `the test files reaching it differ, here ${here.join(', ') || 'none'}, at the base ${there.join(', ') || 'none'}`);
     }
     const toRun = [...new Set([...runs.values()].flat())].sort();
     const unreached = files.filter((f) => !runs.get(f).length);
@@ -119,7 +146,7 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     const whole = new Set(s ? s.whole : []);
     const red = counted(s ? s.failing : []);
     const green = new Set(s ? s.passing.map(testId) : []);
-    const why = (f) => !runs.get(f).length ? 'not a test file the suite runs, and no test file at the base names it'
+    const why = (f) => !runs.get(f).length ? 'not a test file the suite runs, and no test file at the base imports it'
       : s.timedOut ? `the run timed out after ${Math.round(s.seconds)} s`
         : runs.get(f).some((t) => whole.has(t)) ? `${runs.get(f).filter((t) => whole.has(t)).join(', ')} failed as a whole there (a load failure or an early exit), exit ${s.exit}`
           : !reported.has(f) ? `no result from it, exit ${s.exit}${runs.get(f)[0] === f ? '' : ` running ${runs.get(f).join(', ')}`}` : null;
@@ -127,9 +154,12 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     const lacks = [];
     const fewer = [];
     const open = new Map();
+    const unlike = new Set();
     for (const [id, n] of counted(failing)) {
-      if ((red.get(id) || 0) >= n) continue;
       const f = id.slice(0, id.indexOf('::'));
+      // Not even a matching count: at the base it may come from another file's run of the test.
+      if (differ.has(f)) { unlike.add(f); continue; }
+      if ((red.get(id) || 0) >= n) continue;
       const w = why(f);
       if (w) open.set(f, w);
       else (red.get(id) ? fewer : green.has(id) ? passes : lacks).push(id);
@@ -141,7 +171,8 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     if (lacks.length) parts.push(`${lacks.length} failing test(s) are missing at the base ${at}, whose run reported their files: ${lacks.slice(0, 5).join('; ')}`);
     if (fewer.length) parts.push(`${fewer.length} failing test(s) fail fewer times at the base ${at} than here: ${fewer.slice(0, 5).join('; ')}`);
     if (open.size) parts.push(`the base run did not complete for ${[...open].slice(0, 5).map(([f, w]) => `${f} (${w})`).join(', ')}: no verdict on its tests; rerun`);
-    if (parts.length) return no(parts.join('; '), { run: evidence, ...(open.size && !passes.length && !lacks.length && !fewer.length ? { incomplete: [...open.keys()] } : {}) });
+    if (unlike.size) parts.push(`no base-red verdict for ${[...unlike].slice(0, 5).map((f) => `${f} (${differ.get(f)})`).join(', ')}`);
+    if (parts.length) return no(parts.join('; '), { run: evidence });
     return { ok: true, base_red: { base, tests: failing.map(testId), run: evidence } };
   } catch (e) {
     return no(`the base's tree could not be prepared: ${String(e.message).slice(0, 300)}`);

@@ -17,10 +17,11 @@ function walk(dir, out) {
   return out;
 }
 
-// Test files under the entry's test paths, relative to the repository root.
+// Every file under the entry's test paths, and the test files among them, relative to the root.
+export const testTreeFiles = (root, entry) => entry.tests.flatMap((t) => walk(join(root, t), [])).map((p) => relative(root, p));
 export function testFiles(root, entry) {
   const suffix = suffixOf(entry);
-  return entry.tests.flatMap((t) => walk(join(root, t), [])).filter((p) => p.endsWith(suffix)).map((p) => relative(root, p));
+  return testTreeFiles(root, entry).filter((p) => p.endsWith(suffix));
 }
 
 // Node's test runner prints "ℹ tests N" (spec) or "# tests N" (tap) at the end.
@@ -50,7 +51,7 @@ export function runSuite(root, entry, files = testFiles(root, entry), opts = {})
   const output = r.stdout + r.stderr;
   const ev = events.length ? readResults(opts.events, root) : null;
   return {
-    cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output, timedOut: /ETIMEDOUT/.test(r.stderr),
+    cmd: shown, cwd: entry.suite.cwd, exit: r.code, seconds: r.seconds, tests: counts(output), output, timedOut: r.timedOut === true,
     failing: ev && ev.failing, passing: ev && ev.passing, reported: ev && ev.reported, whole: ev && ev.whole,
   };
 }

@@ -7,7 +7,7 @@ import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { baseRedOwed } from '../lib/report.mjs';
-import { baseRed } from '../lib/basered.mjs';
+import { baseRed, reachers } from '../lib/basered.mjs';
 import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -268,7 +268,8 @@ test('a sibling module\'s test that passes at the base is said to pass there, by
 });
 
 test('a base run that times out is no verdict: it names the file and asks for a rerun', () => {
-  const s = setup({ 'src/alpha/wait.mjs': 'export const ms = 20000;\n', 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam, 'process/config.json': { suite_timeout_minutes: 0.1 } },
+  // 15 s for each side's install and run: the head fails at once, the base sleeps 30 s.
+  const s = setup({ 'src/alpha/wait.mjs': 'export const ms = 30000;\n', 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam, 'process/config.json': { suite_timeout_minutes: 0.25 } },
     { ...change, ...fast });
   const r = run(s, receiptFor(s.head));
   const m = r.findings.find((f) => f.check === 'suite').message;
@@ -285,16 +286,45 @@ test('a test file that fails to load at the base is no verdict on its tests; nor
   const e = { ...entry('alpha'), suite: { cwd: '.', command: ['node', '--test'] }, tests: ['test/alpha/'] };
   const br = baseRed(s.root, e, { base: s.base, failing: [{ file: 'test/alpha/lone.mjs', name: 'x' }], cfg: {}, log: quiet });
   assert.equal(br.ok, false);
-  assert.match(br.why, /^the base run did not complete for test\/alpha\/lone\.mjs \(not a test file the suite runs, and no test file at the base names it\): no verdict on its tests; rerun$/);
-  assert.deepEqual(br.incomplete, ['test/alpha/lone.mjs']);
+  assert.match(br.why, /^the base run did not complete for test\/alpha\/lone\.mjs \(not a test file the suite runs, and no test file at the base imports it\): no verdict on its tests; rerun$/);
 });
 
 test('the events: passes are recorded and kept out of failing; a file that failed as a whole is marked', () => {
-  const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 't/a.test.mjs': "import test from 'node:test';\ntest('ok', () => {});\ntest('bad', () => { throw new Error('x'); });\n", 't/b.test.mjs': "import './nope.mjs';\n" });
-  const ev = join(mkdtempSync(join(tmpdir(), 'p3-ev-')), 'f.jsonl');
-  const s = runSuite(root, { ...entry('alpha'), tests: ['t/'] }, ['t/a.test.mjs', 't/b.test.mjs'], { events: ev });
-  assert.deepEqual(s.passing, [{ file: 't/a.test.mjs', name: 'ok' }]);
-  assert.deepEqual(s.failing.map((t) => t.name).sort(), ['bad', 't/b.test.mjs']);
-  assert.deepEqual([s.reported.sort(), s.whole], [['t/a.test.mjs', 't/b.test.mjs'], ['t/b.test.mjs']]);
-  assert.deepEqual(readFailing(ev, root).map((t) => t.name).sort(), ['bad', 't/b.test.mjs']);
+  const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'p/t/a.test.mjs': "import test from 'node:test';\ntest('ok', () => {});\ntest('bad', () => { throw new Error('x'); });\n", 'p/t/b.test.mjs': "import './nope.mjs';\n" });
+  for (const cwd of ['.', 'p']) {
+    const ev = join(mkdtempSync(join(tmpdir(), 'p3-ev-')), 'f.jsonl');
+    const s = runSuite(root, { ...entry('alpha'), tests: ['p/t/'], suite: { cwd, command: ['node', '--test'] } }, ['p/t/a.test.mjs', 'p/t/b.test.mjs'], { events: ev });
+    assert.deepEqual(s.passing, [{ file: 'p/t/a.test.mjs', name: 'ok' }], `cwd ${cwd}`);
+    assert.deepEqual(s.failing.map((t) => t.name).sort(), ['bad', cwd === '.' ? 'p/t/b.test.mjs' : 't/b.test.mjs']);
+    assert.deepEqual([s.reported.sort(), s.whole, s.timedOut], [['p/t/a.test.mjs', 'p/t/b.test.mjs'], ['p/t/b.test.mjs'], false], `cwd ${cwd}: the whole-file result is marked from a suite cwd below the root too`);
+    assert.deepEqual(readFailing(ev, root), s.failing);
+  }
+});
+
+test('the revert check reads every file per test when a sibling\'s tests are tolerated: a new inert test beside them fails it', () => {
+  const s = setup({ ...fast, 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam },
+    { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/t51-seam.test.mjs': seam + "import test from 'node:test';\ntest('my feature', () => {});\n" });
+  const r = run(s, receiptFor(s.head));
+  assert.deepEqual([r.run.suite, r.run.revert], ['base-red', 'fail']);
+  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['revert', 'test/alpha/t51-seam.test.mjs']]);
+});
+
+test('a sibling reached by other test files here than at the base has no base-red verdict, even with a matching count', () => {
+  // At the base B runs the red section and A a green one; the PR empties B (drops its import) and breaks A's.
+  const two = "import { describe, test } from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\nexport const sections = (red) => describe('§14a', () => { test('a PDF over the ceiling is stated', () => { if (red) a.fail('red'); a.equal(x, 1); }); });\n";
+  const s = setup({ 'test/alpha/r9-seam-limits.mjs': two, 'test/alpha/a.test.mjs': "import { sections } from './r9-seam-limits.mjs';\nsections(false);\n", 'test/alpha/b.test.mjs': "import { sections } from './r9-seam-limits.mjs';\nsections(true);\n" },
+    { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/b.test.mjs': null });
+  const m = run(s, receiptFor(s.head)).findings.find((f) => f.check === 'suite').message;
+  assert.match(m, /no base-red verdict for test\/alpha\/r9-seam-limits\.mjs \(the test files reaching it differ, here test\/alpha\/a\.test\.mjs, at the base test\/alpha\/a\.test\.mjs, test\/alpha\/b\.test\.mjs\)$/);
+});
+
+test('the test files reaching a sibling: through a helper, with or without its extension; prose does not count', () => {
+  const root = makeRepo({
+    'process/ledger/alpha.json': entry('alpha'),
+    'test/alpha/sib.mjs': '', 'test/alpha/kit.mjs': "export * from './sib';\n",
+    'test/alpha/a.test.mjs': "import './kit.mjs';\n", 'test/alpha/b.test.mjs': '// like sib.mjs, but not imported\n', 'test/alpha/c.test.mjs': "import '../alpha/sib.mjs';\n",
+  });
+  const e = { ...entry('alpha'), tests: ['test/alpha/'] };
+  assert.deepEqual(reachers(root, e, 'test/alpha/sib.mjs'), ['test/alpha/a.test.mjs', 'test/alpha/c.test.mjs']);
+  assert.deepEqual(reachers(root, e, 'test/alpha/b.test.mjs'), ['test/alpha/b.test.mjs']);
 });
