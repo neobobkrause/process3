@@ -83,3 +83,26 @@ test('a null tranche reads as the default, so it cannot stop every later close',
   assert.equal(loadConfig(root, 'HEAD').tranche, 'tranche');
   assert.equal(keyAt(root, 'HEAD', 'tranche'), 'tranche');
 });
+
+test('a base that deleted its config blocks no pull request that leaves it deleted (third confirming review of PR 97)', () => {
+  const root = makeRepo({ 'process/config.json': { approvals: { owner: 'carol' } } });
+  git(['checkout', '-q', '-b', 'pr'], { cwd: root });
+  const head = commit(root, { 'x.txt': 'x' });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const mb = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['rm', '-q', 'process/config.json'], { cwd: root });
+  git(['commit', '-q', '-m', 'the owner deletes the config'], { cwd: root });
+  assert.equal(mergedUnanchored(root, 'main', mb, head), null);
+});
+
+import { recordCheck } from '../lib/record.mjs';
+import { configOf } from '../lib/util.mjs';
+test('the record check flags a change to a config whose parent had a duplicate key (third confirming review of PR 97)', () => {
+  const dup = (o) => `{"approvals": {"owner": "x"}, "approvals": {"owner": "${o}"}}\n`;
+  const root = makeRepo({ 'process/config.json': dup('neobobkrause') });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const head = commit(root, { 'process/config.json': dup('eve') }, 'a session names eve');
+  const no = () => ({ author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } });
+  const f = recordCheck(root, { ...configOf({}), max_file_bytes: 1e6 }, { base, head, lookup: no }).findings;
+  assert.ok(f.some((x) => x.check === 'approvals'), JSON.stringify(f));
+});

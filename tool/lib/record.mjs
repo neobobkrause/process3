@@ -341,7 +341,8 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           const was = parents.length ? parentsFor(file).map((p) => ap(show(root, p, file))) : [ap(null)];
           // The approvals must equal a version already judged; so must record_since, unless it
           // names the base or an ancestor of it, which hides nothing the change brings.
-          const same = (w) => w.approvals === now.approvals && (JSON.stringify(w.since) === JSON.stringify(now.since) || onBase(now.since));
+          // An unreadable version (a duplicate key) equals none, so it never hides a change.
+          const same = (w) => w.approvals !== 'unreadable' && w.approvals === now.approvals && (JSON.stringify(w.since) === JSON.stringify(now.since) || onBase(now.since));
           if (!was.some(same)) approvalsTouched.push({ file, line: 1, what: 'the approvals or record_since' });
         }
       }

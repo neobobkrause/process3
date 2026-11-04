@@ -82,12 +82,13 @@ export function mergedUnanchored(root, tip, mb, sha) {
   const r = git(['merge-tree', '--write-tree', tip, sha], { cwd: root, allowFail: true });
   if (r.code !== 0) return `it does not merge cleanly with the base as it is`;
   const tree = r.stdout.split('\n')[0].trim();
-  const was = lastConfigAt(root, tip);
-  if (was && !blobAt(root, tree, CONFIG_FILE)) return `merged with the base as it is, it would delete ${CONFIG_FILE}`;
+  // The base's value is the base tip's own (a base that deleted its config blocks nothing that
+  // leaves it deleted: third confirming review of PR 97).
+  if (blobAt(root, tip, CONFIG_FILE) && !blobAt(root, tree, CONFIG_FILE)) return `merged with the base as it is, it would delete ${CONFIG_FILE}`;
   const from = lastConfigAt(root, mb) || mb;
   for (const key of ANCHORED) {
     const head = keyAt(root, sha, key);
-    const want = head !== keyAt(root, from, key) ? head : keyAt(root, was || tip, key);
+    const want = head !== keyAt(root, from, key) ? head : keyAt(root, tip, key);
     if (keyAt(root, tree, key) !== want) return `merged with the base as it is, it would leave ${key} in ${CONFIG_FILE} at neither the base's value nor the head's judged one`;
   }
   return null;
