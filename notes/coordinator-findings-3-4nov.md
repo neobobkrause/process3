@@ -154,3 +154,4 @@
 - 11:37 pin 54a4fa0 on the copy: PR 214 (2923874), BOB woken pin-24 and told the new acts. Check-in at about 12:22 for PR 102 and a re-measure.
 - 11:37 PR 102 merged (c790f06; size waiver up to 2x cap when the head no longer carries it, recorded size_waived; merge PUT read-back; literal pathspecs), 616/616. Pin move to c790f06 started 11:38 for interface-assets.
 - 11:43 pin c790f06 on the copy: PR 221 (98cdfe7), BOB woken pin-25; interface-assets re-runs job complete. No pin move open; no process3 build open.
+- 11:49 BOB: PR 105's mandatory --cost-usd blocks completes (usage appears in get_session only after a turn ends). Coordinator's rule was wrong. build/cost-at-merge started: cost recorded at merge from the job's idle session (--job-cost-usd), never blocking; complete no longer requires it.
