@@ -103,6 +103,9 @@ test('metrics report counts a refuted COMPLETE claim and gate minutes', () => {
   appendRow(root, 'alpha', { row: 'merge', pr: 7 });
   const gate = block(GATE, { runs: [{ minutes: 2, receipt_attempt: 1, suite: 'fail' }, { minutes: 1.5, receipt_attempt: 1, suite: 'pass', revert: 'pass' }] });
   const read = { comments: () => [{ body: gate, user: { login: 'github-actions[bot]' } }], getPR: () => ({ merged_at: null }) };
+  assert.equal(report(root, 'o/r', 'HEAD', { read }).complete_claims, 0, 'rows are read at the ref, not from the working tree');
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', 'rows'], { cwd: root });
   const r = report(root, 'o/r', 'HEAD', { read });
   assert.equal(r.complete_claims, 1);
   assert.equal(r.refuted, 1);
@@ -607,7 +610,7 @@ test('the START says each judged act is its own shell command, never chained wit
 });
 
 // JOB-6: recovery by replacement.
-test('--restart prints a replacement START from the branch and the PR, from the tranche tip, and writes nothing', () => {
+test('--restart prints a replacement START from the branch and the PR, from the tranche tip, and records one restart row, nothing else', () => {
   const root = withOrigin();
   const f = fakeGitHub();
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
@@ -615,11 +618,18 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' }, 'half the work');
   git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  const refs = () => git(['ls-remote', 'origin'], { cwd: root });
+  const refs = () => git(['ls-remote', 'origin'], { cwd: root }).split('\n').filter((l) => !l.endsWith('refs/heads/process-state')).join('\n');
   const before = refs();
+  const pushed = new Date(git(['log', '-1', '--format=%cI', 'origin/job/alpha'], { cwd: root })).toISOString();
   const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'job' } };
   const r = jobStart(root, 'alpha', { coordinator: 's', restart: 'its session stopped answering after 40 minutes', find: () => pr, notes: () => [], log: quiet });
-  assert.equal(refs(), before, 'no branch, no push');
+  assert.equal(refs(), before, 'no branch, no push but the state branch');
+  // One row on the state branch, for lead times' replace: the time, the why, and the stop (its last push).
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
+  const rows = git(['show', 'origin/process-state:metrics/restart.jsonl'], { cwd: root }).trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(rows.length, 1);
+  assert.deepEqual({ ...rows[0], at: typeof rows[0].at }, { row: 'restart', at: 'string', tranche: 'tranche', module: 'alpha', why: 'its session stopped answering after 40 minutes', pr: 9, state: 'WORKING', stopped: pushed, stopped_by: 'last push' });
+  assert.deepEqual(r.row, rows[0]);
   assert.equal(f.state.prs, 1, 'no new pull request');
   assert.match(r.start, /attempt 1, replacement session/);
   assert.match(r.start, /BOB saw: its session stopped answering after 40 minutes/);

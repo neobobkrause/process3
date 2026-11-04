@@ -6,11 +6,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { readLedgerTexts } from './ledger.mjs';
-import { leadCell, leadInputs, leadSummaryCell, leadTimes } from './lead.mjs';
+import { fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes } from './lead.mjs';
 import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
-import { exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
+import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
 
 const U = 'unmeasured';
 const usd = (x) => (typeof x === 'number' ? `$${(Math.round(x * 100) / 100).toFixed(2)}` : U);
@@ -114,6 +114,17 @@ export function deepen(root, tranche, main = 'main') {
   return deep;
 }
 
+// What lead times read, fetched for metrics report and report tranche: the tranche and main,
+// every job branch origin holds (fetchJobs: fresh, never a stale ref) with its own rows (a start
+// or complete row lives there until the merge), then, in a shallow clone, deepen() for the
+// tranche's history. Returns { jobRefs, jobRows, deepened }.
+export function leadFetch(root, cfg) {
+  git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
+  const jobRefs = fetchJobs(root);
+  const jobRows = [...(jobRefs || new Map())].flatMap(([m, r]) => (r ? rowsAt(root, r).filter((x) => x.module === m) : []));
+  return { jobRefs, jobRows, deepened: deepen(root, cfg.tranche) };
+}
+
 const hours = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 36e5 * 10) / 10;
 
 // The mark ids of a requirement file: all, and those still "(not yet met" (util's one parser),
@@ -135,7 +146,7 @@ function recordOnly(root, cfg, base, main, tip, deep) {
 // io: { state(path) -> text|null (the state branch, null when unread), merged() -> merged PRs into
 // the tranche or null, comments(pr) -> the PR's comments }. stateRead: whether the branch was read.
 // deepened: deepen()'s result in a shallow clone.
-export function trancheReport(root, cfg, { slug, now = new Date().toISOString(), stateRead = false, deepened = null, io = {} } = {}) {
+export function trancheReport(root, cfg, { slug, now = new Date().toISOString(), stateRead = false, deepened = null, jobRefs, jobRows = [], io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   const tip = gitOut(root, ['rev-parse', '--verify', '-q', tranche]) ? tranche : 'HEAD';
   const read = { state: () => null, merged: () => (slug ? mergedPRs(slug, cfg.tranche) : null), comments: (n) => ghComments(slug, n), compare: (sha) => (slug ? ghCompare(slug, 'main', sha) : null), ...io };
@@ -261,9 +272,12 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push(...(Array.isArray(idle) ? table(['day', 'occurrences', 'longest quiet (h)', 'unmeasured sweeps'], idle.map((d) => [d.day, d.occurrences, d.longest_quiet_h, d.unmeasured_sweeps])) : [U]), '');
 
   // Lead times
-  const lt = leadTimes(root, cfg, { ref: tip, rows, layers, now, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? { ...leadInputs(root, cfg.state_branch, read.state, cfg.tranche), closed: [...closedBy.values()] } : {}) });
+  // A close whose commit cannot be placed is passed undecided: its figure reads unmeasured.
+  const undecidedRows = mine.filter((x) => x.in === null && !closedBy.has(x.r.layer)).map((x) => ({ ...x.r, undecided: true }));
+  const lt = leadTimes(root, cfg, { ref: tip, rows, jobRows, layers, now, jobRefs, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? { ...leadInputs(root, cfg.state_branch, read.state, cfg.tranche), closed: [...closedBy.values(), ...undecidedRows] } : {}) });
   L.push('## Lead times', '', `Minutes, each beside its target (\`targets\` in process/config.json); "over" marks one past it. ${lt.rule}`, '');
-  L.push(...(lt.jobs.length ? table(['job', 'ready to start', 'start to PR ready', 'green to merge', 'blocked', 'report wait'], lt.jobs.map((j) => [j.module, leadCell(j.ready_to_start), leadCell(j.start_to_pr_ready), leadCell(j.green_to_merge), leadCell(j.blocked), leadCell(j.report_wait)])) : ['No job has a start row.']), '');
+  L.push(`- tranche opened: ${lt.opened}`, '');
+  L.push(...(!Array.isArray(lt.jobs) ? [`Per job: ${U} (the tranche's opening not read).`] : lt.jobs.length ? table(['job', 'ready to start', 'start to PR ready', 'green to merge', 'blocked', 'replace', 'report wait'], lt.jobs.map((j) => [j.module, leadCell(j.ready_to_start), leadCell(j.start_to_pr_ready), leadCell(j.green_to_merge), leadCell(j.blocked), leadCell(j.replace), leadCell(j.report_wait)])) : ['No job has a start row since the opening.']), '');
   L.push(`- layer close to next job start: ${Array.isArray(lt.close_to_next_start) ? (lt.close_to_next_start.length ? lt.close_to_next_start.map((c) => `layer ${c.layer} ${leadCell(c)}`).join('; ') : 'no layer closed') : U}`);
   for (const [k, v] of Object.entries(lt.summary)) L.push(`- ${k.replace(/_/g, ' ')}: ${leadSummaryCell(v)}`);
   L.push('');

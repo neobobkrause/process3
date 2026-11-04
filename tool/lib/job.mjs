@@ -1,5 +1,5 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
-import { existsSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
@@ -8,7 +8,8 @@ import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledg
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince } from './record.mjs';
 import { setupCheck } from './setup.mjs';
-import { addressFile, fetchState, readState } from './state.mjs';
+import { addressFile, fetchState, readState, writeState } from './state.mjs';
+import { RESTARTS_FILE, entryHistory } from './lead.mjs';
 import { unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
@@ -463,9 +464,11 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
 }
 
 // job start <id> --restart "<why>" (JOB-6): a replacement session for a WORKING or BLOCKED job
-// with its branch and pull request open. Creates no branch and no PR, writes nothing: prints
-// the START, the create_session call from the tranche tip's commit (so the session loads the
-// tip's approvals; its first commands check out the branch) and the subscribe call.
+// with its branch and pull request open. Creates no branch and no PR; records one restart row on
+// the state branch (lead times' replace: the time, the why, and when and how the job stopped: the
+// commit that made it BLOCKED, else its branch's last push), then prints the START, the
+// create_session call from the tranche tip's commit (so the session loads the tip's approvals;
+// its first commands check out the branch) and the subscribe call.
 function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   if (why === true || !String(why ?? '').trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
   const cfg = loadConfig(root);
@@ -493,11 +496,26 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
   const launch = { ...launchFor(slug, branch, id, start, model, cfg.clone), title: `job ${id} (restart)`, source_revision: tip };
+  // When the job stopped: BLOCKED, the commit on its branch that made it so (null when this
+  // clone's history is cut before it); otherwise its branch's last push.
+  let stopped = new Date(git(['log', '-1', '--format=%cI', `origin/${branch}`], { cwd: root })).toISOString();
+  if (state === 'BLOCKED') {
+    const h = entryHistory(root, `refs/remotes/origin/${branch}`, id) || [];
+    let k = h.length - 1;
+    while (k > 0 && h[k - 1].state === 'BLOCKED') k--;
+    stopped = h.length && h.at(-1).state === 'BLOCKED' && (k > 0 || !isShallow(root)) ? h[k].at : null;
+  }
+  const row = { row: 'restart', at: now(), tranche: cfg.tranche, module: id, why: String(why).trim(), pr: pr.number, state, stopped, stopped_by: state === 'BLOCKED' ? 'BLOCKED' : 'last push' };
+  writeState(root, cfg.state_branch, `restart ${id}`, (wt) => {
+    const p = join(wt, RESTARTS_FILE);
+    mkdirSync(dirname(p), { recursive: true });
+    appendFileSync(p, JSON.stringify(row) + '\n');
+  });
   log(start);
   log(`start the replacement job session with create_session, once the session it replaces has stopped:\n${JSON.stringify(launch, null, 2)}`);
   const subscribe = subscribeFor(slug, pr);
   log(subscribe.text);
-  return { start, pr, launch, subscribe: subscribe.call, restarted: true };
+  return { start, pr, launch, subscribe: subscribe.call, restarted: true, row };
 }
 
 // The unmet marks of a requirement file, by the one parser status counts with (util's unmetIds).

@@ -132,6 +132,8 @@ test('bob wake --stateless prints the fresh BOB\'s call and its size, writing no
   assert.equal(cmp.stateless.mean_tokens, 1200);
   assert.equal(cmp.resident.mean_usd, 2);
   assert.equal(wakes([]).stateless, 'unmeasured');
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', 'wake rows'], { cwd: root });
   assert.equal(report(root, 'o/r', 'HEAD', { read: { comments: () => [], getPR: () => null } }).wakes.resident.wakes, 1);
   for (const bad of [{ mode: 'warm' }, { tokens: 'many' }, { usd: true }, { session: 'bob' }]) {
     assert.throws(() => recordWake(root, { session: 'session_s1', tokens: 1, usd: 1, mode: 'stateless', ...bad }), /a wake needs/);
@@ -212,7 +214,8 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   git(['reset', '-q', '--hard', back], { cwd: root });
   const cfg = loadConfig(root);
   const lt = leadTimes(root, cfg, {
-    ref: 'HEAD', rows, layers: new Map([['a', 1], ['b', 2]]), now: t(200),
+    ref: 'HEAD', rows, layers: new Map([['a', 1], ['b', 2]]), now: t(200), restarts: [],
+    jobRefs: new Map([['a', 'HEAD'], ['b', 'HEAD'], ['c', 'refs/remotes/origin/job/c']]),
     grants: [{ row: 'grant', tranche: 'tranche', at: t(1), outcome: 'ok' }, { row: 'grant', tranche: 'tranche', at: t(3), outcome: 'refused' }], closed: [{ row: 'closed', tranche: 'tranche', layer: 1, at: t(50) }],
     msgs: [{ from: 'a', n: 1, to: 'bob', at: t(10), text: 'report' }, { from: 'bob', n: 1, to: 'a', at: t(50), text: 'a-1: done' }, { from: 'a', n: 2, to: 'bob', at: t(150), text: 'again' }],
     comments: () => [{ ok: false, at: t(105) }, { ok: true, at: t(110) }],
@@ -220,36 +223,39 @@ test('lead times: each figure from its rows, beside its target, over marked, unm
   const a = lt.jobs.find((j) => j.module === 'a');
   const b = lt.jobs.find((j) => j.module === 'b');
   assert.deepEqual(a.ready_to_start, { minutes: 4, target: 10 });
-  assert.deepEqual(a.start_to_pr_ready, { minutes: 95 });
-  assert.deepEqual(a.green_to_merge, { minutes: 20, target: 15, mark: 'over' });
-  assert.deepEqual(a.blocked, { minutes: 45, target: 30, mark: 'over' });
+  assert.deepEqual(a.start_to_pr_ready, { minutes: 95, attempt: 1 });
+  assert.deepEqual(a.green_to_merge, { minutes: 20, target: 15, mark: 'over', attempt: 1 });
+  assert.deepEqual(a.blocked, { minutes: 45 }, 'blocked has no target: replace has');
+  assert.deepEqual(a.replace, [{ from: t(40), minutes: 45, stopped_by: 'BLOCKED', resumed: t(85), target: 30, mark: 'over' }]);
   assert.deepEqual(a.report_wait, [{ from: 'a', n: 1, to: 'bob', minutes: 40, target: 30, mark: 'over' }, { from: 'a', n: 2, to: 'bob', minutes: 50, open: true, target: 30, mark: 'over' }]);
   assert.deepEqual(b.ready_to_start, { minutes: 20, target: 10, mark: 'over' });
-  assert.deepEqual(lt.jobs.find((j) => j.module === 'c').blocked, { minutes: 50, open: true, target: 30, mark: 'over' });
+  assert.deepEqual(lt.jobs.find((j) => j.module === 'c').blocked, { minutes: 50, open: true });
   assert.deepEqual(lt.close_to_next_start, [{ layer: 1, minutes: 20, target: 10, mark: 'over' }]);
   assert.equal(a.ready_to_start.minutes, 4, 'from the last ok grant row, not the refused one');
   assert.deepEqual(lt.summary.green_to_merge, { n: 1, median: 20, worst: 20, target: 15, median_mark: 'over', worst_mark: 'over' });
   assert.equal(lt.summary.report_wait.n, 1, 'an open wait is not in the median');
   assert.equal(lt.targets.merge_minutes, 15);
-  // Rows missing: no state branch read, no gate rows.
-  const none = leadTimes(root, cfg, { ref: 'HEAD', rows, layers: new Map([['a', 1]]), comments: () => { throw new Error('offline'); } });
+  // Rows missing: the opening read, but no layer close, message or gate row, nor a job branch.
+  const none = leadTimes(root, cfg, { ref: 'HEAD', rows, layers: new Map([['a', 2], ['b', 1]]), grants: [{ row: 'grant', tranche: 'tranche', at: t(1), outcome: 'ok' }], comments: () => { throw new Error('offline'); } });
   assert.equal(none.jobs[0].ready_to_start, 'unmeasured');
   assert.equal(none.jobs[0].green_to_merge, 'unmeasured');
   assert.equal(none.jobs[0].report_wait, 'unmeasured');
+  assert.equal(none.jobs[0].blocked, 'unmeasured');
+  assert.equal(none.jobs[0].replace, 'unmeasured');
   assert.equal(none.close_to_next_start, 'unmeasured');
   // process/config.json's targets: a partial one keeps the other defaults.
   commit(root, { 'process/config.json': { tranche: 'tranche', targets: { merge_minutes: 45 } } }, 'targets');
   assert.deepEqual(loadConfig(root).targets, { start_minutes: 10, merge_minutes: 45, decision_minutes: 30, replace_minutes: 30 });
   commit(root, { 'process/config.json': { tranche: 'tranche' } }, 'targets back');
   // A target from process/config.json replaces its default.
-  assert.equal(leadTimes(root, { ...cfg, targets: { ...cfg.targets, merge_minutes: 30 } }, { ref: 'HEAD', rows, comments: () => [{ ok: true, at: t(110) }] }).jobs[0].green_to_merge.mark, undefined);
+  assert.equal(leadTimes(root, { ...cfg, targets: { ...cfg.targets, merge_minutes: 30 } }, { ref: 'HEAD', rows, grants: [{ row: 'grant', tranche: 'tranche', at: t(1), outcome: 'ok' }], comments: () => [{ ok: true, at: t(110) }] }).jobs[0].green_to_merge.mark, undefined);
   assert.equal(reportWaits([{ from: 'bob', n: 3, to: 'root', at: t(0) }, { from: 'root', n: 1, to: 'bob', at: t(5), text: 'bob-3 ok' }], t(9))[0].minutes, 5);
   // Both reports print them.
   commit(root, { 'process/metrics/a.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' }, 'rows');
   git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
   const md = trancheReport(root, cfg, { now: t(200), io: { merged: () => null, comments: () => [], compare: () => null } });
-  assert.match(md, /## Lead times[\s\S]*\| job \| ready to start \|/);
+  assert.match(md, /## Lead times[\s\S]*Per job: unmeasured \(the tranche's opening not read\)/);
   assert.match(md, /- green to merge: unmeasured/);
   // With the state branch read, each report measures from its rows: this tranche's open and a layer close.
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
