@@ -745,6 +745,10 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
   const amended = !!amendedReceipt;
   if (amended) receipt = amendedReceipt;
   if (posted?.data?.sha !== sha || amended) {
+    // A new attempt pushed while the pull request was ready (a run stopped after its push, or a
+    // push by hand) and never given its receipt: a draft first, so the ready below starts the
+    // gate run that reads this receipt; the push's own run had none to read.
+    if (again && !pr.draft && posted?.data?.sha !== sha) pr = { ...pr, ...io.toDraft(slug, pr), draft: true };
     const what = amended ? 'Amended receipt' : 'Receipt';
     const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `${what} for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
     url = c.html_url;

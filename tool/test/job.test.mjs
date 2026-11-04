@@ -132,17 +132,17 @@ function withOrigin() {
 import { join } from 'node:path';
 
 function fakeGitHub() {
-  const state = { comments: [], ready: 0, prs: 0, failReady: true, drafted: 0, readyAfterDraft: 0 };
+  const state = { comments: [], ready: 0, prs: 0, failReady: true, drafted: 0, isDraft: true };
   return {
     state,
     open: (slug, p) => { state.prs++; return { number: 9, html_url: 'pr', draft: true, ...p }; },
     find: () => null,
     gh: {
-      findPR: () => ({ number: 9, draft: state.ready === 0 || state.drafted > state.readyAfterDraft, user: { login: 'civicsmith' } }),
-      toDraft: () => { state.drafted++; state.readyAfterDraft = state.ready; return { draft: true }; },
+      findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'civicsmith' } }),
+      toDraft: () => { state.drafted++; state.isDraft = true; return { draft: true }; },
       comments: () => state.comments,
       addComment: (s, n, body) => { state.comments.push({ body, html_url: `c${state.comments.length}`, user: { login: 'civicsmith' } }); return { html_url: 'c' }; },
-      markReady: () => { if (state.failReady) { state.failReady = false; throw new Error('network'); } state.ready++; },
+      markReady: () => { if (state.failReady) { state.failReady = false; throw new Error('network'); } state.ready++; state.isDraft = false; },
     },
   };
 }
@@ -364,6 +364,57 @@ test('a COMPLETE job with fix commits after it completes attempt 2: checks, suit
   jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
   assert.equal(f.state.comments.length, 2);
   assert.equal(readRows(root, 'alpha').length, 4);
+});
+
+// Copy, 4 Nov: site's attempt 2 committed and stopped on the draft step (GraphQL, HTTP 403),
+// before its push: no receipt, a red gate. The rerun finishes push, receipt, ready.
+test('attempt 2 stopped on the draft step: a rerun pushes, posts attempt 2\'s receipt and marks ready', () => {
+  const { root, f } = redAndFixed();
+  const draft = f.gh.toDraft;
+  f.gh.toDraft = () => { throw new Error('gh api graphql -f failed (HTTP 403)'); };
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /HTTP 403/);
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
+  assert.notEqual(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'not pushed');
+  assert.equal(f.state.comments.length, 1, 'no attempt 2 receipt yet');
+  f.gh.toDraft = draft;
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip);
+  assert.equal(f.state.comments.length, 2);
+  assert.deepEqual([parseBlock(f.state.comments[1].body, 'p3:receipt').attempt, parseBlock(f.state.comments[1].body, 'p3:receipt').sha], [2, tip]);
+  assert.deepEqual([f.state.drafted, f.state.ready], [1, 2]);
+});
+
+test('attempt 2 pushed while ready but never given its receipt: a rerun makes it a draft, posts the receipt, then marks ready', () => {
+  const { root, f } = redAndFixed();
+  const draft = f.gh.toDraft;
+  f.gh.toDraft = () => { throw new Error('HTTP 403'); };
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /HTTP 403/);
+  f.gh.toDraft = draft;
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/job/alpha'], { cwd: root }); // a push by hand
+  const seen = [];
+  const d = f.gh.toDraft, a = f.gh.addComment, m = f.gh.markReady;
+  f.gh.toDraft = (...x) => { seen.push('draft'); return d(...x); };
+  f.gh.addComment = (...x) => { seen.push('receipt'); return a(...x); };
+  f.gh.markReady = (...x) => { seen.push('ready'); return m(...x); };
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.deepEqual(seen, ['draft', 'receipt', 'ready']);
+  assert.equal(parseBlock(f.state.comments[1].body, 'p3:receipt').attempt, 2);
+  // Done: a plain rerun touches nothing.
+  seen.length = 0;
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.deepEqual(seen, []);
+});
+
+test('attempt 2 whose ready step fails after its receipt: a rerun marks ready without a second receipt', () => {
+  const { root, f } = redAndFixed();
+  f.state.failReady = true;
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /network/);
+  assert.equal(f.state.comments.length, 2, 'the receipt was posted before the failed ready');
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(f.state.comments.length, 2);
+  assert.equal(f.state.ready, 2);
+  assert.equal(f.state.drafted, 1);
 });
 
 test('attempt 2 after the job merges an older tranche commit starts at its own first-parent commit, after attempt 1 (review of PR 81)', () => {
@@ -896,7 +947,7 @@ test('job complete marks ready last: after the push landed and the receipt is po
   const seen = [];
   const remote = () => git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
   f.gh.addComment = ((add) => (...a) => { seen.push(['receipt', remote()]); return add(...a); })(f.gh.addComment);
-  f.gh.markReady = () => { seen.push(['ready', remote(), f.state.comments.length]); f.state.ready++; };
+  f.gh.markReady = () => { seen.push(['ready', remote(), f.state.comments.length]); f.state.ready++; f.state.isDraft = false; };
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
