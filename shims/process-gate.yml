@@ -137,14 +137,24 @@ jobs:
           VERSIONS: ${{ steps.browser.outputs.versions }}
         run: |
           t=$(date +%s)
+          # A playwright-core older than the runner's OS refuses to download there (measured 4 Nov:
+          # 1.56.1 on ubuntu-latest, Ubuntu 26.04, "does not support chromium on ubuntu26.04-x64").
+          # The second attempt, also the retry, takes its ubuntu24.04-x64 build without apt
+          # libraries (the runner image carries Chrome's); the binary must then run.
           for v in $VERSIONS; do
-            if ! { npx -y "playwright-core@$v" install --with-deps chromium || npx -y "playwright-core@$v" install --with-deps chromium; }; then
-              echo "::error::browser: playwright-core $v could not install Chromium (twice); the gate does not run the tests without it"; exit 1
+            unset PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
+            if ! npx -y "playwright-core@$v" install --with-deps chromium; then
+              echo "::warning::browser: playwright-core $v did not install for $(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-this OS}"); trying its ubuntu24.04-x64 build without system libraries"
+              export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64
+              if ! npx -y "playwright-core@$v" install chromium; then
+                echo "::error::browser: playwright-core $v could not install Chromium (twice); the gate does not run the tests without it"; exit 1
+              fi
             fi
             loc=$(npx -y "playwright-core@$v" install --dry-run chromium | sed -n 's/^ *Install location: *//p' | head -1) || true
             exe=$(find "$loc" -path '*/chrome-linux*/chrome' -type f 2>/dev/null | head -1) || true
             if [ -z "$exe" ]; then echo "::error::browser: playwright-core $v installed no Chromium under $loc"; exit 1; fi
-            echo "::notice::browser: $("$exe" --version) for playwright-core $v at $exe"
+            if ! ver=$("$exe" --version); then echo "::error::browser: $exe (playwright-core $v) does not run here"; exit 1; fi
+            echo "::notice::browser: $ver for playwright-core $v at $exe${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:+ (the $PLAYWRIGHT_HOST_PLATFORM_OVERRIDE build)}"
           done
           echo "CHROMIUM=$exe" >> "$GITHUB_ENV"
           echo "browser: installed in $(( $(date +%s) - t )) s"

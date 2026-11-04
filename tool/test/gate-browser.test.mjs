@@ -34,10 +34,10 @@ function stubNpx(calls, { noChrome = false, failFirst = 0, failDry = false } = {
   const bin = mkdtempSync(join(tmpdir(), 'p3-npx-'));
   const home = join(bin, 'ms-playwright');
   writeFileSync(join(bin, 'npx'), `#!/bin/bash
-echo "$*" >> ${calls}
+echo "\${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-native} $*" >> ${calls}
 v=\${2#playwright-core@}; loc=${home}/chromium-$v
 if [ "$4" = "--dry-run" ]; then ${failDry ? 'echo "unknown option --dry-run" >&2; exit 1; ' : ''}printf 'browser: chromium version 141\\n  Install location:    %s\\n  Download url: x\\n\\nbrowser: ffmpeg\\n  Install location:    ${home}/ffmpeg-1011\\n\\nbrowser: chromium-headless-shell\\n  Install location:    ${home}/chromium_headless_shell-$v\\n' "$loc"; exit 0; fi
-n=$(grep -c -- --with-deps ${calls}); if [ "$n" -le ${failFirst} ]; then exit 1; fi
+n=$(grep -cE -- ' install (--with-deps )?chromium$' ${calls}); if [ "$n" -le ${failFirst} ]; then exit 1; fi
 mkdir -p "${home}/chromium_headless_shell-$v/chrome-linux"; printf x > "${home}/chromium_headless_shell-$v/chrome-linux/headless_shell"
 ${noChrome ? '' : `mkdir -p "$loc/chrome-linux"; printf '#!/bin/bash\\necho "Chromium 141.0.%s"\\n' "$v" > "$loc/chrome-linux/chrome"; chmod +x "$loc/chrome-linux/chrome"`}
 `);
@@ -81,7 +81,7 @@ test('the install: each pinned build with its system libraries, CHROMIUM names t
   const r = bash(stepRun('install the browser'), dir, { PATH: s.PATH, VERSIONS: '1.9.0 1.56.1' });
   assert.equal(r.status, 0, r.stderr);
   const c = readFileSync(calls, 'utf8').trim().split('\n');
-  assert.deepEqual(c.filter((l) => l.includes('--with-deps')), ['-y playwright-core@1.9.0 install --with-deps chromium', '-y playwright-core@1.56.1 install --with-deps chromium']);
+  assert.deepEqual(c.filter((l) => / install (--with-deps )?chromium$/.test(l)), ['native -y playwright-core@1.9.0 install --with-deps chromium', 'native -y playwright-core@1.56.1 install --with-deps chromium']);
   assert.equal(r.env, `CHROMIUM=${s.home}/chromium-1.56.1/chrome-linux/chrome\n`);
   assert.match(r.stdout, /::notice::browser: Chromium 141\.0\.1\.56\.1 for playwright-core 1\.56\.1 at /);
   assert.match(r.stdout, /::notice::browser: Chromium 141\.0\.1\.9\.0 for playwright-core 1\.9\.0 at /);
@@ -95,10 +95,20 @@ test('the install: each pinned build with its system libraries, CHROMIUM names t
   const dry = bash(stepRun('install the browser'), dir, { PATH: stubNpx(join(dir, 'c5'), { failDry: true }).PATH, VERSIONS: '1.56.1' });
   assert.notEqual(dry.status, 0);
   assert.match(dry.stdout, /::error::browser: playwright-core 1\.56\.1 installed no Chromium under $/m);
-  // One failed install is tried again; two stop the gate, saying why.
-  const once = bash(stepRun('install the browser'), dir, { PATH: stubNpx(join(dir, 'c3'), { failFirst: 1 }).PATH, VERSIONS: '1.56.1' });
+  // A version that will not install for this OS (1.56.1 on Ubuntu 26.04): its ubuntu24.04-x64
+  // build, without apt libraries, the dry run under the same override; two failures stop the gate.
+  const c3 = join(dir, 'c3');
+  const once = bash(stepRun('install the browser'), dir, { PATH: stubNpx(c3, { failFirst: 1 }).PATH, VERSIONS: '1.56.1' });
   assert.equal(once.status, 0, once.stderr);
+  assert.deepEqual(readFileSync(c3, 'utf8').trim().split('\n'), ['native -y playwright-core@1.56.1 install --with-deps chromium', 'ubuntu24.04-x64 -y playwright-core@1.56.1 install chromium', 'ubuntu24.04-x64 -y playwright-core@1.56.1 install --dry-run chromium']);
+  assert.match(once.stdout, /::warning::browser: playwright-core 1\.56\.1 did not install for .*; trying its ubuntu24\.04-x64 build without system libraries/);
+  assert.match(once.stdout, /::notice::browser: Chromium 141\.0\.1\.56\.1 for playwright-core 1\.56\.1 at .* \(the ubuntu24\.04-x64 build\)/);
   assert.match(once.env, /^CHROMIUM=.*chromium-1\.56\.1\/chrome-linux\/chrome\n$/);
+  // A binary that does not run (missing libraries) stops the gate too.
+  const nr = stubNpx(join(dir, 'c6'));
+  const broken = bash(stepRun('install the browser').replace('if ! ver=$("$exe" --version)', 'if ! ver=$(false)'), dir, { PATH: nr.PATH, VERSIONS: '1.56.1' });
+  assert.notEqual(broken.status, 0);
+  assert.match(broken.stdout, /::error::browser: .*chrome \(playwright-core 1\.56\.1\) does not run here/);
   const twice = bash(stepRun('install the browser'), dir, { PATH: stubNpx(join(dir, 'c4'), { failFirst: 2 }).PATH, VERSIONS: '1.56.1' });
   assert.notEqual(twice.status, 0);
   assert.match(twice.stdout, /::error::browser: playwright-core 1\.56\.1 could not install Chromium \(twice\)/);
