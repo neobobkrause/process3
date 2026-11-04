@@ -73,8 +73,12 @@ test('tranche open: prints BOB\'s acts and the probe\'s call; --record writes ea
   assert.throws(() => recordOpen(root, ['fly|1|ok'], { session: 'b', log: quiet }), /the act one of/);
   assert.throws(() => recordOpen(root, ['push|1|maybe'], { session: 'b', log: quiet }), /<ok, refused or declined>/);
   const acts = ['push', 'pr-open', 'pr-comment', 'pr-merge', 'session-start', 'session-archive', 'task-create', 'task-delete'];
-  recordOpen(root, acts.map((a) => `${a}|1|ok`), { session: 'bob', log: quiet });
-  assert.equal(checkOpen(root, { log: quiet }).state, 'pending');
+  const first = [];
+  recordOpen(root, acts.map((a) => `${a}|1|ok`), { session: 'bob', log: (m) => first.push(m) });
+  assert.doesNotMatch(first.join('\n'), /wake BOB/, 'not yet passed: no wake');
+  const pend = [];
+  assert.equal(checkOpen(root, { log: (m) => pend.push(m) }).state, 'pending');
+  assert.doesNotMatch(pend.join('\n'), /wake BOB/);
   recordOpen(root, ['push|2|ok', 'pr-open|2|ok', 'pr-comment|2|ok'], { session: 'probe', log: quiet });
   recordOpen(root, ['pr-merge|2|refused'], { session: 'probe', log: quiet });
   const c = [];
@@ -87,8 +91,14 @@ test('tranche open: prints BOB\'s acts and the probe\'s call; --record writes ea
   // Stopped, open prints no acts.
   assert.deepEqual(trancheOpen(root, { slug, log: quiet }).steps, []);
   assert.throws(() => recordOpen(root, ['pr-merge|2|ok'], { session: 'probe2', log: quiet }), /pr-merge at depth 2 stopped this open; an ok after it needs --bob/);
-  recordOpen(root, ['pr-merge|2|ok'], { session: 'probe2', bob: 'grant fixed, take it again', log: quiet });
-  assert.equal(checkOpen(root, { log: quiet }).state, 'open');
+  const pass = [];
+  recordOpen(root, ['pr-merge|2|ok'], { session: 'probe2', bob: 'grant fixed, take it again', log: (m) => pass.push(m) });
+  // The record that passes the open lets jobs start: its last line wakes BOB, as --check's does.
+  const wake = `next act: wake BOB with \`node .process/tool/p3.mjs send bob "tranche open passed: run status" --from <role>\`, delivered with send_message to the address it prints`;
+  assert.equal(pass.at(-1), wake);
+  const ok = [];
+  assert.equal(checkOpen(root, { log: (m) => ok.push(m) }).state, 'open');
+  assert.equal(ok.at(-1), wake);
 });
 
 const LAYERS = '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n';

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
-import { jobBlock, jobComplete, jobStart } from '../lib/job.mjs';
+import { jobBlock, jobComplete, jobSender, jobStart } from '../lib/job.mjs';
 import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
@@ -170,8 +170,11 @@ test('job complete pushes before the receipt, and a rerun finishes without a sec
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed before the receipt');
   assert.equal(f.state.comments.length, 1);
   assert.equal(parseBlock(f.state.comments[0].body, 'p3:receipt').sha, tip);
-  const again = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const said = [];
+  const again = jobComplete(root, 'alpha', { gh: f.gh, log: (m) => said.push(m) });
   assert.equal(again.ok, true);
+  // The job's report: the last line wakes BOB, from the job's own sender name.
+  assert.match(said.at(-1), /^next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "job alpha complete, PR #\d+ ready: run status" --from job-alpha`, delivered with send_message to the address it prints$/);
   assert.equal(f.state.comments.length, 1, 'no second receipt');
   assert.equal(f.state.ready, 1);
   assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'complete').length, 1);
@@ -186,6 +189,17 @@ test('block commits only its entry and can run again', () => {
   jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
   assert.equal(git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }), 'process/ledger/alpha.json');
   jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
+});
+
+test('block, pushed, ends with the wake of BOB from the job', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const said = [];
+  jobBlock(root, 'alpha', { reason: 'waiting on a name', log: (m) => said.push(m) });
+  assert.equal(said.at(-1), `next act: wake BOB with \`node .process/tool/p3.mjs send bob "job alpha BLOCKED: run status" --from job-alpha\`, delivered with send_message to the address it prints`);
+  assert.equal(jobSender('a'.repeat(50)).length, 40);
 });
 
 test('after a failed push, a rerun posts the saved receipt for the COMPLETE commit', () => {

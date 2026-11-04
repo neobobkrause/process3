@@ -18,6 +18,15 @@ const MINUTE = 60000;
 export const TOOL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const toolPin = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_ROOT, allowFail: true }).stdout.trim() || 'unknown';
 export const P3 = 'node .process/tool/p3.mjs';
+// The wake of BOB (measured 3-4 Nov: BOB idles until something wakes it; a pin move woke no one
+// at 23:21): every act that gives BOB new work prints, as its last line, the send that wakes it,
+// for the session that took the act to deliver with send_message (BOB itself runs status instead).
+// The hourly sweep is the backstop. A wake's text ends ": run status"; it routes nothing (toRoute).
+export const WAKE_END = ': run status';
+export const bobWake = (what, from = '<role>') => `${P3} send bob ${JSON.stringify(`${what}${WAKE_END}`)} --from ${from}`;
+// A job's sender name: job-<id>, cut to a role name's 40 characters.
+export const jobSender = (id) => `job-${id}`.slice(0, 40).replace(/-+$/, '');
+export const wakeLine = (what, from) => `next act: wake BOB with \`${bobWake(what, from)}\`, delivered with send_message to the address it prints`;
 
 // TXT-3, TXT-5: each role's rulebook, in the pinned process. The platform loads a skill by its
 // description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
@@ -84,8 +93,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends, so nothing is lost (JOB-9).`);
   L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and one \`--test notice:<key>=...\` for each provider notice above' : ''}. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
-  L.push(`${n + 4}. End your turn when it prints the receipt link.`);
-  L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, then end your turn. That is a legitimate exit, not a failure.`);
+  L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says (the send, then send_message to the address it prints), then end your turn.`);
+  L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. That is a legitimate exit, not a failure.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
   L.push('', 'Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).');
   L.push('', '## Acts you may take', '');
@@ -658,6 +667,8 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
   }
   if (pr.draft) io.markReady(slug, pr.number);
   log(`receipt: ${url}`);
+  // The job's report: its pull request is ready for BOB's merge once the gate passes.
+  log(wakeLine(`job ${id} complete, PR #${pr.number} ready`, jobSender(id)));
   return { ok: true, receipt: receipt || posted?.data };
 }
 
@@ -677,6 +688,8 @@ export function jobBlock(root, id, { reason, push = true, log = console.log } = 
     if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail('the push did not land; run block again');
   }
   log(`${id} is BLOCKED: ${reason}`);
+  // The job's report: BLOCKED is BOB's to act on (its restart, a deferral, or Bob).
+  if (push) log(wakeLine(`job ${id} BLOCKED`, jobSender(id)));
   return { ok: true };
 }
 

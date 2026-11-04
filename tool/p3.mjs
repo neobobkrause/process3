@@ -5,6 +5,7 @@
 // every product carries the shim without the legacy path; review B of PR 32)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
+import { pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneAsk } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
@@ -38,8 +39,8 @@ const one = (a, what) => a._[0] || fail(`name the ${what}`);
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
-  // status [--role job --module <id> | --role bob [--context <percent of the window used>] [--live <n>]] [--offline]
-  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, live: a.live, offline: !!a.offline }); return 0; },
+  // status [--role job --module <id> | --role bob [--context <percent of the window used>] [--live <n>] [--sessions <list_sessions JSON file>]] [--offline]
+  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, live: a.live, sessions: a.sessions, offline: !!a.offline }); return 0; },
 
   // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
   // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
@@ -89,6 +90,11 @@ const commands = {
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
   'layer close': (a, root) => (layerClose(root, one(a, 'layer number')).ok ? 0 : 1),
+
+  // pin move <product slug> --report <session id> --why "<what it unblocks>" [--pin <sha>] [--tranche <name>]:
+  // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
+  // move as one short session's create_session call (pin default: process3's tranche tip).
+  'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why }); return 0; },
 
   // tranche open [--depth <BOB's depth, default 1>]: the grants check's acts, BOB's and a probe's.
   // tranche open --record "<act>|<depth>|ok|refused|declined"... --session <id> [--bob "<words>"]: each

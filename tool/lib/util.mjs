@@ -103,6 +103,9 @@ export const DEFAULTS = {
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
+  // Targets: status --role bob --sessions flags a job whose session is idle with no push for
+  // replace_minutes (measured 3-4 Nov: a stopped job was flagged only after two hours).
+  targets: { replace_minutes: 30 },
 };
 
 // An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
@@ -140,6 +143,7 @@ export function loadConfig(root, ref) {
   return {
     ...DEFAULTS, ...c,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
+    targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
   };
 }
 

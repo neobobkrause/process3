@@ -13,7 +13,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { P3 } from './job.mjs';
+import { P3, wakeLine } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
@@ -146,6 +146,8 @@ export function recordOpen(root, records, { session, depth, bob, log = console.l
   // The refusal row after the push, so a failed push rerun does not count one refusal twice.
   for (const r of rows.filter((x) => x.outcome === 'refused')) recordRefusal(root, { session: r.session, act: `tranche open: ${r.act}`, depth: r.depth });
   for (const r of rows) log(`recorded ${r.act} at depth ${r.depth}: ${r.outcome}${r.outcome === 'refused' ? ` (and in ${'process/metrics/refusals.bob.jsonl'}; commit it by BOB's plain pull request)` : ''}`);
+  // The record that passes the open lets jobs start: the wake of BOB is the last line.
+  if (before.state !== 'open' && openState(root, cfg, { depth: d }).state === 'open') log(wakeLine('tranche open passed'));
   return rows;
 }
 
@@ -156,6 +158,7 @@ export function checkOpen(root, { depth, log = console.log } = {}) {
   const o = openState(root, cfg, { depth });
   log(openLine(o));
   if (o.state === 'pending') log(`not yet recorded: ${o.missing.map((g) => `${g.act} at depth ${g.depth}`).join(', ')}`);
+  if (o.state === 'open') log(wakeLine('tranche open passed'));
   return o;
 }
 

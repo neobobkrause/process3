@@ -101,6 +101,9 @@ test('layer close: runs the suites on the tranche tip, records the close with it
   assert.equal(row.commit, git(['rev-parse', 'tranche'], { cwd: bare }));
   assert.deepEqual(row.deferred, { a: ['R1', 'R2'] });
   assert.match(out.join('\n'), /layer 1 closed at tranche .*; deferred: a 2[\s\S]*next work, layer 2[\s\S]*- build\/requirements\/d\.md: 1/);
+  // The close gives BOB new work (measured 3-4 Nov: BOB idles until woken): its last line is the wake.
+  assert.equal(out.at(-1), `next act: wake BOB with \`node .process/tool/p3.mjs send bob "layer 1 closed: run status" --from <role>\`, delivered with send_message to the address it prints`);
+  assert.equal(r.wake, out.at(-1));
   // Closed, it is no longer the open layer.
   assert.throws(() => layerClose(root, '1', { io, log: quiet }), /layer 1 is not the open layer; the open layer is 2/);
 });

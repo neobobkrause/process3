@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commit, makeRepo, entry, openPassed } from './helpers.mjs';
 import { git } from '../lib/util.mjs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const quiet = () => {};
 import { status } from '../lib/status.mjs';
@@ -79,7 +82,7 @@ test('status --role bob: a job\'s report to bob is listed until a later message 
     git(['branch', '-D', 's'], { cwd: root });
   };
   state({
-    'messages/job-m1.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'done' }, { at: '2026-11-03T11:00:00Z', n: 2, to: 'bob', text: 'blocked' }]),
+    'messages/job-m1.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'done' }, { at: '2026-11-03T11:00:00Z', n: 2, to: 'bob', text: 'blocked' }, { at: '2026-11-03T11:10:00Z', n: 3, to: 'bob', text: 'job m1 BLOCKED: run status' }]),
     'messages/root.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'Sweep' }]),
     'messages/bob.jsonl': msgs([{ at: '2026-11-03T10:30:00Z', n: 1, to: 'root', text: 'routed job-m1-1 and job-m1-20' }]),
   });
@@ -87,6 +90,7 @@ test('status --role bob: a job\'s report to bob is listed until a later message 
   status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   const text = out.join('\n');
   assert.match(text, /reports to route[^\n]*\n- job-m1-2: blocked/);
+  assert.doesNotMatch(text.split('reports to route')[1], /job-m1-3/, 'a wake asks BOB to run status; it routes nothing');
   assert.doesNotMatch(text, /job-m1-1:|root-1:/);
 });
 
@@ -126,6 +130,59 @@ test('status: a WORKING job that pushed and then went quiet past SILENT_HOURS is
   const out = [];
   status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.match(out.join('\n'), /idle:\n- stale: WORKING;.*; WORKING, no push for 5h; BOB's act: .* job start stale --restart "<why>"\nopen:\n- fresh: WORKING; PR unknown \(GitHub not read\), last activity unknown\n/);
+});
+
+// --sessions (measured 3-4 Nov: a stopped job was flagged only after two hours with no push): BOB's
+// own list_sessions JSON; a job whose session is archived, or idle with no push for
+// targets.replace_minutes, is flagged with the restart; a running one, or none given, is not.
+test('status --role bob --sessions: job session gone and job idle 30m are flagged with the restart; without --sessions the two-hour rule stands', () => {
+  const ids = ['gone', 'quiet', 'busy', 'fresh', 'unlisted'];
+  const root = makeRepo(Object.fromEntries(ids.map((id) => [`process/ledger/${id}.json`, entry(id, { status: { state: 'WORKING' } })])));
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  const ago = (m) => new Date(Date.now() - m * 6e4).toISOString();
+  for (const id of ['gone', 'quiet', 'busy', 'unlisted']) pushedJob(root, id, ago(45));
+  pushedJob(root, 'fresh', ago(5));
+  const prs = ids.map((id, i) => ({ number: 10 + i, head: { ref: `job/${id}`, sha: 'x' }, draft: true, updated_at: ago(45) }));
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 'sessions.json');
+  writeFileSync(file, JSON.stringify({ sessions: [
+    { id: 'session_old', title: 'job gone', status: 'idle', created_at: ago(300) },
+    { id: 'session_g', title: 'job gone (restart)', status: 'archived', created_at: ago(60) },
+    { id: 'session_q', title: 'some title', status: 'idle', created_at: ago(90), session_context: { sources: [{ revision: 'job/quiet' }] } },
+    { id: 'session_b', title: 'job busy', status: 'running', created_at: ago(90) },
+    { id: 'session_f', title: 'job fresh', status: 'idle', created_at: ago(90) },
+  ] }));
+  const io = { openPRs: () => prs, checkRun: () => null, compare: () => null, prFiles: () => [] };
+  const env = process.env.GITHUB_REPOSITORY;
+  process.env.GITHUB_REPOSITORY = 'o/r';
+  try {
+    const out = [];
+    const r = status(root, { role: 'bob', sessions: file, log: (m) => out.push(m), io });
+    const by = Object.fromEntries(r.rows.map((x) => [x.id, x.flag]));
+    assert.equal(by.gone, 'job session gone (session_g archived); BOB\'s act: node .process/tool/p3.mjs job start gone --restart "<why>"');
+    assert.match(by.quiet, /^job idle 30m \(session_q idle, no push for 4[56]m\); BOB's act: node \.process\/tool\/p3\.mjs job start quiet --restart "<why>"$/);
+    assert.equal(by.busy, undefined, 'a running session is not flagged');
+    assert.equal(by.fresh, undefined, 'an idle session that pushed 5 minutes ago is not flagged');
+    assert.equal(by.unlisted, undefined, 'no session listed: the two-hour rule, not yet reached');
+    assert.match(out.join('\n'), /owed:\n(- .*\n)*- gone: WORKING; PR #10 draft.*job session gone/);
+    const late = status(root, { role: 'bob', log: quiet, io, sessions: undefined });
+    assert.ok(late.rows.every((x) => x.flag === undefined), 'without --sessions, nothing at 45 minutes');
+  } finally { if (env === undefined) delete process.env.GITHUB_REPOSITORY; else process.env.GITHUB_REPOSITORY = env; }
+});
+
+test('status --sessions: replace_minutes from targets in config; an unreadable file is refused', () => {
+  const root = makeRepo({ 'process/config.json': { targets: { replace_minutes: 60 } }, 'process/ledger/quiet.json': entry('quiet', { status: { state: 'WORKING' } }) });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  pushedJob(root, 'quiet', new Date(Date.now() - 45 * 6e4).toISOString());
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  writeFileSync(file, JSON.stringify([{ id: 'session_q', title: 'job quiet', status: 'idle' }]));
+  const io = { openPRs: () => [{ number: 3, head: { ref: 'job/quiet', sha: 'x' }, draft: true }], checkRun: () => null, compare: () => null, prFiles: () => [] };
+  const env = process.env.GITHUB_REPOSITORY;
+  process.env.GITHUB_REPOSITORY = 'o/r';
+  try {
+    assert.equal(status(root, { sessions: file, log: quiet, io }).rows[0].flag, undefined, '45 minutes is under a replace_minutes of 60');
+    writeFileSync(file, 'not json');
+    assert.throws(() => status(root, { sessions: file, log: quiet, io }), /--sessions .*not a readable JSON file/);
+  } finally { if (env === undefined) delete process.env.GITHUB_REPOSITORY; else process.env.GITHUB_REPOSITORY = env; }
 });
 
 test('status --role bob: a requirement file over requirements_cap is a split owed, not startable work (REQ-6)', () => {

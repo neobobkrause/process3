@@ -21,9 +21,37 @@ export const IDLE_HOURS = 2;
 // A WORKING job whose branch tip is older than this is stalled (the sweep wakes BOB for it).
 export const SILENT_HOURS = 2;
 
-export function status(root, { role, module, context, live, offline = false, log = console.log, io: given } = {}) {
+// status --role bob --sessions <file>: BOB's own list_sessions result, saved as JSON. Measured 3-4
+// Nov: a stopped job was flagged only after two hours with nothing pushed. A job's session is
+// matched by its title (\`job <id>\`, or \`job <id> (restart)\`) or by a field naming its branch;
+// the latest one counts. Archived: gone. Idle, with no push for targets.replace_minutes: idle.
+// No match: the two-hour rule stands. The shape is read loosely: a list, or one under sessions or data.
+export function readSessions(file) {
+  let j;
+  try { j = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`--sessions ${file}: not a readable JSON file (${e.message}); save your list_sessions result there`); }
+  const list = Array.isArray(j) ? j : Array.isArray(j?.sessions) ? j.sessions : Array.isArray(j?.data) ? j.data : null;
+  if (!list) fail(`--sessions ${file}: no list of sessions in it (a JSON list, or one under "sessions" or "data")`);
+  return list.filter((x) => x && typeof x === 'object');
+}
+const sessionId = (x) => x.id || x.session_id || x.uuid || '?';
+const sessionTime = (x) => Math.max(...['updated_at', 'created_at', 'last_activity_at'].map((k) => Date.parse(x[k] || '')).filter(Number.isFinite), 0);
+const names = (x, branch, depth = 0) => (typeof x === 'string' ? x === branch || x === `refs/heads/${branch}`
+  : x && typeof x === 'object' && depth < 4 && Object.values(x).some((v) => names(v, branch, depth + 1)));
+export function jobSession(sessions, id) {
+  const title = new RegExp(`^job ${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\(restart\\))?$`);
+  const mine = sessions.filter((x) => title.test(String(x.title || '').trim()) || names(x, `job/${id}`));
+  return mine.sort((a, b) => sessionTime(b) - sessionTime(a))[0] || null;
+}
+const lower = (v) => String(v || '').toLowerCase();
+export const isArchived = (x) => x.archived === true || !!x.archived_at || ['archived'].includes(lower(x.status)) || lower(x.lifecycle) === 'archived' || lower(x.state) === 'archived';
+export const isIdle = (x) => ['idle', 'completed', 'failed', 'stopped'].includes(lower(x.status)) || ['completed', 'failed', 'review_ready'].includes(lower(x.status_bucket));
+
+export function status(root, { role, module, context, live, sessions: sessionsFile, offline = false, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
+  if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
+  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
+  const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
@@ -91,8 +119,16 @@ export function status(root, { role, module, context, live, offline = false, log
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
+    // With BOB's list_sessions (--sessions): a WORKING job with its draft open whose session is
+    // archived, or idle with no push for targets.replace_minutes. BOB restarts its session.
+    const restart = `BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
+    const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
+    const js = listed && row.branch?.startsWith('WORKING') && !row.ready && row.pr?.startsWith('#') && (!row.flag || row.flag === 'WORKING, nothing pushed') ? jobSession(listed, e.id) : null;
+    if (js && isArchived(js)) row.flag = `job session gone (${sessionId(js)} archived); ${restart}`;
+    else if (js && isIdle(js) && tipAge() > replaceMs) row.flag = `job idle ${Math.round(replaceMs / 6e4)}m (${sessionId(js)} ${lower(js.status || js.status_bucket)}, no push for ${Math.round(tipAge() / 6e4)}m); ${restart}`;
     // A WORKING job that pushed and then stopped (interrupted, or stopped by refusals): its pull
     // request not ready and its branch tip older than SILENT_HOURS. BOB restarts its session.
+    // The fallback when BOB's sessions are not given, or none matches the job.
     if (!row.flag && !row.ready && row.ahead > 1 && row.branch?.startsWith('WORKING')) {
       const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
