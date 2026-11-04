@@ -135,11 +135,23 @@ export function gate(root, opts) {
   const parents = git(['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: root }).split(' ').slice(1);
   const revertBase = parents.length === 2 && parents[1] === head ? parents[0] : base;
 
-  if (recordOnly) runRow.trigger = 'record';
+  // A ready job's receipt must be agreed by a run on this head (merge). Records only, the fast
+  // path stands only on a green code run that measured what the receipt claims (measuredBy);
+  // with no such run the gate runs the suite here, so a records-only job pull request, or a
+  // records-only head after a code run on another tree, can merge (copy PR 247, 4 Nov:
+  // attempt 3 changed only its records, every run on it was "record", and merge refused it).
+  // A plain pull request, or a job's with no receipt yet, keeps the record fast path.
+  const jobReceipt = entry && !draft && receipt?.module === job ? receipt : null;
+  const stands = jobReceipt && sinceGreen && git(['merge-base', '--is-ancestor', jobReceipt.sha, head], { cwd: root, allowFail: true }).code === 0
+    ? measuredBy(root, cfg, jobReceipt, lastGreen) : null;
+  const receiptRun = !!jobReceipt && (recordOnly || sinceGreen) && !stands?.ok;
+
+  if (recordOnly && !jobReceipt) runRow.trigger = 'record';
   else if (draft) runRow.trigger = 'draft';
-  else if (sinceGreen) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
+  else if (sinceGreen && !receiptRun) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
     runRow.trigger = 'code';
+    if (receiptRun) log(`only records changed${sinceGreen ? ` since ${String(lastGreen.sha).slice(0, 10)}` : ''}, but no green code run measured receipt attempt ${jobReceipt.attempt}${stands ? ` (${stands.why})` : ''}: the gate runs the ${job} suite to check it`);
     // A job's PR runs its module; any other PR runs every module whose files it touches. The
     // tranche (into main) runs only the modules with a file its job merges did not gate.
     let touched = changed;
@@ -200,7 +212,9 @@ export function gate(root, opts) {
       const tests = changed.filter((f) => entry.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(entry)) && existsSync(join(root, f)));
       // The requirements file's struck marks are not code: reverting them proves nothing.
       const code = changed.filter((f) => !isRecordPath(cfg, f) && f !== entry.requirements && !entry.tests.some((t) => underPath(f, t)));
-      if (!tests.length) {
+      // A records-only job pull request (receiptRun) changes no code and no test: nothing to revert.
+      if (recordOnly) runRow.revert = 'no code changed';
+      else if (!tests.length) {
         runRow.revert = exempt ? 'exempt' : 'fail';
         if (!exempt) findings.push(F('revert', entry.tests[0], 'the job adds or changes no test; name why in the receipt (--exempt-revert)'));
       } else if (!code.length) {

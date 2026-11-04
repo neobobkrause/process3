@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { gate } from '../lib/gate.mjs';
+import { merge, unagreed } from '../lib/merge.mjs';
 import { BOT, GATE, RECEIPT, block, gateRuns, parseBlock } from '../lib/github.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -106,6 +107,46 @@ test('record-only changes end in seconds: a records PR, and records since the la
   const r2 = gate(c.root, { base: c.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.deepEqual([r2.run.trigger, r2.run.after, r2.findings.length], ['record-since-green', c.head, 0]);
   assert.equal(gateRuns(io.state.comments).length, 2);
+});
+
+// Copy PR 247, 4 Nov: attempt 3 changed only process/ledger and process/metrics, its test
+// already on the tranche from attempt 2. Every run on its head was "record", the receipt never
+// checked, and merge refused it. A ready job's receipt with no green code run to stand on gets one.
+test('a records-only job pull request with a receipt gets a code run whose receipt check agrees, and merges', () => {
+  const s = setup({ 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":3}\n' });
+  const io = fakeIO({ ...receiptFor(s.head), attempt: 3 });
+  const said = [];
+  const r = run(s, io, { log: (m) => said.push(m) });
+  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['code', ['alpha'], 'pass', 'no code changed', 'agrees', 3, true]);
+  assert.ok(said.some((m) => /only records changed, but no green code run measured receipt attempt 3/.test(m)), said.join('\n'));
+  // merge's own check passes on that row: a green run on the head, agreeing with the attempt.
+  const agreed = gateRuns(io.state.comments).filter((x) => x.sha === s.head && x.ok && x.receipt === 'agrees' && x.receipt_attempt === 3);
+  assert.equal(agreed.length, 1);
+  assert.equal(unagreed(gateRuns(io.state.comments), s.head, 3), '');
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: s.root });
+  git(['remote', 'add', 'origin', bare], { cwd: s.root });
+  git(['push', '-q', 'origin', 'tranche', 'job/alpha', 'main'], { cwd: s.root });
+  git(['checkout', '-q', 'main'], { cwd: s.root });
+  let merged = null;
+  const m = merge(s.root, 247, { slug: 'o/r', reviewed: 'test', rounds: 1, log: quiet, io: {
+    getPR: () => ({ state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: s.head } }),
+    comments: () => io.state.comments,
+    checkRun: () => ({ status: 'completed', conclusion: 'success' }),
+    verify: io.io.verify,
+    mergePR: (slug, n, sha) => { merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
+  } });
+  assert.equal(m.merged, true);
+  assert.ok(merged);
+  git(['checkout', '-q', 'job/alpha'], { cwd: s.root });
+  // A title edit's next run on the same head stands on that code run: the fast path, still agreeing.
+  const again = run(s, io);
+  assert.deepEqual([again.run.trigger, again.run.after, again.run.receipt, again.run.ok], ['record-since-green', s.head, 'agrees', true]);
+  // A draft, a job with no receipt yet, and a plain records-only pull request keep the record fast path.
+  assert.equal(run(s, fakeIO({ ...receiptFor(s.head), attempt: 3 }), { draft: true }).run.trigger, 'record');
+  assert.equal(run(s, fakeIO()).run.trigger, 'record');
+  const plain = run(s, fakeIO({ ...receiptFor(s.head), attempt: 3 }), { branch: 'build/notes' });
+  assert.deepEqual([plain.run.trigger, plain.run.suite, plain.run.receipt, plain.findings.length], ['record', 'skipped', 'not checked', 0]);
 });
 
 // Findings from the review of PR 3.
