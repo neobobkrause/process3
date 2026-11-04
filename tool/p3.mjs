@@ -22,6 +22,7 @@ import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
+import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
@@ -95,6 +96,16 @@ const commands = {
   // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
   // move as one short session's create_session call (pin default: process3's tranche tip).
   'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why }); return 0; },
+
+  // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) with the brief
+  // printed; writes nothing. --record <file> --worker <id> --cost <cost>: the worker's lines to the
+  // state branch (a `not affected` with file:line evidence answers the notice for its module).
+  'notice triage': (a, root) => {
+    const key = one(a, 'notice, <provider>:<pr>');
+    if (a.record !== undefined) recordTriage(root, key, { file: a.record, worker: a.worker, cost: a.cost });
+    else noticeTriage(root, key);
+    return 0;
+  },
 
   // tranche open [--depth <BOB's depth, default 1>]: the grants check's acts, BOB's and a probe's.
   // tranche open --record "<act>|<depth>|ok|refused|declined"... --session <id> [--bob "<words>"]: each
@@ -199,10 +210,10 @@ const commands = {
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
     git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, '+refs/heads/main:refs/remotes/origin/main'], { cwd: root, allowFail: true });
-    deepen(root, cfg.tranche);
+    const deepened = deepen(root, cfg.tranche);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
-    const md = trancheReport(root, cfg, { slug, stateRead, io: { state: (p) => readState(root, cfg.state_branch, p) } });
+    const md = trancheReport(root, cfg, { slug, stateRead, deepened, io: { state: (p) => readState(root, cfg.state_branch, p) } });
     if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
     console.log(md);
     return 0;
