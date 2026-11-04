@@ -230,8 +230,9 @@ export function overhead(rows, layers = new Map()) {
 
 // The two health metrics and the figures that explain them, from rows and pull requests.
 // sweepRows: the state branch's sweep rows; layers: the layer map's text (layers_file).
+// Rows and history are read at the same ref (branch), as report tranche reads them (rowsAt).
 export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null, refreshAt = 60, cfg = DEFAULTS, lead = {} } = {}) {
-  const rows = allRows(root);
+  const rows = rowsAt(root, branch);
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
   const merges = rows.filter((r) => r.row === 'merge');
   const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
