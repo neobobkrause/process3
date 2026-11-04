@@ -251,6 +251,21 @@ test('an amended receipt only adds not-verified lines, and a rerun naming no cha
   assert.deepEqual(r.exempt, {});
 });
 
+test('a second amendment keeps the first one\'s claims, in either order (review of PR 64)', () => {
+  for (const order of [['nv', 'ex'], ['ex', 'nv']]) {
+    const { root, f } = completed();
+    for (const k of order) jobComplete(root, 'alpha', { gh: f.gh, ...(k === 'nv' ? { notVerified: ['the walker'] } : { exemptRevert: 'why' }), log: quiet });
+    assert.equal(f.state.comments.length, 3, order.join(','));
+    const r = parseBlock(f.state.comments[2].body, 'p3:receipt');
+    assert.deepEqual(r.exempt, { revert: 'why' }, order.join(','));
+    assert.deepEqual(r.not_verified, ['the live site', 'the walker'], order.join(','));
+    assert.deepEqual(r.amended.was, order[0] === 'nv' ? { exempt: {}, not_verified: ['the live site', 'the walker'] } : { exempt: { revert: 'why' }, not_verified: ['the live site'] });
+    // the same claims once more post nothing
+    jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', notVerified: ['the walker'], log: quiet });
+    assert.equal(f.state.comments.length, 3);
+  }
+});
+
 test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job may not', () => {
   const tool = makeRepo({ 'tool/x.mjs': 'export const v = 1;\n' });
   const sub = (root) => {
