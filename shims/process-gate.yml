@@ -138,15 +138,26 @@ jobs:
         run: |
           t=$(date +%s)
           # A playwright-core older than the runner's OS refuses to download there (measured 4 Nov:
-          # 1.56.1 on ubuntu-latest, Ubuntu 26.04, "does not support chromium on ubuntu26.04-x64").
-          # The second attempt, also the retry, takes its ubuntu24.04-x64 build without apt
-          # libraries (the runner image carries Chrome's); the binary must then run.
+          # 1.56.1 on ubuntu-latest, Ubuntu 26.04, "does not support chromium on ubuntu26.04-x64"),
+          # and its installer, made to take the ubuntu24.04-x64 build, hung 10 minutes after the
+          # download (copy PR 320). So the second attempt, also the retry, fetches each build
+          # that build's dry run names from its own URL, unpacks it where playwright looks, and
+          # marks it installed as playwright does; no apt libraries (the runner image carries
+          # Chrome's). The binary must then run.
+          fetch() {
+            npx -y "playwright-core@$1" install --dry-run chromium | awk '/^ *Install location:/{d=$3} /^ *Download url:/{print d" "$3}' | sort -u \
+              | while read -r dir url; do
+                  [ -f "$dir/INSTALLATION_COMPLETE" ] && continue
+                  curl -fsSL --retry 3 -o "$RUNNER_TEMP/browser.zip" "$url" && mkdir -p "$dir" && unzip -q -o "$RUNNER_TEMP/browser.zip" -d "$dir" && touch "$dir/INSTALLATION_COMPLETE" || exit 1
+                  echo "browser: fetched $url"
+                done
+          }
           for v in $VERSIONS; do
             unset PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
-            if ! npx -y "playwright-core@$v" install --with-deps chromium; then
-              echo "::warning::browser: playwright-core $v did not install for $(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-this OS}"); trying its ubuntu24.04-x64 build without system libraries"
+            if ! timeout 300 npx -y "playwright-core@$v" install --with-deps chromium; then
+              echo "::warning::browser: playwright-core $v did not install for $(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-this OS}"); fetching its ubuntu24.04-x64 build without system libraries"
               export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64
-              if ! npx -y "playwright-core@$v" install chromium; then
+              if ! fetch "$v"; then
                 echo "::error::browser: playwright-core $v could not install Chromium (twice); the gate does not run the tests without it"; exit 1
               fi
             fi
