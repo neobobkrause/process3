@@ -1,10 +1,11 @@
 // Build Plan Phase 2, the deploy and walk: development deployments only (Bob's word, 3 Nov).
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, truncateSync, utimesSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, redact } from '../lib/deploy.mjs';
+import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, readReport, redact, walkSummary } from '../lib/deploy.mjs';
 import { layerClose } from '../lib/layer.mjs';
 import { status } from '../lib/status.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
@@ -197,4 +198,66 @@ test('deploy dev: a deploy row of an earlier tranche, its commit on main, does n
   const r = deployDev(root, { io, repo, log: quiet });
   assert.equal(r.ok, true, 'the stale row on main does not make layer 1 deployed');
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /layer 1 is deployed/);
+});
+
+// Review of the walk-report storage (4 Nov): reports are product-written, so untrusted.
+test('readReport: only a regular file inside the checkout, written since the walk began, within max; its size known before it is read', () => {
+  const root = mkdtempSync(join(tmpdir(), 'p3-rep-'));
+  const outside = mkdtempSync(join(tmpdir(), 'p3-out-'));
+  writeFileSync(join(outside, 'secret.txt'), 'credentials');
+  mkdirSync(join(root, 'out'));
+  writeFileSync(join(root, 'out/ok.txt'), 'fine');
+  symlinkSync(join(outside, 'secret.txt'), join(root, 'out/link.txt'));
+  symlinkSync(outside, join(root, 'dirlink'));
+  symlinkSync('ok.txt', join(root, 'out/inner.txt'));
+  mkdirSync(join(root, 'out/adir'));
+  writeFileSync(join(root, 'out/big.txt'), '');
+  truncateSync(join(root, 'out/big.txt'), 3 * 1024 * 1024 * 1024); // sparse: reading it whole would fail
+  writeFileSync(join(root, 'out/old.txt'), 'old');
+  utimesSync(join(root, 'out/old.txt'), 1, 1);
+  const since = Date.now() - 60000;
+  assert.deepEqual(readReport(root, 'out/ok.txt', since, 100), { raw: 'fine' });
+  assert.deepEqual(readReport(root, 'out/inner.txt', since, 100), { raw: 'fine' });
+  assert.match(readReport(root, 'out/link.txt', since, 100).stored, /outside the checkout/);
+  assert.match(readReport(root, 'dirlink/secret.txt', since, 100).stored, /outside the checkout/);
+  assert.match(readReport(root, 'out/adir', since, 100).stored, /not a regular file/);
+  assert.equal(readReport(root, 'out/big.txt', since, 100).stored, `not stored, ${3 * 1024 * 1024 * 1024} bytes`);
+  assert.equal(readReport(root, 'out/old.txt', since, 100).stored, 'not written by this walk');
+  assert.equal(readReport(root, 'out/none.txt', since, 100).stored, 'not written by this walk');
+  if (spawnSync('mkfifo', [join(root, 'out/fifo')]).status === 0) assert.match(readReport(root, 'out/fifo', since, 100).stored, /not a regular file/);
+});
+
+test('walkSummary: any shape of report.json gives counts or nothing, never a throw; kinds printable, short and at most 50', () => {
+  for (const t of ['x', 'null', '5', '{"steps":"x"}', '{"failures":5}', '{"failures":{}}', '{"failures":[null, 3, "a"]}']) assert.doesNotThrow(() => walkSummary(t), t);
+  assert.deepEqual(walkSummary('{"failures":[null]}'), { steps: 0, steps_ok: 0, failures: 1, by_kind: { '(none)': 1 } });
+  const s = walkSummary(JSON.stringify({ failures: [{ kind: 'constructor' }, { kind: '__proto__' }, { kind: 'a\n::error::x' }, { kind: 'k'.repeat(500) }] }));
+  assert.equal(s.by_kind.constructor, 1);
+  assert.equal(s.by_kind.__proto__, 1);
+  assert.equal(s.by_kind['a : :error: :x'], 1);
+  assert.equal(Object.keys(s.by_kind).find((k) => k.startsWith('k')).length, 80);
+  const many = walkSummary(JSON.stringify({ failures: Array.from({ length: 200 }, (_, i) => ({ kind: `k${i}` })) }));
+  assert.equal(Object.keys(many.by_kind).length, 51);
+  assert.equal(many.by_kind['(other kinds)'], 150);
+  for (const p of ['.', 'out/', 'out/./r.txt', 'a//b', '/abs', '.gitignore', 'out/.git', '']) assert.throws(() => deployConfig(cfgWith({ ...DEP, walk_reports: [p] })), /walk_reports/, p);
+});
+
+test('deploy dev: a mask declared in a later report, or held JSON-escaped, is *** in every stored report; a failed state write leaves the row and reports beside the step files', () => {
+  const walk = node(`const fs = require('fs'); const v = 'q"t' + 'ok'; fs.mkdirSync('out', { recursive: true });
+    fs.writeFileSync('out/a.txt', 'first ' + 'late' + 'secret\\n');
+    fs.writeFileSync('out/b.json', JSON.stringify({ v, steps: [], failures: [] }));
+    fs.writeFileSync('out/c.txt', '::add-mask::' + 'late' + 'secret\\n');
+    console.log('::add-mask::' + v);`);
+  const reports = ['out/a.txt', 'out/b.json', 'out/c.txt'];
+  const { root, bare } = withOrigin({ ...product({ ...DEP, walk, walk_reports: reports }) });
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  writeFileSync(join(bare, 'hooks', 'pre-receive'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
+  const out = [];
+  assert.throws(() => deployDev(root, { io: { ...io, logDir }, repo, log: (m) => out.push(m) }));
+  assert.match(out.join('\n'), /the state branch was not written \(the deployment itself succeeded\); the row and the walk's reports are in /);
+  const a = readFileSync(join(logDir, 'report-a.txt'), 'utf8');
+  const b = readFileSync(join(logDir, 'report-b.json'), 'utf8');
+  assert.equal(a, 'first ***\n');
+  assert.doesNotMatch(b, /latesecret|tok/);
+  assert.equal(JSON.parse(readFileSync(join(logDir, 'row.json'), 'utf8')).walk.reports.length, 3);
 });

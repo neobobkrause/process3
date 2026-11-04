@@ -72,7 +72,7 @@ jobs:
       - name: the product's size
         run: node "$RUNNER_TEMP/process3/tool/p3.mjs" size --out "$RUNNER_TEMP/size.json"
       - name: release.checks, each within its own timeout
-        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run checks --out "$RUNNER_TEMP/checks.json"
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run checks --out "$RUNNER_TEMP/checks.json" --log-dir "$RUNNER_TEMP/checks-logs"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -83,6 +83,15 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
           retention-days: 90
+      # Each step's whole output (masked values as ***), kept past the runner for a week.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: checks-logs
+          path: ${{ runner.temp }}/checks-logs
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
   assemble:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -116,7 +125,15 @@ jobs:
         with:
           node-version: ${{ steps.cfg.outputs.node }}
       - name: release.assemble, which writes the release files to release.out
-        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run assemble --out "$RUNNER_TEMP/assemble.json"
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" release run assemble --out "$RUNNER_TEMP/assemble.json" --log-dir "$RUNNER_TEMP/assemble-logs"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: assemble-logs
+          path: ${{ runner.temp }}/assemble-logs
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: release-files
