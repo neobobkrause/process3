@@ -40,6 +40,13 @@ export function prsFromBranch(slug, branch) {
   return Array.isArray(pages) ? pages.flat() : null;
 }
 
+// Whether a pull request's base was ever changed (an issue event base_ref_changed): the pulls
+// API shows only the current base. null when unreadable.
+export function baseEverChanged(slug, n) {
+  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/events?per_page=100`], { allowFail: true });
+  return Array.isArray(pages) ? pages.flat().some((e) => e?.event === 'base_ref_changed') : null;
+}
+
 export function createPR(slug, { head, base, title, body, draft = true }) {
   const pr = gh(['api', '-X', 'POST', `repos/${slug}/pulls`, '--input', '-'], {
     input: JSON.stringify({ head, base, title, body, draft }),

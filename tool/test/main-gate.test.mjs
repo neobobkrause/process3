@@ -44,6 +44,7 @@ function product(n, { red = [], unverified = [], uses = {}, over = {} } = {}) {
   const io = {
     getPR: (s, n) => (n === MAIN_PR ? { draft: false, user: { login: 'neobobkrause' } } : prs.get(n)),
     prsFromBranch: (s, b) => [...prs.values()].filter((x) => x.head.ref === b),
+    baseEverChanged: () => false,
     comments: (s, n) => comments.get(n) || [],
     addComment: () => ({}),
     verify: (s, r, ctx) => r.verified === true && prs.get(ctx.pr)?.head.sha === r.sha && ctx.baseRef === 'tranche',
@@ -199,6 +200,23 @@ test('a job branch that ever had a pull request into another base, or whose pull
   assert.deepEqual(run(p).run.scope, ['m2']);
   p.io.prsFromBranch = (s, b) => (b === 'job/m0' ? [] : list(s, b));
   assert.deepEqual(run(p).run.scope, ['m0'], 'a list that lacks the merged PR itself');
+});
+
+// Confirming review of PR 94: the list shows a PR's base as it is now. A PR from job/m1 opened into
+// a stub's branch and then retargeted to the tranche, or a merged PR that was, covers nothing; nor
+// does a PR whose history cannot be read.
+test('a job branch with a pull request whose base was ever changed, or whose history cannot be read, covers nothing', () => {
+  const p = merged(3);
+  const list = p.io.prsFromBranch;
+  p.io.prsFromBranch = (s, b) => (b === 'job/m1' ? [...list(s, b), { number: 77, base: { ref: 'tranche' }, head: { ref: b } }] : list(s, b));
+  p.io.baseEverChanged = (s, x) => x === 77;
+  assert.deepEqual(run(p).run.scope, ['m1'], 'a second PR retargeted to the tranche');
+  p.io.baseEverChanged = (s, x) => x === 3;
+  assert.deepEqual(run(p).run.scope, ['m2'], 'the merged PR itself retargeted');
+  p.io.baseEverChanged = (s, x) => (x === 1 ? null : false);
+  assert.deepEqual(run(p).run.scope, ['m0'], 'an unread history');
+  p.io.baseEverChanged = () => false;
+  assert.deepEqual(run(p).run.scope, []);
 });
 
 test('a row whose fields do not match the PR, the module or its artifact does not cover it', () => {

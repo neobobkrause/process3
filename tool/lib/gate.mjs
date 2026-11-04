@@ -3,7 +3,7 @@
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
+import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
@@ -11,7 +11,7 @@ import { install, runSuite, suffixOf } from './suite.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
-const ghIO = { comments, addComment, getPR, prsFromBranch, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
+const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
@@ -302,6 +302,10 @@ function jobMerge(root, cfg, c, { slug, io }) {
   if (!Array.isArray(from) || !from.some((x) => x.number === n)) return no(`is PR ${n}'s merge, but the pull requests from ${branch} could not be read`);
   const elsewhere = from.filter((x) => x.base?.ref !== cfg.tranche).map((x) => x.number);
   if (elsewhere.length) return no(`is PR ${n}'s merge, but ${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`);
+  // The list shows each PR's base as it is now; one retargeted to the tranche may have run another
+  // base's workflow first (confirming review of PR 94). Any base change, or an unread history, refuses.
+  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
+  if (moved.length) return no(`is PR ${n}'s merge, but the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`);
   const runs = gateRuns(io.comments(slug, n));
   // The row is bound to the PR here: its run was on job/<id> (verifyRow); its commit is the PR's
   // head or an earlier commit of it; its base was the tranche, at or before the merge's.
