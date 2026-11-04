@@ -47,7 +47,7 @@ test('status --role bob: next work only from the open layer, at most live_cap le
   assert.match(out.join('\n'), /next work, layer 1 .*: 2 listed \(live 3 of 5\), 0 wait/);
   const four = [];
   status(root, { role: 'bob', offline: true, live: 4, log: (m) => four.push(m) });
-  assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1$/);
+  assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)$/);
   // Layer 1 stays open while busy's job is open, though no file in it is unmet but busy's.
   const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
   openPassed(held);

@@ -6,13 +6,13 @@ import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
-import { noticeLine, notices } from './notice.mjs';
+import { noticeLine, notices, readModules } from './notice.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
-import { UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
+import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -284,9 +284,43 @@ export function owedNotices(root, cfg, rows, log = console.log) {
   return owed;
 }
 
+// open_by (process/config.json): "uses", the default, opens past the open layer each module
+// whose providers are all done; "layer", the open layer's modules only (the old behaviour).
+export function openBy(cfg) {
+  const v = cfg.open_by ?? 'uses';
+  if (!OPEN_BY.includes(v)) fail(`open_by ${JSON.stringify(v)} in process/config.json is not one of ${OPEN_BY.map((x) => `"${x}"`).join(', ')}`);
+  return v;
+}
+
+// Dependency opening (open_by "uses"): the modules of the layers past the open one that are
+// ready. Ready: every module its `uses` (modules_file) names is in the layer map and done, with
+// no unmet marks, no open job and no unanswered provider notice of its own. A module with no
+// `uses` entry waits for its layer. gaps: each module (any layer not closed) whose `uses` names
+// a module the layer map lacks; past the open layer it is not ready. The open layer is unchanged.
+export function readyByUses(root, cfg, ls, ref, owed = {}) {
+  const modules = openBy(cfg) === 'uses' && ls?.cur ? readModules(root, cfg, ref) : null;
+  if (!modules) return { ready: [], gaps: [] };
+  const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
+  const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
+  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !owed[id]?.length; };
+  const ready = [];
+  const gaps = [];
+  for (const L of ls.layers.filter((x) => x.n >= ls.cur.n && !x.closed)) {
+    for (const m of L.mods) {
+      const u = uses.get(m.id);
+      if (!u) continue;
+      const missing = u.filter((p) => !where.has(p));
+      if (missing.length) gaps.push({ id: m.id, layer: L.n, missing });
+      if (L.n > ls.cur.n && !missing.length && !m.open && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
+    }
+  }
+  return { ready, gaps };
+}
+
 // Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
 // marks and that have no open job, fewest unmet first; none once the layer is ready to close (BOB's
-// act is then `layer close <n>`). The deferred marks of closed layers are listed, not as work.
+// act is then `layer close <n>`). With open_by "uses", after them the modules past the open layer
+// that readyByUses finds ready, fewest unmet first, each line with its layer. The deferred marks of closed layers are listed, not as work.
 // Without a layer map, every requirement file with unmet marks. With live (the live sessions BOB
 // counts), at most live_cap less them are listed; the list returned is all of them.
 export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {} } = {}) {
@@ -297,9 +331,14 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const ls = state === undefined ? layerState(root, cfg, rows, ref) : state;
   let files;
   let layer = null;
+  const layerOf = new Map();
   if (ls) {
     layer = ls.cur?.n ?? null;
+    for (const L of ls.layers) for (const m of L.mods) if (!layerOf.has(m.file)) layerOf.set(m.file, L.n);
     files = ls.ready || ls.pending ? [] : (ls.cur?.mods || []).map((m) => m.file);
+    const byUses = readyByUses(root, cfg, ls, ref, owed);
+    files.push(...byUses.ready.map((m) => m.file));
+    for (const g of byUses.gaps) log(`not ready, its uses not in ${cfg.layers_file}: ${g.id} (layer ${g.layer}) uses ${g.missing.join(', ')}`);
     if (ls.deferred.length) {
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
@@ -322,7 +361,9 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const text = whole(file);
     return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => x.count || x.notices);
-  all.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  // The open layer's modules first, then those opened by uses; fewest unmet first within each.
+  const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
+  all.sort((a, b) => later(a) - later(b) || a.count - b.count || a.file.localeCompare(b.file));
   // Over the cap: BOB's act is the split or consolidation, listed apart, never as startable work.
   const big = all.filter((x) => x.over);
   for (const x of big) log(x.over);
@@ -331,7 +372,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const n = live === undefined ? list.length : Math.max(0, cfg.live_cap - live);
     const shown = list.slice(0, n);
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `all ${list.length} listed; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : `${shown.length} listed (live ${live} of ${cfg.live_cap}), ${list.length - shown.length} wait`}`);
-    for (const x of shown) log(`- ${x.file}: ${x.count}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
+    for (const x of shown) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
   }
   // The completion round (PLN-4): once every layer is closed, the completion file's open items.
   const round = ls && !ls.cur ? completionWork(root, cfg, rows, ref, log) : [];
