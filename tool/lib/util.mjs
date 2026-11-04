@@ -175,6 +175,14 @@ export function loadConfig(root, ref) {
   let c = {};
   try { c = text ? JSON.parse(text) : {}; } catch (e) { fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not JSON: ${e.message}`); }
   if (c === null || typeof c !== 'object' || Array.isArray(c)) fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''} is not a JSON object`);
+  // A generated path and a records path never overlap: a record is trusted as inert, so a
+  // generated file under one would escape the gate's regenerate (review 4 of PR 95).
+  const recs = Array.isArray(c.records) ? c.records : DEFAULTS.records;
+  const strip = (p) => String(p).replace(/^\.\//, '');
+  for (const row of Array.isArray(c.generated) ? c.generated : []) for (const g of Array.isArray(row?.paths) ? row.paths : []) {
+    const r = recs.find((x) => typeof x === 'string' && (underPath(strip(g), strip(x)) || underPath(strip(x), strip(g))));
+    if (r !== undefined) fail(`${CONFIG_FILE}${ref ? ` at ${ref}` : ''}: the generated path ${g} and the records path ${r} overlap; a generated file is never a record`);
+  }
   return {
     ...DEFAULTS, ...c,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },

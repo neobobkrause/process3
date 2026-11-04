@@ -13,7 +13,8 @@ import { test } from 'node:test';
 import { gate } from '../lib/gate.mjs';
 import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { merge, mergePlain, unagreed } from '../lib/merge.mjs';
-import { git } from '../lib/util.mjs';
+import { git, loadConfig } from '../lib/util.mjs';
+import { setupCheck } from '../lib/setup.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -336,20 +337,26 @@ test('a refresh\'s record files count as inert only outside every module and unn
   assert.doesNotMatch(others, /process\/metrics/);
 });
 
-test('a generated file under a records path changed after the green refresh run is not covered by it (review 4 of PR 95)', () => {
-  // A second row, outside records, makes the first refresh a code run.
+test('a generated path under a records path is refused by construction (review 4 of PR 95)', () => {
+  for (const records of [['process/', 'src/alpha/dist/'], ['process/', 'src/alpha/dist/alpha.bundle.json'], ['process/', 'src/']]) {
+    const root = makeRepo({ 'process/config.json': { ...CONFIG, records } });
+    assert.throws(() => loadConfig(root), new RegExp(`the generated path src/alpha/dist/alpha\\.bundle\\.json and the records path ${records[1].replace(/[./]/g, (m) => `\\${m}`)} overlap`));
+    assert.throws(() => loadConfig(root, 'HEAD'), /overlap; a generated file is never a record/);
+    assert.throws(() => setupCheck(root, { slug: 'o/r', conditions: [], io: { api: () => null, openPRs: () => [], prFiles: () => [] }, log: quiet }), /overlap/);
+  }
+  // A records path inside a generated directory overlaps too.
+  assert.throws(() => loadConfig(makeRepo({ 'process/config.json': { generated: [{ ...CONFIG.generated[0], paths: ['dist/'] }], records: ['process/', './dist/meta/'] } })), /generated path dist\/ and the records path \.\/dist\/meta\/ overlap/);
+  assert.equal(loadConfig(makeRepo({ 'process/config.json': CONFIG })).generated.length, 1);
+});
+
+// c2b265a stays as a second line: a record-since-green run copies the green refresh row only when
+// no generated file changed since it. With the guard no config reaches it through records; it is
+// tested through gate's own reading of the diff.
+test('a record-since-green run copies the refresh row only when no generated file changed since the green run', () => {
   const p = product({ [BUNDLE]: fresh(SRC) });
-  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
-  const base2 = commit(p.root, { 'gen/x.txt': 'old\n', 'process/config.json': { generated: [...CONFIG.generated, { paths: ['gen/x.txt'], regenerate: ['node', '-e', "require('fs').writeFileSync('gen/x.txt', 'x\\n')"], verify: ['node', '-e', '0'] }], records: ['process/', 'src/alpha/dist/'] } });
-  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
-  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
-  const h1 = commit(p.root, { 'gen/x.txt': 'x\n' });
   const g = gateIO();
-  const r1 = gate(p.root, { base: base2, head: h1, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet });
-  assert.equal(r1.run.refresh?.result, 'identical', JSON.stringify(r1.run));
+  assert.equal(gateOn(p, g).run.refresh.result, 'identical');
   git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
-  const h2 = commit(p.root, { [BUNDLE]: '{"from":"evil"}\n' });
-  const r2 = gate(p.root, { base: base2, head: h2, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet });
-  assert.equal(r2.run.trigger, 'record-since-green');
-  assert.equal(r2.run.refresh, undefined, 'the old comparison is not copied');
+  const h2 = commit(p.root, { 'process/metrics/alpha.jsonl': '{}\n' });
+  assert.equal(gate(p.root, { base: p.base, head: h2, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet }).run.refresh.result, 'identical');
 });
