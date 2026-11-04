@@ -146,17 +146,21 @@ function recordOnly(root, cfg, base, main, tip, deep) {
 // io: { state(path) -> text|null (the state branch, null when unread), merged() -> merged PRs into
 // the tranche or null, comments(pr) -> the PR's comments }. stateRead: whether the branch was read.
 // deepened: deepen()'s result in a shallow clone.
-// The base-red tests on each merged PR's newest green gate run: [{ module, pr, test, base }], or
-// null when a PR's comments could not be read.
+// The base-red tests on each merged PR's newest green gate run: [{ module, pr, test, base, since }],
+// since the `at` of the PR's first gate row that tolerated it; null when a PR's comments could not
+// be read. A smoke test red at the base too (gate.mjs smoke) is owed as the suite's are.
+const tolerated = (g) => [g?.base_red, g?.smoke?.base_red].flatMap((x) => (Array.isArray(x) ? x : []));
 export function baseRedOwed(mergeRows, runsOf) {
   const out = [];
   for (const r of mergeRows) {
     let runs;
     try { runs = runsOf(r.pr); } catch { return null; }
     const green = runs.filter((g) => g.ok && g.trigger === 'code').pop();
-    // A smoke test red at the base too (gate.mjs smoke) is owed as the suite's are.
-    for (const b of [green?.base_red, green?.smoke?.base_red].flatMap((x) => (Array.isArray(x) ? x : []))) {
-      for (const t of Array.isArray(b?.tests) ? b.tests : []) out.push({ module: b.module ?? r.module, pr: r.pr, test: String(t), base: b.base });
+    for (const b of tolerated(green)) {
+      for (const t of Array.isArray(b?.tests) ? b.tests : []) {
+        const since = runs.find((g) => tolerated(g).some((x) => x?.module === b.module && Array.isArray(x?.tests) && x.tests.includes(t)))?.at;
+        out.push({ module: b.module ?? r.module, pr: r.pr, test: String(t), base: b.base, ...(since ? { since } : {}) });
+      }
     }
   }
   return out;
