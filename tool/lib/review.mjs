@@ -51,18 +51,11 @@ export function briefText({ pr, files, job, owner, approvalsFile, scope, generat
   if (job) {
     const t = job.receipt?.tests || [];
     if (!job.receipt) L.push('No receipt is posted yet: the requirements this job struck and their tests are not named.');
-    else if (!t.length) L.push('The receipt names no struck requirement mark.');
+    else if (!t.some((x) => !x.notice)) L.push('The receipt names no struck requirement mark.');
     else {
-      const req = t.filter((x) => !x.notice);
-      const notice = t.filter((x) => x.notice);
-      if (req.length) {
-        L.push('Struck requirements, each with the test the receipt names for it:', ...req.map((x) => `- ${x.req}: \`${x.file}\` :: "${x.name}"`));
-        L.push('For each, confirm the test asserts that requirement at the module\'s interface (what a caller sees), not an internal detail; a test that does not is a fix.');
-      }
-      if (notice.length) {
-        L.push('Provider notices this job answers, each with the module\'s own test the receipt names for it:', ...notice.map((x) => `- notice ${x.notice}: \`${x.file}\` :: "${x.name}"`));
-        L.push('For each, confirm the test exercises the provider\'s new behaviour through this module; a test that does not is a fix.');
-      }
+      // A notice entry is only in receipts posted before notices stopped taking a --test.
+      L.push('Struck requirements, each with the test the receipt names for it:', ...t.filter((x) => !x.notice).map((x) => `- ${x.req}: \`${x.file}\` :: "${x.name}"`));
+      L.push('For each, confirm the test asserts that requirement at the module\'s interface (what a caller sees), not an internal detail; a test that does not is a fix.');
     }
   }
   L.push(`Changed files (${files.length}):`, ...files.map((f) => `- ${f}`));

@@ -85,7 +85,7 @@ test('a replacement or taken-in job START with two provider notices and the esca
   for (const [name, c] of Object.entries(cases)) {
     const t = startText({ ...base, ...c });
     assert.ok(t.includes('then the watcher'));
-    assert.ok(t.includes('`--test notice:gamma:52=...`'));
+    assert.ok(t.includes('`gamma:52`') && !t.includes('--test notice:'));
     assert.ok(bytes(t) <= SCREEN, `${name} START: ${bytes(t)} bytes, over ${SCREEN}`);
   }
 });

@@ -94,24 +94,24 @@ test('recordAtMerge writes the notice once and an answer per user; the other use
   assert.equal(unanswered(root, cfg.state_branch, 'u2')[0].key, 'p:7');
 });
 
-test('job start <user> puts the notice in the START and its start row; job complete needs its test, which the receipt names', () => {
+test('job start <user> puts the notice in the START and its start row; a notice-only job with no code change completes records-only, asking no test', () => {
   const root = product();
   onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
   const { start } = jobStart(root, 'u1', { coordinator: 's', push: false, log: quiet });
   assert.match(start, /## Provider notices/);
   assert.match(start, /`p:7`: `p` changed R1, R2, R4 \(PR 7\)/);
-  assert.match(start, /confirm or adapt this module's code/);
-  assert.match(start, /confirm or adapt this module's code, with a test of its own for the change/);
-  assert.match(start, /`--test notice:p:7=\.\.\.`/);
+  assert.match(start, /confirm or adapt this module's code; the merge records the answer/);
+  assert.doesNotMatch(start, /--test notice:/);
   git(['checkout', '-q', 'job/u1'], { cwd: root });
   assert.deepEqual(readRows(root, 'u1')[0].notices, ['p:7']);
-  commit(root, { 'test/u1/p.test.mjs': passing('u1 reads the token age p now checks') });
-  assert.throws(() => jobComplete(root, 'u1', { push: false, log: quiet }), /provider notice p:7 has no --test; add --test notice:p:7=/);
-  assert.throws(() => jobComplete(root, 'u1', { push: false, tests: ['notice:p:8=test/u1/p.test.mjs::x'], log: quiet }), /named no provider notice p:8/);
-  assert.throws(() => jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::missing name'], log: quiet }), /does not contain "missing name"/);
-  const r = jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::u1 reads the token age p now checks'], log: quiet });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const r = jobComplete(root, 'u1', { push: false, log: quiet });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests, [{ notice: 'p:7', file: 'test/u1/p.test.mjs', name: 'u1 reads the token age p now checks' }]);
+  assert.deepEqual(r.receipt.tests, []);
+  assert.ok(git(['diff', '--name-only', base, 'HEAD'], { cwd: root }).split('\n').every((f) => f.startsWith('process/')), 'records only');
+  // A job started when the START asked for one: its --test notice: is accepted and ignored.
+  git(['reset', '-q', '--hard', base], { cwd: root });
+  assert.deepEqual(jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::x'], log: quiet }).receipt.tests, []);
 });
 
 test('job start on a COMPLETE user with a notice reopens it to answer the notice', () => {
@@ -618,46 +618,21 @@ test('a source change with no export change still records a notice, with no expo
 });
 
 // Round 2 of PR 79, asked by the coordinator 4 Nov: a job STARTed before BOB withdrew its notice
-// owes no test for it, and its resumed or replacement START no longer asks for one.
+// is left out of its resumed or replacement START.
 function startedThenWithdrawn() {
   const root = product();
   onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
   git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
   const gh = { open: (slug, p) => ({ number: 9, html_url: 'pr', draft: true, ...p }), find: () => null, setup: () => ({ ok: true, missing: [] }) };
   const { start } = jobStart(root, 'u1', { coordinator: 's', ...gh, log: quiet });
-  assert.match(start, /`--test notice:p:7=\.\.\.`/);
+  assert.match(start, /`p:7`/);
   git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
   onState(root, { 'notices/withdrawn/p-7.json': JSON.stringify({ row: 'withdrawn', key: 'p:7' }) + '\n' });
   git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
   return { root, gh };
 }
 
-test('a START whose notice was withdrawn since: job complete owes no test for it, and a --test given for it is accepted and not recorded', () => {
-  const { root } = startedThenWithdrawn();
-  git(['checkout', '-q', 'job/u1'], { cwd: root });
-  assert.deepEqual(readRows(root, 'u1')[0].notices, ['p:7']);
-  commit(root, { 'test/u1/p.test.mjs': passing('u1 reads p') });
-  const out = [];
-  const r = jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::u1 reads p'], log: (m) => out.push(m) });
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests, []);
-  assert.match(out.join('\n'), /--test notice:p:7: the provider notice was withdrawn; no test is owed for it, and this one is not recorded/);
-  // Not withdrawn, the same START still owes it (no --test: refused).
-  const { root: r2 } = startedThenWithdrawn();
-  git(['push', '-q', 'origin', '--delete', 'process-state'], { cwd: r2 });
-  git(['checkout', '-q', 'job/u1'], { cwd: r2 });
-  commit(r2, { 'test/u1/p.test.mjs': passing('u1 reads p') });
-  assert.throws(() => jobComplete(r2, 'u1', { push: false, log: quiet }), /provider notice p:7 has no --test/);
-});
-
-test('a START whose notice was withdrawn since: job complete with no --test completes', () => {
-  const { root } = startedThenWithdrawn();
-  git(['checkout', '-q', 'job/u1'], { cwd: root });
-  commit(root, { 'test/u1/b.test.mjs': passing('u1 b') });
-  assert.equal(jobComplete(root, 'u1', { push: false, log: quiet }).ok, true);
-});
-
-test('the resumed and the replacement START leave out a notice withdrawn since the start, and ask no test for it', () => {
+test('the resumed and the replacement START leave out a notice withdrawn since the start', () => {
   const { root, gh } = startedThenWithdrawn();
   const resumed = jobStart(root, 'u1', { coordinator: 's', ...gh, find: () => ({ number: 9 }), log: quiet }).start;
   assert.doesNotMatch(resumed, /p:7|## Provider notices/);
