@@ -189,7 +189,10 @@ export function recordStart(root, role, id, opts = {}) {
   if (role === 'bob' && a.bob && a.bob.session !== id) fail(`BOB ${a.bob.session} is addressed; a new BOB is recorded by handover confirm`);
   const at = now();
   const sb = loadConfig(root).state_branch;
-  const prompt = promptRecord(root, role, { address: { ...a, [role]: { session: id } } });
+  // A watcher taking over as ROOT still runs on the watcher's prompt: no record, so its first
+  // wake as ROOT delivers ROOT's prompt.
+  const takeover = role === 'root' && a.watcher?.session === id;
+  const prompt = takeover ? null : promptRecord(root, role, { address: { ...a, [role]: { session: id } } });
   const { tip } = writeState(root, sb, `address: ${role} ${id}`, (dir) => setAddress(dir, role, id, at, prompt));
   (opts.log || console.log)(`${role} is ${id} (${at}); ${sb} at ${tip}`);
   return { role, session: id, at, tip };

@@ -267,7 +267,9 @@ const commands = {
   'start check': (a, root) => {
     if (!a.wake) return startCheck(root, { branch: a.branch, setup: true }).ok ? 0 : 1;
     if (!wakeCheck(root, { branch: a.branch, approvals: a.approvals }).ok) return 1;
-    promptRefresh(root, { session: typeof a.session === 'string' ? a.session : undefined });
+    // A refresh that cannot run (the state push failed, no ROOT for BOB's prompt) never stops a
+    // session whose approvals hold: it says so and the session acts by the prompt it has.
+    try { promptRefresh(root, { session: typeof a.session === 'string' ? a.session : undefined }); } catch (e) { console.log(`prompt refresh: could not run (${e.message}); act by the prompt you have, and send your coordinator these words`); }
     return 0;
   },
 

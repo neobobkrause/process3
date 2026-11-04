@@ -284,4 +284,13 @@ test('start check --wake prompt refresh: an old prompt hash at a new pin prints 
   assert.ok(b.prompt.includes(`You replace BOB \`${B}\``));
   assert.match(out.join('\n'), /fresh BOB: send ROOT one message asking for your handover \(`handover begin`\)/);
   assert.equal(pr({ session: 'session_job1' }).act, 'none');
+  // A watcher that takes over as ROOT still runs on the watcher's prompt: its first wake as ROOT delivers ROOT's.
+  recordStart(root, 'watcher', W, { log: quiet });
+  recordStart(root, 'root', W, { log: quiet });
+  assert.equal(readAddress(root).root.prompt, undefined, 'no prompt record on a takeover');
+  const t = pr({ session: W });
+  assert.equal(t.role, 'root');
+  assert.equal(t.act, 'changed');
+  assert.ok(t.prompt.startsWith('# ROOT'));
+  assert.equal(pr({ session: W }).act, 'same');
 });
