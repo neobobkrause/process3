@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { entry, makeRepo, openPassed } from './helpers.mjs';
 import { layerState, nextWork, status } from '../lib/status.mjs';
 import { setupCheck } from '../lib/setup.mjs';
-import { loadConfig } from '../lib/util.mjs';
+import { git, loadConfig } from '../lib/util.mjs';
 
 const quiet = () => {};
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
@@ -98,4 +98,33 @@ test('open_by: an unknown value is refused by status and named by setup check', 
   assert.match(lines.join('\n'), /next work opens by: uses/);
   const old = setupCheck(repo({ open_by: 'layer' }), { slug: 'o/r', conditions: [], io: { api: () => null, openPRs: () => [], prFiles: () => [] }, log: quiet });
   assert.match(old.open_by, /^next work opens by: layer \(open_by\)/);
+});
+
+test('a layer with no unmet marks closes implicitly only when no job of it merged in this tranche; one with work owes layer close', () => {
+  const done = { 'build/requirements/p2.md': unmet(0), 'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md', status: { state: 'COMPLETE' } }) };
+  // busy's job merged in this tranche (its entry not on main): layer 2 is the open layer, ready to close.
+  const worked = repo({}, done);
+  const out = [];
+  const r = status(worked, { role: 'bob', offline: true, log: (m) => out.push(m) });
+  assert.equal(r.layer.cur.n, 2);
+  assert.equal(r.layer.ready, true);
+  assert.match(out.join('\n'), /layer 2 ready to close: .* layer close 2/);
+  assert.doesNotMatch(out.join('\n'), /layer 2 closed: no unmet marks/);
+  // The same layer with that job already on main: no work in this tranche, it closes with its one line.
+  const quietLayer = repo({}, done);
+  git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: quietLayer });
+  const out2 = [];
+  const q = status(quietLayer, { role: 'bob', offline: true, log: (m) => out2.push(m) });
+  assert.equal(q.layer.cur.n, 3);
+  assert.match(out2.join('\n'), /layer 2 closed: no unmet marks/);
+  assert.doesNotMatch(out2.join('\n'), /layer 2 ready to close/);
+});
+
+test('open_by uses: a gap is named only past the open layer, where the module is not ready', () => {
+  const mods = { modules: [...MODULES.modules.filter((m) => m.id !== 'p2'), { id: 'p2', paths: ['src/p2/'], uses: ['ghost'] }] };
+  const out = [];
+  const r = status(repo({}, { 'build/modules.json': mods }), { role: 'bob', offline: true, log: (m) => out.push(m) });
+  assert.ok(r.next.some((x) => x.file === 'build/requirements/p2.md'), 'the open layer is unchanged');
+  assert.doesNotMatch(out.join('\n'), /not ready, its uses not in build\/layers\.md: p2/);
+  assert.match(out.join('\n'), /not ready, its uses not in build\/layers\.md: z3 \(layer 3\) uses ghost/);
 });

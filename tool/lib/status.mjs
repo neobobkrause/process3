@@ -246,7 +246,19 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), row };
     }) }))
     .sort((a, b) => a.n - b.n);
-  for (const L of layers) { L.recorded = recorded.has(L.n); L.closed = L.recorded || L.mods.every((m) => !m.open && !m.marks.length); }
+  // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
+  // main lacks (origin/main unread counts as here). A layer that had such work closes only by
+  // `layer close`, its checks, close row and deploy and walk; one with none closes implicitly.
+  const blob = (at, f) => {
+    if (at) { const r = git(['rev-parse', '-q', '--verify', `${at}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; }
+    return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
+  };
+  const here = (m) => { const f = `${LEDGER_DIR}/${m.row.id}.json`; const b = blob(ref, f); return b === null || b !== blob('refs/remotes/origin/main', f); };
+  for (const L of layers) {
+    L.recorded = recorded.has(L.n);
+    L.worked = L.mods.some((m) => m.merged && here(m));
+    L.closed = L.recorded || (!L.worked && L.mods.every((m) => !m.open && !m.marks.length));
+  }
   const cur = layers.find((L) => !L.closed) || null;
   // A deferred module's pull request unread (offline) holds the layer as an open one does.
   const ok = (m) => (m.blocked ? !m.pr && !m.row.pr?.startsWith('unknown') : !m.open && (m.merged || !m.marks.length));
@@ -311,8 +323,8 @@ export function openBy(cfg) {
 // Dependency opening (open_by "uses"): the modules of the layers past the open one that are
 // ready. Ready: every module its `uses` (modules_file) names is in the layer map and done, with
 // no unmet marks, no open job and no unanswered provider notice of its own. A module with no
-// `uses` entry waits for its layer. gaps: each module (any layer not closed) whose `uses` names
-// a module the layer map lacks; past the open layer it is not ready. The open layer is unchanged.
+// `uses` entry waits for its layer. gaps: each module past the open layer whose `uses` names a
+// module the layer map lacks: not ready. The open layer is unchanged.
 export function readyByUses(root, cfg, ls, ref, owed = {}) {
   const modules = openBy(cfg) === 'uses' && ls?.cur ? readModules(root, cfg, ref) : null;
   if (!modules) return { ready: [], gaps: [] };
@@ -326,7 +338,7 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
       const u = uses.get(m.id);
       if (!u) continue;
       const missing = u.filter((p) => !where.has(p));
-      if (missing.length) gaps.push({ id: m.id, layer: L.n, missing });
+      if (missing.length && L.n > ls.cur.n) gaps.push({ id: m.id, layer: L.n, missing });
       if (L.n > ls.cur.n && !missing.length && !m.open && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
     }
   }

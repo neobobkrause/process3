@@ -52,9 +52,14 @@ test('status --role bob: next work only from the open layer, at most live_cap le
   const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
   openPassed(held);
   assert.deepEqual(status(held, { role: 'bob', offline: true, log: quiet }).next, []);
-  // Its job complete and its marks gone, layer 1 closes and layer 2 opens.
+  // Its job complete and its marks gone, layer 1 owes its close (work merged in this tranche);
+  // once that job is on main, layer 1 closes implicitly and layer 2 opens.
   const closed = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0), 'build/requirements/busy.md': unmet(0), 'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md', status: { state: 'COMPLETE' } }) });
   openPassed(closed);
+  const owes = [];
+  assert.deepEqual(status(closed, { role: 'bob', offline: true, log: (m) => owes.push(m) }).next, []);
+  assert.match(owes.join('\n'), /layer 1 ready to close: .* layer close 1/);
+  git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: closed });
   assert.deepEqual(status(closed, { role: 'bob', offline: true, log: quiet }).next.map((x) => x.file), ['build/requirements/d.md']);
   assert.throws(() => status(root, { role: 'bob', offline: true, live: 'x', log: quiet }), /--live/);
 });
