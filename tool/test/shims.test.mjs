@@ -5,6 +5,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { approvalsBlock } from '../lib/record.mjs';
 import { MAX_LINES, pinOf, setupCheck } from '../lib/setup.mjs';
@@ -227,4 +228,35 @@ test('setup script: a stale start runs nothing; a bad setup_script is refused', 
   assert.equal(existsSync(count), false);
   for (const bad of ['sh setup.sh', [], [''], [1]]) assert.throws(() => runSetupScript(product({ setup_script: bad }), { log: quiet }), /setup_script is not a command/);
   assert.throws(() => runSetupScript(product({ setup_script: ['true'], setup_timeout_minutes: 0 }), { log: quiet }), /setup_timeout_minutes/);
+});
+
+// process-record's pin step, run as written: the tranche is named by origin/main's config (the
+// default name while main has none), never by the pushed commit, and the pin is that tranche's.
+test('process-record: the tranche named from main, not from the pushed commit', (t) => {
+  const py = spawnSync('python3', ['-c', 'import sys,json,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', join(SHIMS, 'process-record.yml')], { encoding: 'utf8' });
+  if (py.status !== 0) { t.skip('no YAML parser here'); return; }
+  const step = JSON.parse(py.stdout).jobs['record-push'].steps.find((s) => s.id === 'pin');
+  const proc = makeRepo({ 'x.txt': '1\n' });
+  const pin = git(['rev-parse', 'HEAD'], { cwd: proc });
+  const pinned = (root, cfg) => { commit(root, { 'process/config.json': JSON.stringify(cfg) }); git(['update-index', '--add', '--cacheinfo', `160000,${pin},.process`], { cwd: root }); git(['commit', '-q', '-m', 'pin'], { cwd: root }); };
+  const runPin = (mainCfg) => {
+    const root = makeRepo({ 'a.txt': 'a\n', ...(mainCfg ? { 'process/config.json': JSON.stringify(mainCfg) } : {}) });
+    const bare = mkdtempSync(join(tmpdir(), 'p3-bare-'));
+    git(['init', '-q', '--bare', bare], { cwd: root });
+    git(['remote', 'add', 'origin', bare], { cwd: root });
+    git(['checkout', '-q', '-b', 'tr'], { cwd: root });
+    pinned(root, { tranche: 'tr', process_repo: proc });
+    git(['checkout', '-q', '-b', 'own'], { cwd: root });
+    commit(root, { 'process/config.json': JSON.stringify({ tranche: 'own', process_repo: proc }) });
+    git(['push', '-q', 'origin', 'main', 'tr', 'own'], { cwd: root });
+    git(['fetch', '-q', 'origin'], { cwd: root });
+    const tmp = mkdtempSync(join(tmpdir(), 'p3-gh-'));
+    const env = { ...process.env, RUNNER_TEMP: tmp, GITHUB_ENV: join(tmp, 'env'), GITHUB_OUTPUT: join(tmp, 'out') };
+    const r = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: root, encoding: 'utf8', env });
+    assert.equal(r.status, 0, r.stderr);
+    return readFileSync(env.GITHUB_ENV, 'utf8');
+  };
+  assert.equal(runPin({ tranche: 'tr' }), 'TRANCHE=tr\n');
+  // main has no Process3 yet (the copy before its first close): the default name, not "own".
+  assert.equal(runPin(null), 'TRANCHE=tranche\n');
 });

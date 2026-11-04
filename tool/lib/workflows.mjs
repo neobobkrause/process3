@@ -27,25 +27,18 @@
 //  (4) a process shim (process-gate.yml above all) equals the pin's own shim (merge.mjs).
 // Plain pull requests into the tranche stay shim-only (merge.mjs workflowChanges).
 import { baseEverChanged, comments, gateRuns, getPR, prsFromBranch, verifyRow } from './github.mjs';
-import { branchBound, jobMerge } from './gate.mjs';
+import { MERGE_TITLE, branchBound, diffNames, isAnc, jobMerge } from './gate.mjs';
 import { recordSince } from './record.mjs';
-import { keySetAt } from './anchor.mjs';
+import { blobAt as blob, keySetAt, pinAt } from './anchor.mjs';
 import { fail, git } from './util.mjs';
 
-const JOB_MERGE = /^Merge job PR (\d+)$/;
 const PLAIN_MERGE = /^Merge PR (\d+): (\S+) into (\S+)$/;
-const isJobRef = (ref) => /^job\//i.test(ref || '');
-
-const blob = (root, rev, path) => {
-  const r = git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true });
-  return r.code === 0 ? r.stdout.trim() : null;
-};
+export const isJob = (ref) => /^job\//i.test(ref || '');
 const text = (root, rev, path) => {
   const r = git(['show', `${rev}:${path}`], { cwd: root, allowFail: true });
   return r.code === 0 ? r.stdout : null;
 };
 const parents = (root, c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
-const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
 
 // ---- rules 2 and 3: plain text, and the allowed shapes ---------------------------------------
 // Only plain lines (coordinator, 4 Nov 08:13; round 3 of PR 98: a lone \r, U+0085, U+2028 or
@@ -199,7 +192,7 @@ export function plainMerge(root, tranche, c, { slug, io }) {
   if (p.length !== 2) return bad(`names PR ${n} but is not a merge of two parents`);
   const [p1, p2] = p;
   const pr = io.getPR(slug, n);
-  if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== tranche || pr.head?.sha !== p2 || pr.head?.repo?.full_name !== slug || !pr.head?.ref || isJobRef(pr.head.ref)) return bad(`is not GitHub's merge of plain PR ${n} into ${tranche}`);
+  if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== tranche || pr.head?.sha !== p2 || pr.head?.repo?.full_name !== slug || !pr.head?.ref || isJob(pr.head.ref)) return bad(`is not GitHub's merge of plain PR ${n} into ${tranche}`);
   const why = branchBound(slug, pr.head.ref, n, tranche, io);
   if (why) return bad(why);
   const row = gateRuns(io.comments(slug, n)).filter((r) => r.sha === p2).pop();
@@ -212,9 +205,8 @@ export function plainMerge(root, tranche, c, { slug, io }) {
 // merged held the pin's own process-gate.yml: a pull request runs its own copy of the workflow,
 // so a job or plain PR that changed process-gate.yml could certify itself (review 1 of PR 98).
 const GATE_FILE = '.github/workflows/process-gate.yml';
-const pinOf = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root }).match(/^160000 commit ([0-9a-f]{40})\t/)?.[1] || null;
 function realGate(root, rev, repo) {
-  const pin = pinOf(root, rev);
+  const pin = pinAt(root, rev);
   const b = blob(root, rev, GATE_FILE);
   return !!(pin && b && repo?.released(pin) && repo.shim(pin, 'process-gate.yml') === b);
 }
@@ -253,7 +245,7 @@ export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef,
       const subject = git(['log', '-1', '--format=%s', c], { cwd: root });
       let v;
       try {
-        v = JOB_MERGE.test(subject) ? jobMerge(root, { tranche }, c, { slug, io }) : plainMerge(root, tranche, c, { slug, io });
+        v = MERGE_TITLE.test(subject) ? jobMerge(root, { tranche }, c, { slug, io }) : plainMerge(root, tranche, c, { slug, io });
       } catch (e) { v = { ok: false, why: `could not be read (${String(e.message).slice(0, 200)})` }; }
       judged.set(c, v);
     }
@@ -263,7 +255,7 @@ export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef,
     if (earlier(c)) continue;
     const p = parents(root, c);
     const touched = p.length
-      ? git(['diff', '--no-renames', '--name-only', '-z', p[0], c, '--', ...files], { cwd: root }).split('\0').filter(Boolean)
+      ? diffNames(root, p[0], c, files)
       : files.filter((f) => blob(root, c, f));
     for (const f of touched) {
       const short = c.slice(0, 10);

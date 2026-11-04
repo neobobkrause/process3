@@ -26,8 +26,11 @@ jobs:
       - name: the tranche's process pin
         id: pin
         run: |
-          cfg=$(cat process/config.json 2>/dev/null || echo '{}')
-          tranche=$(echo "$cfg" | jq -r '.tranche // "tranche"')
+          # The tranche's name from main's config (the default name while main has none, as before
+          # a product's first close), never from the pushed commit; the rest from the tranche's.
+          tranche=$(git show origin/main:process/config.json 2>/dev/null || echo '{}')
+          tranche=$(echo "$tranche" | jq -r '.tranche // "tranche"')
+          cfg=$(git show "origin/$tranche:process/config.json" 2>/dev/null || cat process/config.json 2>/dev/null || echo '{}')
           echo "TRANCHE=$tranche" >> "$GITHUB_ENV"
           if pin=$(git rev-parse -q --verify "origin/$tranche:.process"); then :;
           elif pin=$(git rev-parse -q --verify "HEAD:.process"); then echo "::warning::the tranche has no pin yet; the pushed commit's pin runs";

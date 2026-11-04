@@ -1,7 +1,7 @@
 // Base-red (build of 4 Nov): a failing test that fails identically at the base is not the PR's.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gate, receiptAgrees } from '../lib/gate.mjs';
+import { gate as gateRun, gateComment, receiptAgrees } from '../lib/gate.mjs';
 import { readFailing, runSuite } from '../lib/suite.mjs';
 import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,6 +10,8 @@ import { baseRedOwed } from '../lib/report.mjs';
 import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
+// The gate never posts; job post writes its row as a comment after the run, as here.
+const gate = (root, o) => { const r = gateRun(root, o); if (o.pr && o.post !== false) o.io.addComment(o.slug, o.pr, gateComment(r.run)); return r; };
 
 const quiet = () => {};
 const realTest = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('x is 2', () => a.equal(x, 2));\n";

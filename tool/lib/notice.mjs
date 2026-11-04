@@ -10,6 +10,7 @@ import { entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { compare } from './github.mjs';
+import { diffNames } from './gate.mjs';
 import { exists, fail, git, isRecordPath, isShallow, underPath } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -67,7 +68,6 @@ export function isSource(cfg, e, f) {
 }
 // The entry's source paths, as a line names them: its paths less tests, requirements, docs, records.
 export const sourcePaths = (cfg, e) => (e.paths || []).filter((p) => !(e.tests || []).some((t) => underPath(p, t)) && p !== e.requirements && !isDoc(p) && !isRecordPath(cfg, p));
-const diffNames = (root, a, b) => git(['diff', '--no-renames', '--name-only', '-z', a, b], { cwd: root }).split('\0').filter(Boolean);
 export const sourceChanges = (root, cfg, e, base, head) => diffNames(root, base, head).filter((f) => isSource(cfg, e, f));
 const readEntry = (root, ref, id) => {
   const t = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true });

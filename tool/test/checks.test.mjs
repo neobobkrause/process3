@@ -33,7 +33,7 @@ function setup(config, files, over = {}) {
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   const head = commit(root, { 'test/alpha/new.test.mjs': passing, ...files });
-  return gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(head), log: quiet, post: false });
+  return gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(head), log: quiet });
 }
 const of = (r, check) => r.findings.filter((f) => f.check === check);
 

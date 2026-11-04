@@ -17,7 +17,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { readyCount, startReady } from './lib/ready.mjs';
 import { deployDev } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
+import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
@@ -257,10 +257,11 @@ const commands = {
     return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }).merged ? 0 : 1;
   },
 
-  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>] [--no-post]
+  // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]
   // gate --post <gate.json> --pr <n> [--head <sha>] [--gate-result <result>]
-  // Run only by the gate workflow, with the base's process pin: job gate runs the gate with
-  // --no-post on a read-only token, and job post posts its row with --post (setup audit, 2 Nov).
+  // Run only by the gate workflow, with the base's process pin: job gate runs the gate on a
+  // read-only token and never posts (the shim's --no-post is ignored), and job post posts its row
+  // with --post (setup audit, 2 Nov).
   gate: (a, root) => {
     if (a.post !== undefined) {
       if (a.post === true) fail('--post needs the gate.json file');
@@ -268,7 +269,7 @@ const commands = {
       return 0;
     }
     const { run: r, findings } = gate(root, {
-      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null, post: !a['no-post'],
+      base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null,
       draft: a.draft === 'true' || a.draft === true, started: a.started ? Number(a.started) * 1000 : Date.now(),
     });
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
@@ -296,7 +297,7 @@ const commands = {
 
   // release dev [--version <v>]: BOB's development release (development only; there is no public
   // release): refused unless the layers allow it, the checkout is the tranche tip and the config
-  // has "release"; prints the push of p3dev-release/<v>, the run to watch and the record.
+  // has "release"; prints the dispatch on the tranche, the run to watch and the record.
   // release dev --record <run url>: the run's row (version, commit, run, draft release, checks) on the state branch.
   'release dev': (a, root) => (releaseDev(root, { version: a.version === true ? fail('--version <v>') : a.version, record: a.record === true ? fail('--record <run url>') : a.record }).ok ? 0 : 1),
   // deploy dev [--slug <s>]: BOB's development deployment and walk after a layer close (development
@@ -304,8 +305,8 @@ const commands = {
   'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
   // release run checks|assemble [--out <results.json>]: the shim's read-only jobs (process-dev-release.yml).
   'release run': (a, root) => (releaseRun(root, one(a, 'step (checks or assemble)'), { out: a.out }).ok ? 0 : 1),
-  // release version --branch <ref>: the version a p3dev-release/<v> branch names, printed (the shim's publish job).
-  'release version': (a) => { console.log(versionOf(a.branch)); return 0; },
+  // release version <v>: the dispatched version, checked and printed (the shim's publish job).
+  'release version': (a) => { console.log(checkVersion(String(one(a, 'version')))); return 0; },
   // release sign <dir>: SHA256SUMS and its Ed25519 signature, the PEM key in P3_SIGN_KEY (only when release.sign_secret is set).
   'release sign': (a) => { releaseSign(one(a, 'directory')); return 0; },
   // release body <checks.json> --version <v> --commit <sha> [--pin <sha>] [--size <size.json>]:

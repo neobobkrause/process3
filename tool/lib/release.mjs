@@ -1,11 +1,11 @@
 // release dev (Build Plan Phase 3, the release row; Bob's word, 3 Nov: development only, there is
 // no public release). BOB cuts a development release from the tranche tip once its layers are
-// closed: the tool prints the push of p3dev-release/<version>, which starts the product's shim
-// process-dev-release.yml (checks and assemble on read-only tokens, then publish, which runs no
-// product code: the tag p3dev-<version> and a draft release, never published, never latest).
+// closed: the tool prints the dispatch of the product's shim process-dev-release.yml on the tranche
+// (checks and assemble on read-only tokens, then publish, in the environment p3dev-release, which
+// runs no product code: the tag p3dev-<version> and a draft release, never published, never latest).
 // --record then writes one row for the run to the state branch.
 // The shim calls `release run` (each check or the assemble, as the gate runs a suite), `release
-// version` (the version from the branch name) and `release sign` (only when sign_secret is set).
+// version` (the dispatched version, checked) and `release sign` (only when sign_secret is set).
 import { createHash, createPrivateKey, sign } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -19,7 +19,7 @@ import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 export const SHIM = '.github/workflows/process-dev-release.yml';
-export const BRANCH_PREFIX = 'p3dev-release/';
+export const RUN_PREFIX = 'p3dev-release ';
 export const TAG_PREFIX = 'p3dev-';
 export const RELEASES_FILE = 'releases/dev.jsonl';
 export const MARKER = 'p3:dev-release';
@@ -32,13 +32,7 @@ export function checkVersion(v) {
   if (typeof v !== 'string' || !VERSION.test(v) || v.includes('..') || v.endsWith('.') || v.endsWith('.lock')) fail(`the version must be 1 to 64 letters, digits, dots, dashes or underscores, starting with a letter or digit, not ${JSON.stringify(v)}`);
   return v;
 }
-export const branchOf = (v) => `${BRANCH_PREFIX}${checkVersion(v)}`;
 export const tagOf = (v) => `${TAG_PREFIX}${checkVersion(v)}`;
-export function versionOf(branch) {
-  const b = String(branch || '').replace(/^refs\/heads\//, '');
-  if (!b.startsWith(BRANCH_PREFIX)) fail(`${JSON.stringify(branch)} is not a ${BRANCH_PREFIX}<version> branch`);
-  return checkVersion(b.slice(BRANCH_PREFIX.length));
-}
 // The default: the tranche tip's date (UTC) and short hash, e.g. 20261103-1a2b3c4.
 export const defaultVersion = (sha, date = new Date()) => `${date.toISOString().slice(0, 10).replace(/-/g, '')}-${String(sha).slice(0, 7)}`;
 
@@ -117,12 +111,12 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   const ready = releaseReady(ls);
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
   const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
-  const taken = io.remoteRefs(root, [`refs/heads/${branchOf(v)}`, `refs/tags/${tagOf(v)}`]).trim();
+  const taken = io.remoteRefs(root, [`refs/tags/${tagOf(v)}`]).trim();
   if (taken) fail(`version ${v} is taken on origin (${taken.split('\n').map((l) => l.split('\t')[1]).join(', ')}); pass another --version`);
   log(`development release ${v} of ${cfg.tranche} ${tip.slice(0, 10)} (${ready.why}); development only, never published`);
   const steps = [
-    `\`git push origin ${tip}:refs/heads/${branchOf(v)}\` (starts ${SHIM}: checks, assemble, then the tag ${tagOf(v)} and a draft release)`,
-    `watch the run: https://github.com/${slug}/actions/workflows/process-dev-release.yml?query=branch%3A${encodeURIComponent(branchOf(v))}`,
+    `\`gh workflow run process-dev-release.yml --repo ${slug} --ref ${cfg.tranche} -f version=${v} -f commit=${tip}\` (${SHIM} on the tranche: checks, assemble, then the tag ${tagOf(v)} and a draft release)`,
+    `watch the run: https://github.com/${slug}/actions/workflows/process-dev-release.yml?query=branch%3A${encodeURIComponent(cfg.tranche)}`,
     `\`${P3} release dev --record <that run's url>\` once it has finished, green or not`,
   ];
   log("BOB's acts, each its own command; a refused act is never reworded or rerouted:");
@@ -136,7 +130,8 @@ function recordRelease(root, cfg, slug, url, { io, log }) {
   if (!r) fail(`run ${id} could not be read`);
   if (r.path !== SHIM) fail(`run ${id} is ${r.path}, not ${SHIM}`);
   if (r.status !== 'completed') fail(`run ${id} has not finished (${r.status}); record it once it has`);
-  const v = versionOf(r.head_branch);
+  if (r.event !== 'workflow_dispatch' || r.head_branch !== cfg.tranche) fail(`run ${id} is a ${r.event} on ${r.head_branch}, not a dispatch on ${cfg.tranche}`);
+  const v = String(r.display_title || '').startsWith(RUN_PREFIX) ? checkVersion(r.display_title.slice(RUN_PREFIX.length)) : fail(`run ${id} is titled ${JSON.stringify(r.display_title)}, not ${RUN_PREFIX}<version>`);
   fetchState(root, cfg.state_branch, { fresh: true });
   const have = jsonl(readState(root, cfg.state_branch, RELEASES_FILE));
   if (have.some((x) => x.run === id)) fail(`run ${id} is already recorded`);

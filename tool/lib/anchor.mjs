@@ -35,7 +35,6 @@ export function keySetAt(root, rev, key) {
   for (const c of touched) if (keyAt(root, `${c}^1`, key) !== value) return c;
   return null;
 }
-export const processRepoSetAt = (root, rev) => keySetAt(root, rev, 'process_repo');
 
 // The first anchored key whose value at sha is not its value at base (by base's last config,
 // lastConfigAt, so a deleted config is still the one judged against) and did not take it at a
