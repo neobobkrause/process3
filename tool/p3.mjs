@@ -248,14 +248,15 @@ const commands = {
     return 0;
   },
 
-  // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
+  // merge <pr> (--reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n>] | --no-review "<why>") [--decision "<why>"] [--minutes 60] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
+  // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60]: any other pull request.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
     if (a.plain) return mergePlain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
-    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }).merged ? 0 : 1;
+    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
   },
 
   // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]

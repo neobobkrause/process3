@@ -10,6 +10,7 @@ import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSu
 import { idleByDay, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
+import { triggerSummary } from './triggers.mjs';
 import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
 
 const U = 'unmeasured';
@@ -210,6 +211,8 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push('## Work', '');
   const jobMerges = !opened ? `job merges since the opening ${U}` : `job merges recorded: ${mergeRows.length} distinct pull requests since the opening (${allMerges.filter(inT).length} merge rows)${olderPRs.length ? `; older than this tranche, left out: ${olderPRs.map((p) => `#${p}`).join(', ')}` : ''}`;
   L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); ${jobMerges}` : `${opened ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(opened)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${jobMerges}; the rest plain)`}.`, '');
+  // The review triggers' measure (Bob, 4 Nov): this tranche's job merges, each pull request once.
+  L.push(`- ${opened ? triggerSummary(mergeRows).line : `review triggers: ${U} (the tranche's opening not read)`}`, '');
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));

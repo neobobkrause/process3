@@ -131,7 +131,7 @@ test('a records-only job pull request with a receipt gets a code run whose recei
   git(['push', '-q', 'origin', 'tranche', 'job/alpha', 'main'], { cwd: s.root });
   git(['checkout', '-q', 'main'], { cwd: s.root });
   let merged = null;
-  const m = merge(s.root, 247, { slug: 'o/r', reviewed: 'test', rounds: 1, log: quiet, io: {
+  const m = merge(s.root, 247, { slug: 'o/r', reviewed: 'test', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet, io: {
     getPR: () => ({ state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: s.head } }),
     comments: () => io.state.comments,
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),

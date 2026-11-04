@@ -280,7 +280,7 @@ test('merge of the provider\'s job records the notice; merge of a user\'s job an
   const root = product();
   const done = JSON.stringify({ row: 'attempt', event: 'complete', at: new Date().toISOString() }) + '\n';
   const p = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': REQ.replace('*(not yet met: x)* ', ''), 'process/metrics/p.jsonl': done });
-  const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, log: quiet });
+  const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.ids, x.users]), [['notice', 'p:7', ['R1'], ['u1', 'u2']]]);
   // Triage at the merge: neither user has a file importing p, so both are answered not affected.
   assert.deepEqual(r.triage.rows.filter((x) => x.row === 'triage').map((x) => [x.user, x.verdict]), [['u1', 'not affected'], ['u2', 'not affected']]);
@@ -290,7 +290,7 @@ test('merge of the provider\'s job records the notice; merge of a user\'s job an
   // u1's job, which named the notice, merges after: its answer is already on the state branch.
   const start = JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n';
   const u = mergeFixture(root, 'u1', { 'test/u1/p.test.mjs': passing('x'), 'process/metrics/u1.jsonl': start + done });
-  const r2 = merge(root, 9, { slug: 'o/r', io: u, reviewed: 'fresh', rounds: 1, log: quiet });
+  const r2 = merge(root, 9, { slug: 'o/r', io: u, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.deepEqual(r2.notices.rows, []);
   const sb = loadConfig(root).state_branch;
   fetchState(root, sb, { fresh: true });
@@ -308,9 +308,9 @@ test('merge run again on a merged job pull request records only its provider not
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   const io = { getPR: () => ({ state: 'closed', merged: true, merge_commit_sha: m, head: { ref: 'job/p', sha: head }, base: { ref: 'tranche' } }) };
-  const r = merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet });
+  const r = merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.users]), [['notice', 'p:7', ['u1', 'u2']]]);
-  assert.deepEqual(merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet }).notices.rows, [], 'a second run adds nothing');
+  assert.deepEqual(merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }).notices.rows, [], 'a second run adds nothing');
 });
 
 test('status --role bob fetches job/<id> of a COMPLETE user with an unanswered notice: a start pushed with no pull request yet clears its listing', () => {
@@ -371,7 +371,7 @@ test('merge of a provider job that changed only tests and requirement marks reco
   const done = JSON.stringify({ row: 'attempt', event: 'complete', at: new Date().toISOString() }) + '\n';
   const p = mergeFixture(root, 'p', { 'test/p/b.test.mjs': passing('p signs'), 'req/p.md': REQ.replace('*(not yet met: x)* ', ''), 'process/metrics/p.jsonl': done });
   const out = [];
-  const r = merge(root, 77, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  const r = merge(root, 77, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => out.push(m) });
   assert.equal(r.merged, true);
   assert.deepEqual(r.notices.rows, []);
   assert.match(out.join('\n'), /no provider notice: PR 77 changed R1 but no file of p's source \(src\/p\/\): only tests, requirements text, docs or records/);
@@ -509,7 +509,7 @@ test('merge of a provider job that changed its exports with no requirement chang
     'process/metrics/p.jsonl': doneRow(),
   });
   const out = [];
-  const r = merge(root, 50, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  const r = merge(root, 50, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => out.push(m) });
   const [n] = r.notices.rows;
   assert.deepEqual([n.key, n.ids, n.users, n.source], ['p:50', [], ['u1', 'u2'], 2]);
   assert.deepEqual(n.exports, {
@@ -554,7 +554,7 @@ test('a merge whose every notice user imports the provider records each owed at 
   git(['checkout', '-q', 'main'], { cwd: root });
   const io = mergeFixture(root, 'p', { 'src/p/index.mjs': P_INDEX.replace('return id;', 'return String(id);'), 'process/metrics/p.jsonl': doneRow() });
   const out = [];
-  const r = merge(root, 224, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  const r = merge(root, 224, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => out.push(m) });
   assert.deepEqual(r.notices.rows.map((x) => [x.key, x.users]), [['p:224', ['u1', 'u2']]]);
   assert.deepEqual(r.triage.owed, ['u1', 'u2']);
   // One owed row per user, written at the merge, none a verdict.
@@ -580,7 +580,7 @@ test('a merge whose every notice user imports the provider records each owed at 
   const m = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  merge(root, 224, { slug: 'o/r', io: { ...io, getPR: () => ({ state: 'closed', merged: true, merge_commit_sha: m, user: { login: 'c' }, base: { ref: 'tranche' }, head: { ref: 'job/p', sha: m } }), compare: () => null }, reviewed: 'fresh', rounds: 1, log: (x) => again.push(x) });
+  merge(root, 224, { slug: 'o/r', io: { ...io, getPR: () => ({ state: 'closed', merged: true, merge_commit_sha: m, user: { login: 'c' }, base: { ref: 'tranche' }, head: { ref: 'job/p', sha: m } }), compare: () => null }, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (x) => again.push(x) });
   assert.ok(again.some((l) => /^first: node \.process\/tool\/p3\.mjs notice triage p:224 /.test(l)), again.join('\n'));
   const dir = mkdtempSync(join(tmpdir(), 'p3-triage-'));
   const f = join(dir, 'w.txt');
@@ -593,7 +593,7 @@ test('a merge that leaves no triage owed prints the ready jobs\' start first, as
   const root = product();
   const io = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': REQ.replace('*(not yet met: x)* ', ''), 'process/metrics/p.jsonl': doneRow() });
   const out = [];
-  merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => out.push(m) });
   const at = out.findIndex((l) => /^merged pull request 7/.test(l));
   assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
   assert.ok(!out.some((l) => /^then: /.test(l)));
@@ -603,14 +603,14 @@ test('a source change with no export change still records a notice, with no expo
   const root = product();
   withProvider(root);
   const io = mergeFixture(root, 'p', { 'src/p/index.mjs': P_INDEX.replace('return id;', 'return String(id);'), 'process/metrics/p.jsonl': doneRow() });
-  const r = merge(root, 51, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet });
+  const r = merge(root, 51, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.deepEqual(r.notices.rows.map((x) => [x.key, x.ids, x.source, x.exports]), [['p:51', [], 1, undefined]]);
   assert.equal(noticeLine(r.notices.rows[0]), 'provider notice: p its source, no requirement text (PR 51)');
   const root2 = product();
   withProvider(root2);
   const io2 = mergeFixture(root2, 'p', { 'test/p/b.test.mjs': passing('p b'), 'src/p/README.md': '# p, read me\n', 'process/metrics/p.jsonl': doneRow() });
   const out = [];
-  const r2 = merge(root2, 52, { slug: 'o/r', io: io2, reviewed: 'fresh', rounds: 1, log: (x) => out.push(x) });
+  const r2 = merge(root2, 52, { slug: 'o/r', io: io2, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (x) => out.push(x) });
   assert.deepEqual(r2.notices.rows, []);
   assert.match(out.join('\n'), /provider notices for PR 52: nothing to record/);
   // Never silent: a merge that leaves no notice says no triage ran, and why.
@@ -649,7 +649,7 @@ test('a split\'s retired ids notify no user; a reworded id in the same pull requ
   const done = JSON.stringify({ row: 'attempt', event: 'complete', at: new Date().toISOString() }) + '\n';
   const p = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': split, 'process/metrics/p.jsonl': done });
   const out = [];
-  const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => out.push(m) });
   assert.deepEqual(r.notices.rows.map((x) => [x.key, x.ids]), [['p:7', ['R2']]]);
   assert.match(out.join('\n'), /provider notice p:7: left out 2 retired id\(s\), which change no behaviour: R1, R3/);
   // Only retirements, and no source change: no notice, and it says why.

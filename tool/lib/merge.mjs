@@ -17,6 +17,7 @@ import { triageAtMerge } from './triage.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, isGenerated, refreshOthers } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
+import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -88,7 +89,9 @@ export function waitMergeable(slug, n, pr, { minutes = 2, every = 5000, read = g
 export const MAX_ROUNDS = 2;
 export function reviewRounds({ reviewed, noReview, rounds, decision } = {}) {
   if (reviewed === true) fail('--reviewed needs what the reviews found');
-  if (noReview === true) fail('--no-review needs why');
+  if (noReview === true || (noReview !== undefined && !String(noReview).trim())) fail('--no-review needs why');
+  // Q38 is no source for skipping review (coordinator, 4 Nov): the reason is said in its own words.
+  if (/\bQ38\b/i.test(String(noReview ?? ''))) fail('--no-review may not cite Q38: Q38 has no source; give the reason itself');
   if (!reviewed && !noReview) fail('say whether a fresh reviewer ran: --reviewed "<what>" or --no-review "<why>" (INT-2)');
   if (reviewed && noReview) fail('say one: --reviewed "<what>" or --no-review "<why>", not both');
   if (Array.isArray(decision) || Array.isArray(rounds)) fail('give --rounds and --decision once each');
@@ -104,10 +107,39 @@ export function reviewRounds({ reviewed, noReview, rounds, decision } = {}) {
   return { rounds: r, decision: decision ?? null };
 }
 
+// What a job merge's review cost and found (Bob, 4 Nov, about 19:05: measure the review triggers
+// for a day or two). --reviewed needs --review-minutes <n>, --findings <n> and --acted-on <n>
+// (how many findings the fix pass acted on); --review-cost-usd <n> when read, else unmeasured.
+// --no-review takes none of them.
+export function reviewMeasures({ reviewed, reviewMinutes, reviewCostUsd, findings, actedOn } = {}) {
+  const given = [['--review-minutes', reviewMinutes], ['--review-cost-usd', reviewCostUsd], ['--findings', findings], ['--acted-on', actedOn]].filter(([, v]) => v !== undefined);
+  if (!reviewed) {
+    if (given.length) fail(`--no-review ran no review: drop ${given.map(([k]) => k).join(', ')}`);
+    return { review_minutes: null, review_usd: null, findings: null, findings_acted: null };
+  }
+  const whole = (k, v) => {
+    const x = Number(v);
+    if (v === undefined || v === true || !Number.isInteger(x) || x < 0) fail(`--reviewed needs ${k} <n>, a whole number 0 or more${v === undefined ? '' : `; not ${JSON.stringify(v)}`}: the review's measures go in the merge row (Bob, 4 Nov)`);
+    return x;
+  };
+  const minutes = Number(reviewMinutes);
+  if (reviewMinutes === undefined || reviewMinutes === true || !Number.isFinite(minutes) || minutes < 0) fail(`--reviewed needs --review-minutes <n>, the minutes the review and its fix pass added before the merge${reviewMinutes === undefined ? '' : `; not ${JSON.stringify(reviewMinutes)}`}`);
+  const f = whole('--findings', findings);
+  const a = whole('--acted-on', actedOn);
+  if (a > f) fail(`--acted-on ${a} is more than --findings ${f}`);
+  let usd = 'unmeasured';
+  if (reviewCostUsd !== undefined) {
+    usd = Number(reviewCostUsd);
+    if (reviewCostUsd === true || !Number.isFinite(usd) || usd <= 0) fail(`--review-cost-usd <n>, above 0, or leave it out (unmeasured); not ${JSON.stringify(reviewCostUsd)}`);
+  }
+  return { review_minutes: minutes, review_usd: usd, findings: f, findings_acted: a };
+}
+
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
   const io = { getPR, comments, checkRun, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
+  const measures = reviewMeasures(opts);
   // The job's cost, read by BOB from get_session on the job's session, idle by now (measured 4 Nov,
   // 11:49: mid-turn a session's own record has no usage). A value not read is refused before
   // anything runs; an omitted one records the cost unmeasured and never stops the merge.
@@ -162,6 +194,11 @@ export function merge(root, n, opts = {}) {
   // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
   const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
+  // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
+  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
+  if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
+  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
+  if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
   const wt = join(mkdtempSync(join(tmpdir(), 'p3-merge-')), id);
@@ -185,6 +222,7 @@ export function merge(root, n, opts = {}) {
       jobCostRow(wt, id, rows, { cost: jobCost, session: opts.jobSession, attempt: receipt.attempt, log });
       appendRow(wt, id, {
         row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
+        triggers: trig.fired, ...measures,
         minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
       });
       git(['add', '--', metricsFile(id)], { cwd: wt });

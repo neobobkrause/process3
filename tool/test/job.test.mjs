@@ -563,8 +563,8 @@ test('merge passes on a green gate run that checked attempt 2, and refuses one t
     verify: () => true,
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });
-  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, log: quiet }), /checked receipt attempt 2/);
-  const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, log: quiet });
+  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /checked receipt attempt 2/);
+  const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.equal(r.merged, true);
 });
 
