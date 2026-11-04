@@ -135,7 +135,8 @@ export function runArtifactRow(slug, id) {
   } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 // scope and after too: the tranche cover trusts a row for the module it ran and the run it stood on.
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after'];
+// refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh'];
 export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
