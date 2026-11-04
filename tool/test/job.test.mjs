@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
-import { jobBlock, jobComplete, jobStart } from '../lib/job.mjs';
+import { jobBlock, jobComplete, jobSender, jobStart, startText } from '../lib/job.mjs';
 import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
@@ -173,8 +173,11 @@ test('job complete pushes before the receipt, and a rerun finishes without a sec
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed before the receipt');
   assert.equal(f.state.comments.length, 1);
   assert.equal(parseBlock(f.state.comments[0].body, 'p3:receipt').sha, tip);
-  const again = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const said = [];
+  const again = jobComplete(root, 'alpha', { gh: f.gh, log: (m) => said.push(m) });
   assert.equal(again.ok, true);
+  // The job's report: the last line wakes BOB, from the job's own sender name.
+  assert.match(said.at(-1), /^next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "job alpha complete, PR #\d+ ready: run status" --from job-alpha`, delivered with send_message to the address it prints$/);
   assert.equal(f.state.comments.length, 1, 'no second receipt');
   assert.equal(f.state.ready, 1);
   assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'complete').length, 1);
@@ -189,6 +192,17 @@ test('block commits only its entry and can run again', () => {
   jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
   assert.equal(git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }), 'process/ledger/alpha.json');
   jobBlock(root, 'alpha', { reason: 'waiting on a name', push: false, log: quiet });
+});
+
+test('block, pushed, ends with the wake of BOB from the job', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const said = [];
+  jobBlock(root, 'alpha', { reason: 'waiting on a name', log: (m) => said.push(m) });
+  assert.equal(said.at(-1), `next act: wake BOB with \`node .process/tool/p3.mjs send bob "job alpha BLOCKED: run status" --from job-alpha\`, delivered with send_message to the address it prints`);
+  assert.equal(jobSender('a'.repeat(50)).length, 40);
 });
 
 test('after a failed push, a rerun posts the saved receipt for the COMPLETE commit', () => {
@@ -420,9 +434,8 @@ test('the START divides the labour: deploys and releases are the coordinator\'s,
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const line = start.split('\n').find((l) => l.startsWith('Not yours'));
-  assert.match(line, /^Not yours, and this line wins over any act listed above it:/);
-  assert.match(line, /Deploying, releasing, release signing and acting on a live site are the coordinator's acts in a round, not the job's/);
-  assert.match(line, /local builds and tests that use wrangler or miniflare are part of your work/);
+  assert.match(line, /^Not yours, and this line wins over any act above:/);
+  assert.match(line, /deploying, releasing, release signing and acting on a live site \(the coordinator's; local wrangler and miniflare builds and tests are yours\)/);
   assert.doesNotMatch(start, /keys|secret|Cloudflare account/);
 });
 
@@ -593,7 +606,7 @@ test('the START says each judged act is its own shell command, never chained wit
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const lines = start.split('\n').filter((l) => /judged act/.test(l));
-  assert.deepEqual(lines, ['Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).']);
+  assert.deepEqual(lines, ['Give each judged act (a push, a session start) its own shell command: no `&&`, `||`, `;`, pipe or second line joins it to anything.']);
 });
 
 // JOB-6: recovery by replacement.
@@ -619,8 +632,8 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   assert.deepEqual(r.row, rows[0]);
   assert.equal(f.state.prs, 1, 'no new pull request');
   assert.match(r.start, /attempt 1, replacement session/);
-  assert.match(r.start, /As BOB saw it: its session stopped answering after 40 minutes/);
-  assert.match(r.start, /pull request https:\/\/x\/pull\/9, last commit `[0-9a-f]+ half the work`, receipt none posted \(WORKING\)/);
+  assert.match(r.start, /BOB saw: its session stopped answering after 40 minutes/);
+  assert.match(r.start, /pull request https:\/\/x\/pull\/9 as it is \(last commit `[0-9a-f]+ half the work`; receipt none posted \(WORKING\)\)/);
   assert.match(r.start, /refused is never rerouted/);
   assert.match(r.start, /1\. `git fetch --depth 1 origin job\/alpha:refs\/remotes\/origin\/job\/alpha`/);
   assert.match(r.start, /2\. `git checkout -q -b job\/alpha origin\/job\/alpha`/);
@@ -755,4 +768,58 @@ test('the START names the job\'s rulebook (TXT-5)', () => {
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   assert.ok(start.includes('`.process/rulebooks/job.md`'));
   assert.ok(!/rulebooks\/(bob|root|watcher|worker)\.md/.test(start));
+});
+
+// The gate race: finish's order is push, confirm it landed, receipt, then ready. The gate reads
+// the draft state live (gate.test), so the push's run, if it is the one kept, judges the
+// pull request ready; the receipt is posted before either run can read it.
+test('job complete marks ready last: after the push landed and the receipt is posted', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  f.state.failReady = false;
+  const seen = [];
+  const remote = () => git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  f.gh.addComment = ((add) => (...a) => { seen.push(['receipt', remote()]); return add(...a); })(f.gh.addComment);
+  f.gh.markReady = () => { seen.push(['ready', remote(), f.state.comments.length]); f.state.ready++; };
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.deepEqual(seen, [['receipt', tip], ['ready', tip, 1]]);
+});
+
+test('a mark with a parenthetical between its id and "(not yet met" is struck like any other, and needs its --test', () => {
+  const root = product();
+  // The copy's own shape (local-facts R23 and R25, 4 Nov), nested parentheses and all.
+  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) *(not yet met: T53; per C3)* **Does x.** Test: x.\n- **R2** (T53; `jurisdictions` R41) *(not yet met: T53; PLATFORM)* does y.\n' });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    'req/alpha.md': '# alpha\n\n- **R1** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) **Does x.** Test: x.\n- **R2** (T53; `jurisdictions` R41) *(not yet met: T53; PLATFORM)* does y.\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x', () => {});\n",
+    'src/alpha/x.mjs': 'export const x = 1;\n',
+  });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  assert.throws(() => run([]), /struck R1 with no --test/);
+  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck \(struck: R1\)/);
+  assert.deepEqual(run(['R1=test/alpha/x.test.mjs::R1 x']).receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x' }]);
+});
+
+// Bob, 4 Nov: urgency in process3's initial release. A job's question to BOB waits at most
+// decision_minutes, then goes once more to BOB and to ROOT; and the wake's send is the job's act
+// (review of PR 72: "push to job/<id> only" forbade the state branch it writes).
+test('the START: the escalation to ROOT after decision_minutes, its limits, and the wake as the job\'s act', () => {
+  const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'] });
+  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', decisionMinutes: 30 });
+  // The chain's last automatic step is the watcher, with the minutes unanswered (coordinator, 4 Nov).
+  assert.ok(t.includes('No answer from BOB in 30 min: send it once more, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd`, then the watcher, with the minutes, by send_message (`node .process/tool/p3.mjs address <role>`).'));
+  assert.ok(t.includes('If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.'));
+  assert.ok(t.includes('- the wake that job complete or block prints, and its send_message'));
+  assert.ok(t.includes("pushing to any other branch yourself (the wake's send writes the state branch)"));
+  assert.ok(Buffer.byteLength(t) <= 4096, `START ${Buffer.byteLength(t)} bytes`);
+  const own = startText({ entry: { ...e, acts: ['only these'] }, slug: 'o/r', branch: 'job/alpha', tranche: 'tranche', coordinator: 's', attempt: 1, reading: { files: [], bytes: 0 } });
+  assert.ok(own.includes('No answer from BOB in 30 min: send it once more, then to ROOT, then the watcher, with the minutes'), 'none addressed: address reads them');
+  assert.ok(own.includes('- the wake that job complete or block prints'), 'an entry with its own acts keeps the wake');
 });

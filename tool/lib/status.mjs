@@ -13,7 +13,7 @@ import { openLine, openState } from './tranche.mjs';
 import { deployOwed } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
-import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
+import { OPEN_BY, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -22,9 +22,38 @@ export const IDLE_HOURS = 2;
 // A WORKING job whose branch tip is older than this is stalled (the sweep wakes BOB for it).
 export const SILENT_HOURS = 2;
 
-export function status(root, { role, module, context, live, offline = false, log = console.log, io: given } = {}) {
+// status --role bob --sessions <file>: BOB's own list_sessions result, saved as JSON. Measured 3-4
+// Nov: a stopped job was flagged only after two hours with nothing pushed. A job's session is
+// matched by its title (\`job <id>\`, or \`job <id> (restart)\`) or by a field naming its branch;
+// the latest one counts. Archived: gone. Idle, with no push for targets.replace_minutes: idle.
+// No match: the two-hour rule stands. The shape is read loosely: a list, or one under sessions or data.
+export function readSessions(file) {
+  let j;
+  try { j = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`--sessions ${file}: not a readable JSON file (${e.message}); save your list_sessions result there`); }
+  const list = Array.isArray(j) ? j : Array.isArray(j?.sessions) ? j.sessions : Array.isArray(j?.data) ? j.data : null;
+  if (!list) fail(`--sessions ${file}: no list of sessions in it (a JSON list, or one under "sessions" or "data")`);
+  return list.filter((x) => x && typeof x === 'object');
+}
+const sessionId = (x) => x.id || x.session_id || x.uuid || '?';
+const sessionTime = (x) => Math.max(...['updated_at', 'created_at', 'last_activity_at'].map((k) => Date.parse(x[k] || '')).filter(Number.isFinite), 0);
+const names = (x, branch, depth = 0) => (typeof x === 'string' ? x === branch || x === `refs/heads/${branch}`
+  : x && typeof x === 'object' && depth < 4 && Object.values(x).some((v) => names(v, branch, depth + 1)));
+export function jobSession(sessions, id) {
+  const title = new RegExp(`^job ${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\(restart\\))?$`);
+  const mine = sessions.filter((x) => title.test(String(x.title || '').trim()) || names(x, `job/${id}`));
+  return mine.sort((a, b) => sessionTime(b) - sessionTime(a))[0] || null;
+}
+const lower = (v) => String(v || '').toLowerCase();
+export const isArchived = (x) => x.archived === true || !!x.archived_at || ['archived'].includes(lower(x.status)) || lower(x.lifecycle) === 'archived' || lower(x.state) === 'archived';
+export const isIdle = (x) => ['idle', 'completed', 'failed', 'stopped'].includes(lower(x.status)) || ['completed', 'failed', 'review_ready'].includes(lower(x.status_bucket));
+
+export function status(root, { role, module, context, live, sessions: sessionsFile, offline = false, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
+  if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
+  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
+  const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
+  if (!(replaceMs > 0)) fail(`targets.replace_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.replace_minutes)}`);
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
@@ -92,8 +121,16 @@ export function status(root, { role, module, context, live, offline = false, log
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
     } else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
+    // With BOB's list_sessions (--sessions): a WORKING job with its draft open whose session is
+    // archived, or idle with no push for targets.replace_minutes. BOB restarts its session.
+    const restart = `BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
+    const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
+    const js = listed && row.branch?.startsWith('WORKING') && !row.ready && row.pr?.startsWith('#') && (!row.flag || row.flag === 'WORKING, nothing pushed') ? jobSession(listed, e.id) : null;
+    if (js && isArchived(js)) row.flag = `job session gone (${sessionId(js)} archived); ${restart}`;
+    else if (js && isIdle(js) && tipAge() > replaceMs) row.flag = `job idle ${Math.round(replaceMs / 6e4)}m (${sessionId(js)} ${lower(js.status || js.status_bucket)}, no push for ${Math.round(tipAge() / 6e4)}m); ${restart}`;
     // A WORKING job that pushed and then stopped (interrupted, or stopped by refusals): its pull
     // request not ready and its branch tip older than SILENT_HOURS. BOB restarts its session.
+    // The fallback when BOB's sessions are not given, or none matches the job.
     if (!row.flag && !row.ready && row.ahead > 1 && row.branch?.startsWith('WORKING')) {
       const age = Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
       if (age > SILENT_HOURS * 36e5) row.flag = `WORKING, no push for ${Math.round(age / 36e5 * 10) / 10}h; BOB's act: ${P3} job start ${e.id} --restart "<why>"`;
@@ -183,6 +220,13 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
   const reports = haveState ? toRoute(root, sb) : [];
   if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.slice(0, 100)}`));
+  // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
+  const target = Number(cfg.targets?.decision_minutes ?? 30);
+  if (!(target > 0)) fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`);
+  for (const m of reports) {
+    const mins = Math.floor((Date.now() - Date.parse(m.at)) / 6e4);
+    if (mins > target) L.push(`unanswered ${m.from}-${m.n} ${mins}m (target ${target})`);
+  }
   const pct = context === undefined ? null : Number(String(context).replace(/%$/, ''));
   if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
   if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
@@ -217,8 +261,6 @@ export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
     .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }
 
-const MARK = UNMET;
-
 // The layers (Build Plan, Phase 3, INT-4): the layer map (layers_file), a table row whose first
 // cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
 // or when none of its modules has unmet marks or an open job. The open layer is the lowest not
@@ -233,7 +275,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const map = read(cfg.layers_file);
   if (map === null) return null;
-  const marks = (f) => [...(read(f) || '').matchAll(MARK)].map((m) => m[1]);
+  const marks = (f) => unmetIds(read(f));
   const recorded = new Set(closed.map((r) => r.layer));
   const layers = map.split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()))
     .filter((c) => c.length > 1 && /^\d+$/.test(c[0]))
@@ -405,7 +447,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const textOf = (f) => (texts.has(f) ? texts.get(f) : (texts.set(f, whole(f)), texts.get(f)));
   const all = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => {
     const text = textOf(file);
-    return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: unmetIds(text).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices);
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
