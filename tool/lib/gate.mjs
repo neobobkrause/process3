@@ -3,7 +3,7 @@
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, verifyRow } from './github.mjs';
+import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
@@ -11,7 +11,7 @@ import { install, runSuite, suffixOf } from './suite.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
-const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
+const ghIO = { comments, addComment, getPR, prsFromBranch, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
@@ -293,16 +293,24 @@ function jobMerge(root, cfg, c, { slug, io }) {
   if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2 || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
   const t = git(['show', `${p2}:${metricsFile(id)}`], { cwd: root, allowFail: true });
   if (!(t.code === 0 ? jsonl(t.stdout) : []).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
+  // The merged PR's runs list no pull request (verifyRow), so a run is bound to it by its branch.
+  // That holds only while every pull request ever opened from job/<id> is into the tranche: a PR
+  // from the branch into another base runs that base's workflow file, which could upload any row
+  // (review of PR 94). Pull requests cannot be deleted, so the list is complete; unread, no cover.
+  const branch = `job/${id}`;
+  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
+  if (!Array.isArray(from) || !from.some((x) => x.number === n)) return no(`is PR ${n}'s merge, but the pull requests from ${branch} could not be read`);
+  const elsewhere = from.filter((x) => x.base?.ref !== cfg.tranche).map((x) => x.number);
+  if (elsewhere.length) return no(`is PR ${n}'s merge, but ${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`);
   const runs = gateRuns(io.comments(slug, n));
-  // The merged PR's runs list no pull request (verifyRow), so the row is bound to it here: its
-  // run was on job/<id> (verifyRow); its commit is the PR's head or an earlier commit of it; its
-  // base was the tranche, at or before the commit the job merged into.
-  const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch: `job/${id}` } };
+  // The row is bound to the PR here: its run was on job/<id> (verifyRow); its commit is the PR's
+  // head or an earlier commit of it; its base was the tranche, at or before the merge's.
+  const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch } };
   const isAnc = (a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
   const bound = (r) => isAnc(r.sha, p2) && isAnc(r.base, p1) && io.verify(slug, r, ctx);
   const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
   const row = runs.filter((r) => r.sha === p2).pop();
-  if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not verified' : 'red') : 'missing'}`);
+  if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
   const tested = row.trigger === 'record-since-green'
     ? runs.filter((r) => r.sha === row.after).reverse().find((r) => suiteRan(r) && bound(r))
     : suiteRan(row) ? row : null;

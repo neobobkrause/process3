@@ -32,6 +32,14 @@ export function openPRs(slug, base) {
   return Array.isArray(pages) ? pages.flat() : null;
 }
 
+// Every pull request, open, closed or merged, whose head is this repository's branch; null when
+// unreadable. Pull requests cannot be deleted, so this is every PR a run on the branch could be.
+export function prsFromBranch(slug, branch) {
+  const owner = String(slug).split('/')[0];
+  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=all&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=100`], { allowFail: true });
+  return Array.isArray(pages) ? pages.flat() : null;
+}
+
 export function createPR(slug, { head, base, title, body, draft = true }) {
   const pr = gh(['api', '-X', 'POST', `repos/${slug}/pulls`, '--input', '-'], {
     input: JSON.stringify({ head, base, title, body, draft }),

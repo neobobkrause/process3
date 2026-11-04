@@ -43,6 +43,7 @@ function product(n, { red = [], unverified = [], uses = {}, over = {} } = {}) {
   });
   const io = {
     getPR: (s, n) => (n === MAIN_PR ? { draft: false, user: { login: 'neobobkrause' } } : prs.get(n)),
+    prsFromBranch: (s, b) => [...prs.values()].filter((x) => x.head.ref === b),
     comments: (s, n) => comments.get(n) || [],
     addComment: () => ({}),
     verify: (s, r, ctx) => r.verified === true && prs.get(ctx.pr)?.head.sha === r.sha && ctx.baseRef === 'tranche',
@@ -183,6 +184,23 @@ test('a run on another branch, repository, event or commit, or not green, does n
   assert.deepEqual(run(q).run.scope, ['m1']);
 });
 
+// Review of PR 94: a second PR from job/m1 into a branch whose own workflow is a stub could upload
+// any row in a green run on the branch. While any PR from the branch is into another base, or the
+// list cannot be read, the branch binds nothing.
+test('a job branch that ever had a pull request into another base, or whose pull requests cannot be read, covers nothing', () => {
+  const p = merged(3);
+  const list = p.io.prsFromBranch;
+  p.io.prsFromBranch = (s, b) => (b === 'job/m1' ? [...list(s, b), { number: 77, base: { ref: 'evil' }, head: { ref: b } }] : list(s, b));
+  assert.deepEqual(run(p).run.scope, ['m1']);
+  // A second PR into the tranche itself (a restarted job) is not a reason to refuse.
+  p.io.prsFromBranch = (s, b) => (b === 'job/m1' ? [...list(s, b), { number: 78, base: { ref: 'tranche' }, head: { ref: b } }] : list(s, b));
+  assert.deepEqual(run(p).run.scope, []);
+  p.io.prsFromBranch = (s, b) => (b === 'job/m2' ? null : list(s, b));
+  assert.deepEqual(run(p).run.scope, ['m2']);
+  p.io.prsFromBranch = (s, b) => (b === 'job/m0' ? [] : list(s, b));
+  assert.deepEqual(run(p).run.scope, ['m0'], 'a list that lacks the merged PR itself');
+});
+
 test('a row whose fields do not match the PR, the module or its artifact does not cover it', () => {
   const swap = (p, pr, f) => {
     const cs = p.comments.get(pr);
@@ -274,7 +292,7 @@ function judgedBy(w, headSha, env = {}) {
   writeFileSync(out, '');
   const script = join(tmp, 'pin.sh');
   writeFileSync(script, pinStep());
-  execFileSync('bash', ['-e', script], { cwd: w.prod, stdio: 'pipe', env: { ...process.env, RUNNER_TEMP: tmp, GITHUB_OUTPUT: out, BASE: w.base, HEAD_SHA: headSha, HEAD_REF: 'tranche', BASE_REF: 'main', DEFAULT_BRANCH: 'main', SAME_REPO: 'true', ...env } });
+  execFileSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', script], { cwd: w.prod, stdio: 'pipe', env: { ...process.env, RUNNER_TEMP: tmp, GITHUB_OUTPUT: out, BASE: w.base, HEAD_SHA: headSha, HEAD_REF: 'tranche', BASE_REF: 'main', DEFAULT_BRANCH: 'main', SAME_REPO: 'true', ...env } });
   return git(['rev-parse', 'HEAD'], { cwd: join(tmp, 'process3') });
 }
 
@@ -288,6 +306,11 @@ test('the tranche into main is judged by the tranche\'s pin only when process3\'
     ['a fork', { SAME_REPO: 'false' }],
   ]) assert.equal(judgedBy(w, later, env), w.a, what);
   assert.equal(judgedBy(w, w.head(w.s)), w.a, 'a descendant only on a process3 side branch');
+  // A pin on process3's main only (the tranche was deleted or moved on elsewhere).
+  git(['checkout', '-q', 'main'], { cwd: w.proc });
+  git(['merge', '-q', '--ff-only', 'side'], { cwd: w.proc });
+  git(['branch', '-q', '-f', 'tranche', w.a], { cwd: w.proc });
+  assert.equal(judgedBy(w, w.head(w.s)), w.s, 'a descendant on process3\'s main');
   assert.equal(judgedBy(w, w.head(w.o)), w.a, 'a pin on another line, not after main\'s');
   assert.equal(judgedBy(w, w.head('e'.repeat(40))), w.a, 'a pin process3 does not have');
   // An older pin than main's: main pins b; the tranche, cut before, still pins a.

@@ -68,8 +68,11 @@ jobs:
           # The tranche into main (build/main-gate-2, 4 Nov): main's pin can be older than the
           # code that gated the tranche's jobs, and would run every suite past the 45 min cap.
           # The tranche's own pin judges instead, only when it is a descendant of main's pin on
-          # process3's own main or tranche, read from the clone of the base's process_repo, not
-          # from anything the head says: a later process the tranche's job PRs were judged by.
+          # process3's own main or tranche, checked in the clone of the base's process_repo: a
+          # later process, merged through process3's gate and review, that the tranche's job PRs
+          # were judged by. This step itself comes from the merge commit's workflow file, as every
+          # step does; merge's shim rule and Bob's ruleset stand behind that. Job post stays at
+          # the base's pin, so a row field the older checkRow refuses posts no comment (fails closed).
           tranche=$(echo "$cfg" | jq -r '.tranche // empty')
           if [ -n "$tranche" ] && [ "$HEAD_REF" = "$tranche" ] && [ "$BASE_REF" = "$DEFAULT_BRANCH" ] && [ "$SAME_REPO" = "true" ] \
             && hpin=$(git rev-parse -q --verify "$HEAD_SHA:.process") && [ "$hpin" != "$pin" ]; then
