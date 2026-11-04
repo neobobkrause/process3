@@ -954,6 +954,34 @@ test('job complete names a test for each struck mark, and refuses before marking
   assert.deepEqual(r.receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x at the interface' }]);
 });
 
+// Coordinator, 4 Nov: an id moved to another requirement file, or retired in a split, is not met
+// here; a test for it would only pin the id, which passes on revert. A real struck mark still owes one.
+test('job complete asks no test for a mark moved to another requirement file or retired in a split; a real struck mark still needs one', () => {
+  const root = product();
+  commit(root, {
+    'process/ledger/beta.json': entry('beta'),
+    'req/beta.md': '# beta\n\n- **R1** *(not yet met: b)* does b.\n',
+    'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R2** *(not yet met: y)* does y.\n- **R3** *(not yet met: z)* does z.\n',
+  });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    // R1 met here; R2 moved to beta's file, still unmet there; R3 retired in a split.
+    'req/alpha.md': '# alpha\n\n- **R1** does x.\n- **R3** *(retired: moved to beta R3)* does z.\n',
+    'req/beta.md': '# beta\n\n- **R1** *(not yet met: b)* does b.\n- **R2** *(not yet met: y)* does y.\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
+    'src/alpha/x.mjs': 'export const x = 1;\n',
+  });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  assert.throws(() => run([]), /struck R1 with no --test/);
+  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck \(struck: R1\)/);
+  // beta's R1 was unmet at the base too: alpha's R1 is still alpha's own, and struck.
+  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface']);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1']);
+});
+
 test('metrics report: BOB\'s idle time per day, and the overhead share per job and per layer', () => {
   const idle = idleByDay([
     { at: '2026-11-01T01:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 0.5 },

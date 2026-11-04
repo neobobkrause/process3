@@ -5,13 +5,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
-import { checkLedger, entryFile, readEntry, validate, writeStatus } from './ledger.mjs';
+import { checkLedger, entryFile, readEntry, readLedgerTexts, validate, writeStatus } from './ledger.mjs';
 import { appendRow, metricsFile, nextAttempt, readRows } from './metrics.mjs';
 import { recordCheck, recordSince, takenIn } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
-import { movedText, unanswered, withdrawnKeys } from './notice.mjs';
+import { movedText, retiredIds, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { baseRed } from './basered.mjs';
@@ -102,8 +102,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (reopen) L.push('', `This attempt reopens the module after an earlier attempt merged. What it must do: ${reopen}`);
   // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
   if (notices.length) {
-    L.push('', '## Provider notices', '', 'For each, a module this one uses changed: confirm or adapt this module\'s code, with a test of its own for the change.');
-    for (const n of notices) L.push(`- \`${n.key}\`: \`${n.provider}\` changed ${movedText(n)} (PR ${n.pr}); \`--test notice:${n.key}=...\``);
+    L.push('', '## Provider notices', '', 'For each, a module this one uses changed: confirm or adapt this module\'s code; the merge records the answer.');
+    for (const n of notices) L.push(`- \`${n.key}\`: \`${n.provider}\` changed ${movedText(n)} (PR ${n.pr})`);
   }
   if (restart) {
     L.push('', `You replace the job session that stopped. BOB saw: ${restart.why}`);
@@ -128,7 +128,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test${notices.length ? ', and each notice\'s above' : ''}. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -177,9 +177,8 @@ function withdrawnFor(root, cfg) {
   try { return fetchState(root, cfg.state_branch, { fresh: true }) ? withdrawnKeys(root, cfg.state_branch) : new Set(); } catch { return new Set(); }
 }
 
-// The notices a start row named, with their detail from the state branch when it has them: job
-// complete asks a test for each key the row names and BOB has not withdrawn, so the START names
-// every one of those, and no withdrawn one (coordinator, 4 Nov).
+// The notices a start row named, with their detail from the state branch when it has them, less
+// any BOB withdrew since (coordinator, 4 Nov).
 const named = (owed, row, withdrawn = new Set()) => (row?.notices || []).filter((key) => !withdrawn.has(key)).map((key) => owed.find((x) => x.key === key)
   || { key, provider: key.split(':')[0], ids: ['(see the state branch)'], pr: key.split(':')[1] });
 
@@ -572,24 +571,20 @@ export const markedIds = (text) => unmetIds(text);
 
 // The marks the branch struck against the base, each with the test the job names for it with
 // --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused
-// before anything is marked or pushed when one is missing or does not hold.
-// A notice the START named that BOB has withdrawn since owes no test; a --test given for one is
-// accepted and not recorded (the START told the job to give it).
-function struckTests(root, entry, base, given, named0 = [], withdrawn = new Set(), log = () => {}) {
-  const notices = named0.filter((k) => !withdrawn.has(k));
-  const at = (ref) => git(['show', `${ref}:${entry.requirements}`], { cwd: root, allowFail: true }).stdout;
-  const left = new Set(markedIds(at('HEAD')));
-  const struck = markedIds(at(base)).filter((r) => !left.has(r));
+// before anything is marked or pushed when one is missing or does not hold. A mark is struck only
+// when its id is not retired in a split and did not become unmet in another requirement file on
+// this branch: a moved id owes no test, which would only pin the id (coordinator, 4 Nov).
+// Provider notices are answered by the START row at merge or by a triage row, never by a test.
+function struckTests(root, entry, base, given) {
+  const at = (ref, f = entry.requirements) => git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
+  const [was, now] = [at(base), at('HEAD')];
+  const left = new Set(markedIds(now));
+  const files = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t).requirements; } catch { return null; } }).filter((f) => f && f !== entry.requirements);
+  const moved = new Set(files('HEAD').flatMap((f) => markedIds(at('HEAD', f)).filter((r) => !markedIds(at(base, f)).includes(r))));
+  const struck = markedIds(was).filter((r) => !left.has(r) && !moved.has(r) && !retiredIds(was, now, [r]).length);
   const named = new Map();
-  const answered = new Map();
   for (const g of given) {
-    const k = /^notice:([^=]+)=(.+?)::(.+)$/.exec(String(g));
-    if (k) {
-      if (named0.includes(k[1]) && withdrawn.has(k[1])) { log(`--test notice:${k[1]}: the provider notice was withdrawn; no test is owed for it, and this one is not recorded`); continue; }
-      if (!notices.includes(k[1])) fail(`--test notice:${k[1]}: this job's START named no provider notice ${k[1]} (named: ${notices.join(', ') || 'none'})`);
-      answered.set(k[1], { notice: k[1], file: k[2], name: k[3] });
-      continue;
-    }
+    if (/^notice:/.test(String(g))) continue; // accepted and ignored, for jobs started when the START asked for it
     const m = /^([RF][\w.-]+)=(.+?)::(.+)$/.exec(String(g));
     if (!m) fail(`--test ${g}: write it as R<id>="<test file>::<test name>" (F<n>= for a found mark)`);
     if (!struck.includes(m[1])) fail(`--test ${m[1]}: ${entry.requirements} has no mark for ${m[1]} that this branch struck (struck: ${struck.join(', ') || 'none'})`);
@@ -597,8 +592,6 @@ function struckTests(root, entry, base, given, named0 = [], withdrawn = new Set(
   }
   const missing = struck.filter((r) => !named.has(r));
   if (missing.length) fail(`not complete, nothing pushed or marked: the branch struck ${missing.join(', ')} with no --test; add --test ${missing[0]}="<test file>::<test name>" for each`);
-  const unnamed = notices.filter((k) => !answered.has(k));
-  if (unnamed.length) fail(`not complete, nothing pushed or marked: the provider notice ${unnamed.join(', ')} has no --test; add --test notice:${unnamed[0]}="<test file>::<test name>", this module's own test of the provider's new behaviour`);
   const holds = (label, t) => {
     if (!entry.tests.some((p) => underPath(t.file, p))) fail(`--test ${label}: ${t.file} is not in the module's tests (${entry.tests.join(', ')})`);
     const text = git(['show', `HEAD:${t.file}`], { cwd: root, allowFail: true });
@@ -606,7 +599,7 @@ function struckTests(root, entry, base, given, named0 = [], withdrawn = new Set(
     if (!text.stdout.includes(t.name)) fail(`--test ${label}: ${t.file} does not contain "${t.name}"`);
     return t;
   };
-  return [...struck.map((r) => holds(r, named.get(r))), ...notices.map((k) => holds(`notice:${k}`, answered.get(k)))];
+  return struck.map((r) => holds(r, named.get(r)));
 }
 
 // The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
@@ -827,8 +820,7 @@ export function jobComplete(root, id, opts = {}) {
     again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
   } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
-  const startNotices = lastStart?.notices || [];
-  const tests = struckTests(root, entry, base, opts.tests || [], startNotices, startNotices.length ? withdrawnFor(root, cfg) : new Set(), log);
+  const tests = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
