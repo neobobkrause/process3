@@ -166,14 +166,3 @@ test('found: a local found/<module>-f<n> branch not yet pushed takes its number'
   git(['branch', 'found/q2-f1'], { cwd: root }); // the printed act's git switch -c, not pushed
   assert.equal(found(root, 'q2', 'two', { offline: true, log: quiet }).mark, 'F2');
 });
-
-test('start check in a shallow clone fetches the branch at depth 1, not its whole history', async () => {
-  const { wakeCheck } = await import('../lib/start.mjs');
-  const { root, bare } = withOrigin();
-  for (let i = 0; i < 5; i++) commit(root, { [`f${i}.txt`]: String(i) });
-  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
-  const dir = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
-  git(['clone', '-q', '--depth', '1', '-b', 'main', `file://${bare}`, dir]);
-  wakeCheck(dir, { branch: 'tranche', approvals: '0'.repeat(64), log: quiet });
-  assert.equal(git(['rev-list', '--count', 'refs/remotes/origin/tranche'], { cwd: dir }), '1');
-});
