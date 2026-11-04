@@ -137,6 +137,35 @@ test('watch: end while the heartbeat is fresh; take over when it is old, absent,
   assert.match(w().out, /you are ROOT/);
 });
 
+// The escalation chain (Bob, 4 Nov): a message to ROOT unanswered for targets.decision_minutes
+// makes the watcher take over at once, even while ROOT's heartbeat is fresh; not before.
+test('watch --escalated: takes over once the message is decision_minutes old, fresh heartbeat or not; ends before', () => {
+  const root = withOrigin();
+  const w = (o = {}) => { const out = []; return { ...watch(root, { session: W, offline: true, log: (l) => out.push(l), ...o }), out: out.join('\n') }; };
+  assert.match(w({ escalated: '45' }).out, /no ROOT is addressed.*tell Bob by push notification, with the escalation/);
+  recordStart(root, 'root', R, { log: quiet });
+  setBeat(root, new Date().toISOString());
+  assert.equal(w().act, 'end');
+  const early = w({ escalated: '29' });
+  assert.equal(early.act, 'end');
+  assert.match(early.out, /29 of 30 minutes old; ROOT keeps it/);
+  const due = w({ escalated: '30' });
+  assert.equal(due.act, 'take over');
+  assert.match(due.why, new RegExp(`ROOT ${R} left a message unanswered 30 min, past 30`));
+  assert.match(due.out, new RegExp(`start record root ${W}`));
+  setBeat(root, new Date(Date.now() - 5 * 36e5).toISOString());
+  assert.match(w({ escalated: '10' }).why, /heartbeat is 5h old/, 'an early escalation never holds back a due takeover');
+  assert.equal(w({ escalated: '10', full: true }).act, 'take over');
+  setBeat(root, new Date().toISOString());
+  assert.throws(() => w({ escalated: true }), /--escalated takes the minutes/);
+  assert.throws(() => w({ escalated: 'soon' }), /--escalated takes the minutes/);
+  commit(root, { 'process/config.json': { tranche: 'tranche', targets: { decision_minutes: 10 } } }, 'ten minutes');
+  assert.equal(w({ escalated: '12' }).act, 'take over');
+  commit(root, { 'process/config.json': { tranche: 'tranche', targets: { decision_minutes: 0 } } }, 'none');
+  assert.throws(() => w({ escalated: '12' }), /decision_minutes 0 .* not a positive number/);
+  assert.equal(w().act, 'end', 'a bad decision_minutes never blocks the daily watch');
+});
+
 test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () => {
   const root = withOrigin();
   const s = startRole(root, 'watcher', { slug: 'o/p', address: {}, log: quiet });

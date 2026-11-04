@@ -62,3 +62,15 @@ test('ROOT and the watcher carry the act to the coordinator session, and their r
     assert.equal(t.split('his approvals or accounts, or an act only he can take').length - 1, 1, `${role}: the test's words other than once`);
   }
 });
+
+// The escalation chain (Bob, 4 Nov: urgency fully supported in the initial release): ROOT's and
+// the watcher's half, in their prompts and rulebooks.
+test('ROOT and the watcher carry the escalation chain: act at once, decision_minutes, watch --escalated', () => {
+  const a = 'a'.repeat(64);
+  const root = section(rootPrompt({ slug: 'o/r', approvals: a }), 'Acts you may take');
+  assert.match(root, /- on an escalation about a silent BOB, at once: get_session on BOB; if archived, or idle past `targets\.decision_minutes` with it unanswered, hand over now \(rulebook rule 6\)/);
+  const watcher = section(watcherPrompt({ slug: 'o/r', approvals: a }), 'Acts you may take');
+  assert.match(watcher, /- on a message that ROOT left one unanswered past `targets\.decision_minutes`, at once, not at your daily wake: .*`--escalated <minutes unanswered>`/);
+  assert.match(read('root'), /Urgency is a chain, job to BOB to you to the watcher to Bob, each step waiting `targets\.decision_minutes`.*never left for the sweep.*an irreversible one waits \(Bob, 4 Nov\)/);
+  assert.match(read('watcher'), /Urgency is a chain, job to BOB to ROOT to you to Bob.*`watch --escalated <minutes>`.*Push to Bob only what passes rule 2's test, or that ROOT and BOB are both gone/);
+});
