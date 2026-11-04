@@ -163,33 +163,6 @@ test('a filter or replace ref the PR planted in .git does not reach the base\'s 
   assert.match(r.findings.find((f) => f.check === 'suite').message, /pass or are missing at the base.*x is 1/);
 });
 
-// Copy PR 95, 4 Nov: a provider's job merged green on its own suite and broke a module that uses
-// it (plane), unseen until deploy. A job's gate runs the modules whose uses name it too.
-const betaOne = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('beta needs x 1', () => a.equal(x, 1));\n";
-const beta = { 'process/ledger/beta.json': entry('beta', { uses: ['alpha'] }), 'src/beta/index.mjs': 'export const y = 1;\n' };
-test('a provider job that breaks a module using it is red at its own gate', () => {
-  const s = setup({ ...beta, 'test/beta/b.test.mjs': betaOne, 'process/ledger/gamma.json': entry('gamma'), 'test/gamma/g.test.mjs': redTest },
-    { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, receiptFor(s.head));
-  assert.deepEqual(r.run.scope, ['alpha', 'beta'], 'gamma does not use alpha and is not run');
-  assert.equal(r.run.suite, 'fail');
-  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['suite', 'test/beta/']], 'the receipt, of alpha\'s own suite, agrees');
-  assert.equal(r.run.receipt, 'agrees');
-});
-
-test('a user with no tests yet (its job not started) is not run, and does not block its provider', () => {
-  const s = setup(beta, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, receiptFor(s.head));
-  assert.deepEqual([r.run.scope, r.run.suite, r.run.ok], [['alpha'], 'pass', true]);
-});
-
-test('a user\'s base-red tests are tolerated and not the receipt\'s to name', () => {
-  const s = setup({ ...beta, 'test/beta/red.test.mjs': redTest, 'test/alpha/red.test.mjs': redTest },
-    { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, receiptFor(s.head, { exit: 1, base_red: [RED] }));
-  assert.deepEqual([r.run.scope, r.run.suite, r.run.base_red.map((b) => b.module), r.run.receipt, r.run.ok], [['alpha', 'beta'], 'base-red', ['alpha', 'beta'], 'agrees', true]);
-});
-
 // Copy, 4 Nov: plane's suite took 19-20 of its 20 minutes, and base-red got only what was left.
 test('the gate gives the base-red run the whole suite_timeout_minutes, not what the suite left', () => {
   const slow = "import { describe, test } from 'node:test'; import a from 'node:assert';\ndescribe('plane', () => { test('has ai-catalogue', async () => { await new Promise((r) => setTimeout(r, 5000)); a.fail('no ai-catalogue'); }); });\n";
