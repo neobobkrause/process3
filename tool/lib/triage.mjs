@@ -13,7 +13,7 @@ import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { NOTICES_DIR, answerFile, mergedRange, notices } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { depth, exists, fail, git, list, loadConfig, repoSlug } from './util.mjs';
+import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, normalize, resolve, sep } from 'node:path';
 
@@ -237,16 +237,27 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
 // read as its evidence. A module that imports the provider needs a worker's judgment: it stays
 // owed, and the merge names that one notice's `notice triage` as BOB's next act at once. A module
 // with no paths in the modules file is never judged here.
+// Never silent (coordinator, 4 Nov: no triage row at question-explorer:199's merge and no line
+// saying why): every return prints a line beginning "notice triage <key> at the merge", and a
+// user left owed is named with why it was not cleared.
 export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = console.log } = {}) {
-  if (!notice?.key || !Array.isArray(notice.users) || !notice.users.length) return { rows: [], owed: [] };
+  const head = `notice triage ${notice?.key || '(no key)'} at the merge`;
+  if (!notice?.key || !Array.isArray(notice.users) || !notice.users.length) {
+    log(`${head}: nothing to triage (${!notice?.key ? 'the notice has no key' : 'the notice names no user module'})`);
+    return { rows: [], owed: [], why: 'no users' };
+  }
   const key = notice.key;
   const sb = cfg.state_branch;
   fetchState(root, sb, { fresh: true });
   const tri = triageRows(root, sb);
   const owed = notice.users.filter((u) => !tri.has(`${key}\0${u}`));
-  if (!owed.length) return { rows: [], owed: [] };
+  if (!owed.length) {
+    log(`${head}: all ${notice.users.length} user module(s) already triaged on ${sb}; nothing written`);
+    return { rows: [], owed: [], why: 'all triaged' };
+  }
   const sha = git(['rev-parse', ref], { cwd: root });
-  const clear = importFree(root, cfg, owed, sha, notice.provider);
+  const whys = new Map();
+  const clear = importFree(root, cfg, owed, sha, notice.provider, whys);
   const left = owed.filter((u) => !clear.some((m) => m.id === u));
   const at = new Date().toISOString();
   const common = { at, key, worker: 'merge: imports check', cost: '0' };
@@ -267,7 +278,8 @@ export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = consol
       return { rows: add.map(([, row]) => row) };
     }).rows;
   }
-  log(`notice triage ${key} at the merge: ${clear.length} of ${owed.length} not affected (no file imports ${notice.provider}), answered${left.length ? `; ${left.length} import it and owe a worker's judgment: ${left.join(', ')}` : ''}`);
+  log(`${head}: ${clear.length} of ${owed.length} not affected (no file imports ${notice.provider})${clear.length ? `, answered: ${clear.map((m) => m.id).join(', ')}` : '; no row written'}${left.length ? `; ${left.length} owe a worker's judgment` : ''}`);
+  for (const u of left) log(`- ${u}: not cleared: ${whys.get(u) || 'a file under its paths imports it'}`);
   const next = left.length ? `next act: ${P3} notice triage ${key} (${left.length} module${left.length === 1 ? '' : 's'}: a read-only worker judges them now, not in a later batch)` : null;
   const wake = next && as !== 'bob' ? wakeLine(`notice ${key} owes triage of ${left.length}: ${P3} notice triage ${key}, then status`, as) : null;
   if (next) log(wake || next);
@@ -281,38 +293,58 @@ export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = consol
 // resolution does. Nothing is cleared when the provider has no modules-file entry or a path of
 // `.`, when git grep fails, for a user with no entry, no paths or no id line, or for a user whose
 // job branch on origin holds commits sha lacks (an open attempt may be adding the import).
-export function importFree(root, cfg, users, sha, provider) {
+// `whys`, when given, is filled with why each user not cleared was not.
+export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
+  const none = (why) => { for (const u of users) whys.set(u, why); return []; };
   let modules = [];
-  try { modules = JSON.parse((exists(root, sha, cfg.modules_file) ? git(['show', `${sha}:${cfg.modules_file}`], { cwd: root }) : null) || '{}').modules || []; } catch { return []; }
-  if (!Array.isArray(modules)) return [];
+  try { modules = JSON.parse((exists(root, sha, cfg.modules_file) ? git(['show', `${sha}:${cfg.modules_file}`], { cwd: root }) : null) || '{}').modules || []; } catch (e) { return none(`${cfg.modules_file} at ${sha.slice(0, 10)} unreadable (${e.message})`); }
+  if (!Array.isArray(modules)) return none(`${cfg.modules_file} holds no modules list`);
   const prov = modules.find((m) => m?.id === provider);
   const provPaths = (prov?.paths || []).map((p) => String(p).replace(/\/$/, ''));
-  if (!provPaths.length || provPaths.some((p) => p === '.' || p === '')) return [];
+  if (!provPaths.length) return none(`the provider ${provider} has no paths in ${cfg.modules_file}`);
+  if (provPaths.some((p) => p === '.' || p === '')) return none(`the provider ${provider}'s paths include the root`);
   const text = git(['show', `${sha}:${cfg.modules_file}`], { cwd: root, allowFail: true }).stdout.split('\n');
   const all = new Set(git(['ls-tree', '-r', '--name-only', '-z', sha], { cwd: root }).split('\0').filter(Boolean));
   const inProvider = (f) => !!f && ownerOf(modules, f)?.id === provider;
   const heads = new Map(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => { const [h, r] = l.split('\t'); return [r.replace(/^refs\/heads\//, ''), h]; }));
-  const settled = (u) => {
+  // Settled: no job branch, its tip on sha's history, or its tip's tree under the user's paths the
+  // same as sha's (an open attempt that has not touched them adds no import there). A tip this
+  // clone lacks is fetched first, at depth 1 in a shallow clone: a shallow clone (BOB's) holds no
+  // other job branch, and ancestry asked of a missing commit was "unsettled" for every user with a
+  // branch on origin.
+  const has = (h) => git(['cat-file', '-e', `${h}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+  const settled = (u, paths) => {
     const h = heads.get(`job/${u}`);
     if (!h) return true;
-    return git(['merge-base', '--is-ancestor', h, sha], { cwd: root, allowFail: true }).code === 0;
+    if (!has(h)) git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true });
+    if (!has(h)) return false;
+    if (git(['merge-base', '--is-ancestor', h, sha], { cwd: root, allowFail: true }).code === 0) return true;
+    // An attempt that gives its module new paths (and the import there) is not settled either.
+    let atH = null;
+    try { atH = JSON.parse(git(['show', `${h}:${cfg.modules_file}`], { cwd: root })).modules?.find((x) => x?.id === u)?.paths || null; } catch { atH = null; }
+    if (JSON.stringify(atH) !== JSON.stringify(paths)) return false;
+    return git(['diff', '--quiet', h, sha, '--', ...paths], { cwd: root, allowFail: true }).code === 0;
   };
   const out = [];
   for (const u of users) {
     const m = modules.find((x) => x?.id === u);
     const paths = m?.paths || [];
     const i = text.findIndex((l) => new RegExp(`"id"\\s*:\\s*"${u.replace(/[-]/g, '\\-')}"`).test(l));
-    if (!paths.length || i < 0 || !settled(u)) continue;
+    if (!m) { whys.set(u, `no entry in ${cfg.modules_file}`); continue; }
+    if (!paths.length) { whys.set(u, `no paths in ${cfg.modules_file}`); continue; }
+    if (i < 0) { whys.set(u, `no "id" line for it in ${cfg.modules_file}`); continue; }
+    if (!settled(u, paths)) { whys.set(u, `job/${u} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
     const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...paths], { cwd: root, allowFail: true });
-    if (g.code !== 0 && g.code !== 1) continue;
+    if (g.code !== 0 && g.code !== 1) { whys.set(u, `git grep under its paths failed (exit ${g.code}: ${String(g.stderr || '').trim().split('\n').pop()})`); continue; }
     const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);
     let hit = false;
     for (const f of files) {
       const t = git(['show', `${sha}:${f}`], { cwd: root, allowFail: true });
-      if (t.code !== 0) { hit = true; break; }
-      if (specifiers(t.stdout).some(({ spec }) => inProvider(resolveSpec(f, spec, (x) => all.has(x))) || (spec.startsWith('.') && inProvider(normalize(join(dirname(f), spec)))))) { hit = true; break; }
+      if (t.code !== 0) { hit = `${f} could not be read`; break; }
+      if (specifiers(t.stdout).some(({ spec }) => inProvider(resolveSpec(f, spec, (x) => all.has(x))) || (spec.startsWith('.') && inProvider(normalize(join(dirname(f), spec)))))) { hit = `${f} imports ${provider}`; break; }
     }
     if (!hit) out.push({ id: u, paths, line: i + 1 });
+    else whys.set(u, hit);
   }
   return out;
 }

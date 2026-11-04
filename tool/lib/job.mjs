@@ -31,8 +31,14 @@ export const P3 = 'node .process/tool/p3.mjs';
 export const WAKE_END = ': run status';
 // The act after every act that can make a job ready (a merge, a layer close, a triage, a wake):
 // one command starts every ready job up to the cap, so readiness waits on no choice (ready.mjs).
+// Where a job reads its own cost: the one figure --cost-usd takes.
+export const COST_WHERE = '<your session\'s cost so far: get_session on your own session (no session_id), the field external_metadata.usage.cost_usd>';
+// A session id in get_session's form: the environment's cse_<id> is the record's session_<id>.
+export const sessionForm = (id) => (typeof id === 'string' && id ? id.replace(/^cse_/, 'session_') : id || null);
 export const READY_START = `${P3} job start --ready --live <n>`;
 export const READY_NEXT = `next act: ${READY_START} (n: the live sessions list_sessions shows), then create_session with each launch it prints`;
+// The line a merge prints first, before its other output (coordinator, 4 Nov).
+export const READY_FIRST = `first: ${READY_START} (n: the live sessions list_sessions shows), then create_session with each launch it prints; the lines below after`;
 const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
 export const bobWake = (what, from) => {
   if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);
@@ -109,7 +115,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>" --cost-usd <get_session cost>\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test${notices.length ? ', and each notice\'s above' : ''}. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>" --cost-usd <usage.cost_usd>\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test${notices.length ? ', and each notice\'s above' : ''}. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -752,14 +758,22 @@ export function jobSync(root, id, { push = true, compare: cmp = compare, log = c
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing, or,
 // with commits after the COMPLETE commit and its pull request open, completes a new attempt.
 export function jobComplete(root, id, opts = {}) {
-  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log, costUsd, session } = opts;
+  const { notVerified = [], exemptRevert, noSuite, push = true, exec, log = console.log, costUsd, session, requireCost = false } = opts;
   // The job's own cost (coordinator, 4 Nov: job_usd unmeasured for all 52 jobs on the copy): its
   // session's cost so far, from get_session, written as a measured job row with the complete row.
+  // Zero is refused (copy, 4 Nov: signatures a4 and a5 passed 0, its session record then read
+  // 3.16): no session that ran a job cost nothing, so 0 is a figure not read.
   const cost = costUsd === undefined ? null : Number(costUsd);
-  if (costUsd !== undefined && (costUsd === true || !Number.isFinite(cost) || cost < 0)) fail(`--cost-usd <your session's cost so far, from get_session on yourself>, not ${JSON.stringify(costUsd)}`);
-  // The session: --session, else the id the cloud session's environment gives (an id, not a secret).
-  const sid = typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null;
+  if (costUsd !== undefined && (costUsd === true || !Number.isFinite(cost) || cost <= 0)) fail(`--cost-usd ${COST_WHERE}; not ${JSON.stringify(costUsd)}${cost === 0 ? ' (no job costs nothing: 0 is a figure not read)' : ''}`);
+  // The session: --session, else the id the cloud session's environment gives (an id, not a secret),
+  // in get_session's form: the environment's cse_<id> is the record's session_<id> (the copy's rows
+  // named cse_, BOB's and get_session session_, so a delta never found the other's row).
+  const sid = sessionForm(typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null);
   if (cost !== null && !sid) fail('--cost-usd needs the session it is the cost of: --session <your session id>; the row counts only that session\'s cost since its last row');
+  // A complete that writes a complete row writes the job's cost with it (coordinator, 4 Nov: two
+  // completes since PR 100 wrote no measured row). Refused before anything runs; a rerun on the
+  // COMPLETE commit itself, which only finishes a push or amends the receipt, needs none.
+  if (requireCost && cost === null && !(readEntry(root, id).status?.state === 'COMPLETE' && completeCommit(root, id) === git(['rev-parse', 'HEAD'], { cwd: root }))) fail(`job complete ${id} needs --cost-usd ${COST_WHERE}; nothing was run`);
   const io = { findPR, addComment, markReady, comments, toDraft, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
@@ -871,7 +885,7 @@ export function jobComplete(root, id, opts = {}) {
     appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, receipt, ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
     if (cost !== null) {
       // The session's cost since its own last row: a session that completes twice is counted once.
-      const prior = readRows(root, id).filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.session === sid && Number.isFinite(Number(r.session_usd))).pop();
+      const prior = readRows(root, id).filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop();
       appendRow(root, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: Math.round(Math.max(0, cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4 });
     }
     receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);

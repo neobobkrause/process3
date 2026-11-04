@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRepo, entry, openPassed } from './helpers.mjs';
-import { startable, startReady } from '../lib/ready.mjs';
+import { archivable, readyCount, startable, startReady } from '../lib/ready.mjs';
+import { writeFileSync } from 'node:fs';
 import { nextWork } from '../lib/status.mjs';
 import { fail, git } from '../lib/util.mjs';
 import { status } from '../lib/status.mjs';
@@ -129,4 +130,44 @@ test('job start --ready, review of PR 100: an open attempt is not restarted, a m
   assert.match(out.join('\n'), /not started: x: its attempt is open/);
   assert.match(out.join('\n'), /not started: b: Unexpected token \(an unexpected error; the other starts went on\)/);
   assert.match(out.join('\n'), /not started: c: its pull request was already open/);
+});
+
+test('job start --ready: when the cap holds a ready job back, it names the idle sessions of COMPLETE or merged jobs BOB can archive', () => {
+  const root = makeRepo({ 'process/config.json': JSON.stringify({ live_cap: 2 }) });
+  const next = ['a', 'b'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+  const rows = [
+    { id: 'm', tranche: 'COMPLETE', pr: 'merged' },
+    { id: 'k', tranche: 'WORKING', branch: 'COMPLETE', pr: '#7 ready' },
+    { id: 'w', tranche: 'WORKING', branch: 'WORKING', pr: '#8 draft' },
+    { id: 'gone', tranche: 'COMPLETE', pr: 'merged' },
+    // Reopened: COMPLETE on the tranche, WORKING on its branch, its draft open; never named.
+    { id: 'r', tranche: 'COMPLETE', branch: 'WORKING', pr: '#9 draft' },
+  ];
+  const listed = [
+    { id: 'session_m', title: 'job m', status: 'idle' },
+    { id: 'session_k', title: 'job k', status_bucket: 'completed' },
+    { id: 'session_w', title: 'job w', status: 'idle' },
+    { id: 'session_g', title: 'job gone', status: 'archived' },
+    { id: 'session_r', title: 'job r', status: 'idle' },
+  ];
+  assert.deepEqual(archivable(rows, listed).sessions, [
+    { session: 'session_m', job: 'm', why: 'merged' },
+    { session: 'session_k', job: 'k', why: 'COMPLETE, PR #7 ready' },
+  ]);
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  writeFileSync(file, JSON.stringify({ sessions: listed }));
+  const out = [];
+  const r = startReady(root, { live: 1, sessions: file, remote: new Set(), log: (m) => out.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
+  assert.deepEqual(r.waiting, ['b']);
+  assert.match(out.join('\n'), /the cap holds 1 back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: session_m \(job m, merged\); session_k \(job k, COMPLETE, PR #7 ready\)/);
+  // Without --sessions: the jobs whose sessions to look for.
+  const out2 = [];
+  startReady(root, { live: 1, remote: new Set(), log: (m) => out2.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
+  assert.match(out2.join('\n'), /the cap holds 1 back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: job k \(COMPLETE, PR #7 ready\); job m \(merged\); job gone \(merged\)\. Save list_sessions as JSON and pass --sessions <file>/);
+  // No cap hit: no archive line.
+  const out3 = [];
+  startReady(root, { live: 0, remote: new Set(), log: (m) => out3.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
+  assert.doesNotMatch(out3.join('\n'), /the cap holds/);
+  // readyCount: the startable jobs status lists, for the wake's lead.
+  assert.equal(readyCount(root, { read: (_, o) => { assert.equal(o.offline, true); return { next }; } }), 2);
 });
