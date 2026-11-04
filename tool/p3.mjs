@@ -6,6 +6,7 @@
 import { writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
 import { layerClose } from './lib/layer.mjs';
+import { laneAsk } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, report as metricsReport } from './lib/metrics.mjs';
@@ -98,7 +99,16 @@ const commands = {
     return trancheOpen(root, { depth: a.depth }).state === 'stopped' ? 1 : 0;
   },
 
-  // tranche close: refused unless every layer is closed or the plan says close; BOB's acts.
+  // lane ask <name> "<question>" --context <file>...: the ask recorded open on the state branch and
+  // BOB's act, a read-only worker's brief (SES-14). --record "<decision>" --worker <id> [--cost-usd <n>]: the decision.
+  'lane ask': (a, root) => {
+    if (a._.length !== 2) fail('lane ask <name> "<question>" --context <file>..., the question in quotes');
+    laneAsk(root, a._[0], a._[1], { context: a.context, record: a.record, worker: a.worker, cost: a['cost-usd'] });
+    return 0;
+  },
+
+  // tranche close: refused unless every layer is closed and the completion file's items are done or
+  // deferred (PLN-4), or the plan says close; BOB's acts.
   // tranche close --record: once the tranche is on main, the close on the state branch.
   'tranche close': (a, root) => (trancheClose(root, { record: !!a.record, report: !!(commands['report tranche'] || commands.report) }).ok ? 0 : 1),
 

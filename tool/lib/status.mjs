@@ -10,6 +10,8 @@ import { noticeLine, notices } from './notice.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed } from './deploy.mjs';
+import { completionItems, openItems } from './completion.mjs';
+import { openAsks } from './lane.mjs';
 import { UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -186,6 +188,9 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
+  // Lane questions BOB passed and has not recorded a decision for (SES-14).
+  const asked = haveState && Array.isArray(cfg.lanes) ? openAsks(root, cfg) : [];
+  if (asked.length) L.push('open lane questions (record each decision with lane ask ... --record):', ...asked.map((a) => `- ${a.lane}: "${a.question.slice(0, 100)}", asked ${age(a.at)}`));
   L.push(`reading set for bob: ${files.reduce((s, x) => s + x.b, 0)} bytes; ${files.map((x) => `${x.f} ${x.b}`).join(', ')}`);
   for (const l of L) log(l);
   return { rows, undelivered: owedMsgs };
@@ -328,6 +333,22 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `all ${list.length} listed; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : `${shown.length} listed (live ${live} of ${cfg.live_cap}), ${list.length - shown.length} wait`}`);
     for (const x of shown) log(`- ${x.file}: ${x.count}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
   }
-  // The returned list holds both: a split owed is still work for BOB (sweep counts it).
-  return [...list, ...big];
+  // The completion round (PLN-4): once every layer is closed, the completion file's open items.
+  const round = ls && !ls.cur ? completionWork(root, cfg, rows, ref, log) : [];
+  // The returned list holds all three: a split owed is still work for BOB (sweep counts it).
+  return [...list, ...big, ...round];
+}
+
+// The completion file's open items, not deferred: a module item through job start as usual (its
+// requirement lines written first), unless its job is open; a whole-product item is BOB's act.
+export function completionWork(root, cfg, rows, ref, log = console.log) {
+  const c = completionItems(root, cfg, ref);
+  if (!c) return [];
+  if (c.missing) { log(`completion round: ${c.file} is not on ${ref || 'the working tree'}`); return [{ file: c.file, missing: true }]; }
+  const open = openItems(c);
+  if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
+  const job = (id) => rows.find((r) => r.id === id && (r.tranche !== 'COMPLETE' || r.pr?.startsWith('#')));
+  log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
+  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target}`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
+  return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
 }
