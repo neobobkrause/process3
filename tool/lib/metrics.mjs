@@ -5,7 +5,8 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { comments, gateRuns, getPR } from './github.mjs';
-import { fail, git, now } from './util.mjs';
+import { leadTimes } from './lead.mjs';
+import { DEFAULTS, fail, git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
@@ -108,6 +109,48 @@ export function idleByDay(sweepRows) {
   return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
 
+// ROOT's context per sweep (P2-G10), from the sweep rows: the addressed ROOT's (the last row's
+// session) sweeps that carry root_context, and a linear estimate of the sweeps left before
+// refreshAt: the mean rise per sweep from its first such sweep to its last, extended.
+export const CONTEXT_RULE = 'sweeps left = (refresh_context - last context) / mean rise per sweep (last - first) / (sweeps - 1), rounded down; unmeasured with fewer than two sweeps or no rise';
+export function rootContext(sweepRows, refreshAt = 60) {
+  const rows = sweepRows.filter((x) => x.row === 'sweep' && typeof x.at === 'string');
+  const session = rows.at(-1)?.session;
+  const mine = rows.filter((r) => r.session === session && typeof r.root_context === 'number');
+  if (!mine.length) return 'unmeasured';
+  const last = mine.at(-1).root_context;
+  const rise = mine.length > 1 ? (last - mine[0].root_context) / (mine.length - 1) : 0;
+  return {
+    session, refresh_context: refreshAt, rule: CONTEXT_RULE,
+    sweeps: mine.map((r) => ({ at: r.at, context: r.root_context })),
+    rise_per_sweep: Math.round(rise * 100) / 100,
+    sweeps_left: rise > 0 ? Math.max(0, Math.floor((refreshAt - last) / rise)) : 'unmeasured',
+  };
+}
+
+// One measured BOB wake (P3-A1, SES-16): its session's tokens and cost and whether it ran as a
+// fresh stateless session or the resident BOB, in a file of BOB's own; report sets them side by side.
+export const WAKES_FILE = `${METRICS_DIR}/wakes.bob.jsonl`;
+export const WAKE_MODES = ['stateless', 'resident'];
+export function recordWake(root, { session, tokens, usd, mode } = {}) {
+  if (typeof session !== 'string' || !/^session_[A-Za-z0-9]+$/.test(session)) fail('a wake needs --session <the woken session\'s id> (session_...)');
+  if (!WAKE_MODES.includes(mode)) fail(`a wake needs --mode ${WAKE_MODES.join('|')}`);
+  const t = Number(tokens);
+  const c = Number(usd);
+  if (tokens === undefined || tokens === true || !Number.isInteger(t) || t < 0) fail('a wake needs --tokens <n>, from its session record');
+  if (usd === undefined || usd === true || !Number.isFinite(c) || c < 0) fail('a wake needs --usd <x>, from its session record');
+  return appendRow(root, null, { row: 'wake', session, mode, tokens: t, cost_usd: c }, WAKES_FILE);
+}
+export function wakes(rows) {
+  const out = {};
+  for (const mode of WAKE_MODES) {
+    const w = rows.filter((r) => r.row === 'wake' && r.mode === mode);
+    const mean = (k) => Math.round(w.reduce((s, r) => s + Number(r[k]), 0) / w.length * 1e4) / 1e4;
+    out[mode] = w.length ? { wakes: w.length, mean_tokens: mean('tokens'), mean_usd: mean('cost_usd'), rows: w.map((r) => ({ at: r.at, session: r.session, tokens: r.tokens, cost_usd: r.cost_usd })) } : 'unmeasured';
+  }
+  return out;
+}
+
 // module -> layer, from the layer map (layers_file): table rows whose first cell is the layer's
 // number and whose last cell lists its modules.
 export function layerOf(map) {
@@ -187,7 +230,7 @@ export function overhead(rows, layers = new Map()) {
 
 // The two health metrics and the figures that explain them, from rows and pull requests.
 // sweepRows: the state branch's sweep rows; layers: the layer map's text (layers_file).
-export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null } = {}) {
+export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null, refreshAt = 60, cfg = DEFAULTS, lead = {} } = {}) {
   const rows = allRows(root);
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
   const merges = rows.filter((r) => r.row === 'merge');
@@ -230,6 +273,9 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
     bob_idle_by_day: idleByDay(sweepRows),
+    root_context: rootContext(sweepRows, refreshAt),
+    wakes: wakes(rows),
     overhead: overhead(rows, layerOf(layers)),
+    lead_times: leadTimes(root, cfg, { ref: branch, rows, layers: layerOf(layers), ...lead, comments: (pr) => gateRuns(read.comments(slug, pr) || []) }),
   };
 }

@@ -106,9 +106,10 @@ export const DEFAULTS = {
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
-  // The escalation chain (Bob, 4 Nov): job to BOB to ROOT to watcher to Bob, each step waiting
-  // this many minutes for an answer before the next is asked.
-  targets: { decision_minutes: 30 },
+  // Targets in minutes. decision_minutes: the escalation chain (Bob, 4 Nov): job to BOB to ROOT to
+  // watcher to Bob, each step waiting this long for an answer before the next is asked. All four
+  // are also the lead times' proposed targets (metrics report, report tranche), each figure beside its own.
+  targets: { start_minutes: 10, merge_minutes: 15, decision_minutes: 30, replace_minutes: 30 },
 };
 
 // open_by values (status --role bob): "uses" the default, "layer" the old behaviour.
