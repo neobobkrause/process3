@@ -145,7 +145,7 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
   ];
   const listed = [
     { id: 'session_m', title: 'job m', session_status: 'SESSION_STATUS_IDLE' },
-    { id: 'session_k', title: 'job k', session_status: 'SESSION_STATUS_IDLE', status_bucket: 'review_ready' },
+    { id: 'session_k', title: 'job k', session_status: 'SESSION_STATUS_RUNNING', status_bucket: 'review_ready' }, // idle by its bucket alone,
     { id: 'session_w', title: 'job w', session_status: 'SESSION_STATUS_IDLE' },
     { id: 'session_g', title: 'job gone', session_status: 'SESSION_STATUS_ARCHIVED' },
     { id: 'session_r', title: 'job r', session_status: 'SESSION_STATUS_IDLE' },

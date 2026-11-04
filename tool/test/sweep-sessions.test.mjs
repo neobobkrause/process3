@@ -75,7 +75,7 @@ test('archive: a deferred job; any idle session whose parent is archived and tha
   assert.deepEqual(acts([{ id: 'session_t', title: 'job done', session_status: 'SESSION_STATUS_IDLE', status_bucket: 'completed' }], { rows: [merged('done')] }).acts, []);
 });
 
-test('tell: an orphan asking, its work not done, goes to its live owner with its question', () => {
+test('tell: an orphan asking, its work not done, goes to its live owner, who reads its question with list_events', () => {
   const list = [s('session_old', 'x', '01:00', { state: 'archived' }),
     s('session_j', 'job m1', '10:00', { parent: 'session_old', asking: true }),
     s('session_b', 'build y', '10:00', { parent: 'session_old', asking: true })];
