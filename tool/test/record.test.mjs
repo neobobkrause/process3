@@ -171,6 +171,17 @@ test('a gate row is trusted only when its run is the process gate on that commit
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
   assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
+  // A merged PR's run lists no pull request (copy, 4 Nov): trusted only when the caller has read
+  // the merged PR and names its branch, and the run is on it, in this repository, and green.
+  const gone = { ...run, pull_requests: [], head_branch: 'job/m', head_repository: { full_name: 'o/r' } };
+  assert.equal(verifyRow('o/r', row, ctx, io(gone, row)), false, 'an open PR\'s check (merge, the fast path) still needs the PR listed');
+  const m = { ...ctx, merged: { branch: 'job/m' } };
+  assert.equal(verifyRow('o/r', row, m, io(gone, row)), true);
+  assert.equal(verifyRow('o/r', row, m, io({ ...gone, head_branch: 'job/x' }, row)), false);
+  assert.equal(verifyRow('o/r', row, m, io({ ...gone, head_repository: { full_name: 'f/r' } }, row)), false);
+  assert.equal(verifyRow('o/r', row, m, io({ ...gone, head_repository: undefined }, row)), false);
+  assert.equal(verifyRow('o/r', { ...row, ok: false, findings: 1 }, m, io({ ...gone, conclusion: 'failure' }, { ...row, ok: false, findings: 1 })), false);
+  assert.equal(verifyRow('o/r', row, m, io(gone, null)), false, 'an expired artifact');
 });
 
 // record_since (Bob's decision, 2 Nov 2026): old history before the process is not judged.

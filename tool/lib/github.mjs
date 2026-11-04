@@ -118,8 +118,9 @@ export function runArtifactRow(slug, id) {
     return JSON.parse(readFileSync(join(dir, 'gate.json'), 'utf8')).run || null;
   } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
 }
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert'];
-export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifactRow }) {
+// scope and after too: the tranche cover trusts a row for the module it ran and the run it stood on.
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after'];
+export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
   if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
@@ -127,8 +128,15 @@ export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifact
   // commit into a branch that carries a workflow of its own.
   // (Every pull request GitHub lists for the run must be into the tranche, in case it lists
   // all open PRs that share the head branch.)
+  // Once the pull request merges, GitHub lists none on its runs (measured on the copy 4 Nov:
+  // registers PR 86, run 41778833434; site PR 79, run 41779185745). A merged job PR's run is
+  // bound instead by what GitHub keeps (merged, passed only by the tranche cover once it has read
+  // the merged PR): the run was on the PR's branch, in this repository, and green; the caller
+  // binds the row's commits to the PR's head and the tranche.
   const prs = a.pull_requests || [];
-  if (a.event !== 'pull_request' || !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)) return false;
+  if (a.event !== 'pull_request') return false;
+  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)
+    : !merged || a.head_branch !== merged.branch || a.head_repository?.full_name !== slug || a.conclusion !== 'success') return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);
   return !!art && SAME.every((k) => JSON.stringify(art[k] ?? null) === JSON.stringify(row[k] ?? null));
