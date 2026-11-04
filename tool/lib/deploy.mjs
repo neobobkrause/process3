@@ -9,6 +9,7 @@ import { buildGenerated, generatedRows } from './checks.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, onMainOf } from './status.mjs';
+import { install } from './suite.mjs';
 import { NO_TOKENS, depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 export const DEPLOYS_FILE = 'deploys/dev.jsonl';
@@ -118,10 +119,14 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
     }
     return true;
   };
-  // Generated files the tranche does not commit (over max_file_bytes, say) are built first.
+  // The lock files are installed, then the generated files the tranche does not commit (over
+  // max_file_bytes, say) are built, as release run does (copy, 4 Nov: a fresh checkout's build
+  // failed on esbuild, the npm ci being only in the dry run that came after it).
+  const exec = (c, args, o) => io.exec(c, args, { timeout: dep.timeout_minutes * MINUTE, ...o, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
+  const inst = install(root, cfg.lockfiles || [], { exec });
   const gen = generatedRows(cfg);
-  const b = buildGenerated(root, gen.rows, { ref: tip, timeout: dep.timeout_minutes * MINUTE, log, exec: (c, args, o) => io.exec(c, args, { ...o, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] }) });
-  if (b.built.length || b.findings.length) results.push({ stage: 'build', name: `generated: ${[...b.built, ...b.findings.map((f) => f.file)].join(', ')}`, exit: b.findings.length ? 1 : 0, seconds: 0 });
+  const b = inst.findings.length ? { built: [], findings: inst.findings } : buildGenerated(root, gen.rows, { ref: tip, timeout: dep.timeout_minutes * MINUTE, log, exec });
+  if (b.built.length || b.findings.length) results.push({ stage: 'build', name: `${inst.findings.length ? 'install' : 'generated'}: ${[...b.built, ...b.findings.map((f) => f.file)].join(', ')}`, exit: b.findings.length ? 1 : 0, seconds: 0 });
   for (const f of b.findings) log(`${f.check}: ${f.file}: ${f.message}`);
   let ok = !b.findings.length && go('dry_run', dep.dry_run, { guard: true });
   let stopped = b.findings.length ? 'build' : ok ? null : 'dry_run';
