@@ -731,6 +731,7 @@ test('triage at the merge is never silent (copy, 4 Nov: question-explorer:199 le
     { id: 'c', paths: ['src/c/'] },
     { id: 'd', paths: ['src/d/'] },
     { id: 'e', paths: ['src/e/'] },
+    { id: 'f', paths: ['src/f/'] },
     { id: 'n', paths: [] },
   ] };
   const root = makeRepo({
@@ -741,27 +742,33 @@ test('triage at the merge is never silent (copy, 4 Nov: question-explorer:199 le
     'src/c/i.ts': 'export const z = 1;\n',
     'src/d/i.ts': 'export const w = 1;\n',
     'src/e/i.ts': 'export const v = 1;\n',
+    'src/f/i.ts': 'export const u = 1;\n',
   });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: root });
   git(['remote', 'add', 'origin', bare], { cwd: root });
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  // f's open attempt gives f a new path and imports the provider there (review of PR 104).
+  git(['checkout', '-q', '-b', 'job/f'], { cwd: root });
+  commit(root, { 'process/modules.json': { modules: mods.modules.map((m) => (m.id === 'f' ? { ...m, paths: ['src/f/', 'src/f2/'] } : m)) }, 'src/f2/i.ts': "import { x } from '../lib/money';\n" });
+  git(['checkout', '-q', 'main'], { cwd: root });
   // d's open attempt changes its paths; e's (a BLOCKED job, as plane on the copy) changes none of them.
   git(['checkout', '-q', '-b', 'job/d'], { cwd: root });
   commit(root, { 'src/d/i.ts': "import { x } from '../lib/money';\n" });
   git(['checkout', '-q', '-b', 'job/e', 'main'], { cwd: root });
   commit(root, { 'notes/e.md': 'blocked\n' });
-  git(['push', '-q', 'origin', 'job/d', 'job/e', 'main'], { cwd: root });
+  git(['push', '-q', 'origin', 'job/d', 'job/e', 'job/f', 'main'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   // BOB's clone is shallow and holds no job branch: their tips are fetched, not taken as unsettled.
   const shallow = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
   git(['clone', '-q', '--depth', '1', '--branch', 'main', `file://${bare}`, shallow], { cwd: root });
   const cfg = loadConfig(shallow);
   const whys = new Map();
-  assert.deepEqual(importFree(shallow, cfg, ['a', 'c', 'd', 'e', 'n', 'zz'], sha, 'money', whys).map((m) => m.id), ['c', 'e']);
+  assert.deepEqual(importFree(shallow, cfg, ['a', 'c', 'd', 'e', 'f', 'n', 'zz'], sha, 'money', whys).map((m) => m.id), ['c', 'e']);
   assert.deepEqual(Object.fromEntries(whys), {
     a: 'src/a/i.ts imports money',
-    d: `job/d on origin changes its paths from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`,
+    d: `job/d on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`,
+    f: `job/f on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`,
     n: 'no paths in process/modules.json',
     zz: 'no entry in process/modules.json',
   });

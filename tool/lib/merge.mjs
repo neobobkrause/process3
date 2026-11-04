@@ -12,7 +12,7 @@ import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
 import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
-import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
+import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
@@ -217,7 +217,8 @@ export function merge(root, n, opts = {}) {
     log(READY_NEXT);
     // The triage's outcome again as the last line: BOB read merge 199's output through tail -3
     // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
-    if (triage) log(triageLast(triage));
+    // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
+    if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
     return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
@@ -244,10 +245,15 @@ export function unagreed(runs, sha, attempt) {
 // rerun that found it recorded already, the same notice. Never silent: a merge that leaves no
 // notice says so, and a failure names the triage act; the merge stands either way.
 export const triageLast = (t) => (t.error ? `notice triage at the merge FAILED (${t.error.split('\n')[0].slice(0, 160)}); next act: ${t.next}`
-  : t.owed?.length ? `notice triage at the merge: ${t.owed.length} owe a worker's judgment; ${t.next}` : `notice triage at the merge: ${t.why || `${t.rows?.length || 0} row(s) written`}, none owed`);
+  : t.owed?.length ? `notice triage at the merge: ${t.owed.length} owe a worker's judgment; ${t.next}` : String(t.why || '').startsWith('none to run') ? `notice triage at the merge: ${t.why}` : `notice triage at the merge: ${t.why || `${t.rows?.length || 0} row(s) written`}, none owed`);
 function triageStep(root, cfg, notes, { ref, log }) {
-  const raised = (notes.rows || []).find((x) => x.row === 'notice') || notes.notice || null;
-  if (!raised) { log(`notice triage at the merge: none to run (${notes.error ? `the notices were not written: ${notes.error}` : 'the merge left no provider notice'})`); return null; }
+  // On a rerun, the notice as recorded (its users as stored), and none when it was withdrawn.
+  let raised = (notes.rows || []).find((x) => x.row === 'notice') || null;
+  if (!raised && notes.notice) {
+    try { raised = notices(root, cfg.state_branch).find((x) => x.key === notes.notice.key) || null; } catch { raised = null; }
+    if (!raised) { const why = `notice ${notes.notice.key} is not on ${cfg.state_branch} (withdrawn, or unread)`; log(`notice triage at the merge: none to run (${why})`); return { rows: [], owed: [], why: 'none to run: ' + why }; }
+  }
+  if (!raised) { const why = notes.error ? `the notices were not written: ${notes.error.split('\n')[0]}; run the merge again` : 'the merge left no provider notice'; log(`notice triage at the merge: none to run (${why})`); return { rows: [], owed: [], why: 'none to run: ' + why }; }
   try { return triageAtMerge(root, cfg, raised, { ref, log }); } catch (e) {
     log(`the merge stands; notice triage ${raised.key} at the merge failed (${e.message}); next act: ${P3} notice triage ${raised.key}`);
     return { rows: [], owed: raised.users || [], error: e.message, next: `${P3} notice triage ${raised.key}` };
@@ -263,7 +269,7 @@ function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
   let notes = { rows: [] };
   try { notes = recordAtMerge(root, cfg, { notice, answers, user: id, pr: n }); } catch (e) {
     log(`the merge stands, but its provider notices were not written to ${cfg.state_branch} (${e.message}); run merge ${n} again to record them`);
-    return { rows: [], error: e.message, notice };
+    return { rows: [], error: e.message };
   }
   if (notice) notes = { ...notes, notice };
   for (const x of notes.rows) log(x.row === 'notice' ? `${noticeLine(x)} recorded for ${x.users.join(', ')}` : `provider notice ${x.key} answered by ${x.user}`);
@@ -279,7 +285,7 @@ function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) 
   log(`pull request ${n} is merged; recording only its provider notices`);
   const notices = noticeStep(root, cfg, { id, n, mb, head: h, at: m, entry, log });
   const triage = triageStep(root, cfg, notices, { ref: m, log });
-  if (triage) log(triageLast(triage));
+  if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
   return { merged: true, sha: m, notices, triage };
 }
 

@@ -140,12 +140,15 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
     { id: 'k', tranche: 'WORKING', branch: 'COMPLETE', pr: '#7 ready' },
     { id: 'w', tranche: 'WORKING', branch: 'WORKING', pr: '#8 draft' },
     { id: 'gone', tranche: 'COMPLETE', pr: 'merged' },
+    // Reopened: COMPLETE on the tranche, WORKING on its branch, its draft open; never named.
+    { id: 'r', tranche: 'COMPLETE', branch: 'WORKING', pr: '#9 draft' },
   ];
   const listed = [
     { id: 'session_m', title: 'job m', status: 'idle' },
     { id: 'session_k', title: 'job k', status_bucket: 'completed' },
     { id: 'session_w', title: 'job w', status: 'idle' },
     { id: 'session_g', title: 'job gone', status: 'archived' },
+    { id: 'session_r', title: 'job r', status: 'idle' },
   ];
   assert.deepEqual(archivable(rows, listed).sessions, [
     { session: 'session_m', job: 'm', why: 'merged' },
@@ -160,11 +163,11 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
   // Without --sessions: the jobs whose sessions to look for.
   const out2 = [];
   startReady(root, { live: 1, remote: new Set(), log: (m) => out2.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
-  assert.match(out2.join('\n'), /the cap holds 1 back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: job m \(merged\); job k \(COMPLETE, PR #7 ready\); job gone \(merged\)\. Save list_sessions as JSON and pass --sessions <file>/);
+  assert.match(out2.join('\n'), /the cap holds 1 back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: job k \(COMPLETE, PR #7 ready\); job m \(merged\); job gone \(merged\)\. Save list_sessions as JSON and pass --sessions <file>/);
   // No cap hit: no archive line.
   const out3 = [];
   startReady(root, { live: 0, remote: new Set(), log: (m) => out3.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.doesNotMatch(out3.join('\n'), /the cap holds/);
   // readyCount: the startable jobs status lists, for the wake's lead.
-  assert.equal(readyCount(root, { read: () => ({ next }) }), 2);
+  assert.equal(readyCount(root, { read: (_, o) => { assert.equal(o.offline, true); return { next }; } }), 2);
 });

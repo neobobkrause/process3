@@ -41,7 +41,10 @@ export function startable(next, { onOrigin = () => false } = {}) {
 // or merged), not archived and idle. With list_sessions saved (--sessions), the ids; without,
 // the jobs, so BOB knows whose sessions to look for.
 export function archivable(rows, listed) {
-  const done = (rows || []).filter((r) => r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
+  // Not a reopened job (COMPLETE on the tranche, WORKING or BLOCKED on its branch, its draft open)
+  // nor one whose pull request GitHub did not read: its session may be working (review of PR 104).
+  const done = (rows || []).filter((r) => (r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
+    && !/^(WORKING|BLOCKED)/.test(String(r.branch || '')) && !/draft|unknown/.test(String(r.pr || '')) && !r.flag)
     .map((r) => ({ id: r.id, why: r.pr && r.pr !== 'merged' ? `COMPLETE, PR ${r.pr}` : 'merged' }));
   if (!listed) return { jobs: done, sessions: null };
   const sessions = [];
@@ -54,7 +57,9 @@ export function archivable(rows, listed) {
 
 // Whether status lists startable jobs: the wake BOB receives leads with the start when so.
 export function readyCount(root, { read = status } = {}) {
-  const out = read(root, { role: 'bob', log: () => {} });
+  // Offline: the wake is not held for GitHub or for fetches into the sender's clone (review of
+  // PR 104); the refs this clone has and one ls-remote give the count.
+  const out = read(root, { role: 'bob', offline: true, log: () => {} });
   const heads = new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
   return startable(out?.next, { onOrigin: (id) => heads.has(id) }).go.length;
 }
@@ -75,7 +80,11 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
     // The cap holds jobs back: the idle sessions of COMPLETE or merged jobs BOB can archive.
     const a = archivable(out.rows, sessions === undefined || sessions === true ? null : readSessions(sessions));
     if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);
-    else log(`the cap holds ${wait.length} back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: ${a.jobs.map((x) => `job ${x.id} (${x.why})`).join('; ') || 'none'}. Save list_sessions as JSON and pass --sessions <file> for the session ids`);
+    else {
+      // The PR-ready ones first (their sessions surely still stand); at most 10 named.
+      const jobs = [...a.jobs.filter((x) => x.why !== 'merged'), ...a.jobs.filter((x) => x.why === 'merged')];
+      log(`the cap holds ${wait.length} back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: ${jobs.slice(0, 10).map((x) => `job ${x.id} (${x.why})`).join('; ') || 'none'}${jobs.length > 10 ? ` and ${jobs.length - 10} more` : ''}. Save list_sessions as JSON and pass --sessions <file> for the session ids`);
+    }
   }
   for (const s of skip) log(`not started: ${s.id || s.file}: ${s.why}`);
   const started = [];

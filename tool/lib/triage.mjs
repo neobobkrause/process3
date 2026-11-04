@@ -319,6 +319,10 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     if (!has(h)) git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true });
     if (!has(h)) return false;
     if (git(['merge-base', '--is-ancestor', h, sha], { cwd: root, allowFail: true }).code === 0) return true;
+    // An attempt that gives its module new paths (and the import there) is not settled either.
+    let atH = null;
+    try { atH = JSON.parse(git(['show', `${h}:${cfg.modules_file}`], { cwd: root })).modules?.find((x) => x?.id === u)?.paths || null; } catch { atH = null; }
+    if (JSON.stringify(atH) !== JSON.stringify(paths)) return false;
     return git(['diff', '--quiet', h, sha, '--', ...paths], { cwd: root, allowFail: true }).code === 0;
   };
   const out = [];
@@ -329,7 +333,7 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     if (!m) { whys.set(u, `no entry in ${cfg.modules_file}`); continue; }
     if (!paths.length) { whys.set(u, `no paths in ${cfg.modules_file}`); continue; }
     if (i < 0) { whys.set(u, `no "id" line for it in ${cfg.modules_file}`); continue; }
-    if (!settled(u, paths)) { whys.set(u, `job/${u} on origin changes its paths from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
+    if (!settled(u, paths)) { whys.set(u, `job/${u} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
     const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...paths], { cwd: root, allowFail: true });
     if (g.code !== 0 && g.code !== 1) { whys.set(u, `git grep under its paths failed (exit ${g.code}: ${String(g.stderr || '').trim().split('\n').pop()})`); continue; }
     const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);
