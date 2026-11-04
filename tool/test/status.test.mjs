@@ -180,12 +180,12 @@ test('status --role bob --sessions: job session gone and job idle 30m are flagge
   pushedJob(root, 'fresh', ago(5));
   const prs = ids.map((id, i) => ({ number: 10 + i, head: { ref: `job/${id}`, sha: 'x' }, draft: true, updated_at: ago(45) }));
   const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 'sessions.json');
-  writeFileSync(file, JSON.stringify({ sessions: [
-    { id: 'session_old', title: 'job gone', status: 'idle', created_at: ago(300) },
-    { id: 'session_g', title: 'job gone (restart)', status: 'archived', created_at: ago(60) },
-    { id: 'session_q', title: 'some title', status: 'idle', created_at: ago(90), session_context: { sources: [{ revision: 'job/quiet' }] } },
-    { id: 'session_b', title: 'job busy', status: 'running', created_at: ago(90) },
-    { id: 'session_f', title: 'job fresh', status: 'idle', created_at: ago(90) },
+  writeFileSync(file, JSON.stringify({ data: [
+    { id: 'session_old', title: 'job gone', session_status: 'SESSION_STATUS_IDLE', status_bucket: 'completed', updated_at: ago(300) },
+    { id: 'session_g', title: 'job gone (restart)', session_status: 'SESSION_STATUS_ARCHIVED', status_bucket: 'completed', updated_at: ago(60) },
+    { id: 'session_q', title: 'job quiet', session_status: 'SESSION_STATUS_IDLE', status_bucket: 'review_ready', updated_at: ago(90) },
+    { id: 'session_b', title: 'job busy', session_status: 'SESSION_STATUS_RUNNING', status_bucket: 'working', updated_at: ago(90) },
+    { id: 'session_f', title: 'job fresh', session_status: 'SESSION_STATUS_IDLE', status_bucket: 'completed', updated_at: ago(90) },
   ] }));
   const io = { openPRs: () => prs, checkRun: () => null, compare: () => null, prFiles: () => [] };
   const env = process.env.GITHUB_REPOSITORY;
@@ -210,7 +210,7 @@ test('status --sessions: replace_minutes from targets in config; an unreadable f
   git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
   pushedJob(root, 'quiet', new Date(Date.now() - 45 * 6e4).toISOString());
   const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
-  writeFileSync(file, JSON.stringify([{ id: 'session_q', title: 'job quiet', status: 'idle' }]));
+  writeFileSync(file, JSON.stringify([{ id: 'session_q', title: 'job quiet', session_status: 'SESSION_STATUS_IDLE' }]));
   const io = { openPRs: () => [{ number: 3, head: { ref: 'job/quiet', sha: 'x' }, draft: true }], checkRun: () => null, compare: () => null, prFiles: () => [] };
   const env = process.env.GITHUB_REPOSITORY;
   process.env.GITHUB_REPOSITORY = 'o/r';
