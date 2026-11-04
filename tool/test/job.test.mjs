@@ -1170,7 +1170,7 @@ test('the START no longer asks the job for --cost-usd', () => {
 // Measured on civicsmith-copy 4 Nov: plane's suite takes 19-20 of its 20 minutes, and the
 // base-red run was given only what was left, so it died with ETIMEDOUT. It gets its own budget.
 test('job complete gives the base-red run the whole suite_timeout_minutes, not what the suite left', () => {
-  const slow = "import test from 'node:test'; import a from 'node:assert'; test('slow red', async () => { await new Promise((r) => setTimeout(r, 3000)); a.fail('x'); });\n";
+  const slow = "import test from 'node:test'; import a from 'node:assert'; test('slow red', async () => { await new Promise((r) => setTimeout(r, 6000)); a.fail('x'); });\n";
   const { root, calls, exec } = locked(['package-lock.json'], { 'package-lock.json': lock(true), 'test/alpha/b.test.mjs': slow });
   const timeouts = [];
   const spy = (cmd, args, o) => { timeouts.push({ cwd: o.cwd, timeout: o.timeout }); return exec(cmd, args, o); };
@@ -1181,7 +1181,7 @@ test('job complete gives the base-red run the whole suite_timeout_minutes, not w
   const r = jobComplete(root, 'alpha', { push: false, exec: spy, log: quiet });
   const base = timeouts.filter((t) => t.cwd.includes('p3-base-red-'));
   assert.equal(base.length, 1, 'the base install ran');
-  assert.ok(base[0].timeout > 20 * 60000 - 2000, `base-red budget ${base[0].timeout} ms`);
+  assert.ok(base[0].timeout > 20 * 60000 - 4000, `base-red budget ${base[0].timeout} ms`);
   const receipt = readRows(root, 'alpha').filter((x) => x.event === 'complete').pop()?.receipt;
   assert.deepEqual(receipt?.commands.find((c) => c.suite).base_red, ['test/alpha/b.test.mjs::slow red'], JSON.stringify(r));
   assert.ok(calls.length);

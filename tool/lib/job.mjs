@@ -862,7 +862,8 @@ export function jobComplete(root, id, opts = {}) {
       rmSync(evDir, { recursive: true, force: true });
       const c = { cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true };
       commands.push(c);
-      if (s.exit !== 0) {
+      if (s.exit !== 0 && /ETIMEDOUT/.test(s.output)) log(s.output.split('\n').slice(-40).join('\n') + '\nthe suite timed out: no base-red run, as at the gate');
+      else if (s.exit !== 0) {
         log(s.output.split('\n').slice(-40).join('\n'));
         // Base-red, as the gate judges it (basered.mjs): failures the tranche's tip has too are
         // not the job's; the receipt names them, and the gate checks them again.

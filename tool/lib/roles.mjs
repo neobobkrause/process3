@@ -64,19 +64,19 @@ const COORD_ACT = 'send a technical question (a fix, a restart, a route) to the 
 const ESCALATION_ACT = 'on an escalation about a silent BOB, at once: get_session on BOB; if archived, or idle past `targets.decision_minutes` with it unanswered, hand over now (rulebook rule 6)';
 
 const ROOT_ACTS = [
-  "run the tool's `start check`, `status` and `address <role>`",
+  "run the tool's `start check`, `status`, `address <role>`",
   `start BOB when none is addressed: \`${P3} start bob\`, then create_session with the call it prints, then \`${P3} start record bob <new id>\``,
   `replace BOB by the handover: \`${P3} handover begin\`, then the steps it prints (create_session, \`handover confirm\`, a message to the old BOB)`,
   'message and interrupt the addressed BOB (interrupt restarts a BOB stopped by three refusals in a row)',
-  'archive an old BOB once it reports ready (nothing waits on it; a refusal is only reported)',
-  `your hourly sweep task, bound to this session (create_trigger, no persistent_session_id), is what \`${P3} sweep task --session <your id>\` prints: create it if list_triggers shows none; if its prompt differs, update_trigger its prompt to that; never fire it`,
-  `in your first turn, only when \`${P3} address watcher\` shows none: \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then its daily task: create_trigger with the persistent_session_id call it printed`,
+  'archive an old BOB once it reports ready',
+  `your hourly sweep task is the prompt \`${P3} sweep task --session <your id>\` prints: if list_triggers shows none bound to you, create it (create_trigger, no persistent_session_id); if its prompt differs, update_trigger only its prompt, to that; never fire it`,
+  `in your first turn, only when \`${P3} address watcher\` shows none: \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then the daily task it printed: create_trigger, persistent_session_id the watcher's id`,
   `when the sweep fires: \`${P3} sweep --session <your id> --sessions <f> --context <pct>\` (f: list_sessions JSON; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` per attempt whose session record gives them) and do only what it prints; it reads step 0 to 3 and writes the heartbeat`,
   ESCALATION_ACT,
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   COORD_ACT,
 ];
-const ROOT_NOT = 'Nothing else: create nothing but BOB, the watcher and the two tasks above, merge nothing, edit no other task, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
+const ROOT_NOT = 'Nothing else: create no session or task but BOB, the watcher and the two tasks above, merge nothing, edit no task but your sweep task\'s prompt, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
 
 const BOB_ACTS = [
   `run \`${P3} start check\`, \`${P3} status\`, \`${P3} address root\` and the tool's job, merge, metrics, setup, handoff and send commands`,

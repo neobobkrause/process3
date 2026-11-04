@@ -199,8 +199,8 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   for (const x of ['sweep task --session', 'start watcher', 'start record watcher', 'persistent_session_id', 'sweep --session']) assert.ok(p.includes(x), x);
   // ROOT's one task edit (4 Nov: a pin changed what sweep task prints, and only the owning
   // session may edit its task): its own sweep task's prompt, to what sweep task prints, nothing else.
-  assert.ok(p.includes('is what `node .process/tool/p3.mjs sweep task --session <your id>` prints: create it if list_triggers shows none; if its prompt differs, update_trigger its prompt to that; never fire it'));
-  assert.ok(p.includes('edit no other task') && !p.includes('edit no task'));
+  assert.ok(p.includes('your hourly sweep task is the prompt `node .process/tool/p3.mjs sweep task --session <your id>` prints: if list_triggers shows none bound to you, create it (create_trigger, no persistent_session_id); if its prompt differs, update_trigger only its prompt, to that; never fire it'));
+  assert.ok(p.includes("edit no task but your sweep task's prompt") && !p.includes('edit no task,'));
   assert.ok(t.prompt.includes("edit no task but this one's prompt as your ROOT prompt allows"));
   assert.ok(Buffer.byteLength(p) <= 4096, `${Buffer.byteLength(p)} bytes`);
 });
