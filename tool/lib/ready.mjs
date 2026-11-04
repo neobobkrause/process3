@@ -8,7 +8,7 @@
 // provider notice (job start reopens it itself) or for found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, jobStart } from './job.mjs';
-import { isArchived, isIdle, jobSession, readSessions, status } from './status.mjs';
+import { isArchived, isIdle, jobDone, jobSession, readSessions, status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
@@ -43,8 +43,7 @@ export function startable(next, { onOrigin = () => false } = {}) {
 export function archivable(rows, listed) {
   // Not a reopened job (COMPLETE on the tranche, WORKING or BLOCKED on its branch, its draft open)
   // nor one whose pull request GitHub did not read: its session may be working (review of PR 104).
-  const done = (rows || []).filter((r) => (r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
-    && !/^(WORKING|BLOCKED)/.test(String(r.branch || '')) && !/draft|unknown/.test(String(r.pr || '')) && !r.flag)
+  const done = (rows || []).filter(jobDone)
     .map((r) => ({ id: r.id, why: r.pr && r.pr !== 'merged' ? `COMPLETE, PR ${r.pr}` : 'merged' }));
   if (!listed) return { jobs: done, sessions: null };
   const sessions = [];

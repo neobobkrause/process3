@@ -47,6 +47,45 @@ export function jobSession(sessions, id) {
 const lower = (v) => String(v || '').toLowerCase();
 export const isArchived = (x) => x.archived === true || !!x.archived_at || ['archived'].includes(lower(x.status)) || lower(x.lifecycle) === 'archived' || lower(x.state) === 'archived';
 export const isIdle = (x) => ['idle', 'completed', 'failed', 'stopped'].includes(lower(x.status)) || ['completed', 'failed', 'review_ready'].includes(lower(x.status_bucket));
+// A job's result recorded: COMPLETE (on the tranche, or on its branch, its pull request ready),
+// no attempt reopened and nothing flagged. Its idle sessions can go (job start --ready, sweep).
+export const jobDone = (r) => (r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
+  && !/^(WORKING|BLOCKED)/.test(String(r.branch || '')) && !/draft|unknown/.test(String(r.pr || '')) && !r.flag;
+
+// The session list kept clean (Bob, 4 Nov 15:50: 5 of 17 unarchived sessions were leftovers no
+// one owned). From list_sessions (--sessions): each session not archived, by kind, and its act.
+// Never a role's (ROOT, BOB, watcher, coordinator) nor one of a job still open. Idle over an
+// hour and its work done (a job merged or deferred, a pin move with none open), or its parent
+// archived: archive it. Asking (need_input) with its parent archived and its work not done: tell
+// the live owner (BOB for a job, the coordinator otherwise). rows: status's; pinOpen: whether a
+// pin move is open on the product (null: unknown, so no pin-move session is archived).
+export const SESSION_IDLE_MIN = 60;
+export function sessionActs(list, { rows = [], roles = {}, coordinator = null, pinOpen = null, now = Date.now() } = {}) {
+  const byId = new Map(list.map((x) => [sessionId(x), x]));
+  const roleIds = new Set([roles.root?.session, roles.bob?.session, roles.watcher?.session, coordinator].filter(Boolean));
+  const kinds = { roles: 0, jobs: 0, builds: 0, other: 0 };
+  const acts = [];
+  for (const x of list.filter((s) => !isArchived(s))) {
+    const id = sessionId(x);
+    const title = String(x.title || '').trim();
+    const job = title.match(/^job (\S+)( \(restart\))?$/)?.[1];
+    const kind = roleIds.has(id) ? 'roles' : job ? 'jobs' : /^build\b/i.test(title) ? 'builds' : 'other';
+    kinds[kind]++;
+    if (kind === 'roles') continue;
+    const r = job && rows.find((y) => y.id === job);
+    // Merged, or deferred (BLOCKED, its pull request closed); a module status does not list is open.
+    const open = job && !(r && (jobDone(r) || (r.tranche === 'BLOCKED' && !r.pr)));
+    const done = (job && !open) || (/^pin move\b/.test(title) && pinOpen === false);
+    const parent = byId.get(x.parent || x.parent_session_id || x.parent_id);
+    const orphan = !!parent && isArchived(parent);
+    const asking = lower(x.status_category || x.post_turn_summary?.status_category) === 'need_input';
+    if (!(isIdle(x) || asking) || (now - sessionTime(x)) / 6e4 <= SESSION_IDLE_MIN) continue;
+    if (done || (orphan && !asking && !open)) acts.push({ act: 'archive', id, title });
+    else if (orphan && asking) acts.push({ act: 'tell', id, title, owner: (job ? roles.bob?.session : coordinator) || 'Bob', question: String(x.question || x.summary || x.post_turn_summary?.summary || '(read its last message with list_events)').replace(/\s+/g, ' ').slice(0, 300) });
+  }
+  const line = `sessions: ${Object.values(kinds).reduce((a, b) => a + b, 0)} live (roles ${kinds.roles}, jobs ${kinds.jobs}, builds ${kinds.builds}, other ${kinds.other}); leftovers ${acts.length}`;
+  return { kinds, acts, line };
+}
 
 export function status(root, { role, module, context, live, sessions: sessionsFile, offline = false, heads: givenHeads, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
@@ -160,6 +199,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   let addr = {};
   try { addr = readAddress(root, { fetch: !offline }); } catch { addr = {}; }
   log(`addresses: ROOT ${addr.root ? `${addr.root.session} (${addr.root.at})` : 'none'}; BOB ${addr.bob ? `${addr.bob.session} (${addr.bob.at})` : 'none'}`);
+  if (listed) log(sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator }).line);
   // Refusals per session, from the tranche's rows and this checkout's (a row BOB recorded but has
   // not merged yet counts at once); the same row in both counts once (each carries its own id).
   const seen = new Set();

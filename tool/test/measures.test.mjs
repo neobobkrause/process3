@@ -47,8 +47,8 @@ test('sweep --context: ROOT\'s context on the sweep row, and the estimate of swe
   // Only the addressed ROOT's sweeps: the last row's session.
   assert.equal(rootContext([...rows, { at: 'y', row: 'sweep', session: 'session_new', root_context: 3 }]).sweeps.length, 1);
   // The prompts ROOT runs the sweep from carry the flag.
-  assert.match(sweepTask(R, 'tranche', HASH).prompt, /sweep --session session_root1 --live <[^>]+> --context </);
-  assert.match(rootPrompt({ slug: 'o/r', approvals: HASH }), /sweep --session <your id> --live <n> --context <pct>/);
+  assert.match(sweepTask(R, 'tranche', HASH).prompt, /sweep --session session_root1 --sessions <[^>]+> --context </);
+  assert.match(rootPrompt({ slug: 'o/r', approvals: HASH }), /sweep --session <your id> --sessions <file> --context <pct>/);
   const r = report(root, 'o/r', 'HEAD', { read: { comments: () => [], getPR: () => null }, sweepRows: rows, refreshAt: 60 });
   assert.equal(r.root_context.sweeps_left, 10);
 });
