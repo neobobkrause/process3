@@ -14,6 +14,7 @@ import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metrics
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { startReady } from './lib/ready.mjs';
 import { deployDev } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
@@ -70,6 +71,7 @@ const commands = {
     return 0;
   },
 
+  // job start --ready --live <n> [--coordinator <session>] [--model <m>]: BOB starts every startable job status lists, up to live_cap less n.
   // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
@@ -83,6 +85,11 @@ const commands = {
       fetchState(root, cfg.state_branch, { fresh: true });
       const o = openState(root, cfg);
       if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
+    }
+    // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
+    if (a.ready) {
+      if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap');
+      return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model }).ok ? 0 : 1;
     }
     if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
     if (a.stop !== undefined && a.restart === undefined) fail('--stop archived|idle goes with --restart: how the replaced session stopped');

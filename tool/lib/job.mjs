@@ -27,6 +27,10 @@ export const P3 = 'node .process/tool/p3.mjs';
 // refused by send): the role that runs the act, --as <role> (default bob for BOB's own acts), a
 // job's job-<id>. BOB itself is awake: no wake. A wake's text ends ": run status"; it routes nothing.
 export const WAKE_END = ': run status';
+// The act after every act that can make a job ready (a merge, a layer close, a triage, a wake):
+// one command starts every ready job up to the cap, so readiness waits on no choice (ready.mjs).
+export const READY_START = `${P3} job start --ready --live <n>`;
+export const READY_NEXT = `next act: ${READY_START} (n: the live sessions list_sessions shows), then create_session with each launch it prints`;
 const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
 export const bobWake = (what, from) => {
   if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);
