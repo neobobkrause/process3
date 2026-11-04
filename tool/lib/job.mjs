@@ -539,7 +539,10 @@ export function jobComplete(root, id, opts = {}) {
   const io = { findPR, addComment, markReady, comments, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
-  if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('commit your work first: tracked files have changes');
+  // A COMPLETE job may move .process to a newer pin to amend its receipt with that pin's tool;
+  // it commits nothing, so the moved submodule is not work to commit (copy PR 40, 4 Nov).
+  const done = readEntry(root, id).status.state === 'COMPLETE';
+  if (git(['status', '--porcelain', '--untracked-files=no', ...(done ? ['--ignore-submodules=all'] : [])], { cwd: root })) fail('commit your work first: tracked files have changes');
   const cfg = loadConfig(root);
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   if (push) fetchRef(root, cfg.tranche);
@@ -556,7 +559,8 @@ export function jobComplete(root, id, opts = {}) {
     const at = git(['log', '-1', '--format=%H', '--', metricsFile(id)], { cwd: root });
     if (!row?.receipt) fail(`${id} is COMPLETE but no receipt was saved; ask your coordinator`);
     if (at !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`${id} is COMPLETE, but commits were added after it; ask your coordinator`);
-    return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at } });
+    if (opts.tests?.length || noSuite) log('the job is COMPLETE: its commands and tests stand as saved; only --exempt-revert and --not-verified amend the receipt');
+    return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert } });
   }
   if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const tests = struckTests(root, entry, base, opts.tests || [], readRows(root, id).filter((r) => r.event === 'start').pop()?.notices || []);
@@ -610,11 +614,33 @@ export function jobComplete(root, id, opts = {}) {
   return finish(root, { id, slug, pr, branch, push, io, log, receipt });
 }
 
+// A COMPLETE job's rerun with --exempt-revert or --not-verified: the saved receipt (its commands
+// and tests stand) carrying the claims of the newest receipt posted at the same commit, so a
+// second amendment keeps the first's (review of PR 64), with the revert exemption set and the
+// not-verified lines added (never removed: dropping one would claim a check nobody ran), and
+// what it replaced. Null when nothing changes. The COMPLETE commit's row keeps the original.
+export function amendReceipt(saved, { notVerified = [], exemptRevert } = {}, prior = null) {
+  const at = prior?.sha === saved.sha ? prior : null;
+  const was = {
+    exempt: { ...(saved.exempt || {}), ...(at?.exempt || {}) },
+    not_verified: [...new Set([...(saved.not_verified || []), ...(at?.not_verified || [])])],
+  };
+  const exempt = exemptRevert ? { ...was.exempt, revert: exemptRevert } : was.exempt;
+  const not_verified = [...was.not_verified, ...notVerified.filter((x) => !was.not_verified.includes(x))];
+  if (sameClaims({ exempt, not_verified }, at || saved)) return null;
+  return { ...saved, exempt, not_verified, amended: { at: now(), tool: toolPin(), was: at ? { exempt: at.exempt || {}, not_verified: at.not_verified || [] } : was } };
+}
+const sameClaims = (a, b) => JSON.stringify([a?.exempt || {}, a?.not_verified || []]) === JSON.stringify([b?.exempt || {}, b?.not_verified || []]);
+
 // Push, confirm the push landed (REC-5), post the receipt once, mark ready. Each step is
 // skipped when it is already done, so a half-finished job complete can simply run again.
-function finish(root, { id, slug, pr, branch, push, io, log, receipt }) {
+// An amended receipt is posted unless the newest one already makes the same claims.
+function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = null }) {
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
-  if (!push) return { ok: true, receipt };
+  if (!push) {
+    const a = amend && amendReceipt(receipt, amend);
+    return { ok: true, receipt: a || receipt };
+  }
   if (remoteTip(root, branch) !== sha) {
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again`);
@@ -622,8 +648,12 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt }) {
   if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
   const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number), { from: pr.user?.login || null });
   let url = posted?.comment?.html_url;
-  if (posted?.data?.sha !== sha) {
-    const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
+  const amendedReceipt = amend && amendReceipt(receipt, amend, posted?.data);
+  const amended = !!amendedReceipt;
+  if (amended) receipt = amendedReceipt;
+  if (posted?.data?.sha !== sha || amended) {
+    const what = amended ? 'Amended receipt' : 'Receipt';
+    const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `${what} for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
     url = c.html_url;
   }
   if (pr.draft) io.markReady(slug, pr.number);
