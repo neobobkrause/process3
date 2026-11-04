@@ -19,6 +19,12 @@ export const TOOL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..
 export const toolPin = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_ROOT, allowFail: true }).stdout.trim() || 'unknown';
 export const P3 = 'node .process/tool/p3.mjs';
 
+// TXT-3, TXT-5: each role's rulebook, in the pinned process. The platform loads a skill by its
+// description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
+export const RULEBOOKS = ['bob', 'root', 'watcher', 'job', 'worker'];
+export const rulebook = (role) => `.process/rulebooks/${role}.md`;
+export const rulebookLine = (role, who = 'your prompt') => `Read \`${rulebook(role)}\` once, now: your rulebook, at most ten rules; ${who} wins where they differ.`;
+
 // The role's reading set with sizes (SES-5, JOB-10).
 // With cfg, it also carries the requirement file's size against requirements_cap (REQ-6).
 export function readingSet(root, entry, extra = [], cfg = null) {
@@ -65,6 +71,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
     L.push('', `Earlier work taken in: ${takeIn.pr ? `pull request #${takeIn.pr}` : 'no pull request'} (branch \`${takeIn.branch}\`), ${takeIn.commits.length} commit(s) made before Process3, from \`${takeIn.commits[takeIn.commits.length - 1]}\` to \`${takeIn.commits[0]}\`, merged with the tranche in your start commit.`);
     L.push('That work is part of this job: read its commits and diff before you change anything, keep what meets the requirements, and change only the paths above. Nothing of it was rebased or rewritten.');
   }
+  L.push('', rulebookLine('job', 'this START'));
   L.push('', '## Reading set (read each file whole)', '', '| file | bytes |', '|---|---|');
   for (const f of reading.files) L.push(`| \`${f.file}\` | ${f.bytes} |`);
   L.push(`| total | ${reading.bytes} |`);
