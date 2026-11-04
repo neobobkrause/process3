@@ -11,7 +11,7 @@ import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState } from './state.mjs';
 import { unanswered } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, UNMET } from './util.mjs';
+import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -500,10 +500,8 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
   return { start, pr, launch, subscribe: subscribe.call, restarted: true };
 }
 
-// A requirement mark (P7), as status counts it: `**R36** *(not yet met: ...)*`, or a found mark
-// `**F2** *(not yet met: walk p3dev-l1)*` (found <module>).
-const MARK = UNMET;
-export const markedIds = (text) => [...String(text || '').matchAll(MARK)].map((m) => m[1]);
+// The unmet marks of a requirement file, by the one parser status counts with (util's unmetIds).
+export const markedIds = (text) => unmetIds(text);
 
 // The marks the branch struck against the base, each with the test the job names for it with
 // --test R<id>="<file>::<name>": a file in the module's tests that holds the name. Refused

@@ -10,7 +10,7 @@ import { leadCell, leadInputs, leadSummaryCell, leadTimes } from './lead.mjs';
 import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
-import { exists, gh, git, isFound, isRecordPath } from './util.mjs';
+import { exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
 
 const U = 'unmeasured';
 const usd = (x) => (typeof x === 'number' ? `$${(Math.round(x * 100) / 100).toFixed(2)}` : U);
@@ -116,12 +116,9 @@ export function deepen(root, tranche, main = 'main') {
 
 const hours = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 36e5 * 10) / 10;
 
-// The mark ids of a requirement file: all, and those still "(not yet met"; requirement marks
-// (R) and found marks (F, the route for work found elsewhere) alike.
-function marks(text) {
-  const all = [...(text || '').matchAll(/\*\*([RF][\w.-]+)\*\*(\s*\*\(not yet met)?/g)];
-  return { all: all.map((m) => m[1]), unmet: all.filter((m) => m[2]).map((m) => m[1]) };
-}
+// The mark ids of a requirement file: all, and those still "(not yet met" (util's one parser),
+// requirement marks (R) and found marks (F) alike.
+const marks = requirementMarks;
 
 // The tranche's own commits (merges left out): in tip, not in base, nor on main (main itself
 // while the tranche is open, else main before the tranche's merge, which is base; deep.onMain in

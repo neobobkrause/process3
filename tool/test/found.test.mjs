@@ -11,7 +11,7 @@ import { NO_MODULE, addFound, found, foundMarks, nextFound } from '../lib/found.
 import { markedIds } from '../lib/job.mjs';
 import { trancheReport } from '../lib/report.mjs';
 import { status } from '../lib/status.mjs';
-import { git, loadConfig, overCap } from '../lib/util.mjs';
+import { git, loadConfig, overCap, requirementMarks } from '../lib/util.mjs';
 
 const quiet = () => {};
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
@@ -106,6 +106,8 @@ test('found: a module with no requirement file gets a found-work entry; one that
 test('found marks: parsed as unmet marks by the job and the cap, read back with their source', () => {
   const t = `${unmet(1)}${F(2)}- **F1** met\n`;
   assert.deepEqual(markedIds(t), ['R1', 'F2']);
+  // The shared parser (util's requirementMarks) reads found marks, a parenthetical before the mark included.
+  assert.deepEqual(requirementMarks('- **F4** (walk p3dev-l1) *(not yet met: walk)* x\n- **F3** met\n'), { all: ['F4', 'F3'], unmet: ['F4'] });
   assert.equal(nextFound(t), 3);
   assert.deepEqual(foundMarks(t), [{ id: 'F2', source: 'walk p3dev-l1', finding: 'founder sign-in answers HTTP 200 without a session' }]);
   assert.match(overCap({ requirements_cap: null, requirements_cap_marks: 1 }, 'f.md', t) || '', /2 unmet marks/);

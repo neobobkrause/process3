@@ -14,7 +14,7 @@ import { deployOwed } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
-import { OPEN_BY, UNMET, depth, isFound, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
+import { OPEN_BY, depth, exists, fail, fileBytes, git, isFound, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -262,8 +262,6 @@ export function closedRows(root, cfg, { slug = null, read = compare } = {}) {
     .filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && Number.isInteger(r.layer) && !onMain(String(r.commit)));
 }
 
-const MARK = UNMET;
-
 // The layers (Build Plan, Phase 3, INT-4): the layer map (layers_file), a table row whose first
 // cell is a number is a layer, its last cell its modules. A layer is closed when recorded closed,
 // or when none of its modules has unmet marks or an open job. The open layer is the lowest not
@@ -280,7 +278,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
   if (map === null) return null;
   // Requirement marks (R) hold a layer; found marks (F, the route for work found elsewhere) never
   // do: they are work by open_by whatever the layer, and never deferred at a close.
-  const ids = (f) => [...(read(f) || '').matchAll(MARK)].map((m) => m[1]);
+  const ids = (f) => unmetIds(read(f));
   const marks = (f) => ids(f).filter((x) => !isFound(x));
   const found = (f, id) => [...ids(f), ...ids(foundFile(id))].filter(isFound);
   const recorded = new Set(closed.map((r) => r.layer));
@@ -418,7 +416,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   }
   // Modules outside the layer map with a found-work entry of their own.
   for (const id of foundEntries(root, ref).filter((x) => !where.has(x))) {
-    const ids = [...(read(foundFile(id)) || '').matchAll(MARK)].map((x) => x[1]).filter(isFound);
+    const ids = unmetIds(read(foundFile(id))).filter(isFound);
     const row = rows.find((r) => r.id === id);
     const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
     const u = uses.get(id) || [];
@@ -496,7 +494,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const entryTaken = (f) => f.startsWith(`${FOUND_DIR}/`) && open.some((r) => foundFile(r.id) === f);
   const all = [...new Set([...files, ...byFile.keys(), ...foundBy])].filter((f) => !taken.has(f) && !entryTaken(f)).map((file) => {
     const text = textOf(file);
-    const ids = [...(text || '').matchAll(MARK)].map((m) => m[1]);
+    const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     return { file, count: ids.length, over: overCap(cfg, file, text), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found));

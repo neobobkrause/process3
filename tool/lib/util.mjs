@@ -117,13 +117,26 @@ export const DEFAULTS = {
 // open_by values (status --role bob): "uses" the default, "layer" the old behaviour.
 export const OPEN_BY = ['uses', 'layer'];
 
-// An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...), or a found
-// mark, **F<n>** *(not yet met: <source>)*, the route for work found elsewhere (found <module>).
-export const UNMET = /\*\*([RF][\w.-]+)\*\*\s*\*\(not yet met/g;
+// A requirement mark (P7), the one parser every count and check uses (job complete's struck
+// marks, status and its layers, layer close, the report, the requirements cap): `**R<id>**`
+// (or a found mark `**F<n>**`, the route for work found elsewhere, found <module>), then any parentheticals on the same line, then `*(not yet met`. The copy writes
+// `**R23** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) *(not yet met: T53; per C3)*`
+// (4 Nov: local-facts R23 and R25 were struck with no --test, uncounted). A parenthetical holds
+// no `*` and no line break and nests one level, so bold prose between the id and a later
+// "not yet met" is never read as the mark.
+const PAREN = String.raw`\((?:[^()*\n]|\([^()*\n]*\))*\)`;
+const UNMET_TAIL = String.raw`(?:[ \t]*${PAREN})*[ \t]*\*\(not yet met`;
+export const UNMET = new RegExp(String.raw`\*\*([RF][\w.-]+)\*\*${UNMET_TAIL}`, 'g');
+// Every mark of a requirement file, and those still unmet, in file order.
+export function requirementMarks(text) {
+  const all = [...String(text || '').matchAll(new RegExp(String.raw`\*\*([RF][\w.-]+)\*\*(${UNMET_TAIL})?`, 'g'))];
+  return { all: all.map((m) => m[1]), unmet: all.filter((m) => m[2]).map((m) => m[1]) };
+}
+export const unmetIds = (text) => requirementMarks(text).unmet;
 // A mark id, met or not, as the struck-mark --test and the report read it.
 export const MARK_ID = /^[RF][\w.-]+$/;
-// A found mark, met or not: its number, and whether it is still unmet.
-export const FOUND_MARK = /\*\*F(\d+)\*\*(\s*\*\(not yet met)?/g;
+// A found mark, met or not, by number (found's numbering).
+export const FOUND_MARK = /\*\*F(\d+)\*\*/g;
 export const isFound = (id) => /^F\d+$/.test(String(id));
 
 // The requirements cap (REQ-6): the line that names a requirement file over requirements_cap
@@ -132,7 +145,7 @@ export const isFound = (id) => /^F\d+$/.test(String(id));
 export function overCap(cfg, file, text) {
   if (text === null || text === undefined) return null;
   const bytes = Buffer.byteLength(text);
-  const marks = (text.match(UNMET) || []).length;
+  const marks = unmetIds(text).length;
   // A number written as a string ("70000") is the same cap; null or empty sets none.
   const num = (v) => (v === null || v === undefined || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : fail(`requirements cap ${JSON.stringify(v)} in process/config.json is not a number`));
   const cap = num(cfg.requirements_cap);
