@@ -11,8 +11,8 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
-import { P3, READY_NEXT, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
-import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
+import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
+import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
@@ -205,17 +205,20 @@ export function merge(root, n, opts = {}) {
     });
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
+    // The ready jobs' start first, before any other line BOB must read (coordinator, 4 Nov: a
+    // 25-minute ready-to-start wait was BOB's turn spent on other output first).
+    log(READY_FIRST);
     // The provider-change route: the notice this job leaves its users, and the notices its START
     // named, answered now that it merged. The merge stands if the write fails; the rows are printed.
     const notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, entry: baseEntry, log });
     // The notice it raised, triaged here, not in BOB's later batch (triageAtMerge); a failure
     // leaves the notice owed as before, and status names its triage.
-    const raised = (notes.rows || []).find((x) => x.row === 'notice');
-    let triage = null;
-    if (raised) {
-      try { triage = triageAtMerge(root, cfg, raised, { ref: tip, log }); } catch (e) { log(`the merge stands; notice ${raised.key} not triaged at the merge (${e.message}): ${P3} notice triage ${raised.key}`); }
-    }
+    const triage = triageStep(root, cfg, notes, { ref: tip, log });
     log(READY_NEXT);
+    // The triage's outcome again as the last line: BOB read merge 199's output through tail -3
+    // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
+    // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
+    if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
     return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
@@ -238,6 +241,25 @@ export function unagreed(runs, sha, attempt) {
 // own source (the tranche's entry, less tests, requirements, docs and records), requirement change
 // or none, naming its export changes; a job that changed only those others leaves none, and the
 // line says why.
+// The notice the merge left, triaged at once (triageAtMerge): the one it recorded now, or, on a
+// rerun that found it recorded already, the same notice. Never silent: a merge that leaves no
+// notice says so, and a failure names the triage act; the merge stands either way.
+export const triageLast = (t) => (t.error ? `notice triage at the merge FAILED (${t.error.split('\n')[0].slice(0, 160)}); next act: ${t.next}`
+  : t.owed?.length ? `notice triage at the merge: ${t.owed.length} owe a worker's judgment; ${t.next}` : String(t.why || '').startsWith('none to run') ? `notice triage at the merge: ${t.why}` : `notice triage at the merge: ${t.why || `${t.rows?.length || 0} row(s) written`}, none owed`);
+function triageStep(root, cfg, notes, { ref, log }) {
+  // On a rerun, the notice as recorded (its users as stored), and none when it was withdrawn.
+  let raised = (notes.rows || []).find((x) => x.row === 'notice') || null;
+  if (!raised && notes.notice) {
+    try { raised = notices(root, cfg.state_branch).find((x) => x.key === notes.notice.key) || null; } catch { raised = null; }
+    if (!raised) { const why = `notice ${notes.notice.key} is not on ${cfg.state_branch} (withdrawn, or unread)`; log(`notice triage at the merge: none to run (${why})`); return { rows: [], owed: [], why: 'none to run: ' + why }; }
+  }
+  if (!raised) { const why = notes.error ? `the notices were not written: ${notes.error.split('\n')[0]}; run the merge again` : 'the merge left no provider notice'; log(`notice triage at the merge: none to run (${why})`); return { rows: [], owed: [], why: 'none to run: ' + why }; }
+  try { return triageAtMerge(root, cfg, raised, { ref, log }); } catch (e) {
+    log(`the merge stands; notice triage ${raised.key} at the merge failed (${e.message}); next act: ${P3} notice triage ${raised.key}`);
+    return { rows: [], owed: raised.users || [], error: e.message, next: `${P3} notice triage ${raised.key}` };
+  }
+}
+
 function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
   const { notice, why, left } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
   if (why) log(`no provider notice: ${why}`);
@@ -249,6 +271,7 @@ function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
     log(`the merge stands, but its provider notices were not written to ${cfg.state_branch} (${e.message}); run merge ${n} again to record them`);
     return { rows: [], error: e.message };
   }
+  if (notice) notes = { ...notes, notice };
   for (const x of notes.rows) log(x.row === 'notice' ? `${noticeLine(x)} recorded for ${x.users.join(', ')}` : `provider notice ${x.key} answered by ${x.user}`);
   if (!notes.rows.length) log(`provider notices for PR ${n}: nothing to record`);
   return notes;
@@ -260,7 +283,10 @@ function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) 
   const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
   const entry = entryText.code === 0 ? JSON.parse(entryText.stdout) : null;
   log(`pull request ${n} is merged; recording only its provider notices`);
-  return { merged: true, sha: m, notices: noticeStep(root, cfg, { id, n, mb, head: h, at: m, entry, log }) };
+  const notices = noticeStep(root, cfg, { id, n, mb, head: h, at: m, entry, log });
+  const triage = triageStep(root, cfg, notices, { ref: m, log });
+  if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
+  return { merged: true, sha: m, notices, triage };
 }
 
 // A merge GitHub refuses because its base moved ("Base branch was modified") fetches the base,

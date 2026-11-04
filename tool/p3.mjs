@@ -14,7 +14,7 @@ import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metrics
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { startReady } from './lib/ready.mjs';
+import { readyCount, startReady } from './lib/ready.mjs';
 import { deployDev } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
 import { releaseBody, releaseDev, releaseRun, releaseSign, versionOf } from './lib/release.mjs';
@@ -67,7 +67,7 @@ const commands = {
     const [first, second] = a._;
     if (first === 'delivered' || first === 'failed') {
       outcome(root, sb, { from: a.from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
-    } else send(root, sb, { from: a.from, to: first, text: second });
+    } else send(root, sb, { from: a.from, to: first, text: second, ...(first === 'bob' ? { ready: () => readyCount(root) } : {}) });
     return 0;
   },
 
@@ -89,7 +89,7 @@ const commands = {
     // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
     if (a.ready) {
       if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap');
-      return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model }).ok ? 0 : 1;
+      return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions }).ok ? 0 : 1;
     }
     if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
     if (a.stop !== undefined && a.restart === undefined) fail('--stop archived|idle goes with --restart: how the replaced session stopped');
@@ -99,7 +99,7 @@ const commands = {
 
   // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id> --cost-usd <usd>]
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
-    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
+    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session, requireCost: true,
   }).ok ? 0 : 1),
 
   // job sync <id>: the job brings its branch up to date: origin's job/<id> (BOB's pushes) and the
