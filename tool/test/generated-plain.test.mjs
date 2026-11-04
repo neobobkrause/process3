@@ -322,6 +322,8 @@ test('untracking: a .gitignore line other than the untracked path, or a .gitigno
     ['a wider pattern', { '.gitignore': `${BUNDLE}\n*.sql\n` }],
     ['a pattern covering it', { '.gitignore': 'src/alpha/dist/\n' }],
     ['another module\'s new .gitignore', { '.gitignore': `/${BUNDLE}\n`, 'src/beta/.gitignore': '*.sql\n' }],
+    ['its bare name, which matches at every depth', { 'src/alpha/dist/.gitignore': 'alpha.bundle.json\n' }],
+    ['a line git shows as +++', { '.gitignore': `${BUNDLE}\n++*\n` }],
   ]) {
     const p = product({ 'process/metrics/alpha.jsonl': '{}\n' });
     git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
@@ -332,7 +334,7 @@ test('untracking: a .gitignore line other than the untracked path, or a .gitigno
     assert.equal(r.run.ok, false, what);
     assert.equal(r.run.refresh.result, 'other files changed', what);
     back(p);
-    assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /a refresh changes only|no green process-gate run/, what);
+    assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /a refresh changes only|no green process-gate run|module files, which go through a job/, what);
   }
   // Its own path from a nested .gitignore, anchored, with a comment, is the untracking's.
   const n = product({ 'process/metrics/alpha.jsonl': '{}\n' });

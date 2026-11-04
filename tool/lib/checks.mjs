@@ -117,10 +117,13 @@ export function ignoreLines(root, from, to, changed, files) {
     if (posix.basename(f) !== '.gitignore' || !exists(root, to, f)) return false;
     if (!/^\d+\t0\t/.test(git(['diff', '--numstat', '--no-renames', from, to, '--', f], { cwd: root }))) return false;
     const dir = posix.dirname(f) === '.' ? '' : `${posix.dirname(f)}/`;
-    const mine = files.filter((x) => x.startsWith(dir)).map((x) => x.slice(dir.length));
-    const added = git(['diff', '-U0', '--no-renames', from, to, '--', f], { cwd: root }).split('\n')
-      .filter((l) => l.startsWith('+') && !l.startsWith('+++')).map((l) => l.slice(1).trim());
-    return mine.length > 0 && added.every((l) => l === '' || l.startsWith('#') || mine.includes(l.replace(/^\//, '')));
+    // Only names git reads literally; a line names one file only when anchored: a leading slash,
+    // or a slash inside it (a bare name matches at every depth: confirming review).
+    const mine = files.filter((x) => x.startsWith(dir) && !/[*?[\\]|^[!#]|(^|\/)\s|\s$/.test(x.slice(dir.length))).map((x) => x.slice(dir.length));
+    const ok = (l) => l === '' || l.startsWith('#') || mine.includes(l.slice(1)) && l.startsWith('/') || l.includes('/') && mine.includes(l);
+    const diff = git(['diff', '-U0', '--no-renames', from, to, '--', f], { cwd: root }).split('\n');
+    const added = diff.slice(diff.findIndex((l) => l.startsWith('@@'))).filter((l) => l.startsWith('+')).map((l) => l.slice(1).trim());
+    return mine.length > 0 && added.every(ok);
   });
 }
 // Whether the checkout's .gitignore files ignore f (the gate's checkout is the head merged).
