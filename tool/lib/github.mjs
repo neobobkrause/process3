@@ -41,15 +41,27 @@ export function createPR(slug, { head, base, title, body, draft = true }) {
 }
 
 // job start --take-in: a taken-in pull request moved to the tranche (PATCH base) and made a
-// draft (GitHub's REST API has no way back to draft; the GraphQL mutation does).
+// draft. GitHub's REST API has no way back to draft and GraphQL, which has, is not reachable from
+// Claude Code sessions (copy, 4 Nov: site's attempt 2 stopped on it before its push); their proxy
+// names a REST route for it, tried first. Anywhere else the GraphQL mutation is the route.
 export function editPR(slug, n, fields) {
   const pr = gh(['api', '-X', 'PATCH', `repos/${slug}/pulls/${n}`, '--input', '-'], { input: JSON.stringify(fields) });
   if (!pr?.number) fail(`GitHub did not return pull request ${n} after the edit`);
   return pr;
 }
-export function toDraft(slug, pr) {
-  gh(['api', 'graphql', '-f', 'query=mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { pullRequest { isDraft } } }', '-f', `id=${pr.node_id}`]);
-  const now = getPR(slug, pr.number);
+export function toDraft(slug, pr, { call = (args) => run('gh', args), read = getPR } = {}) {
+  const tried = [
+    ['api', '-X', 'POST', `repos/${slug}/pulls/${pr.number}/ccr/convert_to_draft`],
+    ['api', 'graphql', '-f', 'query=mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { pullRequest { isDraft } } }', '-f', `id=${pr.node_id}`],
+  ];
+  const errors = [];
+  for (const args of tried) {
+    const r = call(args);
+    if (r.code === 0) break;
+    errors.push(`gh ${args.slice(0, 3).join(' ')}: ${(r.stderr || r.stdout || '').trim().split('\n')[0]}`);
+  }
+  if (errors.length === tried.length) fail(`could not make pull request ${pr.number} a draft: ${errors.join('; ')}`);
+  const now = read(slug, pr.number);
   if (!now?.draft) fail(`pull request ${pr.number} is still not a draft`);
   return now;
 }
@@ -124,7 +136,8 @@ export function verifyRow(slug, row, { pr, baseRef }, io = { getRun, runArtifact
 
 // GitHub's REST API has no ready-for-review call, and `gh pr ready` uses GraphQL, which Claude
 // Code sessions cannot reach (measured 1 Nov 2026, the first product job). Sessions reach it
-// through their proxy's REST route; anywhere else, `gh pr ready` is the route.
+// through their proxy's REST route; anywhere else, `gh pr ready` is the route. No other call in
+// the tool uses GraphQL (toDraft above takes the same two routes).
 export function markReady(slug, n, { call = (args) => run('gh', args), read = getPR } = {}) {
   const tried = [['api', '-X', 'POST', `repos/${slug}/pulls/${n}/ccr/ready_for_review`], ['pr', 'ready', String(n), '-R', slug]];
   const errors = [];

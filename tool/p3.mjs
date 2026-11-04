@@ -8,7 +8,7 @@ import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneAsk } from './lib/lane.mjs';
-import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
+import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
 import { checkLedger } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
@@ -94,6 +94,11 @@ const commands = {
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
     notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'],
   }).ok ? 0 : 1),
+
+  // job sync <id>: the job brings its branch up to date: origin's job/<id> (BOB's pushes) and the
+  // tranche merged in, both deepened from GitHub's compare in a shallow clone, then .process
+  // updated to the branch's pin. From a clean checkout without job/<id>, it checks it out first.
+  'job sync': (a, root) => (jobSync(root, one(a, 'module')).ok ? 0 : 1),
 
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.

@@ -5,7 +5,7 @@
 // The address files (addresses/<role>.json on the state branch) are written only here, through
 // state.mjs's writeState: a worktree of its own, pushed with fetch-and-retry, never forced.
 import { createHash } from 'node:crypto';
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { P3, rulebookLine } from './job.mjs';
@@ -37,6 +37,17 @@ export function readAddress(root, { fetch = true } = {}) {
 const setAddress = (dir, role, session, at, prompt) => {
   mkdirSync(join(dir, 'addresses'), { recursive: true });
   writeFileSync(join(dir, addressFile(role)), JSON.stringify({ session, at, ...(prompt ? { prompt } : {}) }, null, 2) + '\n');
+};
+
+// The address a role's file holds in a state worktree, re-read inside writeState's change: the
+// address read at the command's start may be stale (defect sweep 4 Nov, #11: the old BOB's prompt
+// refresh rewrote bob=old over ROOT's handover). Refuses, writing nothing, unless the file still
+// names one of `allowed` (null: no address yet).
+const holdsAddress = (dir, role, allowed, act) => {
+  const p = join(dir, addressFile(role));
+  let cur = null;
+  if (existsSync(p)) { try { const a = JSON.parse(readFileSync(p, 'utf8')); cur = a?.session || null; } catch { fail(`${addressFile(role)} is not JSON; nothing was changed`); } }
+  if (!allowed.includes(cur)) fail(`refused: ${role}'s address moved to ${cur || 'none'} while ${act} ran; nothing was changed`);
 };
 
 const PRIORITIES = [
@@ -216,7 +227,11 @@ export function recordStart(root, role, id, opts = {}) {
   // wake as ROOT delivers ROOT's prompt.
   const takeover = role === 'root' && a.watcher?.session === id;
   const prompt = takeover ? null : promptRecord(root, role, { address: { ...a, [role]: { session: id } } });
-  const { tip } = writeState(root, sb, `address: ${role} ${id}`, (dir) => setAddress(dir, role, id, at, prompt));
+  const prior = a[role]?.session || null;
+  const { tip } = writeState(root, sb, `address: ${role} ${id}`, (dir) => {
+    holdsAddress(dir, role, [prior, id], `start record ${role}`);
+    setAddress(dir, role, id, at, prompt);
+  });
   (opts.log || console.log)(`${role} is ${id} (${at}); ${sb} at ${tip}`);
   return { role, session: id, at, tip };
 }
@@ -249,6 +264,7 @@ export function handoverConfirm(root, id, opts = {}) {
   const sb = loadConfig(root).state_branch;
   const prompt = promptRecord(root, 'bob', { address: a, oldBob: old });
   const { tip } = writeState(root, sb, `handover: bob ${old} -> ${id}`, (dir) => {
+    holdsAddress(dir, 'bob', [old], 'handover confirm');
     setAddress(dir, 'bob', id, at, prompt);
     mkdirSync(join(dir, 'metrics'), { recursive: true });
     appendFileSync(join(dir, HANDOVER_FILE), JSON.stringify({ at, row: 'handover', old, new: id }) + '\n');
@@ -309,6 +325,9 @@ export function promptRefresh(root, { session, pin = pinOf(), slug, log = consol
   log(prompt, size(prompt));
   log(`Acts by the new prompt from this wake on; ${FRESH[role]}.`);
   const sb = loadConfig(root).state_branch;
-  writeState(root, sb, `prompt: ${role} ${me} at ${pin.slice(0, 10)}`, (dir) => setAddress(dir, role, me, rec.at, { hash: h, ...(oldBob ? { old_bob: oldBob } : {}) }));
+  writeState(root, sb, `prompt: ${role} ${me} at ${pin.slice(0, 10)}`, (dir) => {
+    holdsAddress(dir, role, [me], 'the prompt refresh');
+    setAddress(dir, role, me, rec.at, { hash: h, ...(oldBob ? { old_bob: oldBob } : {}) });
+  });
   return { act: 'changed', role, prompt, hash: h };
 }
