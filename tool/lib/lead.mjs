@@ -197,6 +197,12 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
   // this tranche's or earlier; with none by then, its first after, so the module started before
   // it was ready: 0; with no merge row at all, the opening). Otherwise its layer's opening
   // (readyAt). { at, by, waited_on }.
+  // When the module's ledger entry first reached ref (its adding commit's time), or null unread.
+  const entryMade = (m) => {
+    if (!ref) return null;
+    const t = git(['log', '--diff-filter=A', '--format=%cI', ref, '--', entryFile(m)], { cwd: root, allowFail: true }).stdout.trim().split('\n').filter(Boolean).at(-1);
+    return t && Number.isFinite(Date.parse(t)) ? new Date(t).toISOString() : null;
+  };
   const mergesOf = (p) => allMerges.filter((r) => r.module === p).map((r) => r.at).sort();
   const readyOf = (m, firstStart) => {
     const u = usesOf.get(m);
@@ -216,6 +222,10 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
       if (Date.parse(t) > Date.parse(at)) { at = t; on = p; }
     }
     if (early) return { at: null, by: 'uses', early };
+    // The module had no ledger entry until later (a found mark's job, member-roster and money on
+    // the copy, 4 Nov): it was ready when its entry was made, the later of the two.
+    const made = entryMade(m);
+    if (made && Date.parse(made) > Date.parse(at)) return { at: made, by: 'entry', ...(on ? { waited_on: on } : {}) };
     return { at, by: 'uses', ...(on ? { waited_on: on } : {}) };
   };
   // What held a module past its ready time (a wait over its target), where the record shows it: a sweep at or after the

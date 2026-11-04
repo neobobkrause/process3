@@ -63,6 +63,21 @@ test('job complete runs the checks and the suite, then sets COMPLETE and builds 
   assert.equal(r.receipt.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
 });
 
+test('job complete --cost-usd writes the job\'s own cost row, its session\'s cost since its last row; a bad value is refused before anything runs', () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  assert.throws(() => jobComplete(root, 'alpha', { push: false, costUsd: 'lots', session: 's1', log: quiet }), /--cost-usd <your session's cost so far/);
+  assert.equal(jobComplete(root, 'alpha', { push: false, costUsd: '2.5', session: 's1', log: quiet }).ok, true);
+  const rows = readRows(root, 'alpha');
+  const m = rows.filter((r) => r.event === 'measured');
+  assert.deepEqual(m.map((r) => [r.role, r.session, r.session_usd, r.cost_usd]), [['job', 's1', 2.5, 2.5]]);
+  // The report reads it as the job's cost.
+  const o = overhead(rows);
+  assert.equal(o.jobs.find((j) => j.module === 'alpha').job_usd, 2.5);
+});
+
 test('job complete refuses on a red suite and leaves the status alone', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });

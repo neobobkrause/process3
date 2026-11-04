@@ -282,14 +282,20 @@ test('merge of the provider\'s job records the notice; merge of a user\'s job an
   const p = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': REQ.replace('*(not yet met: x)* ', ''), 'process/metrics/p.jsonl': done });
   const r = merge(root, 7, { slug: 'o/r', io: p, reviewed: 'fresh', rounds: 1, log: quiet });
   assert.deepEqual(r.notices.rows.map((x) => [x.row, x.key, x.ids, x.users]), [['notice', 'p:7', ['R1'], ['u1', 'u2']]]);
+  // Triage at the merge: neither user has a file importing p, so both are answered not affected.
+  assert.deepEqual(r.triage.rows.filter((x) => x.row === 'triage').map((x) => [x.user, x.verdict]), [['u1', 'not affected'], ['u2', 'not affected']]);
+  assert.deepEqual(r.triage.owed, []);
+  assert.equal(r.triage.next, null);
+  assert.match(r.triage.rows[0].evidence, /^process\/modules\.json:\d+ u1 \(src\/u1\/\) holds no file that imports p/);
+  // u1's job, which named the notice, merges after: its answer is already on the state branch.
   const start = JSON.stringify({ event: 'start', notices: ['p:7'] }) + '\n';
   const u = mergeFixture(root, 'u1', { 'test/u1/p.test.mjs': passing('x'), 'process/metrics/u1.jsonl': start + done });
   const r2 = merge(root, 9, { slug: 'o/r', io: u, reviewed: 'fresh', rounds: 1, log: quiet });
-  assert.deepEqual(r2.notices.rows.map((x) => [x.row, x.key, x.user]), [['answered', 'p:7', 'u1']]);
+  assert.deepEqual(r2.notices.rows, []);
   const sb = loadConfig(root).state_branch;
   fetchState(root, sb, { fresh: true });
-  assert.equal(JSON.parse(readState(root, sb, 'notices/answered/u1-p-7.json')).key, 'p:7');
-  assert.deepEqual(notices(root, sb)[0].open, ['u2']);
+  assert.equal(JSON.parse(readState(root, sb, 'notices/answered/u1-p-7.json')).by, 'triage');
+  assert.deepEqual(notices(root, sb)[0].open, []);
 });
 
 test('merge run again on a merged job pull request records only its provider notices, once', () => {
@@ -526,7 +532,9 @@ test('merge of a provider job that changed its exports with no requirement chang
   assert.match(brief, /- removed: Accounts\.groupKeyState, Accounts\.keySet\n- changed: Accounts\.accountFor \(id\) -> \(id, \{ scope \}\)\n- added: Accounts\.groupKeySwitches/);
   assert.match(brief, /decide whether the module uses the changed behaviour or any export removed or changed/);
   // Each user with only its files that import the provider, and their import lines.
-  assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1\n- u2: src\/u2\/; no file imports p$/);
+  // u2, importing nothing of p, was answered at the merge; only u1 is left for the worker.
+  assert.match(out.join('\n'), /notice triage p:50 at the merge: 1 of 2 not affected \(no file imports p\), answered; 1 import it and owe a worker's judgment: u1/);
+  assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1$/);
 });
 
 test('a source change with no export change still records a notice, with no exports named; a test-only change with no requirement change records none', () => {

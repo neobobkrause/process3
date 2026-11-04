@@ -11,11 +11,19 @@ import { P3, jobStart } from './job.mjs';
 import { status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
+const LAUNCH = /^start the job session with create_session:/;
+
 export function startable(next, { onOrigin = () => false } = {}) {
   const go = [];
   const skip = [];
+  const seen = new Set();
   for (const x of next || []) {
     if (!x?.file || x.over || x.triage || x.missing || x.found_no_module) continue;
+    if (x.module && seen.has(x.module)) continue;
+    if (x.module) seen.add(x.module);
+    // A module with an attempt open (a pull request, commits the tranche lacks, a flag) is never
+    // started again here: status names its act (review of PR 100: a second notice relaunched it).
+    if (x.attempt_open) { skip.push({ file: x.file, id: x.module, why: 'its attempt is open: status says what it needs' }); continue; }
     if (!x.module) { skip.push({ file: x.file, why: 'no ledger entry: BOB writes it, then job start --ready starts it' }); continue; }
     // An OPEN entry with its branch on origin is a start already pushed (status lists its state);
     // a COMPLETE module keeps its merged branch, which job start's reopen moves on.
@@ -45,13 +53,24 @@ export function startReady(root, { live, coordinator, model, log = console.log, 
   const failed = [];
   for (const j of now) {
     log(`--- job start ${j.id}${j.reopen ? ` --reopen "${j.reopen}"` : ''}`);
+    // Each start's lines are held until it ends: a start that fails after printing its launch
+    // shows no launch, so BOB delivers only those of jobs that started (review of PR 100).
+    const held = [];
     try {
-      const r = start(root, j.id, { coordinator, model, ...(j.reopen ? { reopen: j.reopen } : {}), log });
+      const r = start(root, j.id, { coordinator, model, ...(j.reopen ? { reopen: j.reopen } : {}), log: (l) => held.push(l) });
+      // A resumed start whose pull request was already open may have its session running.
+      if (r?.resumed && r.pr && !r.created) {
+        for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);
+        failed.push({ id: j.id, why: 'a resumed start with its pull request open: check sessions; job start <id> prints its launch' });
+        log(`not started: ${j.id}: its pull request was already open; a session may be running. Check your sessions; \`${P3} job start ${j.id}\` prints its launch when none is`);
+        continue;
+      }
+      for (const l of held) log(l);
       started.push({ id: j.id, launch: r?.launch, subscribe: r?.subscribe });
     } catch (e) {
-      if (!(e instanceof Fail)) throw e;
+      for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);
       failed.push({ id: j.id, why: e.message });
-      log(`not started: ${j.id}: ${e.message}`);
+      log(`not started: ${j.id}: ${e.message}${e instanceof Fail ? '' : ' (an unexpected error; the other starts went on)'}`);
     }
   }
   if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);

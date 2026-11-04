@@ -402,7 +402,7 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
       if (!u) continue;
       const missing = u.filter((p) => !where.has(p));
       if (missing.length && L.n > ls.cur.n) gaps.push({ id: m.id, layer: L.n, missing });
-      if (L.n > ls.cur.n && !missing.length && !m.open && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
+      if (L.n > ls.cur.n && !missing.length && (!m.open || m.row?.unstarted) && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
     }
   }
   return { ready, gaps };
@@ -425,7 +425,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const ready = [];
   for (const m of where.values()) {
-    if (!m.found.length || m.open || m.blocked) continue;
+    if (!m.found.length || (m.open && !m.row?.unstarted) || m.blocked) continue;
     const u = uses.get(m.id);
     // A module with no requirement file: its found-work entry is the file listed.
     if (u ? u.filter((p) => p !== m.id).every(done) : reached(m.layer)) ready.push(read(m.file) === null ? { ...m, file: foundFile(m.id), entry: true } : m);
@@ -504,7 +504,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   // Read whole (git show without allowFail drops the last newline): the cap counts every byte.
   const whole = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : null) : read(f));
   // A user module triage judged affected: notice work, whatever its layer or marks.
-  const affected = Object.entries(owed).map(([u, ns]) => [u, ns.filter((n) => n.triage)]).filter(([, ns]) => ns.length);
+  const affected = Object.entries(owed).map(([u, ns]) => [u, ns.filter((n) => n.triage && !n.rerun)]).filter(([, ns]) => ns.length);
   const byFile = new Map(affected.map(([u, ns]) => [rows.find((r) => r.id === u)?.req || `${dir}/${u}.md`, ns]));
   const inLayer = new Set(files);
   const texts = new Map();
@@ -517,7 +517,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche } : {}), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);

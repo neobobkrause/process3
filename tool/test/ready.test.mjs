@@ -100,3 +100,33 @@ test('status --role bob, origin read: an OPEN entry with no job branch on origin
   // GitHub unread: nothing is marked, so nothing is started on a guess.
   assert.deepEqual(see(null).rows.filter((x) => x.unstarted), []);
 });
+
+test('job start --ready, review of PR 100: an open attempt is not restarted, a module listed twice starts once, a failed start shows no launch, a resumed start with its PR open is not counted', () => {
+  const root = makeRepo({ 'process/config.json': JSON.stringify({ live_cap: 9 }) });
+  const next = [
+    { file: 'r/x.md', count: 0, module: 'x', entry_state: 'COMPLETE', notices: ['p:2'], attempt_open: true },
+    { file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN' },
+    { file: 'r/a2.md', count: 1, module: 'a', entry_state: 'OPEN' },
+    { file: 'r/b.md', count: 1, module: 'b', entry_state: 'OPEN' },
+    { file: 'r/c.md', count: 1, module: 'c', entry_state: 'OPEN' },
+  ];
+  const calls = [];
+  const out = [];
+  const r = startReady(root, {
+    live: 0, remote: new Set(), log: (m) => out.push(m), read: () => ({ next }),
+    start: (_, id, o) => {
+      calls.push(id);
+      o.log('start the job session with create_session:\n{}');
+      if (id === 'b') throw new SyntaxError('Unexpected token');
+      if (id === 'c') return { resumed: true, pr: { number: 4 }, created: false };
+      return { launch: {} };
+    },
+  });
+  assert.deepEqual(calls, ['a', 'b', 'c']);
+  assert.deepEqual(r.started.map((x) => x.id), ['a']);
+  assert.deepEqual(r.failed.map((x) => x.id), ['b', 'c']);
+  assert.equal(out.filter((l) => l.startsWith('start the job session')).length, 1, 'only the started job\'s launch is shown');
+  assert.match(out.join('\n'), /not started: x: its attempt is open/);
+  assert.match(out.join('\n'), /not started: b: Unexpected token \(an unexpected error; the other starts went on\)/);
+  assert.match(out.join('\n'), /not started: c: its pull request was already open/);
+});

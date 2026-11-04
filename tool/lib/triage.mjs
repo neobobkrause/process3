@@ -228,3 +228,51 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   if (wake) log(wake);
   return { rows, left };
 }
+
+// Triage at the merge (coordinator, 4 Nov: every real ready-to-start wait on the copy since 06:00
+// was a notice waiting 33 to 57 minutes for BOB's batch triage). The merge that raises a notice
+// triages it in the same command by the rule the briefs already use (PR 89): a user module whose
+// paths hold no file importing the provider, as the gate's imports check finds an import, is
+// recorded not affected, its notice answered, with the modules file's line for it and the commit
+// read as its evidence. A module that imports the provider needs a worker's judgment: it stays
+// owed, and the merge names that one notice's `notice triage` as BOB's next act at once. A module
+// with no paths in the modules file is never judged here.
+export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = console.log } = {}) {
+  if (!notice?.key || !Array.isArray(notice.users) || !notice.users.length) return { rows: [], owed: [] };
+  const key = notice.key;
+  const sb = cfg.state_branch;
+  fetchState(root, sb, { fresh: true });
+  const tri = triageRows(root, sb);
+  const owed = notice.users.filter((u) => !tri.has(`${key}\0${u}`));
+  if (!owed.length) return { rows: [], owed: [] };
+  const sha = git(['rev-parse', ref], { cwd: root });
+  const mods = sizes(root, cfg, owed, sha, notice.provider);
+  const modulesText = exists(root, sha, cfg.modules_file) ? git(['show', `${sha}:${cfg.modules_file}`], { cwd: root, allowFail: true }).stdout : '';
+  const lineOf = (u) => { const i = modulesText.split('\n').findIndex((l) => l.includes(`"${u}"`)); return i < 0 ? null : i + 1; };
+  const clear = mods.filter((m) => m.paths.length && !m.imports.length && lineOf(m.id));
+  const left = owed.filter((u) => !clear.some((m) => m.id === u));
+  const at = new Date().toISOString();
+  const common = { at, key, worker: 'merge: imports check', cost: '0' };
+  const want = clear.flatMap((m) => {
+    const evidence = `${cfg.modules_file}:${lineOf(m.id)} ${m.id} (${m.paths.join(', ')}) holds no file that imports ${notice.provider}, by the gate's imports check at ${sha.slice(0, 10)}`;
+    return [[triageFile(m.id, key), { row: 'triage', user: m.id, verdict: 'not affected', evidence, ...common }],
+      [answerFile(m.id, key), { row: 'answered', user: m.id, by: 'triage', evidence, ...common }]];
+  });
+  let rows = [];
+  if (want.length) {
+    rows = writeState(root, sb, `notice triage ${key} at its merge: ${clear.length} module(s) not affected by imports`, (wt) => {
+      const dir = resolve(wt, NOTICES_DIR) + sep;
+      const add = want.filter(([f]) => resolve(wt, f).startsWith(dir) && !existsSync(join(wt, f)));
+      for (const [f, row] of add) {
+        mkdirSync(dirname(join(wt, f)), { recursive: true });
+        writeFileSync(join(wt, f), JSON.stringify(row) + '\n');
+      }
+      return { rows: add.map(([, row]) => row) };
+    }).rows;
+  }
+  log(`notice triage ${key} at the merge: ${clear.length} of ${owed.length} not affected (no file imports ${notice.provider}), answered${left.length ? `; ${left.length} import it and owe a worker's judgment: ${left.join(', ')}` : ''}`);
+  const next = left.length ? `next act: ${P3} notice triage ${key} (${left.length} module${left.length === 1 ? '' : 's'}: a read-only worker judges them now, not in a later batch)` : null;
+  const wake = next && as !== 'bob' ? wakeLine(`notice ${key} owes triage of ${left.length}: ${P3} notice triage ${key}, then status`, as) : null;
+  if (next) log(wake || next);
+  return { rows, owed: left, next: wake || next };
+}

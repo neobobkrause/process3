@@ -210,3 +210,19 @@ test('8: replace names its stop\'s source, and restarts logged within a minute r
   assert.equal(by.f[0].minutes, 10);
   assert.equal(lt2.jobs.length, 6);
 });
+
+test('ready to start: a module whose ledger entry was made after its provider merged is ready when its entry was made (coordinator, 4 Nov: member-roster, money)', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  // The entry for u3 lands at minute 40, after q2's merge at 30; its job starts at 45.
+  const env = { GIT_COMMITTER_DATE: t(40), GIT_AUTHOR_DATE: t(40) };
+  const prev = { ...process.env };
+  Object.assign(process.env, env);
+  try { commit(root, { 'process/ledger/u3.json': '{}' }, 'entry u3'); } finally { for (const k of Object.keys(env)) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } }
+  const cfg = loadConfig(root);
+  const rows = [start('p2', 1), merge('p2', 20, 1), start('q2', 2), merge('q2', 30, 2), start('u3', 45)];
+  const lt = leadTimes(root, cfg, { ref: 'HEAD', rows, layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
+  const u3 = lt.jobs.find((j) => j.module === 'u3').ready_to_start;
+  assert.equal(u3.minutes, 5, 'ready at its entry (40), not at q2\'s merge (30)');
+  assert.equal(u3.ready_by, 'entry');
+  assert.equal(u3.ready, t(40));
+});

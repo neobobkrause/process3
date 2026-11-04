@@ -13,6 +13,7 @@ import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
 import { P3, READY_NEXT, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, providerChange, recordAtMerge } from './notice.mjs';
+import { triageAtMerge } from './triage.mjs';
 import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, isGenerated, refreshOthers } from './checks.mjs';
@@ -206,8 +207,15 @@ export function merge(root, n, opts = {}) {
     // The provider-change route: the notice this job leaves its users, and the notices its START
     // named, answered now that it merged. The merge stands if the write fails; the rows are printed.
     const notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, entry: baseEntry, log });
+    // The notice it raised, triaged here, not in BOB's later batch (triageAtMerge); a failure
+    // leaves the notice owed as before, and status names its triage.
+    const raised = (notes.rows || []).find((x) => x.row === 'notice');
+    let triage = null;
+    if (raised) {
+      try { triage = triageAtMerge(root, cfg, raised, { ref: tip, log }); } catch (e) { log(`the merge stands; notice ${raised.key} not triaged at the merge (${e.message}): ${P3} notice triage ${raised.key}`); }
+    }
     log(READY_NEXT);
-    return { merged: true, sha: r.sha, tip, notices: notes, next: READY_NEXT };
+    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
   } finally {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
     rmSync(wt, { recursive: true, force: true });
