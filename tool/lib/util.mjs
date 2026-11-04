@@ -118,19 +118,21 @@ export const DEFAULTS = {
 export const OPEN_BY = ['uses', 'layer'];
 
 // A requirement mark (P7), the one parser every count and check uses (job complete's struck
-// marks, status and its layers, layer close, the report, the requirements cap): `**R<id>**`,
-// then any parentheticals on the same line, then `*(not yet met`. The copy writes
-// `**R23** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) *(not yet met: T53; per C3)*`
-// (4 Nov: local-facts R23 and R25 were struck with no --test, uncounted). A parenthetical holds
-// no `*` and no line break and nests one level, so bold prose between the id and a later
-// "not yet met" is never read as the mark.
-const PAREN = String.raw`\((?:[^()*\n]|\([^()*\n]*\))*\)`;
-const UNMET_TAIL = String.raw`(?:[ \t]*${PAREN})*[ \t]*\*\(not yet met`;
-export const UNMET = new RegExp(String.raw`\*\*(R[\w.-]+)\*\*${UNMET_TAIL}`, 'g');
-// Every mark of a requirement file, and those still unmet, in file order.
+// marks, status and its layers, layer close, the report, the requirements cap). A requirement
+// line starts with `**R<id>**` (after any indent and one list marker: `- `, `* `, `1. `); it is
+// unmet when it holds the exact mark `*(not yet met` anywhere on that line: right after the id
+// (`**R36** *(not yet met: T40)*`), after a parenthetical (`**R23** (T53; DEC-151 (2)) *(not
+// yet met: T53)*`, PR 74), or at its end after the bold title (`**R127** (T53) **A piece is
+// read in bounds.** ... *(not yet met: T53)*`, 332 more marks on the copy's tranche, 4 Nov; the coordinator's
+// ruling under P17). Prose is never read: a line not starting with an id, a mark on another
+// line, or the words outside that italic form. A line ends at \n or \r (review of PR 77).
+const REQ_LINE = String.raw`^[ \t]*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*(R[\w.-]+)\*\*`;
+const MARK_TEXT = '*(not yet met';
+export const UNMET = new RegExp(String.raw`${REQ_LINE}[^\r\n]*?\*\(not yet met`, 'gm');
+// Every requirement line's id, and those still unmet, in file order.
 export function requirementMarks(text) {
-  const all = [...String(text || '').matchAll(new RegExp(String.raw`\*\*(R[\w.-]+)\*\*(${UNMET_TAIL})?`, 'g'))];
-  return { all: all.map((m) => m[1]), unmet: all.filter((m) => m[2]).map((m) => m[1]) };
+  const lines = [...String(text || '').matchAll(new RegExp(String.raw`${REQ_LINE}([^\r\n]*)`, 'gm'))];
+  return { all: lines.map((m) => m[1]), unmet: lines.filter((m) => m[2].includes(MARK_TEXT)).map((m) => m[1]) };
 }
 export const unmetIds = (text) => requirementMarks(text).unmet;
 

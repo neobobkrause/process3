@@ -823,3 +823,22 @@ test('the START: the escalation to ROOT after decision_minutes, its limits, and 
   assert.ok(own.includes('No answer from BOB in 30 min: send it once more, then to ROOT, then the watcher, with the minutes'), 'none addressed: address reads them');
   assert.ok(own.includes('- the wake that job complete or block prints'), 'an entry with its own acts keeps the wake');
 });
+
+test('a mark at the end of a requirement line, after its bold title, is struck like any other, and needs its --test', () => {
+  const root = product();
+  // The copy's acquisition R127 shape (the coordinator's ruling under P17, 4 Nov).
+  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** (T53; N1259; K4403 (2)) **Reads in slices.** Control: no resume. *(not yet met: T53)*\n- **R2** (T53) **Does y.** *(not yet met: T53)*\n  (T53; R1: a continuation line) *(not yet met: T53)*\n' });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    // R1's mark struck; the continuation line's words are prose and stay as they were.
+    'req/alpha.md': '# alpha\n\n- **R1** (T53; N1259; K4403 (2)) **Reads in slices.** Control: no resume.\n- **R2** (T53) **Does y.** *(not yet met: T53)*\n  (T53; R1: a continuation line) *(not yet met: T53)*\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 slices', () => {});\n",
+    'src/alpha/x.mjs': 'export const x = 1;\n',
+  });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  assert.throws(() => run([]), /struck R1 with no --test/);
+  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 slices']), /no mark for R2 that this branch struck \(struck: R1\)/);
+  assert.deepEqual(run(['R1=test/alpha/x.test.mjs::R1 slices']).receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 slices' }]);
+});
