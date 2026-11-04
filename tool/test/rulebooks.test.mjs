@@ -57,7 +57,7 @@ test('ROOT and the watcher carry the act to the coordinator session, and their r
     assert.ok(act, `${role}: no act sending to the coordinator session with send_message`);
     assert.match(act, /technical question.*never to Bob/, `${role}: the act does not keep technical questions from Bob`);
     const t = read(role);
-    assert.match(t, /Technical choices \(a process3 fix or not, a restart, a route\) go to the coordinator session named by `coordinator` in process\/config\.json, by send_message, never to Bob\./, `${role}: rulebook lacks the routing rule`);
+    assert.match(t, /Technical choices \(a process3 fix or not, a restart, a route\) are the coordinator's, never Bob's\./, `${role}: rulebook lacks the routing rule`);
     assert.equal(t.split("rule 9's test").length - 1, 1, `${role}: rule 9's test stated other than once`);
     assert.equal(t.split('his approvals or accounts, or an act only he can take').length - 1, 1, `${role}: the test's words other than once`);
   }
