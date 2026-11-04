@@ -63,6 +63,7 @@ test('job start --fresh-branch cuts the next free job/<id>-<n> from the tranche,
   // A later fresh start reads the latest branch and takes the next free suffix after it.
   const r2 = jobStart(root, 'alpha', { coordinator: 's', fresh: 'again', push: false, log: quiet });
   assert.match(r2.start, /Your branch is `job\/alpha-4`/);
+  assert.equal(r2.attempt, 3, 'the attempt follows the old branch\'s highest');
   git(['checkout', '-q', 'job/alpha-4'], { cwd: root });
   assert.equal(readRows(root, 'alpha').pop().fresh.from, 'job/alpha-3');
 });

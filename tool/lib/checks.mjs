@@ -116,7 +116,7 @@ export function refreshCheck(root, files, { ran, failed = false, others = [] }) 
 // A failed command's output (run 41883960626: its last five lines, joined, were node --test's
 // summary and held none of the failure). The finding: its first failure line, else its last five
 // lines. The log: of stdout and of stderr each, every failure line and the last 40 lines.
-const FAILED = /^\s*(FAIL|not ok|!|✖)|Error/;
+const FAILED = /^\s*(FAIL\b|not ok\b|!|✖|[A-Za-z]*Error\b)/;
 const lines = (t) => String(t || '').trimEnd().split('\n');
 const tail = (r) => [...lines(r.stdout), ...lines(r.stderr)].find((l) => FAILED.test(l))?.trim() || (r.stdout + r.stderr).trim().split('\n').slice(-5).join(' ');
 const lastLines = (r) => ['stdout', 'stderr'].filter((k) => String(r[k] || '').trim()).map((k) => {
@@ -187,7 +187,7 @@ export function buildGenerated(root, rows, { ref = 'HEAD', timeout, exec = run, 
     if (!paths.length) continue;
     ran.add(r);
     const g = exec(r.regenerate[0], r.regenerate.slice(1), { cwd: root, timeout: Math.max(1000, end - Date.now()), unset: NO_TOKENS });
-    log(`generated, built (not committed): ${paths.join(', ')}: ${r.regenerate.join(' ')}: exit ${g.code}`);
+    log(`generated, built (not committed): ${paths.join(', ')}: ${r.regenerate.join(' ')}: exit ${g.code}, ${Math.round(g.seconds ?? 0)} s`);
     if (g.code !== 0) {
       findings.push({ check: 'generated', file: paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}) building ${paths.join(', ')}: ${tail(g)}` });
       log(lastLines(g));

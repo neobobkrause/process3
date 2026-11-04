@@ -256,7 +256,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const starts = rowsAt(root, push ? `origin/${branch}` : branch, id).filter((r) => r.row === 'attempt' && r.event === 'start');
     // A fresh start whose push landed and whose pull request did not open resumes; it is not cut again.
     if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} without --fresh-branch and it resumes`);
-    const prior = starts.length;
+    const prior = Math.max(starts.length, ...starts.map((r) => Number(r.attempt) || 0));
     fresh0 = { from: branch, why: String(fresh).trim(), prior };
     branch = `job/${id}-${n}`;
   }

@@ -533,9 +533,11 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
     row.seconds += s.seconds;
     if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
     const out = /ETIMEDOUT/.test(s.output);
-    // Base-red has its own budget, as the suite's has (PR 117), and its time is not the cap's.
+    // Base-red has its own budget, the suite's (suite_timeout_minutes; PR 117), and its time is not
+    // the cap's (copy, 4 Nov: the base build of bundles.mjs timed out in about half the runs
+    // within the 120 s smoke cap, which the base install, build and run shared).
     const t0 = Date.now();
-    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: seconds * 1000, ...(exec ? { exec } : {}), log });
+    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, ...(exec ? { exec } : {}), log });
     end += Date.now() - t0;
     if (br?.ok) {
       row.base_red.push({ module: e.id, ...br.base_red });
