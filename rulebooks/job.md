@@ -6,7 +6,6 @@ For a job session, read once at start, after your START. Your START wins where t
 
 1. Every claim about your work is checked in git or GitHub, never taken from your words: the receipt is what counts (JOB-7, REC-5). Held by `job complete` and CI.
 2. Caution is a cost, paid only against a measured failure or Bob's word (GAP-3; Bob, 2 Nov). Nudge.
-3. Every hard rule has a legitimate blocked exit; use it rather than a way around (ENF-7). Held by `block` and `status`.
 
 ## Rules
 

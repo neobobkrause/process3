@@ -4,7 +4,7 @@ For ROOT, read once at start, after your prompt. Your prompt wins where the two 
 
 ## Principles (TXT-4)
 
-1. No session starts its own successor (PLT-5, SES-1). Held by `start bob`, which refuses while a BOB is addressed.
+1. No session starts its own successor: a new BOB comes only from you, by the handover (PLT-5, SES-1). Held by `start bob` and `start record bob`, which refuse a second BOB.
 2. Git carries state and a message only wakes, after the push (MSG-1). Held by `send`.
 
 ## Rules

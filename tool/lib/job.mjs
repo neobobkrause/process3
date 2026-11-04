@@ -23,7 +23,7 @@ export const P3 = 'node .process/tool/p3.mjs';
 // description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
 export const RULEBOOKS = ['bob', 'root', 'watcher', 'job', 'worker'];
 export const rulebook = (role) => `.process/rulebooks/${role}.md`;
-export const rulebookLine = (role, who = 'your prompt') => `Read \`${rulebook(role)}\` once, now: your rulebook, at most ten rules; ${who} wins where they differ.`;
+export const rulebookLine = (role, who = 'your prompt') => `Your rulebook is \`${rulebook(role)}\`: read it once, after \`git submodule update --init .process\` fills the pin; ${who} wins where they differ.`;
 
 // The role's reading set with sizes (SES-5, JOB-10).
 // With cfg, it also carries the requirement file's size against requirements_cap (REQ-6).
