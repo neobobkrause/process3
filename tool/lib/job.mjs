@@ -559,13 +559,30 @@ function struckTests(root, entry, base, given, notices = []) {
 
 // The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
 // and the branch is deepened down to it (its commits beyond the tranche, plus one), so the range
-// base..HEAD the checks walk is whole and the base's tree is here.
+// base..HEAD the checks walk is whole and the base's tree is here. The base's own history is
+// deepened too, until base..origin/<branch> holds exactly the commits GitHub counts ahead: a
+// job that merged the tranche reaches, through its first attempt, tranche commits below the
+// base's cut, which a cut base cannot exclude, so the record check judged them again, against
+// the base or as root commits (copy, 4 Nov, PR 81 path). Deepened by doubling, then whole; if
+// the range still differs, it says so and judges nothing.
 export function shallowBase(root, slug, tranche, branch, read = compare) {
   const c = read(slug, tranche, branch);
   const sha = c?.merge_base_commit?.sha;
   if (!/^[0-9a-f]{40,64}$/.test(sha || '') || !Number.isInteger(c.ahead_by)) fail(`this clone is shallow and GitHub did not give the merge base of ${branch} and ${tranche}; run job complete again`);
-  git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  const ref = `+refs/heads/${branch}:refs/remotes/origin/${branch}`;
+  git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', ref], { cwd: root });
   if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', '--depth=1', 'origin', sha], { cwd: root });
+  const count = () => Number(git(['rev-list', '--count', `refs/remotes/origin/${branch}`, `^${sha}`], { cwd: root }));
+  const tr = `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`;
+  for (let n = 32; count() !== c.ahead_by; n *= 4) {
+    if (!isShallow(root)) break;
+    const r = n > 32768
+      ? git(['fetch', '-q', '--unshallow', 'origin', tr, ref], { cwd: root, allowFail: true })
+      : git(['fetch', '-q', `--deepen=${n}`, 'origin', tr, ref], { cwd: root, allowFail: true });
+    if (r.code !== 0) fail(`this clone is shallow and could not read the job's range (git fetch: ${r.stderr.trim().split('\n').pop()}); run job complete again`);
+  }
+  const got = count();
+  if (got !== c.ahead_by) fail(`this clone could not read the job's range: ${got} commit(s) after ${sha.slice(0, 10)} here, GitHub counts ${c.ahead_by}; nothing was judged; run job complete again`);
   return sha;
 }
 
