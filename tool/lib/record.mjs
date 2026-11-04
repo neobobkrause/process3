@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
+import { metricsFile } from './metrics.mjs';
 import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
@@ -149,6 +150,43 @@ export function recordSince(root, { base, head = 'HEAD' } = {}) {
   return { since: sha, from: 'head' };
 }
 
+// Take-in scope (the coordinator's rule, 4 Nov 2026, copy PR 86): a job started with
+// `job start <id> --take-in` merged earlier work made before Process3 into the tranche; its
+// commits before the take-in start commit are earlier work, already judged as a whole by the
+// take-in (every file it changes against the tranche within the module's paths, else refused),
+// and they may predate the process files and the approvals (copy, 4 Nov: ten such merges gave 70
+// findings no job can clear without rewriting history). So the record check leaves out the
+// commits reachable from the tip the start row records (take_in.tip); the take-in start commit
+// and everything after it are judged as before, and the gate's ownership check still judges the
+// net change. The row is the job's own, so the tip is used only when it is what a take-in
+// writes: a full commit id; the first parent of a commit in the range that adds a start row
+// naming it; and no commit it leaves out writes the job's metrics file, so no job start, and
+// nothing made after one, can be hidden behind a later row. Otherwise it is a finding and
+// nothing is left out.
+export function takenIn(root, { base, head = 'HEAD', id } = {}) {
+  const out = { tips: [], findings: [] };
+  if (!id || !/^[a-z0-9-]+$/.test(id)) return out;
+  const file = metricsFile(id);
+  const rowsAt = (rev) => (show(root, rev, file) || '').split('\n').flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === 'object' ? [r] : []; } catch { return []; } });
+  const names = (rev, tip) => rowsAt(rev).some((r) => r.event === 'start' && r.take_in?.tip === tip);
+  const claimed = [...new Set(rowsAt(head).filter((r) => r.event === 'start' && r.take_in && 'tip' in r.take_in).map((r) => r.take_in.tip))];
+  if (!claimed.length) return out;
+  const not = [...(base ? [`^${base}`] : [])];
+  const range = git(['rev-list', '--parents', head, ...not], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' '));
+  for (const tip of claimed) {
+    const bad = (why) => out.findings.push({ check: 'record', file, line: 1, message: `the take-in tip ${String(tip).slice(0, 10)} is not used to leave out earlier work: ${why}` });
+    if (typeof tip !== 'string' || !/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(tip)) { bad('it is not a full commit id'); continue; }
+    if (git(['rev-parse', '-q', '--verify', `${tip}^{commit}`], { cwd: root, allowFail: true }).code !== 0) { bad('no such commit here'); continue; }
+    const left = git(['rev-list', '--count', tip, ...not], { cwd: root });
+    if (left === '0') continue; // already in the base: nothing to leave out
+    if (!range.some(([c, first]) => first === tip && names(c, tip) && !names(tip, tip))) { bad('no commit in the range has it as its first parent and adds the start row naming it'); continue; }
+    const wrote = git(['log', '--full-history', '-m', '--format=%H', tip, ...not, '--', file], { cwd: root }).split('\n').filter(Boolean);
+    if (wrote.length) { bad(`commit ${wrote[0].slice(0, 10)}, which it would leave out, writes ${file}; only work from before the job's start is left out`); continue; }
+    out.tips.push(tip);
+  }
+  return out;
+}
+
 // In a partial clone, fetch every file the range needs in one request rather than one at a
 // time as each is read. Best effort: a file still missing is fetched, or fails, when read.
 function prefetch(root, range) {
@@ -168,7 +206,8 @@ function shallowCuts(root) {
 
 // trusted: the refs whose owner-set block a commit may carry (ownerBlock), beside the base: by
 // default origin/main and origin/<tranche>.
-export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, trusted } = {}) {
+// takenIn: the take-in tips (takenIn's tips) whose history is left out.
+export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, takenIn: earlier = [], trusted } = {}) {
   const findings = [];
   const notices = [];
   const verified = new Map();
@@ -196,7 +235,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     if (!blocks.has(rev)) blocks.set(rev, approvalsBlock(show(root, rev, afile), heading));
     return blocks.get(rev);
   };
-  const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : [])];
+  const range = [head, ...(base ? [`^${base}`] : []), ...(since ? [`^${since}`] : []), ...earlier.map((t) => `^${t}`)];
   const commits = git(['rev-list', ...range], { cwd: root }).split('\n').filter(Boolean);
   prefetch(root, range);
   const inRange = new Set(commits);

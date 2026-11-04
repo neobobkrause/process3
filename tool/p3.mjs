@@ -29,7 +29,7 @@ import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
-import { recordCheck, recordSince } from './lib/record.mjs';
+import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
 import { Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
@@ -398,9 +398,12 @@ const commands = {
     const ledgerBase = git(['merge-base', head, base], { cwd: root });
     const cfg = loadConfig(root, base);
     const s = recordSince(root, { base, head });
-    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since });
+    // A job's take-in: its earlier work, before the take-in start commit, is left out (takenIn).
+    const t = takenIn(root, { base, head, id: String(a.branch || '').match(/^job\/([a-z0-9-]+)$/)?.[1] });
+    const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips });
     if (s.finding) findings.push(s.finding);
-    console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}`);
+    findings.push(...t.findings);
+    console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}${t.tips.length ? `, leaving out the earlier work taken in at ${t.tips.map((x) => x.slice(0, 10)).join(', ')}` : ''}`);
     // Annotations, so a notice shows on the pull request and not only in the log.
     const esc = (x, prop) => String(x).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')
       .replace(prop ? /[:,]/g : /$^/, (c) => (c === ':' ? '%3A' : '%2C'));
