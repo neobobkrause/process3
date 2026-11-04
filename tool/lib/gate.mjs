@@ -206,15 +206,15 @@ export function gate(root, opts) {
 // brought the job up to the tranche, so nothing else came in); the head holds the merge row for
 // <n>; the newest gate row on that head is green, verified (verifyRow), and ran the module's
 // suite green (trigger code, or record-since-green after such a run); and the file is the
-// job's own (ownPaths, from the tranche's entry before the merge). A file of the module that is
-// not the job's own is not covered by it.
+// job's own (ownPaths, from the tranche's entry before the merge) and no other module's. A covered
+// module still runs when a module it uses changed on the tranche after its merge.
 const MERGE_TITLE = /^Merge job PR (\d+)$/;
 export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, log = () => {} }) {
   const need = changed.filter((f) => !isRecordPath(cfg, f) && entries.some((e) => inModule(e, f)));
   const last = new Map();
+  const chain = need.length ? git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean) : [];
   if (need.length) {
     const left = new Set(need);
-    const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
     for (const c of chain) {
       if (!left.size) break;
       const p = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
@@ -231,19 +231,48 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
     }
     return judged.get(c);
   };
-  const uncovered = [];
-  const through = new Map();
+  // Each file's verdict: the job merge that gated it, or why its module's suite runs. A file
+  // that lies in more than one module's paths is covered only when it is the job's own and no
+  // other module's (review 1 of PR 92).
+  const age = new Map(chain.map((c, i) => [c, i])); // 0 is the tranche's tip: smaller is newer
+  const verdict = new Map();
   for (const f of need) {
     const c = last.get(f);
     const v = c ? judge(c) : { ok: false, why: 'no commit on the tranche changes it' };
-    if (v.ok && v.own.some((p) => underPath(f, p))) {
+    const others = entries.filter((e) => inModule(e, f) && e.id !== v.id).map((e) => e.id);
+    verdict.set(f, v.ok && v.own.some((p) => underPath(f, p)) && !others.length ? { c, v }
+      : { c, why: v.ok ? `is PR ${v.pr}'s merge, but the file is ${others.length ? `also ${others.join(', ')}'s` : `not ${v.id}'s own`}` : v.why });
+  }
+  // A module's gate at its job merge tested it with its providers as they were then. A provider
+  // (in its uses, at any depth) whose files changed on the tranche after that merge was not
+  // tested with it, so the module's suite runs (review 1 of PR 92: m1 uses m0; m0's job, merged
+  // after m1's, broke m1, and the gate skipped m1).
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const filesOf = (id) => need.filter((f) => inModule(byId.get(id), f));
+  const newest = (fs) => Math.min(...fs.map((f) => age.get(last.get(f)) ?? Infinity));
+  const providers = (id, seen = new Set()) => {
+    for (const u of byId.get(id)?.uses || []) if (u !== id && !seen.has(u) && byId.has(u)) { seen.add(u); providers(u, seen); }
+    return seen;
+  };
+  for (const e of entries) {
+    const fs = filesOf(e.id);
+    if (!fs.length || !fs.every((f) => verdict.get(f).v)) continue;
+    const tested = newest(fs);
+    const moved = [...providers(e.id)].filter((u) => newest(filesOf(u)) < tested);
+    if (moved.length) for (const f of fs) verdict.set(f, { c: last.get(f), why: `is a job merge, but ${moved.join(', ')}, which ${e.id} uses, changed after it` });
+  }
+  const uncovered = [];
+  const through = new Map();
+  for (const f of need) {
+    const { c, v, why } = verdict.get(f);
+    if (v) {
       log(`${f}: gated at its job's merge, PR ${v.pr} (${v.id}), merge ${c.slice(0, 10)}`);
       const t = through.get(v.pr) || { pr: v.pr, id: v.id, merge: c, files: 0 };
       t.files++;
       through.set(v.pr, t);
     } else {
       uncovered.push(f);
-      log(`${f}: its suite runs: its last change on the tranche${c ? `, ${c.slice(0, 10)},` : ''} ${v.ok ? `is PR ${v.pr}'s merge, but the file is not ${v.id}'s own` : v.why}`);
+      log(`${f}: its suite runs: its last change on the tranche${c ? `, ${c.slice(0, 10)},` : ''} ${why}`);
     }
   }
   return { uncovered, through: [...through.values()].sort((a, b) => a.pr - b.pr) };

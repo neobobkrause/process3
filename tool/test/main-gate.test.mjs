@@ -14,11 +14,11 @@ const testOf = (id, v) => `import test from 'node:test'; import a from 'node:ass
 // main holds n modules; the tranche merges one job per module, as merge does: the job branch
 // is the tranche plus the change, plus its merge row; the tranche merges it with --no-ff under
 // "Merge job PR <n>". Each job's PR has a green gate row on that merged result, unless `red`.
-function product(n, { red = [], unverified = [] } = {}) {
+function product(n, { red = [], unverified = [], uses = {}, over = {} } = {}) {
   const ids = Array.from({ length: n }, (_, i) => `m${i}`);
   const files = {};
   for (const id of ids) {
-    files[`process/ledger/${id}.json`] = entry(id, { status: { state: 'WORKING' } });
+    files[`process/ledger/${id}.json`] = entry(id, { status: { state: 'WORKING' }, ...(uses[id] ? { uses: uses[id] } : {}), ...(over[id] || {}) });
     files[`src/${id}/index.mjs`] = 'export const x = 1;\n';
     files[`test/${id}/x.test.mjs`] = testOf(id, 1);
   }
@@ -108,6 +108,23 @@ test('a job merge that is not the gated merged result, or a commit that only bor
   git(['checkout', '-q', 'tranche'], { cwd: q.root });
   commit(q.root, { 'src/m1/index.mjs': 'export const x = 2; // forged\n' }, 'Merge job PR 2');
   assert.deepEqual(run(q).run.scope, ['m1']);
+});
+
+// Review 1 of PR 92: a module's gate tested it with its providers as they were at its merge.
+test('a module whose provider (at any depth) changed after its job merge runs again; one merged after its providers does not', () => {
+  // Jobs merge in order m0..m4. m0 uses m2, merged after m0: m0 runs. m3 uses m1, and m4 uses m3:
+  // each merged after its providers, so neither runs.
+  const p = product(5, { uses: { m0: ['m2'], m3: ['m1'], m4: ['m3'] } });
+  assert.deepEqual(run(p).run.scope, ['m0']);
+  // A provider two steps down: m0 uses m1, m1 uses m3; m3 merged after m0 and m1.
+  const q = product(4, { uses: { m0: ['m1'], m1: ['m3'] } });
+  assert.deepEqual(run(q).run.scope, ['m0', 'm1']);
+});
+
+test('a file in two modules\' paths is not covered by one module\'s job', () => {
+  // m1's paths also hold m0's source: m0's job merge does not cover src/m0/ for m1.
+  const p = product(2, { over: { m1: { paths: ['src/m1/', 'src/m0/'] } } });
+  assert.deepEqual(run(p).run.scope, ['m0', 'm1']);
 });
 
 // A control: only the tranche's own pull request is judged by its job merges.
