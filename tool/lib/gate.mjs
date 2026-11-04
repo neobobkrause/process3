@@ -562,8 +562,10 @@ const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an 
 // Reverts the code files to the base, runs each test file alone, restores each file to HEAD
 // (removing any HEAD does not have). Returns the test files that still pass, and those that
 // failed only because something could not load. Runs in place: CI's checkout is disposable.
-// tolerated: the base-red test ids (basered.mjs). A file holding one fails at the revert whatever
-// the job's own tests do, so it counts as not inert only when a test other than those fails;
+// tolerated: the base-red test ids (basered.mjs). A file that runs one fails at the revert whatever
+// the job's own tests do, so it counts as not inert only when a test other than those fails. Any
+// file may run one, since a test is keyed by the module declaring it, a sibling the file imports
+// (review of PR 133), so every file's failures are read per test when anything is tolerated;
 // when its failures cannot be read per test, it proves nothing and counts as inert (review of
 // PR 101).
 export function revertCheck(root, entry, base, code, tests, { timeout, tolerated = [] } = {}) {
@@ -575,7 +577,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout, tolerated
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
-      const holds = tolerated.some((id) => id.startsWith(`${t}::`));
+      const holds = tolerated.length > 0;
       const r = holds ? withEvents((events) => runSuite(root, entry, [t], { timeout, events })) : runSuite(root, entry, [t], { timeout });
       if (r.exit === 0 || (holds && (!r.failing || r.failing.every((x) => tolerated.includes(testId(x)))))) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);

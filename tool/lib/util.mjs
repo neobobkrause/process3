@@ -39,7 +39,7 @@ export function run(cmd, args = [], opts = {}) {
   return {
     code: r.status === null ? (r.error ? 127 : 1) : r.status,
     stdout: r.stdout || '', stderr: (r.stderr || '') + (r.error ? String(r.error) : ''),
-    seconds: (Date.now() - t0) / 1000,
+    seconds: (Date.now() - t0) / 1000, timedOut: r.error?.code === 'ETIMEDOUT',
   };
 }
 
