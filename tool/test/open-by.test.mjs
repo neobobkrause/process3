@@ -74,7 +74,8 @@ test('open_by uses: a provider with an unanswered provider notice holds its user
   const ls = layerState(root, cfg, rows, null, { closed: [] });
   const owed = { q2: [{ key: 'base:9', provider: 'base', ids: ['R1'], pr: 9 }] };
   const next = nextWork(root, cfg, rows, null, { log: quiet, state: ls, notices: owed });
-  assert.deepEqual(next.map((x) => x.file.replace('build/requirements/', '')), ['q2.md', 'p2.md', 'e3.md']);
+  // Not yet triaged, so q2 is no notice work yet (its triage is BOB's act); u3 and n3 wait on it.
+  assert.deepEqual(next.map((x) => x.file?.replace('build/requirements/', '') ?? x.triage), ['p2.md', 'e3.md', 'base:9']);
   const busy = repo({}, { 'process/ledger/u3.json': entry('u3', { requirements: 'build/requirements/u3.md' }) });
   const r = status(busy, { role: 'bob', offline: true, log: quiet });
   assert.deepEqual(r.next.map((x) => x.file.replace('build/requirements/', '')), ['p2.md', 'n3.md', 'e3.md']);

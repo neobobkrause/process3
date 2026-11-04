@@ -166,3 +166,66 @@ test('report tranche: in a depth-1 clone, deepen fetches the tranche\'s own comm
   git(['fetch', '-q', '--depth', '1', 'origin', git(['rev-parse', 'tranche^'], { cwd: src })], { cwd: cut });
   assert.deepEqual(span(cut, 'origin/tranche', 'origin/main'), { open: 'unmeasured', close: null, base: null });
 });
+
+// main merged into the tranche (tranche close makes such a merge) and main moved since: a plain
+// --shallow-exclude=main cuts at the merge and drops the tranche's commits before it, and the
+// base, main before the first commit, cannot be shown on main from main's cut history.
+function mergedMain() {
+  const src = fixture();
+  git(['checkout', '-q', 'main'], { cwd: src });
+  commit(src, { 'src/h/1.js': '1\n' }, 'h1');
+  const h2 = commit(src, { 'src/h/2.js': '2\n' }, 'h2');
+  git(['checkout', '-q', 'tranche'], { cwd: src });
+  git(['merge', '-q', '--no-ff', '-m', 'main into tranche', 'main'], { cwd: src });
+  commit(src, { 'process/metrics/c.jsonl': jl({ at: at(5), module: 'c', row: 'attempt', event: 'start', attempt: 1 }) }, 'record again');
+  git(['checkout', '-q', 'main'], { cwd: src });
+  commit(src, { 'src/h/3.js': '3\n' }, 'h3');
+  git(['checkout', '-q', 'tranche'], { cwd: src });
+  return { src, h2 };
+}
+
+function cloneOf(src, shallow) {
+  const root = makeRepo();
+  git(['remote', 'add', 'origin', `file://${src}`], { cwd: root });
+  git(['fetch', '-q', ...(shallow ? ['--depth', '1'] : []), 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/main:refs/remotes/origin/main'], { cwd: root });
+  git(['checkout', '-q', 'origin/tranche'], { cwd: root });
+  return root;
+}
+
+test('report tranche: in a depth-1 clone of a tranche that main was merged into, deepen measures what a full clone does', () => {
+  const { src, h2 } = mergedMain();
+  const full = cloneOf(src, false);
+  const root = cloneOf(src, true);
+  const cfg = loadConfig(root);
+  const run = (r, deepened) => trancheReport(r, cfg, { now: NOW, deepened, io: { merged: () => null } });
+  const want = run(full, deepen(full, "tranche"));
+  assert.match(want, /- opened: 2026-11-01T10:00:00\+02:00/);
+  assert.match(want, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
+  assert.match(want, /- record-only commits: 2 of 3 commits in the tranche/, 'the commits merged in from main are main\'s');
+  const before = run(root, null);
+  assert.match(before, /- opened: unmeasured/);
+  assert.match(before, /- record-only commits: unmeasured/);
+  const deep = deepen(root, 'tranche');
+  assert.equal(deep.base, git(['rev-parse', 'main~3'], { cwd: src }), 'main before the tranche\'s first commit');
+  assert.deepEqual(deep.onMain, [h2], 'the merge\'s parent on main');
+  assert.equal(run(root, deep), want);
+  // The minimum: main's history behind its tip and the merged-in commit is not fetched.
+  assert.notEqual(git(['cat-file', '-e', `${h2}^^{commit}`], { cwd: root, allowFail: true }).code, 0, 'h1 not fetched');
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }), 'true');
+});
+
+test('report tranche: in a depth-1 clone where main moved since the tranche opened, the base deepen fetched is vouched for', () => {
+  const src = fixture();
+  git(['checkout', '-q', 'main'], { cwd: src });
+  commit(src, { 'src/h/1.js': '1\n' }, 'h1');
+  git(['checkout', '-q', 'tranche'], { cwd: src });
+  const root = cloneOf(src, true);
+  const cfg = loadConfig(root);
+  const deep = deepen(root, 'tranche');
+  assert.deepEqual(deep, { base: git(['rev-parse', 'main^'], { cwd: src }), onMain: [] });
+  assert.deepEqual(span(root, 'origin/tranche', 'origin/main'), { open: 'unmeasured', close: null, base: null }, 'cut history alone cannot place the base on main');
+  const md = trancheReport(root, cfg, { now: NOW, deepened: deep, io: { merged: () => null } });
+  assert.match(md, /- opened: 2026-11-01T10:00:00\+02:00/);
+  assert.match(md, /\| a \| OPEN \| #11 \| 1 \(R1\) \|/);
+  assert.match(md, /- record-only commits: 1 of 2 commits in the tranche/);
+});
