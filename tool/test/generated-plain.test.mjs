@@ -6,7 +6,7 @@
 // record-since-green run left attempt 3 "present"; it is now checked against that code run when
 // it was made on the tree that run tested, and refused, with the act that clears it, when not.
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -49,9 +49,9 @@ function gateIO(comments = []) {
 
 // A product whose module alpha commits a stale generated manifest, with origin, and BOB's
 // refresh branch holding `files`.
-function product(files) {
+function product(files, config = CONFIG) {
   const root = makeRepo({
-    'process/config.json': CONFIG,
+    'process/config.json': config,
     'process/ledger/alpha.json': entry('alpha', { status: { state: 'COMPLETE' } }),
     'gen.mjs': GEN,
     'src/alpha/index.mjs': SRC,
@@ -248,18 +248,89 @@ test('a regenerate that writes nothing cannot pass a hand-edited file, and a cha
   assert.throws(() => mergePlain(imp.root, 148, { ...q, io: plainIO(imp, g3.state.comments, g3.io.verify).io }), /and gen-lib\.mjs: a refresh changes only/);
 });
 
-test('a refresh that removes a committed generated file is refused, even when the path is ignored', () => {
-  const p = product({ 'process/metrics/alpha.jsonl': '{}\n' });
-  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
-  const base2 = commit(p.root, { '.gitignore': `${BUNDLE}\n` });
-  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
-  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
+// Build untrack-generated (copy PR 306, run 41905241074, 4 Nov): a committed generated file could
+// never be untracked. A plain pull request may now remove it when the head's .gitignore ignores
+// it: the gate builds it, runs its row's verify, and merge --plain takes the row; without the
+// ignore line the removal is refused as before.
+const untrack = (p, gitignore) => {
+  git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
+  if (gitignore !== undefined) commit(p.root, { '.gitignore': gitignore });
   git(['rm', '-q', '--cached', BUNDLE], { cwd: p.root });
   git(['commit', '-q', '-m', 'stop committing it'], { cwd: p.root });
-  const sha = git(['rev-parse', 'HEAD'], { cwd: p.root });
-  const r = gate(p.root, { base: base2, head: sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
-  assert.deepEqual([r.run.refresh.result, r.run.refresh.differ], ['differs', [BUNDLE]]);
-  assert.match(r.findings.find((f) => f.file === BUNDLE).message, /is removed/);
+  p.sha = git(['rev-parse', 'HEAD'], { cwd: p.root });
+  git(['push', '-q', '-f', 'origin', 'bob/refresh'], { cwd: p.root });
+  return p;
+};
+const VERIFIED = join(mkdtempSync(join(tmpdir(), 'p3-verified-')), 'count');
+const COUNTING = { generated: [{ ...CONFIG.generated[0], verify: ['node', '-e', `require('fs').appendFileSync(${JSON.stringify(VERIFIED)}, 'v')`] }] };
+const verified = () => { try { return readFileSync(VERIFIED, 'utf8').length; } catch { return 0; } };
+
+test('untracking: base tracks the file and lists the row; head removes it and ignores it; the gate builds and verifies it, and merge --plain merges', () => {
+  const p = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }, COUNTING), `node_modules/\n${BUNDLE}\n`);
+  const before = verified();
+  const g = gateIO();
+  const logs = [];
+  const r = gate(p.root, { base: p.base, head: p.sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: (l) => logs.push(l) });
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual(r.run.built, [BUNDLE], 'built before the suite, as an untracked row is');
+  assert.deepEqual(r.run.refresh, { files: [BUNDLE], result: 'identical', differ: [], untracked: [BUNDLE] });
+  assert.equal(verified() - before, 1, "the row's verify ran once");
+  assert.ok(logs.some((l) => /generated, untracked and built: src\/alpha\/dist\/alpha\.bundle\.json: .*exit 0/.test(l)), logs.join('\n'));
+  assert.equal(readFileSync(join(p.root, BUNDLE), 'utf8'), fresh(SRC), 'the regenerate wrote it');
+  back(p);
+  const f = plainIO(p, g.state.comments, g.io.verify);
+  assert.equal(mergePlain(p.root, 148, { ...q, io: f.io }).merged, true);
+  // A row that does not name it untracked (an older gate's) is not taken.
+  const old = gateIO();
+  old.io.addComment('o/r', 148, gateComment({ ...r.run, refresh: { files: [BUNDLE], result: 'identical', differ: [] } }));
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, old.state.comments, old.io.verify).io }), /no green process-gate run/);
+});
+
+test('untracking: a path the base already ignores needs no .gitignore change', () => {
+  const p = product({ 'process/metrics/alpha.jsonl': '{}\n' });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  p.base = commit(p.root, { '.gitignore': `${BUNDLE}\n` });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
+  untrack(p);
+  const r = gateOn(p, gateIO());
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual(r.run.refresh.untracked, [BUNDLE]);
+});
+
+test('untracking: the removal is refused without the ignore line, and when verify fails', () => {
+  const p = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }));
+  const g = gateIO();
+  const r = gateOn(p, g);
+  assert.deepEqual([r.run.refresh.result, r.run.refresh.differ, r.run.refresh.untracked], ['differs', [BUNDLE], undefined]);
+  assert.match(r.findings.find((f) => f.file === BUNDLE).message, /is removed: a refresh changes a generated file only to its regenerated bytes/);
+  back(p);
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /no green process-gate run .*\(its newest run: differs/);
+  // Another file's ignore line does not cover it.
+  const o = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }), 'other.json\n');
+  const ro = gateOn(o, gateIO());
+  assert.equal(ro.run.ok, false);
+  assert.equal(ro.run.refresh.untracked, undefined);
+  const bad = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }, { generated: [{ ...CONFIG.generated[0], verify: ['node', '-e', 'process.exit(3)'] }] }), `${BUNDLE}\n`);
+  const rb = gateOn(bad, gateIO());
+  assert.equal(rb.run.refresh.result, 'generated failed');
+  assert.match(rb.findings.map((f) => f.message).join('\n'), /failed \(exit 3\) after building the untracked src\/alpha\/dist\/alpha\.bundle\.json/);
+});
+
+test('untracking: a .gitignore change that drops or alters a line is another file', () => {
+  const p = product({ 'process/metrics/alpha.jsonl': '{}\n' });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  p.base = commit(p.root, { '.gitignore': 'keep-me\n' });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: p.root });
+  untrack(p, `${BUNDLE}\n`);
+  const g = gateIO();
+  const r = gateOn(p, g);
+  assert.equal(r.run.refresh.result, 'other files changed');
+  assert.match(r.findings.find((f) => /a refresh changes only/.test(f.message)).message, /and \.gitignore/);
+  back(p);
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /and \.gitignore: a refresh changes only/);
 });
 
 test('a generated file no module owns is not the refresh check\'s: the gate stays green', () => {
