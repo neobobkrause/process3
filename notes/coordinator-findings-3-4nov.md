@@ -162,3 +162,4 @@
 - 13:09 pin fa6ea81 on the copy: PR 246 (5ffea9a), BOB woken pin-27. No build or pin move open. Re-measure scheduled for about 14:10.
 - 13:52 BOB: found-mark plain PRs go red on modules whose tests pin the requirement id set (affordances PR 248, wizard-scripts PR 249; closed). Ruled: use job start <id> --reopen "<finding>" so the job adds its mark, updates the pin and fixes the code in one gated PR; no tool change.
 - 14:01 BOB: ratification a3 (job PR 247, records only) cannot merge: every gate run is record-only, so its receipt is never agreed. build/records-only-code started: a job PR with no agreeable code run gets a code gate run. PR 247 held.
+- 14:11 PR 108 merged (f9e82ad, 632/632, clean review): a ready job PR with a receipt and a records-only head gets a code gate run that agrees the receipt. Pin move started 14:12; then PR 247 needs a new gate event.
