@@ -287,7 +287,7 @@ const commands = {
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
     // The open provider-notice slots, as status reads them (noticeSlots); unmeasured unread.
     let slots = null;
-    if (stateRead) { try { slots = noticeSlots(root, cfg, status(root, { log: () => {} }).rows); } catch { slots = null; } }
+    if (stateRead) { try { slots = noticeSlots(root, cfg, status(root, { offline: true, log: () => {} }).rows); } catch { slots = null; } }
     const md = trancheReport(root, cfg, { slug, stateRead, deepened, jobRefs, jobRows, notices: slots, io: { state: (p) => readState(root, cfg.state_branch, p) } });
     if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
     console.log(md);

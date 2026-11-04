@@ -390,11 +390,12 @@ export function noticeSlots(root, cfg, rows) {
     const { withdrawn: _w, ...live } = n;
     for (const u of n.open) {
       const row = rows.find((x) => x.id === u);
-      if (named(u).includes(n.key)) { slots.push({ key: n.key, user: u, kind: 'job', act: `job ${u}${row?.pr?.startsWith('#') ? ` (PR ${row.pr})` : ''} names it; its merge answers it` }); continue; }
+      const prN = String(row?.pr ?? '').match(/#(\d+)/)?.[1] || null;
+      if (named(u).includes(n.key)) { slots.push({ key: n.key, user: u, kind: 'job', act: prN ? `${P3} merge ${prN} (job ${u}'s pull request; its START names the notice, its merge answers it)` : `job ${u} names it in its START; its merge answers it` }); continue; }
       const triage = tri.get(`${n.key}\0${u}`) || null;
       const rerun = !!unrecorded[u]?.includes(n.key);
       (owed[u] ||= []).push({ ...live, triage, rerun });
-      if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${row?.pr?.startsWith('#') ? row.pr.slice(1) : `<job ${u}'s PR>`} (again: its answer was not recorded)` });
+      if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${prN || `<job ${u}'s PR>`} (again: its answer was not recorded)` });
       else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u}, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u}` });
       else { (untriaged[n.key] ||= []).push(u); slots.push({ key: n.key, user: u, kind: 'triage', act: `${P3} notice triage ${n.key}` }); }
     }

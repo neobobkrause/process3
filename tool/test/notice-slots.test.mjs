@@ -57,8 +57,9 @@ function state() {
   git(['checkout', '-q', '-b', 'job/u3', 'tranche'], { cwd: root });
   commit(root, { 'process/metrics/u3.jsonl': JSON.stringify({ event: 'start', notices: ['p:8'] }) + '\n' });
   git(['update-ref', 'refs/remotes/origin/job/u3', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'job/u3'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  const rows = [{ id: 'u3', tranche: 'WORKING', branch: 'WORKING', pr: '#41' }];
+  const rows = [{ id: 'u3', tranche: 'WORKING', branch: 'WORKING', pr: '#41 draft' }];
   return { root, cfg: loadConfig(root), rows };
 }
 
@@ -93,7 +94,7 @@ test('noticeSlots: every open slot is classed once with the command that closes 
   const { root, cfg, rows } = state();
   const s = noticeSlots(root, cfg, rows);
   assert.deepEqual(s.slots.map((x) => [x.key, x.user, x.kind]), [['p:8', 'u1', 'affected'], ['p:8', 'u2', 'triage'], ['p:8', 'u3', 'job']]);
-  assert.deepEqual(s.slots.map((x) => x.act), ['node .process/tool/p3.mjs job start u1', 'node .process/tool/p3.mjs notice triage p:8', 'job u3 (PR #41) names it; its merge answers it']);
+  assert.deepEqual(s.slots.map((x) => x.act), ['node .process/tool/p3.mjs job start u1', 'node .process/tool/p3.mjs notice triage p:8', 'node .process/tool/p3.mjs merge 41 (job u3\'s pull request; its START names the notice, its merge answers it)']);
   assert.deepEqual(s.withdrawn.map((w) => [w.key, w.closed]), [['q:77', 3]]);
   // owedNotices (status, layer close, next work) reads the same slots.
   assert.deepEqual(Object.keys(owedNotices(root, cfg, rows, quiet)).sort(), ['u1', 'u2']);
@@ -108,7 +109,7 @@ test('report and triage agree: every slot the report calls open is answerable by
   assert.doesNotMatch(md, /\| q:77 \|/);
   const tableRows = md.split('\n').filter((l) => /^\| [a-z]+:\d+ \|/.test(l));
   assert.equal(tableRows.reduce((t, l) => t + Number(l.split('|')[2].trim()), 0), s.slots.length);
-  for (const l of tableRows) assert.match(l, /`(node \.process\/tool\/p3\.mjs (notice triage|job start|merge) [^`]+|job [^`]+ names it; its merge answers it)`/);
+  for (const l of tableRows) assert.match(l, /`node \.process\/tool\/p3\.mjs (notice triage|job start|merge) [^`]+`/);
   // Each `notice triage` the report prints runs: it prints the act, not "no provider notice".
   git(['checkout', '-q', 'tranche'], { cwd: root });
   git(['checkout', '-q', '-b', 'job/p'], { cwd: root });
@@ -127,6 +128,40 @@ test('report and triage agree: every slot the report calls open is answerable by
     if (n.withdrawn) assert.ok(noticeTriage(root, n.key, { log: quiet }).withdrawn);
   }
   assert.match(noticeSection(null).join('\n'), /Open notice slots: unmeasured/);
+});
+
+// Review of PR 109: triage reads the job branches before it judges who owes (a fresh clone has
+// none), and --record keeps a line given for a user whose open job names the notice.
+function mergedP(root) {
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/p'], { cwd: root });
+  commit(root, { 'req/p.md': '# p\n\n- **R1** met, and more\n' });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/p'], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  return m;
+}
+test('notice triage fetches the untriaged users\' job branches first: in a clone with no job refs, a module whose open job names the notice owes no triage, as status says', () => {
+  const { root } = state();
+  // u3's ledger entry open on the tranche, as status reads it.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'process/ledger/u3.json': entry('u3', { status: { state: 'WORKING' }, branch: 'job/u3', tranche: 'WORKING' }) });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const m = mergedP(root);
+  git(['update-ref', '-d', 'refs/remotes/origin/job/u3'], { cwd: root });
+  const r = noticeTriage(root, 'p:8', { log: quiet, io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } });
+  const rows = status(root, { offline: true, log: quiet }).rows;
+  const want = noticeSlots(root, loadConfig(root), rows).slots.filter((x) => x.kind === 'triage').map((x) => x.user);
+  assert.deepEqual(r.owed, want);
+  assert.deepEqual(r.owed, ['u2']);
+  // A worker's line for u3 is recorded, not dropped; only the owed modules are required.
+  const f = join(mkdtempSync(join(tmpdir(), 'p3-tri-')), 'a.txt');
+  writeFileSync(f, [...r.owed.map((u) => `${u}: not affected: src/${u}/a.mjs:1 no use`), 'u3: not affected: src/u3/a.mjs:1 no use'].join('\n') + '\n');
+  const rec = recordTriage(root, 'p:8', { file: f, worker: 'w', cost: '$0', log: quiet });
+  assert.deepEqual(rec.rows.filter((x) => x.row === 'triage').map((x) => x.user).sort(), [...new Set([...r.owed, 'u3'])].sort());
 });
 
 test('a withdrawn notice holds no layer close and no tranche close: status, the layers and the tranche close read as with no notice; the same notice judged affected holds its module', () => {

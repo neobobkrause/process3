@@ -70,15 +70,17 @@ function find(root, cfg, key) {
   const tri = triageRows(root, cfg.state_branch);
   // The slots status and report tranche call triage owed (status.mjs noticeSlots): a module whose
   // open job's START names the notice is answered by that job's merge, and owes no triage.
-  let owed = n.open.filter((u) => !tri.has(`${key}\0${u}`));
+  const untriaged = n.open.filter((u) => !tri.has(`${key}\0${u}`));
+  let owed = untriaged;
   try {
+    // Job branches first (only the untriaged users', when origin has them), so the rows status
+    // builds read each START as status --role bob does; then status offline (no GitHub reads).
+    if (untriaged.length) fetchJobs(root, untriaged);
     const rows = status(root, { offline: true, log: () => {} }).rows || [];
-    const users = rows.filter((r) => r.branch && owed.includes(r.id)).map((r) => r.id);
-    if (users.length) fetchJobs(root, users);
     const want = new Set(noticeSlots(root, cfg, rows).slots.filter((x) => x.key === key && x.kind === 'triage').map((x) => x.user));
-    owed = owed.filter((u) => want.has(u));
+    owed = untriaged.filter((u) => want.has(u));
   } catch { /* the ledger unread: every untriaged user owes it, as before */ }
-  return { n, tri, owed };
+  return { n, tri, owed, untriaged };
 }
 
 // The provider's changed requirements, before and after, from the PR's merge commit (as merge
@@ -214,7 +216,7 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   if (workers.length !== files.length || costs.length !== files.length) fail(`give one --worker and one --cost per --record, in the same order: ${files.length} --record, ${workers.length} --worker, ${costs.length} --cost`);
   for (const f of files) if (!existsSync(f)) fail(`no file ${f}`);
   const cfg = loadConfig(root);
-  const { n, owed, withdrawn } = find(root, cfg, key);
+  const { n, owed, untriaged, withdrawn } = find(root, cfg, key);
   if (withdrawn) fail(`refused: ${withdrawnText(n)}; nothing was written`);
   const lines = new Map();
   files.forEach((f, i) => {
@@ -231,7 +233,10 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   const left = owed.filter((u) => !lines.has(u));
   if (left.length) fail(`refused: notice triage ${key} records only when every module has a line; ${left.length} of ${owed.length} not judged: ${left.join(', ')}. Run a worker for them, then record every file again, nothing was written`);
   const at = new Date().toISOString();
-  const want = owed.flatMap((u) => {
+  // Required: a line for every slot triage owes. Recorded as well: a line given for any other
+  // untriaged user (one whose open job names the notice since, or did when the brief was
+  // printed), so a judgement the worker made is never dropped.
+  const want = untriaged.filter((u) => owed.includes(u) || lines.has(u)).flatMap((u) => {
     const { verdict, evidence, worker: w, cost: c } = lines.get(u);
     const common = { at, key, worker: w, cost: c };
     return [[triageFile(u, key), { row: 'triage', user: u, verdict, evidence, ...common }],
