@@ -140,6 +140,19 @@ export function watcherPrompt({ slug, tranche = 'tranche', approvals }) {
   return sized(L);
 }
 
+// --as <role or session id>: the sender of a wake the act prints. A role name as given; a session
+// id, the role whose address names it. Absent: bob (BOB's own acts; BOB is awake, so no wake).
+export function senderOf(root, as, { address } = {}) {
+  if (as === undefined) return 'bob';
+  if (as === true) fail('--as <role>: the role whose session runs this act (or its session id)');
+  if (/^session_/.test(String(as))) {
+    const a = address || readAddress(root);
+    const role = ROLES.find((r) => a[r]?.session === as);
+    return role || fail(`--as ${as}: no role is addressed to that session; name the role instead`);
+  }
+  return /^[a-z][a-z0-9-]{0,39}$/.test(String(as)) ? String(as) : fail(`--as <role>: a role name (lower case letters, digits and -), not ${JSON.stringify(as)}`);
+}
+
 // start root | start bob | start watcher: the prompt and the create_session call, nothing written.
 export function startRole(root, role, { slug = repoSlug(root), address = readAddress(root), replace, log = console.log } = {}) {
   checkRole(role);

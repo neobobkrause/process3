@@ -53,6 +53,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
   const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
+  if (!(replaceMs > 0)) fail(`targets.replace_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.replace_minutes)}`);
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
@@ -219,6 +220,12 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
   const reports = haveState ? toRoute(root, sb) : [];
   if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.slice(0, 100)}`));
+  // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
+  const target = Number(cfg.targets?.decision_minutes ?? 30);
+  for (const m of reports) {
+    const mins = Math.floor((Date.now() - Date.parse(m.at)) / 6e4);
+    if (mins > target) L.push(`unanswered ${m.from}-${m.n} ${mins}m (target ${target})`);
+  }
   const pct = context === undefined ? null : Number(String(context).replace(/%$/, ''));
   if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
   if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);

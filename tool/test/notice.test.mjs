@@ -148,13 +148,13 @@ test('notice triage --record: not affected answers the notice; affected is notic
   const file = join(dir, 'answer.txt');
   writeFileSync(file, 'Here is my answer.\n- `u1`: not affected: src/u1/a.mjs:3 calls p.sign only, never p.check\nu2: affected: src/u2/b.mjs:12 reads the token age\n');
   const out = [];
-  const rec = recordTriage(root, 'p:7', { file, worker: 'agent-1', cost: '41k tokens', log: (m) => out.push(m) });
+  const rec = recordTriage(root, 'p:7', { file, worker: 'agent-1', cost: '41k tokens', as: 'coordinator', log: (m) => out.push(m) });
   assert.deepEqual(rec.rows.map((x) => [x.row, x.user, x.verdict ?? x.by]), [['triage', 'u1', 'not affected'], ['answered', 'u1', 'triage'], ['triage', 'u2', 'affected']]);
   assert.equal(rec.rows[0].worker, 'agent-1');
   assert.equal(rec.rows[0].cost, '41k tokens');
   assert.match(out.join('\n'), /1 not affected \(answered\), 1 affected \(next work\)/);
   // The verdicts change BOB's next work: the last line wakes BOB (a rerun that adds nothing does not).
-  assert.equal(out.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "notice triage p:7 recorded: run status" --from <role>`, delivered with send_message to the address it prints');
+  assert.equal(out.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "notice triage p:7 recorded: run status" --from coordinator`, delivered with send_message to the address it prints');
   const rerun = [];
   assert.equal(recordTriage(root, 'p:7', { file, worker: 'agent-1', cost: '1', log: (m) => rerun.push(m) }).rows.length, 0, 'a rerun adds nothing');
   assert.doesNotMatch(rerun.join('\n'), /wake BOB/);

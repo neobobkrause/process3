@@ -260,11 +260,23 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   const r = pinMove(p.pin, shim);
   const f = plainIO(r, { repo: processRepo(p.dir) });
   const logs = [];
-  const moved = mergePlain(r.root, 4, { ...q, noReview: 'a pin move', io: f.io, log: (m) => logs.push(m) });
+  const moved = mergePlain(r.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: f.io, log: (m) => logs.push(m) });
   assert.equal(moved.merged, true);
-  // The pin moved into the tranche: the next act wakes BOB, delivered with send_message.
-  assert.equal(moved.wake, `node .process/tool/p3.mjs send bob "pin moved to ${p.pin}: run status" --from <role>`);
-  assert.ok(logs.includes(`next act: wake BOB with \`${moved.wake}\`, delivered with send_message to the address it prints`));
+  // The pin moved into the tranche: the next act wakes BOB, from the role that merged, runnable as
+  // printed (confirming review of PR 59: a literal <role> was refused by send).
+  assert.equal(moved.wake, `node .process/tool/p3.mjs send bob "pin moved to ${p.pin}: run status" --from pin`);
+  assert.equal(logs.at(-1), `next act: wake BOB with \`${moved.wake}\`, delivered with send_message to the address it prints`);
+  // BOB merging (the default) is awake: no wake.
+  const own = pinMove(p.pin, shim);
+  const ownLogs = [];
+  assert.equal(mergePlain(own.root, 4, { ...q, noReview: 'a pin move', io: plainIO(own, { repo: processRepo(p.dir) }).io, log: (m) => ownLogs.push(m) }).wake, null);
+  assert.doesNotMatch(ownLogs.join('\n'), /wake BOB/);
+  // Into a working branch, not the tranche: no wake.
+  const work = pinMove(p.pin, shim);
+  git(['push', '-q', 'origin', 'refs/remotes/origin/tranche:refs/heads/build/w'], { cwd: work.root });
+  const workLogs = [];
+  assert.equal(mergePlain(work.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(work, { base: 'build/w', repo: processRepo(p.dir) }).io, log: (m) => workLogs.push(m) }).wake, null);
+  assert.doesNotMatch(workLogs.join('\n'), /wake BOB/);
   // Not the shim byte for byte, or a pin that is not on process3's tranche or main: refused.
   const off = pinMove(p.pin, shim + ' ');
   assert.throws(() => mergePlain(off.root, 4, { ...q, noReview: 'x', io: plainIO(off, { repo: processRepo(p.dir) }).io }), /is not the process's own shim at/);

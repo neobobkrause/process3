@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { commit, makeRepo } from './helpers.mjs';
-import { HANDOVER_FILE, handoverBegin, handoverConfirm, readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
+import { HANDOVER_FILE, senderOf, handoverBegin, handoverConfirm, readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
 import { approvalsHash } from '../lib/start.mjs';
 import { git } from '../lib/util.mjs';
 import { address } from '../lib/state.mjs';
+import { bobWake, wakeLine } from '../lib/job.mjs';
+import { parseArgs } from '../lib/util.mjs';
 
 const quiet = () => {};
 const TOOL = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -111,4 +113,22 @@ test('handover: begin prints the new BOB\'s prompt; confirm repoints and records
   assert.equal(readAddress(root).root.session, R);
   const row = JSON.parse(stateFile(root, HANDOVER_FILE));
   assert.deepEqual([row.row, row.old, row.new], ['handover', B1, B2]);
+});
+
+// Confirming review of PR 59: the wake ended in a literal `--from <role>`, which send refuses. Every
+// wake names a real sender: --as <role>, or a session id read from the addresses; none, BOB (no wake).
+test('a wake names a real sender and runs as printed; BOB itself gets none', () => {
+  const addr = { root: { session: R }, bob: { session: B1 } };
+  assert.equal(senderOf(null, undefined), 'bob');
+  assert.equal(senderOf(null, 'coordinator'), 'coordinator');
+  assert.equal(senderOf(null, R, { address: addr }), 'root');
+  assert.equal(senderOf(null, B1, { address: addr }), 'bob');
+  assert.throws(() => senderOf(null, 'session_nobody', { address: addr }), /no role is addressed to that session/);
+  assert.throws(() => senderOf(null, '<role>'), /a role name/);
+  assert.throws(() => senderOf(null, true), /--as <role>/);
+  assert.throws(() => bobWake('x', '<role>'), /sender's role name/);
+  assert.equal(wakeLine('x', 'bob'), null);
+  const cmd = bobWake('layer 2 closed', 'coordinator');
+  const argv = cmd.replace(/^node \.process\/tool\/p3\.mjs /, '').match(/"[^"]*"|\S+/g).map((t) => t.replace(/^"|"$/g, ''));
+  assert.deepEqual(parseArgs(argv), { _: ['send', 'bob', 'layer 2 closed: run status'], from: 'coordinator' });
 });

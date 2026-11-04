@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
-import { jobBlock, jobComplete, jobSender, jobStart } from '../lib/job.mjs';
+import { jobBlock, jobComplete, jobSender, jobStart, startText } from '../lib/job.mjs';
 import { status } from '../lib/status.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
@@ -759,4 +759,20 @@ test('the START names the job\'s rulebook (TXT-5)', () => {
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   assert.ok(start.includes('`.process/rulebooks/job.md`'));
   assert.ok(!/rulebooks\/(bob|root|watcher|worker)\.md/.test(start));
+});
+
+// Bob, 4 Nov: urgency in process3's initial release. A job's question to BOB waits at most
+// decision_minutes, then goes once more to BOB and to ROOT; and the wake's send is the job's act
+// (review of PR 72: "push to job/<id> only" forbade the state branch it writes).
+test('the START: the escalation to ROOT after decision_minutes, its limits, and the wake as the job\'s act', () => {
+  const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'] });
+  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', decisionMinutes: 30 });
+  assert.ok(t.includes('A report or question you sent BOB with no answer in 30 minutes: send it once more to BOB, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd` with send_message (`node .process/tool/p3.mjs address root` reads its address).'));
+  assert.ok(t.includes('If the act is reversible and within your own module, act on your recommended option and record why in your pull request; never for a merge, a push outside your branch, or anything this START says is not yours.'));
+  assert.ok(t.includes('- the wake of BOB that job complete or block prints: its `node .process/tool/p3.mjs send`, and its send_message'));
+  assert.ok(t.includes("pushing to any other branch yourself (the tool's send writes the state branch)"));
+  assert.ok(Buffer.byteLength(t) <= 4096, `START ${Buffer.byteLength(t)} bytes`);
+  const own = startText({ entry: { ...e, acts: ['only these'] }, slug: 'o/r', branch: 'job/alpha', tranche: 'tranche', coordinator: 's', attempt: 1, reading: { files: [], bytes: 0 } });
+  assert.ok(own.includes('- the wake of BOB that job complete or block prints'), 'an entry with its own acts keeps the wake');
+  assert.ok(own.includes('no answer in 30 minutes: send it once more to BOB, then to ROOT with send_message'), 'no ROOT addressed: address root reads it');
 });

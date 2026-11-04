@@ -20,13 +20,20 @@ export const toolPin = () => git(['rev-parse', 'HEAD'], { cwd: TOOL_ROOT, allowF
 export const P3 = 'node .process/tool/p3.mjs';
 // The wake of BOB (measured 3-4 Nov: BOB idles until something wakes it; a pin move woke no one
 // at 23:21): every act that gives BOB new work prints, as its last line, the send that wakes it,
-// for the session that took the act to deliver with send_message (BOB itself runs status instead).
-// The hourly sweep is the backstop. A wake's text ends ": run status"; it routes nothing (toRoute).
+// for the session that took the act to deliver with send_message. The hourly sweep is the backstop.
+// It names a real sender, so it runs as printed (confirming review of PR 59: a literal <role> was
+// refused by send): the role that runs the act, --as <role> (default bob for BOB's own acts), a
+// job's job-<id>. BOB itself is awake: no wake. A wake's text ends ": run status"; it routes nothing.
 export const WAKE_END = ': run status';
-export const bobWake = (what, from = '<role>') => `${P3} send bob ${JSON.stringify(`${what}${WAKE_END}`)} --from ${from}`;
+const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
+export const bobWake = (what, from) => {
+  if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);
+  return `${P3} send bob ${JSON.stringify(`${what}${WAKE_END}`)} --from ${from}`;
+};
 // A job's sender name: job-<id>, cut to a role name's 40 characters.
 export const jobSender = (id) => `job-${id}`.slice(0, 40).replace(/-+$/, '');
-export const wakeLine = (what, from) => `next act: wake BOB with \`${bobWake(what, from)}\`, delivered with send_message to the address it prints`;
+// The wake line, or null when BOB runs the act.
+export const wakeLine = (what, from) => (from === 'bob' ? null : `next act: wake BOB with \`${bobWake(what, from)}\`, delivered with send_message to the address it prints`);
 
 // TXT-3, TXT-5: each role's rulebook, in the pinned process. The platform loads a skill by its
 // description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
@@ -56,7 +63,7 @@ const DEFAULT_ACTS = (id) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, takeIn, notices = [] }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, takeIn, notices = [], rootId = null, decisionMinutes = 30 }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -95,26 +102,32 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck, naming the test that asserts it${notices.length ? ', and one \`--test notice:<key>=...\` for each provider notice above' : ''}. It runs the fast checks and the suite, then pushes, posts your receipt and marks the pull request ready. If it stops part way, run it again: it resumes. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says (the send, then send_message to the address it prints), then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. That is a legitimate exit, not a failure.`);
+  // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
+  L.push('', `A report or question you sent BOB with no answer in ${decisionMinutes} minutes: send it once more to BOB, then to ROOT${rootId ? ` \`${rootId}\`` : ''} with send_message (\`${P3} address root\` reads its address). If the act is reversible and within your own module, act on your recommended option and record why in your pull request; never for a merge, a push outside your branch, or anything this START says is not yours.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
   L.push('', 'Give each judged act (a merge, a push, a session start) its own shell command, never chained with another (no `&&`, `||`, `;`, pipe or second line joining it to anything else).');
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(id)) L.push(`- ${a}`);
+  // Review of PR 72: the wake's send writes the state branch, which "push to job/<id> only" forbade.
+  L.push(`- the wake of BOB that job complete or block prints: its \`${P3} send\`, and its send_message`);
   // A division of labour (Bob, 2 Nov): deploying and releasing are the coordinator's acts in a
   // round; local wrangler and miniflare runs are the job's own builds and tests.
-  L.push('', 'Not yours, and this line wins over any act listed above it: merging, pushing to any other branch, editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions. Deploying, releasing, release signing and acting on a live site are the coordinator\'s acts in a round, not the job\'s; local builds and tests that use wrangler or miniflare are part of your work. Work you find in other modules, or a need for one of the coordinator\'s acts, goes to your coordinator as a report.');
+  L.push('', 'Not yours, and this line wins over any act listed above it: merging, pushing to any other branch yourself (the tool\'s send writes the state branch), editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md, or another module\'s files, and starting sessions. Deploying, releasing, release signing and acting on a live site are the coordinator\'s acts in a round, not the job\'s; local builds and tests that use wrangler or miniflare are part of your work. Work you find in other modules, or a need for one of the coordinator\'s acts, goes to your coordinator as a report.');
   return L.join('\n') + '\n';
 }
 
 
 // A job's coordinator (PR 43: `coordinator` in process/config.json is ROOT's and the watcher's):
 // the BOB addresses/bob.json on the state branch names; --coordinator overrides it for one start.
+// With ROOT's address and decision_minutes, for the START's escalation (Bob, 4 Nov).
 function jobCoordinator(root, cfg, given, fetch) {
-  if (given) return { coordinator: given, bob: false };
+  const addressed = (role) => { try { const s = JSON.parse(readState(root, cfg.state_branch, addressFile(role)) || 'null')?.session; return typeof s === 'string' && s ? s : null; } catch { return null; } };
   if (fetch) fetchState(root, cfg.state_branch);
-  let session = null;
-  try { session = JSON.parse(readState(root, cfg.state_branch, addressFile('bob')) || 'null')?.session; } catch { session = null; }
-  if (typeof session !== 'string' || !session) fail(`no coordinator: no BOB is addressed on ${cfg.state_branch} (${addressFile('bob')}); ROOT records one with start record bob <id>, and --coordinator <session id> overrides it for one start`);
-  return { coordinator: session, bob: true };
+  const escalate = { rootId: addressed('root'), decisionMinutes: Number(cfg.targets?.decision_minutes ?? 30) };
+  if (given) return { coordinator: given, bob: false, ...escalate };
+  const session = addressed('bob');
+  if (!session) fail(`no coordinator: no BOB is addressed on ${cfg.state_branch} (${addressFile('bob')}); ROOT records one with start record bob <id>, and --coordinator <session id> overrides it for one start`);
+  return { coordinator: session, bob: true, ...escalate };
 }
 
 // The unanswered provider notices for a module, as the state branch holds them (none when it

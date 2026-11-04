@@ -21,11 +21,12 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   L.push('2. `git submodule update --init .process`');
   L.push(`3. \`git -C .process fetch origin ${pin}\` (no --depth: the merge tool reads the pin's ancestry), then \`git -C .process checkout -q --detach ${pin}\``);
   L.push(`4. \`git add .process\`, then \`git commit -q -m "process: pin ${short}"\``);
-  L.push(`5. \`${P3} setup check --at HEAD\`. For each gap in process-lines or shim-drift, copy the file it names from \`.process/shims/\` into place, commit, and run it again; any other gap: send it to \`${report}\` and end.`);
+  // Review of PR 72: one rule for every gap would copy the process lines over CLAUDE.md and its approvals block.
+  L.push(`5. \`${P3} setup check --at HEAD\`. For each gap, as it names: a workflow differing from or lacking the pin's shim, copy \`.process/shims/<f>\` to \`.github/workflows/<f>\`; CLAUDE.md lacking the process lines, replace the old process lines below the approvals block with those of \`.process/shims/CLAUDE.process.md\` ({tranche} as ${tranche}), changing nothing in the approvals block. Commit, and run it again. A gap in \`.claude/settings.json\` (the owner's file), or any other gap: send it to \`${report}\` and end.`);
   L.push(`6. \`git push -u origin ${branch}\``);
   L.push(`7. create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
-  L.push(`8. \`${P3} merge <that pull request> --plain --no-review "a process pin move; the fix was reviewed in process3"\``);
-  L.push(`9. It prints the wake of BOB: run that send with \`--from pin\`, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`.`);
+  L.push(`8. \`${P3} merge <that pull request> --plain --as pin --no-review "a process pin move; the fix was reviewed in process3"\``);
+  L.push(`9. It prints the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`.`);
   L.push(`10. Send \`${report}\` one message with send_message: the pull request, the merge commit, and the wake's number. Then end.`);
   return L.join('\n') + '\n';
 }
@@ -41,7 +42,7 @@ export function pinMove(root, slug, { pin, tranche = 'tranche', report, why, log
     pin = git(['rev-parse', 'refs/remotes/origin/tranche'], { cwd: root });
   }
   if (!/^[0-9a-f]{40}$/.test(String(pin))) fail(`--pin <a process3 commit, 40 hex>, not ${JSON.stringify(pin)}`);
-  const prompt = pinMoveText({ slug, pin, tranche, report, why: why.trim() });
+  const prompt = pinMoveText({ slug, pin, tranche, report, why: why.trim().replace(/\s+/g, ' ') });
   // From the product's tranche by name: the session's first command fetches the tip and checks it out.
   const call = { title: `pin move ${pin.slice(0, 10)}`, source_url: `https://github.com/${slug}`, source_revision: tranche, clone_depth: 1, prompt };
   log(prompt);

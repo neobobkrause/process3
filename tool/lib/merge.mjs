@@ -10,7 +10,7 @@ import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
-import { P3, TOOL_ROOT } from './job.mjs';
+import { TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
 import { noticeLine, providerNotice, recordAtMerge } from './notice.mjs';
 import { jsonl } from './state.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
@@ -382,9 +382,12 @@ export function mergePlain(root, n, opts = {}) {
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
   log(`merged pull request ${n} at ${r.sha} (${now()})`);
-  // A pin move into the tranche gives BOB new acts (tranche open); nothing else wakes BOB.
+  // A pin move into the tranche (never into a working branch) gives BOB new acts (tranche open):
+  // the wake, from the role that ran the merge (--as; BOB itself, the default, is awake).
   const pin = pinAt(root, pr.head.sha);
-  const wake = base === (baseCfg?.tranche || DEFAULTS.tranche) && pin && pin !== pinAt(root, mb) ? `${P3} send bob "pin moved to ${pin}: run status" --from <role>` : null;
-  if (wake) log(`next act: wake BOB with \`${wake}\`, delivered with send_message to the address it prints`);
+  const as = opts.as ?? 'bob';
+  const moved = base === (baseCfg?.tranche || DEFAULTS.tranche) && pin && pin !== pinAt(root, mb);
+  const wake = moved && as !== 'bob' ? bobWake(`pin moved to ${pin}`, as) : null;
+  if (wake) log(wakeLine(`pin moved to ${pin}`, as));
   return { merged: true, sha: r.sha, checks: names, wake };
 }

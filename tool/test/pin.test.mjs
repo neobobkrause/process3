@@ -19,9 +19,13 @@ test('pin move prints one short session: product tranche, depth 1, pin fetched w
   assert.ok(prompt.includes(`\`git -C .process fetch origin ${PIN}\` (no --depth`));
   assert.doesNotMatch(prompt.split('\n').find((l) => l.includes('-C .process fetch')), /--depth \d/);
   assert.ok(prompt.includes('`node .process/tool/p3.mjs setup check --at HEAD`'));
-  assert.match(prompt, /`node \.process\/tool\/p3\.mjs merge <that pull request> --plain --no-review "/);
+  assert.match(prompt, /`node \.process\/tool\/p3\.mjs merge <that pull request> --plain --as pin --no-review "/);
   assert.match(prompt, /"base":"tranche"/);
   assert.ok(prompt.includes(REPORT));
+  // Review of PR 72: each gap by its kind; the approvals block and the owner's settings untouched.
+  assert.ok(prompt.includes('copy `.process/shims/<f>` to `.github/workflows/<f>`'));
+  assert.ok(prompt.includes('replace the old process lines below the approvals block with those of `.process/shims/CLAUDE.process.md` ({tranche} as tranche), changing nothing in the approvals block'));
+  assert.match(prompt, /A gap in `\.claude\/settings\.json` \(the owner's file\), or any other gap: send it to `session_/);
   assert.match(out.at(-1), /^next act: start the pin move with create_session:\n\{/);
 });
 

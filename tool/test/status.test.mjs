@@ -82,7 +82,7 @@ test('status --role bob: a job\'s report to bob is listed until a later message 
     git(['branch', '-D', 's'], { cwd: root });
   };
   state({
-    'messages/job-m1.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'done' }, { at: '2026-11-03T11:00:00Z', n: 2, to: 'bob', text: 'blocked' }, { at: '2026-11-03T11:10:00Z', n: 3, to: 'bob', text: 'job m1 BLOCKED: run status' }]),
+    'messages/job-m1.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'done' }, { at: '2026-11-03T11:00:00Z', n: 2, to: 'bob', text: 'blocked' }, { at: '2026-11-03T11:10:00Z', n: 3, to: 'bob', text: 'job m1 BLOCKED: run status' }, { at: new Date(Date.now() - 5 * 6e4).toISOString(), n: 4, to: 'bob', text: 'which name?' }]),
     'messages/root.jsonl': msgs([{ at: '2026-11-03T10:00:00Z', n: 1, to: 'bob', text: 'Sweep' }]),
     'messages/bob.jsonl': msgs([{ at: '2026-11-03T10:30:00Z', n: 1, to: 'root', text: 'routed job-m1-1 and job-m1-20' }]),
   });
@@ -91,6 +91,11 @@ test('status --role bob: a job\'s report to bob is listed until a later message 
   const text = out.join('\n');
   assert.match(text, /reports to route[^\n]*\n- job-m1-2: blocked/);
   assert.doesNotMatch(text.split('reports to route')[1], /job-m1-3/, 'a wake asks BOB to run status; it routes nothing');
+  // Bob, 4 Nov: a report unanswered past decision_minutes (30) is listed, ahead of next work; a
+  // fresh one is not.
+  assert.match(text, /\nunanswered job-m1-2 \d+m \(target 30\)\n/);
+  assert.doesNotMatch(text, /unanswered job-m1-4/);
+  assert.ok(text.indexOf('unanswered job-m1-2') < (text.indexOf('next work') === -1 ? Infinity : text.indexOf('next work')));
   assert.doesNotMatch(text, /job-m1-1:|root-1:/);
 });
 

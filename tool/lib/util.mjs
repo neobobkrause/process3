@@ -104,8 +104,9 @@ export const DEFAULTS = {
   completion_file: null,
   setup_timeout_minutes: 15,
   // Targets: status --role bob --sessions flags a job whose session is idle with no push for
-  // replace_minutes (measured 3-4 Nov: a stopped job was flagged only after two hours).
-  targets: { replace_minutes: 30 },
+  // replace_minutes (measured 3-4 Nov: a stopped job was flagged only after two hours); a report
+  // or question unanswered in decision_minutes is escalated (Bob, 4 Nov: urgency in the release).
+  targets: { replace_minutes: 30, decision_minutes: 30 },
 };
 
 // An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...

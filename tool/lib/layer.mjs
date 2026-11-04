@@ -17,7 +17,7 @@ import { depth, fail, git, loadConfig, now, repoSlug, run } from './util.mjs';
 
 const MINUTE = 60000;
 
-export function layerClose(root, n, { log = console.log, io, exec = run } = {}) {
+export function layerClose(root, n, { log = console.log, io, exec = run, as = 'bob' } = {}) {
   if (!/^\d+$/.test(String(n))) fail(`layer close <n>, the layer's number, not ${JSON.stringify(n)}`);
   const cfg = loadConfig(root);
   const tranche = `origin/${cfg.tranche}`;
@@ -80,8 +80,8 @@ export function layerClose(root, n, { log = console.log, io, exec = run } = {}) 
   if (changed.length) log(`regenerated files differ from the tranche (${changed.join(', ')}): not committed here; commit them by BOB's plain pull request`);
   nextWork(root, cfg, s.rows, tranche, { log, state: layerState(root, cfg, s.rows, tranche, { closed: [...closed, row] }) });
   // The close gives BOB its next layer's work and the deploy and walk: the wake is the last line.
-  const wake = wakeLine(`layer ${n} closed`);
-  log(wake);
+  const wake = wakeLine(`layer ${n} closed`, as);
+  if (wake) log(wake);
   return { ok: true, row, wake };
 }
 
