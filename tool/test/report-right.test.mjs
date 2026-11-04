@@ -263,3 +263,39 @@ test('ready to start by entry: in a shallow clone an add at the cut is not the e
   assert.equal(u3.ready_by, 'uses', 'the cut tells nothing: the provider merge stands');
   assert.equal(u3.ready, t(30));
 });
+
+// The copy, 4 Nov 12:23: queue, queue-producers and case-authoring, entries added 11:42:35 and
+// started 11 to 25 min later before bias (in their uses) merged, read no ready figure at all.
+test('ready to start: a job started before a provider in its uses merged waits from its entry\'s add, when that came before its start', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const prev = { ...process.env };
+  Object.assign(process.env, { GIT_COMMITTER_DATE: t(10), GIT_AUTHOR_DATE: t(10) });
+  try { commit(root, { 'process/ledger/n3.json': '{}' }, 'entry n3'); } finally { for (const k of ['GIT_COMMITTER_DATE', 'GIT_AUTHOR_DATE']) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; } }
+  const cfg = loadConfig(root);
+  // q2's job started at 1 and is not merged; n3's entry was added at 10 and its job started at 35.
+  const lt = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 35)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) });
+  const n3 = lt.jobs.find((j) => j.module === 'n3').ready_to_start;
+  assert.equal(n3.minutes, 25, 'from its entry\'s add (10) to its start (35)');
+  assert.equal(n3.ready_by, 'entry');
+  assert.equal(n3.ready, t(10));
+  assert.equal(n3.started_before, 'q2');
+  assert.match(leadCell(n3), /^25 min .*\(started before q2 merged\)/);
+  // Counted in the median, and still counted as started before a provider merged.
+  assert.equal(lt.summary.ready_to_start.n, 2);
+  assert.equal(lt.summary.ready_to_start.started_before_uses, 1);
+  // An entry added before the opening: the wait runs from the opening.
+  const late = leadTimes(root, cfg, { ref: 'HEAD', rows: [start('q2', 15), start('n3', 35)], layers: LAYERS, modules: MODULES, grants: grants(12), closed: [], now: t(100) }).jobs.find((j) => j.module === 'n3').ready_to_start;
+  assert.deepEqual([late.minutes, late.ready], [23, t(12)]);
+  // No entry add before the start (none at ref): the figure still says it started first.
+  const bare = makeRepo({ 'README.md': 'x' });
+  const none = leadTimes(bare, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 35)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) }).jobs.find((j) => j.module === 'n3').ready_to_start;
+  assert.equal(none, 'started before q2 (in its uses) merged; q2 not merged yet');
+});
+
+test('3: the total since the opening counts an attempt priced at its merge, not the unmeasured row job complete wrote before it', () => {
+  const { root } = repo([start('a', 5, 1), measured('a', 6, 'job', 'unmeasured', 's_a', { attempt: 1, session_usd: 3 }), measured('a', 9, 'job', 0.75, 's_a', { attempt: 1, session_usd: 3.75 })]);
+  assert.match(tranche(root), /- total cost since the opening: \$0\.75/);
+  // An attempt with only the unmeasured row stays unmeasured.
+  const { root: r2 } = repo([start('a', 5, 1), measured('a', 6, 'job', 'unmeasured', 's_a', { attempt: 1, session_usd: 3 })]);
+  assert.match(tranche(r2), /- total cost since the opening: unmeasured \(\$0\.00 over 0 priced rows; 1 without a cost\)/);
+});

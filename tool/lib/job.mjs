@@ -36,6 +36,15 @@ export const COST_WHERE = '<your session\'s cost so far: get_session on your own
 // Where BOB reads a job's cost at its merge (measured 4 Nov, 11:49: a session reading its own
 // get_session mid-turn gets no external_metadata.usage; it appears only once the turn ends, so the
 // job's own figure is read by BOB, its session idle by then).
+// A job row's cost: its session's figure less the same session's last figure. A delta of 0 or
+// less for an attempt that ran is a figure not read (copy, 4 Nov: queue's attempt 2 ran in
+// attempt 1's session, get_session's usage had not moved, and its row read 0): 'unmeasured',
+// never 0, so the report reads the job unmeasured rather than low.
+export function costDelta(rows, sid, cost) {
+  const prior = sid ? (rows || []).filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop() : null;
+  const d = Math.round((cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4;
+  return { usd: d > 0 ? d : 'unmeasured', prior: prior ? Number(prior.session_usd) : null };
+}
 export const jobCostCall = (sid) => `get_session {"session_id": "${sid || '<the job\'s session id>'}"}, the field external_metadata.usage.cost_usd`;
 // A session id in get_session's form: the environment's cse_<id> is the record's session_<id>.
 export const sessionForm = (id) => (typeof id === 'string' && id ? id.replace(/^cse_/, 'session_') : id || null);
@@ -887,8 +896,9 @@ export function jobComplete(root, id, opts = {}) {
     appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, ...(sid ? { session: sid } : {}), receipt, ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
     if (cost !== null) {
       // The session's cost since its own last row: a session that completes twice is counted once.
-      const prior = readRows(root, id).filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop();
-      appendRow(root, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: Math.round(Math.max(0, cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4 });
+      const { usd, prior } = costDelta(readRows(root, id), sid, cost);
+      appendRow(root, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: usd });
+      if (usd === 'unmeasured') log(`job ${id}'s cost: unmeasured (session ${sid} read ${cost}, its last row ${prior}: get_session's usage has not moved since); BOB reads it at the merge: merge --job-cost-usd`);
     }
     receipt.sha = commitFiles(root, [entryFile(id), metricsFile(id)], `job complete ${id} (attempt ${attempt})`);
   } catch (e) {

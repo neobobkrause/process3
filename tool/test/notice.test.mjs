@@ -533,12 +533,70 @@ test('merge of a provider job that changed its exports with no requirement chang
   assert.match(brief, /decide whether the module uses the changed behaviour or any export removed or changed/);
   // Each user with only its files that import the provider, and their import lines.
   // u2, importing nothing of p, was answered at the merge; only u1 is left for the worker.
-  assert.match(out.join('\n'), /notice triage p:50 at the merge: 1 of 2 not affected \(no file imports p\), answered: u2; 1 owe a worker's judgment\n- u1: not cleared: src\/u1\/a\.mjs imports p/);
-  // The ready jobs' start comes first after the merge line, and the triage outcome is the last line.
+  assert.match(out.join('\n'), /notice triage p:50 at the merge: 1 of 2 not affected \(no file imports p\), answered: u2; 1 owe a worker's judgment, recorded owed on process-state: u1\n- u1: not cleared: src\/u1\/a\.mjs imports p/);
+  // The owed triage comes first after the merge line, then the ready jobs' start; the triage
+  // outcome is the last line.
   const at = out.findIndex((l) => /^merged pull request 50/.test(l));
-  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
+  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs notice triage p:50 \(provider notice p:50; 1 user module owes a worker's judgment: u1/);
+  assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
   assert.match(out.at(-1), /^notice triage at the merge: 1 owe a worker's judgment; next act: node \.process\/tool\/p3\.mjs notice triage p:50/);
   assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1$/);
+});
+
+// The copy, 4 Nov: case-catalogue:224's users case-checker and ratification both import it; the
+// merge cleared neither, wrote no row, and BOB's worker triaged it 9.6 min later.
+test('a merge whose every notice user imports the provider records each owed at its merge and prints its triage as the first act', () => {
+  const root = product();
+  withProvider(root);
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'src/u2/a.mjs': "import { accountsOf } from '../p/index.mjs';\nexport const b = accountsOf;\n" });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const io = mergeFixture(root, 'p', { 'src/p/index.mjs': P_INDEX.replace('return id;', 'return String(id);'), 'process/metrics/p.jsonl': doneRow() });
+  const out = [];
+  const r = merge(root, 224, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  assert.deepEqual(r.notices.rows.map((x) => [x.key, x.users]), [['p:224', ['u1', 'u2']]]);
+  assert.deepEqual(r.triage.owed, ['u1', 'u2']);
+  // One owed row per user, written at the merge, none a verdict.
+  assert.deepEqual(r.triage.rows.map((x) => [x.row, x.user, x.key, x.by]), [['owed', 'u1', 'p:224', 'merge'], ['owed', 'u2', 'p:224', 'merge']]);
+  const cfg = loadConfig(root);
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const row = JSON.parse(readState(root, cfg.state_branch, 'notices/triage/owed/u2-p-224.json'));
+  assert.equal(row.next, 'node .process/tool/p3.mjs notice triage p:224');
+  assert.match(row.why, /src\/u2\/a\.mjs imports p/);
+  assert.match(git(['log', '-1', '--format=%s', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root }), /^notice triage p:224 at its merge: 2 owe a worker's judgment \(u1, u2\)$/);
+  // Owed is not judged: the notice still has both open, and a worker's record still takes both.
+  assert.deepEqual(notices(root, cfg.state_branch)[0].open, ['u1', 'u2']);
+  assert.match(out.join('\n'), /notice triage p:224 at the merge: 0 of 2 not affected \(no file imports p\), none answered; 2 owe a worker's judgment, recorded owed on process-state: u1, u2/);
+  const at = out.findIndex((l) => /^merged pull request 224/.test(l));
+  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs notice triage p:224 \(provider notice p:224; 2 user modules owe a worker's judgment: u1, u2/);
+  assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs job start --ready/);
+  assert.match(out.at(-1), /^notice triage at the merge: 2 owe a worker's judgment; next act: node \.process\/tool\/p3\.mjs notice triage p:224/);
+  // merge run again after it landed: its triage, still owed, is the first act there too.
+  const again = [];
+  git(['fetch', '-q', 'origin', 'job/p:job/p-merged'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/p-merged'], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  merge(root, 224, { slug: 'o/r', io: { ...io, getPR: () => ({ state: 'closed', merged: true, merge_commit_sha: m, user: { login: 'c' }, base: { ref: 'tranche' }, head: { ref: 'job/p', sha: m } }), compare: () => null }, reviewed: 'fresh', rounds: 1, log: (x) => again.push(x) });
+  assert.ok(again.some((l) => /^first: node \.process\/tool\/p3\.mjs notice triage p:224 /.test(l)), again.join('\n'));
+  const dir = mkdtempSync(join(tmpdir(), 'p3-triage-'));
+  const f = join(dir, 'w.txt');
+  writeFileSync(f, 'u1: affected: src/u1/a.mjs:1 imports accountsOf\nu2: affected: src/u2/a.mjs:1 imports accountsOf\n');
+  const rec = recordTriage(root, 'p:224', { file: [f], worker: ['agent-1'], cost: ['0.2'], log: quiet });
+  assert.deepEqual(rec.rows.filter((x) => x.row === 'triage').map((x) => [x.user, x.verdict]), [['u1', 'affected'], ['u2', 'affected']]);
+});
+
+test('a merge that leaves no triage owed prints the ready jobs\' start first, as before', () => {
+  const root = product();
+  const io = mergeFixture(root, 'p', { 'src/p/a.mjs': 'x', 'req/p.md': REQ.replace('*(not yet met: x)* ', ''), 'process/metrics/p.jsonl': doneRow() });
+  const out = [];
+  merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  const at = out.findIndex((l) => /^merged pull request 7/.test(l));
+  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
+  assert.ok(!out.some((l) => /^then: /.test(l)));
 });
 
 test('a source change with no export change still records a notice, with no exports named; a test-only change with no requirement change records none', () => {

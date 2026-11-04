@@ -19,6 +19,12 @@ import { dirname, join, normalize, resolve, sep } from 'node:path';
 
 export const TRIAGE_DIR = `${NOTICES_DIR}/triage`;
 export const triageFile = (user, key) => `${TRIAGE_DIR}/${user}-${key.replace(':', '-')}.json`;
+// The merge's record of each user module its imports check could not clear (copy, 4 Nov:
+// case-catalogue:224's two users both import it, and its merge wrote nothing, so the notice's
+// triage at its merge left no row and BOB's worker came 9.6 min later). Row 'owed', in its own
+// directory: never a triage row (triageRows reads only TRIAGE_DIR's own files), so it judges nothing.
+export const OWED_DIR = `${TRIAGE_DIR}/owed`;
+export const owedFile = (user, key) => `${OWED_DIR}/${user}-${key.replace(':', '-')}.json`;
 
 // Every triage row the fetched state branch holds, keyed `<key>\0<user>`.
 export function triageRows(root, sb) {
@@ -266,9 +272,13 @@ export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = consol
     return [[triageFile(m.id, key), { row: 'triage', user: m.id, verdict: 'not affected', evidence, ...common }],
       [answerFile(m.id, key), { row: 'answered', user: m.id, by: 'triage', evidence, ...common }]];
   });
+  // Each user left owes a worker's judgment: one owed row each, named, so the merge is never
+  // silent on the state branch (its rows say who owes triage, from when).
+  for (const u of left) want.push([owedFile(u, key), { row: 'owed', user: u, key, at, by: 'merge', why: whys.get(u) || 'a file under its paths imports it', next: `${P3} notice triage ${key}` }]);
   let rows = [];
   if (want.length) {
-    rows = writeState(root, sb, `notice triage ${key} at its merge: ${clear.length} module(s) not affected by imports`, (wt) => {
+    const what = [clear.length ? `${clear.length} module(s) not affected by imports` : null, left.length ? `${left.length} owe a worker's judgment (${left.join(', ')})` : null].filter(Boolean).join('; ');
+    rows = writeState(root, sb, `notice triage ${key} at its merge: ${what}`, (wt) => {
       const dir = resolve(wt, NOTICES_DIR) + sep;
       const add = want.filter(([f]) => resolve(wt, f).startsWith(dir) && !existsSync(join(wt, f)));
       for (const [f, row] of add) {
@@ -278,12 +288,12 @@ export function triageAtMerge(root, cfg, notice, { ref, as = 'bob', log = consol
       return { rows: add.map(([, row]) => row) };
     }).rows;
   }
-  log(`${head}: ${clear.length} of ${owed.length} not affected (no file imports ${notice.provider})${clear.length ? `, answered: ${clear.map((m) => m.id).join(', ')}` : '; no row written'}${left.length ? `; ${left.length} owe a worker's judgment` : ''}`);
+  log(`${head}: ${clear.length} of ${owed.length} not affected (no file imports ${notice.provider})${clear.length ? `, answered: ${clear.map((m) => m.id).join(', ')}` : ', none answered'}${left.length ? `; ${left.length} owe a worker's judgment, recorded owed on ${sb}: ${left.join(', ')}` : ''}`);
   for (const u of left) log(`- ${u}: not cleared: ${whys.get(u) || 'a file under its paths imports it'}`);
   const next = left.length ? `next act: ${P3} notice triage ${key} (${left.length} module${left.length === 1 ? '' : 's'}: a read-only worker judges them now, not in a later batch)` : null;
   const wake = next && as !== 'bob' ? wakeLine(`notice ${key} owes triage of ${left.length}: ${P3} notice triage ${key}, then status`, as) : null;
   if (next) log(wake || next);
-  return { rows, owed: left, next: wake || next };
+  return { rows, owed: left, key, next: wake || next };
 }
 
 // The users that provably import nothing of the provider at sha (confirming review of PR 100: the

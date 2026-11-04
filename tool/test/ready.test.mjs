@@ -171,3 +171,47 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
   // readyCount: the startable jobs status lists, for the wake's lead.
   assert.equal(readyCount(root, { read: (_, o) => { assert.equal(o.offline, true); return { next }; } }), 2);
 });
+
+// The copy, 4 Nov: publication and case-authoring, entries merged 11:44:06, layer 8 with the open
+// layer 4 and providers with unmet marks, were neither layer work, ready by uses nor notice work:
+// listed nowhere, so job start --ready at the merges of 11:52 to 12:05 never started them.
+test('status --role bob: an OPEN entry BOB wrote outside the open layer, its uses not done, is startable; the offline count sees it', () => {
+  const root = makeRepo({
+    'build/layers.md': '| Layer | Modules |\n|---|---|\n| 1 | `base` |\n| 2 | `prov` |\n| 3 | `pub`, `later` |\n',
+    'process/modules.json': JSON.stringify({ modules: [{ id: 'base', paths: ['src/base/'], uses: [] }, { id: 'prov', paths: ['src/prov/'], uses: [] }, { id: 'pub', paths: ['src/pub/'], uses: ['prov'] }, { id: 'later', paths: ['src/later/'], uses: ['prov'] }] }),
+    'process/config.json': JSON.stringify({ modules_file: 'process/modules.json', live_cap: 24 }),
+    'build/requirements/base.md': unmet(1),
+    'build/requirements/prov.md': unmet(2),
+    'build/requirements/pub.md': unmet(3),
+    'build/requirements/later.md': unmet(1),
+    'process/ledger/pub.json': entry('pub', { requirements: 'build/requirements/pub.md' }),
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', 'https://github.com/o/r'], { cwd: root });
+  git(['config', `url.${bare}.insteadOf`, 'https://github.com/o/r'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  openPassed(root);
+  const out = [];
+  const r = status(root, { role: 'bob', log: (m) => out.push(m), io: { openPRs: () => [], prFiles: () => [], checkRun: () => null, compare: () => null } });
+  // pub is listed (its entry is BOB's choice); later, with no entry, is not.
+  assert.deepEqual(r.next.filter((x) => x.module).map((x) => [x.module, x.entry_state]), [['pub', 'OPEN']]);
+  assert.match(out.join('\n'), /entered, never started \(BOB wrote the entry; ready whatever its layer or uses\): all 1 listed\n- build\/requirements\/pub\.md: 3 \(layer 3\); entry OPEN, never started/);
+  assert.deepEqual(startable(r.next).go, [{ id: 'pub', file: 'build/requirements/pub.md' }]);
+  // The wake's offline count: the one ls-remote marks it unstarted (it counted 0 before).
+  assert.equal(readyCount(root), 1);
+  // An entered module with no unmet mark has nothing for a job: not listed.
+  writeFileSync(join(root, 'build/requirements/pub.md'), '# pub\n');
+  git(['commit', '-qam', 'pub met'], { cwd: root });
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  assert.equal(readyCount(root), 0);
+  writeFileSync(join(root, 'build/requirements/pub.md'), unmet(3));
+  git(['commit', '-qam', 'pub reopened'], { cwd: root });
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  assert.equal(readyCount(root), 1);
+  // Its job branch on origin: neither started again nor counted.
+  git(['branch', 'job/pub'], { cwd: root });
+  git(['push', '-q', 'origin', 'job/pub'], { cwd: root });
+  assert.equal(readyCount(root), 0);
+});

@@ -255,7 +255,9 @@ export function overhead(rows, layers = new Map(), { opened = null, jobRows = []
     const own = measured.filter((r) => r.module === m && inT(r));
     // An unmeasured job row stands only while its attempt has no priced one (a merge run again with
     // the cost the first run lacked: review of PR 106).
-    const jobOwn = own.filter((r) => role(r) === 'job');
+    // A job row of 0 is a delta not read (get_session's usage not moved: queue's attempt 2 on the
+    // copy, 4 Nov), as costDelta now records it: unmeasured, never 0.
+    const jobOwn = own.filter((r) => role(r) === 'job').map((r) => (r.cost_usd !== undefined && r.cost_usd !== null && Number(r.cost_usd) === 0 ? { ...r, cost_usd: 'unmeasured' } : r));
     const pricedAt = new Set(jobOwn.filter((r) => Number.isFinite(Number(r.cost_usd))).map((r) => r.attempt));
     const job = sum(jobOwn.filter((r) => Number.isFinite(Number(r.cost_usd)) || !pricedAt.has(r.attempt)));
     // Reviews: the module's rows of any role but job, BOB and ROOT (their cost is split below).

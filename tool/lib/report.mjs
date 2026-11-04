@@ -275,7 +275,11 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const proc = (r) => r.role === 'bob' || r.role === 'root';
   const last = new Map();
   for (const r of measured.filter(proc).sort((a, b) => String(a.at).localeCompare(String(b.at)))) last.set(r.session || `${r.module} ${r.at}`, r);
-  const counted = [...measured.filter((r) => !proc(r)), ...last.values()];
+  // A job row unmeasured stands only while its attempt has no priced one (as overhead reads it):
+  // job complete's stale figure followed by the merge's priced row is one priced attempt.
+  const jobRole = (r) => (r.role || 'job') === 'job';
+  const pricedJob = new Set(measured.filter((r) => jobRole(r) && Number(r.cost_usd) > 0).map((r) => `${r.module}\0${r.attempt}`));
+  const counted = [...measured.filter((r) => !proc(r) && !(jobRole(r) && !(Number(r.cost_usd) > 0) && pricedJob.has(`${r.module}\0${r.attempt}`))), ...last.values()];
   const pricedC = counted.filter((r) => Number.isFinite(Number(r.cost_usd)));
   // A session that began before the opening: its cost since then, less its last priced row before.
   const priorOf = (r) => (proc(r) && r.session ? Number(allMeasured.filter((x) => !inT(x) && proc(x) && x.session === r.session && Number.isFinite(Number(x.cost_usd))).sort((a, b) => String(a.at).localeCompare(String(b.at))).at(-1)?.cost_usd ?? 0) : 0);

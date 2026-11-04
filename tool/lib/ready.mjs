@@ -59,8 +59,11 @@ export function archivable(rows, listed) {
 export function readyCount(root, { read = status } = {}) {
   // Offline: the wake is not held for GitHub or for fetches into the sender's clone (review of
   // PR 104); the refs this clone has and one ls-remote give the count.
-  const out = read(root, { role: 'bob', offline: true, log: () => {} });
-  const heads = new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
+  // The one ls-remote also marks an OPEN entry with no job branch unstarted (offline status read
+  // none, so a wake counted no entry BOB wrote: copy, 4 Nov, "1 job ready" at 11:58).
+  const r = git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true });
+  const heads = new Set(r.stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
+  const out = read(root, { role: 'bob', offline: true, ...(r.code === 0 ? { heads } : {}), log: () => {} });
   return startable(out?.next, { onOrigin: (id) => heads.has(id) }).go.length;
 }
 
