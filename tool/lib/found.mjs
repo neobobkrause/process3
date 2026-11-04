@@ -139,7 +139,11 @@ export function found(root, module, finding, { from, write = false, offline = fa
   // findings for one module before the first merges never share a number (review of PR 75).
   const key = module || 'no-module';
   const local = [file, ...(module ? [foundFile(module)] : [])].map((f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null));
-  const heads = offline ? '' : git(['ls-remote', '--heads', 'origin', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  // The local found/<key>-f<n> branches count too: a run whose branch is made but not yet pushed
+  // (defect sweep 4 Nov).
+  const remote = offline ? '' : git(['ls-remote', '--heads', 'origin', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  const localHeads = git(['for-each-ref', '--format=%(refname)', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  const heads = `${remote}\n${localHeads}`;
   const pending = [...heads.matchAll(new RegExp(`refs/heads/found/${key}-f(\\d+)$`, 'gm'))].map((m) => `**F${m[1]}**`).join(' ');
   const n = nextFound(...texts, ...local, pending);
   const line = foundLine(n, what, source);
