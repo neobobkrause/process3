@@ -240,14 +240,14 @@ const commands = {
     return 0;
   },
 
-  // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 30]: BOB merges a job.
-  // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 20]: any other pull request.
+  // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60]: BOB merges a job.
+  // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60]: any other pull request.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
-    if (a.plain) return mergePlain(root, n, { ...review, minutes: Number(a.minutes || 20), as: senderOf(root, a.as) }).merged ? 0 : 1;
-    return merge(root, n, { ...review, minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
+    if (a.plain) return mergePlain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
+    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}) }).merged ? 0 : 1;
   },
 
   // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>] [--no-post]

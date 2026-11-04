@@ -7,11 +7,13 @@
 // adds a test). A list over one worker's share is split into briefs run in parallel, and the
 // notice is recorded whole, only once every user module has a line (coordinator, 4 Nov).
 // One file per write on the state branch, added and never edited, as notices/ is.
+import { specifiers, ownerOf } from './checks.mjs';
+import { resolveSpec } from './exports.mjs';
 import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
-import { NOTICES_DIR, answerFile, notices } from './notice.mjs';
+import { NOTICES_DIR, answerFile, mergedRange, notices } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
+import { depth, exists, fail, git, list, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -57,38 +59,61 @@ function find(root, cfg, key) {
 
 // The provider's changed requirements, before and after, from the PR's merge commit (as merge
 // run again on a merged pull request reads it).
-function changes(root, cfg, n, { slug, read }) {
+function changes(root, cfg, n, { slug, read, compare }) {
   const pr = read(slug, n.pr);
   const m = pr?.merge_commit_sha;
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
-  git(['fetch', '-q', ...(isShallow(root) ? ['--depth=50'] : []), 'origin', m], { cwd: root, allowFail: true });
-  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
-  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; what it changed cannot be read`);
-  const mb = git(['merge-base', `${m}^1`, head.stdout.trim()], { cwd: root });
+  const { head: h, mb } = mergedRange(root, m, { slug, n: n.pr, ...(compare ? { read: compare } : {}) });
   const entry = git(['show', `${mb}:process/ledger/${n.provider}.json`], { cwd: root, allowFail: true });
   let file = `${cfg.requirements_dir.replace(/\/$/, '')}/${n.provider}.md`;
   try { if (entry.code === 0) file = JSON.parse(entry.stdout).requirements || file; } catch { /* the default path */ }
   const at = (ref) => git(['show', `${ref}:${file}`], { cwd: root, allowFail: true }).stdout;
   const before = at(mb);
-  const after = at(head.stdout.trim());
+  const after = at(h);
   const line = (text, id) => String(text).split('\n').find((l) => l.includes(`**${id}**`))?.trim() || '(none)';
   return { file, ids: n.ids.map((id) => ({ id, before: line(before, id), after: line(after, id) })) };
 }
 
 // Each user module's paths, and their files and bytes, at the tranche tip.
-function sizes(root, cfg, users, ref) {
+// What a worker reads per user module: its files that import the provider, found as the gate's
+// imports check finds an import (checks.mjs specifiers, a relative specifier resolved from the
+// importing file, the file's module the most specific path owning it), each with its import lines;
+// bytes are those files' only. Whole module code made one notice about 74 workers on the copy (4 Nov,
+// coordinator); the judgement needs only where a module reaches the provider. git grep for the
+// provider's directory names narrows the read, as exports.mjs entryFiles does.
+const CODE_FILE = /\.(m|c)?(j|t)sx?$/;
+function sizes(root, cfg, users, ref, provider) {
   let modules = [];
   try { modules = JSON.parse((exists(root, ref, cfg.modules_file) ? git(['show', `${ref}:${cfg.modules_file}`], { cwd: root }) : null) || '{}').modules || []; } catch { modules = []; }
+  if (!Array.isArray(modules)) modules = [];
+  const prov = modules.find((m) => m?.id === provider);
+  const provPaths = [...(prov?.paths || [])];
+  const inProvider = (f) => !!prov && ownerOf(modules, f)?.id === provider;
+  const pathsOf = (u) => modules.find((m) => m?.id === u)?.paths || [];
+  const userPaths = [...new Set(users.flatMap(pathsOf))];
+  const words = [...new Set(provPaths.map((p) => String(p).replace(/\/$/, '').split('/').pop()).filter((w) => w && w !== '.'))];
+  const hits = new Map(users.map((u) => [u, []]));
+  if (words.length && userPaths.length) {
+    const all = new Set(git(['ls-tree', '-r', '--name-only', '-z', ref], { cwd: root }).split('\0').filter(Boolean));
+    const g = git(['grep', '-l', '-z', '-F', ...words.flatMap((w) => ['-e', w]), ref, '--', ...userPaths], { cwd: root, allowFail: true });
+    const files = g.code === 0 ? g.stdout.split('\0').filter(Boolean).map((f) => f.slice(ref.length + 1)) : [];
+    for (const f of files) {
+      if (!CODE_FILE.test(f) || inProvider(f)) continue;
+      const own = ownerOf(modules, f)?.id;
+      if (!hits.has(own)) continue;
+      const text = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
+      const lines = specifiers(text).filter(({ spec }) => { const to = resolveSpec(f, spec, (x) => all.has(x)); return to && inProvider(to); });
+      if (lines.length) hits.get(own).push({ file: f, lines: lines.map((x) => x.line), bytes: Buffer.byteLength(text) });
+    }
+  }
   return users.map((u) => {
-    const paths = modules.find((m) => m.id === u)?.paths || [];
-    const ls = paths.length ? git(['ls-tree', '-r', '-l', ref, '--', ...paths], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean) : [];
-    const bytes = ls.reduce((s, l) => s + (Number(l.split(/\s+/)[3]) || 0), 0);
-    return { id: u, paths, files: ls.length, bytes };
+    const imports = hits.get(u).sort((a, b) => a.file.localeCompare(b.file));
+    return { id: u, paths: pathsOf(u), imports, files: imports.length, bytes: imports.reduce((t, x) => t + x.bytes, 0) };
   });
 }
 
 // The owed modules in shares one worker's brief can hold: in order, a share closed when the next
-// module would take it past cfg.triage_share_bytes of code or cfg.triage_share_modules modules
+// module would take it past cfg.triage_share_bytes of its importing files or cfg.triage_share_modules modules
 // (a module over the cap alone is a share of its own).
 export function shares(mods, { bytes, modules }) {
   const out = [];
@@ -113,13 +138,13 @@ export function briefText({ n, changed, mods, tranche, sha, share = null }) {
       ...(n.exports.added.length ? [`- added: ${n.exports.added.join(', ')}`] : [])] : []),
     ...(n.exports_unread ? ['', `Its exports could not be read (${n.exports_unread}); read the provider's change.`] : []),
     '',
-    `For each module below, read its code at ${tranche} ${sha.slice(0, 10)} and decide whether it uses the changed behaviour${n.exports ? ' or any export removed or changed' : ''}. Answer one line per module, exactly one of:`,
+    `For each module below, read at ${tranche} ${sha.slice(0, 10)} the files listed for it, which import \`${n.provider}\` (each import's line given), and what they do with what they import; decide whether the module uses the changed behaviour${n.exports ? ' or any export removed or changed' : ''}. Read further only where those files lead. A module listed with no file importing \`${n.provider}\` is judged from that: cite its paths and the modules file. Answer one line per module, exactly one of:`,
     '<module>: affected: <file>:<line> <what there uses the changed behaviour>',
     '<module>: not affected: <file>:<line> <the evidence that it does not: its use of the provider, or where it would be>',
     'Every line cites a file:line. Judge every module below, each from what you read; nothing is recorded until every module of the notice has a line. No other lines matter.',
     '',
-    `Modules (${mods.length}; paths, files, bytes):`,
-    ...mods.map((m) => `- ${m.id}: ${m.paths.join(', ') || '(no paths in the modules file)'} (${m.files} files, ${m.bytes} bytes)`),
+    `Modules (${mods.length}; paths; the files that import ${n.provider}, with their import lines):`,
+    ...mods.map((m) => `- ${m.id}: ${m.paths.join(', ') || '(no paths in the modules file)'}; ${m.imports?.length ? m.imports.map((x) => `${x.file}:${x.lines.join(',')}`).join(', ') : `no file imports ${n.provider}`}`),
   ].join('\n');
 }
 
@@ -131,8 +156,8 @@ export function noticeTriage(root, key, { log = console.log, io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${tranche}`], { cwd: root, allowFail: true });
   const sha = git(['rev-parse', tranche], { cwd: root });
-  const changed = changes(root, cfg, n, { slug: io.slug || repoSlug(root), read: io.getPR || getPR });
-  const mods = sizes(root, cfg, owed, tranche);
+  const changed = changes(root, cfg, n, { slug: io.slug || repoSlug(root), read: io.getPR || getPR, compare: io.compare });
+  const mods = sizes(root, cfg, owed, tranche, n.provider);
   const parts = shares(mods, { bytes: cfg.triage_share_bytes, modules: cfg.triage_share_modules });
   if (parts.length === 1) {
     const brief = briefText({ n, changed, mods, tranche, sha });
@@ -144,7 +169,7 @@ export function noticeTriage(root, key, { log = console.log, io = {} } = {}) {
   const N = parts.length;
   const briefs = parts.map((p, i) => briefText({ n, changed, mods: p, tranche, sha, share: { k: i + 1, of: N } }));
   const rec = parts.map((_, i) => `--record <file ${i + 1}> --worker <id ${i + 1}> --cost <cost ${i + 1}>`).join(' ');
-  log(`BOB's acts: ${owed.length} modules, over one worker's share (${cfg.triage_share_modules} modules or ${cfg.triage_share_bytes} bytes of code): start ${N} read-only workers in parallel, subagents (the Agent tool, not sessions), worker k with brief k below; save each answer to its own file, then record them together, once every worker has answered: ${P3} notice triage ${key} ${rec}`);
+  log(`BOB's acts: ${owed.length} modules, over one worker's share (${cfg.triage_share_modules} modules or ${cfg.triage_share_bytes} bytes of the files that import ${n.provider}): start ${N} read-only workers in parallel, subagents (the Agent tool, not sessions), worker k with brief k below; save each answer to its own file, then record them together, once every worker has answered: ${P3} notice triage ${key} ${rec}`);
   parts.forEach((p, i) => log(`- worker ${i + 1} of ${N}: brief ${i + 1} (${p.length} modules, ${p.reduce((t, m) => t + m.bytes, 0)} bytes)`));
   briefs.forEach((b, i) => { log(''); log(`=== brief ${i + 1} of ${N} ===`); log(b); });
   return { owed, briefs, shares: parts.map((p) => p.map((m) => m.id)) };
