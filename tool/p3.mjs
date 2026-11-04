@@ -23,6 +23,7 @@ import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, handoverBegin, handoverConfirm, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { status } from './lib/status.mjs';
+import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { SWEEP_ROWS_FILE, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince } from './lib/record.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
@@ -91,6 +92,16 @@ const commands = {
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
   'layer close': (a, root) => (layerClose(root, one(a, 'layer number')).ok ? 0 : 1),
+
+  // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) with the brief
+  // printed; writes nothing. --record <file> --worker <id> --cost <cost>: the worker's lines to the
+  // state branch (a `not affected` with file:line evidence answers the notice for its module).
+  'notice triage': (a, root) => {
+    const key = one(a, 'notice, <provider>:<pr>');
+    if (a.record !== undefined) recordTriage(root, key, { file: a.record, worker: a.worker, cost: a.cost });
+    else noticeTriage(root, key);
+    return 0;
+  },
 
   // tranche open [--depth <BOB's depth, default 1>]: the grants check's acts, BOB's and a probe's.
   // tranche open --record "<act>|<depth>|ok|refused|declined"... --session <id> [--bob "<words>"]: each
@@ -298,8 +309,9 @@ const commands = {
     return 0;
   },
 
-  // watch --session <the watcher's id> [--full]: the watcher's daily decision.
-  watch: (a, root) => { watch(root, { session: a.session, full: !!a.full }); return 0; },
+  // watch --session <the watcher's id> [--full | --escalated <minutes>]: the watcher's decision,
+  // daily or at once on an escalation.
+  watch: (a, root) => { watch(root, { session: a.session, full: !!a.full, escalated: a.escalated }); return 0; },
 
   // address <root|bob|watcher>: the address as the state branch holds it now.
   address: (a, root) => {

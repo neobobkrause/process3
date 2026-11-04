@@ -6,13 +6,14 @@ import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
-import { noticeLine, notices } from './notice.mjs';
+import { noticeLine, notices, readModules } from './notice.mjs';
+import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
-import { UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
+import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, loadConfig, overCap, repoSlug } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -245,7 +246,19 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), row };
     }) }))
     .sort((a, b) => a.n - b.n);
-  for (const L of layers) L.closed = recorded.has(L.n) || L.mods.every((m) => !m.open && !m.marks.length);
+  // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
+  // main lacks (origin/main unread counts as here). A layer that had such work closes only by
+  // `layer close`, its checks, close row and deploy and walk; one with none closes implicitly.
+  const blob = (at, f) => {
+    if (at) { const r = git(['rev-parse', '-q', '--verify', `${at}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; }
+    return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
+  };
+  const here = (m) => { const f = `${LEDGER_DIR}/${m.row.id}.json`; const b = blob(ref, f); return b === null || b !== blob('refs/remotes/origin/main', f); };
+  for (const L of layers) {
+    L.recorded = recorded.has(L.n);
+    L.worked = L.mods.some((m) => m.merged && here(m));
+    L.closed = L.recorded || (!L.worked && L.mods.every((m) => !m.open && !m.marks.length));
+  }
   const cur = layers.find((L) => !L.closed) || null;
   // A deferred module's pull request unread (offline) holds the layer as an open one does.
   const ok = (m) => (m.blocked ? !m.pr && !m.row.pr?.startsWith('unknown') : !m.open && (m.merged || !m.marks.length));
@@ -258,10 +271,15 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
 
 // Provider notices (the provider-change route): per user module, each notice it has not answered,
 // as the state branch holds them (bobStatus fetched it). Listed until the user has an open job
-// whose START names the notice (its start row, on its job branch); answered when that job merges.
+// whose START names the notice (its start row, on its job branch); answered when that job merges,
+// or by notice triage judging the module not affected. Each notice carries the module's triage row
+// (`triage`), null until `notice triage --record` judged it: until then the notice is listed once,
+// as `triage owed`, and none of its modules is notice work (56 modules for one struck requirement
+// on the copy, 4 Nov).
 export function owedNotices(root, cfg, rows, log = console.log) {
   let all = [];
-  try { all = notices(root, cfg.state_branch); } catch { all = []; }
+  let tri = new Map();
+  try { all = notices(root, cfg.state_branch); tri = triageRows(root, cfg.state_branch); } catch { all = []; }
   const unrecorded = {};
   const named = (u) => {
     // The job branch decides, while its attempt is open: not COMPLETE on the tranche, an open pull
@@ -277,18 +295,66 @@ export function owedNotices(root, cfg, rows, log = console.log) {
     return keys;
   };
   const owed = {};
-  for (const n of all) for (const u of n.open) if (!named(u).includes(n.key)) (owed[u] ||= []).push(n);
+  const untriaged = {};
+  for (const n of all) for (const u of n.open) if (!named(u).includes(n.key)) {
+    const triage = tri.get(`${n.key}\0${u}`) || null;
+    const rerun = !!unrecorded[u]?.includes(n.key);
+    (owed[u] ||= []).push({ ...n, triage, rerun });
+    if (!triage && !rerun) (untriaged[n.key] ||= []).push(u);
+  }
   const users = Object.keys(owed).sort();
-  if (users.length) log('provider notices (the user module\'s next job answers each):');
-  for (const u of users) for (const n of owed[u]) log(`- ${u}: ${noticeLine(n)}${unrecorded[u]?.includes(n.key) ? `; its merged job named it, answer not recorded: run merge <that job's PR> again` : ''}`);
+  const judged = users.flatMap((u) => owed[u].filter((n) => n.triage).map((n) => [u, n]));
+  if (users.length) log('provider notices (not layer work; triage first, then a job per affected module):');
+  for (const [k, us] of Object.entries(untriaged)) log(`- triage owed: ${k} (${us.length} modules): ${P3} notice triage ${k}`);
+  const rerun = `; its merged job named it, answer not recorded: run merge <that job's PR> again`;
+  for (const [u, n] of judged) log(`- ${u}: ${noticeLine(n)}; affected: ${n.triage.evidence.slice(0, 80)}${n.rerun ? rerun : ''}`);
+  for (const u of users) for (const n of owed[u].filter((x) => !x.triage && x.rerun)) log(`- ${u}: ${noticeLine(n)}${rerun}`);
   return owed;
+}
+
+// open_by (process/config.json): "uses", the default, opens past the open layer each module
+// whose providers are all done; "layer", the open layer's modules only (the old behaviour).
+export function openBy(cfg) {
+  const v = cfg.open_by ?? 'uses';
+  if (!OPEN_BY.includes(v)) fail(`open_by ${JSON.stringify(v)} in process/config.json is not one of ${OPEN_BY.map((x) => `"${x}"`).join(', ')}`);
+  return v;
+}
+
+// Dependency opening (open_by "uses"): the modules of the layers past the open one that are
+// ready. Ready: every module its `uses` (modules_file) names is in the layer map and done, with
+// no unmet marks, no open job and no unanswered provider notice of its own. A module with no
+// `uses` entry waits for its layer. gaps: each module past the open layer whose `uses` names a
+// module the layer map lacks: not ready. The open layer is unchanged.
+export function readyByUses(root, cfg, ls, ref, owed = {}) {
+  const modules = openBy(cfg) === 'uses' && ls?.cur ? readModules(root, cfg, ref) : null;
+  if (!modules) return { ready: [], gaps: [] };
+  const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
+  const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
+  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !owed[id]?.length; };
+  const ready = [];
+  const gaps = [];
+  for (const L of ls.layers.filter((x) => x.n >= ls.cur.n && !x.closed)) {
+    for (const m of L.mods) {
+      const u = uses.get(m.id);
+      if (!u) continue;
+      const missing = u.filter((p) => !where.has(p));
+      if (missing.length && L.n > ls.cur.n) gaps.push({ id: m.id, layer: L.n, missing });
+      if (L.n > ls.cur.n && !missing.length && !m.open && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
+    }
+  }
+  return { ready, gaps };
 }
 
 // Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
 // marks and that have no open job, fewest unmet first; none once the layer is ready to close (BOB's
-// act is then `layer close <n>`). The deferred marks of closed layers are listed, not as work.
+// act is then `layer close <n>`). With open_by "uses", after them the modules past the open layer
+// that readyByUses finds ready, fewest unmet first, each line with its layer. The deferred marks of closed layers are listed, not as work.
 // Without a layer map, every requirement file with unmet marks. With live (the live sessions BOB
 // counts), at most live_cap less them are listed; the list returned is all of them.
+// Notice work apart: a module triage judged affected by a provider notice, whatever its layer (a
+// provider change is not layer work), under its own heading; a notice not yet triaged is BOB's act
+// `notice triage`, and none of its modules is listed. A notice module of the open layer with unmet
+// marks stays in the layer's list, its one job answering both.
 export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {} } = {}) {
   const open = rows.filter((r) => r.tranche !== 'COMPLETE');
   const dir = cfg.requirements_dir.replace(/\/$/, '');
@@ -297,9 +363,20 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const ls = state === undefined ? layerState(root, cfg, rows, ref) : state;
   let files;
   let layer = null;
+  const layerOf = new Map();
+  // The cap debt (every requirement file over the cap in the open layer and the layers after it,
+  // marks or none: 20 such files with no marks went unreported on the copy, 4 Nov).
+  let ahead = [];
   if (ls) {
     layer = ls.cur?.n ?? null;
+    for (const L of ls.layers) for (const m of L.mods) if (!layerOf.has(m.file)) layerOf.set(m.file, L.n);
     files = ls.ready || ls.pending ? [] : (ls.cur?.mods || []).map((m) => m.file);
+    const byUses = readyByUses(root, cfg, ls, ref, owed);
+    files.push(...byUses.ready.map((m) => m.file));
+    for (const g of byUses.gaps) log(`not ready, its uses not in ${cfg.layers_file}: ${g.id} (layer ${g.layer}) uses ${g.missing.join(', ')}`);
+    ahead = ls.cur ? ls.layers.filter((L) => L.n >= ls.cur.n).flatMap((L) => L.mods.map((m) => m.file)) : [];
+    // A layer closed with no `layer close` row: said once per layer, never silent (copy, 4 Nov).
+    for (const L of ls.layers.filter((x) => x.closed && !x.recorded)) log(`layer ${L.n} closed: no unmet marks`);
     if (ls.deferred.length) {
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
@@ -313,30 +390,52 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
-  } else files = (existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
+    ahead = files;
+  } else {
+    files = (existsSync(join(root, dir)) ? readdirSync(join(root, dir)) : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
+    ahead = files;
+  }
   // Read whole (git show without allowFail drops the last newline): the cap counts every byte.
   const whole = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : null) : read(f));
-  // A user module with an unanswered provider notice is next work, whatever its layer or marks.
-  const byFile = new Map(Object.entries(owed).map(([u, ns]) => [rows.find((r) => r.id === u)?.req || `${dir}/${u}.md`, ns]));
+  // A user module triage judged affected: notice work, whatever its layer or marks.
+  const affected = Object.entries(owed).map(([u, ns]) => [u, ns.filter((n) => n.triage)]).filter(([, ns]) => ns.length);
+  const byFile = new Map(affected.map(([u, ns]) => [rows.find((r) => r.id === u)?.req || `${dir}/${u}.md`, ns]));
+  const inLayer = new Set(files);
+  const texts = new Map();
+  const textOf = (f) => (texts.has(f) ? texts.get(f) : (texts.set(f, whole(f)), texts.get(f)));
   const all = [...new Set([...files, ...byFile.keys()])].filter((f) => !taken.has(f)).map((file) => {
-    const text = whole(file);
+    const text = textOf(file);
     return { file, count: ((text || '').match(MARK) || []).length, over: overCap(cfg, file, text), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
-  }).filter((x) => x.count || x.notices);
-  all.sort((a, b) => a.count - b.count || a.file.localeCompare(b.file));
+  }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices);
+  // The open layer's modules first, then those opened by uses; fewest unmet first within each.
+  const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
+  all.sort((a, b) => later(a) - later(b) || a.count - b.count || a.file.localeCompare(b.file));
   // Over the cap: BOB's act is the split or consolidation, listed apart, never as startable work.
   const big = all.filter((x) => x.over);
   for (const x of big) log(x.over);
-  const list = all.filter((x) => !x.over);
+  const debt = [...new Set(ahead)].map((f) => ({ f, t: textOf(f) })).filter((x) => overCap(cfg, x.f, x.t));
+  if (debt.length) log(`cap debt: ${debt.length} requirement file${debt.length === 1 ? '' : 's'} over the cap${layer === null ? '' : ` from layer ${layer} on`}, ${debt.reduce((s, x) => s + Buffer.byteLength(x.t), 0)} bytes; each is split or consolidated before its job`);
+  const layerWork = (x) => inLayer.has(x.file) && x.count > 0;
+  const list = all.filter((x) => !x.over && layerWork(x));
+  const noticeList = all.filter((x) => !x.over && !layerWork(x));
+  const n = live === undefined ? Infinity : Math.max(0, cfg.live_cap - live);
+  const shown = list.slice(0, n);
+  const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
+  const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (live ${live} of ${cfg.live_cap}), ${a.length - b.length} wait`);
   if (list.length) {
-    const n = live === undefined ? list.length : Math.max(0, cfg.live_cap - live);
-    const shown = list.slice(0, n);
-    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `all ${list.length} listed; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : `${shown.length} listed (live ${live} of ${cfg.live_cap}), ${list.length - shown.length} wait`}`);
-    for (const x of shown) log(`- ${x.file}: ${x.count}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
+    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : waits(list, shown)}`);
+    for (const x of shown) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}`);
   }
+  if (noticeList.length) {
+    log(`notice work (triage judged these affected; not layer work; each job adapts or confirms the code and adds its test): ${waits(noticeList, shownN)}`);
+    for (const x of shownN) log(`- ${x.file}: ${x.count}; provider notice ${x.notices.join(', ')}`);
+  }
+  // Triage owed: BOB's act (owedNotices printed it), counted as work for BOB (sweep passes the notices).
+  const triage = [...new Set(Object.values(owed).flat().filter((x) => !x.triage && !x.rerun).map((x) => x.key))].map((key) => ({ triage: key }));
   // The completion round (PLN-4): once every layer is closed, the completion file's open items.
   const round = ls && !ls.cur ? completionWork(root, cfg, rows, ref, log) : [];
-  // The returned list holds all three: a split owed is still work for BOB (sweep counts it).
-  return [...list, ...big, ...round];
+  // The returned list holds all of them: a split owed is still work for BOB (sweep counts it).
+  return [...list, ...noticeList, ...big, ...triage, ...round];
 }
 
 // The completion file's open items, not deferred: a module item through job start as usual (its
