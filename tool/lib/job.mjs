@@ -867,7 +867,7 @@ export function jobComplete(root, id, opts = {}) {
         // Base-red, as the gate judges it (basered.mjs): failures the tranche's tip has too are
         // not the job's; the receipt names them, and the gate checks them again.
         const tip = git(['rev-parse', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
-        const br = baseRed(root, entry, { base: tip, failing: s.failing, cfg, rows: generatedRows(cfg).rows, timeout: Math.max(1000, timeout - s.seconds * 1000), ...(exec ? { exec } : {}), log });
+        const br = baseRed(root, entry, { base: tip, failing: s.failing, cfg, rows: generatedRows(cfg).rows, timeout, ...(exec ? { exec } : {}), log });
         if (br.ok) { c.base_red = br.base_red.tests; log(`the suite's ${c.base_red.length} failing test(s) fail at ${cfg.tranche}'s tip ${tip.slice(0, 10)} too: base-red, named in the receipt`); }
         else log(`not base-red: ${br.why}`);
       }
