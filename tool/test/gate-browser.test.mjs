@@ -31,7 +31,7 @@ function bash(script, cwd, env) {
 // Stubs on PATH: npx records its calls; `install` lays a chrome down under the build's location;
 // `--dry-run` prints each build's location and URL as playwright does. curl and unzip, the
 // fallback's, record their URLs and unpack a chrome from a chromium zip.
-function stubNpx(calls, { noChrome = false, failFirst = 0, failDry = false, failCurl = false } = {}) {
+function stubNpx(calls, { noChrome = false, failFirst = 0, failDry = false, failCurl = false, failCdn = false } = {}) {
   const bin = mkdtempSync(join(tmpdir(), 'p3-npx-'));
   const home = join(bin, 'ms-playwright');
   const chrome = (dir) => `mkdir -p "${dir}/chrome-linux"; printf '#!/bin/bash\\necho "Chromium 141.0.%s"\\n' "$v" > "${dir}/chrome-linux/chrome"; chmod +x "${dir}/chrome-linux/chrome"`;
@@ -40,13 +40,13 @@ echo "\${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-native} $*" >> ${calls}
 v=\${2#playwright-core@}; loc=${home}/chromium-$v
 if [ "$4" = "--dry-run" ]; then ${failDry ? 'echo "unknown option --dry-run" >&2; exit 1; ' : ''}
   for b in "chromium-$v chromium-linux" "ffmpeg-1011 ffmpeg-linux" "chromium_headless_shell-$v chromium-headless-shell-linux" "ffmpeg-1011 ffmpeg-linux"; do set -- $b
-    printf 'browser: %s\\n  Install location:    %s\\n  Download url:        https://cdn.example/%s-%s.zip\\n  Download fallback 1: https://other.example/%s.zip\\n\\n' "$1" "${home}/$1" "$2" "$v" "$2"; done; exit 0; fi
+    printf 'browser: %s\\n  Install location:    %s\\n  Download url:        https://cdn.example/%s-%s.zip\\n  Download fallback 1: https://other.example/%s-%s.zip\\n\\n' "$1" "${home}/$1" "$2" "$v" "$2" "$v"; done; exit 0; fi
 n=$(grep -cE -- ' install (--with-deps )?chromium$' ${calls}); if [ "$n" -le ${failFirst} ]; then exit 1; fi
 ${noChrome ? '' : chrome('$loc')}
 `);
   writeFileSync(join(bin, 'curl'), `#!/bin/bash
 for a in "$@"; do case "$a" in https://*) u=$a;; esac; done; while [ $# -gt 0 ]; do [ "$1" = -o ] && o=$2; shift; done
-echo "curl $u" >> ${calls}; ${failCurl ? 'exit 22' : 'echo "$u" > "$o"'}
+echo "curl $u" >> ${calls}; ${failCurl ? 'exit 22' : failCdn ? 'case "$u" in https://cdn.*) exit 22;; esac; echo "$u" > "$o"' : 'echo "$u" > "$o"'}
 `);
   writeFileSync(join(bin, 'unzip'), `#!/bin/bash
 while [ $# -gt 0 ]; do case "$1" in -d) d=$2; shift;; -q|-o) ;; *) z=$1;; esac; shift; done
@@ -79,7 +79,7 @@ test('the versions: the top-level playwright-core of each lock file the gate ins
     const n = bash(stepRun("the browser the product's lock files pin"), root, { LOCKFILES });
     assert.equal(n.status, 0, n.stderr);
     assert.equal(n.out, 'versions=\n', LOCKFILES);
-    assert.match(n.stdout, /no playwright-core in the lock files the gate installs; none installed/);
+    assert.match(n.stdout, /no playwright-core in the lock files the pin step's config lists; none installed/);
   }
   // The pin step hands the config's lock files on.
   assert.match(gateJob, /echo "lockfiles=\$\(echo "\$cfg" \| jq -c '\.lockfiles \/\/ \[\]'\)" >> "\$GITHUB_OUTPUT"/);
@@ -120,12 +120,18 @@ test('the install: each pinned build with its system libraries, CHROMIUM names t
   assert.deepEqual(l3.filter((l) => l.startsWith('curl ')).sort(), ['curl https://cdn.example/chromium-headless-shell-linux-1.56.1.zip', 'curl https://cdn.example/chromium-linux-1.56.1.zip', 'curl https://cdn.example/ffmpeg-linux-1.56.1.zip']);
   assert.ok(!l3.some((l) => / install chromium$/.test(l) && l.startsWith('ubuntu')), 'not the installer that hung');
   for (const d of ['chromium-1.56.1', 'chromium_headless_shell-1.56.1', 'ffmpeg-1011']) assert.ok(existsSync(join(st.home, d, 'INSTALLATION_COMPLETE')), d);
-  assert.match(once.stdout, /::warning::browser: playwright-core 1\.56\.1 did not install for .*; fetching its ubuntu24\.04-x64 build without system libraries/);
+  assert.match(once.stdout, /::warning::browser: playwright-core 1\.56\.1 did not install on .* \(an OS newer than it knows, an outage or the 300 s bound\); fetching its ubuntu24\.04-x64 build without system libraries/);
   assert.match(once.stdout, /::notice::browser: Chromium 141\.0\.1\.56\.1 for playwright-core 1\.56\.1 at .* \(the ubuntu24\.04-x64 build\)/);
   assert.match(once.env, /^CHROMIUM=.*chromium-1\.56\.1\/chrome-linux\/chrome\n$/);
   const again = bash(stepRun('install the browser'), dir, { PATH: st.PATH, VERSIONS: '1.56.1' });
   assert.equal(again.status, 0, again.stderr);
   assert.equal(readFileSync(c3, 'utf8').trim().split('\n').filter((l) => l.startsWith('curl ')).length, 3, 'restored builds are not fetched again');
+  // The primary URL down: each build from the dry run's first fallback.
+  const c7 = join(dir, 'c7');
+  const mirror = bash(stepRun('install the browser'), dir, { PATH: stubNpx(c7, { failFirst: 1, noChrome: true, failCdn: true }).PATH, VERSIONS: '1.56.1' });
+  assert.equal(mirror.status, 0, mirror.stdout + mirror.stderr);
+  assert.match(mirror.stdout, /browser: fetched https:\/\/other\.example\/chromium-linux-1\.56\.1\.zip/);
+  assert.match(mirror.env, /^CHROMIUM=.*chromium-1\.56\.1\/chrome-linux\/chrome\n$/);
   // A binary that does not run (missing libraries) stops the gate too.
   const nr = stubNpx(join(dir, 'c6'));
   const broken = bash(stepRun('install the browser').replace('if ! ver=$("$exe" --version)', 'if ! ver=$(false)'), dir, { PATH: nr.PATH, VERSIONS: '1.56.1' });
