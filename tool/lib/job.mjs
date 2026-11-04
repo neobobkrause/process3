@@ -1,5 +1,6 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, toDraft } from './github.mjs';
@@ -13,7 +14,7 @@ import { RESTARTS_FILE, entryHistory } from './lead.mjs';
 import { movedText, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
-import { baseRed, failingTests } from './basered.mjs';
+import { baseRed } from './basered.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -831,7 +832,9 @@ export function jobComplete(root, id, opts = {}) {
     }
     if (noSuite) notv.push('the module suite was not run by job complete');
     else if (installed) {
-      const s = runSuite(root, entry, undefined, { timeout });
+      const evDir = mkdtempSync(join(tmpdir(), 'p3-failing-'));
+      const s = runSuite(root, entry, undefined, { timeout, events: join(evDir, 'failing.jsonl') });
+      rmSync(evDir, { recursive: true, force: true });
       const c = { cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true };
       commands.push(c);
       if (s.exit !== 0) {
@@ -839,7 +842,7 @@ export function jobComplete(root, id, opts = {}) {
         // Base-red, as the gate judges it (basered.mjs): failures the tranche's tip has too are
         // not the job's; the receipt names them, and the gate checks them again.
         const tip = git(['rev-parse', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
-        const br = baseRed(root, entry, { base: tip, failing: failingTests(s.output, root), cfg, rows: generatedRows(cfg).rows, timeout: Math.max(1000, timeout - s.seconds * 1000), ...(exec ? { exec } : {}), log });
+        const br = baseRed(root, entry, { base: tip, failing: s.failing, cfg, rows: generatedRows(cfg).rows, timeout: Math.max(1000, timeout - s.seconds * 1000), ...(exec ? { exec } : {}), log });
         if (br.ok) { c.base_red = br.base_red.tests; log(`the suite's ${c.base_red.length} failing test(s) fail at ${cfg.tranche}'s tip ${tip.slice(0, 10)} too: base-red, named in the receipt`); }
         else log(`not base-red: ${br.why}`);
       }

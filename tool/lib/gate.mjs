@@ -1,14 +1,15 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
-import { baseRed, failingTests } from './basered.mjs';
+import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
@@ -167,7 +168,7 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout });
+      const s = runSuite(root, e, undefined, { timeout, events: eventsFile() });
       results.push(s);
       if (s.exit !== 0) {
         // Base-red (basered.mjs): the failing tests run again at the tranche tip the PR merges
@@ -175,7 +176,7 @@ export function gate(root, opts) {
         // where every failure tolerated on the way is owed.
         const left = timeout - s.seconds * 1000;
         const br = branch !== cfg.tranche && !/ETIMEDOUT/.test(s.output) && left > 10000
-          ? baseRed(root, e, { base: revertBase, failing: failingTests(s.output, root), cfg, rows: gen.rows, timeout: left, ...(exec ? { exec } : {}), log })
+          ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout: left, ...(exec ? { exec } : {}), log })
           : null;
         if (br?.ok) {
           s.baseRed = true;
@@ -205,7 +206,7 @@ export function gate(root, opts) {
       } else if (!code.length) {
         runRow.revert = 'no code changed';
       } else {
-        const r = revertCheck(root, entry, revertBase, code, tests, { timeout });
+        const r = revertCheck(root, entry, revertBase, code, tests, { timeout, tolerated: (runRow.base_red || []).flatMap((b) => b.tests) });
         runRow.revert = r.inert.length ? (exempt ? 'exempt' : 'fail') : 'pass';
         runRow.inert = r.inert;
         // A test that fails only because a new file is gone cannot load; it is not proof the
@@ -278,7 +279,7 @@ export function gate(root, opts) {
 // whose suite passed (the job's own run, on its branch, had none of the base's failures) or
 // failed naming each test the gate tolerated (job complete records them); a receipt naming
 // base-red tests agrees with a suite that passed (the base was fixed since).
-const claimedRed = (c) => (Array.isArray(c?.base_red) ? c.base_red.filter((t) => typeof t === 'string') : []);
+const claimedRed = (c) => (Array.isArray(c?.base_red) ? c.base_red.filter((t) => typeof t === 'string' && /^[^:]+::./.test(t)) : []);
 const redIds = (rows) => (Array.isArray(rows) ? rows.flatMap((r) => (Array.isArray(r?.tests) ? r.tests : [])) : []);
 export function receiptAgrees(claimed, suite, red) {
   const claim = claimed ? (claimed.exit === 0 ? 'pass' : claimedRed(claimed).length ? 'base-red' : 'fail') : 'none';
@@ -489,12 +490,26 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
   return { posted: true, comment, row };
 }
 
+// A fresh file for fail-reporter.mjs's lines, outside the checkout, removed at exit.
+const eventDirs = [];
+function eventsFile() {
+  if (!eventDirs.length) {
+    eventDirs.push(mkdtempSync(join(tmpdir(), 'p3-failing-')));
+    process.once('exit', () => rmSync(eventDirs[0], { recursive: true, force: true }));
+  }
+  return join(eventDirs[0], `${process.pid}-${eventDirs.length++}.jsonl`);
+}
+
 const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
 
 // Reverts the code files to the base, runs each test file alone, restores each file to HEAD
 // (removing any HEAD does not have). Returns the test files that still pass, and those that
 // failed only because something could not load. Runs in place: CI's checkout is disposable.
-export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
+// tolerated: the base-red test ids (basered.mjs). A file holding one fails at the revert whatever
+// the job's own tests do, so it counts as not inert only when a test other than those fails;
+// when its failures cannot be read per test, it proves nothing and counts as inert (review of
+// PR 101).
+export function revertCheck(root, entry, base, code, tests, { timeout, tolerated = [] } = {}) {
   const inert = [];
   const loadOnly = [];
   try {
@@ -503,8 +518,9 @@ export function revertCheck(root, entry, base, code, tests, { timeout } = {}) {
       else rmSync(join(root, f), { force: true, recursive: true });
     }
     for (const t of tests) {
-      const r = runSuite(root, entry, [t], { timeout });
-      if (r.exit === 0) inert.push(t);
+      const holds = tolerated.some((id) => id.startsWith(`${t}::`));
+      const r = runSuite(root, entry, [t], { timeout, ...(holds ? { events: eventsFile() } : {}) });
+      if (r.exit === 0 || (holds && (!r.failing || r.failing.every((x) => tolerated.includes(testId(x)))))) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }
   } finally {
