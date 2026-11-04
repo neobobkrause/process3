@@ -370,7 +370,13 @@ test('a records-only run after the green code run takes the excused passes from 
   };
   const r = again([RED, flaky]);
   assert.deepEqual([r.run.trigger, r.run.receipt_measured, r.run.receipt], ['record-since-green', s.head, 'agrees']);
-  const w = again([RED, flaky, 'test/alpha/one.test.mjs::other']);
-  assert.equal(w.run.receipt, 'disagrees');
-  assert.match(w.findings.find((f) => f.check === 'receipt').message, new RegExp(`run on ${s.head.slice(0, 10)} failed only on tests that fail at the base too, and the receipt excuses 1 that neither fail at the base nor passed in the gate's run: test/alpha/one\\.test\\.mjs::other$`));
+  // An excuse the row cannot settle runs the suite again: a pass the row did not keep agrees, an
+  // id no run has disagrees, named (review of PR 134: a records-only run must not stay stuck).
+  const ghost = 'test/alpha/one.test.mjs::other';
+  const w = again([RED, flaky, ghost]);
+  assert.deepEqual([w.run.trigger, w.run.receipt], ['code', 'disagrees']);
+  assert.match(w.findings.find((f) => f.check === 'receipt').message, /the receipt excuses 1 that neither fail at the base nor passed in the gate's run: test\/alpha\/one\.test\.mjs::other$/);
+  const xis2 = 'test/alpha/x.test.mjs::x is 2';
+  const k = again([RED, xis2]);
+  assert.deepEqual([k.run.trigger, k.run.receipt, k.run.receipt_passed, k.run.ok], ['code', 'agrees', [xis2], true]);
 });

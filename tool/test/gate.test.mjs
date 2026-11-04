@@ -225,6 +225,10 @@ test('job gate posts nothing; job post posts the artifact\'s row, and merge\'s v
   const art = JSON.parse(readFileSync(file, 'utf8')).run;
   assert.equal(rows[0].run_id, 4242);
   assert.equal(verifyRow('o/r', rows[0], { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), true);
+  // A copy of the row that widens what a later receipt may excuse is not this run's (review of PR 134).
+  for (const k of ['receipt_passed', 'base_red']) {
+    assert.equal(verifyRow('o/r', { ...rows[0], [k]: [{ tests: ['t/a.test.mjs::x'] }] }, { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), false, k);
+  }
 });
 
 test('job post refuses a row that is not this run\'s, not this head\'s, or green when job gate was not', () => {

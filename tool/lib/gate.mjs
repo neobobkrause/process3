@@ -328,6 +328,11 @@ function measuredBy(root, cfg, receipt, green) {
     && diffNames(root, green.sha, receipt.sha).every((f) => isRecordPath(cfg, f));
   if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${String(green.sha).slice(0, 10)}, tested` };
   if (green.revert === 'exempt' && !receipt.exempt?.revert) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, passed its revert check by an exemption this receipt does not claim` };
+  // The row keeps only the passes an earlier receipt excused: a test this one excuses that the row
+  // neither found base-red nor kept as passing is measured by running the suite (review of PR 134).
+  const kept = Array.isArray(green.receipt_passed) ? green.receipt_passed : [];
+  const unknown = [...new Set(claimedRed(receipt.commands?.find((c) => c.suite)))].filter((t) => !redIds(green.base_red).includes(t) && !kept.includes(t));
+  if (unknown.length) return { ok: false, why: `it excuses ${unknown.length} test(s) the last green code run, on ${String(green.sha).slice(0, 10)}, neither found base-red nor kept as passing: ${unknown.slice(0, 5).join('; ')}` };
   return { ok: true };
 }
 
