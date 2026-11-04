@@ -8,7 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { mergePlain } from '../lib/merge.mjs';
-import { readWorkflow, workflowRules } from '../lib/workflows.mjs';
+import { workflowShapes } from '../lib/workflows.mjs';
+import { readFileSync } from 'node:fs';
 import { BOT, GATE, block } from '../lib/github.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
 import { entry, makeRepo, write } from './helpers.mjs';
@@ -62,6 +63,7 @@ jobs:
     - run: |
         set -euo pipefail
         for pkg in bio-plane pdf-worker${extra}; do echo $pkg; done
+        echo done
 `;
 
 function processRepo(root) {
@@ -187,66 +189,9 @@ test('a workflow change that came in by an ungated commit is refused, naming rul
   assert.throws(close(job).go, /rule 1: .*is PR 10's merge, but the newest gate run on its merged result/);
 });
 
-test('a job named gate, or like a required or process check, is refused, naming rule 2', () => {
-  const add = (job) => REGRESSION() + job;
-  for (const [job, re] of [
-    ['  gate:\n    runs-on: ubuntu-latest\n', /rule 2: it defines a job gate/],
-    ['  record:\n    runs-on: ubuntu-latest\n', /rule 2: it defines a job record/],
-    ['  other:\n    name: Gate\n    runs-on: ubuntu-latest\n', /rule 2: job other is named Gate/],
-    ['  other:\n    name: "${{ inputs.n }}"\n    runs-on: ubuntu-latest\n', /rule 2: job other's name .* is an expression/],
-    ['  smoke:\n    runs-on: ubuntu-latest\n', /rule 2: it defines a job smoke, the name of a required check/],
-  ]) {
-    const r = product({ steps: [{ via: 'plain', files: { '.github/workflows/regression.yml': add(job) } }] });
-    assert.throws(close(r, { rules: { checks: [{ context: 'gate' }, { context: 'smoke' }] } }).go, re, job);
-  }
-  // The required checks cannot be read: refused.
-  const r = product({ steps: STYLE });
-  const c = close(r);
-  c.f.io.requiredChecks = () => null;
-  assert.throws(c.go, /the checks main requires could not be read/);
-});
-
-test('added write permissions or pull_request_target are refused, naming rule 3', () => {
-  const widen = REGRESSION().replace('permissions:\n  contents: read\n', 'permissions:\n  contents: write\n');
-  assert.throws(close(product({ steps: [{ via: 'plain', files: { '.github/workflows/regression.yml': widen } }] })).go, /rule 3: it widens contents to write beyond the base's copy/);
-  const job = REGRESSION().replace('    runs-on: ubuntu-latest\n', '    runs-on: ubuntu-latest\n    permissions: { id-token: write }\n');
-  assert.throws(close(product({ steps: [{ via: 'plain', files: { '.github/workflows/regression.yml': job } }] })).go, /rule 3: it widens id-token to write/);
-  const none = REGRESSION().replace('permissions:\n  contents: read\n', '');
-  assert.throws(close(product({ steps: [{ via: 'plain', files: { '.github/workflows/regression.yml': none } }] })).go, /rule 3: it widens .*repository default, read as write-all/);
-  const prt = REGRESSION().replace('on:\n  workflow_dispatch:\n', 'on:\n  pull_request_target:\n');
-  assert.throws(close(product({ steps: [{ via: 'plain', files: { '.github/workflows/regression.yml': prt } }] })).go, /rule 3: it runs on pull_request_target, which the base's copy does not/);
-  // A new file: at most contents: read, and no pull_request_target.
-  const fresh = (t) => close(product({ steps: [{ via: 'plain', files: { '.github/workflows/new.yml': t } }] })).go;
-  assert.equal(fresh('on: push\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n')().merged, true);
-  assert.equal(fresh('on: push\npermissions: {}\njobs:\n  a:\n    runs-on: x\n')().merged, true);
-  assert.throws(fresh('on: push\npermissions: read-all\njobs:\n  a:\n    runs-on: x\n'), /rule 3: it widens actions to read.* beyond contents: read, all a new workflow may hold/);
-  assert.throws(fresh('on: push\njobs:\n  a:\n    runs-on: x\n'), /rule 3: it widens/);
-  assert.throws(fresh('on: [pull_request_target]\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n'), /rule 3: it runs on pull_request_target$|rule 3: it runs on pull_request_target\./);
-  // A narrowed permission passes.
-  const narrow = IMAGES().replace('  packages: write\n', '');
-  assert.equal(close(product({ steps: [{ via: 'plain', files: { '.github/workflows/container-images.yml': narrow } }] })).go().merged, true);
-});
-
 test('process-gate.yml must still be the pin\'s own shim at a close (rule 4); plain pull requests into the tranche stay shim-only', () => {
   const r = product({ steps: [{ via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM + '# edited\n' } }] });
   assert.throws(close(r).go, /process-gate\.yml is not the process's own shim at aaaaaaaaaa \(rule 4\)/);
-});
-
-test('the reader refuses what it cannot read, and reads the shapes workflows use', () => {
-  const w = readWorkflow(IMAGES());
-  assert.deepEqual(w.jobs.map((j) => j.id), ['image']);
-  assert.deepEqual(w.permissions, { contents: 1, packages: 2 });
-  assert.equal(readWorkflow(REGRESSION()).jobs[0].id, 'regression');
-  assert.equal(readWorkflow('on: push\njobs:\n  a:\n    name: "x" # c\n    permissions: write-all\n').jobs[0].permissions, 'all-write');
-  for (const bad of [
-    'on: push\njobs: { gate: {} }\n',
-    'on: push\njobs:\n  a: &x\n    runs-on: y\n',
-    'on: push\njobs:\n  a:\n    runs-on: y\n  a:\n    runs-on: z\n',
-    'on: push\njobs:\n\ta:\n',
-    'on: push\npermissions: *p\njobs: {}\n',
-    'on: push\npermissions:\n  contents: admin\n',
-    'on: push\n---\njobs:\n  gate: {}\n',
-  ]) assert.match(workflowRules(bad, null, []) || '', /rule 3: it cannot be read/, bad);
 });
 
 test('main merged into the tranche passes a workflow file it leaves as main has it, and not one it resolves otherwise', () => {
@@ -267,96 +212,6 @@ test('main merged into the tranche passes a workflow file it leaves as main has 
   assert.throws(close(build(IMAGES('\n          - { name: smuggled, context: x }'))).go, /container-images\.yml: rule 1: it was changed by [0-9a-f]{10}, which is not a merge of a pull request/);
 });
 
-test('review 1 of PR 98: escapes, odd names, matrix and reusable-workflow names, hidden triggers and new events are refused', () => {
-  const pr = ['gate', 'test (ubuntu-latest)', 'lint / unit'];
-  const refused = (src, re, base = null) => assert.match(workflowRules(src, base, pr) || '', re, src);
-  const P = 'on: push\npermissions:\n  contents: read\n';
-  // Escapes GitHub decodes.
-  refused('on: push\n"j\\x6fbs":\n  build:\n    permissions: write-all\n    name: gate\n', /rule 3: it cannot be read .*escape/);
-  refused(`${P}jobs:\n  build:\n    "permission\\x73": write-all\n`, /rule 3: it cannot be read .*escape/);
-  refused(`${P}jobs:\n  "g\\x61te":\n    runs-on: x\n`, /rule 3: it cannot be read .*escape/);
-  refused(`${P}jobs:\n  build:\n    name: "g\\x61te"\n`, /rule 3: it cannot be read .*name/);
-  refused('on: [push, "pull_request\\x5ftarget"]\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n', /rule 3: it cannot be read .*escape/);
-  // Names this reader cannot read as one line.
-  for (const n of ['>-\n      gate', '|\n      gate', '\n      gate', '!!str gate', '&a gate', '"ga\n      te"']) refused(`${P}jobs:\n  build:\n    name: ${n}\n    runs-on: x\n`, /rule 3: it cannot be read .*name/);
-  // Matrix and reusable-workflow check names.
-  refused(`${P}jobs:\n  test:\n    strategy:\n      matrix:\n        os: [ubuntu-latest]\n    runs-on: x\n`, /rule 2: job test, a matrix or reusable-workflow job, could report as the required check test \(ubuntu-latest\)/);
-  refused(`${P}jobs:\n  lint:\n    uses: ./.github/workflows/u.yml\n`, /rule 2: job lint, a matrix or reusable-workflow job, could report as the required check lint \/ unit/);
-  // pull_request_target behind a quoted "#".
-  refused('on: { push: { branches: ["a #"] }, pull_request_target: {} }\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n', /rule 3: it runs on pull_request_target/);
-  // A write-holding file that adds an event; the same with paths changed only passes.
-  const rel = (on) => `on:\n${on}permissions:\n  contents: write\njobs:\n  a:\n    runs-on: x\n`;
-  refused(rel('  schedule:\n    - cron: "0 0 * * *"\n  release:\n'), /rule 3: it holds a write token and adds the event\(s\) schedule/, rel('  release:\n'));
-  assert.equal(workflowRules(rel('  push:\n    paths: ["b"]\n'), rel('  push:\n    paths: ["a"]\n'), pr), null);
-  // jobs: {} reads as no jobs.
-  assert.equal(workflowRules('on: push\njobs: {}\n', null, pr), null);
-});
-
-test('review 1 of PR 98: a PR whose gate ran on its own process-gate.yml does not certify a workflow change', () => {
-  // The PR changes process-gate.yml and adds foo.yml; a later PR restores the shim.
-  const r = product({ steps: [
-    { via: 'plain', files: { '.github/workflows/process-gate.yml': 'name: fake\non: pull_request\n', '.github/workflows/foo.yml': 'on: push\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n' } },
-    { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } },
-  ] });
-  assert.throws(close(r).go, /foo\.yml: rule 1: it was changed by [0-9a-f]{10}, PR 10's merge, but [0-9a-f]{10}, which its gate ran on, does not hold the pin's own process-gate\.yml/);
-  // No required checks read as none: refused.
-  const s = product({ steps: STYLE });
-  assert.throws(close(s, { rules: { checks: [] } }).go, /could not be read, or are none/);
-});
-
-test('confirming review of PR 98: tagged keys and flow-mapping documents are refused; a job PR\'s own gate certifies nothing', () => {
-  const pr = ['test'];
-  const P = 'on: push\npermissions:\n  contents: read\n';
-  for (const src of [
-    '--- {on: push, permissions: write-all, jobs: {gate: {runs-on: ubuntu-latest}}}\n',
-    '{on: push, permissions: write-all, jobs: {gate: {runs-on: ubuntu-latest}}}\n',
-    'on: push\n!!str jobs:\n  gate:\n    permissions: write-all\n',
-    `${P}jobs:\n  !!str gate:\n    runs-on: x\n`,
-    `${P}jobs:\n  a:\n    !!str name: gate\n`,
-    `${P}jobs:\n  a:\n    !!str permissions: write-all\n`,
-  ]) assert.match(workflowRules(src, null, pr) || '', /rule 3: it cannot be read/, src);
-  assert.equal(workflowRules('--- # a comment\non: push\npermissions:\n  contents: read\njobs:\n  a:\n    name: \'it\'\'s\'\n', null, pr), null);
-  // A job PR whose head holds its own process-gate.yml.
-  const r = product({ ledger: ['m0'], steps: [{ via: 'job', id: 'm0', files: { '.github/workflows/process-gate.yml': 'name: fake\non: pull_request\n', '.github/workflows/regression.yml': REGRESSION(' site') } }, { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } }] });
-  assert.throws(close(r).go, /regression\.yml: rule 1: .*PR 10's merge, but [0-9a-f]{10}, which its gate ran on, does not hold the pin's own process-gate\.yml/);
-});
-
-test('coordinator, 4 Nov 08:02: a workflow edit in the product\'s pre-Process3 history is judged whole by rules 2 to 4', () => {
-  const edit = { '.github/workflows/regression.yml': REGRESSION(' site') };
-  // record_since set at the owner's website commit: the earlier direct commit passes.
-  const r = product({ pre: [edit] });
-  assert.equal(close(r, { owned: r.setAt }).go().merged, true);
-  // The same record_since set by a session: not honoured, so rule 1 refuses the direct commit.
-  assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
-  // A post-boundary direct commit is refused even with the boundary honoured.
-  const after = product({ pre: [edit], steps: [{ via: 'direct', files: { '.github/workflows/regression.yml': REGRESSION(' site agent') } }] });
-  assert.throws(close(after, { owned: after.setAt }).go, /rule 1: .*a direct commit on tranche/);
-  // A pre-boundary edit that fails rule 2 or rule 3 is refused.
-  const named = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION() + '  gate:\n    runs-on: x\n' }] });
-  assert.throws(close(named, { owned: named.setAt }).go, /regression\.yml: rule 2: it defines a job gate/);
-  const wide = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION().replace('contents: read', 'contents: write') }] });
-  assert.throws(close(wide, { owned: wide.setAt }).go, /regression\.yml: rule 3: it widens contents to write/);
-});
-
-test('coordinator, 4 Nov 08:13: only plain lines reach the reader', () => {
-  const P = 'on: push\npermissions:\n  contents: read\njobs:\n  a:\n    runs-on: x\n';
-  for (const [src, re] of [
-    [`${P}  # c\r  gate:\r    permissions: write-all\n`, /line break other than \\n \(U\+000D\)/],
-    [`${P.replace('jobs:', '# x\r\njobs:')}`, /U\+000D/],
-    ['on: push\x85permissions: write-all\x85jobs:\x85  gate:\x85    runs-on: x\n', /U\+0085/],
-    [`${P}  # c\u2028  gate:\n`, /U\+2028/],
-    [`${P}  # c\u2029  gate:\n`, /U\+2029/],
-    [`${P}\ufeff  b:\n    runs-on: x\n`, /byte-order mark \(U\+FEFF\)/],
-    [`${P}  b:\n    name: caf\u00e9\n`, /line 8 holds a character outside printable ASCII/],
-    [`${P.replace('    runs-on: x', '\u00a0   runs-on: x')}`, /outside printable ASCII/],
-  ]) assert.match(workflowRules(src, null, ['test']) || '', re, JSON.stringify(src));
-  // A leading BOM is dropped; a non-ASCII line the base's copy holds unchanged is allowed.
-  assert.equal(workflowRules(`\ufeff${P}`, null, ['test']), null);
-  const base = `# the fleet \u2014 its images\n${P}`;
-  assert.equal(workflowRules(`${base}    timeout-minutes: 5\n`, base, ['test']), null);
-  assert.match(workflowRules(`${base}    # new \u2014 line\n`, base, ['test']) || '', /line 8 holds a character outside printable ASCII/);
-});
-
 test('coordinator, 4 Nov 08:13: a take-in tip does not mark a direct commit as earlier work', () => {
   // A direct post-setup commit D, then a job whose start row names D as its take-in tip.
   const r = product({ ledger: ['m0'], steps: [
@@ -366,9 +221,109 @@ test('coordinator, 4 Nov 08:13: a take-in tip does not mark a direct commit as e
   assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
 });
 
-test('coordinator, 4 Nov 08:13: a job the base\'s copy defines byte for byte is exempt from rule 2', () => {
-  const base = 'on: push\npermissions:\n  contents: read\njobs:\n  smoke:\n    runs-on: x\n';
-  assert.equal(workflowRules(`${base}  other:\n    runs-on: y\n`, base, ['smoke']), null);
-  assert.match(workflowRules(base.replace('runs-on: x', 'runs-on: z'), base, ['smoke']) || '', /rule 2: it defines a job smoke/);
-  assert.match(workflowRules(`${base}  gate:\n    runs-on: y\n`, base, ['smoke']) || '', /rule 2: it defines a job gate/);
+// The copy's two real diffs (civicsmith-copy main 0dea5a6e against tranche 3e095aa5).
+const FIX = (n) => readFileSync(join(import.meta.dirname, 'fixtures', 'close-workflows', n), 'utf8');
+const shape = (head, base) => workflowShapes(head, base);
+const NONE = /rule 3: the hunk at base line \d+ .* fits no allowed shape/;
+
+test('coordinator, 4 Nov 08:24: the copy\'s two real workflow diffs fit the allowed shapes', () => {
+  assert.equal(shape(FIX('tranche-container-images.yml'), FIX('main-container-images.yml')), null, 'S2 paths, S3 a matrix row');
+  assert.equal(shape(FIX('tranche-regression.yml'), FIX('main-regression.yml')), null, 'S1 inside run blocks, comments included');
+  assert.equal(shape(FIX('main-regression.yml'), FIX('main-regression.yml')), null, 'no change');
+});
+
+test('coordinator, 4 Nov 08:24: every bypass of the four review rounds fits no shape', () => {
+  const B = REGRESSION();
+  const add = (after, lines) => B.replace(after, `${after}${lines}`);
+  for (const head of [
+    B + '  gate:\n    runs-on: x\n',
+    B.replace('permissions:\n  contents: read\n', 'permissions:\n  contents: write\n'),
+    B.replace('on:\n  workflow_dispatch:\n', 'on:\n  pull_request_target:\n'),
+    B.replace('on:\n  workflow_dispatch:\n', 'on:\n- workflow_dispatch\n- "pull_request_\\x74arget"\n'),
+    B.replace('jobs:\n', '"j\\x6fbs":\n  build:\n    permissions: write-all\njobs:\n'),
+    add('    runs-on: ubuntu-latest\n', '    name: >-\n      gate\n'),
+    add('    runs-on: ubuntu-latest\n', '    strategy:\n      matrix:\n        os: [ubuntu-latest]\n'),
+    add('    runs-on: ubuntu-latest\n', '    !!str permissions: write-all\n'),
+    add('    runs-on: ubuntu-latest\n', '    env:\n      X: "1\n    permissions: {}\n    zz: "\n'),
+    '{on: push, permissions: write-all, jobs: {gate: {runs-on: ubuntu-latest}}}\n',
+    add('    runs-on: ubuntu-latest\n', '    # c\x85    permissions: write-all\n'),
+  ]) assert.match(shape(head, B) || '', /rule 3: /, head);
+  // A new or removed workflow fits no shape.
+  assert.match(shape(B, null), /rule 3: it is a new workflow/);
+});
+
+test('coordinator, 4 Nov 08:24: S1 holds only lines inside an existing run block', () => {
+  const B = REGRESSION();
+  const inside = (l) => B.replace('        set -euo pipefail\n', `        set -euo pipefail\n${l}`);
+  assert.equal(shape(inside('        echo more\n'), B), null);
+  assert.equal(shape(inside('          deeper: is still script\n'), B), null);
+  assert.equal(shape(inside('\n'), B), null);
+  // A line less deep than the block's first line would end it; one at the step's level is a key.
+  assert.match(shape(inside('      permissions: write-all\n'), B) || '', NONE);
+  assert.match(shape(inside('       x\n'), B) || '', NONE);
+  // After the block's last line, or before its first, is outside it.
+  assert.match(shape(B.replace('        echo done\n', '        echo done\n        echo after\n'), B) || '', NONE);
+  assert.match(shape(B.replace('    - run: |\n', '    - run: |\n        echo first\n'), B) || '', NONE);
+  // Not plain ASCII, or a tab.
+  assert.match(shape(inside('        echo caf\u00e9\n'), B) || '', /outside printable ASCII/);
+  assert.match(shape(inside('        \techo\n'), B) || '', NONE);
+  // A run block with an explicit indentation indicator is not one S1 reads.
+  const ind = B.replace('    - run: |\n', '    - run: |2\n');
+  assert.match(shape(ind.replace('        set -euo pipefail\n', '        set -euo pipefail\n        x\n'), ind) || '', NONE);
+});
+
+test('coordinator, 4 Nov 08:24: S2 holds only quoted paths inside an existing multi-line paths list', () => {
+  const B = IMAGES();
+  const ins = (l) => B.replace('    paths: ["agent-runner/Dockerfile",\n', `    paths: ["agent-runner/Dockerfile",\n${l}`);
+  assert.equal(shape(ins('            "reader/src/**",\n'), B), null);
+  assert.equal(shape(ins('            "a/b", "c/*.json",\n'), B), null);
+  for (const l of ['            "a: b",\n', '            "a{b}",\n', '            "a\\"b",\n', '            a/b,\n', '            "a/b"], other: [\n', '        "a/b",\n'])
+    assert.match(shape(ins(l), B) || '', NONE, l);
+  // Not into branches (it would widen where a write token runs), and not after the list.
+  const br = B.replace('    branches: ["dist/cut-*"]\n', '    branches: ["dist/cut-*",\n               "x"]\n');
+  assert.match(shape(br.replace('               "x"]\n', '               "main",\n               "x"]\n'), br) || '', NONE);
+  assert.match(shape(B.replace('  workflow_dispatch:\n', '            "x",\n  workflow_dispatch:\n'), B) || '', NONE);
+});
+
+test('coordinator, 4 Nov 08:24: S3 holds only a matrix row with a sibling row\'s keys', () => {
+  const B = IMAGES();
+  const row = '          - { name: agent-runner, context: agent-runner }';
+  const plus = (l) => B.replace(`${row}\n`, `${row}\n${l}`);
+  assert.equal(shape(plus('          - { context: b, name: a }\n'), B), null);
+  assert.match(shape(plus('          - { name: a, context: b, run: c }\n'), B) || '', NONE);
+  assert.match(shape(plus('          - { name: a }\n'), B) || '', NONE);
+  assert.match(shape(plus('          - { name: a, context: "b c" }\n'), B) || '', NONE);
+  assert.match(shape(plus('          - { name: a, context: ${{ x }} }\n'), B) || '', NONE);
+  assert.match(shape(plus('        - { name: a, context: b }\n'), B) || '', NONE);
+  // A hunk that mixes a row with any other line.
+  assert.match(shape(plus('          - { name: a, context: b }\n    permissions: write-all\n'), B) || '', NONE);
+});
+
+test('coordinator, 4 Nov 08:24: through mergePlain, a shape-breaking change refuses the close, naming the file and the hunk', () => {
+  const r = product({ steps: [{ via: 'plain', files: { '.github/workflows/regression.yml': REGRESSION() + '  gate:\n    runs-on: x\n' } }] });
+  assert.throws(close(r).go, /changes \.github\/workflows\/regression\.yml: rule 3: the hunk at base line \d+ .*fits no allowed shape/);
+  const n = product({ steps: [{ via: 'plain', files: { '.github/workflows/new.yml': 'on: push\n' } }] });
+  assert.throws(close(n).go, /new\.yml: rule 3: it is a new workflow/);
+  // A pre-Process3 edit is judged by the shapes too.
+  const pre = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION() + '  gate:\n    runs-on: x\n' }] });
+  assert.throws(close(pre, { owned: pre.setAt }).go, /regression\.yml: rule 3: .*fits no allowed shape/);
+  const ok = product({ pre: [{ '.github/workflows/regression.yml': REGRESSION(' site') }] });
+  assert.equal(close(ok, { owned: ok.setAt }).go().merged, true);
+  assert.throws(close(ok).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
+});
+
+test('the rule 1 gate checks: a PR whose gate ran on its own process-gate.yml certifies nothing', () => {
+  const fake = { '.github/workflows/process-gate.yml': 'name: fake\non: pull_request\n' };
+  const p = product({ steps: [{ via: 'plain', files: { ...fake, '.github/workflows/regression.yml': REGRESSION(' site') } }, { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } }] });
+  assert.throws(close(p).go, /regression\.yml: rule 1: .*PR 10's merge, but [0-9a-f]{10}, which its gate ran on, does not hold the pin's own process-gate\.yml/);
+  const j = product({ ledger: ['m0'], steps: [{ via: 'job', id: 'm0', files: { ...fake, '.github/workflows/regression.yml': REGRESSION(' site') } }, { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } }] });
+  assert.throws(close(j).go, /regression\.yml: rule 1: .*PR 10's merge, but [0-9a-f]{10}, which its gate ran on/);
+});
+
+test('plain text only: line breaks other than \\n, a BOM past the start, new non-ASCII lines are refused', () => {
+  const B = REGRESSION();
+  const inside = (l) => B.replace('        set -euo pipefail\n', `        set -euo pipefail\n${l}`);
+  for (const [l, re] of [['        a\r\n', /U\+000D/], ['        a\u2028\n', /U\+2028/], ['        a\u2029\n', /U\+2029/], ['        a\x85\n', /U\+0085/], ['        \ufeffa\n', /byte-order mark/]])
+    assert.match(shape(inside(l), B) || '', re, JSON.stringify(l));
+  assert.equal(shape(`\ufeff${inside('        a\n')}`, B), null);
 });
