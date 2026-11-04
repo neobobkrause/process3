@@ -95,6 +95,11 @@ export const DEFAULTS = {
   // requirements_cap_marks: optionally, the same for the count of unmet marks; null, none.
   requirements_cap: 70000,
   requirements_cap_marks: null,
+  // notice triage: one worker's share of the user modules, by the bytes of their code at the
+  // tranche tip and by count; a list over either is split into briefs run in parallel (the copy,
+  // 4 Nov: one worker given 108 modules judged only part of them).
+  triage_share_bytes: 250000,
+  triage_share_modules: 25,
   // Added to every create_session call the tool prints: the shallow clone (measured 3 Nov, a
   // full clone stalled a ROOT for over 15 minutes). No blob_limit_kb: it left a 5.2 MB source
   // file out of the checkout and nothing fetched it when node read it. null leaves it out.

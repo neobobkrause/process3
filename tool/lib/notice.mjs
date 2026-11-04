@@ -2,8 +2,13 @@
 // requirement file (marks struck, requirements added or reworded) leaves a provider notice on the
 // state branch for each user module the modules file (`modules_file`, `uses`) names. The user's own
 // next job answers it, with a test of its own: the notice is answered when that job merges.
+// Only a job that changed the provider's own source leaves one (coordinator, 4 Nov: on the copy,
+// membership PR 77 notified 108 users and credentials PR 74 39, for changes only to tests and
+// requirement marks, which cannot alter any user's behaviour).
+import { entryFile } from './ledger.mjs';
+import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { exists, git } from './util.mjs';
+import { exists, fail, git, isRecordPath, isShallow, underPath } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -38,14 +43,41 @@ export function usersOf(root, cfg, provider, ref = null) {
   return modules.filter((m) => m?.id && m.id !== provider && (m.uses || []).includes(provider)).map((m) => m.id).sort();
 }
 
-// The notice a merged job leaves, or null: its requirement file between base and head.
+// The provider module's own source: a file under the entry's paths that is not under its tests,
+// not its requirements file, entry or metrics, not a doc (Markdown, or under a docs/ directory)
+// and not a record (`records`). A change to any other file cannot alter a user's behaviour.
+const isDoc = (f) => /\.(md|markdown)$/i.test(f) || /(^|\/)docs\//.test(f);
+export function isSource(cfg, e, f) {
+  if (!(e.paths || []).some((p) => underPath(f, p))) return false;
+  if ((e.tests || []).some((p) => underPath(f, p))) return false;
+  if (f === e.requirements || f === entryFile(e.id) || f === metricsFile(e.id)) return false;
+  return !isDoc(f) && !isRecordPath(cfg, f);
+}
+// The entry's source paths, as a line names them: its paths less tests, requirements, docs, records.
+export const sourcePaths = (cfg, e) => (e.paths || []).filter((p) => !(e.tests || []).some((t) => underPath(p, t)) && p !== e.requirements && !isDoc(p) && !isRecordPath(cfg, p));
+const diffNames = (root, a, b) => git(['diff', '--no-renames', '--name-only', '-z', a, b], { cwd: root }).split('\0').filter(Boolean);
+export const sourceChanges = (root, cfg, e, base, head) => diffNames(root, base, head).filter((f) => isSource(cfg, e, f));
+const readEntry = (root, ref, id) => {
+  const t = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  try { return t.code === 0 ? JSON.parse(t.stdout) : null; } catch { return null; }
+};
+
+// The notice a merged job leaves, or null, and why not: its requirement file between base and
+// head, recorded only when the job also changed a file of the provider's own source (the entry
+// at base; with no entry readable, every change counts, so a notice is never lost to a bad read).
 // The users are read at usersAt, the merged result (the tranche may have gained a user).
-export function providerNotice(root, cfg, { provider, requirements, base, head, pr, usersAt = head }) {
+export function providerChange(root, cfg, { provider, requirements, base, head, pr, usersAt = head, entry }) {
   const at = (ref) => git(['show', `${ref}:${requirements}`], { cwd: root, allowFail: true }).stdout;
   const ids = changedIds(at(base), at(head));
   const users = ids.length ? usersOf(root, cfg, provider, usersAt) : [];
-  return users.length ? { key: noticeKey(provider, pr), provider, ids, pr, users } : null;
+  if (!users.length) return { notice: null, why: null };
+  const e = entry || readEntry(root, base, provider);
+  if (e && !sourceChanges(root, cfg, e, base, head).length) {
+    return { notice: null, why: `PR ${pr} changed ${ids.join(', ')} but no file of ${provider}'s source (${sourcePaths(cfg, e).join(', ') || 'no source paths'}): only tests, requirements text, docs or records, which cannot change a user's behaviour; no notice for its ${users.length} user(s)` };
+  }
+  return { notice: { key: noticeKey(provider, pr), provider, ids, pr, users }, why: null };
 }
+export const providerNotice = (root, cfg, opts) => providerChange(root, cfg, opts).notice;
 
 // One file per write, added and never edited (REC-2's one writer, as messages/<sender>.jsonl):
 // two merges close together never conflict. notices/<provider>-<pr>.json, and
@@ -60,10 +92,15 @@ const listJson = (root, sb, dir) => {
   return r.stdout.split('\0').filter((f) => f.endsWith('.json')).flatMap((f) => { try { return [JSON.parse(readState(root, sb, `${dir}/${f}`))]; } catch { return []; } });
 };
 
-// Every notice with the users that have not answered it, as the fetched state branch holds them.
+export const WITHDRAWN_DIR = `${NOTICES_DIR}/withdrawn`;
+export const withdrawFile = (key) => `${WITHDRAWN_DIR}/${fileOf(key)}.json`;
+
+// Every notice with the users that have not answered it, as the fetched state branch holds them;
+// a withdrawn notice (notice withdraw) is no notice.
 export function notices(root, sb) {
   const answered = new Set(listJson(root, sb, `${NOTICES_DIR}/answered`).map((r) => `${r.key}\0${r.user}`));
-  return listJson(root, sb, NOTICES_DIR).filter((r) => r.row === 'notice').sort((a, b) => a.pr - b.pr)
+  const withdrawn = new Set(listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn').map((r) => r.key));
+  return listJson(root, sb, NOTICES_DIR).filter((r) => r.row === 'notice' && !withdrawn.has(r.key)).sort((a, b) => a.pr - b.pr)
     .map((n) => ({ ...n, open: n.users.filter((u) => !answered.has(`${n.key}\0${u}`)) }));
 }
 export const unanswered = (root, sb, user) => notices(root, sb).filter((n) => n.open.includes(user));
@@ -99,4 +136,38 @@ export function recordAtMerge(root, cfg, { notice, answers = [], user, pr }) {
     }
     return { rows: add.map(([, row]) => row) };
   });
+}
+
+// notice withdraw <provider>:<pr>: BOB's act, for a notice recorded before merge held the source
+// rule. The tool reads the PR's merge commit (as merge run again on a merged pull request does)
+// and refuses unless the PR changed no file of the provider's own source; then one file on the
+// state branch, added and never edited, and status drops the notice.
+export function withdrawNotice(root, cfg, key, { getPR, slug, as = 'bob', log = console.log }) {
+  const sb = cfg.state_branch;
+  if (!fetchState(root, sb, { fresh: true })) fail(`no ${sb} on origin: no provider notice ${key}`);
+  const n = notices(root, sb).find((x) => x.key === key);
+  if (!n) fail(readState(root, sb, withdrawFile(key)) !== null ? `provider notice ${key} is already withdrawn` : `no provider notice ${key} on ${sb} (${noticeFile(key)})`);
+  const pr = getPR(slug, n.pr);
+  const m = pr?.merge_commit_sha;
+  if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
+  git(['fetch', '-q', ...(isShallow(root) ? ['--depth=50'] : []), 'origin', m], { cwd: root, allowFail: true });
+  const head = git(['rev-parse', `${m}^2`], { cwd: root, allowFail: true });
+  if (head.code !== 0) fail(`pull request ${n.pr} merged at ${m.slice(0, 10)}, which is not a merge commit; what it changed cannot be read`);
+  const h = head.stdout.trim();
+  const mb = git(['merge-base', `${m}^1`, h], { cwd: root });
+  const e = readEntry(root, mb, n.provider);
+  if (!e) fail(`the tranche had no ledger entry for ${n.provider} at ${mb.slice(0, 10)}: its source paths cannot be read`);
+  const src = sourceChanges(root, cfg, e, mb, h);
+  if (src.length) fail(`refused: pull request ${n.pr} changed ${src.length} file(s) of ${n.provider}'s source (${src.slice(0, 5).join(', ')}); provider notice ${key} stands`);
+  const row = { row: 'withdrawn', at: new Date().toISOString(), key, provider: n.provider, pr: n.pr, merge_commit: m, by: as,
+    why: `PR ${n.pr} changed no file of ${n.provider}'s source (${sourcePaths(cfg, e).join(', ') || 'no source paths'})`, users: n.users.length };
+  writeState(root, sb, `withdraw provider notice ${key}`, (wt) => {
+    const f = join(wt, withdrawFile(key));
+    if (!resolve(f).startsWith(resolve(wt, NOTICES_DIR) + sep)) throw new Error(`refused: ${withdrawFile(key)} is outside ${NOTICES_DIR}/`);
+    mkdirSync(dirname(f), { recursive: true });
+    if (!existsSync(f)) writeFileSync(f, JSON.stringify(row) + '\n');
+    return {};
+  });
+  log(`provider notice ${key} withdrawn: ${row.why}; ${n.open.length} unanswered user(s) no longer owe it`);
+  return row;
 }
