@@ -234,3 +234,17 @@ test('sweep row: BOB\'s idle time is recorded when status lists acts for it, and
   const q = JSON.parse(readState(quietRoot, 'process-state', SWEEP_ROWS_FILE));
   assert.deepEqual([q.bob_acts, q.bob_quiet_h], [false, null]);
 });
+
+// Review of PR 68: a triage owed is an act for BOB, so the sweep counts it.
+test('sweep row: an untriaged provider notice alone is an act for BOB', () => {
+  const root = withOrigin();
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  writeState(root, 'process-state', 'notice', (wt) => {
+    mkdirSync(join(wt, 'notices'), { recursive: true });
+    writeFileSync(join(wt, 'notices/p-7.json'), JSON.stringify({ row: 'notice', key: 'p:7', provider: 'p', ids: ['R1'], pr: 7, users: ['u1'] }) + '\n');
+    return {};
+  });
+  run(root);
+  assert.equal(JSON.parse(readState(root, 'process-state', SWEEP_ROWS_FILE)).bob_acts, true);
+});
