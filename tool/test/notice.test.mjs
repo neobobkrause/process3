@@ -9,7 +9,7 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { jobComplete, jobStart } from '../lib/job.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
-import { changedIds, noticeFile, notices, providerChange, providerNotice, recordAtMerge, unanswered, withdrawNotice } from '../lib/notice.mjs';
+import { changedIds, noticeFile, noticeLine, notices, providerChange, providerNotice, recordAtMerge, unanswered, withdrawNotice } from '../lib/notice.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { owedNotices, status } from '../lib/status.mjs';
 import { noticeTriage, parseTriage, recordTriage, shares } from '../lib/triage.mjs';
@@ -58,7 +58,7 @@ test('a provider notice names the changed ids and the modules whose uses name th
   const head = commit(root, { 'src/p/a.mjs': 'export const sign = 2;\n', 'req/p.md': REQ.replace('*(not yet met: x)* ', '').replace('checks a token', 'checks a token and its age') });
   const cfg = loadConfig(root);
   assert.deepEqual(providerNotice(root, cfg, { provider: 'p', requirements: 'req/p.md', base, head, pr: 7 }),
-    { key: 'p:7', provider: 'p', ids: ['R1', 'R2'], pr: 7, users: ['u1', 'u2'] });
+    { key: 'p:7', provider: 'p', ids: ['R1', 'R2'], pr: 7, users: ['u1', 'u2'], source: 1 });
   assert.equal(providerNotice(root, cfg, { provider: 'u1', requirements: 'req/u1.md', base, head, pr: 8 }), null, 'no change, no notice');
   const other = commit(root, { 'req/other.md': '# other\n\n- **R1** met, reworded\n' });
   assert.equal(providerNotice(root, cfg, { provider: 'other', requirements: 'req/other.md', base: head, head: other, pr: 9 }), null, 'a change no module uses leaves no notice');
@@ -78,7 +78,7 @@ test('a job that changed only tests, requirements text, docs or records leaves n
   assert.match(r.why, /^PR 77 changed R1 but no file of p's source \(src\/p\/\): only tests, requirements text, docs or records, which cannot change a user's behaviour; no notice for its 2 user\(s\)$/);
   const src = commit(root, { 'src/p/a.mjs': 'export const sign = 2;\n' });
   assert.deepEqual(providerChange(root, cfg, { provider: 'p', requirements: 'req/p.md', base, head: src, pr: 78, entry: e }).notice,
-    { key: 'p:78', provider: 'p', ids: ['R1'], pr: 78, users: ['u1', 'u2'] });
+    { key: 'p:78', provider: 'p', ids: ['R1'], pr: 78, users: ['u1', 'u2'], source: 1 });
 });
 
 test('recordAtMerge writes the notice once and an answer per user; the other user still owes it', () => {
@@ -468,4 +468,127 @@ test('notice triage splits a 108-module list into parallel briefs and records on
   const cfg = loadConfig(root);
   fetchState(root, cfg.state_branch, { fresh: true });
   assert.deepEqual(notices(root, cfg.state_branch)[0].open, []);
+});
+
+// The copy, 4 Nov: ai-accounts' T53 rewrite removed seven of its service's methods and changed
+// accountUsesOf's argument with no requirement mark changed; four users broke unwarned.
+const P_INDEX = `import { Layer } from './layer.mjs';
+export class Accounts extends Layer {
+  accountFor(id) { return id; }
+  keySet({ key = null } = {}) { return key; }
+  _row() {}
+}
+export function accountsOf(ctx) { return new Accounts(ctx); }
+`;
+function withProvider(root) {
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, {
+    'src/p/index.mjs': P_INDEX,
+    'src/p/layer.mjs': 'export class Layer {\n  groupKeyState(group) { return group; }\n}\n',
+    'src/p/README.md': '# p\n',
+    'src/u1/a.mjs': "import { accountsOf } from '../p/index.mjs';\nexport const a = accountsOf;\n",
+  });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+}
+const doneRow = () => JSON.stringify({ row: 'attempt', event: 'complete', at: new Date().toISOString() }) + '\n';
+
+test('merge of a provider job that changed its exports with no requirement change records a notice naming them; the START and the triage brief show them', () => {
+  const root = product();
+  withProvider(root);
+  const changed = P_INDEX.replace('  keySet({ key = null } = {}) { return key; }\n', '').replace('accountFor(id)', 'accountFor(id, { scope })');
+  const io = mergeFixture(root, 'p', {
+    'src/p/index.mjs': changed,
+    'src/p/layer.mjs': 'export class Layer {\n  groupKeySwitches(group) { return group; }\n}\n',
+    'process/metrics/p.jsonl': doneRow(),
+  });
+  const out = [];
+  const r = merge(root, 50, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: (m) => out.push(m) });
+  const [n] = r.notices.rows;
+  assert.deepEqual([n.key, n.ids, n.users, n.source], ['p:50', [], ['u1', 'u2'], 2]);
+  assert.deepEqual(n.exports, {
+    removed: ['Accounts.groupKeyState', 'Accounts.keySet'],
+    added: ['Accounts.groupKeySwitches'],
+    changed: [{ name: 'Accounts.accountFor', before: '(id)', after: '(id, { scope })' }],
+  });
+  assert.match(out.join('\n'), /provider notice: p its source, no requirement text; exports removed Accounts\.groupKeyState, Accounts\.keySet; changed Accounts\.accountFor; added Accounts\.groupKeySwitches \(PR 50\) recorded for u1, u2/);
+  const { start } = jobStart(root, 'u1', { coordinator: 's', push: false, log: quiet });
+  assert.match(start, /`p:50`: `p` changed its source, no requirement text; exports removed Accounts\.groupKeyState, Accounts\.keySet; changed Accounts\.accountFor; added Accounts\.groupKeySwitches \(PR 50\)/);
+  git(['checkout', '-q', 'main'], { cwd: root });
+  // The triage brief, read from the merged pull request.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/p'], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const brief = noticeTriage(root, 'p:50', { log: quiet, io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } }).brief;
+  assert.match(brief, /changed its source in PR 50, with no requirement text changed/);
+  assert.match(brief, /- removed: Accounts\.groupKeyState, Accounts\.keySet\n- changed: Accounts\.accountFor \(id\) -> \(id, \{ scope \}\)\n- added: Accounts\.groupKeySwitches/);
+  assert.match(brief, /decide whether it uses the changed behaviour or any export removed or changed/);
+});
+
+test('a source change with no export change still records a notice, with no exports named; a test-only change with no requirement change records none', () => {
+  const root = product();
+  withProvider(root);
+  const io = mergeFixture(root, 'p', { 'src/p/index.mjs': P_INDEX.replace('return id;', 'return String(id);'), 'process/metrics/p.jsonl': doneRow() });
+  const r = merge(root, 51, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, log: quiet });
+  assert.deepEqual(r.notices.rows.map((x) => [x.key, x.ids, x.source, x.exports]), [['p:51', [], 1, undefined]]);
+  assert.equal(noticeLine(r.notices.rows[0]), 'provider notice: p its source, no requirement text (PR 51)');
+  const root2 = product();
+  withProvider(root2);
+  const io2 = mergeFixture(root2, 'p', { 'test/p/b.test.mjs': passing('p b'), 'src/p/README.md': '# p, read me\n', 'process/metrics/p.jsonl': doneRow() });
+  const out = [];
+  const r2 = merge(root2, 52, { slug: 'o/r', io: io2, reviewed: 'fresh', rounds: 1, log: (x) => out.push(x) });
+  assert.deepEqual(r2.notices.rows, []);
+  assert.match(out.join('\n'), /provider notices for PR 52: nothing to record/);
+});
+
+// Round 2 of PR 79, asked by the coordinator 4 Nov: a job STARTed before BOB withdrew its notice
+// owes no test for it, and its resumed or replacement START no longer asks for one.
+function startedThenWithdrawn() {
+  const root = product();
+  onState(root, { [noticeFile('p:7')]: JSON.stringify(NOTICE) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  const gh = { open: (slug, p) => ({ number: 9, html_url: 'pr', draft: true, ...p }), find: () => null, setup: () => ({ ok: true, missing: [] }) };
+  const { start } = jobStart(root, 'u1', { coordinator: 's', ...gh, log: quiet });
+  assert.match(start, /`--test notice:p:7=\.\.\.`/);
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
+  onState(root, { 'notices/withdrawn/p-7.json': JSON.stringify({ row: 'withdrawn', key: 'p:7' }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+  return { root, gh };
+}
+
+test('a START whose notice was withdrawn since: job complete owes no test for it, and a --test given for it is accepted and not recorded', () => {
+  const { root } = startedThenWithdrawn();
+  git(['checkout', '-q', 'job/u1'], { cwd: root });
+  assert.deepEqual(readRows(root, 'u1')[0].notices, ['p:7']);
+  commit(root, { 'test/u1/p.test.mjs': passing('u1 reads p') });
+  const out = [];
+  const r = jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::u1 reads p'], log: (m) => out.push(m) });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.receipt.tests, []);
+  assert.match(out.join('\n'), /--test notice:p:7: the provider notice was withdrawn; no test is owed for it, and this one is not recorded/);
+  // Not withdrawn, the same START still owes it (no --test: refused).
+  const { root: r2 } = startedThenWithdrawn();
+  git(['push', '-q', 'origin', '--delete', 'process-state'], { cwd: r2 });
+  git(['checkout', '-q', 'job/u1'], { cwd: r2 });
+  commit(r2, { 'test/u1/p.test.mjs': passing('u1 reads p') });
+  assert.throws(() => jobComplete(r2, 'u1', { push: false, log: quiet }), /provider notice p:7 has no --test/);
+});
+
+test('a START whose notice was withdrawn since: job complete with no --test completes', () => {
+  const { root } = startedThenWithdrawn();
+  git(['checkout', '-q', 'job/u1'], { cwd: root });
+  commit(root, { 'test/u1/b.test.mjs': passing('u1 b') });
+  assert.equal(jobComplete(root, 'u1', { push: false, log: quiet }).ok, true);
+});
+
+test('the resumed and the replacement START leave out a notice withdrawn since the start, and ask no test for it', () => {
+  const { root, gh } = startedThenWithdrawn();
+  const resumed = jobStart(root, 'u1', { coordinator: 's', ...gh, find: () => ({ number: 9 }), log: quiet }).start;
+  assert.doesNotMatch(resumed, /p:7|## Provider notices/);
+  const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'job' } };
+  const replaced = jobStart(root, 'u1', { coordinator: 's', restart: 'its session stopped', find: () => pr, notes: () => [], log: quiet }).start;
+  assert.match(replaced, /replacement session/);
+  assert.doesNotMatch(replaced, /p:7|## Provider notices/);
 });
