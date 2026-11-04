@@ -97,13 +97,33 @@ test('the receipt check accepts a receipt that names the base-red tests, or one 
   assert.equal(run(s, receiptFor(s.head, { exit: 1, base_red: [RED] })).run.receipt, 'agrees');
   const bare = run(s, receiptFor(s.head, { exit: 1 }));
   assert.equal(bare.run.receipt, 'disagrees');
-  assert.ok(bare.findings.some((f) => f.check === 'receipt'));
+  assert.match(bare.findings.find((f) => f.check === 'receipt').message, /the receipt claims the suite failed; .*these 1: test\/alpha\/red\.test\.mjs::plane > has ai-catalogue/);
   const red = [{ tests: [RED, 'b::c'] }];
-  assert.equal(receiptAgrees({ exit: 1, base_red: [RED] }, 'base-red', red), false, 'a receipt naming fewer than the gate tolerated');
+  assert.equal(receiptAgrees({ exit: 1, base_red: [RED] }, 'base-red', red), true, 'the gate found more base-red than the receipt names');
   assert.equal(receiptAgrees({ exit: 1, base_red: [RED, 'b::c'] }, 'base-red', red), true);
+  assert.equal(receiptAgrees({ exit: 1, base_red: [RED, 'x::y'] }, 'base-red', red), false, 'the receipt excuses a test the gate did not find base-red');
   assert.equal(receiptAgrees({ exit: 1, base_red: [RED] }, 'pass', undefined), true);
   assert.equal(receiptAgrees({ exit: 1, base_red: [RED] }, 'fail', undefined), false);
   assert.equal(receiptAgrees({ exit: 0 }, 'fail', undefined), false);
+});
+
+// Copy PR 291 (gate run 41899640593): the job's run failed 7 tests, the runner's 10, the same 7
+// and 3 phone layout tests; all 10 fail at the base, so the gate tolerated them.
+test('the receipt check: a runner that fails more base-red tests than the job did still agrees', () => {
+  const job = ['bio-plane/test/m/screens-settings/contract.test.mjs::settings screen honours its contract', 'bio-plane/test/m/screens-home/contract.test.mjs::home screen honours its contract'];
+  const phone = ['bio-plane/test/phone.test.mjs::C81 the settings screen lays out at 390 px', 'bio-plane/test/phone.test.mjs::C81 the home screen lays out at 390 px'];
+  const red = [{ module: 'bio-plane', base: 'b'.repeat(40), tests: [...job, ...phone] }];
+  assert.equal(receiptAgrees({ cmd: 'node --test', suite: true, exit: 1, base_red: job }, 'base-red', red), true, 'a strict subset of the gate');
+  assert.equal(receiptAgrees({ cmd: 'node --test', suite: true, exit: 1, base_red: [...job, ...phone] }, 'base-red', red), true, 'equal lists');
+  const extra = 'bio-plane/test/m/screens-sync/contract.test.mjs::sync screen honours its contract';
+  assert.equal(receiptAgrees({ cmd: 'node --test', suite: true, exit: 1, base_red: [...job, extra] }, 'base-red', red), false);
+  // Through the gate: the finding names what the receipt excuses that the gate did not find base-red.
+  const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const bad = run(s, receiptFor(s.head, { exit: 1, base_red: [RED, extra, extra] }));
+  assert.equal(bad.run.receipt, 'disagrees');
+  const f = bad.findings.find((x) => x.check === 'receipt');
+  assert.match(f.message, /not on the 1 the receipt excuses: bio-plane\/test\/m\/screens-sync\/contract\.test\.mjs::sync screen/);
+  assert.ok(!f.message.includes(RED), 'only the difference, not the tests both name');
 });
 
 test('the report lists the base-red tests of merged PRs as owed', () => {
