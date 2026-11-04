@@ -5,6 +5,7 @@
 // every product carries the shim without the legacy path; review B of PR 32)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { gate, postRow } from './lib/gate.mjs';
+import { pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneAsk } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobTest } from './lib/job.mjs';
@@ -20,7 +21,7 @@ import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
-import { checkRole, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
+import { checkRole, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
 import { closedRows, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
@@ -41,8 +42,8 @@ const one = (a, what) => a._[0] || fail(`name the ${what}`);
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
-  // status [--role job --module <id> | --role bob [--context <percent of the window used>] [--live <n>]] [--offline]
-  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, live: a.live, offline: !!a.offline }); return 0; },
+  // status [--role job --module <id> | --role bob [--context <percent of the window used>] [--live <n>] [--sessions <list_sessions JSON file>]] [--offline]
+  status: (a, root) => { status(root, { role: a.role, module: a.module, context: a.context, live: a.live, sessions: a.sessions, offline: !!a.offline }); return 0; },
 
   // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
   // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
@@ -91,14 +92,19 @@ const commands = {
 
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
-  'layer close': (a, root) => (layerClose(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer close': (a, root) => (layerClose(root, one(a, 'layer number'), { as: senderOf(root, a.as) }).ok ? 0 : 1),
+
+  // pin move <product slug> --report <session id> --why "<what it unblocks>" [--pin <sha>] [--tranche <name>]:
+  // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
+  // move as one short session's create_session call (pin default: process3's tranche tip).
+  'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, tranche: a.tranche, report: a.report, why: a.why }); return 0; },
 
   // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) with the brief
   // printed; writes nothing. --record <file> --worker <id> --cost <cost>: the worker's lines to the
   // state branch (a `not affected` with file:line evidence answers the notice for its module).
   'notice triage': (a, root) => {
     const key = one(a, 'notice, <provider>:<pr>');
-    if (a.record !== undefined) recordTriage(root, key, { file: a.record, worker: a.worker, cost: a.cost });
+    if (a.record !== undefined) recordTriage(root, key, { file: a.record, worker: a.worker, cost: a.cost, as: senderOf(root, a.as) });
     else noticeTriage(root, key);
     return 0;
   },
@@ -108,8 +114,8 @@ const commands = {
   // outcome; an ok for an act that stopped the open needs Bob's words lifting the stop.
   // tranche open --check: open, pending or stopped; exit 0 only when open.
   'tranche open': (a, root) => {
-    if (a.record !== undefined) { recordOpen(root, list(a.record), { session: a.session, depth: a.depth, bob: a.bob }); return 0; }
-    if (a.check) return checkOpen(root, { depth: a.depth }).state === 'open' ? 0 : 1;
+    if (a.record !== undefined) { recordOpen(root, list(a.record), { session: a.session, depth: a.depth, bob: a.bob, as: senderOf(root, a.as) }); return 0; }
+    if (a.check) return checkOpen(root, { depth: a.depth, as: senderOf(root, a.as) }).state === 'open' ? 0 : 1;
     return trancheOpen(root, { depth: a.depth }).state === 'stopped' ? 1 : 0;
   },
 
@@ -201,7 +207,7 @@ const commands = {
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
-    if (a.plain) return mergePlain(root, n, { ...review, minutes: Number(a.minutes || 20) }).merged ? 0 : 1;
+    if (a.plain) return mergePlain(root, n, { ...review, minutes: Number(a.minutes || 20), as: senderOf(root, a.as) }).merged ? 0 : 1;
     return merge(root, n, { ...review, minutes: Number(a.minutes || 30) }).merged ? 0 : 1;
   },
 

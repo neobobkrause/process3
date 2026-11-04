@@ -8,8 +8,8 @@ import { P3 } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
-import { SILENT_HOURS, nextWork, owedNotices, status } from './status.mjs';
-import { fail, git, loadConfig, now } from './util.mjs';
+import { SILENT_HOURS, layerState, nextWork, owedNotices, status } from './status.mjs';
+import { Fail, fail, git, loadConfig, now } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 // One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
@@ -96,7 +96,18 @@ export function sweep(root, { session, live, context, attempts = [], offline = f
       const refresh = sessions.some((s) => s.session === bob.session && s.refresh);
       const wake = Math.min(...messages(readState(root, sb, messagesFile('root'))).filter((m) => m.to === 'bob').map((m) => Date.parse(m.at)).filter((x) => x > last));
       // BOB's idle time: acts listed for it (next work, or a job owed or blocked) while it is quiet.
-      const next = nextWork(root, cfg, rows, tranche, { log: () => {}, notices: owedNotices(root, cfg, rows, () => {}) }).length > 0;
+      // A layer ready to close, or one owed a close once BOB closes its deferred PRs, is BOB's act
+      // too (coordinator, 4 Nov: nextWork lists nothing then, so a BOB that missed the wake slept).
+      // A bad config value (open_by) is a finding; the sweep carries on to the heartbeat.
+      let next = false;
+      try {
+        const ls = layerState(root, cfg, rows, tranche);
+        if (ls?.ready || ls?.pending) found.push(`layer ${ls.cur.n} ${ls.ready ? 'ready to close' : 'owed a close'}`);
+        next = !!(ls?.ready || ls?.pending) || nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) }).length > 0;
+      } catch (e) {
+        if (!(e instanceof Fail)) throw e;
+        found.push(`config: ${e.message}`);
+      }
       const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success') || (r.flag && !r.flag.startsWith('WORKING')));
       idle = { bob_acts: acts, bob_quiet_h: acts ? hours(t - last) : null };
       if (refresh || t - wake > SILENT_HOURS * H) {
