@@ -201,6 +201,15 @@ test('status --role bob: an OPEN entry BOB wrote outside the open layer, its use
   assert.deepEqual(startable(r.next).go, [{ id: 'pub', file: 'build/requirements/pub.md' }]);
   // The wake's offline count: the one ls-remote marks it unstarted (it counted 0 before).
   assert.equal(readyCount(root), 1);
+  // An entered module with no unmet mark has nothing for a job: not listed.
+  writeFileSync(join(root, 'build/requirements/pub.md'), '# pub\n');
+  git(['commit', '-qam', 'pub met'], { cwd: root });
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  assert.equal(readyCount(root), 0);
+  writeFileSync(join(root, 'build/requirements/pub.md'), unmet(3));
+  git(['commit', '-qam', 'pub reopened'], { cwd: root });
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  assert.equal(readyCount(root), 1);
   // Its job branch on origin: neither started again nor counted.
   git(['branch', 'job/pub'], { cwd: root });
   git(['push', '-q', 'origin', 'job/pub'], { cwd: root });

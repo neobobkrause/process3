@@ -572,6 +572,16 @@ test('a merge whose every notice user imports the provider records each owed at 
   assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs notice triage p:224 \(provider notice p:224; 2 user modules owe a worker's judgment: u1, u2/);
   assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs job start --ready/);
   assert.match(out.at(-1), /^notice triage at the merge: 2 owe a worker's judgment; next act: node \.process\/tool\/p3\.mjs notice triage p:224/);
+  // merge run again after it landed: its triage, still owed, is the first act there too.
+  const again = [];
+  git(['fetch', '-q', 'origin', 'job/p:job/p-merged'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'job/p-merged'], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  merge(root, 224, { slug: 'o/r', io: { ...io, getPR: () => ({ state: 'closed', merged: true, merge_commit_sha: m, user: { login: 'c' }, base: { ref: 'tranche' }, head: { ref: 'job/p', sha: m } }), compare: () => null }, reviewed: 'fresh', rounds: 1, log: (x) => again.push(x) });
+  assert.ok(again.some((l) => /^first: node \.process\/tool\/p3\.mjs notice triage p:224 /.test(l)), again.join('\n'));
   const dir = mkdtempSync(join(tmpdir(), 'p3-triage-'));
   const f = join(dir, 'w.txt');
   writeFileSync(f, 'u1: affected: src/u1/a.mjs:1 imports accountsOf\nu2: affected: src/u2/a.mjs:1 imports accountsOf\n');

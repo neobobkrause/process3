@@ -291,3 +291,11 @@ test('ready to start: a job started before a provider in its uses merged waits f
   const none = leadTimes(bare, cfg, { ref: 'HEAD', rows: [start('q2', 1), start('n3', 35)], layers: LAYERS, modules: MODULES, grants: grants(0), closed: [], now: t(100) }).jobs.find((j) => j.module === 'n3').ready_to_start;
   assert.equal(none, 'started before q2 (in its uses) merged; q2 not merged yet');
 });
+
+test('3: the total since the opening counts an attempt priced at its merge, not the unmeasured row job complete wrote before it', () => {
+  const { root } = repo([start('a', 5, 1), measured('a', 6, 'job', 'unmeasured', 's_a', { attempt: 1, session_usd: 3 }), measured('a', 9, 'job', 0.75, 's_a', { attempt: 1, session_usd: 3.75 })]);
+  assert.match(tranche(root), /- total cost since the opening: \$0\.75/);
+  // An attempt with only the unmeasured row stays unmeasured.
+  const { root: r2 } = repo([start('a', 5, 1), measured('a', 6, 'job', 'unmeasured', 's_a', { attempt: 1, session_usd: 3 })]);
+  assert.match(tranche(r2), /- total cost since the opening: unmeasured \(\$0\.00 over 0 priced rows; 1 without a cost\)/);
+});

@@ -274,10 +274,10 @@ export function jobCostOf(v) {
 export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console.log }) {
   const done = rows.filter((r) => r.event === 'complete').pop();
   const priced = (r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.attempt === attempt && Number(r.cost_usd) > 0;
-  // Else the session of the job's last measured row (this attempt's first): queue's complete rows
-  // named none on the copy (4 Nov), and its merge counted 4.04 whole, attempt 1's 3.25 again.
-  const measured = rows.filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.session);
-  const last = measured.filter((r) => r.attempt === attempt).pop() || measured.pop();
+  // Else the session of this attempt's last measured row: queue's complete rows named none on the
+  // copy (4 Nov), and its merge counted 4.04 whole, attempt 1's 3.25 again. Never an earlier
+  // attempt's: a restart in a new session would have that session's figure taken off its own.
+  const last = rows.filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.session && r.attempt === attempt).pop();
   const sid = sessionForm(typeof session === 'string' && session ? session : done?.session || last?.session || null);
   if (cost === null) {
     // Measured already, by a job complete --cost-usd for this attempt: nothing more to write.
@@ -361,6 +361,9 @@ function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) 
   log(`pull request ${n} is merged; recording only its provider notices`);
   const notices = noticeStep(root, cfg, { id, n, mb, head: h, at: m, entry, log });
   const triage = triageStep(root, cfg, notices, { ref: m, log });
+  // A triage owed is the first act here too (no ready line: this run merged nothing).
+  const first = firstActs(triage);
+  if (first.length > 1) log(first[0]);
   if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
   return { merged: true, sha: m, notices, triage };
 }

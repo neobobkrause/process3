@@ -1000,15 +1000,28 @@ test('merge --job-cost-usd no higher than the session\'s last row records the de
   assert.ok(said.some((l) => /job alpha's cost: unmeasured: --job-cost-usd 3\.25 is not above session session_J's last row \(3\.25\)/.test(l)), said.join('\n'));
   git(['checkout', '-q', 'main'], { cwd: root });
 });
-test('merge --job-cost-usd with no session on the complete row takes the session of the job\'s last measured row', () => {
+test('merge --job-cost-usd with no session on the complete row takes the session of this attempt\'s last measured row, never an earlier attempt\'s', () => {
   const { root } = setup();
   const head = costRows(root, [
     { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 'session_J', session_usd: 3.25, cost_usd: 3.25 },
+    { row: 'attempt', event: 'measured', role: 'job', attempt: 1, session: 'session_J', session_usd: 3.25, cost_usd: 'unmeasured' },
     { row: 'attempt', event: 'complete', attempt: 1 },
   ]);
   const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '4.04', log: () => {} });
   git(['checkout', '-q', r.tip], { cwd: root });
   const m = readRows(root, 'alpha').filter((x) => x.event === 'measured').pop();
   assert.deepEqual([m.session, m.session_usd, m.cost_usd], ['session_J', 4.04, 0.79]);
+  git(['checkout', '-q', 'main'], { cwd: root });
+});
+test('merge --job-cost-usd takes no session from an earlier attempt: a restart in a new session counts its figure whole', () => {
+  const { root } = setup();
+  const head = costRows(root, [
+    { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 'session_J', session_usd: 3.25, cost_usd: 3.25 },
+    { row: 'attempt', event: 'complete', attempt: 1 },
+  ]);
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '2', log: () => {} });
+  git(['checkout', '-q', r.tip], { cwd: root });
+  const m = readRows(root, 'alpha').filter((x) => x.event === 'measured').pop();
+  assert.deepEqual([m.session, m.session_usd, m.cost_usd], [null, 2, 2]);
   git(['checkout', '-q', 'main'], { cwd: root });
 });
