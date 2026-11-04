@@ -34,17 +34,18 @@ export function openPRs(slug, base) {
 
 // Every pull request, open, closed or merged, whose head is this repository's branch; null when
 // unreadable. Pull requests cannot be deleted, so this is every PR a run on the branch could be.
-export function prsFromBranch(slug, branch) {
+export function prsFromBranch(slug, branch, { read = (args) => gh(args, { allowFail: true }) } = {}) {
   const owner = String(slug).split('/')[0];
-  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=all&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=100`], { allowFail: true });
+  const pages = read(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=all&head=${encodeURIComponent(`${owner}:${branch}`)}&per_page=100`]);
   return Array.isArray(pages) ? pages.flat() : null;
 }
 
-// Whether a pull request's base was ever changed (an issue event base_ref_changed): the pulls
-// API shows only the current base. null when unreadable.
-export function baseEverChanged(slug, n) {
-  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/events?per_page=100`], { allowFail: true });
-  return Array.isArray(pages) ? pages.flat().some((e) => e?.event === 'base_ref_changed') : null;
+// Whether a pull request's base was ever changed, by hand or by GitHub when the base branch was
+// deleted (issue events): the pulls API shows only the current base. null when unreadable.
+const BASE_CHANGES = ['base_ref_changed', 'automatic_base_change_succeeded', 'automatic_base_change_failed'];
+export function baseEverChanged(slug, n, { read = (args) => gh(args, { allowFail: true }) } = {}) {
+  const pages = read(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/events?per_page=100`]);
+  return Array.isArray(pages) && pages.every(Array.isArray) ? pages.flat().some((e) => BASE_CHANGES.includes(e?.event)) : null;
 }
 
 export function createPR(slug, { head, base, title, body, draft = true }) {
