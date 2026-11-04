@@ -1,9 +1,12 @@
-# Process3 record check on every push to any branch (REC-10), at the tranche's process pin,
-# from the merge-base with the tranche (or main). Not a required check.
+# Process3 record check on every push to main and the tranche (REC-10), at the tranche's
+# process pin, from the merge-base with the tranche (or main). Not a required check, and nothing
+# reads it: a pull request's record is checked by the gate (fewer runs, 4 Nov: working branches
+# were 403 of 495 runs). A tranche not named "tranche" has no run here.
 # Copied into a product as .github/workflows/process-record.yml.
 name: process-record
 on:
   push:
+    branches: [main, tranche]
 permissions:
   contents: read
 concurrency:

@@ -13,6 +13,9 @@
 # Each action is pinned by its full commit, with its version beside it (review of PR 13).
 # Copied into a product as .github/workflows/process-gate.yml.
 name: process-gate
+# edited stays, title and body edits too (fewer runs, 4 Nov): a retarget is an edited event and
+# the gate judges the new base, and a job skipped by an `if` would report a skipped "gate",
+# which GitHub counts as passing the required check.
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review, converted_to_draft]

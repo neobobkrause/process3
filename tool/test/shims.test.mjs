@@ -260,3 +260,17 @@ test('process-record: the tranche named from main, not from the pushed commit', 
   // main has no Process3 yet (the copy before its first close): the default name, not "own".
   assert.equal(runPin(null), 'TRANCHE=tranche\n');
 });
+
+// Fewer runs (4 Nov): process-record runs on pushes to main and the tranche only; the gate keeps
+// every trigger it had, edited (a retarget) included, and no job-level `if` on the required job,
+// whose skip GitHub would count as passing.
+test('shims: process-record on main and the tranche; the gate on every event that can change its verdict', (t) => {
+  const load = (f) => spawnSync('python3', ['-c', 'import sys,json,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', join(SHIMS, f)], { encoding: 'utf8' });
+  const rec = load('process-record.yml');
+  if (rec.status !== 0) { t.skip('no YAML parser here'); return; }
+  // YAML 1.1 reads the key "on" as true.
+  assert.deepEqual(JSON.parse(rec.stdout).true, { push: { branches: ['main', 'tranche'] } });
+  const gate = JSON.parse(load('process-gate.yml').stdout);
+  assert.deepEqual(gate.true, { pull_request: { types: ['opened', 'synchronize', 'reopened', 'edited', 'ready_for_review', 'converted_to_draft'] } });
+  assert.equal(gate.jobs.gate.if, undefined);
+});
