@@ -145,7 +145,7 @@ test('a scratch directory under a symlinked TMPDIR has its worktree removed by g
       git(['worktree', 'lock', join(d, 'w')], { cwd: root });
       said.push(worktrees(root).listed);
     }, { root });
-  } finally { process.env.TMPDIR = was; }
+  } finally { if (was === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = was; }
   assert.deepEqual(said, [2]);
   assert.deepEqual(readdirSync(real), []);
   assert.deepEqual(worktrees(root), { listed: 1, entries: [] });
