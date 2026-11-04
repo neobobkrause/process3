@@ -200,7 +200,7 @@ export function trancheClose(root, { record = false, report = false, log = conso
     const c = completionItems(root, cfg, t);
     if (c?.missing) fail(`completion_file ${c.file} is not on ${t}; the tranche closes when its completion round is done`);
     const left = openItems(c);
-    if (left.length) fail(`completion round not done: ${left.map((x) => `${x.id} (${x.target})`).join(', ')} open in ${c.file}; tick each when done, or mark it "deferred: <reason>"`);
+    if (left.length) fail(`completion round not done: ${left.map((x) => (x.malformed ? `${x.id} (not an item line)` : `${x.id} (${x.target})`)).join(', ')} open in ${c.file}; tick each when done, or mark it "deferred: <reason>"`);
   }
   const [owner, repo] = slug.split('/');
   const steps = [];

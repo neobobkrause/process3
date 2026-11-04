@@ -13,7 +13,8 @@ const ITEM = /^\s*[-*]\s+\[([ xX])\]\s+([A-Za-z][\w.-]*)\s*[·|]\s*([^·|]+?)\s*
 export function parseCompletion(text) {
   return String(text || '').split('\n').flatMap((line, i) => {
     const m = ITEM.exec(line);
-    if (!m) return [];
+    // An unticked box whose line misses the form is open, never dropped: its line is BOB's to fix.
+    if (!m) return /^\s*[-*]\s+\[ \]/.test(line) ? [{ id: `line ${i + 1}`, target: null, malformed: true, whole: false, what: line.trim(), line: i + 1, done: false, deferred: null }] : [];
     const what = (m[4] || '').trim();
     const d = /deferred:\s*(.+)$/i.exec(what);
     const target = m[3].trim();

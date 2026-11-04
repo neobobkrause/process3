@@ -59,6 +59,7 @@ test('lane ask: refused until the lane names its directory; the brief carries th
   status(root, { role: 'bob', offline: true, log: (m) => s.push(m) });
   assert.match(s.join('\n'), /open lane questions .*\n- ux: "Where does sign-in go\?", asked/);
 
+  assert.throws(() => laneAsk(root, 'ux', 'Where is sign-in?', { record: 'top bar', worker: 'a1', log: quiet }), /no open ux question reads "Where is sign-in\?"; nothing recorded\. Open: "Where does sign-in go\?"/);
   assert.throws(() => laneAsk(root, 'ux', 'Where does sign-in go?', { record: 'top bar', log: quiet }), /--record needs --worker/);
   assert.throws(() => laneAsk(root, 'ux', 'Where does sign-in go?', { record: 'top bar', worker: 'a1', cost: 'lots', log: quiet }), /--cost-usd/);
   const d = laneAsk(root, 'ux', 'Where does sign-in go?', { record: 'the top bar', worker: 'agent-1', cost: '0.42', log: quiet });
@@ -79,14 +80,16 @@ test('the completion file: open, done and deferred items; module or whole produc
     '- [x] C-2 · mail-reader · R6 tested whole',
     '- [ ] C-3 | whole product | the release walk',
     '- [ ] C-4 · runtime-limits · grade_read lowered; deferred: waits on the ranged-grading report',
-    '- a plain line', '- [ ] not an item',
+    '- a plain line', '- [ ] C-5 - onboarding - copy',
   ].join('\n'));
   assert.deepEqual(items.map((x) => [x.id, x.target, x.whole, x.done, x.deferred]), [
     ['C-1', 'signatures', false, false, null],
     ['C-2', 'mail-reader', false, true, null],
     ['C-3', 'whole product', true, false, null],
     ['C-4', 'runtime-limits', false, false, 'waits on the ranged-grading report'],
+    ['line 8', null, false, false, null],
   ]);
+  assert.equal(items.at(-1).malformed, true);
 });
 
 const LAYERS = '| Layer | Modules |\n|---|---|\n| 1 | a |\n';
@@ -128,6 +131,14 @@ test('completion round: status lists open items once every layer is closed; tran
   status(root, { role: 'bob', offline: true, log: (m) => done.push(m) });
   assert.match(done.join('\n'), /completion round: every item of build\/plan\/round\.md done or deferred/);
   assert.ok(trancheClose(root, { slug, io, log: quiet }).ok);
+
+  // An unticked line off the form: open, never dropped.
+  commit(root, { 'build/plan/round.md': '- [x] C-1 · a · done\n- [ ] C-5 - onboarding copy\n' });
+  git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
+  const bad = [];
+  status(root, { role: 'bob', offline: true, log: (m) => bad.push(m) });
+  assert.match(bad.join('\n'), /- build\/plan\/round\.md:2: not an item line .*; fix it: - \[ \] C-5 - onboarding copy/);
+  assert.throws(() => trancheClose(root, { slug, io, log: quiet }), /completion round not done: line 2 \(not an item line\)/);
 
   // The key set, the file missing from the tranche: refused.
   commit(root, { 'process/config.json': { completion_file: 'build/plan/gone.md' } });

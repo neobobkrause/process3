@@ -90,6 +90,8 @@ export function laneAsk(root, name, question, { context = [], record, worker, co
   if (record !== undefined) {
     if (typeof record !== 'string' || !record.trim()) fail('--record "<the lane\'s decision>"');
     if (typeof worker !== 'string' || !worker.trim()) fail('--record needs --worker <the worker\'s session or agent id>');
+    const mine = openAsks(root, cfg).filter((a) => a.lane === l.name);
+    if (!mine.some((a) => a.question === q)) fail(`no open ${l.name} question reads ${JSON.stringify(q)}; nothing recorded. Open: ${mine.map((a) => JSON.stringify(a.question)).join('; ') || 'none'}`);
     const usd = cost === undefined ? null : Number(cost);
     if (cost !== undefined && (cost === true || !Number.isFinite(usd) || usd < 0)) fail(`--cost-usd <the worker's cost from its session record>, not ${JSON.stringify(cost)}`);
     const row = { row: 'decision', at: now(), tranche: cfg.tranche, lane: l.name, question: q, decision: record.trim(), worker: worker.trim(), cost_usd: usd };
