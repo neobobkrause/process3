@@ -11,7 +11,7 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
-import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, jobCostCall, sessionForm, wakeLine } from './job.mjs';
+import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { jsonl } from './state.mjs';
@@ -224,15 +224,29 @@ export function merge(root, n, opts = {}) {
     });
     if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);
     log(`merged pull request ${n} at ${r.sha} (${now()})`);
-    // The ready jobs' start first, before any other line BOB must read (coordinator, 4 Nov: a
-    // 25-minute ready-to-start wait was BOB's turn spent on other output first).
-    log(READY_FIRST);
     // The provider-change route: the notice this job leaves its users, and the notices its START
     // named, answered now that it merged. The merge stands if the write fails; the rows are printed.
-    const notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, entry: baseEntry, log });
-    // The notice it raised, triaged here, not in BOB's later batch (triageAtMerge); a failure
-    // leaves the notice owed as before, and status names its triage.
-    const triage = triageStep(root, cfg, notes, { ref: tip, log });
+    // Their lines are held until the first act is printed: BOB reads the output when it ends.
+    const held = [];
+    const hold = (l) => held.push(l);
+    let notes;
+    let triage;
+    try {
+      notes = noticeStep(root, cfg, { id, n, mb, head: pr.head.sha, at: tip, entry: baseEntry, log: hold });
+      // The notice it raised, triaged here, not in BOB's later batch (triageAtMerge); a failure
+      // leaves the notice owed as before, and status names its triage.
+      triage = triageStep(root, cfg, notes, { ref: tip, log: hold });
+    } catch (e) {
+      // Never lost: an unexpected stop still prints the start of the ready jobs and what was held.
+      log(READY_FIRST);
+      for (const l of held) log(l);
+      throw e;
+    }
+    // The first act, before any other line BOB must read (coordinator, 4 Nov): the triage the
+    // merge's notice owes (case-catalogue:224 at 12:16 was triaged 9.6 min later), then the ready
+    // jobs' start (a 25-minute ready-to-start wait was BOB's turn spent on other output first).
+    for (const l of firstActs(triage)) log(l);
+    for (const l of held) log(l);
     log(READY_NEXT);
     // The triage's outcome again as the last line: BOB read merge 199's output through tail -3
     // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
@@ -260,7 +274,11 @@ export function jobCostOf(v) {
 export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console.log }) {
   const done = rows.filter((r) => r.event === 'complete').pop();
   const priced = (r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.attempt === attempt && Number(r.cost_usd) > 0;
-  const sid = sessionForm(typeof session === 'string' && session ? session : done?.session || null);
+  // Else the session of the job's last measured row (this attempt's first): queue's complete rows
+  // named none on the copy (4 Nov), and its merge counted 4.04 whole, attempt 1's 3.25 again.
+  const measured = rows.filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.session);
+  const last = measured.filter((r) => r.attempt === attempt).pop() || measured.pop();
+  const sid = sessionForm(typeof session === 'string' && session ? session : done?.session || last?.session || null);
   if (cost === null) {
     // Measured already, by a job complete --cost-usd for this attempt: nothing more to write.
     if (rows.some(priced)) return null;
@@ -269,10 +287,10 @@ export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console
     return null;
   }
   if (rows.some(priced)) { log(`job ${id}'s attempt ${attempt} is priced already: --job-cost-usd ${cost} is not written again`); return null; }
-  const prior = sid ? rows.filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop() : null;
-  const usd = Math.round(Math.max(0, cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4;
+  const { usd, prior } = costDelta(rows, sid, cost);
   appendRow(wt, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: usd });
-  log(`job ${id}'s cost: ${usd} USD${sid ? ` (session ${sid}, ${cost} so far)` : ' (no session named: the whole figure counted)'}`);
+  if (usd === 'unmeasured') log(`job ${id}'s cost: unmeasured: --job-cost-usd ${cost} is not above session ${sid}'s last row (${prior}), so get_session's usage has not moved since; read it again with ${jobCostCall(sid)} once it has, and run this merge again with it before it lands; the merge goes on`);
+  else log(`job ${id}'s cost: ${usd} USD${sid ? ` (session ${sid}, ${cost} so far)` : ' (no session named: the whole figure counted)'}`);
   return usd;
 }
 
@@ -296,6 +314,14 @@ export function unagreed(runs, sha, attempt) {
 // notice says so, and a failure names the triage act; the merge stands either way.
 export const triageLast = (t) => (t.error ? `notice triage at the merge FAILED (${t.error.split('\n')[0].slice(0, 160)}); next act: ${t.next}`
   : t.owed?.length ? `notice triage at the merge: ${t.owed.length} owe a worker's judgment; ${t.next}` : String(t.why || '').startsWith('none to run') ? `notice triage at the merge: ${t.why}` : `notice triage at the merge: ${t.why || `${t.rows?.length || 0} row(s) written`}, none owed`);
+// The merge's first lines: with users owing a worker's judgment (or the triage failed), the
+// notice's triage first, then the ready jobs' start; otherwise READY_FIRST alone.
+export function firstActs(t) {
+  const key = t?.key || String(t?.next || '').match(/notice triage (\S+)/)?.[1];
+  if (!key || !(t.owed?.length || t.error)) return [READY_FIRST];
+  const owe = t.error ? `its triage at the merge failed, ${t.owed?.length || 0} owed` : `${t.owed.length} user module${t.owed.length === 1 ? ' owes' : 's owe'} a worker's judgment: ${t.owed.join(', ')}`;
+  return [`first: ${P3} notice triage ${key} (provider notice ${key}; ${owe}: a read-only worker judges them now, not in a later batch)`, READY_FIRST.replace(/^first: /, 'then: ')];
+}
 function triageStep(root, cfg, notes, { ref, log }) {
   // On a rerun, the notice as recorded (its users as stored), and none when it was withdrawn.
   let raised = (notes.rows || []).find((x) => x.row === 'notice') || null;
@@ -306,7 +332,7 @@ function triageStep(root, cfg, notes, { ref, log }) {
   if (!raised) { const why = notes.error ? `the notices were not written: ${notes.error.split('\n')[0]}; run the merge again` : 'the merge left no provider notice'; log(`notice triage at the merge: none to run (${why})`); return { rows: [], owed: [], why: 'none to run: ' + why }; }
   try { return triageAtMerge(root, cfg, raised, { ref, log }); } catch (e) {
     log(`the merge stands; notice triage ${raised.key} at the merge failed (${e.message}); next act: ${P3} notice triage ${raised.key}`);
-    return { rows: [], owed: raised.users || [], error: e.message, next: `${P3} notice triage ${raised.key}` };
+    return { rows: [], owed: raised.users || [], key: raised.key, error: e.message, next: `${P3} notice triage ${raised.key}` };
   }
 }
 

@@ -78,6 +78,31 @@ test('job complete --cost-usd writes the job\'s own cost row, its session\'s cos
   assert.equal(o.jobs.find((j) => j.module === 'alpha').job_usd, 2.5);
 });
 
+// The copy, 4 Nov: queue's attempt 2 in attempt 1's session read get_session's unmoved usage.
+test('job complete --cost-usd no higher than its session\'s last row records the delta unmeasured, and the report reads the job unmeasured, never 0', () => {
+  const root = product();
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  appendRow(root, 'alpha', { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 's1', session_usd: 3.25, cost_usd: 3.25 });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  const said = [];
+  assert.equal(jobComplete(root, 'alpha', { push: false, costUsd: '3.25', session: 's1', log: (m) => said.push(m) }).ok, true);
+  const m = readRows(root, 'alpha').filter((r) => r.event === 'measured');
+  assert.deepEqual(m.map((r) => [r.session, r.session_usd, r.cost_usd]), [['s1', 3.25, 3.25], ['s1', 3.25, 'unmeasured']]);
+  assert.ok(said.some((l) => /job alpha's cost: unmeasured \(session s1 read 3\.25, its last row 3\.25/.test(l)), said.join('\n'));
+  // A row of 0 written before (the copy's queue attempt 2) reads unmeasured too, for its attempt.
+  const rows = [
+    { at: '2026-11-04T12:00:00Z', module: 'q', row: 'attempt', event: 'start', role: 'job', attempt: 1 },
+    { at: '2026-11-04T12:12:59Z', module: 'q', row: 'attempt', event: 'measured', role: 'job', attempt: 1, session: 's', session_usd: 3.25, cost_usd: 3.25 },
+    { at: '2026-11-04T12:26:35Z', module: 'q', row: 'attempt', event: 'start', role: 'job', attempt: 2 },
+    { at: '2026-11-04T12:30:28Z', module: 'q', row: 'attempt', event: 'measured', role: 'job', attempt: 2, session: 's', session_usd: 3.25, cost_usd: 0 },
+  ];
+  assert.equal(overhead(rows).jobs.find((j) => j.module === 'q').job_usd, 'unmeasured');
+  // A priced row for that attempt (the merge run again with a moved figure) stands instead.
+  rows.push({ at: '2026-11-04T12:34:55Z', module: 'q', row: 'attempt', event: 'measured', role: 'job', attempt: 2, session: 's', session_usd: 4.04, cost_usd: 0.79 });
+  assert.equal(overhead(rows).jobs.find((j) => j.module === 'q').job_usd, 4.04);
+});
+
 test('job complete refuses a zero --cost-usd, naming where to read it, before anything runs', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
