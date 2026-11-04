@@ -1166,3 +1166,34 @@ test('the START no longer asks the job for --cost-usd', () => {
   assert.doesNotMatch(said.join('\n'), /--cost-usd/);
   assert.match(said.join('\n'), /job complete alpha --not-verified/);
 });
+
+// Measured on civicsmith-copy 4 Nov: plane's suite takes 19-20 of its 20 minutes, and the
+// base-red run was given only what was left, so it died with ETIMEDOUT. It gets its own budget.
+test('job complete gives the base-red run the whole suite_timeout_minutes, not what the suite left', () => {
+  const slow = "import test from 'node:test'; import a from 'node:assert'; test('slow red', async () => { await new Promise((r) => setTimeout(r, 6000)); a.fail('x'); });\n";
+  const { root, calls, exec } = locked(['package-lock.json'], { 'package-lock.json': lock(true), 'test/alpha/b.test.mjs': slow });
+  const timeouts = [];
+  const spy = (cmd, args, o) => { timeouts.push({ cwd: o.cwd, timeout: o.timeout }); return exec(cmd, args, o); };
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  const r = jobComplete(root, 'alpha', { push: false, exec: spy, log: quiet });
+  const base = timeouts.filter((t) => t.cwd.includes('p3-base-red-'));
+  assert.equal(base.length, 1, 'the base install ran');
+  assert.ok(base[0].timeout > 20 * 60000 - 4000, `base-red budget ${base[0].timeout} ms`);
+  const receipt = readRows(root, 'alpha').filter((x) => x.event === 'complete').pop()?.receipt;
+  assert.deepEqual(receipt?.commands.find((c) => c.suite).base_red, ['test/alpha/b.test.mjs::slow red'], JSON.stringify(r));
+  assert.ok(calls.length);
+});
+
+test('p3 test runs the suite within suite_timeout_minutes from config', () => {
+  const slow = "import test from 'node:test'; test('slow', async () => { await new Promise((r) => setTimeout(r, 3000)); });\n";
+  const root = product();
+  commit(root, { 'test/alpha/b.test.mjs': slow, 'process/config.json': { suite_timeout_minutes: 0.02 } });
+  const short = jobTest(root, 'alpha', { log: quiet });
+  assert.equal(short.ok, false, 'killed at 1.2 s');
+  assert.ok(short.seconds < 2.9, `${short.seconds} s`);
+  commit(root, { 'process/config.json': { suite_timeout_minutes: 1 } });
+  assert.equal(jobTest(root, 'alpha', { log: quiet }).ok, true);
+});

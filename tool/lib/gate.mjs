@@ -184,9 +184,9 @@ export function gate(root, opts) {
         // Base-red (basered.mjs): the failing tests run again at the tranche tip the PR merges
         // into; failures the base has too are not the PR's. Never for the tranche into main,
         // where every failure tolerated on the way is owed.
-        const left = timeout - s.seconds * 1000;
-        const br = branch !== cfg.tranche && !/ETIMEDOUT/.test(s.output) && left > 10000
-          ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout: left, ...(exec ? { exec } : {}), log })
+        // Its own budget, not what the suite left (copy, 4 Nov: plane's suite takes 19-20 of 20 min).
+        const br = branch !== cfg.tranche && !/ETIMEDOUT/.test(s.output)
+          ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout, ...(exec ? { exec } : {}), log })
           : null;
         if (br?.ok) {
           s.baseRed = true;

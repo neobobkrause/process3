@@ -197,6 +197,12 @@ test('start watcher, start record watcher, sweep task, and ROOT\'s prompt', () =
   assert.equal(t.call.cron_expression, '0 * * * *');
   const p = rootPrompt({ slug: 'o/p', approvals: 'b'.repeat(64) });
   for (const x of ['sweep task --session', 'start watcher', 'start record watcher', 'persistent_session_id', 'sweep --session']) assert.ok(p.includes(x), x);
+  // ROOT's one task edit (4 Nov: a pin changed what sweep task prints, and only the owning
+  // session may edit its task): its own sweep task's prompt, to what sweep task prints, nothing else.
+  assert.ok(p.includes('your hourly sweep task is the prompt `node .process/tool/p3.mjs sweep task --session <your id>` prints: if list_triggers shows none bound to you, create it (create_trigger, no persistent_session_id); if its prompt differs, update_trigger only its prompt, to that; never fire it'));
+  assert.ok(p.includes("edit no task but your sweep task's prompt") && !p.includes('edit no task,'));
+  assert.ok(t.prompt.includes("edit no task but this one's prompt as your ROOT prompt allows"));
+  assert.ok(Buffer.byteLength(p) <= 4096, `${Buffer.byteLength(p)} bytes`);
 });
 
 test('sweep step 3: a WORKING job that pushed and then stopped past SILENT_HOURS wakes BOB; one that pushed lately does not', () => {

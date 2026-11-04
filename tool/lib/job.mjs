@@ -862,12 +862,13 @@ export function jobComplete(root, id, opts = {}) {
       rmSync(evDir, { recursive: true, force: true });
       const c = { cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true };
       commands.push(c);
-      if (s.exit !== 0) {
+      if (s.exit !== 0 && /ETIMEDOUT/.test(s.output)) log(s.output.split('\n').slice(-40).join('\n') + '\nthe suite timed out: no base-red run, as at the gate');
+      else if (s.exit !== 0) {
         log(s.output.split('\n').slice(-40).join('\n'));
         // Base-red, as the gate judges it (basered.mjs): failures the tranche's tip has too are
         // not the job's; the receipt names them, and the gate checks them again.
         const tip = git(['rev-parse', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
-        const br = baseRed(root, entry, { base: tip, failing: s.failing, cfg, rows: generatedRows(cfg).rows, timeout: Math.max(1000, timeout - s.seconds * 1000), ...(exec ? { exec } : {}), log });
+        const br = baseRed(root, entry, { base: tip, failing: s.failing, cfg, rows: generatedRows(cfg).rows, timeout, ...(exec ? { exec } : {}), log });
         if (br.ok) { c.base_red = br.base_red.tests; log(`the suite's ${c.base_red.length} failing test(s) fail at ${cfg.tranche}'s tip ${tip.slice(0, 10)} too: base-red, named in the receipt`); }
         else log(`not base-red: ${br.why}`);
       }

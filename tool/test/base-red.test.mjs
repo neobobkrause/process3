@@ -189,3 +189,12 @@ test('a user\'s base-red tests are tolerated and not the receipt\'s to name', ()
   const r = run(s, receiptFor(s.head, { exit: 1, base_red: [RED] }));
   assert.deepEqual([r.run.scope, r.run.suite, r.run.base_red.map((b) => b.module), r.run.receipt, r.run.ok], [['alpha', 'beta'], 'base-red', ['alpha', 'beta'], 'agrees', true]);
 });
+
+// Copy, 4 Nov: plane's suite took 19-20 of its 20 minutes, and base-red got only what was left.
+test('the gate gives the base-red run the whole suite_timeout_minutes, not what the suite left', () => {
+  const slow = "import { describe, test } from 'node:test'; import a from 'node:assert';\ndescribe('plane', () => { test('has ai-catalogue', async () => { await new Promise((r) => setTimeout(r, 5000)); a.fail('no ai-catalogue'); }); });\n";
+  const s = setup({ 'test/alpha/red.test.mjs': slow, 'process/config.json': { suite_timeout_minutes: 0.15 } }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = run(s, receiptFor(s.head, { exit: 1, base_red: [RED] }));
+  assert.deepEqual(r.findings, [], 'a 5 s base run fits its own 9 s, not the 4 s the suite left');
+  assert.equal(r.run.suite, 'base-red');
+});
