@@ -103,6 +103,9 @@ export const DEFAULTS = {
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
+  // The escalation chain (Bob, 4 Nov): job to BOB to ROOT to watcher to Bob, each step waiting
+  // this many minutes for an answer before the next is asked.
+  targets: { decision_minutes: 30 },
 };
 
 // An unmet requirement mark in a requirement file: **R<id>** *(not yet met ...
@@ -140,6 +143,7 @@ export function loadConfig(root, ref) {
   return {
     ...DEFAULTS, ...c,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
+    targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
   };
 }
 
