@@ -1,6 +1,7 @@
 // The gate's checks for one job (ARC-1, ARC-4, JOB-8, GAT-4), each driven by process/config.json;
 // nothing here names a product (PLN-7).
-import { posix } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, posix } from 'node:path';
 import { CONFIG_FILE, NO_TOKENS, exists, git, run, underPath } from './util.mjs';
 import { normPath } from './suite.mjs';
 
@@ -93,20 +94,63 @@ export const isGenerated = (rows, f) => rows.some((r) => r.paths.some((p) => und
 // A changed record counts as inert only when it lies outside every module's paths and tests
 // (entries: the base's ledger) and is no file a row's commands name; the generated paths are
 // compared anyway. Residual: a record a generator reads without naming it (review 3 of PR 95).
-export function refreshOthers(cfg, rows, changed, entries = []) {
+// ignores: the .gitignore files an untracking adds its ignore lines to (ignoreLines), not others.
+export function refreshOthers(cfg, rows, changed, entries = [], ignores = []) {
   const named = new Set(rows.flatMap((r) => [...r.regenerate.slice(1), ...r.verify.slice(1)]).map((a) => normPath(a)));
   const inModule = (f) => entries.some((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, normPath(p))));
-  return changed.filter((f) => !isGenerated(rows, f) && (!cfg.records.some((r) => underPath(f, r)) || inModule(f) || named.has(f)));
+  return changed.filter((f) => !isGenerated(rows, f) && !ignores.includes(f) && (!cfg.records.some((r) => underPath(f, r)) || inModule(f) || named.has(f)));
 }
-export function refreshCheck(root, files, { ran, failed = false, others = [] }) {
+
+// Untracking a committed generated file (build untrack-generated, 4 Nov: copy PR 306 could not
+// stop committing bio-plane/src/case-checker/program.mjs, 6.9 MB, over max_file_bytes and stale).
+// A plain pull request may remove a file under a `generated` row when the head's .gitignore
+// ignores it; the gate builds it (buildGenerated) and runs its row's verify. A job still may not
+// (committedGenerated, JOB-8). removedGenerated: the generated files the head no longer tracks.
+export const removedGenerated = (root, rows, changed, head) => changed.filter((f) => isGenerated(rows, f) && !exists(root, head, f));
+// The .gitignore files an untracking changes, and only those: each at the root or in a parent
+// directory of a file it untracks, at `to`, its change only adding lines, and each added line the
+// path of one of `files` from that directory (`a/b.mjs` or `/a/b.mjs`), a blank line or a comment.
+// Any other .gitignore change is another file, as before (review of PR 2 of build untrack-generated:
+// a wider pattern could change what a generator that honours .gitignore lists).
+export function ignoreLines(root, from, to, changed, files) {
+  return changed.filter((f) => {
+    if (posix.basename(f) !== '.gitignore' || !exists(root, to, f)) return false;
+    if (!/^\d+\t0\t/.test(git(['diff', '--numstat', '--no-renames', from, to, '--', f], { cwd: root }))) return false;
+    const dir = posix.dirname(f) === '.' ? '' : `${posix.dirname(f)}/`;
+    // Only names git reads literally; a line names one file only when anchored: a leading slash,
+    // or a slash inside it (a bare name matches at every depth: confirming review).
+    const mine = files.filter((x) => x.startsWith(dir) && !/[*?[\\]|^[!#]|(^|\/)\s|\s$/.test(x.slice(dir.length))).map((x) => x.slice(dir.length));
+    const ok = (l) => l === '' || l.startsWith('#') || mine.includes(l.slice(1)) && l.startsWith('/') || l.includes('/') && mine.includes(l);
+    const diff = git(['diff', '-U0', '--no-renames', from, to, '--', f], { cwd: root }).split('\n');
+    const added = diff.slice(diff.findIndex((l) => l.startsWith('@@'))).filter((l) => l.startsWith('+')).map((l) => l.slice(1).trim());
+    return mine.length > 0 && added.every(ok);
+  });
+}
+// Whether the checkout's .gitignore files ignore f (the gate's checkout is the head merged).
+export const ignoredHere = (root, f) => git(['check-ignore', '-q', '--no-index', '--', f], { cwd: root, allowFail: true }).code === 0;
+// The untracked files' rows' verify commands, once a row, after the build and regenerate; each
+// file must be on disk. Returns findings.
+export function verifyUntracked(root, rows, files, { timeout, exec = run, log = () => {} }) {
+  const findings = [];
+  for (const f of files) if (!existsSync(join(root, f))) findings.push({ check: 'generated', file: f, line: 1, message: `${f} is untracked by this pull request, but the gate's build did not write it` });
+  for (const r of rows.filter((x) => files.some((f) => isGenerated([x], f)))) {
+    const v = exec(r.verify[0], r.verify.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
+    log(`generated, untracked and built: ${r.paths.join(', ')}: ${r.verify.join(' ')}: exit ${v.code}`);
+    if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after building the untracked ${files.filter((f) => isGenerated([r], f)).join(', ')}: ${tail(v)}` });
+  }
+  return findings;
+}
+
+// untracked: the removed files the head's .gitignore ignores; verifyUntracked judged them.
+export function refreshCheck(root, files, { ran, failed = false, others = [], untracked = [] }) {
   if (!files.length) return { refresh: null, findings: [] };
   const F = (file, message) => ({ check: 'generated', file, line: 1, message });
   if (others.length) return { refresh: { files, result: 'other files changed', differ: [] }, findings: [F(others[0], `the pull request changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`)] };
   if (!ran) return { refresh: { files, result: 'not regenerated', differ: [] }, findings: [F(files[0], `the pull request changes generated files (${files.slice(0, 5).join(', ')}), but this run regenerated nothing to compare them with`)] };
-  const differ = files.filter((f) => !exists(root, 'HEAD', f)
-    || git(['status', '--porcelain', '-z', '--untracked-files=all', '--', f], { cwd: root }) !== '');
+  const differ = files.filter((f) => !untracked.includes(f) && (!exists(root, 'HEAD', f)
+    || git(['status', '--porcelain', '-z', '--untracked-files=all', '--', f], { cwd: root }) !== ''));
   return {
-    refresh: { files, result: differ.length ? 'differs' : failed ? 'generated failed' : 'identical', differ },
+    refresh: { files, result: differ.length ? 'differs' : failed ? 'generated failed' : 'identical', differ, ...(untracked.length ? { untracked } : {}) },
     findings: differ.map((f) => F(f, exists(root, 'HEAD', f)
       ? `${f} is not what its regenerate writes from this commit: a plain pull request may change a generated file only to its regenerated bytes`
       : `${f} is removed: a refresh changes a generated file only to its regenerated bytes`)),

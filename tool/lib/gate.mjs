@@ -1,18 +1,17 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
 import { baseRed, testId } from './basered.mjs';
-import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
+import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
-import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
@@ -121,6 +120,10 @@ export function gate(root, opts) {
   // that changes only generated files no module owns merges as any file does, unchecked here.
   const genChanged = !job && branch !== cfg.tranche ? changed.filter((f) => isGenerated(gen.rows, f)) : [];
   const plain = !job && branch !== cfg.tranche ? (genChanged.some((f) => entries.some((e) => inModule(e, f))) ? genChanged : []) : null;
+  // Untracking (build untrack-generated): a removed generated file the head's .gitignore ignores
+  // is built and verified, not compared; the .gitignore lines added for it are not other files.
+  const untracked = plain?.length ? removedGenerated(root, gen.rows, plain, head).filter((f) => ignoredHere(root, f)) : [];
+  const ignores = untracked.length ? ignoreLines(root, mb, head, changed, untracked) : [];
   const recordOnly = changed.every((f) => isRecordPath(cfg, f));
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
@@ -177,7 +180,7 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      const s = runSuite(root, e, undefined, { timeout, events: eventsFile() });
+      const s = withEvents((events) => runSuite(root, e, undefined, { timeout, events }));
       results.push(s);
       if (s.exit !== 0) {
         // Base-red (basered.mjs): the failing tests run again at the tranche tip the PR merges
@@ -245,7 +248,8 @@ export function gate(root, opts) {
     // regenerate wrote from its commit (copy PR 148); the row records the comparison, and merge
     // --plain reads it.
     if (plain) {
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: refreshOthers(cfg, gen.rows, changed, entriesAt(root, base)) });
+      if (untracked.length && runRow.generated) findings.push(...verifyUntracked(root, gen.rows, untracked, { timeout, log, ...(exec ? { exec } : {}) }));
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores), untracked });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }
@@ -502,8 +506,7 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
   return { posted: true, comment, row };
 }
 
-// A fresh file for fail-reporter.mjs's lines, outside the checkout, removed at exit.
-const eventDirs = [];
+// A fresh file for fail-reporter.mjs's lines, outside the checkout, removed once read (withTemp).
 // The product's smoke list (`smoke` in the config, read at the base): a few tests of other
 // modules every job PR's gate runs beside the job's own suite, the cheap catch for a break
 // across modules (Bob, 4 Nov: users' suites in a job gate cost +7.6 min median and caught none
@@ -528,7 +531,7 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
   while (left.length) {
     if (Date.now() >= end) { findings.push(F('smoke', left[0][1][0], `the ${seconds} s smoke cap is spent; not run: ${left.flatMap((g) => g[1]).join(', ')}`)); break; }
     const [e, fs] = left.shift();
-    const s = runSuite(root, e, fs, { timeout: end - Date.now(), events: eventsFile() });
+    const s = withEvents((events) => runSuite(root, e, fs, { timeout: end - Date.now(), events }));
     row.files += fs.length;
     row.seconds += s.seconds;
     if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
@@ -552,13 +555,7 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
   return { row, findings };
 }
 
-function eventsFile() {
-  if (!eventDirs.length) {
-    eventDirs.push(mkdtempSync(join(tmpdir(), 'p3-failing-')));
-    process.once('exit', () => rmSync(eventDirs[0], { recursive: true, force: true }));
-  }
-  return join(eventDirs[0], `${process.pid}-${eventDirs.length++}.jsonl`);
-}
+const withEvents = (fn) => withTemp('p3-failing-', (d) => fn(join(d, 'failing.jsonl')));
 
 const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
 
@@ -581,7 +578,7 @@ export function revertCheck(root, entry, base, code, tests, { timeout, tolerated
     }
     for (const t of tests) {
       const holds = tolerated.length > 0;
-      const r = runSuite(root, entry, [t], { timeout, ...(holds ? { events: eventsFile() } : {}) });
+      const r = holds ? withEvents((events) => runSuite(root, entry, [t], { timeout, events })) : runSuite(root, entry, [t], { timeout });
       if (r.exit === 0 || (holds && (!r.failing || r.failing.every((x) => tolerated.includes(testId(x)))))) inert.push(t);
       else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
     }

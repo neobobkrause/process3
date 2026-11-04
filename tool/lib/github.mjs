@@ -1,9 +1,8 @@
 // GitHub acts and reads, all through gh (platform rows 13, 14). Every remote act is recorded
 // only from its result (REC-5): callers use the returned objects, never their own intent.
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fail, gh, git, isShallow, run } from './util.mjs';
+import { fail, gh, git, isShallow, run, withTemp } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -128,11 +127,12 @@ export function gateRuns(all) {
 export const GATE_WORKFLOW = '.github/workflows/process-gate.yml';
 export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
 export function runArtifactRow(slug, id) {
-  const dir = mkdtempSync(join(tmpdir(), 'p3-row-'));
-  try {
-    if (gh(['run', 'download', String(id), '-R', slug, '-n', 'gate-row', '-D', dir], { allowFail: true }) === null && !existsSync(join(dir, 'gate.json'))) return null;
-    return JSON.parse(readFileSync(join(dir, 'gate.json'), 'utf8')).run || null;
-  } catch { return null; } finally { rmSync(dir, { recursive: true, force: true }); }
+  return withTemp('p3-row-', (dir) => {
+    try {
+      if (gh(['run', 'download', String(id), '-R', slug, '-n', 'gate-row', '-D', dir], { allowFail: true }) === null && !existsSync(join(dir, 'gate.json'))) return null;
+      return JSON.parse(readFileSync(join(dir, 'gate.json'), 'utf8')).run || null;
+    } catch { return null; }
+  });
 }
 // scope and after too: the tranche cover trusts a row for the module it ran and the run it stood on.
 // refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).

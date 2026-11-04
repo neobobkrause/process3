@@ -2,8 +2,6 @@
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
@@ -15,10 +13,10 @@ import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { foundOnly } from './found.mjs';
-import { generatedRows, isGenerated, refreshOthers } from './checks.mjs';
+import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -201,9 +199,9 @@ export function merge(root, n, opts = {}) {
   if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
-  const wt = join(mkdtempSync(join(tmpdir(), 'p3-merge-')), id);
-  git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
-  try {
+  return withTemp('p3-merge-', (tmp) => {
+    const wt = join(tmp, id);
+    git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
     if (git(['merge-base', '--is-ancestor', `origin/${cfg.tranche}`, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
       const m = git(['merge', '-q', '--no-ff', '--no-edit', `origin/${cfg.tranche}`, '-m', `Bring ${branch} up to ${cfg.tranche}`], { cwd: wt, allowFail: true });
       if (m.code !== 0) {
@@ -288,10 +286,7 @@ export function merge(root, n, opts = {}) {
     // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
     return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
-  } finally {
-    git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
-    rmSync(wt, { recursive: true, force: true });
-  }
+  }, { root });
 }
 
 // --job-cost-usd: a figure above 0, or none (null). 0 is a figure not read: no job costs nothing.
@@ -603,10 +598,10 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
 // request changes byte-identical.
 // The row must be on the base as it is now: the bytes were compared on the head merged with
 // that base (review 1 of PR 95).
-function refreshGate(slug, n, sha, files, { base, baseSha, io, log }) {
+function refreshGate(slug, n, sha, files, { base, baseSha, untracked = [], io, log }) {
   if (io.checkRun(slug, sha, 'gate')?.conclusion !== 'success') fail(`pull request ${n} changes generated module files (${files.slice(0, 5).join(', ')}), and the gate on ${sha.slice(0, 10)} is not green`);
   const rows = gateRuns(io.comments(slug, n)).filter((r) => r.sha === sha);
-  const ok = rows.filter((r) => r.ok && r.base === baseSha && r.refresh?.result === 'identical' && files.every((f) => r.refresh.files?.includes(f))).find((r) => io.verify(slug, r, { pr: n, baseRef: base }));
+  const ok = rows.filter((r) => r.ok && r.base === baseSha && r.refresh?.result === 'identical' && files.every((f) => r.refresh.files?.includes(f)) && untracked.every((f) => r.refresh.untracked?.includes(f))).find((r) => io.verify(slug, r, { pr: n, baseRef: base }));
   if (!ok) {
     const newest = rows.at(-1);
     const last = newest?.refresh;
@@ -658,6 +653,8 @@ export function mergePlain(root, n, opts = {}) {
   });
 
   let refreshed = [];
+  let untracked = [];
+  let ignores = [];
   // Module code goes through a job (ARC-2): in a product, a plain merge may not touch any ledger
   // entry's paths or tests. The tranche itself (into main, or into a working branch) carries
   // only work that came through the gate. The tranche's name is the base's.
@@ -680,13 +677,18 @@ export function mergePlain(root, n, opts = {}) {
     // config's `generated` paths, merge plain when nothing else of any module changes and a green
     // gate run on the head regenerated them byte-identical (checked below, once the gate is done).
     const gen = baseCfg ? generatedRows(baseCfg).rows : [];
+    // A third (build untrack-generated): removing a module's committed generated file, with only
+    // lines added to a .gitignore for it; the gate's row must show it built, verified, and ignored.
+    const removed = removedGenerated(root, gen, changed, pr.head.sha);
+    ignores = removed.length ? ignoreLines(root, mb, pr.head.sha, changed, removed) : [];
     const hits = changed.flatMap((f) => entries.filter((e) => owned(f, e) && !found(f, e)).map((e) => ({ f, id: e.id })));
-    const hit = hits.filter((h) => !isGenerated(gen, h.f)).map((h) => `${h.f} (${h.id})`);
+    const hit = hits.filter((h) => !isGenerated(gen, h.f) && !ignores.includes(h.f)).map((h) => `${h.f} (${h.id})`);
     if (hit.length) fail(`pull request ${n} changes module files, which go through a job: ${hit.slice(0, 5).join(', ')}${why.length ? `; a plain pull request may only add new unmet found marks to a requirement file (${why.slice(0, 3).join('; ')})` : ''}${hits.length > hit.length ? '; a plain pull request may change a module\'s generated files only, and only to their regenerated bytes' : ''}`);
     // The gate's row must have compared every generated file the refresh changes, owned or not
     // (review 3 of PR 95).
     refreshed = hits.length ? changed.filter((f) => isGenerated(gen, f)) : [];
-    const others = refreshed.length ? refreshOthers(baseCfg, gen, changed, entries) : [];
+    untracked = refreshed.length ? removed : [];
+    const others = refreshed.length ? refreshOthers(baseCfg, gen, changed, entries, ignores) : [];
     if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`);
   }
 
@@ -696,7 +698,7 @@ export function mergePlain(root, n, opts = {}) {
   if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
   const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log });
   log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
-  if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, baseSha: git(['rev-parse', baseRef], { cwd: root }), io, log });
+  if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, baseSha: git(['rev-parse', baseRef], { cwd: root }), untracked, io, log });
   // The base must still be the one checked.
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);

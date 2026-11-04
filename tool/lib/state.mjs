@@ -2,10 +2,9 @@
 // (MSG-1, MSG-3, MSG-6). Each file has one writer (REC-2): handoff/<role>.md by that role,
 // messages/<sender>.jsonl by that sender. The address file is build K's; send only reads it.
 // The tool cannot call send_message: send records and prints, the session delivers.
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fail, git, now, pushRetry } from './util.mjs';
+import { fail, git, now, pushRetry, withTemp } from './util.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -54,9 +53,9 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 export function writeState(root, sb, msg, change) {
   const have = fetchState(root, sb, { fresh: true });
   const start = have ? ref(sb) : git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
-  const wt = join(mkdtempSync(join(tmpdir(), 'p3-state-')), 's');
-  git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
-  try {
+  return withTemp('p3-state-', (tmp) => {
+    const wt = join(tmp, 's');
+    git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
     let out;
     const make = () => {
       out = change(wt);
@@ -67,10 +66,7 @@ export function writeState(root, sb, msg, change) {
     const tip = pushRetry(wt, sb, { redo: make });
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     return { ...out, tip };
-  } finally {
-    git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
-    rmSync(dirname(wt), { recursive: true, force: true });
-  }
+  }, { root });
 }
 
 const put = (wt, path, text, append = false) => {
