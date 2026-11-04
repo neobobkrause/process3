@@ -153,7 +153,11 @@ test('notice triage --record: not affected answers the notice; affected is notic
   assert.equal(rec.rows[0].worker, 'agent-1');
   assert.equal(rec.rows[0].cost, '41k tokens');
   assert.match(out.join('\n'), /1 not affected \(answered\), 1 affected \(next work\)/);
-  assert.equal(recordTriage(root, 'p:7', { file, worker: 'agent-1', cost: '1', log: quiet }).rows.length, 0, 'a rerun adds nothing');
+  // The verdicts change BOB's next work: the last line wakes BOB (a rerun that adds nothing does not).
+  assert.equal(out.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "notice triage p:7 recorded: run status" --from <role>`, delivered with send_message to the address it prints');
+  const rerun = [];
+  assert.equal(recordTriage(root, 'p:7', { file, worker: 'agent-1', cost: '1', log: (m) => rerun.push(m) }).rows.length, 0, 'a rerun adds nothing');
+  assert.doesNotMatch(rerun.join('\n'), /wake BOB/);
   // p:8: the worker judged u1 only; u2 and other still owe triage.
   writeFileSync(file, 'u1: affected: src/u1/a.mjs:3 checks the token\nother: not affected\n');
   const part = [];

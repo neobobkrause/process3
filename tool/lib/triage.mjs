@@ -7,7 +7,7 @@
 // adds a test); a module the worker did not judge stays unanswered and still owes triage.
 // One file per write on the state branch, added and never edited, as notices/ is.
 import { getPR } from './github.mjs';
-import { P3 } from './job.mjs';
+import { P3, wakeLine } from './job.mjs';
 import { NOTICES_DIR, answerFile, notices } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { depth, exists, fail, git, isShallow, loadConfig, repoSlug } from './util.mjs';
@@ -153,5 +153,7 @@ export function recordTriage(root, key, { file, worker, cost, log = console.log 
   const t = rows.filter((r) => r.row === 'triage');
   const not = t.filter((r) => r.verdict === 'not affected').length;
   log(`notice triage ${key} recorded: ${not} not affected (answered), ${t.length - not} affected (next work)${left.length ? `; not judged, still owe triage: ${left.join(', ')}` : ''}`);
+  // The verdicts change BOB's next work (affected modules, answered notices): the wake is the last line.
+  if (t.length) log(wakeLine(`notice triage ${key} recorded`));
   return { rows, left };
 }

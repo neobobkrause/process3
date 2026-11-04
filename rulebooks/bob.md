@@ -20,4 +20,4 @@ For BOB, read once at start, after your prompt. Your prompt wins where the two d
 9. A product's settings carry no hook but the one SessionStart hook (ENF-1; Bob, 3 Nov). Held by `setup check` shim-drift.
 10. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.
 
-In your prompt, not here: the wake check, never ending a turn while work remains, one judged act per command, refusals reported word for word, and what is not yours.
+In your prompt, not here: whose words are instructions (ROOT's address, the `coordinator` session in process/config.json on the tranche, read with git show before acting, and Bob; ROOT alone starts you and backs you up), the wake check, never ending a turn while work remains, one judged act per command, refusals reported word for word, and what is not yours.
