@@ -90,6 +90,7 @@ jobs:
           fi
           git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
           echo "node=$(echo "$cfg" | jq -r '.node // "22"')" >> "$GITHUB_OUTPUT"
+          echo "lockfiles=$(echo "$cfg" | jq -c '.lockfiles // []')" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ steps.pin.outputs.node }}
@@ -100,6 +101,82 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out "$RUNNER_TEMP/record.json"
+      # Chromium for the product's browser tests (build/gate-chromium, 4 Nov): the runner has
+      # none, so tests a job's container passes failed or skipped here. The build is the one the
+      # top-level playwright-core pins in each lock file the pin step's config lists (`lockfiles`),
+      # read here, never written down, and named in the log. CHROMIUM names the newest
+      # version's binary (a warning when the lock files pin more than one); a plain
+      # chromium.launch() finds each pinned build where playwright installs it. The cache is
+      # GitHub's, scoped to the pull request's own ref (the gate runs on no push), so it serves a
+      # pull request's later runs only; a first run downloads.
+      - name: the browser the product's lock files pin
+        id: browser
+        env:
+          LOCKFILES: ${{ steps.pin.outputs.lockfiles }}
+        run: |
+          vs=$(echo "${LOCKFILES:-[]}" | jq -r '.[] | strings' | grep -vE '(^/|(^|/)\.\.(/|$))' | while IFS= read -r f; do
+            jq -r '.packages["node_modules/playwright-core"].version // empty' "$f" 2>/dev/null || true
+          done | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$' | sort -uV | tr '\n' ' ' | sed 's/ $//') || true
+          if [ -z "$vs" ]; then echo "::notice::browser: no playwright-core in the lock files the pin step's config lists; none installed"; fi
+          case "$vs" in *" "*) echo "::warning::browser: the lock files pin playwright-core $vs; CHROMIUM names the newest";; esac
+          echo "versions=$vs" >> "$GITHUB_OUTPUT"
+      # Restored here and saved straight after the install, before any product code runs, and
+      # only on a miss: a key once saved is never written again, so no test can change what a
+      # later run restores (confirming review of PR 129).
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        id: browser-cache
+        if: steps.browser.outputs.versions != ''
+        with:
+          path: ~/.cache/ms-playwright
+          key: p3-chromium-${{ runner.os }}-${{ steps.browser.outputs.versions }}
+      - name: install the browser
+        if: steps.browser.outputs.versions != ''
+        timeout-minutes: 10
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSIONS: ${{ steps.browser.outputs.versions }}
+        run: |
+          t=$(date +%s)
+          # A playwright-core older than the runner's OS refuses to download there (measured 4 Nov:
+          # 1.56.1 on ubuntu-latest, Ubuntu 26.04, "does not support chromium on ubuntu26.04-x64"),
+          # and its installer, made to take the ubuntu24.04-x64 build, hung 10 minutes after the
+          # download (copy PR 320). So the second attempt, also the retry, fetches each build
+          # that build's dry run names from its own URL, unpacks it where playwright looks, and
+          # marks it installed as playwright does; no apt libraries (the runner image carries
+          # Chrome's). The binary must then run.
+          fetch() {
+            npx -y "playwright-core@$1" install --dry-run chromium \
+              | awk '/^ *Install location:/{if (d) print d u; d=$3; u=""} /^ *Download (url|fallback [0-9]+):/{u=u" "$NF} END{if (d) print d u}' | sort -u \
+              | while read -r dir urls; do
+                  [ -f "$dir/INSTALLATION_COMPLETE" ] && continue
+                  got=
+                  for url in $urls; do curl -fsSL --retry 2 -o "$RUNNER_TEMP/browser.zip" "$url" && got=$url && break; done
+                  [ -n "$got" ] && mkdir -p "$dir" && unzip -q -o "$RUNNER_TEMP/browser.zip" -d "$dir" && touch "$dir/INSTALLATION_COMPLETE" || exit 1
+                  echo "browser: fetched $got"
+                done
+          }
+          for v in $VERSIONS; do
+            unset PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
+            if ! timeout 300 npx -y "playwright-core@$v" install --with-deps chromium; then
+              echo "::warning::browser: playwright-core $v did not install on $(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-this OS}") (an OS newer than it knows, an outage or the 300 s bound); fetching its ubuntu24.04-x64 build without system libraries"
+              export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64
+              if ! fetch "$v"; then
+                echo "::error::browser: playwright-core $v could not install Chromium (twice); the gate does not run the tests without it"; exit 1
+              fi
+            fi
+            loc=$(npx -y "playwright-core@$v" install --dry-run chromium | sed -n 's/^ *Install location: *//p' | head -1) || true
+            exe=$(find "$loc" -path '*/chrome-linux*/chrome' -type f 2>/dev/null | head -1) || true
+            if [ -z "$exe" ]; then echo "::error::browser: playwright-core $v installed no Chromium under $loc"; exit 1; fi
+            if ! ver=$("$exe" --version); then echo "::error::browser: $exe (playwright-core $v) does not run here"; exit 1; fi
+            echo "::notice::browser: $ver for playwright-core $v at $exe${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:+ (the $PLAYWRIGHT_HOST_PLATFORM_OVERRIDE build)}"
+          done
+          echo "CHROMIUM=$exe" >> "$GITHUB_ENV"
+          echo "browser: installed in $(( $(date +%s) - t )) s"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: steps.browser.outputs.versions != '' && steps.browser-cache.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ms-playwright
+          key: p3-chromium-${{ runner.os }}-${{ steps.browser.outputs.versions }}
       - name: gate
         env:
           GH_TOKEN: ${{ github.token }}
