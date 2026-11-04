@@ -8,7 +8,7 @@
 // provider notice (job start reopens it itself) or for found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, jobStart } from './job.mjs';
-import { capLine, isArchived, isIdle, jobCount, jobDone, jobSession, readSessions, sessionId, status } from './status.mjs';
+import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
@@ -69,8 +69,8 @@ export function readyCount(root, { read = status } = {}) {
 export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, remote } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessions === undefined ? null : readSessions(sessions);
-  // The cap counts the account's job sessions only (Bob, 4 Nov): --live is that count, else read from --sessions.
-  const n = live === undefined && listed ? jobCount(listed) : Number(live);
+  // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
+  const n = listed ? sessionsCount(listed, live, log) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the account\'s job sessions list_sessions shows (titled job <id>, every product; roles, builds and others not counted), or --sessions <file>, so the cap holds');
   const quiet = [];
   const out = read(root, { role: 'bob', live: n, log: (l) => quiet.push(l) });

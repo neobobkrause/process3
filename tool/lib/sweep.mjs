@@ -9,7 +9,7 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { SILENT_HOURS, capLine, isArchived, jobCount, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, status } from './status.mjs';
+import { SILENT_HOURS, capLine, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -75,7 +75,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   // --sessions <file>: list_sessions saved; the job count is read from it when --live is not given.
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
-  if (listed && live === undefined) live = jobCount(listed);
+  live = sessionsCount(listed, live, log);
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null }; // no BOB, or a paused plan: not read
   // The account's job count and the cap go in the sweep row (live, job_cap, and with --sessions the
   // account's sessions, every product and role, so a platform limit would show): lead times names a full cap as a wait's cause.

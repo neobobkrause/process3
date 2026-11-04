@@ -136,7 +136,7 @@ test('job start --ready, review of PR 100: an open attempt is not restarted, a m
 });
 
 test('job start --ready: when the cap holds a ready job back, it names the idle sessions of COMPLETE or merged jobs BOB can archive', (t) => {
-  setJobCap(t, 2);
+  setJobCap(t, 5);
   const root = makeRepo({ 'README.md': 'x' });
   const next = ['a', 'b'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
   const rows = [
@@ -161,12 +161,14 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
   const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
   writeFileSync(file, JSON.stringify({ ccr: { data: listed } }));
   const out = [];
+  // --sessions counts its 4 jobs not archived (5 less 4: one start), over --live 1, and says so.
   const r = startReady(root, { live: 1, sessions: file, remote: new Set(), log: (m) => out.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.deepEqual(r.waiting, ['b']);
+  assert.ok(out.includes('--live 1 ignored: --sessions counts 4 job sessions'));
   assert.match(out.join('\n'), /the cap holds 1 back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: session_m \(job m, merged\); session_k \(job k, COMPLETE, PR #7 ready\)/);
   // Without --sessions: the jobs whose sessions to look for.
   const out2 = [];
-  startReady(root, { live: 1, remote: new Set(), log: (m) => out2.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
+  startReady(root, { live: 4, remote: new Set(), log: (m) => out2.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.match(out2.join('\n'), /the cap holds 1 back; these jobs are COMPLETE or merged, so their sessions, when idle, can be archived to free slots: job k \(COMPLETE, PR #7 ready\); job m \(merged\); job gone \(merged\)\. Save list_sessions as JSON and pass --sessions <file>/);
   // No cap hit: no archive line.
   const out3 = [];
@@ -246,7 +248,7 @@ test('job cap: on the live shape (4 roles, 1 build, 18 jobs of two products), 2 
   assert.match(b.out.join('\n'), /process\/config\.json: live_cap ignored; the job cap now comes from P3_JOB_CAP \(default 20\)/);
   assert.match(b.out.join('\n'), /job cap 21 \(P3_JOB_CAP\)/);
   assert.doesNotMatch(a.out.join('\n'), /ignored/);
-  for (const bad of ['0', '-3', 'many', '2.5']) {
+  for (const bad of ['0', '-3', 'many', '2.5', '1e1']) {
     setJobCap(t, bad);
     assert.throws(() => jobCap({}), new RegExp(`P3_JOB_CAP="${bad.replace('.', '\\.')}"`));
   }
@@ -263,6 +265,9 @@ test('job cap: jobCap is the only place the cap is read', () => {
   const files = [...readdirSync(dir).filter((f) => f.endsWith('.mjs') && f !== 'util.mjs').map((f) => `lib/${f}`), 'p3.mjs'];
   for (const f of files) {
     const text = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
-    for (const bad of [/\blive_cap\b/, /P3_JOB_CAP/, /\.job_cap\b/, /\bjob_cap\s*[:=]\s*\d/, /\bcap\w*\s*[:=]\s*20\b/i, /default 20/]) assert.doesNotMatch(text, bad, `${f} reads the cap itself (${bad}); call jobCap in util.mjs`);
+    for (const bad of [/\blive_cap\b/, /P3_JOB_CAP/, /\.job_cap\b/, /\bjob_cap\s*[:=]\s*\d/, /\bcap\w*\s*[:=]\s*\d/i, /[?|]{2}\s*\d+\b[^\n]*cap|cap[^\n]*[?|]{2}\s*\d/i, /default 20/]) assert.doesNotMatch(text, bad, `${f} reads the cap itself (${bad}); call jobCap in util.mjs`);
+    // The old count's wording: the cap counts job sessions, never every role's (review: BOB's prompt said so).
+    assert.doesNotMatch(text, /live sessions[^.]*every role/, `${f} tells a role to count every session for the cap`);
   }
+  assert.doesNotMatch(readFileSync(new URL('../../README.md', import.meta.url), 'utf8'), /live sessions[^.]*every role|live_cap. \(default/);
 });

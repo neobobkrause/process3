@@ -250,13 +250,13 @@ export function configOf(c, where = CONFIG_FILE) {
 // product (list_sessions is account-scoped); roles, builds and other sessions are not counted. One
 // value per account, P3_JOB_CAP in the account's cloud environment, default 20. The one place the
 // cap is read: job start --ready, status, the sweep and lead times call this and nothing else.
-// A product config's old live_cap (or job_cap) is ignored, with a note saying so.
+// A product config's old live_cap (or job_cap) is ignored, with a note saying so. Empty is unset.
 export const JOB_CAP_VAR = 'P3_JOB_CAP';
 const JOB_CAP_DEFAULT = 20;
 export function jobCap(cfg = {}, env = process.env) {
   const raw = env[JOB_CAP_VAR];
   const set = raw !== undefined && raw !== '';
-  const cap = set ? Number(raw) : JOB_CAP_DEFAULT;
+  const cap = set ? (/^\d+$/.test(String(raw).trim()) ? Number(raw) : NaN) : JOB_CAP_DEFAULT;
   if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
   const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
   return {

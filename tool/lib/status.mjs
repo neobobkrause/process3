@@ -71,6 +71,13 @@ export const SESSION_IDLE_MIN = 60;
 // The job sessions of a list_sessions result, as sessionActs classifies them: the count the job cap
 // holds, the account's (list_sessions shows every product's sessions).
 export const jobCount = (list) => sessionActs(list).kinds.jobs;
+// With --sessions the file's job count is the count (it wins over --live, said when they differ).
+export function sessionsCount(listed, live, log) {
+  if (!listed) return live;
+  const n = jobCount(listed);
+  if (live !== undefined && Number(live) !== n) log(`--live ${live} ignored: --sessions counts ${n} job sessions`);
+  return n;
+}
 // The cap in force, where it came from, and the account's live jobs and sessions when known.
 export function capLine(cfg, live, listed) {
   const c = jobCap(cfg);
@@ -110,7 +117,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const cfg = loadConfig(root);
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
-  if (listed && live === undefined) live = jobCount(listed);
+  live = sessionsCount(listed, live, log);
   const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
   if (!(replaceMs > 0)) fail(`targets.replace_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.replace_minutes)}`);
   const tranche = `origin/${cfg.tranche}`;
@@ -661,7 +668,8 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const noticeList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && x.notices);
   // Entered by BOB and outside the other lists: listed apart, after them.
   const enteredList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && !x.notices && entered.has(x.file));
-  const { cap } = jobCap(cfg);
+  // Read only with a count: layer close and the sweep's check list next work with none (review).
+  const cap = live === undefined ? null : jobCap(cfg).cap;
   const n = live === undefined ? Infinity : Math.max(0, cap - live);
   const shown = list.slice(0, n);
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
@@ -670,7 +678,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}`;
   const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (jobs ${live} of ${cap}), ${a.length - b.length} wait`);
   if (list.length) {
-    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --live <the account's job sessions list_sessions shows> or --sessions <file> to list at most the job cap (${cap}) less them` : waits(list, shown)}`);
+    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --sessions <file> (or --live <the account's job sessions>) to list at most the job cap less them` : waits(list, shown)}`);
     for (const x of shown) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${tag(x)}`);
   }
   if (noticeList.length) {

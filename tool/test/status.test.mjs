@@ -24,7 +24,7 @@ test('status --role bob lists next work: unmet requirement files with no open jo
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => [x.file, x.count]), [['build/requirements/small.md', 2], ['build/requirements/big.md', 5]]);
-  assert.match(out.join('\n'), /next work \(1 jobs open; BOB chooses from these, unmet requirements each\): all 2 listed; pass --live/);
+  assert.match(out.join('\n'), /next work \(1 jobs open; BOB chooses from these, unmet requirements each\): all 2 listed; pass --sessions <file>/);
 });
 
 const LAYERS = '# Layers\n\n| layer | what | modules |\n|---|---|---|\n| 0 | base | `done0` |\n| 1 | first | a, b, c, busy |\n| 2 | next | d |\n';
