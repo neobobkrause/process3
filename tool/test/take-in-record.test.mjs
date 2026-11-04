@@ -114,7 +114,7 @@ test('a take-in row the job writes after its start cannot hide its own commits',
   commit(root, {}, 'forged row');
   const r = check(root, base);
   assert.deepEqual(r.tips, []);
-  assert.ok(r.findings.some((f) => f.check === 'record' && /take-in tip .* writes process\/metrics\/alpha\.jsonl/.test(f.message)), JSON.stringify(r.findings));
+  assert.ok(r.findings.some((f) => f.check === 'record' && /take-in tip .* writes under process\/metrics/.test(f.message)), JSON.stringify(r.findings));
   assert.ok(r.findings.some((f) => f.check === 'approvals' && f.message.includes(x.slice(0, 10))));
   // Even with the earlier start row removed, the row's first parent must have added no start.
   write(root, { [file]: JSON.stringify({ event: 'start', module: 'alpha', take_in: { branch: 'x', pr: null, commits: 1, tip: 'f'.repeat(40) } }) + '\n' });
@@ -132,7 +132,56 @@ test('record-check on job/<id> leaves out the earlier work a take-in brought', a
   process.chdir(root);
   try {
     assert.equal(await main(['record-check', '--base', base, '--head', 'HEAD', '--branch', 'job/alpha', '--out', out]), 0);
-    assert.equal(await main(['record-check', '--base', base, '--head', 'HEAD', '--branch', 'feature/other', '--out', out]), 1, 'only the job\'s own branch reads its start row');
+    assert.equal(await main(['record-check', '--base', base, '--head', 'HEAD', '--branch', 'job/beta', '--out', out]), 1, 'another job\'s branch reads only its own rows');
   } finally { process.chdir(cwd); console.log = log; }
   assert.ok(logged.some((l) => /checked 1 commit\(s\) after .*leaving out the earlier work taken in at/.test(l)), logged.join('\n'));
+});
+
+// Review 1 of PR 86: the merge tool merges a job with its history, so the tranche's own checks
+// (on each push, and its pull request into main) meet the earlier work again.
+function merged() {
+  const t = takeIn();
+  const { root } = t;
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'Merge PR: job/alpha into tranche', 'job/alpha'], { cwd: root });
+  return { ...t, main: sha(root, 'main') };
+}
+
+test('on the tranche, against main, the earlier work a merged take-in brought is still left out', async () => {
+  const { root, tip, main: base } = merged();
+  const t = takenIn(root, { base });
+  assert.deepEqual(t, { tips: [tip], findings: [] });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: session, takenIn: t.tips }).findings, []);
+  assert.ok(recordCheck(root, cfg, { base, lookup: session }).findings.length, 'without it, the earlier work is found');
+  const out = join(root, '..', `${root.split('/').pop()}-tr.json`);
+  const cwd = process.cwd();
+  const log = console.log;
+  console.log = () => {};
+  process.chdir(root);
+  try { assert.equal(await main(['record-check', '--base', base, '--head', 'HEAD', '--branch', 'tranche', '--out', out]), 0); } finally { process.chdir(cwd); console.log = log; }
+});
+
+test('on the tranche, a take-in tip whose history holds another job\'s work not yet on main leaves nothing out', () => {
+  const root = product();
+  // beta, a job merged into the tranche, then taken in with alpha's earlier work on top.
+  write(root, { 'process/ledger/beta.json': entry('beta') });
+  commit(root, {}, 'beta entry');
+  jobStart(root, 'beta', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/beta'], { cwd: root });
+  const hide = commit(root, { 'CLAUDE.md': claude('may force-push to main') }, 'beta changes the approvals');
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'beta into tranche', 'job/beta'], { cwd: root });
+  git(['checkout', '-q', 'feature/a'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'old work merges the tranche', 'tranche'], { cwd: root });
+  commit(root, { 'src/alpha/y.mjs': 'export const y = 1;\n' }, 'more work');
+  const tip = sha(root);
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', takeIn: 'feature/a', push: false, log: quiet });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'alpha into tranche', 'job/alpha'], { cwd: root });
+  const base = sha(root, 'main');
+  const t = takenIn(root, { base });
+  assert.deepEqual(t.tips, []);
+  assert.ok(t.findings.some((f) => f.message.includes(tip.slice(0, 10)) && /writes under process\/metrics/.test(f.message)), JSON.stringify(t.findings));
+  assert.ok(recordCheck(root, cfg, { base, lookup: session, takenIn: t.tips }).findings.some((f) => f.check === 'approvals' && f.message.includes(hide.slice(0, 10))));
 });

@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
-import { metricsFile } from './metrics.mjs';
+import { METRICS_DIR, metricsFile } from './metrics.mjs';
 import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
@@ -162,27 +162,35 @@ export function recordSince(root, { base, head = 'HEAD' } = {}) {
 // writes: a full commit id; the first parent of a commit in the range that adds a start row
 // naming it; and no commit it leaves out writes the job's metrics file, so no job start, and
 // nothing made after one, can be hidden behind a later row. Otherwise it is a finding and
-// nothing is left out.
+// nothing is left out. On a branch other than job/<id> every module's rows are read.
 export function takenIn(root, { base, head = 'HEAD', id } = {}) {
   const out = { tips: [], findings: [] };
-  if (!id || !/^[a-z0-9-]+$/.test(id)) return out;
-  const file = metricsFile(id);
-  const rowsAt = (rev) => (show(root, rev, file) || '').split('\n').flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === 'object' ? [r] : []; } catch { return []; } });
-  const names = (rev, tip) => rowsAt(rev).some((r) => r.event === 'start' && r.take_in?.tip === tip);
-  const claimed = [...new Set(rowsAt(head).filter((r) => r.event === 'start' && r.take_in && 'tip' in r.take_in).map((r) => r.take_in.tip))];
-  if (!claimed.length) return out;
+  // On job/<id>, that job's rows; on any other branch (the tranche, its pull request into main),
+  // every module's, since the merge tool merges a job with its history (review 1 of PR 86).
+  const ids = id !== undefined ? (/^[a-z0-9-]+$/.test(String(id)) ? [String(id)] : [])
+    : git(['ls-tree', '-z', '--name-only', `${head}:${METRICS_DIR}`], { cwd: root, allowFail: true }).stdout.split('\0')
+      .filter((n) => /^[a-z0-9-]+\.jsonl$/.test(n)).map((n) => n.slice(0, -'.jsonl'.length));
   const not = [...(base ? [`^${base}`] : [])];
-  const range = git(['rev-list', '--parents', head, ...not], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' '));
-  for (const tip of claimed) {
-    const bad = (why) => out.findings.push({ check: 'record', file, line: 1, message: `the take-in tip ${String(tip).slice(0, 10)} is not used to leave out earlier work: ${why}` });
-    if (typeof tip !== 'string' || !/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(tip)) { bad('it is not a full commit id'); continue; }
-    if (git(['rev-parse', '-q', '--verify', `${tip}^{commit}`], { cwd: root, allowFail: true }).code !== 0) { bad('no such commit here'); continue; }
-    const left = git(['rev-list', '--count', tip, ...not], { cwd: root });
-    if (left === '0') continue; // already in the base: nothing to leave out
-    if (!range.some(([c, first]) => first === tip && names(c, tip) && !names(tip, tip))) { bad('no commit in the range has it as its first parent and adds the start row naming it'); continue; }
-    const wrote = git(['log', '--full-history', '-m', '--format=%H', tip, ...not, '--', file], { cwd: root }).split('\n').filter(Boolean);
-    if (wrote.length) { bad(`commit ${wrote[0].slice(0, 10)}, which it would leave out, writes ${file}; only work from before the job's start is left out`); continue; }
-    out.tips.push(tip);
+  let range;
+  const seen = new Set();
+  for (const one of ids) {
+    const file = metricsFile(one);
+    const rowsAt = (rev) => (show(root, rev, file) || '').split('\n').flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === 'object' ? [r] : []; } catch { return []; } });
+    const names = (rev, tip) => rowsAt(rev).some((r) => r.event === 'start' && r.take_in?.tip === tip);
+    const claimed = [...new Set(rowsAt(head).filter((r) => r.event === 'start' && r.take_in && 'tip' in r.take_in).map((r) => r.take_in.tip))];
+    for (const tip of claimed) {
+      const bad = (why) => out.findings.push({ check: 'record', file, line: 1, message: `the take-in tip ${String(tip).slice(0, 10)} is not used to leave out earlier work: ${why}` });
+      if (typeof tip !== 'string' || !/^([0-9a-f]{40}|[0-9a-f]{64})$/.test(tip)) { bad('it is not a full commit id'); continue; }
+      if (git(['rev-parse', '-q', '--verify', `${tip}^{commit}`], { cwd: root, allowFail: true }).code !== 0) { bad('no such commit here'); continue; }
+      if (git(['rev-list', '--count', tip, ...not], { cwd: root }) === '0') continue; // already in the base: nothing to leave out
+      range ||= git(['rev-list', '--parents', head, ...not], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' '));
+      if (!range.some(([c, first]) => first === tip && names(c, tip) && !names(tip, tip))) { bad('no commit in the range has it as its first parent and adds the start row naming it'); continue; }
+      // Any module's metrics: every job start writes its own, so no job's work, this one's or
+      // another's not yet on the base, is left out.
+      const wrote = git(['log', '--full-history', '-m', '--format=%H', tip, ...not, '--', METRICS_DIR], { cwd: root }).split('\n').filter(Boolean);
+      if (wrote.length) { bad(`commit ${wrote[0].slice(0, 10)}, which it would leave out, writes under ${METRICS_DIR}; only work from before Process3 is left out`); continue; }
+      if (!seen.has(tip)) { seen.add(tip); out.tips.push(tip); }
+    }
   }
   return out;
 }

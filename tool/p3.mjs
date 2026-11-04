@@ -398,8 +398,10 @@ const commands = {
     const ledgerBase = git(['merge-base', head, base], { cwd: root });
     const cfg = loadConfig(root, base);
     const s = recordSince(root, { base, head });
-    // A job's take-in: its earlier work, before the take-in start commit, is left out (takenIn).
-    const t = takenIn(root, { base, head, id: String(a.branch || '').match(/^job\/([a-z0-9-]+)$/)?.[1] });
+    // A take-in's earlier work, before its start commit, is left out (takenIn): on job/<id> that
+    // job's, on any other branch every module's.
+    const job = String(a.branch || '').match(/^job\/(.+)$/);
+    const t = takenIn(root, { base, head, id: job ? job[1] : undefined });
     const { commits, findings, notices } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips });
     if (s.finding) findings.push(s.finding);
     findings.push(...t.findings);
