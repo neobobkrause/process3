@@ -3,7 +3,7 @@
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, verifyRow } from './github.mjs';
+import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
@@ -11,7 +11,7 @@ import { install, runSuite, suffixOf } from './suite.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
-const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
+const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
@@ -204,7 +204,8 @@ export function gate(root, opts) {
 // PR <n>", as merge writes it), into the tranche, from job/<id>, whose head is the merge's second
 // parent; the merge's tree is that head's tree and its first parent is in that head (merge
 // brought the job up to the tranche, so nothing else came in); the head holds the merge row for
-// <n>; the newest gate row on that head is green, verified (verifyRow), and ran the module's
+// <n>; the newest gate row on that head is green, verified (verifyRow, bound to the merged PR by
+// its branch, head and base, since GitHub drops a merged PR from its runs), and ran the module's
 // suite green (trigger code, or record-since-green after such a run); and the file is the
 // job's own (ownPaths, from the tranche's entry before the merge) and no other module's. A covered
 // module still runs when a module it uses changed on the tranche after its merge.
@@ -289,16 +290,33 @@ function jobMerge(root, cfg, c, { slug, io }) {
     || git(['merge-base', '--is-ancestor', p1, p2], { cwd: root, allowFail: true }).code !== 0) return no(`is PR ${n}'s merge, but not of a head brought up to the tranche`);
   const pr = io.getPR(slug, n);
   const id = pr?.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
-  if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
+  if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2 || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
   const t = git(['show', `${p2}:${metricsFile(id)}`], { cwd: root, allowFail: true });
   if (!(t.code === 0 ? jsonl(t.stdout) : []).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
+  // The merged PR's runs list no pull request (verifyRow), so a run is bound to it by its branch.
+  // That holds only while every pull request ever opened from job/<id> is into the tranche: a PR
+  // from the branch into another base runs that base's workflow file, which could upload any row
+  // (review of PR 94). Pull requests cannot be deleted, so the list is complete; unread, no cover.
+  const branch = `job/${id}`;
+  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
+  if (!Array.isArray(from) || !from.some((x) => x.number === n)) return no(`is PR ${n}'s merge, but the pull requests from ${branch} could not be read`);
+  const elsewhere = from.filter((x) => x.base?.ref !== cfg.tranche).map((x) => x.number);
+  if (elsewhere.length) return no(`is PR ${n}'s merge, but ${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`);
+  // The list shows each PR's base as it is now; one retargeted to the tranche may have run another
+  // base's workflow first (confirming review of PR 94). Any base change, or an unread history, refuses.
+  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
+  if (moved.length) return no(`is PR ${n}'s merge, but the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`);
   const runs = gateRuns(io.comments(slug, n));
-  const ctx = { pr: n, baseRef: cfg.tranche };
+  // The row is bound to the PR here: its run was on job/<id> (verifyRow); its commit is the PR's
+  // head or an earlier commit of it; its base was the tranche, at or before the merge's.
+  const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch } };
+  const isAnc = (a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
+  const bound = (r) => isAnc(r.sha, p2) && isAnc(r.base, p1) && io.verify(slug, r, ctx);
   const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
   const row = runs.filter((r) => r.sha === p2).pop();
-  if (!row || !row.ok || !io.verify(slug, row, ctx)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not verified' : 'red') : 'missing'}`);
+  if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
   const tested = row.trigger === 'record-since-green'
-    ? runs.filter((r) => r.sha === row.after).reverse().find((r) => suiteRan(r) && io.verify(slug, r, ctx))
+    ? runs.filter((r) => r.sha === row.after).reverse().find((r) => suiteRan(r) && bound(r))
     : suiteRan(row) ? row : null;
   if (!tested) return no(`is PR ${n}'s merge, but no verified green run of the ${id} suite stands behind its merged result`);
   const e = git(['show', `${p1}:${entryFile(id)}`], { cwd: root, allowFail: true });

@@ -171,6 +171,17 @@ test('a gate row is trusted only when its run is the process gate on that commit
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
   assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
+  // A merged PR's run lists no pull request (copy, 4 Nov): trusted only when the caller has read
+  // the merged PR and names its branch, and the run is on it, in this repository, and green.
+  const gone = { ...run, pull_requests: [], head_branch: 'job/m', head_repository: { full_name: 'o/r' } };
+  assert.equal(verifyRow('o/r', row, ctx, io(gone, row)), false, 'an open PR\'s check (merge, the fast path) still needs the PR listed');
+  const m = { ...ctx, merged: { branch: 'job/m' } };
+  assert.equal(verifyRow('o/r', row, m, io(gone, row)), true);
+  assert.equal(verifyRow('o/r', row, m, io({ ...gone, head_branch: 'job/x' }, row)), false);
+  assert.equal(verifyRow('o/r', row, m, io({ ...gone, head_repository: { full_name: 'f/r' } }, row)), false);
+  assert.equal(verifyRow('o/r', row, m, io({ ...gone, head_repository: undefined }, row)), false);
+  assert.equal(verifyRow('o/r', { ...row, ok: false, findings: 1 }, m, io({ ...gone, conclusion: 'failure' }, { ...row, ok: false, findings: 1 })), false);
+  assert.equal(verifyRow('o/r', row, m, io(gone, null)), false, 'an expired artifact');
 });
 
 // record_since (Bob's decision, 2 Nov 2026): old history before the process is not judged.
@@ -740,4 +751,21 @@ test('the release after two owner edits merged from website branches passes', ()
   dated(root, { 'u.txt': 'u' }, 'tranche work 2', '2026-11-01T11:10:00Z');
   mergeAt(root, 'owner2', '2026-11-01T11:30:00Z');
   assert.deepEqual(recordCheck(root, cfg, { base: start, lookup: webFor(o1, o2), trusted: ['main', 'tranche'] }).findings, []);
+});
+
+// The two reads the tranche cover stands on (PR 94): every PR from a job branch, and whether any
+// base was ever changed. Unreadable is null, which refuses the cover.
+import { baseEverChanged, prsFromBranch } from '../lib/github.mjs';
+test('prsFromBranch lists every PR from this repository\'s branch; baseEverChanged reads each base change', () => {
+  let asked;
+  const prs = prsFromBranch('o/r', 'job/m', { read: (a) => { asked = a; return [[{ number: 1 }], [{ number: 2 }]]; } });
+  assert.deepEqual(prs.map((x) => x.number), [1, 2]);
+  assert.match(asked.join(' '), /--paginate --slurp repos\/o\/r\/pulls\?state=all&head=o%3Ajob%2Fm&per_page=100/);
+  assert.equal(prsFromBranch('o/r', 'job/m', { read: () => null }), null);
+  const ev = (...pages) => baseEverChanged('o/r', 5, { read: (a) => { asked = a; return pages; } });
+  assert.equal(ev([{ event: 'labeled' }], [{ event: 'merged' }]), false);
+  assert.match(asked.join(' '), /repos\/o\/r\/issues\/5\/events\?per_page=100/);
+  for (const e of ['base_ref_changed', 'automatic_base_change_succeeded', 'automatic_base_change_failed']) assert.equal(ev([{ event: 'labeled' }], [{ event: e }]), true, e);
+  assert.equal(baseEverChanged('o/r', 5, { read: () => null }), null);
+  assert.equal(baseEverChanged('o/r', 5, { read: () => [{ event: 'base_ref_changed' }] }), null, 'not pages of events');
 });
