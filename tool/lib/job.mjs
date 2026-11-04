@@ -910,7 +910,9 @@ export function jobBlock(root, id, { reason, push = true, log = console.log } = 
     try { commitFiles(root, [entryFile(id)], `block ${id}: ${reason}`); } catch (err) { restore(root, [entryFile(id)]); throw err; }
   }
   if (push) {
-    git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root });
+    const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
+    // BOB's merge pushed to job/<id> (defect sweep 4 Nov, #5): name the step that brings it in.
+    if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); ${originAhead(root, branch) ? `origin's ${branch} has commits this checkout lacks: run \`${P3} job sync ${id}\`, then block again` : 'run block again'}`);
     if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail('the push did not land; run block again');
   }
   log(`${id} is BLOCKED: ${reason}`);
@@ -971,7 +973,8 @@ export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
   if (inst.findings.length) return { ok: false, install: inst };
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const built = buildModuleGenerated(root, cfg, { timeout, exec, log });
-  if (built.findings.length) return { ok: false, install: inst, generated: built };
+  // A build that fails part way may have rewritten committed paths: put back, as after the suite.
+  if (built.findings.length) { restoreGenerated(root, built.ran, log); return { ok: false, install: inst, generated: built }; }
   let s;
   try { s = runSuite(root, entry, undefined, { timeout }); } finally { restoreGenerated(root, built.ran, log); }
   log(s.output.split('\n').slice(-60).join('\n'));

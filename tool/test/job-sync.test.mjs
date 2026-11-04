@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { parseBlock } from '../lib/github.mjs';
-import { jobComplete, jobStart, jobSync, jobTest, pinAt } from '../lib/job.mjs';
+import { jobBlock, jobComplete, jobStart, jobSync, jobTest, pinAt } from '../lib/job.mjs';
 import { readEntry } from '../lib/ledger.mjs';
 import { send } from '../lib/state.mjs';
 import { git, run } from '../lib/util.mjs';
@@ -320,4 +320,28 @@ test('#10: every stale lock file is installed before the generated build, in p3 
     assert.equal(calls.filter((c) => c.startsWith('npm ci')).length, 2, `${which}: each lock file once`);
     if (which === 'complete') assert.ok(r.receipt.commands.some((c) => c.cmd === 'npm ci (member/package-lock.json)' && c.exit === 0));
   }
+});
+
+test('#7: a generated build that fails part way still puts back the committed paths it rewrote', () => {
+  const { root, exec } = generated();
+  write(root, { 'build.mjs': "import { writeFileSync } from 'node:fs'; writeFileSync('member/dist/m.bundled.mjs', 'half\\n'); process.exit(3);\n" });
+  git(['commit', '-q', '-am', 'a build that fails'], { cwd: root });
+  assert.equal(jobTest(root, 'alpha', { exec, log: quiet }).ok, false);
+  assert.equal(clean(root), '');
+});
+
+test('#5: block after BOB\'s push names job sync, not "run block again" forever', () => {
+  const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': '# alpha\n', 'test/alpha/a.test.mjs': passing });
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = bareOrigin(root, 'main', 'tranche');
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const other = join(mkdtempSync(join(tmpdir(), 'p3-bob-')), 'b');
+  git(['clone', '-q', '--branch', 'job/alpha', `file://${bare}`, other], { cwd: root });
+  git(['config', 'user.email', 'bob@example.com'], { cwd: other });
+  git(['config', 'user.name', 'BOB'], { cwd: other });
+  commit(other, { 'src/other/o.mjs': '1\n' }, 'pushed from elsewhere');
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: other });
+  assert.throws(() => jobBlock(root, 'alpha', { reason: 'waiting', log: quiet }), /origin's job\/alpha has commits this checkout lacks: run `node \.process\/tool\/p3\.mjs job sync alpha`, then block again/);
 });
