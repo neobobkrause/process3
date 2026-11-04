@@ -206,6 +206,84 @@ test('after a failed push, a rerun posts the saved receipt for the COMPLETE comm
   assert.equal(r.commands.find((c) => c.suite).exit, 0);
 });
 
+// Copy PR 40, 4 Nov: a COMPLETE job's rerun with a new --exempt-revert was ignored, the saved
+// receipt replayed, and the gate stayed red with no way to amend it but a restart.
+function completed() {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  f.state.failReady = false;
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the live site'], log: quiet });
+  return { root, f };
+}
+
+test('a COMPLETE job rerun with --exempt-revert posts one amended receipt at the same commit', () => {
+  const { root, f } = completed();
+  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.equal(f.state.comments.length, 1);
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: quiet });
+  assert.equal(f.state.comments.length, 2, 'the amended receipt is posted');
+  assert.match(f.state.comments[1].body, /Amended receipt for job `alpha`/);
+  const r = parseBlock(f.state.comments[1].body, 'p3:receipt');
+  assert.equal(r.sha, tip, 'same commit');
+  assert.equal(r.attempt, 1);
+  assert.deepEqual(r.exempt, { revert: 'filter-only test edits' });
+  assert.deepEqual(r.not_verified, ['the live site']);
+  assert.deepEqual(r.amended.was, { exempt: {}, not_verified: ['the live site'] });
+  assert.equal(r.commands.find((c) => c.suite).exit, 0, 'the commands are the saved run, not a new one');
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
+  assert.equal(readRows(root, 'alpha').filter((x) => x.event === 'complete').length, 1);
+  // The same claims again post nothing; a plain rerun posts nothing either.
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: quiet });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(f.state.comments.length, 2);
+});
+
+test('an amended receipt only adds not-verified lines, and a rerun naming no change posts nothing', () => {
+  const { root, f } = completed();
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the live site'], log: quiet });
+  assert.equal(f.state.comments.length, 1, 'a line already there is no change');
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
+  const r = parseBlock(f.state.comments[1].body, 'p3:receipt');
+  assert.deepEqual(r.not_verified, ['the live site', 'the walker'], 'kept, never dropped');
+  assert.deepEqual(r.exempt, {});
+});
+
+test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job may not', () => {
+  const tool = makeRepo({ 'tool/x.mjs': 'export const v = 1;\n' });
+  const sub = (root) => {
+    git(['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', tool, '.process'], { cwd: root });
+    git(['commit', '-q', '-m', 'pin'], { cwd: root });
+  };
+  const bump = (root) => {
+    commit(tool, { 'tool/x.mjs': `export const v = ${Date.now()};\n` });
+    git(['-c', 'protocol.file.allow=always', 'fetch', '-q', 'origin'], { cwd: join(root, '.process') });
+    git(['checkout', '-q', 'origin/HEAD'], { cwd: join(root, '.process') });
+    assert.match(git(['status', '--porcelain', '--untracked-files=no'], { cwd: root }), /\.process/);
+  };
+  const w = withOrigin();
+  git(['checkout', '-q', 'tranche'], { cwd: w });
+  sub(w);
+  git(['push', '-q', 'origin', 'tranche'], { cwd: w });
+  git(['checkout', '-q', 'main'], { cwd: w });
+  const g = fakeGitHub();
+  g.state.failReady = false;
+  jobStart(w, 'alpha', { coordinator: 's', setup: ready, open: g.open, find: g.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: w });
+  git(['-c', 'protocol.file.allow=always', 'submodule', 'update', '-q', '--init'], { cwd: w });
+  commit(w, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  bump(w);
+  assert.throws(() => jobComplete(w, 'alpha', { gh: g.gh, log: quiet }), /commit your work first/, 'WORKING: a moved submodule is uncommitted work');
+  git(['-c', 'protocol.file.allow=always', 'submodule', 'update', '-q'], { cwd: w });
+  jobComplete(w, 'alpha', { gh: g.gh, log: quiet });
+  bump(w);
+  jobComplete(w, 'alpha', { gh: g.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(g.state.comments.length, 2);
+  assert.equal(parseBlock(g.state.comments[1].body, 'p3:receipt').exempt.revert, 'why');
+});
+
 // --reopen (Bob's decision 1A, 2 Nov 2026).
 function mergedOnce() {
   const root = withOrigin();
