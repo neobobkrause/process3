@@ -49,7 +49,7 @@ const ROOT_ACTS = [
   'archive an old BOB once it reports ready (housekeeping: nothing waits on it; a refusal is only reported to Bob)',
   `once, when list_triggers shows no sweep task bound to this session: create your hourly sweep task bound to this session (create_trigger, no persistent_session_id) with what \`${P3} sweep task --session <your id>\` prints; never fire it by hand`,
   `once per account, in your first turn, only when \`${P3} address watcher\` shows none (you never replace one): start the watcher, \`${P3} start watcher\`, create_session with the call it prints, \`${P3} start record watcher <its id>\`, then its daily task bound to it (create_trigger with persistent_session_id) with the call it printed`,
-  `when the sweep fires: \`${P3} sweep --session <your id> --live <n>\` (n: the live sessions list_sessions shows; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` for each attempt whose session record gives them) and do only what it prints; it reads step 0 to 3 and writes the heartbeat`,
+  `when the sweep fires: \`${P3} sweep --session <your id> --live <n> --context <pct>\` (n: the live sessions list_sessions shows; pct: your get_session window %; add \`--attempt "<who>:<role>:<minutes>:<usd>"\` for each attempt whose session record gives them) and do only what it prints; it reads step 0 to 3 and writes the heartbeat`,
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   'send technical questions to the coordinator session, not to Bob; tell Bob by push notification only what he must decide or know',
 ];
