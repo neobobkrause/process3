@@ -93,8 +93,9 @@ export const DEFAULTS = {
   // status --role bob --context <percent>: REFRESH at this share of the window (SES-4).
   refresh_context: 60,
   reading_bob: ['CLAUDE.md'],
-  // sweep: the live-session cap (PLT, measured 1 Nov), and the plan (run, pause or stop).
-  live_cap: 24,
+  // The job cap (Bob, 4 Nov): job sessions running at once, roles, builds and other sessions not
+  // counted; Bob sets it. live_cap, its old name, is read as job_cap for one release. The plan: run, pause or stop.
+  job_cap: 20,
   plan: 'run',
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
@@ -244,6 +245,8 @@ export function configOf(c, where = CONFIG_FILE) {
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
+    job_cap: c.job_cap ?? c.live_cap ?? DEFAULTS.job_cap,
+    ...(c.job_cap === undefined && c.live_cap !== undefined ? { cap_note: `${where}: live_cap ${c.live_cap} is read as job_cap (the cap counts job sessions only); rename it job_cap` } : {}),
   };
 }
 

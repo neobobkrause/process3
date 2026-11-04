@@ -49,9 +49,9 @@ export const jobCostCall = (sid) => `get_session {"session_id": "${sid || '<the 
 // A session id in get_session's form: the environment's cse_<id> is the record's session_<id>.
 export const sessionForm = (id) => (typeof id === 'string' && id ? id.replace(/^cse_/, 'session_') : id || null);
 export const READY_START = `${P3} job start --ready --live <n>`;
-export const READY_NEXT = `next act: ${READY_START} (n: the live sessions list_sessions shows), then create_session with each launch it prints`;
+export const READY_NEXT = `next act: ${READY_START} (n: the job sessions list_sessions shows), then create_session with each launch it prints`;
 // The line a merge prints first, before its other output (coordinator, 4 Nov).
-export const READY_FIRST = `first: ${READY_START} (n: the live sessions list_sessions shows), then create_session with each launch it prints; the lines below after`;
+export const READY_FIRST = `first: ${READY_START} (n: the job sessions list_sessions shows), then create_session with each launch it prints; the lines below after`;
 const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
 export const bobWake = (what, from) => {
   if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);

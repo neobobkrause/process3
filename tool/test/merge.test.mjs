@@ -50,7 +50,7 @@ test('merge brings the branch up to the tranche, writes the merge row, and merge
   const r = merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh worker, no gaps', rounds: 2, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => said.push(m) });
   assert.equal(r.merged, true);
   // The merge may make jobs ready: its last line is the one command that starts them.
-  assert.equal(said.at(-1), 'next act: node .process/tool/p3.mjs job start --ready --live <n> (n: the live sessions list_sessions shows), then create_session with each launch it prints');
+  assert.equal(said.at(-1), 'next act: node .process/tool/p3.mjs job start --ready --live <n> (n: the job sessions list_sessions shows), then create_session with each launch it prints');
   assert.equal(r.next, said.at(-1));
   const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
   assert.equal(f.calls.merged, tip, 'merges the tip the gate passed');

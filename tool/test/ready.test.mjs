@@ -30,8 +30,8 @@ test('startable: an OPEN entry never started, a COMPLETE one with a notice or fo
   assert.match(skip[1].why, /no ledger entry/);
 });
 
-test('job start --ready: starts every ready job up to live_cap less the live sessions; a refused start does not stop the rest', () => {
-  const root = makeRepo({ 'process/config.json': JSON.stringify({ live_cap: 5 }) });
+test('job start --ready: starts every ready job up to job_cap less the job sessions; a refused start does not stop the rest', () => {
+  const root = makeRepo({ 'process/config.json': JSON.stringify({ job_cap: 5 }) });
   const next = ['a', 'b', 'c', 'd'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
   const calls = [];
   const out = [];
@@ -46,7 +46,7 @@ test('job start --ready: starts every ready job up to live_cap less the live ses
   assert.deepEqual(r.failed, [{ id: 'b', why: 'the setup is not complete' }]);
   assert.deepEqual(r.waiting, ['d']);
   assert.equal(r.ok, false);
-  assert.match(out[0], /^ready: 4 startable \(live 2, cap 5\); starting 3, 1 wait for the cap: d$/);
+  assert.match(out[0], /^ready: 4 startable \(jobs 2, job cap 5\); starting 3, 1 wait for the cap: d$/);
   assert.match(out.at(-1), /^next acts: create_session with each launch printed above \(a, c\)/);
   assert.throws(() => startReady(root, { read: () => ({ next }) }), /--live <n>/);
   assert.throws(() => startReady(root, { live: 'x', read: () => ({ next }) }), /--live <n>/);
@@ -74,7 +74,7 @@ test('next work: an OPEN entry status found never started is listed with its mod
   openPassed(root);
   const rows = [{ id: 'a', tranche: 'OPEN', req: 'build/requirements/a.md', unstarted: true }, { id: 'b', tranche: 'OPEN', req: 'build/requirements/b.md', branch: 'WORKING' }];
   const out = [];
-  const next = nextWork(root, { requirements_dir: 'build/requirements', layers_file: 'none.md', live_cap: 24, requirements_cap: 1e6 }, rows, null, { log: (m) => out.push(m), state: null });
+  const next = nextWork(root, { requirements_dir: 'build/requirements', layers_file: 'none.md', job_cap: 24, requirements_cap: 1e6 }, rows, null, { log: (m) => out.push(m), state: null });
   assert.deepEqual(next.map((x) => [x.file, x.module, x.entry_state]), [['build/requirements/a.md', 'a', 'OPEN']]);
   assert.match(out.join('\n'), /build\/requirements\/a\.md: 2; entry OPEN, never started: node \.process\/tool\/p3\.mjs job start --ready/);
 });
@@ -214,4 +214,32 @@ test('status --role bob: an OPEN entry BOB wrote outside the open layer, its use
   git(['branch', 'job/pub'], { cwd: root });
   git(['push', '-q', 'origin', 'job/pub'], { cwd: root });
   assert.equal(readyCount(root), 0);
+});
+
+// The job cap (Bob, 4 Nov): only job sessions count, against job_cap, default 20.
+test('job cap: on the live shape (4 roles, 1 build, 18 jobs), 2 jobs start with job_cap 20; live_cap is read as job_cap with a line; default 20', () => {
+  const s = (id, title) => ({ id, title, session_status: 'SESSION_STATUS_RUNNING' });
+  const listed = [s('session_ROOT', 'ROOT'), s('session_BOB', 'BOB'), s('session_W', 'watcher'), s('session_C', 'coordinator'), s('session_b', 'build job-cap'),
+    ...Array.from({ length: 18 }, (_, i) => s(`session_j${i}`, i % 2 ? `job m${i}` : `job m${i} (restart)`)), { ...s('session_old', 'job old'), session_status: 'SESSION_STATUS_ARCHIVED' }];
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  writeFileSync(file, JSON.stringify({ ccr: { data: listed } }));
+  const next = ['a', 'b', 'c', 'd'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+  const go = (config) => {
+    const root = makeRepo(config ? { 'process/config.json': JSON.stringify(config) } : { 'README.md': 'x' });
+    const out = [];
+    const calls = [];
+    const r = startReady(root, { sessions: file, remote: new Set(), log: (m) => out.push(m), read: () => ({ next, rows: [] }), start: (_, id) => { calls.push(id); return {}; } });
+    return { r, out, calls };
+  };
+  const a = go({ job_cap: 20 });
+  assert.deepEqual(a.calls, ['a', 'b'], '20 less the 18 jobs: two starts; roles and the build not counted');
+  assert.match(a.out[0], /^ready: 4 startable \(jobs 18, job cap 20\); starting 2, 2 wait for the cap: c, d$/);
+  const b = go({ live_cap: 24 });
+  assert.deepEqual(b.calls, ['a', 'b', 'c', 'd'], 'live_cap 24 is read as job_cap 24');
+  assert.match(b.out.join('\n'), /process\/config\.json: live_cap 24 is read as job_cap \(the cap counts job sessions only\); rename it job_cap/);
+  assert.match(b.out.join('\n'), /job cap 24\)/);
+  const c = go(null);
+  assert.deepEqual(c.calls, ['a', 'b'], 'neither key: default 20');
+  assert.doesNotMatch(c.out.join('\n'), /live_cap/);
+  assert.throws(() => startReady(makeRepo({ 'README.md': 'x' }), { read: () => ({ next }) }), /--live <n>.*or --sessions <file>/);
 });

@@ -47,10 +47,10 @@ test('status --role bob: next work only from the open layer, at most live_cap le
   const out = [];
   const r = status(root, { role: 'bob', offline: true, live: 3, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => x.file), ['build/requirements/b.md', 'build/requirements/a.md']);
-  assert.match(out.join('\n'), /next work, layer 1 .*: 2 listed \(live 3 of 5\), 0 wait/);
+  assert.match(out.join('\n'), /next work, layer 1 .*: 2 listed \(jobs 3 of 5\), 0 wait/);
   const four = [];
   status(root, { role: 'bob', offline: true, live: 4, log: (m) => four.push(m) });
-  assert.match(four.join('\n'), /1 listed \(live 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)$/);
+  assert.match(four.join('\n'), /1 listed \(jobs 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)$/);
   // Layer 1 stays open while busy's job is open, though no file in it is unmet but busy's.
   const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
   openPassed(held);
@@ -113,7 +113,7 @@ test('status --role bob: next work stops at live_cap', () => {
   openPassed(full);
   const shown = [];
   assert.equal(status(full, { role: 'bob', offline: true, live: 1, log: (m) => shown.push(m) }).next.length, 1);
-  assert.match(shown.join('\n'), /0 listed \(live 1 of 1\), 1 wait/);
+  assert.match(shown.join('\n'), /0 listed \(jobs 1 of 1\), 1 wait/);
 });
 
 // A job branch two commits past the tranche, its tip committed at `at`, the entry WORKING on it.

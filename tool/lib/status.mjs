@@ -68,6 +68,8 @@ export const jobDone = (r) => (r.tranche === 'COMPLETE' || String(r.branch || ''
 // the live owner (BOB for a job, the coordinator otherwise). rows: status's; pinOpen: whether a
 // pin move is open on the product (null: unknown, so no pin-move session is archived).
 export const SESSION_IDLE_MIN = 60;
+// The job sessions of a list_sessions result, as sessionActs classifies them: the count the job cap holds.
+export const jobCount = (list) => sessionActs(list).kinds.jobs;
 export function sessionActs(list, { rows = [], roles = {}, coordinator = null, pinOpen = null, now = Date.now() } = {}) {
   const byId = new Map(list.map((x) => [sessionId(x), x]));
   const roleIds = new Set([roles.root?.session, roles.bob?.session, roles.watcher?.session, coordinator].filter(Boolean));
@@ -101,12 +103,13 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const cfg = loadConfig(root);
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
+  if (listed && live === undefined) live = jobCount(listed);
   const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
   if (!(replaceMs > 0)) fail(`targets.replace_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.replace_minutes)}`);
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
-  if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the live sessions list_sessions shows, not ${JSON.stringify(live)}`);
+  if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the job sessions list_sessions shows, not ${JSON.stringify(live)}`);
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
   let prs = null;
   let slug = null;
@@ -557,8 +560,8 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
 // marks and that have no open job, fewest unmet first; none once the layer is ready to close (BOB's
 // act is then `layer close <n>`). With open_by "uses", after them the modules past the open layer
 // that readyByUses finds ready, fewest unmet first, each line with its layer. The deferred marks of closed layers are listed, not as work.
-// Without a layer map, every requirement file with unmet marks. With live (the live sessions BOB
-// counts), at most live_cap less them are listed; the list returned is all of them.
+// Without a layer map, every requirement file with unmet marks. With live (the job sessions BOB
+// counts), at most job_cap less them are listed; the list returned is all of them.
 // Notice work apart: a module triage judged affected by a provider notice, whatever its layer (a
 // provider change is not layer work), under its own heading; a notice not yet triaged is BOB's act
 // `notice triage`, and none of its modules is listed. A notice module of the open layer with unmet
@@ -650,15 +653,17 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const noticeList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && x.notices);
   // Entered by BOB and outside the other lists: listed apart, after them.
   const enteredList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && !x.notices && entered.has(x.file));
-  const n = live === undefined ? Infinity : Math.max(0, cfg.live_cap - live);
+  const cap = cfg.job_cap ?? cfg.live_cap;
+  if (cfg.cap_note) log(cfg.cap_note);
+  const n = live === undefined ? Infinity : Math.max(0, cap - live);
   const shown = list.slice(0, n);
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
   const shownF = foundList.slice(0, Math.max(0, n - shown.length - shownN.length));
   const shownE = enteredList.slice(0, Math.max(0, n - shown.length - shownN.length - shownF.length));
   const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}`;
-  const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (live ${live} of ${cfg.live_cap}), ${a.length - b.length} wait`);
+  const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (jobs ${live} of ${cap}), ${a.length - b.length} wait`);
   if (list.length) {
-    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --live <the live sessions list_sessions shows> to list at most live_cap (${cfg.live_cap}) less them` : waits(list, shown)}`);
+    log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --live <the job sessions list_sessions shows> or --sessions <file> to list at most job_cap (${cap}) less them` : waits(list, shown)}`);
     for (const x of shown) log(`- ${x.file}: ${x.count}${layerOf.has(x.file) ? ` (layer ${layerOf.get(x.file)})` : ''}${tag(x)}`);
   }
   if (noticeList.length) {
