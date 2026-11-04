@@ -928,3 +928,50 @@ test('merge (a job\'s) refuses a conflicted pull request at once, before reading
   assert.equal(gateRead, 0);
   assert.equal(f.calls.merged, null);
 });
+
+// The job's cost at its merge (measured 4 Nov, 11:49: a job reading its own get_session mid-turn
+// has no usage; BOB reads it from the job's idle session at the merge).
+test('merge --job-cost-usd writes the job\'s measured row, its session from the complete row, less that session\'s last priced row', () => {
+  const { root } = setup();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const rows = [
+    { row: 'attempt', event: 'measured', role: 'job', attempt: 0, session: 'session_J', session_usd: 1, cost_usd: 1, at: new Date().toISOString() },
+    { row: 'attempt', event: 'complete', attempt: 1, session: 'session_J', at: new Date().toISOString() },
+  ];
+  const head = commit(root, { 'process/metrics/alpha.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const said = [];
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, jobCostUsd: '3.5', log: (m) => said.push(m) });
+  assert.equal(r.merged, true);
+  git(['checkout', '-q', r.tip], { cwd: root });
+  const got = readRows(root, 'alpha');
+  assert.equal(got.at(-1).row, 'merge', 'the merge row stays last');
+  const m = got.filter((x) => x.event === 'measured').pop();
+  assert.deepEqual([m.role, m.attempt, m.session, m.session_usd, m.cost_usd], ['job', 1, 'session_J', 3.5, 2.5]);
+  assert.ok(said.some((l) => /job alpha's cost: 2\.5 USD/.test(l)));
+  git(['checkout', '-q', 'main'], { cwd: root });
+});
+
+test('merge without --job-cost-usd still merges, records the cost unmeasured and prints the get_session call for the job\'s session', () => {
+  const { root } = setup();
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const head = commit(root, { 'process/metrics/alpha.jsonl': JSON.stringify({ row: 'attempt', event: 'complete', attempt: 1, session: 'session_J', at: new Date().toISOString() }) + '\n' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const said = [];
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, reviewed: 'fresh', rounds: 1, log: (m) => said.push(m) });
+  assert.equal(r.merged, true, 'never blocked on cost');
+  assert.ok(said.some((l) => l.includes('job alpha\'s cost: unmeasured. Read it with get_session {"session_id": "session_J"}, the field external_metadata.usage.cost_usd')), said.join('\n'));
+  git(['checkout', '-q', r.tip], { cwd: root });
+  const m = readRows(root, 'alpha').filter((x) => x.event === 'measured');
+  assert.deepEqual(m.map((x) => [x.session, x.cost_usd]), [['session_J', 'unmeasured']]);
+  git(['checkout', '-q', 'main'], { cwd: root });
+});
+
+test('merge refuses a zero or unreadable --job-cost-usd before anything runs', () => {
+  const { root, head } = setup();
+  const f = io(head);
+  for (const v of ['0', 'lots', true]) assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, jobCostUsd: v, log: () => {} }), /--job-cost-usd <the job's session cost: get_session/);
+  assert.equal(f.calls.merged, null);
+});

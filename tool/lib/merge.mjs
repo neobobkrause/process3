@@ -11,7 +11,7 @@ import { appendRow, metricsFile, readRows } from './metrics.mjs';
 import { ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
-import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, wakeLine } from './job.mjs';
+import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, jobCostCall, sessionForm, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { jsonl } from './state.mjs';
@@ -111,6 +111,10 @@ export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
   const io = { getPR, comments, checkRun, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
+  // The job's cost, read by BOB from get_session on the job's session, idle by now (measured 4 Nov,
+  // 11:49: mid-turn a session's own record has no usage). A value not read is refused before
+  // anything runs; an omitted one records the cost unmeasured and never stops the merge.
+  const jobCost = jobCostOf(opts.jobCostUsd);
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
@@ -176,6 +180,8 @@ export function merge(root, n, opts = {}) {
     let tip = git(['rev-parse', 'HEAD'], { cwd: wt });
     if (!hasRow) {
       const done = rows.filter((r) => r.event === 'complete').pop();
+      // The job's cost first, so the merge row stays the branch's last.
+      jobCostRow(wt, id, rows, { cost: jobCost, session: opts.jobSession, attempt: receipt.attempt, log });
       appendRow(wt, id, {
         row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
         minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
@@ -224,6 +230,35 @@ export function merge(root, n, opts = {}) {
     git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true });
     rmSync(wt, { recursive: true, force: true });
   }
+}
+
+// --job-cost-usd: a figure above 0, or none (null). 0 is a figure not read: no job costs nothing.
+export function jobCostOf(v) {
+  if (v === undefined || v === null) return null;
+  const c = Number(v);
+  if (v === true || !Number.isFinite(c) || c <= 0) fail(`--job-cost-usd <the job's session cost: ${jobCostCall()}>; not ${JSON.stringify(v)}${c === 0 ? ' (no job costs nothing: 0 is a figure not read)' : ''}; nothing was run`);
+  return c;
+}
+
+// The job's measured row at its merge, the row job complete --cost-usd writes (PR 105): session_usd
+// the session's cost so far, cost_usd that less the same session's last priced row. The session
+// is --job-session, else the one the job's last complete row names. With no figure, the row says
+// unmeasured (so the report reads job_usd unmeasured, never low) and the call to read it is printed.
+export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console.log }) {
+  const done = rows.filter((r) => r.event === 'complete').pop();
+  const sid = sessionForm(typeof session === 'string' && session ? session : done?.session || null);
+  if (cost === null) {
+    // Measured already, by a job complete --cost-usd for this attempt: nothing more to write.
+    if (rows.some((r) => r.event === 'measured' && (r.role || 'job') === 'job' && r.attempt === attempt && Number(r.cost_usd) > 0)) return null;
+    appendRow(wt, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: 'unmeasured', cost_usd: 'unmeasured' });
+    log(`job ${id}'s cost: unmeasured. Read it with ${jobCostCall(sid)}, and pass it next time as --job-cost-usd <n>${sid ? '' : ' with --job-session <its id>'}; the merge goes on`);
+    return null;
+  }
+  const prior = sid ? rows.filter((r) => r.event === 'measured' && (r.role || 'job') === 'job' && sessionForm(r.session) === sid && Number(r.session_usd) > 0).pop() : null;
+  const usd = Math.round(Math.max(0, cost - Number(prior?.session_usd ?? 0)) * 1e4) / 1e4;
+  appendRow(wt, id, { row: 'attempt', event: 'measured', role: 'job', attempt, session: sid, session_usd: cost, cost_usd: usd });
+  log(`job ${id}'s cost: ${usd} USD${sid ? ` (session ${sid}, ${cost} so far)` : ' (no session named: the whole figure counted)'}`);
+  return usd;
 }
 
 // Why the newest gate run on the tip did not agree with the receipt, and the act that clears it
