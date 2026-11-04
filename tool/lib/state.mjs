@@ -40,16 +40,31 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 
 // Changes the state branch in a worktree of its own (the caller's checkout never moves), commits
 // and pushes with pushRetry: never forced. A branch origin lacks starts as an orphan commit.
+// When the push is rejected because another writer moved the branch, the change is made again on
+// the fresh tip, never merged (defect sweep 4 Nov, #12): so `change` must be a function of the
+// worktree it is given and its own arguments only, and every caller's is. The writers, and what
+// each one's change writes: send and send delivered|failed (messages/<from>.jsonl, appended, its
+// number counted from the file), handoff (handoff/<role>.md), start record, handover confirm and
+// the prompt refresh (addresses/<role>.json, each re-reading the address it may replace;
+// handover confirm also appends metrics/handover.jsonl), job start --restart (metrics/restart.jsonl),
+// sweep (heartbeat, and metrics/sweep.jsonl appended), lane ask (lanes/asks.jsonl, appended), notice
+// recording, withdraw and triage (one file per row, added only when absent), layer close
+// (layers/closed.jsonl), release record (releases/dev.jsonl), deploy dev (deploys/dev.jsonl) and
+// tranche open and close (metrics/tranche-open.jsonl, tranches/closed.jsonl, appended). A failure inside `change` pushes nothing.
 export function writeState(root, sb, msg, change) {
   const have = fetchState(root, sb, { fresh: true });
   const start = have ? ref(sb) : git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
   const wt = join(mkdtempSync(join(tmpdir(), 'p3-state-')), 's');
   git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
   try {
-    const out = change(wt);
-    git(['add', '-A'], { cwd: wt });
-    git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
-    const tip = pushRetry(wt, sb);
+    let out;
+    const make = () => {
+      out = change(wt);
+      git(['add', '-A'], { cwd: wt });
+      git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
+    };
+    make();
+    const tip = pushRetry(wt, sb, { redo: make });
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     return { ...out, tip };
   } finally {

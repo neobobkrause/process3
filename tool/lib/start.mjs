@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { approvalsBlock } from './record.mjs';
-import { exists, fail, git, loadConfig, run } from './util.mjs';
+import { exists, fail, fetchBranch, git, loadConfig, run } from './util.mjs';
 
 const hash = (t) => createHash('sha256').update(t).digest('hex');
 const HASH = /^[0-9a-f]{64}$/;
@@ -31,7 +31,9 @@ function read(root, branch) {
   if (branch === true) fail('--branch needs the name of the branch the session started from');
   const name = branch || loadConfig(root).tranche;
   const ref = `refs/remotes/origin/${name}`;
-  const f = git(['fetch', '-q', 'origin', `+refs/heads/${name}:${ref}`], { cwd: root, allowFail: true });
+  // --depth 1 in a shallow clone, as fetchBranch does: every start check and wake fetched the
+  // branch's whole history there (defect sweep 4 Nov).
+  const f = fetchBranch(root, name, { allowFail: true });
   if (f.code !== 0) fail(`could not fetch ${name} from origin (${f.stderr.trim()}); the start is not confirmed`);
   const head = git(['rev-parse', 'HEAD'], { cwd: root });
   const tip = git(['rev-parse', ref], { cwd: root });

@@ -213,10 +213,13 @@ export const BASE_MOVED = /Base branch was modified/i;
 export const FETCH_FIRST = /\(fetch first\)|fetch first/i;
 const pause = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 
-// Pushes HEAD to a branch (the state branch's push): on a fetch-first rejection it fetches the
-// branch, merges it into HEAD (a merge commit, never a rebase or a force; a conflict stops it)
-// and pushes again. Returns the tip pushed.
-export function pushRetry(cwd, branch, { tries = RETRIES, wait = 2000, log = console.log } = {}) {
+// Pushes HEAD to a branch (the state branch's push). On a fetch-first rejection it fetches the
+// branch and, with `redo`, resets the checkout to the fetched tip and calls redo() to make the
+// change again there (so two appends to one jsonl file, or a number counted from it, are redone
+// on the other writer's rows instead of conflicting: defect sweep 4 Nov, #12); without `redo`, it
+// merges the fetched tip into HEAD (a merge commit, never a rebase or a force; a conflict stops
+// it). Then it pushes again. Returns the tip pushed.
+export function pushRetry(cwd, branch, { tries = RETRIES, wait = 2000, log = console.log, redo } = {}) {
   for (let t = 1; ; t++) {
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd, allowFail: true });
     if (r.code === 0) return git(['rev-parse', 'HEAD'], { cwd });
@@ -226,6 +229,12 @@ export function pushRetry(cwd, branch, { tries = RETRIES, wait = 2000, log = con
     log(`${branch} moved on origin; fetching and trying again (${t + 1} of ${tries})`);
     pause(wait * t);
     git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd });
+    if (redo) {
+      git(['reset', '-q', '--hard', `refs/remotes/origin/${branch}`], { cwd });
+      git(['clean', '-q', '-fdx'], { cwd });
+      redo();
+      continue;
+    }
     const m = git(['merge', '-q', '--no-edit', `refs/remotes/origin/${branch}`], { cwd, allowFail: true });
     if (m.code !== 0) {
       git(['merge', '--abort'], { cwd, allowFail: true });

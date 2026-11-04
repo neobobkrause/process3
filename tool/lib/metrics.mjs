@@ -84,10 +84,14 @@ export const nextAttempt = (root, id) => readRows(root, id).filter((r) => r.row 
 const DAY = 86400000;
 
 // Is a merged pull request still in place: its merge commit on the branch and never reverted?
+// --is-ancestor exits 1 for "not on the branch"; any other exit (128: the commit is not in a
+// shallow clone's history) is unmeasured, never "reverted" (defect sweep 4 Nov).
 export function survival(root, merge, branch, today = Date.now()) {
   if (!merge?.merge_sha) return { state: 'not merged' };
   const due = new Date(Date.parse(merge.merged_at) + 14 * DAY).toISOString().slice(0, 10);
-  const on = git(['merge-base', '--is-ancestor', merge.merge_sha, branch], { cwd: root, allowFail: true }).code === 0;
+  const anc = git(['merge-base', '--is-ancestor', merge.merge_sha, branch], { cwd: root, allowFail: true }).code;
+  if (anc !== 0 && anc !== 1) return { state: 'unmeasured', due };
+  const on = anc === 0;
   const reverts = git(['log', '--format=%H', `--grep=${merge.merge_sha}`, branch], { cwd: root, allowFail: true }).stdout.trim();
   if (!on || reverts) return { state: 'reverted', due };
   return { state: today >= Date.parse(merge.merged_at) + 14 * DAY ? 'survived' : 'pending', due };
