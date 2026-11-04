@@ -25,7 +25,7 @@ import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mj
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
-import { closedRows, status } from './lib/status.mjs';
+import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
@@ -286,7 +286,10 @@ const commands = {
     const { jobRefs, jobRows, deepened } = leadFetch(root, cfg);
     let stateRead = false;
     try { stateRead = fetchState(root, cfg.state_branch); } catch { stateRead = false; }
-    const md = trancheReport(root, cfg, { slug, stateRead, deepened, jobRefs, jobRows, io: { state: (p) => readState(root, cfg.state_branch, p) } });
+    // The open provider-notice slots, as status reads them (noticeSlots); unmeasured unread.
+    let slots = null;
+    if (stateRead) { try { slots = noticeSlots(root, cfg, status(root, { offline: true, log: () => {} }).rows); } catch { slots = null; } }
+    const md = trancheReport(root, cfg, { slug, stateRead, deepened, jobRefs, jobRows, notices: slots, io: { state: (p) => readState(root, cfg.state_branch, p) } });
     if (a.out && a.out !== true) writeFileSync(a.out, md + '\n');
     console.log(md);
     return 0;

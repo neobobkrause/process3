@@ -126,16 +126,23 @@ export const WITHDRAWN_DIR = `${NOTICES_DIR}/withdrawn`;
 export const withdrawFile = (key) => `${WITHDRAWN_DIR}/${fileOf(key)}.json`;
 
 // The keys of withdrawn notices, as the fetched state branch holds them.
-export const withdrawnKeys = (root, sb) => new Set(listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn').map((r) => r.key));
+export const withdrawnRows = (root, sb) => listJson(root, sb, WITHDRAWN_DIR).filter((r) => r.row === 'withdrawn' && typeof r.key === 'string');
+export const withdrawnKeys = (root, sb) => new Set(withdrawnRows(root, sb).map((r) => r.key));
+// Every notice the state branch holds, live or withdrawn, with its unanswered users: the one reader
+// behind notices (the live ones), triage, status and report tranche's count (coordinator, 4 Nov: a
+// count of notices/*.json read apart from the withdrawn rows called 136 withdrawn slots open on the
+// copy, which triage then could not find). A withdrawn notice carries its withdrawal row: closed,
+// owing nothing, its unanswered users counted as closed by the withdrawal.
+export function noticeRecords(root, sb) {
+  const answered = new Set(listJson(root, sb, `${NOTICES_DIR}/answered`).map((r) => `${r.key}\0${r.user}`));
+  const withdrawn = new Map(withdrawnRows(root, sb).map((r) => [r.key, r]));
+  return listJson(root, sb, NOTICES_DIR).filter((r) => r.row === 'notice' && typeof r.key === 'string' && Array.isArray(r.users)).sort((a, b) => a.pr - b.pr)
+    .map((n) => ({ ...n, open: n.users.filter((u) => !answered.has(`${n.key}\0${u}`)), withdrawn: withdrawn.get(n.key) || null }));
+}
 
 // Every notice with the users that have not answered it, as the fetched state branch holds them;
 // a withdrawn notice (notice withdraw) is no notice.
-export function notices(root, sb) {
-  const answered = new Set(listJson(root, sb, `${NOTICES_DIR}/answered`).map((r) => `${r.key}\0${r.user}`));
-  const withdrawn = withdrawnKeys(root, sb);
-  return listJson(root, sb, NOTICES_DIR).filter((r) => r.row === 'notice' && !withdrawn.has(r.key)).sort((a, b) => a.pr - b.pr)
-    .map((n) => ({ ...n, open: n.users.filter((u) => !answered.has(`${n.key}\0${u}`)) }));
-}
+export const notices = (root, sb) => noticeRecords(root, sb).filter((n) => !n.withdrawn).map(({ withdrawn, ...n }) => n);
 export const unanswered = (root, sb, user) => notices(root, sb).filter((n) => n.open.includes(user));
 // What a notice says moved: its requirement ids (or its source, when none changed), and its export
 // names removed, changed and added, at most `max` of each named.

@@ -4,7 +4,7 @@
 // line: such a file is not committed; it is built at deploy and release; layer close regenerates
 // and verifies it, comparing only the generated paths the tranche commits.
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -14,7 +14,7 @@ import { layerClose } from '../lib/layer.mjs';
 import { releaseRun } from '../lib/release.mjs';
 import { setupCheck } from '../lib/setup.mjs';
 import { CLOSED_FILE } from '../lib/status.mjs';
-import { git } from '../lib/util.mjs';
+import { git, run } from '../lib/util.mjs';
 import { entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -122,4 +122,31 @@ test('layer close builds untracked generated files before the suites that import
   const r = layerClose(root, '1', { io, log: (m) => out.push(m) });
   assert.equal(r.ok, true, out.join('\n'));
   assert.match(out.join('\n'), /a: suite exit 0/);
+});
+
+test('deploy dev installs the lock files before it builds the generated files (copy, 4 Nov: esbuild not found on a fresh checkout)', () => {
+  const GUARD = 'p3dev guard: passed';
+  const node = (code) => ['node', '-e', code];
+  const deploy = { slug_prefix: 'p3dev-', dry_run: node(`console.log(${JSON.stringify(GUARD)})`), deploy: node('0'), walk: node('0'), guard_line: GUARD };
+  // The build needs the installed package, as bundles.mjs needs esbuild.
+  const needs = "if (!require('fs').existsSync('dep/node_modules/esbuild')) { console.error('Cannot find package esbuild'); process.exit(7) }";
+  const rows = [{ ...ROWS[0], regenerate: ['sh', '-c', `node -e "${needs}" && node gen.mjs`] }];
+  const lock = JSON.stringify({ name: 'dep', lockfileVersion: 3, packages: { '': {}, 'node_modules/esbuild': { version: '0.0.0' } } });
+  const calls = [];
+  // npm ci stands in: it installs the package where it runs; everything else runs for real.
+  const exec = (cmd, args, o) => {
+    calls.push(cmd);
+    if (cmd !== 'npm') return run(cmd, args, o);
+    mkdirSync(join(o.cwd, 'node_modules/esbuild'), { recursive: true });
+    return { code: 0, stdout: '', stderr: '', seconds: 0 };
+  };
+  const { root } = withOrigin(product({ deploy, generated: rows, lockfiles: ['dep/package-lock.json'] }, { 'dep/package.json': '{"name":"dep"}', 'dep/package-lock.json': lock }));
+  assert.equal(layerClose(root, '1', { io, exec, log: quiet }).ok, true);
+  git(['clean', '-qfdx', 'gen', 'dep'], { cwd: root });
+  calls.length = 0;
+  const out = [];
+  const r = deployDev(root, { io: { compare: () => null, exec }, repo: 'o/p', log: (m) => out.push(m) });
+  assert.equal(r.ok, true, out.join('\n'));
+  assert.equal(calls[0], 'npm', `installed first: ${calls.join(', ')}`);
+  assert.deepEqual(r.row.results.map((x) => [x.stage, x.exit]), [['build', 0], ['dry_run', 0], ['deploy', 0], ['walk', 0]]);
 });

@@ -161,7 +161,7 @@ export function baseRedOwed(mergeRows, runsOf) {
   return out;
 }
 
-export function trancheReport(root, cfg, { slug, now = new Date().toISOString(), stateRead = false, deepened = null, jobRefs, jobRows = [], io = {} } = {}) {
+export function trancheReport(root, cfg, { slug, now = new Date().toISOString(), stateRead = false, deepened = null, jobRefs, jobRows = [], notices: slots = null, io = {} } = {}) {
   const tranche = `origin/${cfg.tranche}`;
   const tip = gitOut(root, ['rev-parse', '--verify', '-q', tranche]) ? tranche : 'HEAD';
   const read = { state: () => null, merged: () => (slug ? mergedPRs(slug, cfg.tranche) : null), comments: (n) => ghComments(slug, n), compare: (sha) => (slug ? ghCompare(slug, 'main', sha) : null), ...io };
@@ -244,6 +244,11 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
     return [w.m, c ? `layer ${w.layer} close` : undecided.has(w.layer) ? `tip (layer ${w.layer} close ${U})` : 'tip', ids.length, ids.join(', ') || 'none'];
   }).filter((r) => r[2] > 0);
   L.push(...(def.length ? table(['module', 'from', 'unmet', 'marks'], def) : ['None.']), '');
+
+  // Provider notices (coordinator, 4 Nov): the open slots as status's one reader (status.mjs
+  // noticeSlots) classes them, each with the command that closes it, so the count here and
+  // `notice triage` agree; a withdrawn notice is closed, its unanswered slots counted apart.
+  L.push(...noticeSection(slots), '');
 
   // Found work (found <module>): the found marks in the record, per module, its requirement file
   // and its found-work entry together, and those that name no module. Met: struck since the
@@ -343,4 +348,26 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const owed = baseRedOwed(mergeRows, (pr) => gateRuns(read.comments(pr) || []));
   L.push(...(owed === null ? [U] : owed.length ? table(['job', 'PR', 'test', 'base'], owed.map((o) => [o.module, `#${o.pr}`, o.test, String(o.base).slice(0, 10)])) : ['None.']), '');
   return L.join('\n');
+}
+
+// The report's provider-notice section from noticeSlots' result (null: the state branch unread).
+const KIND = { triage: 'triage owed', affected: 'judged affected: notice work', job: 'named by its open job', rerun: 'merged job named it, answer not recorded' };
+export function noticeSection(slots) {
+  const L = ['## Provider notices', ''];
+  if (!slots) return [...L, `Open notice slots: ${U} (the state branch's notices not read).`];
+  const keys = [...new Set(slots.slots.map((x) => x.key))];
+  const by = (k) => slots.slots.filter((x) => x.kind === k).length;
+  const wSlots = slots.withdrawn.reduce((t, w) => t + w.closed, 0);
+  L.push(`Open notice slots (one notice, one user module, unanswered): ${slots.slots.length} across ${keys.length} notices; ${Object.entries(KIND).map(([k, w]) => `${w} ${by(k)}`).join(', ')}.`);
+  L.push(`Withdrawn (closed, owing nothing; never counted open): ${slots.withdrawn.length} notices${slots.withdrawn.length ? `, ${wSlots} unanswered slots closed by withdrawal (${slots.withdrawn.map((w) => `${w.key} ${w.closed}`).join(', ')})` : ''}.`, '');
+  if (!slots.slots.length) return [...L, 'No open slot.'];
+  // One row per notice and act: a notice's untriaged modules share one `notice triage`.
+  const rows = new Map();
+  for (const x of slots.slots) {
+    const k = `${x.key}\0${x.kind}\0${x.act}`;
+    const r = rows.get(k) || { key: x.key, kind: x.kind, act: x.act, users: [] };
+    r.users.push(x.user);
+    rows.set(k, r);
+  }
+  return [...L, ...table(['notice', 'open slots', 'state', 'modules', 'closed by'], [...rows.values()].map((r) => [r.key, r.users.length, KIND[r.kind], r.users.length > 6 ? `${r.users.slice(0, 6).join(', ')} and ${r.users.length - 6} more` : r.users.join(', '), `\`${r.act}\``]))];
 }
