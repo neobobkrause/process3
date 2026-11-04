@@ -153,3 +153,4 @@
 - 11:30 PR 105 merged (54a4fa0): job complete refuses a missing or zero --cost-usd (the cause was input 0; real 3.16); triage at merge never silent (199's triage was lost in BOB's tail of failed retries); merges and BOB wakes put 'first: job start --ready'; cap-blocked starts name idle sessions to archive. 610/610. PR 102 still unmerged (session idle on required checks); nudged. Pin move to 54a4fa0 (PRs 103+105) started 11:31 without waiting for 102.
 - 11:37 pin 54a4fa0 on the copy: PR 214 (2923874), BOB woken pin-24 and told the new acts. Check-in at about 12:22 for PR 102 and a re-measure.
 - 11:37 PR 102 merged (c790f06; size waiver up to 2x cap when the head no longer carries it, recorded size_waived; merge PUT read-back; literal pathspecs), 616/616. Pin move to c790f06 started 11:38 for interface-assets.
+- 11:43 pin c790f06 on the copy: PR 221 (98cdfe7), BOB woken pin-25; interface-assets re-runs job complete. No pin move open; no process3 build open.
