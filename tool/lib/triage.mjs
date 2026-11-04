@@ -11,7 +11,9 @@ import { specifiers, ownerOf } from './checks.mjs';
 import { resolveSpec } from './exports.mjs';
 import { getPR } from './github.mjs';
 import { P3, wakeLine } from './job.mjs';
-import { NOTICES_DIR, answerFile, mergedRange, notices } from './notice.mjs';
+import { NOTICES_DIR, answerFile, mergedRange, noticeRecords } from './notice.mjs';
+import { fetchJobs } from './lead.mjs';
+import { noticeSlots, status } from './status.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -54,13 +56,31 @@ export function parseTriage(text) {
   return { lines: out, bad };
 }
 
+const withdrawnText = (n) => `provider notice ${n.key} was withdrawn${n.withdrawn.at ? ` ${n.withdrawn.at}` : ''}${n.withdrawn.by ? ` by ${n.withdrawn.by}` : ''}${n.withdrawn.why ? ` (${n.withdrawn.why})` : ''}: it is closed and owes no triage; its ${n.open.length} unanswered user module(s) owe nothing for it`;
+
 // The notice for a key, with the users that still owe triage (unanswered, no triage row).
 function find(root, cfg, key) {
   if (!fetchState(root, cfg.state_branch, { fresh: true })) fail(`no ${cfg.state_branch} on origin: no provider notice ${key}`);
-  const n = notices(root, cfg.state_branch).find((x) => x.key === key);
+  // The one reader report tranche counts with (noticeRecords): a withdrawn notice is found, and
+  // closed: it owes no triage (membership:77 and credentials:74 on the copy, 4 Nov, were answered
+  // "no provider notice" though their files were there).
+  const n = noticeRecords(root, cfg.state_branch).find((x) => x.key === key);
   if (!n) fail(`no provider notice ${key} on ${cfg.state_branch} (${NOTICES_DIR}/${key.replace(':', '-')}.json)`);
+  if (n.withdrawn) return { n, withdrawn: n.withdrawn, tri: new Map(), owed: [] };
   const tri = triageRows(root, cfg.state_branch);
-  return { n, tri, owed: n.open.filter((u) => !tri.has(`${key}\0${u}`)) };
+  // The slots status and report tranche call triage owed (status.mjs noticeSlots): a module whose
+  // open job's START names the notice is answered by that job's merge, and owes no triage.
+  const untriaged = n.open.filter((u) => !tri.has(`${key}\0${u}`));
+  let owed = untriaged;
+  try {
+    // Job branches first (only the untriaged users', when origin has them), so the rows status
+    // builds read each START as status --role bob does; then status offline (no GitHub reads).
+    if (untriaged.length) fetchJobs(root, untriaged);
+    const rows = status(root, { offline: true, log: () => {} }).rows || [];
+    const want = new Set(noticeSlots(root, cfg, rows).slots.filter((x) => x.key === key && x.kind === 'triage').map((x) => x.user));
+    owed = untriaged.filter((u) => want.has(u));
+  } catch { /* the ledger unread: every untriaged user owes it, as before */ }
+  return { n, tri, owed, untriaged };
 }
 
 // The provider's changed requirements, before and after, from the PR's merge commit (as merge
@@ -157,8 +177,9 @@ export function briefText({ n, changed, mods, tranche, sha, share = null }) {
 // notice triage <key>: prints BOB's act and the worker's brief; writes nothing.
 export function noticeTriage(root, key, { log = console.log, io = {} } = {}) {
   const cfg = loadConfig(root);
-  const { n, owed } = find(root, cfg, key);
-  if (!owed.length) { log(`provider notice ${key}: no module owes triage (${n.open.length} unanswered, each triaged affected)`); return { owed }; }
+  const { n, owed, withdrawn } = find(root, cfg, key);
+  if (withdrawn) { log(withdrawnText(n)); return { owed, withdrawn }; }
+  if (!owed.length) { log(`provider notice ${key}: no module owes triage (${n.open.length} unanswered, each triaged affected or named by its open job's START)`); return { owed }; }
   const tranche = `origin/${cfg.tranche}`;
   git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${tranche}`], { cwd: root, allowFail: true });
   const sha = git(['rev-parse', tranche], { cwd: root });
@@ -195,7 +216,8 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   if (workers.length !== files.length || costs.length !== files.length) fail(`give one --worker and one --cost per --record, in the same order: ${files.length} --record, ${workers.length} --worker, ${costs.length} --cost`);
   for (const f of files) if (!existsSync(f)) fail(`no file ${f}`);
   const cfg = loadConfig(root);
-  const { n, owed } = find(root, cfg, key);
+  const { n, owed, untriaged, withdrawn } = find(root, cfg, key);
+  if (withdrawn) fail(`refused: ${withdrawnText(n)}; nothing was written`);
   const lines = new Map();
   files.forEach((f, i) => {
     const got = parseTriage(readFileSync(f, 'utf8'));
@@ -211,7 +233,10 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   const left = owed.filter((u) => !lines.has(u));
   if (left.length) fail(`refused: notice triage ${key} records only when every module has a line; ${left.length} of ${owed.length} not judged: ${left.join(', ')}. Run a worker for them, then record every file again, nothing was written`);
   const at = new Date().toISOString();
-  const want = owed.flatMap((u) => {
+  // Required: a line for every slot triage owes. Recorded as well: a line given for any other
+  // untriaged user (one whose open job names the notice since, or did when the brief was
+  // printed), so a judgement the worker made is never dropped.
+  const want = untriaged.filter((u) => owed.includes(u) || lines.has(u)).flatMap((u) => {
     const { verdict, evidence, worker: w, cost: c } = lines.get(u);
     const common = { at, key, worker: w, cost: c };
     return [[triageFile(u, key), { row: 'triage', user: u, verdict, evidence, ...common }],

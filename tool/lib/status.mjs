@@ -6,7 +6,7 @@ import { LEDGER_DIR, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
-import { noticeLine, notices, readModules } from './notice.mjs';
+import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
@@ -337,39 +337,71 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
 // as `triage owed`, and none of its modules is notice work (56 modules for one struck requirement
 // on the copy, 4 Nov).
 export function owedNotices(root, cfg, rows, log = console.log) {
-  let all = [];
-  let tri = new Map();
-  try { all = notices(root, cfg.state_branch); tri = triageRows(root, cfg.state_branch); } catch { all = []; }
-  const unrecorded = {};
-  const named = (u) => {
-    // The job branch decides, while its attempt is open: not COMPLETE on the tranche, an open pull
-    // request, or commits the tranche lacks. A merged attempt's start row names a notice only when
-    // its answer was not written (the merge stands if that write fails): the notice is still owed,
-    // and merge <n> run again records it (confirming review of PR 54).
-    const row = rows.find((x) => x.id === u);
-    if (!row?.branch) return [];
-    const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
-    const keys = t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
-    const open = row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#') || row.ahead > 0;
-    if (!open) { unrecorded[u] = keys; return []; }
-    return keys;
-  };
-  const owed = {};
-  const untriaged = {};
-  for (const n of all) for (const u of n.open) if (!named(u).includes(n.key)) {
-    const triage = tri.get(`${n.key}\0${u}`) || null;
-    const rerun = !!unrecorded[u]?.includes(n.key);
-    (owed[u] ||= []).push({ ...n, triage, rerun });
-    if (!triage && !rerun) (untriaged[n.key] ||= []).push(u);
-  }
+  const { owed, untriaged, judged } = noticeSlots(root, cfg, rows);
   const users = Object.keys(owed).sort();
-  const judged = users.flatMap((u) => owed[u].filter((n) => n.triage).map((n) => [u, n]));
   if (users.length) log('provider notices (not layer work; triage first, then a job per affected module):');
   for (const [k, us] of Object.entries(untriaged)) log(`- triage owed: ${k} (${us.length} modules): ${P3} notice triage ${k}`);
   const rerun = `; its merged job named it, answer not recorded: run merge <that job's PR> again`;
   for (const [u, n] of judged) log(`- ${u}: ${noticeLine(n)}; affected: ${n.triage.evidence.slice(0, 80)}${n.rerun ? rerun : ''}`);
   for (const u of users) for (const n of owed[u].filter((x) => !x.triage && x.rerun)) log(`- ${u}: ${noticeLine(n)}${rerun}`);
   return owed;
+}
+
+// Every provider notice slot (one notice, one user module) the state branch holds, each with what
+// closes it, from the one reader (notice.mjs noticeRecords) that triage, status, layer close and
+// report tranche all read (coordinator, 4 Nov). A slot is closed when answered, or when its notice
+// was withdrawn; an open slot is exactly one of:
+// - `triage`: not yet triaged; its act `notice triage <key>`;
+// - `affected`: triage judged it affected; notice work, its act `job start <module>`;
+// - `job`: its module's open job named it in its START; that job's merge answers it;
+// - `rerun`: its merged job named it and the answer was not recorded; `merge <that PR>` again.
+// owed, untriaged and judged are what owedNotices prints and nextWork reads.
+export function noticeSlots(root, cfg, rows) {
+  let recs = [];
+  let tri = new Map();
+  try { recs = noticeRecords(root, cfg.state_branch); tri = triageRows(root, cfg.state_branch); } catch { recs = []; }
+  const unrecorded = {};
+  const isOpen = new Set();
+  const cache = new Map();
+  const named = (u) => {
+    // The job branch decides, while its attempt is open: not COMPLETE on the tranche, an open pull
+    // request, or commits the tranche lacks. A merged attempt's start row names a notice only when
+    // its answer was not written (the merge stands if that write fails): the notice is still owed,
+    // and merge <n> run again records it (confirming review of PR 54).
+    if (cache.has(u)) return cache.get(u);
+    const row = rows.find((x) => x.id === u);
+    let out = [];
+    if (row?.branch) {
+      const t = git(['show', `origin/job/${u}:${metricsFile(u)}`], { cwd: root, allowFail: true });
+      const keys = t.code === 0 ? jsonl(t.stdout).filter((x) => x.event === 'start').pop()?.notices || [] : [];
+      const open = row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#') || row.ahead > 0;
+      if (!open) unrecorded[u] = keys;
+      else { out = keys; isOpen.add(u); }
+    }
+    cache.set(u, out);
+    return out;
+  };
+  const owed = {};
+  const untriaged = {};
+  const slots = [];
+  const withdrawn = [];
+  for (const n of recs) {
+    if (n.withdrawn) { withdrawn.push({ key: n.key, at: n.withdrawn.at, by: n.withdrawn.by, why: n.withdrawn.why, closed: n.open.length }); continue; }
+    const { withdrawn: _w, ...live } = n;
+    for (const u of n.open) {
+      const row = rows.find((x) => x.id === u);
+      const prN = String(row?.pr ?? '').match(/#(\d+)/)?.[1] || null;
+      if (named(u).includes(n.key)) { slots.push({ key: n.key, user: u, kind: 'job', act: prN ? `${P3} merge ${prN} (job ${u}'s pull request; its START names the notice, its merge answers it)` : `job ${u} names it in its START; its merge answers it` }); continue; }
+      const triage = tri.get(`${n.key}\0${u}`) || null;
+      const rerun = !!unrecorded[u]?.includes(n.key);
+      (owed[u] ||= []).push({ ...live, triage, rerun });
+      if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${prN || `<job ${u}'s PR>`} (again: its answer was not recorded)` });
+      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u}, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u}` });
+      else { (untriaged[n.key] ||= []).push(u); slots.push({ key: n.key, user: u, kind: 'triage', act: `${P3} notice triage ${n.key}` }); }
+    }
+  }
+  const judged = Object.keys(owed).sort().flatMap((u) => owed[u].filter((n) => n.triage).map((n) => [u, n]));
+  return { owed, untriaged, judged, slots, withdrawn };
 }
 
 // open_by (process/config.json): "uses", the default, opens past the open layer each module
