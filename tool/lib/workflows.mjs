@@ -49,8 +49,10 @@ const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) 
 // several documents) throws, and the caller refuses the file.
 class Unreadable extends Error {}
 const no = (why) => { throw new Unreadable(why); };
-const KEY = /^((?:"[^"]*"|'[^']*'|[^\s"'#:][^:#]*?)):(?:\s+(.*?))?\s*$/;
-const unquote = (k) => k.trim().replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+// A key may not begin with a flow collection, tag, anchor, alias or other indicator: those hide
+// a key or a whole mapping from this reader (confirming review of PR 98: "!!str jobs:", "{on: ...}").
+const KEY = /^((?:"[^"]*"|'[^']*'|[^\s"'#:{}\[\]!&*?|>%@`,][^:#]*?)):(?:\s+(.*?))?\s*$/;
+const unquote = (k) => { const t = k.trim(); const sq = t.match(/^'(.*)'$/); return sq ? sq[1].replace(/''/g, "'") : t.replace(/^"(.*)"$/, '$1'); };
 // A value with its trailing comment removed (outside quotes).
 const value = (v) => {
   if (v === undefined) return '';
@@ -69,7 +71,11 @@ function lines(src) {
   src.split('\n').forEach((raw, i) => {
     const t = raw.replace(/\r$/, '');
     if (!t.trim() || /^\s*#/.test(t)) return;
-    if (/^(---|\.\.\.)(\s|$)/.test(t)) { if (out.length || t.startsWith('...')) no('it holds more than one document'); return; }
+    if (/^(---|\.\.\.)(\s|$)/.test(t)) {
+      if (out.length || t.startsWith('...')) no('it holds more than one document');
+      if (t.replace(/^---/, '').replace(/\s#.*$/, '').trim()) no(`line ${i + 1} holds content after ---`);
+      return;
+    }
     const body = t.trimStart();
     // A double-quoted key with an escape ("j\x6fbs":) is a key this reader would misread: GitHub
     // decodes it (review 1 of PR 98).
@@ -167,7 +173,7 @@ export function readWorkflow(src) {
       const { kids: jk } = children(ls, j.i, ls[j.i].indent);
       const name = jk.find((x) => x.key === 'name');
       // One line, plain or quoted, no tag, anchor, block scalar or escape (review 1 of PR 98).
-      if (name && (name.deeper || !/^(?:"[^"\\]*"|'[^']*'|[^\s"'|>!&*%@`{\[-][^#]*)$/.test(name.value))) no(`job ${j.key}'s name at line ${ls[name.i].n} is not a one-line string this reader can read`);
+      if (name && (name.deeper || !/^(?:"[^"\\]*"|'(?:[^']|'')*'|[^\s"'|>!&*%@`{\[-][^#]*)$/.test(name.value))) no(`job ${j.key}'s name at line ${ls[name.i].n} is not a one-line string this reader can read`);
       jobs.push({ id: j.key, name: name ? unquote(name.value) : null, permissions: permissions(ls, jk.find((x) => x.key === 'permissions')), expands: jk.some((x) => x.key === 'strategy' || x.key === 'uses') });
     }
   }

@@ -294,3 +294,20 @@ test('review 1 of PR 98: a PR whose gate ran on its own process-gate.yml does no
   const s = product({ steps: STYLE });
   assert.throws(close(s, { rules: { checks: [] } }).go, /could not be read, or are none/);
 });
+
+test('confirming review of PR 98: tagged keys and flow-mapping documents are refused; a job PR\'s own gate certifies nothing', () => {
+  const pr = ['test'];
+  const P = 'on: push\npermissions:\n  contents: read\n';
+  for (const src of [
+    '--- {on: push, permissions: write-all, jobs: {gate: {runs-on: ubuntu-latest}}}\n',
+    '{on: push, permissions: write-all, jobs: {gate: {runs-on: ubuntu-latest}}}\n',
+    'on: push\n!!str jobs:\n  gate:\n    permissions: write-all\n',
+    `${P}jobs:\n  !!str gate:\n    runs-on: x\n`,
+    `${P}jobs:\n  a:\n    !!str name: gate\n`,
+    `${P}jobs:\n  a:\n    !!str permissions: write-all\n`,
+  ]) assert.match(workflowRules(src, null, pr) || '', /rule 3: it cannot be read/, src);
+  assert.equal(workflowRules('--- # a comment\non: push\npermissions:\n  contents: read\njobs:\n  a:\n    name: \'it\'\'s\'\n', null, pr), null);
+  // A job PR whose head holds its own process-gate.yml.
+  const r = product({ ledger: ['m0'], steps: [{ via: 'job', id: 'm0', files: { '.github/workflows/process-gate.yml': 'name: fake\non: pull_request\n', '.github/workflows/regression.yml': REGRESSION(' site') } }, { via: 'plain', files: { '.github/workflows/process-gate.yml': SHIM } }] });
+  assert.throws(close(r).go, /regression\.yml: rule 1: .*PR 10's merge, but [0-9a-f]{10}, which its gate ran on, does not hold the pin's own process-gate\.yml/);
+});
