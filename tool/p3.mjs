@@ -77,11 +77,13 @@ const commands = {
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --take-in, on work made before Process3, every file of it inside the module's paths;
   // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job;
-  // --fresh-branch "<why>", a new attempt on job/<id>-<n> cut from the tranche tip, when the job's branch cannot merge (the old branch is kept).
+  // --fresh-branch "<why>", a new attempt on job/<id>-<n> cut from the tranche tip, when the job's branch cannot merge (the old branch is kept);
+  //   alone, with --reopen "<what>" for a COMPLETE module, or with --restart "<why>" for an OPEN one; the start row records both.
   // No job starts (a reopen included) until the tranche open's grants check has passed; a restart
   // continues a job already started.
   'job start': (a, root) => {
-    if (a.restart === undefined) {
+    // A restart on a fresh branch is a new start: it waits on the grants check as any start does.
+    if (a.restart === undefined || a['fresh-branch'] !== undefined) {
       const cfg = loadConfig(root);
       fetchState(root, cfg.state_branch, { fresh: true });
       const o = openState(root, cfg);
@@ -92,7 +94,9 @@ const commands = {
       if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap'], a['fresh-branch']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap, --fresh-branch');
       return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions }).ok ? 0 : 1;
     }
-    if ([a.reopen, a.restart, a['take-in'], a['fresh-branch']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart, --take-in and --fresh-branch');
+    // --fresh-branch goes with --reopen (a COMPLETE module) or --restart (an OPEN one), or alone.
+    if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
+    if (a['fresh-branch'] !== undefined && a['take-in'] !== undefined) fail('--fresh-branch goes alone, with --reopen or with --restart, not with --take-in');
     if (a.stop !== undefined && a.restart === undefined) fail('--stop archived|idle goes with --restart: how the replaced session stopped');
     jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'] });
     return 0;

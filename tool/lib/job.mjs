@@ -228,7 +228,13 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
 export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
-  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, open, notes, log });
+  // --restart with --fresh-branch (coordinator, 4 Nov): an OPEN module's new attempt on a fresh
+  // branch; the start row records the restart's why with the fresh branch's.
+  if (restart !== undefined && fresh !== undefined) {
+    if (restart === true || !String(restart).trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
+    if (reopen !== undefined) fail('--restart and --reopen do not go together');
+    if (stop !== undefined) fail('--stop goes with a --restart on the job\'s own branch, not with --fresh-branch');
+  } else if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, open, notes, log });
   if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
@@ -319,6 +325,8 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   if (over) log(`${over}; starting over the cap: ${overWhy}`);
   if (reopen) {
     if (entry0.status.state !== 'COMPLETE') fail(`${id} is ${entry0.status.state}; --reopen is for a COMPLETE module`);
+  } else if (restart !== undefined && entry0.status.state !== 'OPEN') {
+    fail(`${id} is ${entry0.status.state}, not OPEN; --restart with --fresh-branch is for an OPEN module${entry0.status.state === 'COMPLETE' ? ', and a COMPLETE one takes --reopen "<what it must do>" with --fresh-branch' : ''}`);
   } else if (!['OPEN', 'BLOCKED'].includes(entry0.status.state)) {
     fail(`${id} is ${entry0.status.state}, not OPEN${entry0.status.state === 'COMPLETE' ? '; a new attempt needs --reopen "<what it must do>"' : ''}`);
   }
@@ -347,7 +355,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(branch !== `job/${id}` ? { branch } : {}), ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(reopen ? { reopen } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(branch !== `job/${id}` ? { branch } : {}), ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
