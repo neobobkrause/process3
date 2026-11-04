@@ -162,3 +162,23 @@ test('a filter or replace ref the PR planted in .git does not reach the base\'s 
   assert.equal(r.run.suite, 'fail', 'one.test.mjs passes at the base, so its failure is the PR\'s');
   assert.match(r.findings.find((f) => f.check === 'suite').message, /pass or are missing at the base.*x is 1/);
 });
+
+// Copy PR 95, 4 Nov: a provider's job merged green on its own suite and broke a module that uses
+// it (plane), unseen until deploy. A job's gate runs the modules whose uses name it too.
+const betaOne = "import test from 'node:test'; import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';\ntest('beta needs x 1', () => a.equal(x, 1));\n";
+const beta = { 'process/ledger/beta.json': entry('beta', { uses: ['alpha'] }), 'src/beta/index.mjs': 'export const y = 1;\n' };
+test('a provider job that breaks a module using it is red at its own gate', () => {
+  const s = setup({ ...beta, 'test/beta/b.test.mjs': betaOne, 'process/ledger/gamma.json': entry('gamma'), 'test/gamma/g.test.mjs': redTest },
+    { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = run(s, receiptFor(s.head));
+  assert.deepEqual(r.run.scope, ['alpha', 'beta'], 'gamma does not use alpha and is not run');
+  assert.equal(r.run.suite, 'fail');
+  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['suite', 'test/beta/'], ['receipt', 'process/ledger/alpha.json']]);
+});
+
+test('a user\'s base-red tests are tolerated and not the receipt\'s to name', () => {
+  const s = setup({ ...beta, 'test/beta/red.test.mjs': redTest, 'test/alpha/red.test.mjs': redTest },
+    { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const r = run(s, receiptFor(s.head, { exit: 1, base_red: [RED] }));
+  assert.deepEqual([r.run.scope, r.run.suite, r.run.base_red.map((b) => b.module), r.run.receipt, r.run.ok], [['alpha', 'beta'], 'base-red', ['alpha', 'beta'], 'agrees', true]);
+});

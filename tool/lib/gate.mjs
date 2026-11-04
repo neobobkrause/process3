@@ -146,8 +146,10 @@ export function gate(root, opts) {
   else {
     runRow.trigger = 'code';
     if (receiptRun) log(`only records changed${sinceGreen ? ` since ${String(lastGreen.sha).slice(0, 10)}` : ''}, but no green code run measured receipt attempt ${jobReceipt.attempt}${stands ? ` (${stands.why})` : ''}: the gate runs the ${job} suite to check it`);
-    // A job's PR runs its module; any other PR runs every module whose files it touches. The
-    // tranche (into main) runs only the modules with a file its job merges did not gate.
+    // A job's PR runs its module and those whose uses name it (copy PR 95 broke plane unseen;
+    // at any depth the copy's worst is 43 suite minutes of the job's 45, direct 29). Any other PR
+    // runs every module whose files it touches. The tranche (into main) runs only the modules
+    // with a file its job merges did not gate.
     let touched = changed;
     if (!entry && branch && branch === cfg.tranche) {
       const c = trancheCover(root, cfg, { head, mb, changed, entries, slug, io, log });
@@ -155,7 +157,7 @@ export function gate(root, opts) {
       runRow.through = c.through;
       runRow.uncovered = c.uncovered.length;
     }
-    const scope = entry ? [entry] : entries.filter((e) => touched.some((f) => inModule(e, f)));
+    const scope = entry ? [entry, ...entries.filter((e) => e.id !== job && e.uses?.includes(job))] : entries.filter((e) => touched.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
@@ -266,7 +268,8 @@ export function gate(root, opts) {
       const suite = measured?.ok ? lastGreen.suite : runRow.suite;
       if (measured?.ok) runRow.receipt_measured = lastGreen.sha;
       else if (measured) runRow.receipt_unmeasured = measured.why;
-      const red = measured?.ok ? lastGreen.base_red : runRow.base_red;
+      // Only the job's own suite is claimed: its users' base-red tests are not the receipt's.
+      const red = (measured?.ok ? lastGreen.base_red : runRow.base_red)?.filter((b) => b.module === job);
       runRow.receipt = !onBranch ? 'wrong commit'
         : measured && !measured.ok ? 'unmeasured'
           : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red) ? 'agrees' : 'disagrees';
