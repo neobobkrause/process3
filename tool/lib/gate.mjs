@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
-import { install, runSuite, suffixOf, testFiles } from './suite.mjs';
+import { install, runSuite, suffixOf } from './suite.mjs';
 import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
@@ -505,7 +505,7 @@ const eventDirs = [];
 // modules every job PR's gate runs beside the job's own suite, the cheap catch for a break
 // across modules (Bob, 4 Nov: users' suites in a job gate cost +7.6 min median and caught none
 // of 20 refuted claims). Each file runs by the module whose tests hold it, within `seconds` in
-// all (default 120). A test red at the base too is reported in the row, not a finding, as the
+// all (default 120); a file under the job's own test paths is the suite's. A test red at the base too is reported in the row, not a finding, as the
 // suite's base-red is; the receipt claims only the job's own suite.
 export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () => {} }) {
   const { files, seconds = 120 } = cfg.smoke;
@@ -513,22 +513,27 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
     return { row: { result: 'fail' }, findings: [F('config', CONFIG_FILE, 'smoke must be {"files": [test files], "seconds": <cap, default 120>}')] };
   }
   const findings = [];
-  const own = new Set(testFiles(root, entry));
   const groups = new Map();
-  for (const f of files.filter((x) => !own.has(x))) {
+  for (const f of files.filter((x) => !entry.tests.some((t) => underPath(x, t)))) {
     const e = entries.find((m) => m.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(m)));
     if (!e || !existsSync(join(root, f))) { findings.push(F('smoke', f, `smoke file ${f} is ${e ? 'missing' : 'not a test of any module'}`)); continue; }
     groups.set(e, [...(groups.get(e) || []), f]);
   }
-  const end = Date.now() + seconds * 1000;
+  let end = Date.now() + seconds * 1000;
   const row = { files: 0, seconds: 0, base_red: [] };
-  for (const [e, fs] of groups) {
-    const s = runSuite(root, e, fs, { timeout: Math.max(1000, end - Date.now()), events: eventsFile() });
+  const left = [...groups];
+  while (left.length) {
+    if (Date.now() >= end) { findings.push(F('smoke', left[0][1][0], `the ${seconds} s smoke cap is spent; not run: ${left.flatMap((g) => g[1]).join(', ')}`)); break; }
+    const [e, fs] = left.shift();
+    const s = runSuite(root, e, fs, { timeout: end - Date.now(), events: eventsFile() });
     row.files += fs.length;
     row.seconds += s.seconds;
-    if (s.exit === 0) continue;
+    if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
     const out = /ETIMEDOUT/.test(s.output);
+    // Base-red has its own budget, as the suite's has (PR 117), and its time is not the cap's.
+    const t0 = Date.now();
     const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: seconds * 1000, ...(exec ? { exec } : {}), log });
+    end += Date.now() - t0;
     if (br?.ok) {
       row.base_red.push({ module: e.id, ...br.base_red });
       log(`smoke: ${br.base_red.tests.length} failing test(s) of ${e.id} fail at the base ${String(base).slice(0, 10)} too: reported, not blocking:\n${br.base_red.tests.map((t) => `  ${t}`).join('\n')}`);

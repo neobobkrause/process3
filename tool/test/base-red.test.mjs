@@ -195,6 +195,16 @@ test('a smoke test red at the base too is reported in the row and does not block
   assert.deepEqual(baseRedOwed([{ pr: 5, module: 'alpha' }], () => [r.run]).map((o) => [o.module, o.test]), [['beta', 'test/beta/red.test.mjs::plane > has ai-catalogue']], 'owed as the suite\'s base-red is');
 });
 
+test('the smoke cap: once spent, the files left are one finding; a job\'s own listed file it deleted is not a finding', () => {
+  const slow = "import test from 'node:test';\ntest('slow', async () => { await new Promise((r) => setTimeout(r, 1500)); });\n";
+  const s = setup({ ...beta, 'test/beta/s.test.mjs': slow, 'process/ledger/gamma.json': entry('gamma'), 'test/gamma/g.test.mjs': slow,
+    ...smokeCfg(['test/beta/s.test.mjs', 'test/gamma/g.test.mjs', 'test/alpha/gone.test.mjs'], 1) }, change);
+  const r = run(s, receiptFor(s.head));
+  assert.deepEqual(r.findings.map((f) => [f.check, f.file]), [['smoke', 'test/beta/s.test.mjs'], ['smoke', 'test/gamma/g.test.mjs']], 'no finding for test/alpha/gone.test.mjs');
+  assert.match(r.findings[0].message, /over the 1 s cap/);
+  assert.match(r.findings[1].message, /cap is spent; not run: test\/gamma\/g\.test\.mjs$/);
+});
+
 test('a smoke file no module\'s tests hold, or missing, is a finding; no smoke key, no smoke run', () => {
   const s = setup({ ...beta, ...smokeCfg(['test/beta/gone.test.mjs', 'lib/x.test.mjs']) }, change);
   const r = run(s, receiptFor(s.head));
