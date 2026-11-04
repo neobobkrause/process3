@@ -98,13 +98,19 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
       try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
-      row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
       const ahead = haveTranche ? aheadBy(root, { slug, base: cfg.tranche, head: `job/${e.id}`, local: [tranche, branch], read: io.compare }) : null;
       row.ahead = ahead;
+      // A job whose pull request merged (its entry COMPLETE on the tranche, every commit of its
+      // branch on the tranche) is the tranche's: its branch, not fetched once COMPLETE, can hold
+      // the status it had when last fetched, and raises no flag (ROOT, 4 Nov: sweep listed the
+      // merged instance-setup and wizard-scripts as BLOCKED every hour from such a ref). Its
+      // branch is still read (owedNotices: a merged attempt's start row names an unrecorded answer).
+      const merged = ahead === 0 && e.status?.state === 'COMPLETE';
+      row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit.
-      if (s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';
-      if (s.state === 'BLOCKED') row.flag = 'BLOCKED';
-      if (s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
+      if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1) row.flag = 'WORKING, nothing pushed';
+      if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
+      if (!merged && s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
     }
     const pr = prs?.find((p) => p.head?.ref === `job/${e.id}`);
     if (pr) {

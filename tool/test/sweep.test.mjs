@@ -8,6 +8,7 @@ import { handoverConfirm, promptRefresh, readAddress, recordStart, rootPrompt, s
 import { readState, writeState } from '../lib/state.mjs';
 import { HEARTBEAT_FILE, SWEEP_ROWS_FILE, sweep, sweepTask, watch } from '../lib/sweep.mjs';
 import { git } from '../lib/util.mjs';
+import { status } from '../lib/status.mjs';
 
 const quiet = () => {};
 const R = 'session_root1';
@@ -321,4 +322,36 @@ test('start check --wake prompt refresh: an old prompt hash at a new pin prints 
   assert.equal(t.act, 'changed');
   assert.ok(t.prompt.startsWith('# ROOT'));
   assert.equal(pr({ session: W }).act, 'same');
+});
+
+test('sweep: a merged job\'s branch, BLOCKED when last fetched, is not listed BLOCKED (ROOT, 4 Nov)', () => {
+  // job/m was BLOCKED, then its job went on and merged: the tranche holds every commit of the
+  // branch and its entry is COMPLETE. A COMPLETE entry's branch is not fetched again, so the local
+  // ref still shows the BLOCKED tip; instance-setup and wizard-scripts were listed so every hour.
+  const root = withOrigin({ 'process/ledger/m.json': entry('m', { status: { state: 'WORKING' } }) });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  git(['checkout', '-q', '-b', 'job/m'], { cwd: root });
+  commit(root, { 'process/ledger/m.json': entry('m', { status: { state: 'BLOCKED', reason: 'waits on x' } }) });
+  git(['push', '-q', 'origin', 'job/m'], { cwd: root });
+  git(['fetch', '-q', 'origin', 'job/m'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  // Before it merges, the branch's BLOCKED is listed.
+  assert.match(run(root).found.join('|'), /m: BLOCKED/);
+  git(['merge', '-q', '--no-ff', '-m', 'Merge job PR 9', 'job/m'], { cwd: root });
+  commit(root, { 'process/ledger/m.json': entry('m', { status: { state: 'COMPLETE' } }) });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const r = run(root);
+  assert.doesNotMatch(r.found.join('|'), /m: BLOCKED/);
+  // Its branch is still read (owedNotices reads a merged attempt's start row through it): no flag, no blocked.
+  const row = status(root, { offline: true, log: quiet }).rows.find((x) => x.id === 'm');
+  assert.deepEqual([row.branch, row.ahead, row.flag, row.blocked], ['BLOCKED (waits on x)', 0, undefined, undefined]);
+  // A branch with work the tranche lacks still raises its flag, COMPLETE entry or not.
+  git(['checkout', '-q', 'job/m'], { cwd: root });
+  commit(root, { 'm.txt': 'a reopened attempt' });
+  git(['push', '-q', 'origin', 'job/m'], { cwd: root });
+  git(['fetch', '-q', 'origin', 'job/m'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  assert.match(run(root).found.join('|'), /m: BLOCKED/);
 });

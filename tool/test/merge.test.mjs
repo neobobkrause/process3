@@ -447,7 +447,12 @@ function trancheToMain({ how = 'merge', value = P3, mainConfig } = {}) {
     setAt = git(['rev-parse', 'HEAD'], { cwd: root });
   } else setAt = commit(root, { 'process/config.json': cfgWith(value) }, 'config');
   commit(root, { 'process/config.json': JSON.stringify({ process_repo: value, record_since: null, tranche: 'tranche' }) }, 'later config');
-  const sha = commit(root, { 'pin.txt': 'x' });
+  // The tranche's process pin (a first close brings one; intoMain's process3 releases it).
+  write(root, { 'pin.txt': 'x' });
+  git(['add', '-A'], { cwd: root });
+  git(['update-index', '--add', '--cacheinfo', `160000,${PIN},.process`], { cwd: root });
+  git(['commit', '-q', '-m', 'the pin'], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   return { root, sha, head: 'tranche', setAt };
@@ -459,8 +464,10 @@ const ghCommit = (owned, { author = 'neobobkrause' } = {}) => (args) => {
     ? { author: { login: author }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } }
     : { author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
 };
+const PIN = 'a'.repeat(40);
+const released = { released: (p) => p === PIN, shim: () => null, descends: () => true };
 const intoMain = (r, lookup, asked = []) => {
-  const f = plainIO(r, { base: 'main' });
+  const f = plainIO(r, { base: 'main', repo: released });
   f.io.lookup = (args, o) => { asked.push(args[1].split('/').pop()); return lookup(args, o); };
   return f;
 };
@@ -693,7 +700,7 @@ test('the tranche into main carrying a changed approvals.owner passes pinChange,
   git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
   git(['checkout', '-q', 'main'], { cwd: r.root });
   const mb = git(['merge-base', mainTip, change], { cwd: r.root });
-  assert.doesNotThrow(() => pinChange(r.root, mb, change, { released: () => false, descends: () => false }, { intoMain: true, baseRef: 'origin/main', ownerCommit: () => ({ ok: false }) }));
+  assert.doesNotThrow(() => pinChange(r.root, mb, change, released, { intoMain: true, baseRef: 'origin/main', ownerCommit: () => ({ ok: false }) }));
   const cfgMain = loadConfig(r.root, mainTip);
   assert.equal(cfgMain.approvals.owner, D.approvals.owner);
   const f = recordCheck(r.root, { ...cfgMain, max_file_bytes: 1e6 }, { base: mainTip, head: change, lookup: ghCommit('none') }).findings;
