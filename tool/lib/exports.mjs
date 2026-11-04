@@ -170,8 +170,10 @@ export function resolveSpec(from, spec, has) {
   return null;
 }
 
-// The provider's entry files at ref: its source files a file outside it imports; else its index files.
-export function entryFiles(root, ref, { isProviderSource, providerPaths }) {
+// The provider's entry files at ref: its source files a file outside the module imports; else its index files.
+// An importer inside the provider module (its source, its tests, anything under its paths) is not
+// a user: the gate counts a module's tests as the module's own (checks.mjs ownerOf; review of PR 82).
+export function entryFiles(root, ref, { isProviderSource, providerPaths, inProvider = isProviderSource }) {
   const all = git(['ls-tree', '-r', '--name-only', '-z', ref], { cwd: root }).split('\0').filter(Boolean);
   const set = new Set(all);
   const mine = all.filter((f) => CODE.test(f) && isProviderSource(f));
@@ -183,7 +185,7 @@ export function entryFiles(root, ref, { isProviderSource, providerPaths }) {
     const g = git(['grep', '-l', '-z', '-F', ...words.flatMap((w) => ['-e', w]), ref, '--', ...EXTS.map((e) => `*${e}`)], { cwd: root, allowFail: true });
     const files = g.code === 0 ? g.stdout.split('\0').filter(Boolean).map((f) => f.slice(ref.length + 1)) : [];
     for (const f of files) {
-      if (isProviderSource(f) || !CODE.test(f)) continue;
+      if (inProvider(f) || !CODE.test(f)) continue;
       const text = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
       for (const { spec } of specifiers(text)) {
         const to = resolveSpec(f, spec, (x) => set.has(x));

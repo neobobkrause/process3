@@ -86,7 +86,7 @@ export function providerChange(root, cfg, { provider, requirements, base, head, 
   if (src.length) {
     notice.source = src.length;
     try {
-      const x = exportChanges(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), providerPaths: sourcePaths(cfg, e) });
+      const x = exportChanges(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
       if (anyExportChange(x)) notice.exports = x;
     } catch (err) { notice.exports_unread = String(err.message || err).slice(0, 200); }
   }

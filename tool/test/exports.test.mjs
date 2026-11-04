@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { surfaceOf } from '../lib/exports.mjs';
+import { entryFiles, surfaceOf } from '../lib/exports.mjs';
+import { commit, makeRepo } from './helpers.mjs';
 
 const surface = (files, entry) => Object.fromEntries(surfaceOf((f) => files[f] ?? null, entry, (f) => f.startsWith('p/')));
 
@@ -21,4 +22,17 @@ test('a class inherits the methods of a base in its own file, exported or not, b
   // Two classes extending each other: read once, no loop.
   assert.deepEqual(surface({ 'p/a.mjs': 'class A extends B { a() {} }\nclass B extends A { b() {} }\nexport { A };\n' }, 'p/a.mjs'),
     { A: 'class', 'A.a': '()', 'A.b': '()' });
+});
+
+// Review of PR 82: the provider's own tests import its internals; they are not its users.
+test('entry files: an importer in the provider\'s tests is not a user; with only its tests importing it, its index files', () => {
+  const root = makeRepo({
+    'prov/src/index.mjs': "export { f } from './internal.mjs';\n",
+    'prov/src/internal.mjs': 'export function f(a) {}\nexport function helper(b) {}\n',
+    'prov/test/a.test.mjs': "import { helper } from '../src/internal.mjs';\n",
+  });
+  const opts = { isProviderSource: (f) => f.startsWith('prov/src/'), inProvider: (f) => f.startsWith('prov/'), providerPaths: ['prov/src/'] };
+  assert.deepEqual(entryFiles(root, 'HEAD', opts), ['prov/src/index.mjs']);
+  commit(root, { 'user/a.mjs': "import { f } from '../prov/src/index.mjs';\n" });
+  assert.deepEqual(entryFiles(root, 'HEAD', opts), ['prov/src/index.mjs']);
 });
