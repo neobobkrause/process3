@@ -282,13 +282,17 @@ test('the shim: publish refuses a dispatch off the tranche, a commit naming anot
   const sha = git(['rev-parse', 'HEAD'], { cwd: repo });
   const other = commit(repo, { 'process/config.json': JSON.stringify({ tranche: 'p3dev-release/x' }) });
   // gh prints the error body to stdout on a 404, as the real one does.
-  write(tmp, { 'bin/gh': '#!/bin/sh\nif [ -n "$MAIN_CFG" ]; then printf %s "$MAIN_CFG"; else echo \'{"message":"Not Found"}\'; exit 1; fi\n' });
+  write(tmp, { 'bin/gh': '#!/bin/sh\nif [ "$MAIN_CFG" = 500 ]; then echo \'{"message":"Server Error","status":"500"}\'; exit 1; elif [ -n "$MAIN_CFG" ]; then printf %s "$MAIN_CFG"; else echo \'{"message":"Not Found","status":"404"}\'; exit 1; fi\n' });
   spawnSync('chmod', ['+x', join(tmp, 'bin/gh')]);
   const runStep = (env) => spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${join(tmp, 'bin')}:${process.env.PATH}`, GITHUB_REPOSITORY: 'o/p', DEFAULT: 'main', MAIN_CFG: '{"tranche":"tr"}', GITHUB_REF: 'refs/heads/tr', GITHUB_SHA: sha, COMMIT: sha, ...env } });
   assert.equal(runStep({}).status, 0, runStep({}).stderr);
   assert.match(runStep({ GITHUB_REF: 'refs/heads/p3dev-release/x' }).stdout, /not refs\/heads\/tr; a development release is cut only from the tranche/);
   // main has no config: the default name, so a tranche named tr is refused.
   assert.match(runStep({ MAIN_CFG: '' }).stdout, /not refs\/heads\/tranche/);
+  // Any other failure to read it refuses, rather than fall back to the default name.
+  const down = runStep({ MAIN_CFG: '500', GITHUB_REF: 'refs/heads/tranche' });
+  assert.notEqual(down.status, 0);
+  assert.match(down.stdout, /the default branch's config could not be read/);
   // The dispatched commit names its own branch as the tranche.
   const own = runStep({ GITHUB_REF: 'refs/heads/tr', GITHUB_SHA: other, COMMIT: other });
   assert.notEqual(own.status, 0);

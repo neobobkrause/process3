@@ -4,8 +4,10 @@
 # this file, the commit, its config and the process pin all come from the tranche. Job publish
 # refuses any other ref, naming the tranche from the default branch's config (the default name
 # when that has none), and runs in the environment p3dev-release, whose deployment branch rule
-# allows only the tranche and which holds the signing secret: a run on another ref, from another
-# copy of this file, never reaches the secret or the contents: write token.
+# allows only the tranche and which holds the signing secret. Those checks bind only this copy of
+# the file: a run on another ref runs that ref's copy, so the wall is the environment (Bob's
+# setting), which keeps the secret from any other ref; a tag ruleset on p3dev-* would also keep
+# such a run from tagging.
 # Three jobs, as process-gate.yml keeps tokens from product code: checks and assemble run product
 # code on read-only tokens; publish holds contents: write and runs no product code: it pushes the
 # tag p3dev-<version> itself (a draft release has no tag until published, measured 3 Nov) and
@@ -31,7 +33,7 @@ run-name: p3dev-release ${{ inputs.version }}
 # Each job names its own permissions; nothing is granted by default.
 permissions: {}
 concurrency:
-  group: process-dev-release-${{ inputs.version }}
+  group: process-dev-release-${{ github.ref }}-${{ inputs.version }}
   cancel-in-progress: false
 jobs:
   checks:
@@ -146,7 +148,10 @@ jobs:
           DEFAULT: ${{ github.event.repository.default_branch }}
           COMMIT: ${{ inputs.commit }}
         run: |
-          tranche=$(gh api -H 'Accept: application/vnd.github.raw' "repos/$GITHUB_REPOSITORY/contents/process/config.json?ref=$DEFAULT" 2>/dev/null) || tranche='{}'
+          # The default name only when the default branch has no config (a 404); any other failure refuses.
+          if tranche=$(gh api -H 'Accept: application/vnd.github.raw' "repos/$GITHUB_REPOSITORY/contents/process/config.json?ref=$DEFAULT" 2>/dev/null); then :
+          elif echo "$tranche" | jq -e '.status == "404"' >/dev/null 2>&1; then tranche='{}'
+          else echo "::error::the default branch's config could not be read"; exit 1; fi
           tranche=$(echo "$tranche" | jq -r '.tranche // "tranche"')
           [ "$GITHUB_REF" = "refs/heads/$tranche" ] || { echo "::error::dispatched on $GITHUB_REF, not refs/heads/$tranche; a development release is cut only from the tranche"; exit 1; }
           [ "$(git show "$GITHUB_SHA:process/config.json" | jq -r '.tranche // "tranche"')" = "$tranche" ] || { echo "::error::the dispatched commit's config names another tranche than $DEFAULT's ($tranche)"; exit 1; }
