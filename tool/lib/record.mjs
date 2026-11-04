@@ -3,7 +3,8 @@
 // approvals or to the settings under .claude/ that did not come from the owner's own commit
 // through GitHub's website. The config it uses is read from the base, never from the change it
 // judges.
-import { basename } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
@@ -159,6 +160,12 @@ function prefetch(root, range) {
     { cwd: root, allowFail: true, input: missing.join('\n') + '\n' });
 }
 
+// The commits a shallow clone's history is cut at (empty in a full clone).
+function shallowCuts(root) {
+  const f = git(['rev-parse', '--git-path', 'shallow'], { cwd: root, allowFail: true }).stdout.trim();
+  try { return new Set(readFileSync(resolve(root, f), 'utf8').split('\n').filter(Boolean)); } catch { return new Set(); }
+}
+
 // trusted: the refs whose owner-set block a commit may carry (ownerBlock), beside the base: by
 // default origin/main and origin/<tranche>.
 export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, trusted } = {}) {
@@ -196,8 +203,16 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const guarded = (f) => isOwnerSetting(f) || isInstructionFile(f) || f === afile || f === CONFIG_FILE || KEEP.includes(f);
   // Another parent's version was judged when the last commit that set it lies in the range.
   const judged = (p, f) => inRange.has(git(['log', '-1', '--format=%H', p, '--', f], { cwd: root }).trim());
+  // A commit where this shallow clone's history is cut shows no parents: diffed as a root
+  // commit, every file would read as its change, named for a commit that never made it (copy,
+  // 4 Nov). It is not judged; the check says it could not read it.
+  const cut = shallowCuts(root);
   for (const sha of commits) {
     const short = sha.slice(0, 10);
+    if (cut.has(sha)) {
+      findings.push({ check: 'record', file: '(commit)', line: 1, message: `commit ${short} could not be checked: this clone's history is cut there (shallow), so its own change cannot be read; deepen the clone (job complete does) and run again` });
+      continue;
+    }
     try {
       const parents = git(['rev-list', '--parents', '-n', '1', sha], { cwd: root }).split(' ').slice(1);
       const files = introduced(root, sha, parents, { guarded, judged, base });
