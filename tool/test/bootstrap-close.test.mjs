@@ -5,7 +5,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isBootstrap, mergePlain } from '../lib/merge.mjs';
+import { isBootstrap } from '../lib/anchor.mjs';
+import { mergePlain } from '../lib/merge.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
 import { commit, makeRepo, write } from './helpers.mjs';
 

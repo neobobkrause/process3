@@ -6,18 +6,17 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
-import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
-import { appendRow, metricsFile, readRows } from './metrics.mjs';
-import { ownPaths } from './gate.mjs';
+import { checkLedger, entryFile } from './ledger.mjs';
+import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
+import { diffNames, entriesAt, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
-import { blobAt, isBootstrap, keySetAt, lastConfigAt, mergedUnanchored, pinAt, processRepoSetAt, unanchored } from './anchor.mjs';
+import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored } from './anchor.mjs';
 import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
-import { jsonl } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, isGenerated, refreshOthers } from './checks.mjs';
-import { closeWorkflows } from './workflows.mjs';
+import { closeWorkflows, isJob } from './workflows.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -25,8 +24,6 @@ const MINUTE = 60000;
 // Whether the job's metrics at rev hold a merge row for pull request n after its last receipt
 // (complete row): the tip an earlier merge run pushed, or one that brought it up to the tranche.
 const mergeRowSince = (rows, n) => rows.slice(rows.findLastIndex((r) => r.event === 'complete') + 1).some((r) => r.row === 'merge' && r.pr === n);
-export { isBootstrap, keySetAt, processRepoSetAt };
-const rowsAt = (root, rev, id) => { const t = git(['show', `${rev}:${metricsFile(id)}`], { cwd: root, allowFail: true }); return t.code === 0 ? jsonl(t.stdout) : []; };
 
 // The gate job's own cap (timeout-minutes in shims/process-gate.yml) and the default wait on it:
 // the cap and a queue. merge waited 30 min and merge --plain 20 on a gate capped at 45, so a slow
@@ -163,7 +160,7 @@ export function merge(root, n, opts = {}) {
   const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
   if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
   // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
-  const outside = git(['diff', '--no-renames', '--name-only', '-z', mb, `origin/${branch}`], { cwd: root }).split('\0').filter(Boolean).filter((f) => !own.some((p) => underPath(f, p)));
+  const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
@@ -340,8 +337,7 @@ function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
   const { notice, why, left } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
   if (why) log(`no provider notice: ${why}`);
   if (notice && left) log(`provider notice ${notice.key}: ${left}`);
-  const t = git(['show', `${at}:${metricsFile(id)}`], { cwd: root, allowFail: true });
-  const answers = (t.code === 0 ? jsonl(t.stdout) : []).filter((x) => x.event === 'start').pop()?.notices || [];
+  const answers = rowsAt(root, at, id).filter((x) => x.event === 'start').pop()?.notices || [];
   let notes = { rows: [] };
   try { notes = recordAtMerge(root, cfg, { notice, answers, user: id, pr: n }); } catch (e) {
     log(`the merge stands, but its provider notices were not written to ${cfg.state_branch} (${e.message}); run merge ${n} again to record them`);
@@ -438,7 +434,6 @@ export function mergePR(slug, n, sha, { title = `Merge job PR ${n}`, message } =
 // branch, or the tranche into main; a merge commit pinned to the head. GitHub's rulesets judge
 // the required checks (build J); the tool waits while any is queued or running. It writes no
 // merge row and pushes nothing. Without a process/config.json (process3 itself) the defaults hold.
-const isJob = (ref) => /^job\//i.test(ref);
 const WORKFLOWS = '.github/workflows/';
 
 // process3 as the tool's own clone holds it: whether a pin is released (a commit on its
@@ -617,7 +612,7 @@ export function mergePlain(root, n, opts = {}) {
   if (boot) bootstrapHead(root, pr.head.sha, { base, head, log });
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
-  const changed = git(['diff', '--no-renames', '--name-only', '-z', mb, pr.head.sha], { cwd: root }).split('\0').filter(Boolean);
+  const changed = diffNames(root, mb, pr.head.sha);
   workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, ownerCommit: (c) => (baseCfg?.approvals.owner ? webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug) : { ok: false }) } : null);
   const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
@@ -629,7 +624,7 @@ export function mergePlain(root, n, opts = {}) {
   // entry's paths or tests. The tranche itself (into main, or into a working branch) carries
   // only work that came through the gate. The tranche's name is the base's.
   if (!baseCfg || head !== baseCfg.tranche) {
-    const entries = Object.values(readLedgerTexts(root, baseRef)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter(Boolean);
+    const entries = entriesAt(root, baseRef);
     // One exception (the route for work found elsewhere, coordinator, 4 Nov): a change to a
     // module's requirement file that only adds new unmet found marks, `**F<n>** *(not yet met:
     // <source>)*` lines, nothing removed or changed, merges plain. Any other change still goes through a job.

@@ -10,12 +10,14 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { gate } from '../lib/gate.mjs';
+import { gate as gateRun, gateComment } from '../lib/gate.mjs';
 import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { merge, mergePlain, unagreed } from '../lib/merge.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { setupCheck } from '../lib/setup.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
+// The gate never posts; job post writes its row as a comment after the run, as here.
+const gate = (root, o) => { const r = gateRun(root, o); if (o.pr && o.post !== false) o.io.addComment(o.slug, o.pr, gateComment(r.run)); return r; };
 
 const quiet = () => {};
 const PASS = "import test from 'node:test';\ntest('ok', () => {});\n";

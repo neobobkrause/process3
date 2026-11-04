@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
-import { METRICS_DIR, metricsFile } from './metrics.mjs';
+import { METRICS_DIR, metricsFile, rowsAt } from './metrics.mjs';
 import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
@@ -181,9 +181,8 @@ export function takenIn(root, { base, head = 'HEAD', id } = {}) {
   const seen = new Set();
   for (const one of ids) {
     const file = metricsFile(one);
-    const rowsAt = (rev) => (show(root, rev, file) || '').split('\n').flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === 'object' ? [r] : []; } catch { return []; } });
-    const names = (rev, tip) => rowsAt(rev).some((r) => r.event === 'start' && r.take_in?.tip === tip);
-    const claimed = [...new Set(rowsAt(head).filter((r) => r.event === 'start' && r.take_in && 'tip' in r.take_in).map((r) => r.take_in.tip))];
+    const names = (rev, tip) => rowsAt(root, rev, one).some((r) => r.event === 'start' && r.take_in?.tip === tip);
+    const claimed = [...new Set(rowsAt(root, head, one).filter((r) => r.event === 'start' && r.take_in && 'tip' in r.take_in).map((r) => r.take_in.tip))];
     for (const tip of claimed) {
       const bad = (why) => out.findings.push({ check: 'record', file, line: 1, message: `the take-in tip ${String(tip).slice(0, 10)} is not used to leave out earlier work: ${why}` });
       const full = typeof tip === 'string' && /^([0-9a-f]{40}|[0-9a-f]{64})$/.test(tip);

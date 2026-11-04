@@ -5,9 +5,8 @@ import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
-import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
-import { jsonl } from './state.mjs';
-import { metricsFile } from './metrics.mjs';
+import { checkLedger, entryFile, readLedgerTexts } from './ledger.mjs';
+import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
 import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
@@ -20,18 +19,13 @@ const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
 
-function entriesAt(root, ref) {
-  const r = git(['ls-tree', '--name-only', `${ref}:${LEDGER_DIR}`], { cwd: root, allowFail: true });
-  if (r.code !== 0) return [];
-  return r.stdout.split('\n').filter((n) => n.endsWith('.json')).map((n) => {
-    const text = git(['show', `${ref}:${LEDGER_DIR}/${n}`], { cwd: root }); // a read failure is an error
-    try { return JSON.parse(text); } catch { return null; } // unreadable JSON is checkLedger's finding
-  }).filter(Boolean);
-}
+// The ledger entries at ref; a read failure is an error, unreadable JSON is checkLedger's finding.
+export const entriesAt = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const e = JSON.parse(t); return e ? [e] : []; } catch { return []; } });
 
 // No rename detection: a rename lists both the removed and the added path (confirming review
 // of PR 14).
-const diffNames = (root, a, b) => git(['diff', '--no-renames', '--name-only', '-z', a, b], { cwd: root }).split('\0').filter(Boolean);
+export const diffNames = (root, a, b, paths = []) => git(['diff', '--no-renames', '--name-only', '-z', a, b, '--', ...paths], { cwd: root }).split('\0').filter(Boolean);
+export const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
 // A job strikes the marks it meets in its requirements file, so that file is its own too.
@@ -70,10 +64,10 @@ export function gateConfig(root, { base, head, branch, slug, io = ghIO }) {
   }
 }
 
-// post: false (--no-post) in the workflow's job gate, whose token can only read; job post writes
-// the comment from the run's artifact (setup audit, 2 Nov).
+// The gate never posts: its token can only read, and job post writes the comment from the run's
+// artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
-  const { base, head, branch, pr, draft: eventDraft = false, started = Date.now(), post = true, io = ghIO, exec, log = console.log } = opts;
+  const { base, head, branch, pr, draft: eventDraft = false, started = Date.now(), io = ghIO, exec, log = console.log } = opts;
   const slug = opts.slug || repoSlug(root);
   const { cfg, findings, bootstrap } = gateConfig(root, { base, head, branch, slug, io }); // the trusted side
   if (bootstrap) log(`the base has no Process3: the gate runs with the head's ${RUN_KEYS.join(', ')}, its anchored keys held`);
@@ -284,8 +278,6 @@ export function gate(root, opts) {
   runRow.findings = findings.length;
   runRow.ok = findings.length === 0;
   runRow.minutes = Math.round(((Date.now() - started) / MINUTE) * 100) / 100;
-  // One new comment per run: the bot never edits, so an edited gate comment is not counted.
-  if (pr && post) io.addComment(slug, pr, gateComment(runRow));
   return { run: runRow, findings, changed };
 }
 
@@ -332,7 +324,7 @@ function measuredBy(root, cfg, receipt, green) {
 // suite green (trigger code, or record-since-green after such a run); and the file is the
 // job's own (ownPaths, from the tranche's entry before the merge) and no other module's. A covered
 // module still runs when a module it uses changed on the tranche after its merge.
-const MERGE_TITLE = /^Merge job PR (\d+)$/;
+export const MERGE_TITLE = /^Merge job PR (\d+)$/;
 export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, log = () => {} }) {
   const need = changed.filter((f) => !isRecordPath(cfg, f) && entries.some((e) => inModule(e, f)));
   const last = new Map();
@@ -432,8 +424,7 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   const pr = io.getPR(slug, n);
   const id = pr?.head?.ref?.match(/^job\/([a-z0-9-]+)$/)?.[1];
   if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2 || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
-  const t = git(['show', `${p2}:${metricsFile(id)}`], { cwd: root, allowFail: true });
-  if (!(t.code === 0 ? jsonl(t.stdout) : []).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
+  if (!rowsAt(root, p2, id).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
   const branch = `job/${id}`;
   const why = branchBound(slug, branch, n, cfg.tranche, io);
   if (why) return no(why);
@@ -441,8 +432,7 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   // The row is bound to the PR here: its run was on job/<id> (verifyRow); its commit is the PR's
   // head or an earlier commit of it; its base was the tranche, at or before the merge's.
   const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch } };
-  const isAnc = (a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
-  const bound = (r) => isAnc(r.sha, p2) && isAnc(r.base, p1) && io.verify(slug, r, ctx);
+  const bound = (r) => isAnc(root, r.sha, p2) && isAnc(root, r.base, p1) && io.verify(slug, r, ctx);
   // A base-red run (basered.mjs) does not cover: the tranche runs that suite again, tolerating nothing.
   const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
   const row = runs.filter((r) => r.sha === p2).pop();

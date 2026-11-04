@@ -88,7 +88,7 @@ export function refusalCounts(rows) {
 }
 
 // Lines that are not JSON are skipped: status must still print with one bad line.
-const parseLines = (text) => text.split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+const parseLines = (text) => text.split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return r && typeof r === 'object' ? [r] : []; } catch { return []; } });
 
 // Metrics rows in this checkout, for status.
 export function rowsHere(root) {
@@ -97,9 +97,9 @@ export function rowsHere(root) {
   return readdirSync(dir).filter((n) => n.endsWith('.jsonl')).flatMap((n) => parseLines(readFileSync(join(dir, n), 'utf8')));
 }
 
-// Metrics rows as a commit holds them (the tranche's), for status.
-export function rowsAt(root, ref) {
-  const r = git(['ls-tree', '-r', '--name-only', '-z', ref, '--', METRICS_DIR], { cwd: root, allowFail: true });
+// Metrics rows as a commit holds them (the tranche's), for status; with id, that module's only.
+export function rowsAt(root, ref, id) {
+  const r = git(['ls-tree', '-r', '--name-only', '-z', ref, '--', id === undefined ? METRICS_DIR : metricsFile(id)], { cwd: root, allowFail: true });
   if (r.code !== 0) return [];
   return r.stdout.split('\0').filter((f) => f.endsWith('.jsonl')).flatMap((f) => {
     const t = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true });

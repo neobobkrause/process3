@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { layerClose } from '../lib/layer.mjs';
-import { MARKER, RELEASES_FILE, branchOf, checkVersion, defaultVersion, releaseBody, releaseConfig, releaseDev, releaseReady, releaseRun, releaseSign, tagOf, versionOf } from '../lib/release.mjs';
+import { MARKER, RELEASES_FILE, checkVersion, defaultVersion, releaseBody, releaseConfig, releaseDev, releaseReady, releaseRun, releaseSign, tagOf } from '../lib/release.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
 
@@ -36,15 +36,10 @@ test('release config: the keys validated; checks take an argv or {name, argv, ti
   for (const s of ['lower', 'GITHUB_TOKEN', 'A-B']) assert.throws(() => releaseConfig(cfgWith({ ...REL, sign_secret: s })), /must name a repository secret/, s);
 });
 
-test('version, branch and tag naming', () => {
+test('version and tag naming', () => {
   assert.equal(defaultVersion('1a2b3c4d5e6f', new Date('2026-11-03T23:30:00Z')), '20261103-1a2b3c4');
-  assert.equal(branchOf('20261103-1a2b3c4'), 'p3dev-release/20261103-1a2b3c4');
   assert.equal(tagOf('0.4.0-dev.1'), 'p3dev-0.4.0-dev.1');
-  assert.equal(versionOf('p3dev-release/0.4.0'), '0.4.0');
-  assert.equal(versionOf('refs/heads/p3dev-release/0.4.0'), '0.4.0');
-  assert.throws(() => versionOf('release/0.4.0'), /is not a p3dev-release\/<version> branch/);
   for (const v of ['', '-x', 'a/b', 'a..b', 'a b', 'x.lock', 'x.', 'a'.repeat(65), 'v$1']) assert.throws(() => checkVersion(v), /the version must be/, v);
-  assert.throws(() => versionOf('p3dev-release/a/b'), /the version must be/);
 });
 
 test('the layer rule: every layer closed, or the open layer closed with nothing of the next in the tip', () => {
@@ -101,12 +96,12 @@ test('release dev: refused before a layer is closed, off the tranche tip, on a d
   assert.throws(() => releaseDev(root, { io: { ...io, status: { ...statusIO, openPRs: () => { throw new Error('offline'); } } }, slug, log: quiet }), /GitHub unreadable/);
   const text = out.join('\n');
   assert.match(text, /development only, never published/);
-  assert.match(text, new RegExp(`1\\. \`git push origin ${tip}:refs/heads/p3dev-release/${r.version}\``));
-  assert.match(text, /2\. watch the run: https:\/\/github\.com\/o\/p\/actions\/workflows\/process-dev-release\.yml\?query=branch%3Ap3dev-release%2F/);
+  assert.ok(text.includes(`1. \`gh workflow run process-dev-release.yml --repo o/p --ref tranche -f version=${r.version} -f commit=${tip}\``), text);
+  assert.match(text, /2\. watch the run: https:\/\/github\.com\/o\/p\/actions\/workflows\/process-dev-release\.yml\?query=branch%3Atranche\n/);
   assert.match(text, /3\. `node \.process\/tool\/p3\.mjs release dev --record <that run's url>`/);
   assert.equal(releaseDev(root, { io, slug, version: '0.4.0-dev.1', log: quiet }).version, '0.4.0-dev.1');
   assert.throws(() => releaseDev(root, { io, slug, version: 'a/b', log: quiet }), /the version must be/);
-  // A version already on origin, as a branch or a tag.
+  // A version already on origin as a tag.
   assert.throws(() => releaseDev(root, { io: { ...io, remoteRefs: () => `${tip}\trefs/tags/p3dev-0.4.0\n` }, slug, version: '0.4.0', log: quiet }), /version 0\.4\.0 is taken on origin \(refs\/tags\/p3dev-0\.4\.0\)/);
   // A dirty tree; then a checkout that is not the tranche tip.
   writeFileSync(join(root, 'build/requirements/a.md'), 'changed\n');
@@ -124,7 +119,7 @@ test('release dev --record: one row per run on the state branch, with the draft 
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
   const body = releaseBody('/nonexistent', { version: '0.4.0', commit: sha }).replace('"checks": null', '"checks": [{"name": "npm test", "exit": 0, "seconds": 9}]');
   const rio = {
-    getRun: (s, id) => ({ id, path: '.github/workflows/process-dev-release.yml', status: 'completed', conclusion: 'success', head_branch: 'p3dev-release/0.4.0', head_sha: sha, html_url: `https://github.com/o/p/actions/runs/${id}` }),
+    getRun: (s, id) => ({ id, path: '.github/workflows/process-dev-release.yml', status: 'completed', conclusion: 'success', event: 'workflow_dispatch', head_branch: 'tranche', display_title: 'p3dev-release 0.4.0', head_sha: sha, html_url: `https://github.com/o/p/actions/runs/${id}` }),
     jobs: () => [{ name: 'checks', conclusion: 'success' }, { name: 'assemble', conclusion: 'success' }, { name: 'publish', conclusion: 'success' }],
     releases: () => [{ tag_name: 'p3dev-0.4.0', draft: true, html_url: 'https://github.com/o/p/releases/tag/untagged-1', body, assets: [{ name: 'a.tgz' }] }],
   };
@@ -146,6 +141,11 @@ test('release dev --record: one row per run on the state branch, with the draft 
   assert.equal(failed.row.release, null);
   assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, getRun: (s, id) => ({ ...rio.getRun(s, id), path: '.github/workflows/x.yml' }) }, slug, log: quiet }), /not \.github\/workflows\/process-dev-release\.yml/);
   assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, getRun: (s, id) => ({ ...rio.getRun(s, id), status: 'in_progress' }) }, slug, log: quiet }), /has not finished/);
+  // Only a dispatch on the tranche, titled with its version.
+  assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, getRun: (s, id) => ({ ...rio.getRun(s, id), event: 'push', head_branch: 'p3dev-release/0.4.0' }) }, slug, log: quiet }), /run 79 is a push on p3dev-release\/0\.4\.0, not a dispatch on tranche/);
+  assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, getRun: (s, id) => ({ ...rio.getRun(s, id), head_branch: 'job/x' }) }, slug, log: quiet }), /not a dispatch on tranche/);
+  assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, getRun: (s, id) => ({ ...rio.getRun(s, id), display_title: 'other' }) }, slug, log: quiet }), /titled "other", not p3dev-release <version>/);
+  assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, getRun: (s, id) => ({ ...rio.getRun(s, id), display_title: 'p3dev-release a/b' }) }, slug, log: quiet }), /the version must be/);
   assert.throws(() => releaseDev(root, { record: '79', io: { ...rio, releases: () => [] }, slug, log: quiet }), /no release has the tag p3dev-0\.4\.0/);
   assert.throws(() => releaseDev(root, { record: 'not-a-run', io: rio, slug, log: quiet }), /--record <run url>/);
 });
@@ -198,11 +198,20 @@ test('release body: the checks in a block --record reads back', () => {
 });
 
 // The shim, parsed as YAML (PyYAML, when this machine has it), and its tokens per job.
-test('the shim: parses; push to p3dev-release/** only; read-only checks and assemble; publish alone writes and runs no product code', (t) => {
+test('the shim: parses; dispatch only, with version and commit; read-only checks and assemble; publish alone writes, in p3dev-release, and runs no product code', (t) => {
   const py = spawnSync('python3', ['-c', 'import sys,json,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', SHIM], { encoding: 'utf8' });
   if (py.status !== 0) { t.skip(`no YAML parser here: ${py.stderr.trim().split('\n').at(-1)}`); return; }
   const w = JSON.parse(py.stdout);
-  assert.deepEqual(w.true ?? w.on, { push: { branches: ['p3dev-release/**'] } }); // PyYAML reads the key on as true
+  const on = w.true ?? w.on; // PyYAML reads the key on as true
+  assert.deepEqual(Object.keys(on), ['workflow_dispatch']);
+  assert.deepEqual(Object.keys(on.workflow_dispatch.inputs), ['version', 'commit']);
+  assert.ok(Object.values(on.workflow_dispatch.inputs).every((i) => i.required === true && i.type === 'string'));
+  assert.equal(w['run-name'], 'p3dev-release ${{ inputs.version }}');
+  assert.equal(w.jobs.publish.environment, 'p3dev-release');
+  assert.equal(w.jobs.checks.environment, undefined);
+  assert.equal(w.jobs.assemble.environment, undefined);
+  // An input reaches a shell only through env, never spliced into a run.
+  for (const job of Object.values(w.jobs)) for (const s of job.steps) assert.doesNotMatch(s.run || '', /\$\{\{\s*(inputs|github\.event)/, s.name);
   assert.deepEqual(w.permissions, {});
   assert.deepEqual(Object.keys(w.jobs), ['checks', 'assemble', 'publish']);
   assert.deepEqual(w.jobs.checks.permissions, { contents: 'read' });
@@ -220,7 +229,7 @@ test('the shim: parses; push to p3dev-release/** only; read-only checks and asse
   const pub = text('publish');
   assert.doesNotMatch(pub, /release run|npm /);
   assert.ok(w.jobs.publish.steps.filter((s) => String(s.uses).startsWith('actions/checkout')).every((s) => s.with['persist-credentials'] === false));
-  assert.match(pub, /merge-base --is-ancestor/);
+  assert.doesNotMatch(pub, /merge-base --is-ancestor|GITHUB_REF_NAME|--branch/);
   assert.match(pub, /--draft --latest=false --verify-tag/);
   assert.doesNotMatch(pub, /gh release edit|--draft=false|--prerelease=false|make_latest=true/);
   assert.match(pub, /refs\/tags\/\$TAG/);
@@ -259,4 +268,30 @@ test('the shim: the archive step keeps two same-named files under their paths, S
   const sums = readFileSync(join(tmp, 'assets', 'SHA256SUMS'));
   assert.equal(String(sums), `${hash}  ${name}\n`);
   assert.ok(verify(null, sums, publicKey, Buffer.from(readFileSync(join(tmp, 'assets', 'SHA256SUMS.sig'), 'utf8').trim(), 'base64')));
+});
+
+// The publish job's tranche step, run as written: the tranche is named by the default branch's
+// config (gh api, stubbed), or is "tranche" when that has none; another ref, a dispatched commit
+// whose config names another tranche, or a tip other than the judged commit is refused.
+test('the shim: publish refuses a dispatch off the tranche, a commit naming another tranche, or a moved tip', (t) => {
+  const py = spawnSync('python3', ['-c', 'import sys,json,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', SHIM], { encoding: 'utf8' });
+  if (py.status !== 0) { t.skip('no YAML parser here'); return; }
+  const step = JSON.parse(py.stdout).jobs.publish.steps.find((s) => s.name === 'the dispatch is on the tranche, at the judged tip');
+  const tmp = mkdtempSync(join(tmpdir(), 'p3-disp-'));
+  const repo = makeRepo({ 'process/config.json': { tranche: 'tr' } });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: repo });
+  const other = commit(repo, { 'process/config.json': JSON.stringify({ tranche: 'p3dev-release/x' }) });
+  // gh prints the error body to stdout on a 404, as the real one does.
+  write(tmp, { 'bin/gh': '#!/bin/sh\nif [ -n "$MAIN_CFG" ]; then printf %s "$MAIN_CFG"; else echo \'{"message":"Not Found"}\'; exit 1; fi\n' });
+  spawnSync('chmod', ['+x', join(tmp, 'bin/gh')]);
+  const runStep = (env) => spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: repo, encoding: 'utf8', env: { ...process.env, PATH: `${join(tmp, 'bin')}:${process.env.PATH}`, GITHUB_REPOSITORY: 'o/p', DEFAULT: 'main', MAIN_CFG: '{"tranche":"tr"}', GITHUB_REF: 'refs/heads/tr', GITHUB_SHA: sha, COMMIT: sha, ...env } });
+  assert.equal(runStep({}).status, 0, runStep({}).stderr);
+  assert.match(runStep({ GITHUB_REF: 'refs/heads/p3dev-release/x' }).stdout, /not refs\/heads\/tr; a development release is cut only from the tranche/);
+  // main has no config: the default name, so a tranche named tr is refused.
+  assert.match(runStep({ MAIN_CFG: '' }).stdout, /not refs\/heads\/tranche/);
+  // The dispatched commit names its own branch as the tranche.
+  const own = runStep({ GITHUB_REF: 'refs/heads/tr', GITHUB_SHA: other, COMMIT: other });
+  assert.notEqual(own.status, 0);
+  assert.match(own.stdout, /config names another tranche than main's \(tr\)/);
+  assert.match(runStep({ COMMIT: other }).stdout, /not [0-9a-f]{40}, the tip p3 release dev judged/);
 });

@@ -424,7 +424,7 @@ test('a forward pin move is judged on the whole history when the tool\'s clone i
 });
 
 // Build 22 (2 Nov): process_repo the tool already holds the owner's word for.
-import { keySetAt, processRepoSetAt } from '../lib/merge.mjs';
+import { keySetAt } from '../lib/anchor.mjs';
 import { readFileSync } from 'node:fs';
 const P3 = 'https://github.com/neobobkrause/process3';
 // GitHub says every commit is the owner's website commit.
@@ -478,7 +478,7 @@ const intoMain = (r, lookup, asked = []) => {
 
 test('the tranche into main may carry process_repo set by the owner\'s website merge (probe PR 51)', () => {
   const r = trancheToMain();
-  assert.equal(processRepoSetAt(r.root, r.sha), r.setAt, 'the merge commit, not the pull request\'s own commit or the later one');
+  assert.equal(keySetAt(r.root, r.sha, 'process_repo'), r.setAt, 'the merge commit, not the pull request\'s own commit or the later one');
   const asked = [];
   const f = intoMain(r, ghCommit(r.setAt), asked);
   assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }).merged, true);
