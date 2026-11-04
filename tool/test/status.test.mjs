@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { commit, makeRepo, entry, openPassed } from './helpers.mjs';
+import { commit, makeRepo, entry, onState, openPassed } from './helpers.mjs';
 import { git } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -146,4 +146,46 @@ test('status --role bob: a requirement file over requirements_cap is a split owe
   assert.doesNotMatch(text, /- build\/requirements\/(big|many).md/);
   // Still returned, marked: a split owed is work for BOB.
   assert.deepEqual(r.next.map((x) => [x.file, !!x.over]), [['build/requirements/small.md', false], ['build/requirements/big.md', true], ['build/requirements/many.md', true]]);
+});
+
+// The copy, 4 Nov: layer 2 closed with no `layer close` row and status said nothing of it.
+test('status --role bob: a layer closed with no unmet marks and no close row says so, one line per layer; a recorded close does not', () => {
+  const root = makeRepo({
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 0 | base | z |\n| 1 | first | a |\n| 2 | second | b |\n| 3 | third | c |\n',
+    'build/requirements/z.md': unmet(1),
+    'build/requirements/a.md': unmet(0),
+    'build/requirements/b.md': unmet(0),
+    'build/requirements/c.md': unmet(1),
+  });
+  openPassed(root);
+  onState(root, { 'layers/closed.jsonl': JSON.stringify({ row: 'closed', layer: 0, tranche: 'tranche', commit: git(['rev-parse', 'HEAD'], { cwd: root }), at: 'x' }) + '\n' });
+  const out = [];
+  const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
+  const text = out.join('\n');
+  assert.match(text, /^layer 1 closed: no unmet marks\nlayer 2 closed: no unmet marks$/m);
+  assert.doesNotMatch(text, /layer [03] closed/);
+  assert.equal(r.layer.cur.n, 3);
+});
+
+// The copy, 4 Nov: twenty files over the cap with no marks were never reported.
+test('status --role bob: cap debt counts every requirement file over the cap from the open layer on, marks or none, in one line', () => {
+  const pad = 'x'.repeat(400);
+  const root = makeRepo({
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | old |\n| 2 | second | a, b |\n| 3 | third | c, d |\n',
+    'build/requirements/old.md': unmet(0) + pad,
+    'build/requirements/a.md': unmet(1) + pad,
+    'build/requirements/b.md': unmet(1),
+    'build/requirements/c.md': unmet(0) + pad,
+    'build/requirements/d.md': unmet(2),
+    'process/config.json': { requirements_cap: 300 },
+  });
+  openPassed(root);
+  const out = [];
+  status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
+  const text = out.join('\n');
+  const bytes = Buffer.byteLength(unmet(1) + pad) + Buffer.byteLength(unmet(0) + pad);
+  assert.match(text, new RegExp(`^cap debt: 2 requirement files over the cap from layer 2 on, ${bytes} bytes; each is split or consolidated before its job$`, 'm'));
+  assert.match(text, /^split or consolidate before its job: build\/requirements\/a.md \d+ over 300$/m);
+  assert.doesNotMatch(text, /split or consolidate before its job: build\/requirements\/c.md/);
+  assert.match(text, /next work, layer 2 .*\n- build\/requirements\/b.md: 1$/);
 });
