@@ -100,6 +100,40 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: node "$RUNNER_TEMP/process3/tool/p3.mjs" record-check --base "$BASE" --head "$HEAD_SHA" --branch "$HEAD_REF" --out "$RUNNER_TEMP/record.json"
+      # Chromium for the product's browser tests (build/gate-chromium, 4 Nov): the runner has
+      # none, so tests a job's container passes failed or skipped here. The build is the one
+      # each playwright-core in the merged checkout's lock files pins (read here, never written
+      # down), cached by those versions, and named in the log. CHROMIUM names the newest
+      # version's binary; playwright's own launch finds each pinned build where it installs.
+      - name: the browser the product's lock files pin
+        id: browser
+        run: |
+          vs=$(git ls-files -z -- '*package-lock.json' | while IFS= read -r -d '' f; do
+            jq -r '.packages // {} | to_entries[] | select(.key | test("(^|/)node_modules/playwright-core$")) | .value.version' "$f" 2>/dev/null || true
+          done | grep -E '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' | sort -uV | tr '\n' ' ' | sed 's/ $//') || true
+          if [ -z "$vs" ]; then echo "::notice::browser: no playwright-core in the lock files; none installed"; fi
+          echo "versions=$vs" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: steps.browser.outputs.versions != ''
+        with:
+          path: ~/.cache/ms-playwright
+          key: p3-chromium-${{ runner.os }}-${{ steps.browser.outputs.versions }}
+      - name: install the browser
+        if: steps.browser.outputs.versions != ''
+        working-directory: ${{ runner.temp }}
+        env:
+          VERSIONS: ${{ steps.browser.outputs.versions }}
+        run: |
+          t=$(date +%s)
+          for v in $VERSIONS; do
+            npx -y "playwright-core@$v" install --with-deps chromium || npx -y "playwright-core@$v" install --with-deps chromium
+            loc=$(npx -y "playwright-core@$v" install --dry-run chromium | sed -n 's/^ *Install location: *//p' | head -1)
+            exe=$(find "$loc" -path '*/chrome-linux*/chrome' -type f 2>/dev/null | head -1) || true
+            if [ -z "$exe" ]; then echo "::error::browser: playwright-core $v installed no Chromium under $loc"; exit 1; fi
+            echo "::notice::browser: $("$exe" --version) for playwright-core $v at $exe"
+          done
+          echo "CHROMIUM=$exe" >> "$GITHUB_ENV"
+          echo "browser: installed in $(( $(date +%s) - t )) s"
       - name: gate
         env:
           GH_TOKEN: ${{ github.token }}
