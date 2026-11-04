@@ -619,6 +619,50 @@ test('--reopen is refused while the old attempt is unmerged or its PR is open, a
   assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', setup: ready, reopen: true, open: m.f.open, find: m.f.find, log: quiet }), /needs what the new attempt must do/);
 });
 
+// Coordinator, 4 Nov (case-checker on civicsmith-copy): a COMPLETE module whose reopen attempt's
+// branch holds a commit the record check refuses, its pull request closed.
+test('a COMPLETE module with a closed PR on job/<m> starts with --reopen and --fresh-branch on job/<m>-2 cut from the tranche tip', () => {
+  const { root, f } = mergedOnce();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'strengthen R1', open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const bad = commit(root, { 'src/alpha/big.bin': 'refused by the record check\n' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  // The pull request is closed: find sees none. Neither flag alone starts it.
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, fresh: 'x', open: f.open, find: f.find, log: quiet }), /COMPLETE, not OPEN/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'x', open: f.open, find: f.find, log: quiet }), /not an unfinished start/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, restart: 'x', fresh: 'x', open: f.open, find: f.find, log: quiet }), /COMPLETE, not OPEN; --restart with --fresh-branch is for an OPEN module, and a COMPLETE one takes --reopen/);
+  const tranche = git(['ls-remote', 'origin', 'refs/heads/tranche'], { cwd: root }).split('\t')[0];
+  const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'strengthen R1', fresh: 'job/alpha holds a commit the record check refuses', open: f.open, find: f.find, log: quiet });
+  assert.equal(r.attempt, 3);
+  assert.match(r.start, /Your branch is `job\/alpha-2`/);
+  assert.match(r.start, /What it must do: strengthen R1/);
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha-2'], { cwd: root }).split('\t')[0];
+  assert.equal(git(['rev-parse', `${tip}^`], { cwd: root }), tranche, 'cut from the tranche tip');
+  assert.equal(git(['merge-base', '--is-ancestor', bad, tip], { cwd: root, allowFail: true }).code, 1, 'none of the refused commit');
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], bad, 'the old branch is left as it was');
+  const row = JSON.parse(git(['show', `${tip}:process/metrics/alpha.jsonl`], { cwd: root }).trim().split('\n').pop());
+  assert.deepEqual([row.attempt, row.branch, row.reopen, row.fresh], [3, 'job/alpha-2', 'strengthen R1', { from: 'job/alpha', why: 'job/alpha holds a commit the record check refuses' }]);
+  assert.equal(JSON.parse(git(['show', `${tip}:process/ledger/alpha.json`], { cwd: root })).status.state, 'WORKING');
+});
+
+test('--restart with --fresh-branch starts an OPEN module on a fresh branch and records the restart\'s why', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/big.bin': 'x\n' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, restart: 'x', stop: 'idle', fresh: 'y', open: f.open, find: f.find, log: quiet }), /--stop goes with a --restart on the job's own branch/);
+  const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, restart: 'session stopped', fresh: 'branch holds a refused file', open: f.open, find: f.find, log: quiet });
+  assert.match(r.start, /Your branch is `job\/alpha-2`/);
+  assert.match(r.start, /replaces a job session that stopped, on a fresh branch cut from the tranche\. BOB saw: session stopped/);
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha-2'], { cwd: root }).split('\t')[0];
+  const row = JSON.parse(git(['show', `${tip}:process/metrics/alpha.jsonl`], { cwd: root }).trim().split('\n').pop());
+  assert.deepEqual([row.attempt, row.restart, row.fresh.why], [2, 'session stopped', 'branch holds a refused file']);
+});
+
 test('a reopen moves the local branch left by attempt 1, and a failed push puts it back', () => {
   const { root, f } = mergedOnce();
   const was = git(['rev-parse', 'job/alpha'], { cwd: root });
