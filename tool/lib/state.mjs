@@ -149,8 +149,11 @@ export function address(root, sb, role) {
 
 // The record first: no uncommitted change to a tracked file, and no commit the branch's upstream
 // (or, without one, origin's branch of the same name) lacks. A detached HEAD has no record of its own.
+// .process is left out: after a merge of the tranche that moved the pin it reads as changed until
+// the submodule is updated, and a job never commits it (defect sweep 4 Nov, #2; the gate catches
+// a committed pin change), so a BLOCKED job can still wake BOB.
 function unpushed(root) {
-  if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('this checkout has uncommitted changes; commit and push the record first, then send');
+  if (git(['status', '--porcelain', '--untracked-files=no', '--ignore-submodules=all'], { cwd: root })) fail('this checkout has uncommitted changes; commit and push the record first, then send');
   const name = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
   if (!name) return;
   git(['fetch', '-q', 'origin', `+refs/heads/${name}:refs/remotes/origin/${name}`], { cwd: root, allowFail: true });
