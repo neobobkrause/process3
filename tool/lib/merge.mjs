@@ -125,7 +125,7 @@ export function merge(root, n, opts = {}) {
   // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
   // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
   const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
-  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log };
+  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(opts.every !== undefined ? { every: opts.every } : {}) };
   // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
   let first = io.checkRun(slug, pr.head.sha, 'gate');
   if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);

@@ -36,10 +36,10 @@ test('the gate wait stops at once when the pull request\'s head moves off the ti
   // GitHub still shows the head before the push for a moment: that is waited past.
   const heads = [was, T, T2];
   const pr = rounds(10, (i) => ({ state: 'open', head: { ref: 'job/alpha', sha: heads[Math.min(i - 1, 2)] } }));
-  const read = () => ({ status: 'completed', conclusion: 'cancelled' });
+  const read = rounds(10, () => ({ status: 'completed', conclusion: 'cancelled' }));
   assert.throws(() => waitForGate('o/r', T, { every: 0, read, pr, was, log: quiet }), /^Error: job\/alpha moved to uuuuuuuuuu while the gate on tttttttttt was awaited: that gate will not finish; run merge again$/);
   // A pull request merged or closed meanwhile stops it too.
-  assert.throws(() => waitForGate('o/r', T, { every: 0, read, pr: () => ({ state: 'closed', merged: true, head: { sha: T } }), log: quiet }), /pull request is merged while the gate/);
+  assert.throws(() => waitForGate('o/r', T, { every: 0, read: rounds(10, () => ({ status: 'completed', conclusion: 'cancelled' })), pr: () => ({ state: 'closed', merged: true, head: { sha: T } }), log: quiet }), /pull request is merged while the gate/);
 });
 
 test('past the wait, the gate is waited on only while a run is in progress, up to its cap', () => {
@@ -99,7 +99,7 @@ test('merge run again on the merge-row tip whose gate outran the wait waits on t
   const { root, head } = jobRepo();
   // The first run pushes the merge row; its gate is still queued when the wait ends.
   const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, log: quiet }), /did not finish within 0 min/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
   const T = remoteTip(root);
   assert.notEqual(T, head);
   // The rerun: the gate on T is in progress, then green.
@@ -108,7 +108,7 @@ test('merge run again on the merge-row tip whose gate outran the wait waits on t
   const again = jobIO(root, { merged, gate: () => (++reads < 3 ? { status: 'in_progress' } : { status: 'completed', conclusion: 'success' }) });
   again.seen.push(head, T);
   const logs = [];
-  const r = merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, log: (m) => logs.push(m), wait: 0 });
+  const r = merge(root, 3, { slug: 'o/r', io: again.io, reviewed: 'fresh', rounds: 1, every: 0, log: (m) => logs.push(m), wait: 0 });
   assert.equal(r.merged, true);
   assert.deepEqual(merged, [T], 'merges the tip the first run pushed');
   assert.equal(remoteTip(root), T, 'nothing pushed');
@@ -120,8 +120,9 @@ test('merge run again on the merge-row tip whose gate outran the wait waits on t
 
 test('merge run again after the tranche moved brings the tip up to it, but writes no second merge row', () => {
   const { root, head } = jobRepo();
-  const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'completed', conclusion: 'failure', html_url: 'run' }) });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, log: quiet, every: 0 }), /the gate on the merged result is failure/);
+  // The first run gives up on a gate still queued; T goes green after, and the tranche moves.
+  const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
   const T = remoteTip(root);
   moveTranche(root, 'fix.txt');
   const merged = [];
@@ -154,7 +155,7 @@ test('merge stops waiting at once when the job pushes over the merge-row tip', (
       return { status: 'completed', conclusion: 'cancelled' };
     }),
   });
-  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, log: quiet }), /job\/alpha moved to \w+ while the gate on \w+ was awaited/);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, every: 0, log: quiet }), /job\/alpha moved to \w+ while the gate on \w+ was awaited/);
 });
 
 // #13 ------------------------------------------------------------------------------------------
