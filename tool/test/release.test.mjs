@@ -319,3 +319,37 @@ test('the shim: publish refuses a dispatch off the tranche, a commit naming anot
   assert.match(own.stdout, /config names another tranche than main's \(tr\)/);
   assert.match(runStep({ COMMIT: other }).stdout, /not [0-9a-f]{40}, the tip p3 release dev judged/);
 });
+
+// Release logs in Actions (coordinator, 4 Nov): release run writes its step files to --log-dir,
+// made when missing; the shim passes a runner directory per job and uploads it, pinned by sha,
+// kept a short while, even when a step failed.
+test('release run --log-dir: made when missing; a mask printed on stderr hides the value in stdout too', () => {
+  const both = { name: 'both', argv: ['node', '-e', "console.log('s3cr' + 'et here'); console.error('::add-mask::s3cr' + 'et')"] };
+  const root = makeRepo({ 'process/config.json': { release: { checks: [both], assemble: ['node', '-e', '0'], out: 'rel' } } });
+  const logDir = join(mkdtempSync(join(tmpdir(), 'p3-steps-')), 'checks-logs');
+  const write = process.stdout.write;
+  const ewrite = process.stderr.write;
+  process.stdout.write = () => true;
+  process.stderr.write = () => true;
+  try { assert.equal(releaseRun(root, 'checks', { log: quiet, logDir }).ok, true); } finally { process.stdout.write = write; process.stderr.write = ewrite; }
+  const text = readFileSync(join(logDir, '01-both.log'), 'utf8');
+  assert.match(text, /^\*\*\* here$/m);
+  assert.doesNotMatch(text, /s3cret/);
+});
+
+test('the shim: each release run keeps its step files in a runner directory and uploads them, pinned, for a week', (t) => {
+  const py = spawnSync('python3', ['-c', 'import sys,json,yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', SHIM], { encoding: 'utf8' });
+  if (py.status !== 0) { t.skip('no YAML parser here'); return; }
+  const jobs = JSON.parse(py.stdout).jobs;
+  for (const step of ['checks', 'assemble']) {
+    const steps = jobs[step].steps;
+    const runStep = steps.find((s) => String(s.run || '').includes(`release run ${step}`));
+    assert.ok(runStep.run.includes(`--log-dir "$RUNNER_TEMP/${step}-logs"`), runStep.run);
+    const up = steps.find((s) => s.with?.name === `${step}-logs`);
+    assert.match(up.uses, /^actions\/upload-artifact@[0-9a-f]{40}$/);
+    assert.equal(up.if, 'always()');
+    assert.equal(up.with.path, `\${{ runner.temp }}/${step}-logs`);
+    assert.ok(up.with['retention-days'] <= 7);
+    assert.ok(steps.indexOf(up) > steps.indexOf(runStep));
+  }
+});

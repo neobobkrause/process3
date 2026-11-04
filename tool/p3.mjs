@@ -309,8 +309,12 @@ const commands = {
   // deploy dev [--slug <s>]: BOB's development deployment and walk after a layer close (development
   // only, the product's own Cloudflare account): dry run behind the guard line, deploy, walk, one row.
   'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
-  // release run checks|assemble [--out <results.json>]: the shim's read-only jobs (process-dev-release.yml).
-  'release run': (a, root) => (releaseRun(root, one(a, 'step (checks or assemble)'), { out: a.out }).ok ? 0 : 1),
+  // release run checks|assemble [--out <results.json>] [--log-dir <dir>]: the shim's read-only jobs
+  // (process-dev-release.yml); --log-dir keeps each step's whole output where the job uploads it.
+  'release run': (a, root) => {
+    if (a.out === true || a['log-dir'] === true) fail('release run checks|assemble [--out <results.json>] [--log-dir <dir>]');
+    return releaseRun(root, one(a, 'step (checks or assemble)'), { out: a.out, logDir: a['log-dir'] }).ok ? 0 : 1;
+  },
   // release version <v>: the dispatched version, checked and printed (the shim's publish job).
   'release version': (a) => { console.log(checkVersion(String(one(a, 'version')))); return 0; },
   // release sign <dir>: SHA256SUMS and its Ed25519 signature, the PEM key in P3_SIGN_KEY (only when release.sign_secret is set).

@@ -3,9 +3,9 @@
 // after a layer close, from the clean tranche tip: the `deploy` block's dry run, refused unless
 // every dry-run step printed guard_line; then the deploy; then the walk; one row per run in
 // deploys/dev.jsonl on the state branch. The shape is release dev's.
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, constants, fstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
@@ -46,13 +46,54 @@ export function deployConfig(cfg) {
   if (t !== undefined && !(Number.isInteger(t) && t > 0 && t <= 360)) fail('deploy.timeout_minutes must be whole minutes from 1 to 360');
   // walk_reports: the files the walk writes, relative to the checkout, kept on the state branch.
   const wr = d.walk_reports ?? [];
-  if (!Array.isArray(wr) || !wr.every((p) => typeof p === 'string' && p && !p.startsWith('/') && !p.split('/').includes('..')) || new Set(wr.map((p) => basename(p))).size !== wr.length) fail('deploy.walk_reports must be a list of paths in the checkout, no two with the same file name');
+  const part = (x) => x && x !== '.' && x !== '..';
+  if (!Array.isArray(wr) || !wr.every((p) => typeof p === 'string' && p.split('/').every(part) && !basename(p).startsWith('.git')) || new Set(wr.map((p) => basename(p))).size !== wr.length) fail('deploy.walk_reports must be a list of file paths in the checkout (no leading /, no empty, . or .. part, no file name starting .git), no two with the same file name');
   return { walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: steps(d.dry_run, 'dry_run'), deploy: steps(d.deploy, 'deploy'), walk: steps(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
 }
 
 // A step marks a value secret with a line `::add-mask::<value>`, as GitHub Actions does. The
 // tool never prints that line, and prints *** wherever a marked value appears.
 const MASK = /::add-mask::(.*)$/;
+// One walk report, read safely: the real path inside the product root, a regular file opened
+// without following a last symlink or blocking on a FIFO, written since the walk began, and no
+// bigger than max (checked on the open file before reading, and again on what was read).
+export function readReport(root, p, since, max) {
+  let real;
+  try { real = realpathSync(join(root, p)); } catch { return { stored: 'not written by this walk' }; }
+  if (!real.startsWith(realpathSync(root) + sep)) return { stored: 'not stored, outside the checkout' };
+  let fd;
+  try { fd = openSync(real, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); } catch { return { stored: 'not stored, not a readable file' }; }
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return { stored: 'not stored, not a regular file' };
+    if (st.mtimeMs < since) return { stored: 'not written by this walk' };
+    if (st.size > max) return { stored: `not stored, ${st.size} bytes` };
+    const buf = Buffer.alloc(max + 1);
+    let n = 0;
+    for (let r; n < buf.length && (r = readSync(fd, buf, n, buf.length - n, null)) > 0;) n += r;
+    if (n > max) return { stored: `not stored, over ${max} bytes` };
+    return { raw: buf.subarray(0, n).toString('utf8') };
+  } finally { closeSync(fd); }
+}
+
+// The walk's counts from its JSON report, whatever shape it has: arrays only, at most 50 kinds,
+// each name printable and at most 80 characters.
+export function walkSummary(text) {
+  let j;
+  try { j = JSON.parse(text); } catch { return {}; }
+  if (!j || typeof j !== 'object') return {};
+  const arr = (x) => (Array.isArray(x) ? x : []);
+  const failures = arr(j.failures);
+  const by_kind = new Map();
+  for (const f of failures) {
+    const k = String(f && typeof f === 'object' && f.kind != null ? f.kind : '(none)').replace(/[^\x20-\x7e]/g, ' ').replace(/::/g, ': :').slice(0, 80);
+    if (by_kind.has(k) || by_kind.size < 50) by_kind.set(k, (by_kind.get(k) || 0) + 1);
+    else by_kind.set('(other kinds)', (by_kind.get('(other kinds)') || 0) + 1);
+  }
+  const steps = arr(j.steps);
+  return { steps: steps.length, steps_ok: steps.filter((x) => x && x.ok).length, failures: failures.length, by_kind: Object.fromEntries(by_kind) };
+}
+
 export function collectMasks(text, masks) {
   for (const line of String(text).split('\n')) { const m = line.match(MASK); if (m && m[1].trim()) masks.add(m[1].trim()); }
   return masks;
@@ -135,6 +176,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   let ok = !b.findings.length && go('dry_run', dep.dry_run, { guard: true });
   let stopped = b.findings.length ? 'build' : ok ? null : 'dry_run';
   if (ok) { ok = go('deploy', dep.deploy); if (!ok) stopped = 'deploy'; }
+  const tWalk = Date.now();
   if (ok) { ok = go('walk', dep.walk); if (!ok) stopped = 'walk'; }
   const minutes = Math.round((Date.now() - t0) / 6000) / 10;
   const row = { row: 'dev-deploy', tranche: cfg.tranche, slug: s, commit: tip, layer, ok, stopped, results, minutes, at: now() };
@@ -142,25 +184,37 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   // time>/ on the state branch; one over max_file_bytes is recorded as not stored. report.json's
   // counts go in the row (copy, 4 Nov: 77 screens' findings were lost with the log's head).
   const dir = `deploys/${s}/${row.at.replace(/[:.]/g, '-')}`;
-  const kept = results.some((x) => x.stage === 'walk') ? dep.walk_reports.map((p) => {
-    if (!existsSync(join(root, p)) || statSync(join(root, p)).mtimeMs < t0) return { from: p, stored: 'not written by this walk' };
-    const text = redact(readFileSync(join(root, p), 'utf8'), masks);
+  const max = cfg.max_file_bytes;
+  const read = results.some((x) => x.stage === 'walk') ? dep.walk_reports.map((p) => ({ from: p, ...readReport(root, p, tWalk, max) })) : [];
+  // Every report's masks first, then each redacted, a JSON report's escaped form too.
+  for (const k of read) if (k.raw !== undefined) collectMasks(k.raw, masks);
+  for (const v of [...masks]) masks.add(JSON.stringify(v).slice(1, -1));
+  const kept = read.map((k) => {
+    if (k.raw === undefined) return k;
+    const text = redact(k.raw, masks);
     const bytes = Buffer.byteLength(text);
-    return { from: p, text, stored: bytes > cfg.max_file_bytes ? `not stored, ${bytes} bytes` : `${dir}/${basename(p)}` };
-  }) : [];
-  if (kept.length) {
-    let j = null;
-    try { j = JSON.parse(kept.find((k) => k.text && k.from.endsWith('.json'))?.text); } catch {}
-    const by_kind = {};
-    for (const f of j?.failures || []) by_kind[f.kind] = (by_kind[f.kind] || 0) + 1;
-    row.walk = { ...(j ? { steps: (j.steps || []).length, steps_ok: (j.steps || []).filter((x) => x.ok).length, failures: (j.failures || []).length, by_kind } : {}), reports: kept.map((k) => ({ from: k.from, stored: k.stored })) };
-    log(`walk: ${j ? `${row.walk.steps} steps, ${row.walk.steps_ok} ok, ${row.walk.failures} failures ${JSON.stringify(by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ')}`);
-  }
-  writeState(root, cfg.state_branch, `development deployment ${s}, layer ${layer}: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
-    for (const k of kept.filter((x) => x.stored.startsWith(dir))) { mkdirSync(join(wt, dir), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
-    mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
-    appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify(row) + '\n');
+    return bytes > max ? { from: k.from, stored: `not stored, ${bytes} bytes` } : { from: k.from, text, stored: `${dir}/${basename(k.from)}` };
   });
+  if (kept.length) {
+    const j = kept.find((k) => k.text !== undefined && k.from.endsWith('.json'));
+    row.walk = { ...(j ? walkSummary(j.text) : {}), reports: kept.map((k) => ({ from: k.from, stored: k.stored })) };
+    const w = row.walk;
+    log(`walk: ${w.steps !== undefined ? `${w.steps} steps, ${w.steps_ok} ok, ${w.failures} failures ${JSON.stringify(w.by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ')}`);
+  }
+  // Kept beside the step files before the push, so a failed state-branch write loses nothing.
+  const stored = kept.filter((x) => x.text !== undefined);
+  for (const k of stored) writeFileSync(join(logs, `report-${basename(k.from)}`), k.text);
+  writeFileSync(join(logs, 'row.json'), JSON.stringify(row) + '\n');
+  try {
+    writeState(root, cfg.state_branch, `development deployment ${s}, layer ${layer}: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
+      for (const k of stored) { mkdirSync(join(wt, dir), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
+      mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
+      appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify(row) + '\n');
+    });
+  } catch (e) {
+    log(`the state branch was not written (${ok ? 'the deployment itself succeeded' : `stopped at ${stopped}`}); the row and the walk's reports are in ${logs} (row.json, report-*); \`${P3} deploy dev\` may be run again`);
+    throw e;
+  }
   if (stopped === 'dry_run') log(`refused: the dry run did not pass the guard (every dry-run step must exit 0 and print "${dep.guard_line}"); nothing was deployed`);
   log(`recorded development deployment ${s} at ${tip.slice(0, 10)}, layer ${layer}: ${ok ? 'deployed and walked' : `stopped at ${stopped}`}, ${minutes} min`);
   if (!ok && stopped !== 'dry_run') log(`each finding enters by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "${stopped} ${s}"\` (or found "<finding>" when it names no module); \`${P3} deploy dev\` may be run again`);
