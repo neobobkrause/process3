@@ -5,7 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { comments, gateRuns, getPR } from './github.mjs';
-import { leadTimes } from './lead.mjs';
+import { distinctRows, leadTimes, openedAt } from './lead.mjs';
 import { DEFAULTS, fail, git, now } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
@@ -52,6 +52,34 @@ export function recordRefusal(root, { session, act, depth, module = null } = {})
 // (metrics add --refusal) stay that attempt's figure, so one refusal recorded both ways counts once.
 export const refusalsOf = (rows) => rows.filter((r) => r.row === 'refusal' && r.session).map((r) => ({ session: r.session, act: r.act, depth: r.depth }));
 
+// Every refusal the record holds, the one list metrics report and report tranche both print: the
+// refusal rows, and each measured attempt row's refusals (metrics add --refusal) that no refusal
+// row of the same session and act already holds. Each with its role: its own, else its measured
+// row's, else the role roles (session -> role) names, else "role unknown"; never dropped.
+export const ROLE_UNKNOWN = 'role unknown';
+export function refusalList(rows, roles = new Map()) {
+  const own = rows.filter((r) => r.row === 'refusal');
+  const held = new Set(own.map((r) => `${r.session}\0${r.act}`));
+  const role = (...xs) => xs.find((x) => typeof x === 'string' && x.trim()) || ROLE_UNKNOWN;
+  return [
+    ...own.map((r) => ({ at: r.at ?? null, session: r.session ?? null, act: r.act ?? null, depth: r.depth ?? null, role: role(r.role, roles.get(r.session)), from: 'refusal row' })),
+    ...rows.filter((r) => r.row === 'attempt' && r.event === 'measured' && Array.isArray(r.refusals)).flatMap((r) => r.refusals
+      .filter((x) => !held.has(`${r.session}\0${x?.act}`))
+      .map((x) => ({ at: r.at ?? null, session: r.session ?? null, act: x?.act ?? null, depth: x?.depth ?? null, role: role(x?.role, r.role || 'job', roles.get(r.session)), from: `measured row (${r.module})` }))),
+  ];
+}
+// A session's role from the measured rows that name it.
+export const sessionRoles = (rows) => new Map(rows.filter((r) => r.row === 'attempt' && r.event === 'measured' && r.session).map((r) => [r.session, r.role || 'job']));
+
+// Sessions' roles from the state branch: BOB's handovers (old and new) and the addresses.
+// read(path) -> text or null.
+export function stateRoles(read) {
+  const m = new Map();
+  for (const r of parseLines(read('metrics/handover.jsonl') || '')) { if (r.old) m.set(r.old, 'bob'); if (r.new) m.set(r.new, 'bob'); }
+  for (const who of ['root', 'bob', 'watcher']) { try { const a = JSON.parse(read(`addresses/${who}.json`) || 'null'); if (a?.session) m.set(a.session, who); } catch { /* unreadable address */ } }
+  return m;
+}
+
 export function refusalCounts(rows) {
   const counts = new Map();
   for (const r of refusalsOf(rows)) counts.set(r.session, (counts.get(r.session) || 0) + 1);
@@ -84,10 +112,14 @@ export const nextAttempt = (root, id) => readRows(root, id).filter((r) => r.row 
 const DAY = 86400000;
 
 // Is a merged pull request still in place: its merge commit on the branch and never reverted?
+// --is-ancestor exits 1 for "not on the branch"; any other exit (128: the commit is not in a
+// shallow clone's history) is unmeasured, never "reverted" (defect sweep 4 Nov).
 export function survival(root, merge, branch, today = Date.now()) {
   if (!merge?.merge_sha) return { state: 'not merged' };
   const due = new Date(Date.parse(merge.merged_at) + 14 * DAY).toISOString().slice(0, 10);
-  const on = git(['merge-base', '--is-ancestor', merge.merge_sha, branch], { cwd: root, allowFail: true }).code === 0;
+  const anc = git(['merge-base', '--is-ancestor', merge.merge_sha, branch], { cwd: root, allowFail: true }).code;
+  if (anc !== 0 && anc !== 1) return { state: 'unmeasured', due };
+  const on = anc === 0;
   const reverts = git(['log', '--format=%H', `--grep=${merge.merge_sha}`, branch], { cwd: root, allowFail: true }).stdout.trim();
   if (!on || reverts) return { state: 'reverted', due };
   return { state: today >= Date.parse(merge.merged_at) + 14 * DAY ? 'survived' : 'pending', due };
@@ -162,6 +194,7 @@ export function layerOf(map) {
 }
 
 export const SHARE_RULE = "A job's overhead is the cost of its non-job rows (its reviews) plus an even split of each BOB or ROOT row's cost (the session's cost since that session's previous row) among the jobs with an attempt row since that role's previous row; its share is overhead over its own job cost plus overhead, and a layer's is the same summed over its jobs.";
+export const SCOPE_RULE = " Only this tranche counts: its jobs are the modules with a start row since its opening (at the tranche or on their job branches), each job's cost its own job rows since then (a BOB row naming a module is still overhead), and only BOB's and ROOT's cost since the opening is split. A part with no row reads unmeasured, and an overhead with every part unmeasured reads unmeasured, never $0.";
 const PROCESS = new Set(['bob', 'root']);
 const usd = (x) => Math.round(x * 1e4) / 1e4;
 
@@ -169,25 +202,36 @@ const usd = (x) => Math.round(x * 1e4) / 1e4;
 // A part with no row is "unmeasured"; a share is "unmeasured" when its job's own cost is, and
 // otherwise counts the measured parts only, naming the rest. A BOB session that ends without a
 // row loses its cost since its last row: the share then reads low, and the record cannot tell.
-export function overhead(rows, layers = new Map()) {
-  rows = rows.filter((r) => typeof r.at === 'string');
+// opened (the tranche's opening, lead.mjs openedAt) scopes it to this tranche's attempts, as lead
+// times are: its jobs are the modules with a start row since the opening, at ref or on their job
+// branches (jobRows), and only the BOB and ROOT cost since the opening is split (a row before it
+// still marks its session's cost so far). Without an opening, every row counts.
+export function overhead(rows, layers = new Map(), { opened = null, jobRows = [] } = {}) {
+  rows = distinctRows([...rows, ...jobRows]).filter((r) => typeof r.at === 'string');
+  const inT = (r) => !opened || Date.parse(r.at) >= Date.parse(opened);
   const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
   const role = (r) => r.role || 'job';
-  const procMods = new Set(measured.filter((r) => PROCESS.has(role(r))).map((r) => r.module));
-  const activity = rows.filter((r) => r.row === 'attempt' && r.module && !procMods.has(r.module) && !(r.event === 'measured' && role(r) !== 'job'));
-  const mods = [...new Set(activity.map((r) => r.module))].sort();
+  // Each cost row is its module's: a job's own cost is its job rows', whatever BOB rows name it.
+  const activity = rows.filter((r) => r.row === 'attempt' && r.module && inT(r) && !(r.event === 'measured' && role(r) !== 'job'));
+  const started = new Set(activity.filter((r) => r.event === 'start').map((r) => r.module));
+  const mods = [...new Set(activity.map((r) => r.module))].filter((m) => !opened || started.has(m)).sort();
   // A job active in a window no row of that role closes (after its last row, or ended by a row
   // with no cost) has that part unmeasured.
   const parts = new Map(mods.map((m) => [m, { bob: 0, root: 0, gap: new Set() }]));
   let unattributed = 0;
   for (const who of PROCESS) {
     const mine = measured.filter((r) => role(r) === who).sort((a, b) => a.at.localeCompare(b.at));
-    let prevAt = '';
+    let prevAt = opened || '';
     const lastCost = new Map();
     const skipped = new Set();
-    const since = (from, to) => [...new Set(activity.filter((a) => a.at > from && (to === null || a.at <= to)).map((a) => a.module))];
+    const since = (from, to) => [...new Set(activity.filter((a) => a.at > from && (to === null || a.at <= to) && parts.has(a.module)).map((a) => a.module))];
     for (const r of mine) {
       const c = Number(r.cost_usd);
+      // Before the opening: the session's cost so far, not split.
+      if (!inT(r)) {
+        if (r.session && Number.isFinite(c)) { lastCost.set(r.session, c); skipped.delete(r.session); } else if (r.session) skipped.add(r.session);
+        continue;
+      }
       const open = since(prevAt, r.at);
       if (Number.isFinite(c) && r.session && !skipped.has(r.session)) {
         const delta = Math.max(0, c - (lastCost.get(r.session) ?? 0));
@@ -205,34 +249,39 @@ export function overhead(rows, layers = new Map()) {
     }
     for (const m of since(prevAt, null)) parts.get(m).gap.add(who);
   }
-  const has = (who) => measured.some((r) => role(r) === who && r.session && Number.isFinite(Number(r.cost_usd)));
+  const has = (who) => measured.some((r) => inT(r) && role(r) === who && r.session && Number.isFinite(Number(r.cost_usd)));
   const sum = (rs) => (rs.length && rs.every((r) => Number.isFinite(Number(r.cost_usd))) ? rs.reduce((s, r) => s + Number(r.cost_usd), 0) : 'unmeasured');
   const jobs = mods.map((m) => {
-    const own = measured.filter((r) => r.module === m);
+    const own = measured.filter((r) => r.module === m && inT(r));
     const job = sum(own.filter((r) => role(r) === 'job'));
-    const reviews = sum(own.filter((r) => role(r) !== 'job'));
+    // Reviews: the module's rows of any role but job, BOB and ROOT (their cost is split below).
+    const reviews = sum(own.filter((r) => role(r) !== 'job' && !PROCESS.has(role(r))));
     const part = (who) => (has(who) && !parts.get(m).gap.has(who) ? usd(parts.get(m)[who]) : 'unmeasured');
     const p = { reviews_usd: reviews, bob_usd: part('bob'), root_usd: part('root'), gate_usd: 'unmeasured' };
-    const over = Object.values(p).filter((v) => typeof v === 'number').reduce((s, v) => s + v, 0);
+    // The overhead sums the measured parts; with none measured it is unmeasured, never 0.
+    const priced = Object.values(p).filter((v) => typeof v === 'number');
+    const over = priced.length ? usd(priced.reduce((s, v) => s + v, 0)) : 'unmeasured';
     const unmeasured = Object.keys(p).filter((k) => p[k] === 'unmeasured').map((k) => k.replace(/_usd$/, ''));
-    return { module: m, layer: layers.get(m) ?? null, job_usd: typeof job === 'number' ? usd(job) : job, ...p, overhead_usd: usd(over), share: typeof job === 'number' && job + over > 0 ? usd(over / (job + over)) : 'unmeasured', unmeasured };
+    return { module: m, layer: layers.get(m) ?? null, job_usd: typeof job === 'number' ? usd(job) : job, ...p, overhead_usd: over, share: typeof job === 'number' && typeof over === 'number' && job + over > 0 ? usd(over / (job + over)) : 'unmeasured', unmeasured };
   });
   const byLayer = new Map();
   for (const j of jobs.filter((x) => x.layer !== null)) byLayer.set(j.layer, [...(byLayer.get(j.layer) || []), j]);
   const layerRows = [...byLayer].sort((a, b) => a[0] - b[0]).map(([layer, js]) => {
     const ok = js.every((j) => typeof j.share === 'number');
-    const over = js.reduce((s, j) => s + j.overhead_usd, 0);
+    const priced = js.filter((j) => typeof j.overhead_usd === 'number');
+    const over = priced.reduce((s, j) => s + j.overhead_usd, 0);
     const total = ok ? js.reduce((s, j) => s + j.job_usd, 0) + over : 0;
-    return { layer, jobs: js.map((j) => j.module), overhead_usd: usd(over), share: ok && total > 0 ? usd(over / total) : 'unmeasured', unmeasured: [...new Set(js.flatMap((j) => (typeof j.share === 'number' ? j.unmeasured : [`${j.module} job`])))] };
+    return { layer, jobs: js.map((j) => j.module), overhead_usd: priced.length ? usd(over) : 'unmeasured', share: ok && total > 0 ? usd(over / total) : 'unmeasured', unmeasured: [...new Set(js.flatMap((j) => (typeof j.share === 'number' ? j.unmeasured : [`${j.module} job`])))] };
   });
-  return { rule: SHARE_RULE, jobs, layers: layerRows, unattributed_usd: has('bob') || has('root') ? usd(unattributed) : 'unmeasured' };
+  return { rule: SHARE_RULE + SCOPE_RULE, scope: opened ? { opened } : 'every row (the opening not read)', jobs, layers: layerRows, unattributed_usd: has('bob') || has('root') ? usd(unattributed) : 'unmeasured' };
 }
 
 // The two health metrics and the figures that explain them, from rows and pull requests.
 // sweepRows: the state branch's sweep rows; layers: the layer map's text (layers_file).
 // Rows and history are read at the same ref (branch), as report tranche reads them (rowsAt).
-export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null, refreshAt = 60, cfg = DEFAULTS, lead = {} } = {}) {
+export function report(root, slug, branch, { read = { comments, getPR }, sweepRows = [], layers = null, refreshAt = 60, cfg = DEFAULTS, lead = {}, roles = new Map() } = {}) {
   const rows = rowsAt(root, branch);
+  const opened = openedAt(lead.grants, cfg);
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
   const merges = rows.filter((r) => r.row === 'merge');
   const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
@@ -270,13 +319,13 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     gate_minutes: Math.round(gateMinutes * 100) / 100,
     gates,
     denials: measured.reduce((s, r) => s + (Number(r.denials) || 0), 0),
-    refusals: measured.flatMap((r) => r.refusals || []),
+    refusals: refusalList(rows, new Map([...sessionRoles(rows), ...roles])),
     refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
     bob_idle_by_day: idleByDay(sweepRows),
     root_context: rootContext(sweepRows, refreshAt),
     wakes: wakes(rows),
-    overhead: overhead(rows, layerOf(layers)),
-    lead_times: leadTimes(root, cfg, { ref: branch, rows, layers: layerOf(layers), ...lead, comments: (pr) => gateRuns(read.comments(slug, pr) || []) }),
+    overhead: overhead(rows, layerOf(layers), { opened, jobRows: lead.jobRows || [] }),
+    lead_times: leadTimes(root, cfg, { ref: branch, rows, layers: layerOf(layers), sweeps: sweepRows, ...lead, comments: (pr) => gateRuns(read.comments(slug, pr) || []) }),
   };
 }

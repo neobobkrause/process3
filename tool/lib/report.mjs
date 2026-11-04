@@ -6,8 +6,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { readLedgerTexts } from './ledger.mjs';
-import { fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes } from './lead.mjs';
-import { idleByDay, layerOf, overhead, rowsAt } from './metrics.mjs';
+import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
+import { idleByDay, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
 import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
@@ -156,12 +156,17 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const L = [];
   const s = span(root, tip, 'origin/main', deepened);
   const end = s.close || now;
+  // The tranche's opening, one source for every figure here (lead times' rule): the first ok
+  // grant row of its open on the state branch. Unread: unmeasured, everywhere.
+  const leadIn = stateRead ? leadInputs(root, cfg.state_branch, read.state, cfg.tranche) : {};
+  const opened = openedAt(leadIn.grants, cfg);
+  const inT = (r) => !!opened && typeof r.at === 'string' && Date.parse(r.at) >= Date.parse(opened);
   L.push(`# Tranche report: ${cfg.tranche}`, '', `Written ${now} from the record alone, at ${tip} ${(gitOut(root, ['rev-parse', tip]) || '').slice(0, 10)}. Every figure the record lacks reads \`${U}\`.`, '');
 
   // Elapsed
   L.push('## Elapsed time', '');
-  L.push(`- opened: ${s.open}`, `- ${s.close ? `closed (merged into main): ${s.close}` : 'still open; measured to now'}`);
-  L.push(`- elapsed: ${s.open === U || !s.open ? U : `${hours(s.open, end)} h (${Math.round(hours(s.open, end) / 24 * 10) / 10} days)`}`, '');
+  L.push(`- opened: ${opened || U}${opened ? ' (the first ok grant row of its open, as lead times reads it)' : ' (the state branch\'s grant rows not read)'}`, `- ${s.close ? `closed (merged into main): ${s.close}` : 'still open; measured to now'}`);
+  L.push(`- elapsed: ${!opened ? U : `${hours(opened, end)} h (${Math.round(hours(opened, end) / 24 * 10) / 10} days)`}`, '');
 
   // Work per layer
   const map = show(tip, cfg.layers_file);
@@ -170,17 +175,21 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const ledger = Object.values(readLedgerTexts(root, tip)).flatMap((t) => { try { return [JSON.parse(t)]; } catch { return []; } });
   const mods = [...new Set([...layers.keys(), ...ledger.map((e) => e.id)])].sort();
   const reqFile = (m) => ledger.find((e) => e.id === m)?.requirements || `${dir}/${m}.md`;
-  const mergeRows = rows.filter((r) => r.row === 'merge');
+  // Job merges: this tranche's merge rows (since the opening), each pull request once.
+  const allMerges = rows.filter((r) => r.row === 'merge');
+  const mergeRows = [...new Map(allMerges.filter(inT).sort((a, b) => String(a.at).localeCompare(String(b.at))).map((r) => [r.pr, r])).values()];
+  const olderPRs = [...new Set(allMerges.filter((r) => !inT(r)).map((r) => r.pr))].filter((p) => !mergeRows.some((r) => r.pr === p)).sort((a, b) => a - b);
   const merged = read.merged();
   const closed = stateJsonl(CLOSED_FILE);
   const work = mods.map((m) => {
     const now_ = marks(show(tip, reqFile(m)));
     const before = s.base ? marks(show(s.base, reqFile(m))) : null;
     const met = before ? before.unmet.filter((id) => !now_.unmet.includes(id)) : U;
-    return { m, layer: layers.get(m) ?? null, prs: [...new Set(mergeRows.filter((r) => r.module === m).map((r) => r.pr))], met, unmet: now_.unmet, state: ledger.find((e) => e.id === m)?.status?.state ?? 'no ledger entry' };
+    return { m, layer: layers.get(m) ?? null, prs: opened ? [...new Set(mergeRows.filter((r) => r.module === m).map((r) => r.pr))] : U, met, unmet: now_.unmet, state: ledger.find((e) => e.id === m)?.status?.state ?? 'no ledger entry' };
   });
   L.push('## Work', '');
-  L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); job merges recorded: ${mergeRows.length}` : `${s.open && s.open !== U ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(s.open)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${mergeRows.length} job merges recorded; the rest plain)`}.`, '');
+  const jobMerges = !opened ? `job merges since the opening ${U}` : `job merges recorded: ${mergeRows.length} distinct pull requests since the opening (${allMerges.filter(inT).length} merge rows)${olderPRs.length ? `; older than this tranche, left out: ${olderPRs.map((p) => `#${p}`).join(', ')}` : ''}`;
+  L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); ${jobMerges}` : `${opened ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(opened)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${jobMerges}; the rest plain)`}.`, '');
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
@@ -206,8 +215,8 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
     const c = n === null ? null : closedBy.get(n);
     const metCount = ws.every((w) => Array.isArray(w.met)) ? ws.reduce((t, w) => t + w.met.length, 0) : U;
     L.push(`### ${n === null ? 'Not in the layer map' : `Layer ${n}`}${n === null ? '' : closed === null ? ` (closed: ${U}, state branch not read)` : undecided.has(n) ? ` (closed: ${U}, its close row's commit cannot be placed here)` : c ? ` (closed ${c.at} at ${String(c.commit).slice(0, 10)})` : ' (not closed)'}`, '');
-    L.push(`Modules ${ws.length}; merged job PRs ${ws.reduce((t, w) => t + w.prs.length, 0)}; marks met ${metCount}.`, '');
-    L.push(...table(['module', 'ledger', 'merged PRs', 'marks met'], ws.map((w) => [w.m, w.state, w.prs.map((p) => `#${p}`).join(', ') || 'none', Array.isArray(w.met) ? `${w.met.length}${w.met.length ? ` (${w.met.join(', ')})` : ''}` : U])), '');
+    L.push(`Modules ${ws.length}; merged job PRs ${opened ? ws.reduce((t, w) => t + w.prs.length, 0) : U}; marks met ${metCount}.`, '');
+    L.push(...table(['module', 'ledger', 'merged PRs', 'marks met'], ws.map((w) => [w.m, w.state, Array.isArray(w.prs) ? w.prs.map((p) => `#${p}`).join(', ') || 'none' : U, Array.isArray(w.met) ? `${w.met.length}${w.met.length ? ` (${w.met.join(', ')})` : ''}` : U])), '');
   }
 
   // Deferrals: a closed layer's row names its deferred marks; otherwise the marks unmet at the tip.
@@ -238,32 +247,41 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push(...(foundRows.length ? table(['module', 'found marks', 'unmet', 'found here', 'met here'], foundRows.map((r) => [r.m, r.all.length, r.unmet.join(', ') || 'none', r.added, r.met])) : ['None.']), '');
 
   // Cost and overhead
-  const o = overhead(rows, layers);
-  const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
-  L.push('## Cost and overhead share', '', `Overhead as \`metrics report\` reckons it: ${o.rule}`, '');
-  L.push(...(o.jobs.length ? table(['job', 'layer', 'job cost', 'reviews', 'BOB', 'ROOT', 'gate', 'overhead', 'share', 'unmeasured parts'],
+  // This tranche's rows: at the tip and on the job branches, each once, since the opening.
+  const here = trancheRows(rows, jobRows, opened);
+  const o = opened ? overhead(rows, layers, { opened, jobRows }) : null;
+  const allMeasured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
+  const measured = (here || []).filter((r) => r.row === 'attempt' && r.event === 'measured');
+  L.push('## Cost and overhead share', '', `Overhead as \`metrics report\` reckons it: ${o ? o.rule : `${U} (the tranche's opening not read)`}`, '');
+  if (o) L.push(...(o.jobs.length ? table(['job', 'layer', 'job cost', 'reviews', 'BOB', 'ROOT', 'gate', 'overhead', 'share', 'unmeasured parts'],
     o.jobs.map((j) => [j.module, j.layer ?? 'none', usd(j.job_usd), usd(j.reviews_usd), usd(j.bob_usd), usd(j.root_usd), usd(j.gate_usd), usd(j.overhead_usd), pct(j.share), j.unmeasured.join(', ') || 'none'])) : [`No job has a measured row: cost per job ${U}.`]), '');
-  if (o.layers.length) L.push(...table(['layer', 'jobs', 'overhead', 'share', 'unmeasured parts'], o.layers.map((l) => [l.layer, l.jobs.join(', '), usd(l.overhead_usd), pct(l.share), l.unmeasured.join(', ') || 'none'])), '');
+  if (o?.layers.length) L.push(...table(['layer', 'jobs', 'overhead', 'share', 'unmeasured parts'], o.layers.map((l) => [l.layer, l.jobs.join(', '), usd(l.overhead_usd), pct(l.share), l.unmeasured.join(', ') || 'none'])), '');
   // A BOB or ROOT row's cost is its session's cost so far: each such session counts its last row.
   const proc = (r) => r.role === 'bob' || r.role === 'root';
   const last = new Map();
   for (const r of measured.filter(proc).sort((a, b) => String(a.at).localeCompare(String(b.at)))) last.set(r.session || `${r.module} ${r.at}`, r);
   const counted = [...measured.filter((r) => !proc(r)), ...last.values()];
   const pricedC = counted.filter((r) => Number.isFinite(Number(r.cost_usd)));
-  const total = pricedC.reduce((t, r) => t + Number(r.cost_usd), 0);
-  L.push(`- total cost: ${!counted.length ? U : pricedC.length === counted.length ? usd(total) : `${U} (${usd(total)} over ${pricedC.length} priced rows; ${counted.length - pricedC.length} without a cost)`}`);
-  L.push(`- BOB and ROOT cost not attributed to a job: ${usd(o.unattributed_usd)}`, '');
+  // A session that began before the opening: its cost since then, less its last priced row before.
+  const priorOf = (r) => (proc(r) && r.session ? Number(allMeasured.filter((x) => !inT(x) && proc(x) && x.session === r.session && Number.isFinite(Number(x.cost_usd))).sort((a, b) => String(a.at).localeCompare(String(b.at))).at(-1)?.cost_usd ?? 0) : 0);
+  const total = pricedC.reduce((t, r) => t + Math.max(0, Number(r.cost_usd) - priorOf(r)), 0);
+  const before = allMeasured.filter((r) => !inT(r));
+  L.push(`- total cost since the opening: ${!opened ? U : !counted.length ? `${U} (no measured row since the opening)` : pricedC.length === counted.length ? usd(total) : `${U} (${usd(total)} over ${pricedC.length} priced rows; ${counted.length - pricedC.length} without a cost)`}${opened && before.length ? `; ${before.length} measured rows older than this tranche (${[...new Set(before.map((r) => r.module))].sort().join(', ')}) left out` : ''}`);
+  L.push(`- BOB and ROOT cost not attributed to a job: ${o ? usd(o.unattributed_usd) : U}`, '');
 
-  // Refusals by role and act: the refusal rows (as status counts them); a session's role from the
-  // measured rows that name it and the addresses and handovers on the state branch.
-  const roleOf = new Map(measured.filter((r) => r.session).map((r) => [r.session, r.role || 'job']));
-  for (const r of stateJsonl('metrics/handover.jsonl') || []) { if (r.old) roleOf.set(r.old, 'bob'); if (r.new) roleOf.set(r.new, 'bob'); }
-  for (const who of ['root', 'bob', 'watcher']) { const t = stateRead ? read.state(`addresses/${who}.json`) : null; try { const a = t && JSON.parse(t); if (a?.session) roleOf.set(a.session, who); } catch { /* unreadable address */ } }
-  const ref = rows.filter((r) => r.row === 'refusal' && r.session);
-  const tally = new Map();
-  for (const r of ref) { const k = `${roleOf.get(r.session) || U}\0${r.act}`; tally.set(k, (tally.get(k) || 0) + 1); }
+  // Refusals by role and act: every refusal the record holds, as metrics report lists them
+  // (refusalList: the refusal rows and the measured rows' refusals); a session's role from its
+  // rows, the measured rows that name it and the state branch's addresses and handovers; a row
+  // with none reads "role unknown". Those dated before the opening are listed apart.
+  const roles = new Map([...sessionRoles(rows), ...(stateRead ? stateRoles(read.state) : [])]);
+  const refs = refusalList(rows, roles);
+  const refTable = (rs) => { const tally = new Map(); for (const r of rs) { const k = `${r.role}\0${r.act ?? U}`; tally.set(k, (tally.get(k) || 0) + 1); } return [...tally].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k, n]) => [...k.split('\0'), n]); };
+  const refNow = refs.filter(inT);
+  const refOld = refs.filter((r) => !inT(r));
   L.push('## Refusals by role and act', '');
-  L.push(...(tally.size ? table(['role', 'act', 'refusals'], [...tally].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k, n]) => [...k.split('\0'), n])) : ['None recorded.']), '');
+  L.push(`Since the opening${opened ? '' : ` (${U}: the opening not read; all listed below)`}: ${refNow.length}.`, '');
+  if (refNow.length) L.push(...table(['role', 'act', 'refusals'], refTable(refNow)), '');
+  if (refOld.length) L.push(`${opened ? 'Before the opening' : 'Recorded'}: ${refOld.length}.`, '', ...table(['role', 'act', 'refusals'], refTable(refOld)), '');
 
   // BOB idle
   const sweeps = stateJsonl('metrics/sweep.jsonl');
@@ -274,7 +292,7 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   // Lead times
   // A close whose commit cannot be placed is passed undecided: its figure reads unmeasured.
   const undecidedRows = mine.filter((x) => x.in === null && !closedBy.has(x.r.layer)).map((x) => ({ ...x.r, undecided: true }));
-  const lt = leadTimes(root, cfg, { ref: tip, rows, jobRows, layers, now, jobRefs, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? { ...leadInputs(root, cfg.state_branch, read.state, cfg.tranche), closed: [...closedBy.values(), ...undecidedRows] } : {}) });
+  const lt = leadTimes(root, cfg, { ref: tip, rows, jobRows, layers, now, jobRefs, sweeps, comments: (pr) => gateRuns(read.comments(pr) || []), ...(stateRead ? { ...leadIn, closed: [...closedBy.values(), ...undecidedRows] } : {}) });
   L.push('## Lead times', '', `Minutes, each beside its target (\`targets\` in process/config.json); "over" marks one past it. ${lt.rule}`, '');
   L.push(`- tranche opened: ${lt.opened}`, '');
   L.push(...(!Array.isArray(lt.jobs) ? [`Per job: ${U} (the tranche's opening not read).`] : lt.jobs.length ? table(['job', 'ready to start', 'start to PR ready', 'green to merge', 'blocked', 'replace', 'report wait'], lt.jobs.map((j) => [j.module, leadCell(j.ready_to_start), leadCell(j.start_to_pr_ready), leadCell(j.green_to_merge), leadCell(j.blocked), leadCell(j.replace), leadCell(j.report_wait)])) : ['No job has a start row since the opening.']), '');
@@ -283,17 +301,21 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push('');
 
   // Phase 3 overhead comparisons
-  const jobs = [...new Set(rows.filter((r) => r.row === 'attempt' && r.event === 'start' && r.module).map((r) => r.module))].sort();
+  // Attempts by the one definition lead times and metrics report use (ATTEMPTS_RULE).
+  const started = attemptsStarted(here || []);
+  const jobs = [...started.keys()].sort();
   const sess = (m) => { const ss = new Set(measured.filter((r) => r.module === m && (r.role || 'job') === 'job' && r.session).map((r) => r.session)); return ss.size || U; };
-  const perJob = jobs.map((m) => [m, rows.filter((r) => r.module === m && r.row === 'attempt' && r.event === 'start').length, sess(m)]);
+  const perJob = jobs.map((m) => [m, started.get(m), sess(m)]);
   const known = perJob.filter((r) => typeof r[2] === 'number');
   const gates = mergeRows.map((r) => { try { return gateRuns(read.comments(r.pr) || []).length; } catch { return U; } });
   const gatesOk = gates.length && gates.every((g) => typeof g === 'number');
   const rec = recordOnly(root, cfg, s.base, s.close ? null : 'origin/main', tip, deepened);
   L.push('## Phase 3 overhead comparisons', '');
   L.push(`- sessions per job: ${known.length === jobs.length && jobs.length ? Math.round(known.reduce((t, r) => t + r[2], 0) / jobs.length * 100) / 100 : U}${known.length && known.length < jobs.length ? ` (${known.length} of ${jobs.length} jobs measured: ${Math.round(known.reduce((t, r) => t + r[2], 0) / known.length * 100) / 100})` : ''}`);
-  L.push(`- gate runs per merged job: ${gatesOk ? Math.round(gates.reduce((t, g) => t + g, 0) / gates.length * 100) / 100 : U}${gatesOk ? ` (${gates.reduce((t, g) => t + g, 0)} runs over ${gates.length} merges)` : ''}`);
+  L.push(`- gate runs per merged job: ${gatesOk ? Math.round(gates.reduce((t, g) => t + g, 0) / gates.length * 100) / 100 : U}${gatesOk ? ` (${gates.reduce((t, g) => t + g, 0)} runs over ${gates.length} distinct pull requests merged since the opening)` : ''}`);
   L.push(`- record-only commits: ${typeof rec === 'object' ? `${rec.record} of ${rec.total} commits in the tranche` : U}`, '');
+  L.push(`Attempts: ${ATTEMPTS_RULE}.`, '');
   if (perJob.length) L.push(...table(['job', 'attempts started', 'job sessions measured'], perJob), '');
+  else if (!opened) L.push(`Per job: ${U} (the tranche's opening not read).`, '');
   return L.join('\n');
 }

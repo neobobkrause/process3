@@ -73,10 +73,13 @@ export function sweep(root, { session, live, context, attempts = [], offline = f
   const owed = [];
   const cap = cfg.live_cap;
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null }; // no BOB, or a paused plan: not read
+  // The live count and cap go in the sweep row: lead times names a full cap as a wait's cause.
+  let liveRow = {};
   if (live !== undefined) {
     const n = Number(live);
     if (live === true || !Number.isInteger(n) || n < 0) fail(`--live <n>, the live sessions you count, not ${JSON.stringify(live)}`);
     found.push(`live ${n} of ${cap}`);
+    liveRow = { live: n, live_cap: cap };
     if (n > cap) owed.push(`${n} live sessions, over the cap of ${cap}: archive finished ones before starting more`);
   }
   const plan = cfg.plan;
@@ -143,7 +146,7 @@ export function sweep(root, { session, live, context, attempts = [], offline = f
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, HEARTBEAT_FILE), JSON.stringify(beat) + '\n');
     mkdirSync(join(dir, 'metrics'), { recursive: true });
-    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct }) + '\n');
+    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct, ...liveRow }) + '\n');
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

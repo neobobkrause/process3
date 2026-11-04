@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { entryFile } from './ledger.mjs';
+import { readModules } from './notice.mjs';
 import { messages } from './state.mjs';
 import { DEFAULTS, git } from './util.mjs';
 
@@ -21,10 +22,57 @@ const later = (a, b) => (Date.parse(a) >= Date.parse(b) ? a : b);
 // The state branch's restart rows: job start --restart records one per replacement session.
 export const RESTARTS_FILE = 'metrics/restart.jsonl';
 
+export const ATTEMPTS_RULE = "an attempt is a start row dated at or after the tranche's opening, at the tranche's tip or on its module's job branch (job/<module>, where an unmerged attempt's rows live); the same row in both counts once";
 export const TARGETS = DEFAULTS.targets;
 // Each figure and the target it is set beside (started to PR ready and blocked have none).
 const TARGET_OF = { ready_to_start: 'start_minutes', start_to_pr_ready: null, green_to_merge: 'merge_minutes', blocked: null, replace: 'replace_minutes', report_wait: 'decision_minutes', close_to_next_start: 'start_minutes' };
-export const LEAD_RULE = 'Only this tranche counts: it opened at the first ok grant row of its open after its last tranche close, or with none since, of the open that close closed (none read: every figure unmeasured); its jobs are the modules with a start row since, at ref or on its job branch, each start row an attempt; BLOCKED time, stops and messages count from the opening. ready to start: the job\'s layer opened (the close row of the layer below it in the layer map, of this tranche as status counts it: its commit not on main; for the lowest layer, the tranche\'s opening) to its first start row since, 0 when it started before, unmeasured when the layer\'s opening is; per attempt (the job shows its worst, naming it): start to PR ready, the start row to its complete row (the receipt: the next complete row before the next start); green to merge, the first gate row with ok true on the receipt\'s pull request at or after the receipt to its merge row (unmerged: to now, open; no such row yet: not green); blocked (no target): the minutes its ledger entry spent BLOCKED, from the job branch\'s first-parent history while the job is unmerged (from a start row to its merge row) and the tranche\'s otherwise, each from the commit that made it BLOCKED to the next that did not (to now while it still is); replace: from each stop (a BLOCKED commit, as blocked reads it, or the stop a restart row names: the job\'s last push) to the replacement\'s start (the first restart row since; or the entry leaving BLOCKED; to now while neither; a later restart row in the same BLOCKED from the restart before it); a block deferred at a layer close (its pull request closed unmerged) leaves blocked and replace; report wait: each message from the job (sender named as its module) to bob or root, to the first later message from that recipient naming it as <sender>-<n> (to now while none does); close to next start: each layer close row of this tranche to the first start row after it (to now while none). History not read, or cut before the opening in a shallow clone, reads unmeasured. A figure measured to now is marked open. Median (the mean of the two middles for an even count) over the figures not open; worst over all, open ones included and marked; the jobs unmeasured counted.';
+export const LEAD_RULE = `Only this tranche counts: it opened at the first ok grant row of its open after its last tranche close, or with none since, of the open that close closed (none read: every figure unmeasured); its jobs are the modules with a start row since, at ref or on its job branch, each start row an attempt; BLOCKED time, stops and messages count from the opening. ready to start: from the job's ready time to its first start row since, 0 when its first start came before it (whatever later starts); its ready time, with open_by "uses" and a uses entry in the modules file, the latest of the tranche's opening and each module in its uses' merge (that module's last merge row at or before the job's first start, of this tranche or earlier; none by then and its own job started by then: its first merge after, so 0, or, unmerged, the job reads started before it merged; otherwise the opening; not in the layer map: unmeasured), and otherwise (open_by "layer", or no uses entry) its layer's opening (the close row of the layer below it in the layer map, of this tranche as status counts it: its commit not on main; for the lowest layer, the tranche's opening; unmeasured when that is); its cause, for a wait over its target where the record shows one: a sweep row between the ready time and the start that found the live cap full, else its ledger entry's state at the ready time when not OPEN; attempts: ${ATTEMPTS_RULE}; per attempt (the job shows its worst, naming it): start to PR ready, the start row to its complete row (the receipt: the next complete row before the next start); green to merge, the first gate row with ok true on the receipt's pull request at or after the receipt to its merge row (unmerged: to now, open; no such row yet: not green); blocked (no target): the minutes its ledger entry spent BLOCKED, from the job branch's first-parent history while the job is unmerged (from a start row to its merge row) and the tranche's otherwise, each from the commit that made it BLOCKED to the next that did not (to now while it still is); replace: from each stop (a BLOCKED commit, as blocked reads it, or the stop a restart row names: the job's last push) to the replacement's start (the first restart row since; or the entry leaving BLOCKED; to now while neither; a later restart row in the same BLOCKED from the restart before it); each replace figure names its stop's source (blocked: a BLOCKED commit; archived or idle: as the restart row records it; last push: how it stopped not recorded) and, when restarts were logged within a minute of each other, the batch it was restarted in (one act of restarting several jobs, each figure still its own job's); a block deferred at a layer close (its pull request closed unmerged) leaves blocked and replace; report wait: each message from the job (sender named as its module) to bob or root, to the first later message from that recipient naming it as <sender>-<n> (to now while none does); close to next start: each layer close row of this tranche to the first start row after it (to now while none). History not read, or cut before the opening in a shallow clone, reads unmeasured. A figure measured to now is marked open. Median (the mean of the two middles for an even count) over the figures not open; worst over all, open ones included and marked; the jobs unmeasured counted.`;
+
+// The tranche's opening, the one source every figure scoped to this tranche reads (lead times,
+// the report's elapsed time, overhead, merges, refusals): the first ok grant row of its open
+// (leadInputs picks the open). null when none is read.
+export const openedAt = (grants, cfg) => (grants || []).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && r.outcome === 'ok' && typeof r.at === 'string').map((r) => r.at).sort()[0] || null;
+
+// One row read twice (at ref and on its job branch) counts once. An attempt row is the same row
+// when its module, event, attempt and time agree, whatever else it carries; any other row when
+// it is identical.
+export const rowKey = (r) => (r.row === 'attempt' ? JSON.stringify(['attempt', r.event, r.module, r.attempt ?? null, r.at, r.role || 'job', r.session ?? null]) : JSON.stringify(r));
+export function distinctRows(rows) {
+  const seen = new Set();
+  return rows.filter((r) => { const k = rowKey(r); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+// This tranche's rows: those at ref and on the job branches, each once, dated at or after the
+// opening. With the opening unread, null.
+export const trancheRows = (rows, jobRows, opened) => (opened ? distinctRows([...rows, ...jobRows]).filter((r) => typeof r.at === 'string' && Date.parse(r.at) >= Date.parse(opened)) : null);
+
+// The attempts this tranche started, the one definition metrics report and report tranche
+// share: each start row since the opening, at the tranche's tip or on its module's job branch,
+// the same row in both once. module -> count.
+export function attemptsStarted(rows) {
+  const n = new Map();
+  for (const r of rows) if (r.row === 'attempt' && r.event === 'start' && r.module) n.set(r.module, (n.get(r.module) || 0) + 1);
+  return n;
+}
+
+// Restarts logged close together are one batch (one act of BOB's restarting several jobs): rows
+// within BATCH_MS of the one before them. restart row -> { n, from, to } for batches of two or more.
+export const BATCH_MS = 60000;
+export function restartBatches(restarts) {
+  const rs = (restarts || []).filter((r) => r.row === 'restart' && typeof r.at === 'string').sort(byAt);
+  const out = new Map();
+  let group = [];
+  const flush = () => { if (group.length > 1) for (const r of group) out.set(r, { n: group.length, from: group[0].at, to: group.at(-1).at }); group = []; };
+  for (const r of rs) {
+    if (group.length && Date.parse(r.at) - Date.parse(group.at(-1).at) > BATCH_MS) flush();
+    group.push(r);
+  }
+  flush();
+  return out;
+}
+// A stop's source: blocked (a BLOCKED commit), archived or idle (as the restart row records it),
+// or last push (the session stopped, how not recorded).
+const stopSource = (r) => (r.stop ? r.stop : r.stopped_by === 'BLOCKED' || r.state === 'BLOCKED' ? 'blocked' : r.stopped_by || 'stopped');
 
 // A message's wait for its answer: from S to R (bob or root), until R's first later message names S-n.
 export function reportWaits(msgs, now) {
@@ -120,13 +168,18 @@ const worstOf = (per) => {
 // null when unread), jobRefs (module -> its job branch ref fetched this run, null when origin has
 // none; undefined when not read), comments(pr) (the pull request's gate runs; throws or null when
 // unread), now.
-export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map(), closed = null, grants = null, restarts = null, msgs = null, jobRefs, comments = () => null, now = new Date().toISOString() } = {}) {
-  const opened = (grants || []).filter((r) => r.row === 'grant' && r.tranche === cfg.tranche && r.outcome === 'ok' && typeof r.at === 'string').map((r) => r.at).sort()[0] || null;
+export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map(), closed = null, grants = null, restarts = null, msgs = null, sweeps = null, modules, jobRefs, comments = () => null, now = new Date().toISOString() } = {}) {
+  const opened = openedAt(grants, cfg);
   const targets = { ...TARGETS, ...(cfg.targets || {}) };
   if (!opened) return { rule: LEAD_RULE, targets, opened: U, jobs: U, close_to_next_start: U, summary: Object.fromEntries(Object.keys(TARGET_OF).map((k) => [k, U])) };
   const since = (r) => typeof r.at === 'string' && Date.parse(r.at) >= Date.parse(opened);
-  const seen = new Set();
-  rows = [...rows, ...jobRows].filter(since).filter((r) => { const k = JSON.stringify(r); if (seen.has(k)) return false; seen.add(k); return true; });
+  // Every merge row read, of this tranche or before: a provider's latest merge may predate it.
+  const allMerges = distinctRows([...rows, ...jobRows]).filter((r) => r.row === 'merge' && typeof r.at === 'string');
+  rows = trancheRows(rows, jobRows, opened);
+  // open_by "uses": a module's providers, from the modules file at ref (absent: the layer rule).
+  const byUses = (cfg.open_by ?? 'uses') === 'uses';
+  if (modules === undefined) modules = byUses ? readModules(root, cfg, ref) : null;
+  const usesOf = new Map((byUses && Array.isArray(modules) ? modules : []).filter((x) => x?.id && Array.isArray(x.uses)).map((x) => [x.id, x.uses.filter((p) => p !== x.id)]));
   const isStart = (r) => r.row === 'attempt' && r.event === 'start' && r.module;
   const mine = (closed || []).filter((r) => r.row === 'closed' && r.tranche === cfg.tranche && typeof r.at === 'string');
   const decided = mine.filter((r) => !r.undecided);
@@ -139,14 +192,55 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
   };
   // The closes that deferred a module BLOCKED (its pull request closed unmerged).
   const deferredAt = (m) => decided.filter((c) => c.deferred?.[m] && !Array.isArray(c.deferred[m]) && c.deferred[m].reason).map((c) => c.at).sort();
+  // A module's ready time. open_by "uses", for a module with a `uses` entry: the latest of the
+  // opening and each provider's merge (its last merge row at or before the module's first start,
+  // this tranche's or earlier; with none by then, its first after, so the module started before
+  // it was ready: 0; with no merge row at all, the opening). Otherwise its layer's opening
+  // (readyAt). { at, by, waited_on }.
+  const mergesOf = (p) => allMerges.filter((r) => r.module === p).map((r) => r.at).sort();
+  const readyOf = (m, firstStart) => {
+    const u = usesOf.get(m);
+    if (!u) return { at: readyAt(layers.get(m)), by: 'layer' };
+    let at = opened;
+    let on = null;
+    let early = null;
+    for (const p of u) {
+      if (layers.size && !layers.has(p)) return { at: null, by: 'uses', missing: p };
+      const ms = mergesOf(p);
+      const before = ms.filter((x) => !firstStart || Date.parse(x) <= Date.parse(firstStart)).at(-1);
+      // No merge by the module's start: the provider was owed only if its own job had started by
+      // then (the module started before it merged); a provider started later is a reopen.
+      const owed = !before && firstStart && rows.some((r) => isStart(r) && r.module === p && Date.parse(r.at) <= Date.parse(firstStart));
+      const t = before || (owed && ms.find((x) => Date.parse(x) > Date.parse(firstStart))) || opened;
+      if (owed && !ms.some((x) => Date.parse(x) > Date.parse(firstStart))) early = p;
+      if (Date.parse(t) > Date.parse(at)) { at = t; on = p; }
+    }
+    if (early) return { at: null, by: 'uses', early };
+    return { at, by: 'uses', ...(on ? { waited_on: on } : {}) };
+  };
+  // What held a module past its ready time (a wait over its target), where the record shows it: a sweep at or after the
+  // ready time and before its start that found the live cap full (live at or over live_cap), or
+  // its ledger entry's state at the ready time (the tranche's history) when not OPEN.
+  const causeOf = (m, ready, start) => {
+    if (!ready || !start || Date.parse(start) <= Date.parse(ready)) return null;
+    const full = (sweeps || []).filter((r) => r.row === 'sweep' && typeof r.at === 'string' && r.at >= ready && r.at < start && Number.isFinite(r.live) && Number.isFinite(r.live_cap) && r.live >= r.live_cap).sort(byAt)[0];
+    if (full) return `live cap full (${full.live} of ${full.live_cap} at ${full.at})`;
+    const h = ref ? entryHistory(root, ref, m, ready) : null;
+    const st = h ? stateAt(h, ready) : null;
+    if (st && st !== 'OPEN') return `its entry ${st} at the ready time`;
+    return null;
+  };
   const readComments = (pr) => { try { const a = comments(pr); return Array.isArray(a) ? a : null; } catch { return null; } };
   const mods = [...new Set(rows.filter(isStart).map((r) => r.module))].sort();
+  const batches = restartBatches((restarts || []).filter((r) => r.tranche === cfg.tranche && since(r)));
+  const batchOf = (r) => { const b = batches.get(r); return b ? { batch: { restarts: b.n, from: b.from, to: b.to } } : {}; };
   const jobs = mods.map((m) => {
     const own = rows.filter((r) => r.module === m);
     const starts = own.filter(isStart).sort(byAt);
     const merges = own.filter((r) => r.row === 'merge').sort(byAt);
     const deferrals = deferredAt(m);
-    const ready = readyAt(layers.get(m));
+    const rd = readyOf(m, starts[0]?.at);
+    const ready = rd.at;
     const firstSince = ready && first(starts.filter((r) => r.at >= ready));
     const attempts = starts.map((s, i) => {
       const next = starts[i + 1]?.at;
@@ -183,18 +277,28 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
       const fs = kept.flatMap((b) => {
         const mine_ = rs.filter((x) => !used.has(x) && Date.parse(x.at) >= Date.parse(b.from) && (b.to === null || Date.parse(x.at) <= Date.parse(b.to)));
         mine_.forEach((x) => used.add(x));
-        if (mine_.length) return mine_.map((r, i) => (i ? { from: mine_[i - 1].at, minutes: mins(mine_[i - 1].at, r.at), stopped_by: 'restart', replaced: r.at } : { from: b.from, minutes: mins(b.from, r.at), stopped_by: 'BLOCKED', replaced: r.at }));
-        return [b.to ? { from: b.from, minutes: mins(b.from, b.to), stopped_by: 'BLOCKED', resumed: b.to } : { from: b.from, minutes: mins(b.from, now), stopped_by: 'BLOCKED', open: true }];
+        if (mine_.length) return mine_.map((r, i) => ({ ...(i ? { from: mine_[i - 1].at, minutes: mins(mine_[i - 1].at, r.at), stopped_by: 'restart', source: stopSource(r) } : { from: b.from, minutes: mins(b.from, r.at), stopped_by: 'BLOCKED', source: 'blocked' }), replaced: r.at, ...batchOf(r) }));
+        return [b.to ? { from: b.from, minutes: mins(b.from, b.to), stopped_by: 'BLOCKED', source: 'blocked', resumed: b.to } : { from: b.from, minutes: mins(b.from, now), stopped_by: 'BLOCKED', source: 'blocked', open: true }];
       });
       for (const r of rs.filter((x) => !used.has(x))) {
-        fs.push(typeof r.stopped === 'string' && Number.isFinite(Date.parse(r.stopped)) ? { from: later(r.stopped, opened), minutes: Math.max(0, mins(later(r.stopped, opened), r.at)), stopped_by: r.stopped_by || 'stopped', replaced: r.at } : U);
+        fs.push(typeof r.stopped === 'string' && Number.isFinite(Date.parse(r.stopped)) ? { from: later(r.stopped, opened), minutes: Math.max(0, mins(later(r.stopped, opened), r.at)), stopped_by: r.stopped_by || 'stopped', source: stopSource(r), replaced: r.at, ...batchOf(r) } : U);
       }
       replace = fs.length ? fs.sort((a, b) => String(a.from).localeCompare(String(b.from))).map((f) => fig(cfg, 'replace', f)) : 'none';
     }
     const waits = msgs ? reportWaits(msgs.filter(since), now).filter((w) => w.from === m) : null;
     return {
       module: m, layer: layers.get(m) ?? null,
-      ready_to_start: fig(cfg, 'ready_to_start', ready ? (firstSince ? Math.max(0, mins(ready, firstSince.at)) : 0) : U),
+      ready_to_start: (() => {
+        if (rd.early) return `started before ${rd.early} (in its uses) merged; ${rd.early} not merged yet`;
+        if (!ready) return U;
+        // Its first start before the ready time: it started before it was ready, 0, whatever later starts.
+        const before = starts[0] && Date.parse(starts[0].at) < Date.parse(ready);
+        const f = fig(cfg, 'ready_to_start', firstSince && !before ? Math.max(0, mins(ready, firstSince.at)) : 0);
+        // A cause is named for a wait over its target only.
+        const cause = firstSince && !before && f.mark === 'over' && causeOf(m, ready, firstSince.at);
+        const early = rd.waited_on && before;
+        return { ...f, ready: ready, ready_by: rd.by, ...(rd.waited_on ? { [early ? 'started_before' : 'waited_on']: rd.waited_on } : {}), ...(cause ? { cause } : {}) };
+      })(),
       start_to_pr_ready: worstOf(attempts.map((a) => ({ n: a.attempt, f: a.start_to_pr_ready }))),
       green_to_merge: worstOf(attempts.map((a) => ({ n: a.attempt, f: a.green_to_merge }))),
       blocked: fig(cfg, 'blocked', blocked),
@@ -213,12 +317,13 @@ export function leadTimes(root, cfg, { ref, rows, jobRows = [], layers = new Map
   const summary = Object.fromEntries(Object.keys(TARGET_OF).map((k) => {
     const xs = values(k);
     const un = k === 'close_to_next_start' ? (Array.isArray(closes) ? closes.filter((c) => c.unmeasured).length : 0) : jobs.filter((j) => j[k] === U || (Array.isArray(j[k]) && j[k].includes(U))).length;
-    if (!xs.length) return [k, U];
+    const early = k === 'ready_to_start' ? jobs.filter((j) => typeof j[k] === 'string' && j[k].startsWith('started before')).length : 0;
+    if (!xs.length) return [k, early ? { n: 0, median: U, worst: U, ...(un ? { unmeasured: un } : {}), started_before_uses: early } : U];
     const t = TARGET_OF[k] ? cfg.targets?.[TARGET_OF[k]] : null;
     const shut = xs.filter((x) => !x.open).map((x) => x.minutes);
     const md = median(shut);
     const w = xs.reduce((a, b) => (b.minutes > a.minutes ? b : a));
-    return [k, { n: shut.length, ...(xs.length > shut.length ? { open: xs.length - shut.length } : {}), ...(un ? { unmeasured: un } : {}), median: md, worst: w.minutes, ...(w.open ? { worst_open: true } : {}), ...(Number.isFinite(t) ? { target: t, ...(typeof md === 'number' && md > t ? { median_mark: 'over' } : {}), ...(w.minutes > t ? { worst_mark: 'over' } : {}) } : {}) }];
+    return [k, { n: shut.length, ...(xs.length > shut.length ? { open: xs.length - shut.length } : {}), ...(un ? { unmeasured: un } : {}), ...(early ? { started_before_uses: early } : {}), median: md, worst: w.minutes, ...(w.open ? { worst_open: true } : {}), ...(Number.isFinite(t) ? { target: t, ...(typeof md === 'number' && md > t ? { median_mark: 'over' } : {}), ...(w.minutes > t ? { worst_mark: 'over' } : {}) } : {}) }];
   }));
   return { rule: LEAD_RULE, targets, opened, jobs, close_to_next_start: closes, summary };
 }
@@ -268,6 +373,6 @@ export const leadCell = (f) => {
   if (typeof f === 'string') return f;
   if (Array.isArray(f)) return f.length ? f.map(leadCell).join('; ') : 'none';
   if (!f || f.unmeasured || typeof f.minutes !== 'number') return U;
-  return `${f.minutes} min${f.open ? ' (open)' : ''}${f.attempt !== undefined ? ` (attempt ${f.attempt}${f.unmeasured_attempts ? `; attempt ${f.unmeasured_attempts.join(', ')} ${U}` : ''})` : ''}${f.target !== undefined ? ` (target ${f.target}${f.mark ? ', over' : ''})` : ''}`;
+  return `${f.minutes} min${f.open ? ' (open)' : ''}${f.attempt !== undefined ? ` (attempt ${f.attempt}${f.unmeasured_attempts ? `; attempt ${f.unmeasured_attempts.join(', ')} ${U}` : ''})` : ''}${f.target !== undefined ? ` (target ${f.target}${f.mark ? ', over' : ''})` : ''}${f.waited_on ? ` (ready at ${f.waited_on}'s merge)` : ''}${f.started_before ? ` (started before ${f.started_before} merged)` : ''}${f.cause ? ` (cause: ${f.cause})` : ''}${f.source ? ` (stop: ${f.source})` : ''}${f.batch ? ` (batch of ${f.batch.restarts} restarts ${f.batch.from}..${f.batch.to})` : ''}`;
 };
-export const leadSummaryCell = (s) => (s === U ? U : `median ${s.median}${s.median_mark ? ' over' : ''}, worst ${s.worst}${s.worst_open ? ' (open)' : ''}${s.worst_mark ? ' over' : ''}${s.target !== undefined ? ` (target ${s.target})` : ''}, n ${s.n}${s.open ? ` and ${s.open} open` : ''}${s.unmeasured ? `; ${s.unmeasured} ${U}` : ''}`);
+export const leadSummaryCell = (s) => (s === U ? U : `median ${s.median}${s.median_mark ? ' over' : ''}, worst ${s.worst}${s.worst_open ? ' (open)' : ''}${s.worst_mark ? ' over' : ''}${s.target !== undefined ? ` (target ${s.target})` : ''}, n ${s.n}${s.open ? ` and ${s.open} open` : ''}${s.unmeasured ? `; ${s.unmeasured} ${U}` : ''}${s.started_before_uses ? `; ${s.started_before_uses} started before a module in their uses merged` : ''}`);

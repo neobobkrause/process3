@@ -309,11 +309,13 @@ test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job
   git(['-c', 'protocol.file.allow=always', 'submodule', 'update', '-q', '--init'], { cwd: w });
   commit(w, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
   bump(w);
-  assert.throws(() => jobComplete(w, 'alpha', { gh: g.gh, log: quiet }), /commit your work first/, 'WORKING: a moved submodule is uncommitted work');
+  // The tool runs from the product's .process, as it does in a session.
+  const toolRoot = join(w, '.process');
+  assert.throws(() => jobComplete(w, 'alpha', { gh: g.gh, toolRoot, log: quiet }), /\.process is not at the pin this branch records, and a job never commits \.process: run `git submodule update \.process`/, 'WORKING: a moved submodule is refused, naming the update');
   git(['-c', 'protocol.file.allow=always', 'submodule', 'update', '-q'], { cwd: w });
-  jobComplete(w, 'alpha', { gh: g.gh, log: quiet });
+  jobComplete(w, 'alpha', { gh: g.gh, toolRoot, log: quiet });
   bump(w);
-  jobComplete(w, 'alpha', { gh: g.gh, exemptRevert: 'why', log: quiet });
+  jobComplete(w, 'alpha', { gh: g.gh, toolRoot, exemptRevert: 'why', log: quiet });
   assert.equal(g.state.comments.length, 2);
   assert.equal(parseBlock(g.state.comments[1].body, 'p3:receipt').exempt.revert, 'why');
 });
@@ -773,7 +775,7 @@ test('the START says each judged act is its own shell command, never chained wit
   const root = product();
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   const lines = start.split('\n').filter((l) => /judged act/.test(l));
-  assert.deepEqual(lines, ['Give each judged act (a push, a session start) its own shell command: no `&&`, `||`, `;`, pipe or second line joins it to anything.']);
+  assert.deepEqual(lines, ['Give each judged act (a push, a session start) its own shell command, never chained with another.']);
 });
 
 // JOB-6: recovery by replacement.
@@ -802,11 +804,16 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   assert.match(r.start, /BOB saw: its session stopped answering after 40 minutes/);
   assert.match(r.start, /pull request https:\/\/x\/pull\/9 as it is \(last commit `[0-9a-f]+ half the work`; receipt none posted \(WORKING\)\)/);
   assert.match(r.start, /refused is never rerouted/);
-  assert.match(r.start, /1\. `git fetch --depth 1 origin job\/alpha:refs\/remotes\/origin\/job\/alpha`/);
-  assert.match(r.start, /2\. `git checkout -q -b job\/alpha origin\/job\/alpha`/);
+  // .process filled at the launch commit (the tranche tip), then job sync checks out the branch
+  // and brings the tranche in, from the tranche's pin (defect sweep 4 Nov, #3 and #4).
+  assert.match(r.start, /\n1\. `git submodule update --init \.process`\n2\. `node \.process\/tool\/p3\.mjs job sync alpha`\n3\. `node \.process\/tool\/p3\.mjs status/);
   assert.match(r.start, /\| `req\/alpha.md` \| \d+ \|/);
   assert.equal(r.launch.source_revision, git(['rev-parse', 'origin/tranche'], { cwd: root }), 'the tranche tip commit');
   assert.deepEqual(r.subscribe.pullNumber, 9);
+  // --stop: how the replaced session stopped, in the row (lead times' replace names its source).
+  const again = jobStart(root, 'alpha', { coordinator: 's', restart: 'archived by mistake', stop: 'archived', find: () => pr, notes: () => [], log: quiet });
+  assert.equal(again.row.stop, 'archived');
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', stop: 'gone', find: () => pr, notes: () => [], log: quiet }), /--stop archived\|idle/);
 });
 
 test('--restart is refused for a COMPLETE module, without a branch or PR, and without a why', () => {

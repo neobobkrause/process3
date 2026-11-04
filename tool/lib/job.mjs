@@ -12,7 +12,7 @@ import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
 import { movedText, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
-import { buildGenerated, generatedRows } from './checks.mjs';
+import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -95,20 +95,22 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`| total | ${reading.bytes} |`);
   if (reading.cap) L.push('', `Requirement file \`${reading.cap.file}\`: ${reading.cap.bytes} bytes against the cap of ${reading.cap.cap}${reading.cap.over ? ', over it' : ''}.`);
   L.push('', '## Commands, in order', '');
-  const n = restart ? 3 : 1;
-  // Shallow, as the session's clone is: job complete deepens the branch to the merge base it needs.
-  if (restart) L.push(`1. \`git fetch --depth 1 origin ${branch}:refs/remotes/origin/${branch}\``, `2. \`git checkout -q -b ${branch} origin/${branch}\``);
-  L.push(`${n}. \`git submodule update --init .process\``);
+  const n = restart ? 2 : 1;
+  // A replacement fills .process at the launch commit, the tranche tip, and job sync checks out
+  // the branch and brings the tranche in: it runs from the tranche's pin, whatever the branch pins.
+  // Shallow, as the session's clone is: job sync and job complete deepen what they need.
+  L.push('1. `git submodule update --init .process`');
+  if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
-  L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9).`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming the test that asserts it${notices.length ? ', and each notice\'s above' : ''}. It checks, pushes, posts your receipt and marks the PR ready; if it stops part way, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming the test that asserts it${notices.length ? ', and each notice\'s above' : ''}. It pushes, posts your receipt and marks the PR ready; if it stops, run it again. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
   // The chain's last automatic step is the watcher (coordinator, 4 Nov); `address <role>` reads each.
   L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then the watcher, with the minutes, by send_message (\`${P3} address <role>\`). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
-  L.push('', 'Give each judged act (a push, a session start) its own shell command: no `&&`, `||`, `;`, pipe or second line joins it to anything.');
+  L.push('', 'Give each judged act (a push, a session start) its own shell command, never chained with another.');
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(id)) L.push(`- ${a}`);
   // Review of PR 72: the wake's send writes the state branch, which "push to job/<id> only" forbade.
@@ -161,7 +163,10 @@ const commitFiles = (root, paths, msg) => {
   git(['commit', '-q', '-m', msg, '--', ...paths], { cwd: root });
   return git(['rev-parse', 'HEAD'], { cwd: root });
 };
-const fetchRef = (root, branch) => fetchBranch(root, branch);
+const fetchRef = (root, branch, opts) => fetchBranch(root, branch, opts);
+// The newest COMPLETE commit of a module on this branch, by the message commitFiles gives it.
+const bre = (s) => String(s).replace(/[.[\]*^$\\]/g, '\\$&');
+const completeCommit = (root, id) => git(['log', '-1', '--format=%H', `--grep=^job complete ${bre(id)} (attempt `, '--', metricsFile(id)], { cwd: root, allowFail: true }).stdout.trim();
 const remoteTip = (root, branch) => (git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.split('\t')[0] || '').trim();
 const restore = (root, paths) => git(['checkout', 'HEAD', '--', ...paths], { cwd: root, allowFail: true });
 
@@ -198,8 +203,8 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
-  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, find, notes, log });
+export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
+  if (restart !== undefined) return jobRestart(root, id, { coordinator, model, why: restart, stop, find, notes, log });
   if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
@@ -476,9 +481,12 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
 // the state branch (lead times' replace: the time, the why, and when and how the job stopped: the
 // commit that made it BLOCKED, else its branch's last push), then prints the START, the
 // create_session call from the tranche tip's commit (so the session loads the tip's approvals;
-// its first commands check out the branch) and the subscribe call.
-function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
+// its first commands fill .process there and run job sync, which checks out the branch and
+// brings the tranche in) and the subscribe call.
+export const STOPS = ['archived', 'idle'];
+function jobRestart(root, id, { coordinator, model, why, stop, find, notes, log }) {
   if (why === true || !String(why ?? '').trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
+  if (stop !== undefined && !STOPS.includes(stop)) fail(`--stop ${STOPS.join('|')}: how the replaced session stopped, not ${JSON.stringify(stop)}`);
   const cfg = loadConfig(root);
   const slug = repoSlug(root);
   const branch = `job/${id}`;
@@ -513,7 +521,7 @@ function jobRestart(root, id, { coordinator, model, why, find, notes, log }) {
     while (k > 0 && h[k - 1].state === 'BLOCKED') k--;
     stopped = h.length && h.at(-1).state === 'BLOCKED' && (k > 0 || !isShallow(root)) ? h[k].at : null;
   }
-  const row = { row: 'restart', at: now(), tranche: cfg.tranche, module: id, why: String(why).trim(), pr: pr.number, state, stopped, stopped_by: state === 'BLOCKED' ? 'BLOCKED' : 'last push' };
+  const row = { row: 'restart', at: now(), tranche: cfg.tranche, module: id, why: String(why).trim(), pr: pr.number, state, stopped, stopped_by: state === 'BLOCKED' ? 'BLOCKED' : 'last push', ...(stop && state !== 'BLOCKED' ? { stop } : {}) };
   writeState(root, cfg.state_branch, `restart ${id}`, (wt) => {
     const p = join(wt, RESTARTS_FILE);
     mkdirSync(dirname(p), { recursive: true });
@@ -603,6 +611,129 @@ const onBranch = (root, id) => {
   return b;
 };
 
+// The process pin a commit records as .process, or null when it has none.
+export const pinAt = (root, ref) => git(['ls-tree', ref, '--', '.process'], { cwd: root, allowFail: true }).stdout.match(/^160000 commit ([0-9a-f]{40,64})\t/)?.[1] || null;
+// Whether the tool at `have` is the pin or newer: the same commit, or the pin its ancestor (the pin
+// fetched by its id when the process clone lacks it; still missing, it is not an ancestor).
+function atLeast(toolRoot, pin, have) {
+  if (pin === have) return true;
+  if (git(['cat-file', '-e', `${pin}^{commit}`], { cwd: toolRoot, allowFail: true }).code !== 0) git(['fetch', '-q', 'origin', pin], { cwd: toolRoot, allowFail: true });
+  return git(['merge-base', '--is-ancestor', pin, have], { cwd: toolRoot, allowFail: true }).code === 0;
+}
+const short = (sha) => String(sha).slice(0, 10);
+
+// The tool running must be at least the branch's pin and the tranche's (defect sweep 4 Nov, #2
+// and #4): the job runs .process, so after a merge of the tranche that moved the pin it ran the
+// old tool, and a branch started on an old pin ran a tool without the tranche's fixes, while the
+// gate runs the tranche's. Refused before any work, naming the step that fixes it. A tool newer
+// than both stands (a COMPLETE job moves .process to amend its receipt: copy PR 40).
+export function pinCheck(root, id, { toolRoot = TOOL_ROOT, tranche = null, what = 'it' } = {}) {
+  const have = git(['rev-parse', 'HEAD'], { cwd: toolRoot, allowFail: true }).stdout.trim();
+  if (!have) return;
+  const mine = pinAt(root, 'HEAD');
+  if (mine && !atLeast(toolRoot, mine, have)) fail(`this branch pins process ${short(mine)} and .process runs ${short(have)}, an older tool: run \`git submodule update .process\`, then ${what} again; nothing was run`);
+  const theirs = tranche && pinAt(root, tranche);
+  if (theirs && !atLeast(toolRoot, theirs, have)) fail(`the tranche runs process ${short(theirs)} and this branch ${short(mine || have)}: run \`${P3} job sync ${id}\`, then ${what} again; nothing was run`);
+}
+
+// The tranche's ref for the pin check: origin's when it can be read, else the local branch.
+const trancheRef = (root, cfg) => {
+  fetchRef(root, cfg.tranche, { allowFail: true });
+  for (const r of [`refs/remotes/origin/${cfg.tranche}`, `refs/heads/${cfg.tranche}`]) if (git(['rev-parse', '-q', '--verify', r], { cwd: root, allowFail: true }).code === 0) return r;
+  return null;
+};
+
+// Tracked changes, with .process left out when the job may hold it at another pin.
+const dirty = (root, ignoreSubmodules) => git(['status', '--porcelain', '--untracked-files=no', ...(ignoreSubmodules ? ['--ignore-submodules=all'] : [])], { cwd: root });
+
+// Whether origin's branch has commits this checkout lacks (BOB's merge of the tranche and its merge
+// row, pushed to job/<id>: defect sweep 4 Nov, #5). Its tip is fetched when this clone lacks it.
+function originAhead(root, branch) {
+  const tip = remoteTip(root, branch);
+  if (!tip) return false;
+  if (git(['cat-file', '-e', `${tip}^{commit}`], { cwd: root, allowFail: true }).code !== 0) fetchRef(root, branch);
+  return git(['merge-base', '--is-ancestor', tip, 'HEAD'], { cwd: root, allowFail: true }).code !== 0;
+}
+
+// Deepen a shallow clone until `ok` holds: by doubling, then whole (shallowBase's way).
+function deepenUntil(root, refs, ok, what) {
+  for (let n = 32; !ok(); n *= 2) {
+    if (!isShallow(root)) return ok();
+    const r = n > 32768
+      ? git(['fetch', '-q', '--unshallow', 'origin', ...refs], { cwd: root, allowFail: true })
+      : git(['fetch', '-q', `--deepen=${n}`, 'origin', ...refs], { cwd: root, allowFail: true });
+    if (r.code !== 0) fail(`this clone is shallow and could not read ${what} (git fetch: ${r.stderr.trim().split('\n').pop()}); run job sync again`);
+  }
+  return true;
+}
+
+// A merge into the job's branch, by a merge commit when not a fast-forward. A conflict is left
+// in place for the job to resolve: its own files are the only ones it changes.
+function mergeIn(root, ref, { id, name, ff, msg, log }) {
+  if (git(['merge-base', '--is-ancestor', ref, 'HEAD'], { cwd: root, allowFail: true }).code === 0) return false;
+  const m = git(['merge', '-q', '--no-edit', ...(ff ? [] : ['--no-ff', '-m', msg]), ref], { cwd: root, allowFail: true });
+  if (m.code !== 0) {
+    const files = git(['diff', '--name-only', '--diff-filter=U'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+    if (!files.length) { git(['merge', '--abort'], { cwd: root, allowFail: true }); fail(`git merge ${name} failed: ${(m.stderr || m.stdout).trim().split('\n').pop()}; nothing was merged`); }
+    fail(`${name} does not merge cleanly: ${files.join(', ')}. The merge is left in progress: resolve those files, \`git add\` them and \`git commit --no-edit\`, then run \`${P3} job sync ${id}\` again`);
+  }
+  log(`merged ${name}`);
+  return true;
+}
+
+// job sync <id> (defect sweep 4 Nov, #3): brings the job's branch up to date. A depth-1 clone
+// could not merge the tranche at all ("refusing to merge unrelated histories"), and BOB's merge
+// pushes to job/<id>, which the job's next push then lacked. On job/<id>, or from a clean
+// checkout with no local job/<id> (a replacement session at the tranche tip), which it checks
+// out from origin: deepens both sides from GitHub's compare, as take-in does; merges origin's
+// job/<id> (BOB's pushes; a fast-forward when it can) and then the tranche, by a merge commit;
+// then `git submodule update .process`, so the tool is the branch's pin. Pushes nothing.
+export function jobSync(root, id, { push = true, compare: cmp = compare, log = console.log } = {}) {
+  const branch = `job/${id}`;
+  const cfg = loadConfig(root);
+  const slug = push ? repoSlug(root) : 'local/local';
+  if (dirty(root, true)) fail('commit your work first: tracked files have changes; nothing was merged');
+  const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
+  if (cur !== branch) {
+    if (git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0) onBranch(root, id);
+    if (!push || !remoteTip(root, branch)) fail(`no branch ${branch} on origin; run this on branch ${branch}`);
+    fetchRef(root, branch);
+    git(['checkout', '-q', '-b', branch, `refs/remotes/origin/${branch}`], { cwd: root });
+    log(`checked out ${branch} from origin`);
+  }
+  const tr = push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`;
+  const mine = `refs/remotes/origin/${branch}`;
+  const pushed = push && !!remoteTip(root, branch);
+  if (push) {
+    fetchRef(root, cfg.tranche);
+    if (pushed) fetchRef(root, branch);
+    if (isShallow(root)) {
+      // The depths from GitHub's compare (take-in's way), then deeper while a merge base is missing.
+      const c = pushed ? cmp(slug, cfg.tranche, branch) : null;
+      if (pushed && (!Number.isInteger(c?.ahead_by) || !Number.isInteger(c?.behind_by))) fail(`this clone is shallow and GitHub did not compare ${branch} with ${cfg.tranche}; run job sync again`);
+      if (c) {
+        git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', `+refs/heads/${branch}:${mine}`], { cwd: root });
+        git(['fetch', '-q', `--depth=${c.behind_by + 1}`, 'origin', `+refs/heads/${cfg.tranche}:${tr}`], { cwd: root });
+      }
+      const refs = [`+refs/heads/${cfg.tranche}:${tr}`, ...(pushed ? [`+refs/heads/${branch}:${mine}`] : [])];
+      const based = (ref) => git(['merge-base', 'HEAD', ref], { cwd: root, allowFail: true }).code === 0;
+      if (!deepenUntil(root, refs, () => based(tr) && (!pushed || based(mine)), `the history of ${branch} and ${cfg.tranche}`)) fail(`${branch} shares no history with ${cfg.tranche}`);
+    }
+  }
+  const merged = [];
+  if (pushed && mergeIn(root, mine, { id, name: `origin/${branch}`, ff: true, log })) merged.push(`origin/${branch}`);
+  if (mergeIn(root, tr, { id, name: cfg.tranche, ff: false, msg: `Bring ${branch} up to ${cfg.tranche}`, log })) merged.push(cfg.tranche);
+  if (!merged.length) log(`${branch} already holds ${cfg.tranche}${pushed ? ` and origin's ${branch}` : ''}`);
+  const pin = pinAt(root, 'HEAD');
+  if (pin) {
+    const u = git(['submodule', 'update', '-q', '--init', '.process'], { cwd: root, allowFail: true });
+    if (u.code !== 0) fail(`merged, but \`git submodule update .process\` failed (${u.stderr.trim().split('\n').pop()}); run it, then job sync again`);
+    log(`.process is at the branch's pin ${short(pin)}`);
+  }
+  if (push ? remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root }) : merged.length) log(`next: \`git push origin ${branch}\`, then run your command again`);
+  return { ok: true, merged, pin };
+}
+
 // The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing, or,
 // with commits after the COMPLETE commit and its pull request open, completes a new attempt.
@@ -611,13 +742,16 @@ export function jobComplete(root, id, opts = {}) {
   const io = { findPR, addComment, markReady, comments, toDraft, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
+  const cfg = loadConfig(root);
+  if (push) fetchRef(root, cfg.tranche);
+  pinCheck(root, id, { toolRoot: opts.toolRoot, tranche: push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`, what: 'job complete' });
+  // BOB's merge pushed to job/<id>: the job's push would be refused (defect sweep 4 Nov, #5).
+  if (push && originAhead(root, branch)) fail(`origin's ${branch} has commits this checkout lacks (BOB's merge of the tranche, or a push from elsewhere): run \`${P3} job sync ${id}\`, then job complete again; nothing was run`);
   // A COMPLETE job may move .process to a newer pin to amend its receipt with that pin's tool;
   // it commits nothing, so the moved submodule is not work to commit (copy PR 40, 4 Nov).
   const done = readEntry(root, id).status.state === 'COMPLETE';
-  if (git(['status', '--porcelain', '--untracked-files=no', ...(done ? ['--ignore-submodules=all'] : [])], { cwd: root })) fail('commit your work first: tracked files have changes');
-  const cfg = loadConfig(root);
+  if (dirty(root, done)) fail(dirty(root, true) ? 'commit your work first: tracked files have changes' : '.process is not at the pin this branch records, and a job never commits .process: run `git submodule update .process`, then job complete again');
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
-  if (push) fetchRef(root, cfg.tranche);
   const slug = push ? repoSlug(root) : 'local/local';
   const base = push && isShallow(root) ? shallowBase(root, slug, cfg.tranche, branch, opts.compare || compare)
     : git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
@@ -629,8 +763,10 @@ export function jobComplete(root, id, opts = {}) {
   if (entry.status.state === 'COMPLETE') {
     // Resume: the receipt was saved in the COMPLETE commit's row; its SHA is that commit.
     const row = readRows(root, id).filter((r) => r.event === 'complete').pop();
-    const at = git(['log', '-1', '--format=%H', '--', metricsFile(id)], { cwd: root });
     if (!row?.receipt) fail(`${id} is COMPLETE but no receipt was saved; ask your coordinator`);
+    // By its message, not the last touch of the metrics file: BOB's merge row touches it too.
+    const at = completeCommit(root, id);
+    if (!at) fail(`${id} is COMPLETE but this clone's history holds no "job complete ${id}" commit; run \`${P3} job sync ${id}\`, then job complete again`);
     if (at === git(['rev-parse', 'HEAD'], { cwd: root })) {
       if (opts.tests?.length || noSuite) log('the job is COMPLETE: its commands and tests stand as saved; only --exempt-revert and --not-verified amend the receipt');
       return finish(root, { id, slug, pr, branch, push, io, log, receipt: { ...row.receipt, sha: at }, amend: { notVerified, exemptRevert }, again: !!row.receipt.after });
@@ -666,17 +802,21 @@ export function jobComplete(root, id, opts = {}) {
   const built = installed0(inst) ? buildModuleGenerated(root, cfg, { timeout, exec, log }) : null;
   if (built) for (const c of built.commands) commands.push(c);
   const installed = !inst.findings.length && !(built && built.findings.length);
-  // The module's checks are product code: without the GitHub tokens, as the gate runs it.
-  for (const c of installed ? entry.checks || [] : []) {
-    const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
-    commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
-  }
   const notv = [...notVerified];
-  if (noSuite) notv.push('the module suite was not run by job complete');
-  else if (installed) {
-    const s = runSuite(root, entry, undefined, { timeout });
-    commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
-    if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
+  try {
+    // The module's checks are product code: without the GitHub tokens, as the gate runs it.
+    for (const c of installed ? entry.checks || [] : []) {
+      const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
+      commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
+    }
+    if (noSuite) notv.push('the module suite was not run by job complete');
+    else if (installed) {
+      const s = runSuite(root, entry, undefined, { timeout });
+      commands.push({ cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true });
+      if (s.exit !== 0) log(s.output.split('\n').slice(-40).join('\n'));
+    }
+  } finally {
+    if (built) restoreGenerated(root, built.ran, log);
   }
   for (const f of [...ledger, ...rec.findings]) log(`${f.check}: ${f.file}:${f.line}: ${f.message}`);
   const failed = commands.filter((c) => c.exit !== 0);
@@ -736,7 +876,7 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
   if (remoteTip(root, branch) !== sha) {
     if (again && !pr.draft) pr = { ...pr, ...io.toDraft(slug, pr), draft: true };
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
-    if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again`);
+    if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again${originAhead(root, branch) ? `, after \`${P3} job sync ${id}\`: origin's ${branch} has commits this checkout lacks` : ''}`);
   }
   if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
   const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number), { from: pr.user?.login || null });
@@ -772,7 +912,9 @@ export function jobBlock(root, id, { reason, push = true, log = console.log } = 
     try { commitFiles(root, [entryFile(id)], `block ${id}: ${reason}`); } catch (err) { restore(root, [entryFile(id)]); throw err; }
   }
   if (push) {
-    git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root });
+    const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
+    // BOB's merge pushed to job/<id> (defect sweep 4 Nov, #5): name the step that brings it in.
+    if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); ${originAhead(root, branch) ? `origin's ${branch} has commits this checkout lacks: run \`${P3} job sync ${id}\`, then block again` : 'run block again'}`);
     if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail('the push did not land; run block again');
   }
   log(`${id} is BLOCKED: ${reason}`);
@@ -791,26 +933,52 @@ function installModule(root, cfg, entry, { exec, log }) {
 }
 
 const installed0 = (inst) => !inst.findings.length;
-// The `generated` rows' untracked paths, built before the suite as the gate does: { commands, findings }.
+// The `generated` rows' untracked paths, built before the suite as the gate does:
+// { commands, findings, ran }. A build runs other members' builds (the copy's bundles.mjs runs
+// npm run build in each stale member), so every stale lock file is installed first, as the gate
+// installs them all (defect sweep 4 Nov, #10); only when a row is to be built.
 function buildModuleGenerated(root, cfg, { timeout, exec, log }) {
   const gen = generatedRows(cfg);
-  if (!gen.rows.length) return { commands: [], findings: [] };
+  const none = { commands: [], findings: [], ran: new Set() };
+  if (!gen.rows.some((r) => committedPaths(root, 'HEAD', r).length < r.paths.length)) return none;
+  const inst = install(root, cfg.lockfiles || [], { onlyStale: true, ...(exec ? { exec } : {}) });
+  for (const l of inst.ran) log(`installed ${l}`);
+  const commands = [];
+  for (const l of inst.ran) commands.push({ cmd: `npm ci (${l})`, exit: inst.findings.some((f) => f.file === l) ? 1 : 0 });
+  for (const f of inst.findings.filter((x) => !inst.ran.includes(x.file))) commands.push({ cmd: `npm ci (${f.file})`, exit: 1, error: f.message });
+  for (const f of inst.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+  if (inst.findings.length) return { ...none, commands, findings: inst.findings };
   const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
-  const commands = b.built.length || b.findings.length ? [{ cmd: `build generated (${[...b.built, ...b.findings.map((f) => f.file)].join(', ')})`, exit: b.findings.length ? 1 : 0 }] : [];
+  if (b.built.length || b.findings.length) commands.push({ cmd: `build generated (${[...b.built, ...b.findings.map((f) => f.file)].join(', ')})`, exit: b.findings.length ? 1 : 0 });
   for (const f of b.findings) log(`${f.check}: ${f.file}: ${f.message}`);
-  return { commands, findings: b.findings };
+  return { commands, findings: b.findings, ran: b.ran };
+}
+
+// A row's regenerate can rewrite its committed paths too (the copy's bundles.mjs rebuilds every
+// stale bundle, the committed ones included): after the suite they go back to the commit, so the
+// tree stays clean for job complete and send (defect sweep 4 Nov, #7). A job never commits them.
+function restoreGenerated(root, ran, log) {
+  const paths = [...new Set([...ran].flatMap((r) => committedPaths(root, 'HEAD', r)))];
+  if (!paths.length) return;
+  const changed = git(['status', '--porcelain', '--untracked-files=no', '--', ...paths], { cwd: root, allowFail: true }).stdout.trim();
+  if (!changed) return;
+  git(['checkout', 'HEAD', '--', ...paths], { cwd: root });
+  log(`restored the committed generated paths the build rewrote: ${paths.join(', ')}`);
 }
 
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
-export function jobTest(root, id, { log = console.log, exec } = {}) {
+export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
   const cfg = loadConfig(root);
+  pinCheck(root, id, { toolRoot, tranche: trancheRef(root, cfg), what: `\`${P3} test ${id}\`` });
   const entry = readEntry(root, id);
   const inst = installModule(root, cfg, entry, { exec, log });
   if (inst.findings.length) return { ok: false, install: inst };
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const built = buildModuleGenerated(root, cfg, { timeout, exec, log });
-  if (built.findings.length) return { ok: false, install: inst, generated: built };
-  const s = runSuite(root, entry, undefined, { timeout });
+  // A build that fails part way may have rewritten committed paths: put back, as after the suite.
+  if (built.findings.length) { restoreGenerated(root, built.ran, log); return { ok: false, install: inst, generated: built }; }
+  let s;
+  try { s = runSuite(root, entry, undefined, { timeout }); } finally { restoreGenerated(root, built.ran, log); }
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
   return { ok: s.exit === 0, install: inst, ...s };
