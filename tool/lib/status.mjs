@@ -208,7 +208,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   for (const r of rows) {
     const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}`;
     if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
-    else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed`);
+    else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed, with --job-cost-usd (its session's get_session usage.cost_usd)`);
     else if (r.flag && !r.flag.startsWith('WORKING')) groups.owed.push(line);
     else if (r.pr === 'merged') merged++;
     else if (idle(r)) groups.idle.push(line);

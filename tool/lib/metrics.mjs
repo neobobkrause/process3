@@ -253,7 +253,11 @@ export function overhead(rows, layers = new Map(), { opened = null, jobRows = []
   const sum = (rs) => (rs.length && rs.every((r) => Number.isFinite(Number(r.cost_usd))) ? rs.reduce((s, r) => s + Number(r.cost_usd), 0) : 'unmeasured');
   const jobs = mods.map((m) => {
     const own = measured.filter((r) => r.module === m && inT(r));
-    const job = sum(own.filter((r) => role(r) === 'job'));
+    // An unmeasured job row stands only while its attempt has no priced one (a merge run again with
+    // the cost the first run lacked: review of PR 106).
+    const jobOwn = own.filter((r) => role(r) === 'job');
+    const pricedAt = new Set(jobOwn.filter((r) => Number.isFinite(Number(r.cost_usd))).map((r) => r.attempt));
+    const job = sum(jobOwn.filter((r) => Number.isFinite(Number(r.cost_usd)) || !pricedAt.has(r.attempt)));
     // Reviews: the module's rows of any role but job, BOB and ROOT (their cost is split below).
     const reviews = sum(own.filter((r) => role(r) !== 'job' && !PROCESS.has(role(r))));
     const part = (who) => (has(who) && !parts.get(m).gap.has(who) ? usd(parts.get(m)[who]) : 'unmeasured');

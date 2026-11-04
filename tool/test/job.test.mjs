@@ -78,7 +78,7 @@ test('job complete --cost-usd writes the job\'s own cost row, its session\'s cos
   assert.equal(o.jobs.find((j) => j.module === 'alpha').job_usd, 2.5);
 });
 
-test('job complete refuses a zero or, from the command, a missing --cost-usd, naming where to read it, before anything runs', () => {
+test('job complete refuses a zero --cost-usd, naming where to read it, before anything runs', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
@@ -86,7 +86,6 @@ test('job complete refuses a zero or, from the command, a missing --cost-usd, na
   const where = /get_session on your own session \(no session_id\), the field external_metadata\.usage\.cost_usd/;
   assert.throws(() => jobComplete(root, 'alpha', { push: false, costUsd: '0', session: 's1', log: quiet }), where);
   assert.throws(() => jobComplete(root, 'alpha', { push: false, costUsd: '0', session: 's1', log: quiet }), /0 is a figure not read/);
-  assert.throws(() => jobComplete(root, 'alpha', { push: false, requireCost: true, session: 's1', log: quiet }), /job complete alpha needs --cost-usd <your session's cost so far: get_session on your own session \(no session_id\), the field external_metadata\.usage\.cost_usd>; nothing was run/);
   assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
   assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'measured').length, 0);
 });
@@ -223,8 +222,9 @@ test('job complete pushes before the receipt, and a rerun finishes without a sec
   const said = [];
   const again = jobComplete(root, 'alpha', { gh: f.gh, log: (m) => said.push(m) });
   assert.equal(again.ok, true);
-  // The job's report: the last line wakes BOB, from the job's own sender name.
-  assert.match(said.at(-1), /^next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "job alpha complete, PR #\d+ ready: run status" --from job-alpha`, delivered with send_message to the address it prints$/);
+  // The job's report: the last line wakes BOB, from the job's own sender name, naming the job's
+  // session when known (BOB's merge reads the job's cost from it).
+  assert.match(said.at(-1), /^next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "job alpha complete, PR #\d+ ready(, session session_\w+)?: run status" --from job-alpha`, delivered with send_message to the address it prints$/);
   assert.equal(f.state.comments.length, 1, 'no second receipt');
   assert.equal(f.state.ready, 1);
   assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'complete').length, 1);
@@ -1104,21 +1104,28 @@ test('job test and job complete build untracked generated files before the suite
   assert.ok(c.receipt.commands.some((x) => /^build generated \(gen\/rows\.mjs\)$/.test(x.cmd) && x.exit === 0));
 });
 
-// The command line requires the job's cost (coordinator, 4 Nov): refused before anything runs.
-import { main } from '../p3.mjs';
-test('p3 job complete without --cost-usd is refused, naming get_session\'s external_metadata.usage.cost_usd', async () => {
+// The job's cost is BOB's at the merge (measured 4 Nov, 11:49: mid-turn a session's own record has
+// no usage): job complete needs no --cost-usd, and names its session in the complete row.
+test('job complete without --cost-usd completes, writes no measured row, and names its session in the complete row', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
-  const cwd = process.cwd();
-  const old = { log: console.log, err: console.error };
-  const lines = [];
-  console.log = (...x) => lines.push(x.join(' '));
-  console.error = (...x) => lines.push(x.join(' '));
-  let code;
-  try { process.chdir(root); code = await main(['job', 'complete', 'alpha']); } finally { process.chdir(cwd); console.log = old.log; console.error = old.err; }
-  assert.equal(code, 1);
-  assert.match(lines.join('\n'), /p3 job complete: job complete alpha needs --cost-usd <your session's cost so far: get_session on your own session \(no session_id\), the field external_metadata\.usage\.cost_usd>; nothing was run/);
-  assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
+  const was = process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  process.env.CLAUDE_CODE_REMOTE_SESSION_ID = 'cse_J';
+  try { assert.equal(jobComplete(root, 'alpha', { push: false, log: quiet }).ok, true); } finally {
+    if (was === undefined) delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID; else process.env.CLAUDE_CODE_REMOTE_SESSION_ID = was;
+  }
+  assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
+  const rows = readRows(root, 'alpha');
+  assert.equal(rows.filter((r) => r.event === 'measured').length, 0);
+  assert.equal(rows.filter((r) => r.event === 'complete').pop().session, 'session_J');
+});
+
+test('the START no longer asks the job for --cost-usd', () => {
+  const root = product();
+  const said = [];
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: (m) => said.push(m) });
+  assert.doesNotMatch(said.join('\n'), /--cost-usd/);
+  assert.match(said.join('\n'), /job complete alpha --not-verified/);
 });

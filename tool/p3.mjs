@@ -97,9 +97,9 @@ const commands = {
     return 0;
   },
 
-  // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id> --cost-usd <usd>]
+  // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
-    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session, requireCost: true,
+    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
   }).ok ? 0 : 1),
 
   // job sync <id>: the job brings its branch up to date: origin's job/<id> (BOB's pushes) and the
@@ -247,14 +247,14 @@ const commands = {
     return 0;
   },
 
-  // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60]: BOB merges a job.
+  // merge <pr> (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 60]: any other pull request.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
     if (a.plain) return mergePlain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
-    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}) }).merged ? 0 : 1;
+    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }).merged ? 0 : 1;
   },
 
   // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>] [--no-post]
