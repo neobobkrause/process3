@@ -85,17 +85,16 @@ export const isGenerated = (rows, f) => rows.some((r) => r.paths.some((p) => und
 // A plain pull request that refreshes committed generated files (copy PR 148, 4 Nov: the six
 // dist/*.bundle.json manifests): the gate removes each file the pull request changed under the
 // generated paths, regenerates, and each must then be byte for byte what the regenerate wrote from
-// its commit (tracked at the commit, no difference from it, nothing untracked). A pull request
-// that also changes a file a row's regenerate or verify command names (its generator) proves
-// nothing by a clean regenerate, so it is refused (review 1 of PR 95). ran: whether this run
+// its commit (tracked at the commit, no difference from it, nothing untracked). A refresh changes
+// nothing else but records: any other file could be the generator or something it imports, and a
+// clean regenerate by a changed generator proves nothing (reviews of PR 95). ran: whether this run
 // regenerated the rows; failed: a generated row's build, regenerate or verify failed in this run
 // (its finding stands). Returns the row's record, { files, result, differ }, and findings.
-export const generatorFiles = (rows) => [...new Set(rows.flatMap((r) => [...r.regenerate.slice(1), ...r.verify.slice(1)]).map((a) => normPath(a)))];
-export function refreshCheck(root, files, { ran, failed = false, rows = [], changed = [] }) {
+export const refreshOthers = (cfg, rows, changed) => changed.filter((f) => !isGenerated(rows, f) && !cfg.records.some((r) => underPath(f, r)));
+export function refreshCheck(root, files, { ran, failed = false, others = [] }) {
   if (!files.length) return { refresh: null, findings: [] };
   const F = (file, message) => ({ check: 'generated', file, line: 1, message });
-  const gens = generatorFiles(rows).filter((g) => changed.includes(g));
-  if (gens.length) return { refresh: { files, result: 'generator changed', differ: [] }, findings: [F(gens[0], `the pull request changes ${gens.join(', ')}, which its generated rows run, and the generated files they write: a refresh changes only the generated files`)] };
+  if (others.length) return { refresh: { files, result: 'other files changed', differ: [] }, findings: [F(others[0], `the pull request changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`)] };
   if (!ran) return { refresh: { files, result: 'not regenerated', differ: [] }, findings: [F(files[0], `the pull request changes generated files (${files.slice(0, 5).join(', ')}), but this run regenerated nothing to compare them with`)] };
   const differ = files.filter((f) => !exists(root, 'HEAD', f)
     || git(['status', '--porcelain', '-z', '--untracked-files=all', '--', f], { cwd: root }) !== '');

@@ -8,7 +8,7 @@ import { LEDGER_DIR, checkLedger, entryFile } from './ledger.mjs';
 import { jsonl } from './state.mjs';
 import { metricsFile } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
-import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, regenerate } from './checks.mjs';
+import { buildGenerated, committedGenerated, entryChecks, generatedRows, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate } from './checks.mjs';
 import { NO_TOKENS, exists, fail, git, isRecordPath, loadConfig, now, repoSlug, underPath } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx) };
@@ -168,7 +168,8 @@ export function gate(root, opts) {
       // A refreshed file is removed first, so a clean status after the regenerate means the
       // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
       if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
-      const g = regenerate(root, gen.rows, { timeout, skip: builtRows });
+      // A row built before the suite runs again when it writes a refreshed file just removed.
+      const g = regenerate(root, gen.rows, { timeout, skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
       runRow.generated = g.ran;
       findings.push(...g.findings);
     }
@@ -176,7 +177,7 @@ export function gate(root, opts) {
     // regenerate wrote from its commit (copy PR 148); the row records the comparison, and merge
     // --plain reads it.
     if (plain) {
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), rows: gen.rows, changed });
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: refreshOthers(cfg, gen.rows, changed) });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }

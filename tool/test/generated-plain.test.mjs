@@ -182,12 +182,12 @@ test('a later attempt made on code no run measured stays unchecked, and merge sa
   assert.match(e.run.receipt_unmeasured, /passed its revert check by an exemption this receipt does not claim/);
   assert.equal(k.again(receiptOf(3, k.head, 0, { exempt: { revert: 'a refactor' } })).run.receipt, 'agrees');
 
-  // merge's refusal names the act: a code change, or a re-run at a pin that checks the receipt.
+  // merge's refusal names the act: a code change, or a new gate event at a pin that checks the receipt.
   const row = { sha: j.head, trigger: 'record-since-green', after: j.code, ok: true, receipt: 'unmeasured', receipt_attempt: 3, receipt_unmeasured: r.run.receipt_unmeasured };
-  assert.match(unagreed([row], j.head, 3), /left the receipt unmeasured: it names .*No run measured what attempt 3 claims: push a code change so the gate runs the suite, or re-run the gate on/);
+  assert.match(unagreed([row], j.head, 3), /left the receipt unmeasured: it names .*No run measured what attempt 3 claims: push a code change so the gate runs the suite, or, once the product's pin checks a receipt against the last green code run, give the gate on .* a new event \(edit the pull request/);
   // The row PR 105 met, from a pin before this check: "present".
   const old = { sha: j.head, trigger: 'record-since-green', after: j.code, ok: true, receipt: 'present', receipt_attempt: 3 };
-  assert.match(unagreed([old], j.head, 3), /left the receipt present: the gate on it ran no suite \(only records changed since .*\), and its pin did not check the receipt against that run\. No run measured what attempt 3 claims: push a code change so the gate runs the suite, or re-run the gate/);
+  assert.match(unagreed([old], j.head, 3), /left the receipt present: the gate on it ran no suite \(only records changed since .*\), and its pin did not check the receipt against that run\. No run measured what attempt 3 claims: push a code change so the gate runs the suite, or, once the product's pin checks/);
   assert.equal(unagreed([{ ...old, receipt: 'agrees' }], j.head, 3), '');
 });
 
@@ -211,7 +211,7 @@ test('merge refuses an unchecked later attempt with the words that clear it', ()
     verify: () => true,
     mergePR: () => assert.fail('nothing merges'),
   };
-  assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /checked receipt attempt 3 and agreed with it; its newest run left the receipt present: .* push a code change so the gate runs the suite, or re-run the gate on/);
+  assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /checked receipt attempt 3 and agreed with it; its newest run left the receipt present: .* push a code change so the gate runs the suite, or, once the product's pin checks a receipt against the last green code run, give the gate on .* a new event \(edit the pull request/);
 });
 
 // Review 1 of PR 95.
@@ -232,19 +232,28 @@ test('a regenerate that writes nothing cannot pass a hand-edited file, and a cha
   const q2 = product({ [BUNDLE]: '{"from":"evil"}\n', 'gen.mjs': '// nothing\n' });
   const g = gateIO();
   const r2 = gateOn(q2, g);
-  assert.equal(r2.run.refresh.result, 'generator changed');
-  assert.match(r2.findings.find((f) => f.file === 'gen.mjs').message, /changes gen\.mjs, which its generated rows run/);
+  assert.equal(r2.run.refresh.result, 'other files changed');
+  assert.match(r2.findings.find((f) => f.file === 'gen.mjs').message, /changes generated module files and gen\.mjs: a refresh changes only generated files/);
   back(q2);
-  assert.throws(() => mergePlain(q2.root, 148, { ...q, io: plainIO(q2, g.state.comments, g.io.verify).io }), /changes generated module files and gen\.mjs, which their generated rows run/);
+  assert.throws(() => mergePlain(q2.root, 148, { ...q, io: plainIO(q2, g.state.comments, g.io.verify).io }), /changes generated module files and gen\.mjs: a refresh changes only generated files \(and records\)/);
+  // Nor a file the generator imports, which no command names (review 2 of PR 95).
+  const imp = product({ [BUNDLE]: '{"from":"evil"}\n', 'gen-lib.mjs': 'export default 1;\n' });
+  const g3 = gateIO();
+  assert.equal(gateOn(imp, g3).run.refresh.result, 'other files changed');
+  back(imp);
+  assert.throws(() => mergePlain(imp.root, 148, { ...q, io: plainIO(imp, g3.state.comments, g3.io.verify).io }), /and gen-lib\.mjs: a refresh changes only/);
 });
 
 test('a refresh that removes a committed generated file is refused, even when the path is ignored', () => {
-  const p = product({ '.gitignore': `${BUNDLE}\n` });
-  git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
+  const p = product({ 'process/metrics/alpha.jsonl': '{}\n' });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  const base2 = commit(p.root, { '.gitignore': `${BUNDLE}\n` });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
   git(['rm', '-q', '--cached', BUNDLE], { cwd: p.root });
   git(['commit', '-q', '-m', 'stop committing it'], { cwd: p.root });
   const sha = git(['rev-parse', 'HEAD'], { cwd: p.root });
-  const r = gate(p.root, { base: p.base, head: sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
+  const r = gate(p.root, { base: base2, head: sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
   assert.deepEqual([r.run.refresh.result, r.run.refresh.differ], ['differs', [BUNDLE]]);
   assert.match(r.findings.find((f) => f.file === BUNDLE).message, /is removed/);
 });
@@ -268,5 +277,18 @@ test('merge --plain needs the refresh row on the base as it is now', () => {
   commit(p.root, { 'README.md': 'the tranche moved\n' });
   git(['push', '-q', 'origin', 'tranche'], { cwd: p.root });
   git(['checkout', '-q', 'main'], { cwd: p.root });
-  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /against tranche as it is regenerated them byte-identical \(its newest run: identical\); tranche moved since its newest run, so re-run the gate/);
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /against tranche as it is regenerated them byte-identical \(its newest run: identical\); tranche moved since its newest run: give the gate a new event on the base as it is/);
+});
+
+test('a row that builds an uncommitted path and writes a refreshed one is regenerated after the removal (review 2 of PR 95)', () => {
+  const both = "import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';\nmkdirSync('src/alpha/dist', { recursive: true });\nwriteFileSync('src/alpha/dist/alpha.bundle.json', JSON.stringify({ from: readFileSync('src/alpha/index.mjs', 'utf8') }) + '\\n');\nwriteFileSync('src/alpha/dist/rows.mjs', 'export default 1;\\n');\n";
+  const p = product({ [BUNDLE]: fresh(SRC) });
+  git(['checkout', '-q', '-f', 'tranche'], { cwd: p.root });
+  const base2 = commit(p.root, { 'gen.mjs': both, '.gitignore': 'src/alpha/dist/rows.mjs\n', 'process/config.json': { generated: [{ ...CONFIG.generated[0], paths: [BUNDLE, 'src/alpha/dist/rows.mjs'] }] } });
+  git(['checkout', '-q', 'bob/refresh'], { cwd: p.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: p.root });
+  const head = git(['rev-parse', 'HEAD'], { cwd: p.root });
+  const r = gate(p.root, { base: base2, head, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
+  assert.deepEqual(r.run.built, ['src/alpha/dist/rows.mjs']);
+  assert.equal(r.run.refresh.result, 'identical', JSON.stringify(r.findings));
 });
