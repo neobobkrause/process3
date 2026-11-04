@@ -296,6 +296,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   // commit, every file would read as its change, named for a commit that never made it (copy,
   // 4 Nov). It is not judged; the check says it could not read it.
   const cut = shallowCuts(root);
+  const oversize = [];
   for (const sha of commits) {
     const short = sha.slice(0, 10);
     if (cut.has(sha)) {
@@ -347,7 +348,10 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
         if (mode === '160000') continue; // a submodule pin has no blob
         const size = Number(git(['cat-file', '-s', blob], { cwd: root }));
         if (size > cfg.max_file_bytes) {
-          findings.push({ check: 'size', file, line: 1, message: `commit ${short} writes ${size} bytes, over the ${cfg.max_file_bytes}-byte limit` });
+          // Waived (copy, 4 Nov: a job's first commit wrote a file over the cap and a later one
+          // split it; history cannot be rewritten) when at the head the path is absent or within
+          // the limit and the blob is at most twice the limit; judged after the walk.
+          oversize.push({ file, size, commit: sha, finding: { check: 'size', file, line: 1, message: `commit ${short} writes ${size} bytes, over the ${cfg.max_file_bytes}-byte limit` } });
         }
         const t = cfg.transient.find((p) => underPath(file, p));
         if (t) findings.push({ check: 'path', file, line: 1, message: `commit ${short} writes under transient path ${t}` });
@@ -381,6 +385,25 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
       findings.push({ check: 'record', file: '(commit)', line: 1, message: `commit ${short} could not be checked: ${e.message}` });
     }
   }
+  // An oversize blob is waived when the head has the path absent or within the limit and the
+  // blob is at most 2 × max_file_bytes; larger ones stay findings, since history keeps them.
+  // Each waived write is listed (size_waived), so the tranche report shows the growth.
+  const sizeWaived = [];
+  const atHead = new Map();
+  const headSize = (file) => {
+    if (!atHead.has(file)) {
+      const ls = git(['ls-tree', '-z', head, '--', file], { cwd: root });
+      const [mode, , blob] = (ls.split('\t')[0] || '').split(' ');
+      atHead.set(file, !ls || mode === '160000' ? 0 : Number(git(['cat-file', '-s', blob], { cwd: root })));
+    }
+    return atHead.get(file);
+  };
+  for (const o of oversize) {
+    if (o.size <= 2 * cfg.max_file_bytes && headSize(o.file) <= cfg.max_file_bytes) {
+      sizeWaived.push({ path: o.file, bytes: o.size, commit: o.commit });
+      notices.push({ check: 'size', file: o.file, line: 1, message: `commit ${o.commit.slice(0, 10)} writes ${o.size} bytes, over the ${cfg.max_file_bytes}-byte limit; waived, since the head keeps it within the limit (size_waived)` });
+    } else findings.push(o.finding);
+  }
 // At the head: one approvals heading only, and the ledger (with the job rule on a job branch).
   const headText = show(root, head, afile) || '';
   const headings = headText.split('\n').map((l, i) => [l, i + 1]).filter(([l]) => HEADING.test(l.trim()));
@@ -388,5 +411,5 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     for (const [, line] of headings.slice(1)) findings.push({ check: 'approvals', file: afile, line, message: 'a second approvals heading; only one block may exist' });
   }
   findings.push(...checkLedger(root, { ref: head, base: ledgerBase, branch }));
-  return { commits: commits.length, findings, notices };
+  return { commits: commits.length, findings, notices, size_waived: sizeWaived };
 }

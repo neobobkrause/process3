@@ -24,6 +24,40 @@ test('a file over the limit and a transient path are found per commit', () => {
   assert.deepEqual(findings.map((f) => f.check).sort(), ['path', 'size']);
 });
 
+test('an oversize write the head later splits under the limit is waived and listed (interface-assets, 4 Nov)', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const big = commit(root, { 'src/index.mjs': 'y'.repeat(150) }); // over 100, within 2 × 100
+  commit(root, { 'src/index.mjs': 'y'.repeat(60), 'src/part2.mjs': 'y'.repeat(90) });
+  const gone = commit(root, { 'src/other.mjs': 'z'.repeat(200) }); // exactly 2 × 100
+  git(['rm', '-q', 'src/other.mjs'], { cwd: root });
+  git(['commit', '-q', '-m', 'drop'], { cwd: root });
+  const r = recordCheck(root, cfg, { base, lookup: session });
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual(r.size_waived.map((x) => [x.path, x.bytes, x.commit]).sort(), [['src/index.mjs', 150, big], ['src/other.mjs', 200, gone]]);
+  assert.ok(r.notices.some((n) => n.check === 'size' && /waived/.test(n.message)));
+});
+
+test('an oversize blob over twice the limit stays a finding though the head later shrinks it (3 MiB shape)', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { 'src/index.mjs': 'y'.repeat(300) });
+  commit(root, { 'src/index.mjs': 'y'.repeat(60) });
+  const r = recordCheck(root, cfg, { base, lookup: session });
+  assert.deepEqual(r.findings.map((f) => f.check), ['size']);
+  assert.deepEqual(r.size_waived, []);
+});
+
+test('a path still over the limit at the head is refused, at each commit that writes it', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { 'src/index.mjs': 'y'.repeat(150) });
+  commit(root, { 'src/index.mjs': 'y'.repeat(120) });
+  const r = recordCheck(root, cfg, { base, lookup: session });
+  assert.deepEqual(r.findings.map((f) => f.check), ['size', 'size']);
+  assert.deepEqual(r.size_waived, []);
+});
+
 test('the approvals block may change only by the owner through the website', () => {
   const root = makeRepo({ 'CLAUDE.md': claude('may push') });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });

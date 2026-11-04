@@ -193,7 +193,7 @@ export function merge(root, n, opts = {}) {
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
     const r = mergeRetry(() => io.mergePR(slug, n, tip), {
-      log, wait: opts.wait,
+      log, wait: opts.wait, reread: { read: () => io.getPR(slug, n), sha: tip },
       fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }),
       check: () => {
         const p = io.getPR(slug, n);
@@ -266,11 +266,46 @@ function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) 
 // A merge GitHub refuses because its base moved ("Base branch was modified") fetches the base,
 // confirms the pull request still has the head and base that were checked, and tries again, at
 // most RETRIES times in all. Any other refusal stops at once. Never forced.
-export function mergeRetry(call, { fetch = () => {}, check = () => {}, tries = RETRIES, wait = 3000, log = console.log } = {}) {
+//
+// A reply that cannot be read (measured 4 Nov: "gh api -X PUT failed: unexpected end of JSON
+// input", the pull request left unmerged, and the same run again merged it): with `reread`
+// ({ read, sha }), the pull request is read again. Merged with this head is success; open with the
+// head unchanged tries the PUT once more; anything else stops. A refusal GitHub stated (a JSON
+// body, which gh prints with its HTTP status) is not this case.
+export const unreadable = (msg) => {
+  const body = String(msg).replace(/^gh api -X PUT failed:\s*/, '').trim();
+  if (!body) return true;
+  if (/\(HTTP \d{3}\)/.test(body)) return false;
+  try { JSON.parse(body); return false; } catch { return true; }
+};
+
+export function mergeRetry(call, { fetch = () => {}, check = () => {}, tries = RETRIES, wait = 3000, log = console.log, reread = null } = {}) {
+  let again = false;
   for (let t = 1; ; t++) {
     let r;
     let why = null;
-    try { r = call(); } catch (e) { if (!(e instanceof Fail) || !BASE_MOVED.test(e.message)) throw e; why = e.message; }
+    let unread = null;
+    try { r = call(); } catch (e) {
+      if (!(e instanceof Fail)) throw e;
+      if (BASE_MOVED.test(e.message)) why = e.message;
+      else if (reread && unreadable(e.message)) unread = e.message;
+      else throw e;
+    }
+    if (!why && !unread && reread && (r === null || r === undefined || typeof r !== 'object')) unread = `the reply was ${r == null ? 'empty' : 'not JSON'}`;
+    if (unread) {
+      const p = reread.read();
+      if (p?.merged && p.head?.sha === reread.sha) {
+        log(`GitHub's reply to the merge could not be read (${unread}); the pull request is merged at ${reread.sha.slice(0, 10)}`);
+        return { merged: true, sha: p.merge_commit_sha, message: 'merged (read back after an unreadable reply)' };
+      }
+      if (!again && p?.state === 'open' && !p.merged && p.head?.sha === reread.sha) {
+        again = true;
+        log(`GitHub's reply to the merge could not be read (${unread}); the pull request is open with the same head, so the merge is tried once more`);
+        t--;
+        continue;
+      }
+      fail(`GitHub's reply to the merge could not be read (${unread}), and the pull request is ${p?.merged ? `merged at another head ${p.head?.sha?.slice(0, 10)}` : `${p?.state || 'unreadable'}${p?.head?.sha && p.head.sha !== reread.sha ? ` at another head ${p.head.sha.slice(0, 10)}` : ''}`}${again ? ' after one more try' : ''}; run merge again`);
+    }
     if (!why && !(r && !r.merged && BASE_MOVED.test(r.message || ''))) return r;
     why = why || r.message;
     if (t >= tries) fail(`GitHub refused the merge ${tries} times because its base moved: ${why}`);
@@ -540,7 +575,7 @@ export function mergePlain(root, n, opts = {}) {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: [reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),
   }), {
-    log, wait: opts.wait,
+    log, wait: opts.wait, reread: { read: () => io.getPR(slug, n), sha: pr.head.sha },
     fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root, allowFail: true }),
     check: () => {
       const p = io.getPR(slug, n);
