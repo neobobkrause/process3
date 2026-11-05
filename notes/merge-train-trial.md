@@ -7,7 +7,7 @@ Bob, 5 Nov: "Yes, begin the trial of the merge train when we're ready. But be su
 - One gate per batch, on the tranche plus all members. Each member is still its own merge commit in order, with its own merge row, cost row and receipt check, so records and reverts stay per PR.
 - On failure: bisect (halves, gated), merge the passing part, send the culprit back to its job with the failing run.
 - The next batch is formed when the current one's gate is near its end (median duration known; the tool polls every 15 s), then the train continues. Batches size themselves: small when greens trickle in, large in bursts or behind long gates.
-- Run by BOB's merge loop (one long-running train, not a loop per PR). Non-job PRs (pin moves, config, ledger, found) join the train as members.
+- Run by its own session, a MERGER role (not BOB), so merges never wait behind BOB's other work and BOB's handovers never stop the train; ROOT starts and replaces it as it does BOB. BOB handles only what the merger hands it. Non-job PRs (pin moves, config, ledger, found) join the train as members.
 
 ## Measures (baseline: 4-5 Nov, measured 01:50 and by measure/merge-train-sim)
 - green -> merged per PR: median, worst (baseline median 11.0 min, worst 85)
