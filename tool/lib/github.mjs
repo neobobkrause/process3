@@ -2,7 +2,7 @@
 // only from its result (REC-5): callers use the returned objects, never their own intent.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fail, gh, git, isShallow, run, withTemp } from './util.mjs';
+import { fail, gh, ghMany, git, isShallow, run, withTemp } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -81,10 +81,13 @@ export function toDraft(slug, pr, { call = (args) => run('gh', args), read = get
   return now;
 }
 
+const commentsArgs = (slug, n) => ['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/comments?per_page=100`];
 export function comments(slug, n) {
-  const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/comments?per_page=100`]);
+  const pages = gh(commentsArgs(slug, n));
   return Array.isArray(pages) ? pages.flat() : [];
 }
+// Several pull requests' comments at once (the merge train's scan): null for one unread.
+export const commentsMany = (slug, ns) => ghMany(ns.map((n) => commentsArgs(slug, n))).map((p) => (Array.isArray(p) ? p.flat() : null));
 
 export function addComment(slug, n, body) {
   const c = gh(['api', '-X', 'POST', `repos/${slug}/issues/${n}/comments`, '--input', '-'], { input: JSON.stringify({ body }) });
@@ -180,11 +183,13 @@ export function markReady(slug, n, { call = (args) => run('gh', args), read = ge
 }
 
 // Conclusion of the newest check run named `name` on a commit, or null when none.
+const checkRunArgs = (slug, sha, name) => ['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&per_page=20`];
+const newestRun = (r) => (r?.check_runs || []).sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)))[0] || null;
 export function checkRun(slug, sha, name) {
-  const r = gh(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&per_page=20`], { allowFail: true });
-  const runs = (r?.check_runs || []).sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)));
-  return runs[0] || null;
+  return newestRun(gh(checkRunArgs(slug, sha, name), { allowFail: true }));
 }
+// checkRun for several [sha, name] pairs at once, in order (the merge train's scan).
+export const checkRunMany = (slug, pairs) => ghMany(pairs.map(([sha, name]) => checkRunArgs(slug, sha, name))).map(newestRun);
 
 // The checks a branch's rulesets require (merge --plain), by name; null when the rules cannot
 // be read. Read from the rulesets, not classic branch protection.
@@ -197,11 +202,13 @@ export function requiredChecks(slug, branch, { read = (args) => gh(args, { allow
 }
 
 // Every check run of that name on a commit, newest first; null when unreadable.
+const checkRunsArgs = (slug, sha, name) => ['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=all&per_page=100`];
+const allRuns = (r) => (!r || !Array.isArray(r.check_runs) ? null : [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0)));
 export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFail: true }) } = {}) {
-  const r = read(['api', `repos/${slug}/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=all&per_page=100`]);
-  if (!r || !Array.isArray(r.check_runs)) return null;
-  return [...r.check_runs].sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)) || (b.id || 0) - (a.id || 0));
+  return allRuns(read(checkRunsArgs(slug, sha, name)));
 }
+// checkRuns for several [sha, name] pairs at once, in order.
+export const checkRunsMany = (slug, pairs) => ghMany(pairs.map(([sha, name]) => checkRunsArgs(slug, sha, name))).map(allRuns);
 
 // GitHub's comparison of two refs or commits: ahead_by, behind_by, merge_base_commit; null when
 // unreadable.

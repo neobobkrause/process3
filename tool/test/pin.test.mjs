@@ -76,7 +76,6 @@ test('pin move refuses while a pin move is open on the product, naming it; other
   assert.throws(() => pinMove(root, 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: f.io, log: quiet }), (e) => e.message === 'a pin move is open: PR 106 (p3/pin-0123456789); wait for it or close it');
   assert.deepEqual(f.acts, [], 'nothing written');
   assert.equal(pinMove(root, 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: pinIO([PR(7, 'bob/plan')]).io, log: quiet }).pin, PIN);
-  assert.throws(() => pinMove(root, 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: { list: () => null }, log: quiet }), /could not list o\/r's open pull requests/);
   // The session's own check, right before it pushes.
   assert.throws(() => pinCheck('o/r', { io: f.io, log: quiet }), (e) => e.message === 'a pin move is open: PR 106 (p3/pin-0123456789); wait for it or close it');
   const logs = [];
@@ -120,4 +119,19 @@ test('the pin-move session checks for an open pin move right before it pushes, a
   assert.ok(lines[branch].includes(`git fetch origin tranche --depth 1\`, then \`git checkout -q -b p3/pin-${PIN.slice(0, 10)} FETCH_HEAD\`, then \`git cherry-pick refs/p3/pin-base..p3-pin-work\``), lines[branch]);
   assert.ok(at(/setup check --at HEAD` again/) > branch, 'setup check runs again on the fresh base');
   assert.match(lines[0 + at(/^1\. /)], /git checkout -q -b p3-pin-work FETCH_HEAD/);
+});
+
+// 5 Nov: from a process3-only session the product's pull requests cannot be listed, and pin move
+// refused; the session it prints runs pin check before it pushes, which guards it.
+test('pin move from a session that cannot list the product\'s pull requests prints the call with a note that the session\'s own pin check guards it', () => {
+  const root = makeRepo({ 'README.md': 'x' });
+  const out = [];
+  const r = pinMove(root, 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: { list: () => null }, log: (m) => out.push(m) });
+  assert.equal(r.pin, PIN);
+  assert.match(out[0], /^note: could not list o\/r's open pull requests, so whether a pin move is open is unknown from here; the pin-move session's own `.*pin check o\/r` \(step 8, before it pushes\) guards it$/);
+  assert.match(r.prompt, /^8\. `.*pin check o\/r`/m);
+  assert.match(out.at(-1), /^next act: start the pin move with create_session:/);
+  // --supersedes must find the one it closes: unread, it still refuses; and pin check, the guard, refuses.
+  assert.throws(() => pinMove(root, 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', supersedes: '106', io: { list: () => null, comment: () => assert.fail('commented'), close: () => assert.fail('closed') }, log: quiet }), /could not list o\/r's open pull requests/);
+  assert.throws(() => pinCheck('o/r', { io: { list: () => null }, log: quiet }), /could not list o\/r's open pull requests/);
 });

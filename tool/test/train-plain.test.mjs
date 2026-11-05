@@ -269,3 +269,63 @@ test('a moved base is tried again with a backoff, not refused', () => {
   assert.equal(r[0].result, 'retry');
   assert.ok(lines.some((l) => /PR 1 \(plain\) is tried again in 1 min/.test(l)));
 });
+
+// Confirming review of PR 151: a taken row whose caller died never expired, and each of its five
+// retries could hold the train a gate wait; the count began again on every restart.
+const MIN = 60000;
+const ago = (m) => new Date(Date.now() - m * MIN).toISOString();
+const onPlain = (root, file, ...xs) => writeState(root, 'process-state', 'test: rows', (wt) => { mkdirSync(join(wt, 'merger'), { recursive: true }); mkdirSync(join(wt, 'metrics'), { recursive: true }); for (const x of xs) appendFileSync(join(wt, file), JSON.stringify(x) + '\n'); });
+const queueRow = (id, head, o = {}) => ({ at: ago(200), row: 'queue', id, pr: 1, head, as: 'bob', no_review: 'x', rounds: 0, take_by: ago(-60), ...o });
+const takenRow = (id) => ({ at: ago(150), row: 'plain', session: S, queue: id, pr: 1, result: 'taken' });
+
+test('a taken plain row whose caller has not renewed it within one job gate\'s wait is withdrawn by the train and never landed; a renewed one lands', () => {
+  const { root, ids, plains, queued } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  onPlain(root, PLAIN_FILE, queueRow('dead', queued['bob/found']), { at: ago(100), row: 'renew', id: 'dead', pr: 1 });
+  onPlain(root, TRAIN_FILE, takenRow('dead'));
+  const lines = [];
+  runTrain(root, g, { log: (l) => lines.push(l) });
+  assert.deepEqual(g.calls.merged, []);
+  const end = rows(root, TRAIN_FILE).find((x) => x.queue === 'dead' && x.result === 'withdrawn');
+  assert.match(end.why, /its caller did not renew it within 95 min \(one job gate's wait\)/);
+  assert.ok(lines.some((l) => /^PR 1 \(plain\) its caller did not renew it/.test(l)));
+  // Ended once: the next train neither lands it nor writes it again.
+  runTrain(root, g);
+  assert.equal(rows(root, TRAIN_FILE).filter((x) => x.queue === 'dead' && x.result === 'withdrawn').length, 1);
+  assert.deepEqual(g.calls.merged, []);
+  // A taken row renewed within the wait lands.
+  onPlain(root, PLAIN_FILE, queueRow('live', queued['bob/found']), { at: ago(2), row: 'renew', id: 'live', pr: 1 });
+  onPlain(root, TRAIN_FILE, takenRow('live'));
+  runTrain(root, g);
+  assert.deepEqual(g.calls.merged, [1]);
+});
+
+test('a plain row\'s tries are kept on its rows: a restarted train waits out the backoff and sends the fifth try to BOB', () => {
+  for (const waiting of [true, false]) {
+    const { root, ids, plains, queued } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+    const g = github(root, ids, plains);
+    g.io.mergePR = () => { throw new Fail('gh api -X PUT failed: Base branch was modified. Review and try the merge again.'); };
+    const retry = (k, m) => ({ at: ago(m), row: 'plain', session: 'session_earliertrain', queue: 'q1', pr: 1, head: queued['bob/found'], result: 'retry', why: 'base moved', tries: k, retry_at: ago(m - 2 ** (k - 1)) });
+    onPlain(root, PLAIN_FILE, queueRow('q1', queued['bob/found'], { at: ago(1) }));
+    // Four tries by an earlier train; the fourth's wait (8 min) over or not.
+    onPlain(root, TRAIN_FILE, takenRow('q1'), retry(1, 40), retry(2, 30), retry(3, 20), retry(4, waiting ? 1 : 9));
+    runTrain(root, g);
+    const mine = rows(root, TRAIN_FILE).filter((x) => x.queue === 'q1' && x.session === S && x.result !== 'taken');
+    if (waiting) { assert.deepEqual(mine, [], 'a restarted train keeps the backoff'); continue; }
+    assert.equal(mine.length, 1);
+    assert.equal(mine[0].result, 'refused');
+    assert.equal(mine[0].tries, 5, 'the fifth try, counted from the rows, not from one');
+    assert.match(messages(root).at(-1).text, /PR 1 \(plain, queued\) was not merged by the train: .*\(5 tries\)/);
+  }
+});
+
+test('a caller waiting on the train renews its row', () => {
+  const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  const stopOther = otherTrain(root);
+  let pauses = 0;
+  const r = plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, minutes: 5, renewMinutes: 0, pause: () => { if (++pauses === 3) { stopOther(); runTrain(root, g); } } });
+  assert.equal(r.merged, true);
+  const q = rows(root, PLAIN_FILE);
+  assert.ok(q.filter((x) => x.row === 'renew' && x.id === q[0].id).length >= 2, 'a renew row at each read before the land');
+});
