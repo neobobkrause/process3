@@ -16,7 +16,10 @@ import { writeState } from './state.mjs';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
-import { Fail, fail, git, jobCap, loadConfig, now as stamp } from './util.mjs';
+import { Fail, fail, fetchBranch, git, jobCap, loadConfig, now as stamp } from './util.mjs';
+import { entryFile } from './ledger.mjs';
+import { setupCheck } from './setup.mjs';
+import { startCheck } from './start.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
 
@@ -81,7 +84,27 @@ export function readyCount(root, { read = status } = {}) {
   return startable(out?.next, { onOrigin: (id) => heads.has(id) }).go.length;
 }
 
-export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote } = {}) {
+// A moving tranche (copy, 5 Nov: every start after the first was lost while merges landed during
+// the batch, until BOB paused them): the setup check runs once for the batch, and each start
+// re-reads at the current tip only what it needs. HEAD behind the tip with the same approvals is
+// the tranche moving, not a stale session; changed approvals refuse the start.
+export function batchSetup(root, cfg, { setup = setupCheck, check = startCheck } = {}) {
+  let once = null;
+  return (r, o) => {
+    once ||= setup(r, o);
+    if (!once.results?.some((x) => x.id === 'session-branch')) return once;
+    const c = check(root, { branch: cfg.tranche, log: () => {} });
+    const fresh = c.sameApprovals && git(['merge-base', '--is-ancestor', c.head, c.tip], { cwd: root, allowFail: true }).code === 0;
+    const detail = fresh ? `HEAD is ${c.sameHead ? 'the tip' : 'behind the tip'} of ${cfg.tranche}, with its approvals` : `HEAD ${String(c.head).slice(0, 10)} is not on ${cfg.tranche} (${String(c.tip).slice(0, 10)}) with its approvals${c.sameApprovals ? '' : ': the approvals changed, so this session starts nothing more'}`;
+    const missing = [...once.missing.filter((m) => m !== 'session-branch'), ...(fresh ? [] : ['session-branch'])];
+    return { ...once, ok: !missing.length, missing, results: once.results.map((x) => (x.id === 'session-branch' ? { ...x, state: fresh ? 'set' : 'missing', detail } : x)) };
+  };
+}
+
+// What one start needs unchanged since the batch's read: its entry and requirement file at the tranche tip.
+const factsAt = (root, cfg, j) => [entryFile(j.id), j.file].map((p) => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}:${p}`], { cwd: root, allowFail: true }).stdout.trim()).join(' ');
+
+export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const begun = new Date(Date.now() - 1000).toISOString(); // the acts owed before this run (whole seconds: one second back) are its to pay
   const listed = sessions === undefined ? null : readSessions(sessions);
@@ -137,13 +160,21 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
   for (const s of skip) log(`not started: ${s.id || s.file}: ${s.why}`);
   const started = [];
   const failed = [];
+  const facts = new Map(now.map((j) => [j.id, factsAt(root, cfg, j)]));
   for (const j of now) {
     log(`--- job start ${j.id}${j.reopen ? ` --reopen "${j.reopen}"` : ''}`);
+    // The tranche may have moved since the read: only this module's own facts must hold.
+    fetch(cfg.tranche);
+    if (factsAt(root, cfg, j) !== facts.get(j.id)) {
+      failed.push({ id: j.id, why: 'its entry or requirement file changed on the tranche since this run read it' });
+      log(`not started: ${j.id}: its entry or requirement file changed on the tranche since this run read it; run job start --ready again`);
+      continue;
+    }
     // Each start's lines are held until it ends: a start that fails after printing its launch
     // shows no launch, so BOB delivers only those of jobs that started (review of PR 100).
     const held = [];
     try {
-      const r = start(root, j.id, { coordinator, model, ...(j.reopen ? { reopen: j.reopen } : {}), log: (l) => held.push(l) });
+      const r = start(root, j.id, { coordinator, model, setup, ...(j.reopen ? { reopen: j.reopen } : {}), log: (l) => held.push(l) });
       // A resumed start whose pull request was already open may have its session running.
       if (r?.resumed && r.pr && !r.created) {
         for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);

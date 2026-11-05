@@ -168,7 +168,7 @@ export function capUse(sweepRows, from, to = now()) {
 export const FLOW_RULE = 'cap use, job session-hours over cap session-hours (a diagnostic, no target); velocity, unmet R and F marks closed per calendar hour net of marks added unmet (the fall in the unmet count at the tranche; a mark added already met, as a split adds it, never counts); efficiency, merges per job session-hour, and gate runs, cancels and job syncs per merged PR; quality, the false-done share (complete claims a gate run of the receipt refuted), the marks reopen starts named, and reverts. Per concurrency bucket, every figure with a time (job syncs and reverts whole only); each sweep row\'s live count held until the next row, at most 2 hours.';
 export const BUCKETS = [[1, 5], [6, 10], [11, 15], [16, 20], [21, Infinity]];
 const r2 = (x) => Math.round(x * 100) / 100;
-export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gates = () => null, syncs = null, reverts = null, from, to = now() }) {
+export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gates = () => null, syncs = null, reverts = null, quick = null, from, to = now() }) {
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
   const inW = (r) => Date.parse(r.at) >= a && Date.parse(r.at) <= b;
   const runsOf = (pr) => { try { return pr ? gates(pr) : null; } catch { return null; } };
@@ -199,7 +199,7 @@ export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gate
   return {
     ...fig({ ...sum, merges, completes, reopens }),
     cancels_per_pr: 'unmeasured (gate rows record no cancelled run)', syncs_per_pr: syncs === null || !merges.length ? 'unmeasured' : r2(syncs / merges.length),
-    reverts: reverts ?? 'unmeasured', idle_alarms: capUse(sweeps, from, to).idle_alarms,
+    reverts: reverts ?? 'unmeasured', started_then_blocked: quick ?? 'unmeasured', idle_alarms: capUse(sweeps, from, to).idle_alarms,
     buckets: byB.filter((q) => q.h > 0).map((q) => ({ live: q.live, ...fig(q) })),
   };
 }
@@ -217,6 +217,33 @@ export function unmetAtRef(root, cfg, ref) {
     return memo.get(c);
   };
 }
+// Started then blocked within QUICK_BLOCK_MIN (coordinator, 5 Nov: jobs started without their
+// providers ready): each `job start <id> (attempt` commit in the window on the module's job
+// branches, and whether a `block <id>:` commit followed it within the minutes, before its next
+// start. By module, those with one; null when the job branches were not read.
+export const QUICK_BLOCK_MIN = 15;
+export function quickBlocks(root, jobRefs, { from, to = now() } = {}) {
+  if (!jobRefs) return null;
+  const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
+  let starts = 0;
+  const by = [];
+  for (const [m] of jobRefs) {
+    const ev = new Map();
+    for (const ref of jobRefs.branches?.(m) || []) {
+      const r = git(['log', '--format=%H%x09%cI%x09%s', `--grep=^job start ${m} (attempt `, `--grep=^block ${m}: `, ref], { cwd: root, allowFail: true });
+      for (const l of r.code === 0 ? r.stdout.split('\n').filter(Boolean) : []) { const [sha, at, s] = l.split('\t'); ev.set(sha, { at: Date.parse(at), start: s.startsWith('job start') }); }
+    }
+    const xs = [...ev.values()].sort((p, q) => p.at - q.at);
+    // The event after each start: a block within the minutes counts.
+    const mine = xs.flatMap((x, i) => (x.start && x.at >= a && x.at <= b ? [xs[i + 1] && !xs[i + 1].start && xs[i + 1].at - x.at <= QUICK_BLOCK_MIN * 6e4] : []));
+    starts += mine.length;
+    const n = mine.filter(Boolean).length;
+    if (n) by.push({ module: m, starts: mine.length, blocked: n });
+  }
+  const blocked = by.reduce((t, x) => t + x.blocked, 0);
+  return { minutes: QUICK_BLOCK_MIN, starts, blocked, share: starts ? r2(blocked / starts) : 'unmeasured', by_module: by };
+}
+
 // The commits on ref in [from, to] that job sync made ("Bring job/<id> up to") and that revert ("Revert").
 export const countCommits = (root, ref, from, to, grep) => { const r = git(['log', '--format=%H', `--grep=${grep}`, ...(from ? [`--since=${from}`] : []), `--until=${to}`, ref], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.split('\n').filter(Boolean).length : null; };
 
@@ -409,7 +436,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
     bob_idle_by_day: idleByDay(sweepRows),
-    flow: flowFigures({ sweeps: sweepRows, rows, unmetAt: unmetAtRef(root, cfg, branch), gates: (pr) => gateRuns(read.comments(slug, pr) || []), syncs: countCommits(root, branch, opened, now(), '^Bring job/'), reverts: countCommits(root, branch, opened, now(), '^Revert'), from: opened }),
+    flow: flowFigures({ sweeps: sweepRows, rows, unmetAt: unmetAtRef(root, cfg, branch), gates: (pr) => gateRuns(read.comments(slug, pr) || []), syncs: countCommits(root, branch, opened, now(), '^Bring job/'), reverts: countCommits(root, branch, opened, now(), '^Revert'), quick: quickBlocks(root, lead.jobRefs, { from: opened }), from: opened }),
     root_context: rootContext(sweepRows, refreshAt),
     wakes: wakes(rows),
     overhead: overhead(rows, layerOf(layers), { opened, jobRows: lead.jobRows || [] }),

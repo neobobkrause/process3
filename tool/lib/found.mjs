@@ -16,6 +16,8 @@ export const FOUND_DIR = 'process/found';
 export const NO_MODULE = `${FOUND_DIR}/no-module.md`;
 export const foundFile = (id) => `${FOUND_DIR}/${id}.md`;
 export const DEFAULT_SOURCE = 'found';
+// A file at ref, or in the checkout without one; null when absent.
+const readAt = (root, ref) => (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
 
 // The next found mark's number in the texts (a module's requirement file and its found-work
 // entry): one past the highest F<n>, met or not, so a struck mark's number is never reused.
@@ -89,7 +91,7 @@ const clean = (v, what) => {
 // directory's <id>.md; known when it has a ledger entry, a requirement file, a row in the layer
 // map or an entry in the modules file. file: the requirement file when it exists, else null.
 export function moduleFiles(root, cfg, id, ref) {
-  const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
+  const read = readAt(root, ref);
   let req = `${cfg.requirements_dir.replace(/\/$/, '')}/${id}.md`;
   let entry = false;
   const e = read(`${LEDGER_DIR}/${id}.json`);
@@ -100,6 +102,26 @@ export function moduleFiles(root, cfg, id, ref) {
   const inModules = (readModules(root, cfg, ref) || []).some((m) => m?.id === id);
   const foundText = read(foundFile(id));
   return { known: entry || reqText !== null || inMap || inModules || foundText !== null, req, reqText, found: foundFile(id), foundText, read };
+}
+
+// A test of the module that pins its requirement file's ids (copy, 5 Nov: 16 modules' id tests,
+// which a found mark added by a plain pull request turns red): a file under the entry's tests that
+// names the requirement file and lists at least three of its ids. Its job adds the mark and admits
+// it in that test. The first such file, or null.
+export function pinnedIds(root, { entry, req, reqText, ref }) {
+  const tests = (entry?.tests || []).filter((t) => typeof t === 'string' && t);
+  if (!tests.length || reqText === null) return null;
+  const ids = new Set([...String(reqText).matchAll(/\*\*([RF]\d+)\*\*/g)].map((m) => m[1]));
+  const at = ref || 'HEAD';
+  const files = git(['ls-tree', '-r', '--name-only', at, '--', ...tests], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+  return files.find((f) => {
+    const t = git(['show', `${at}:${f}`], { cwd: root, allowFail: true }).stdout;
+    if (!t.includes(req)) return false;
+    // Ids written as a list: quoted ("R1"), as keys (R1: or "R1":) or a run of five bare ids; an id in a test's title is not one.
+    const listed = [...t.matchAll(/["'`]([RF]\d+)["'`]|^\s*["']?([RF]\d+)["']?\s*:/gm)].map((m) => m[1] || m[2]);
+    for (const run of t.match(/\b[RF]\d+(?:\s+[RF]\d+\b){4,}/g) || []) listed.push(...run.split(/\s+/));
+    return new Set(listed.filter((x) => ids.has(x))).size >= 3;
+  }) || null;
 }
 
 // found [<module>] "<finding>" [--from <source>] [--write]: BOB's plain pull request, printed.
@@ -118,9 +140,8 @@ export function found(root, module, finding, { from, write = false, offline = fa
   let title;
   let where;
   if (module === null || module === undefined) {
-    const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
     file = NO_MODULE;
-    texts = [read(NO_MODULE)];
+    texts = [readAt(root, ref)(NO_MODULE)];
     current = texts[0];
     title = 'Found work that names no module';
     where = 'the found-work entry for findings that name no module; status lists it under `found, no module` until BOB names its module';
@@ -128,6 +149,10 @@ export function found(root, module, finding, { from, write = false, offline = fa
     if (!/^[a-z0-9][a-z0-9-]*$/.test(String(module))) fail(`the module must be a module id (lower case letters, digits and -), not ${JSON.stringify(module)}`);
     const m = moduleFiles(root, cfg, module, ref);
     if (!m.known) fail(`${module} is not a module on ${ref || 'the working tree'} (no ledger entry, requirement file, row in ${cfg.layers_file} or entry in ${cfg.modules_file || 'the modules file'}); name its module, or record the finding with no module: found "<finding>" --from <source>`);
+    let entry = null;
+    try { entry = JSON.parse(m.read(`${LEDGER_DIR}/${module}.json`)); } catch { entry = null; }
+    const pin = pinnedIds(root, { entry, req: m.req, reqText: m.reqText, ref });
+    if (pin) fail(`${pin} pins the ids of ${m.req}, so a found mark added by a plain pull request turns ${module}'s suite red; nothing was written. The route: \`node .process/tool/p3.mjs job start ${module} --reopen "${what}"\`, the job adding its own F mark and admitting it in that test`);
     file = m.reqText !== null ? m.req : m.found;
     texts = [m.reqText, m.foundText];
     current = m.reqText !== null ? m.reqText : m.foundText;
@@ -138,7 +163,7 @@ export function found(root, module, finding, { from, write = false, offline = fa
   // found/<module>-f<n> branch on origin (an act printed, its pull request not yet merged), so two
   // findings for one module before the first merges never share a number (review of PR 75).
   const key = module || 'no-module';
-  const local = [file, ...(module ? [foundFile(module)] : [])].map((f) => (existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null));
+  const local = [file, ...(module ? [foundFile(module)] : [])].map(readAt(root, null));
   // The local found/<key>-f<n> branches count too: a run whose branch is made but not yet pushed
   // (defect sweep 4 Nov).
   const remote = offline ? '' : git(['ls-remote', '--heads', 'origin', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
@@ -170,8 +195,7 @@ export function found(root, module, finding, { from, write = false, offline = fa
 
 // The findings that name no module, as the ref holds them: status's `found, no module`.
 export function noModuleFound(root, ref) {
-  const text = ref ? (exists(root, ref, NO_MODULE) ? git(['show', `${ref}:${NO_MODULE}`], { cwd: root }) : null) : existsSync(join(root, NO_MODULE)) ? readFileSync(join(root, NO_MODULE), 'utf8') : null;
-  return foundMarks(text);
+  return foundMarks(readAt(root, ref)(NO_MODULE));
 }
 
 // The modules with a found-work entry (FOUND_DIR/<id>.md, no-module.md aside) at the ref.

@@ -15,7 +15,7 @@ import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metrics
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { MERGER_FILE, TRAIN_FILE, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
+import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
@@ -291,7 +291,7 @@ const commands = {
       console.log(JSON.stringify(s, null, 2));
       return 0;
     }
-    if (sub !== undefined) fail('merge train [--once] --session <id> | merge train note <pr> ... | merge train beat ... | merge train report');
+    if (sub !== undefined) fail(`usage: ${TRAIN_USAGE}`);
     train(root, { once: !!a.once, session: a.session, ...(a.minutes ? { minutes: Number(a.minutes) } : {}) });
     return 0;
   },
