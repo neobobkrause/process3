@@ -213,14 +213,20 @@ const anchoredTip = (root, cfg) => { const h = git(['rev-parse', 'HEAD'], { cwd:
 // A push of a branch already on origin is a fast-forward only where this clone can see origin's
 // tip below HEAD. In a shallow clone the tranche tip the start is cut from has no parents here,
 // so git refused the push as not a fast-forward (copy, 5 Nov, plane, BOB's depth-1 clone): the
-// tranche is deepened, doubling, then whole, until it can; one that cannot is pushed as it is.
-function provable(root, branch, tranche) {
-  if (!remoteTip(root, branch) || !isShallow(root)) return;
-  const on = () => git(['merge-base', '--is-ancestor', `refs/remotes/origin/${branch}`, 'HEAD'], { cwd: root, allowFail: true }).code === 0;
+// tranche is deepened, doubling, then whole, until it can. A tip still not below it after a full
+// read is refused plainly, nothing pushed (coordinator, 5 Nov), with its sha and the way on.
+function provable(root, id, branch, tranche, from) {
+  const tip = remoteTip(root, branch);
+  if (!tip) return;
+  if (git(['cat-file', '-e', `${tip}^{commit}`], { cwd: root, allowFail: true }).code !== 0) fetchRef(root, branch);
+  const on = () => git(['merge-base', '--is-ancestor', tip, 'HEAD'], { cwd: root, allowFail: true }).code === 0;
   const ref = `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`;
   for (let n = 32; !on() && isShallow(root); n *= 2) {
     const r = git(['fetch', '-q', ...(n > 4096 ? ['--unshallow'] : [`--deepen=${n}`]), 'origin', ref], { cwd: root, allowFail: true });
-    if (r.code !== 0 || n > 4096) break;
+    if (r.code !== 0) fail(`this clone is shallow and ${tranche}'s history could not be read to push ${branch} as a fast-forward (git fetch: ${r.stderr.trim().split('\n').pop()}); nothing was pushed; run it again`);
+  }
+  if (!on()) {
+    fail(`origin's ${branch} at ${tip.slice(0, 10)} is not in ${tranche} at ${git(['rev-parse', from], { cwd: root }).slice(0, 10)}, the tip this start is cut from, after a full read: pushing would not be a fast-forward, so nothing was pushed. Its commits are kept there; start on a fresh branch: job start ${id} --live <n> --fresh-branch "${branch} at ${tip.slice(0, 10)} is not in ${tranche}", adding --reopen "<what it must do>" for a COMPLETE module`);
   }
 }
 
@@ -455,7 +461,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
     result = { start, launch, attempt, pr: null };
     if (push) {
-      provable(root, branch, cfg.tranche);
+      provable(root, id, branch, cfg.tranche, from);
       git(['push', '-q', '-u', 'origin', branch], { cwd: root });
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });

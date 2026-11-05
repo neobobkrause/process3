@@ -158,3 +158,36 @@ test('item 4: a reopened module whose pull request the train landed after the st
     assert.ok(out.some((l) => /job\/a merged into tranche after this start's anchor [0-9a-f]{10}: anchoring again at the tip/.test(l)), out.join('\n'));
   }
 });
+
+test('item 4: a branch tip truly not in the tranche after a full read is refused plainly, its sha and the way on named, nothing pushed', () => {
+  const APPROVALS = '# P\n\n## Standing approvals from Bob\n\nSessions may push.\n';
+  for (const shallow of [false, true]) {
+    const full = makeRepo({ 'CLAUDE.md': APPROVALS, 'process/ledger/a.json': entry('a', { requirements: 'r/a.md' }), 'r/a.md': '- **R1** *(not yet met: x)* a\n' });
+    git(['branch', 'tranche'], { cwd: full });
+    const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+    git(['init', '-q', '--bare', bare], { cwd: full });
+    git(['remote', 'add', 'origin', bare], { cwd: full });
+    git(['checkout', '-q', '-b', 'job/a', 'tranche'], { cwd: full });
+    commit(full, { 'process/ledger/a.json': entry('a', { requirements: 'r/a.md', status: { state: 'COMPLETE' } }), 'process/metrics/a.jsonl': startRow('a', 1) }, 'attempt 1');
+    git(['checkout', '-q', 'tranche'], { cwd: full });
+    git(['merge', '-q', '--no-ff', '-m', 'merge a 1', 'job/a'], { cwd: full });
+    // A commit on job/a the tranche never took, which a count read wrong took for merged.
+    git(['checkout', '-q', 'job/a'], { cwd: full });
+    commit(full, { 'src/a/x.mjs': 'off the tranche' }, 'never landed');
+    git(['checkout', '-q', 'tranche'], { cwd: full });
+    git(['push', '-q', 'origin', 'main', 'tranche', 'job/a'], { cwd: full });
+    const stray = git(['rev-parse', 'job/a'], { cwd: full });
+    const bob = join(mkdtempSync(join(tmpdir(), 'p3-bob-')), 'c');
+    git(['clone', '-q', ...(shallow ? ['--depth', '1'] : []), '-b', 'tranche', `file://${bare}`, bob], { cwd: tmpdir() });
+    for (const [k, v] of [['user.email', 'b@example.com'], ['user.name', 'B'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: bob });
+    git(['checkout', '-q', '--detach'], { cwd: bob });
+    const setup = (r, o) => { const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet }); return c.ok ? { ok: true, missing: [], results: [{ id: 'session-branch', state: 'set' }] } : { ok: false, missing: ['session-branch'], results: [] }; };
+    // GitHub's count read as merged (ahead 0): only the push's own read stands between it and a
+    // non-fast-forward. A full clone counts locally, sees the stray commit, and cuts a fresh branch.
+    let msg = null;
+    try { jobStart(bob, 'a', { coordinator: 'session_bob', reopen: 'answer the notice', setup, compare: () => ({ ahead_by: 0 }), find: () => null, prs: () => [], open: () => ({ number: 9, html_url: 'u' }), log: quiet }); } catch (e) { msg = e.message; }
+    if (shallow) assert.match(msg || '', new RegExp(`origin's job/a at ${stray.slice(0, 10)} is not in tranche at [0-9a-f]{10}, the tip this start is cut from, after a full read: pushing would not be a fast-forward, so nothing was pushed\\. Its commits are kept there; start on a fresh branch: job start a --live <n> --fresh-branch "job/a at ${stray.slice(0, 10)} is not in tranche", adding --reopen`));
+    else assert.equal(msg, null);
+    assert.equal(git(['ls-remote', bare, 'refs/heads/job/a'], { cwd: full }).split('\t')[0], stray, 'origin\'s job/a is as it was');
+  }
+});
