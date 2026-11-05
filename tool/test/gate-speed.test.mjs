@@ -3,11 +3,11 @@
 // that read it, each with the verdicts it had before.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gate as gateRun, gateComment, requirementsOnly, revertCheck } from '../lib/gate.mjs';
-import { baseRed, changedInTree, startBase } from '../lib/basered.mjs';
+import { baseRed, startBase, treeDigest } from '../lib/basered.mjs';
 import { readResults, runSuite } from '../lib/suite.mjs';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
@@ -191,22 +191,47 @@ test('base-red: the prepared tree serves one call; the next, and one whose prepa
   assert.deepEqual(mine(), []);
 });
 
-test('base-red: a base file changed in the tree prepared beside the head is caught, and the tree prepared again', () => {
-  const s = setup({ 'test/alpha/red.test.mjs': redTest, 'bin/run.sh': '#!/bin/sh\n' }, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
-  git(['update-index', '--chmod=+x', 'bin/run.sh'], { cwd: s.root });
+test('base-red: the tree prepared beside the head is read-only and hashed; any change to it, node_modules included, fails closed', () => {
+  const s = setup({ 'test/alpha/red.test.mjs': redTest, 'node_modules/dep/index.js': 'module.exports = 1;\n' }, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   const e = JSON.parse(readFileSync(join(s.root, 'process/ledger/alpha.json'), 'utf8'));
   const cfg = loadConfig(s.root);
   const failing = [{ file: 'test/alpha/red.test.mjs', name: 'plane > has ai-catalogue' }];
-  const p = startBase(s.root, { base: s.base, cfg, timeout: 60000 });
-  // Ready, then written into by code of the PR: the failing test made to fail there.
-  for (const t0 = Date.now(); !existsSync(join(p.dir, 'exit')) && Date.now() - t0 < 30000;) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
-  assert.equal(changedInTree(s.root, s.base, p.wt), null);
-  writeFileSync(join(p.wt, 'src/alpha/index.mjs'), 'export const x = 9;\n');
-  assert.equal(changedInTree(s.root, s.base, p.wt), 'src/alpha/index.mjs');
+  const ready = (p) => { assert.equal(p.wait(30000).ok, true); return p; };
+  // Untouched: the hash holds, the base runs, the tree is writable again for it, and removed.
   const lines = [];
+  const p = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000, log: (l) => lines.push(l) }));
+  assert.match(p.digest.digest, /^[0-9a-f]{64}$/);
+  // Read-only (root, as in this container, writes all the same: the hash is what holds).
+  for (const f of ['src/alpha/index.mjs', 'src', 'node_modules/dep/index.js', '.']) assert.equal(statSync(join(p.wt, f)).mode & 0o222, 0, f);
+  if (process.getuid?.() !== 0) assert.throws(() => writeFileSync(join(p.wt, 'src/alpha/index.mjs'), 'x'), /EACCES|EPERM/);
+  assert.equal(treeDigest(p.wt).digest, p.digest.digest);
+  p.used = false;
   assert.equal(baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: p, log: (l) => lines.push(l) }).ok, true);
-  assert.ok(lines.some((l) => /src\/alpha\/index\.mjs in the base's tree prepared beside the head is not the base's: the tree is prepared here/.test(l)), lines.join('\n'));
+  assert.ok(lines.some((l) => /made read-only and hashed, \d+ files/.test(l)) && lines.some((l) => /the base's tree checked, \d+ files/.test(l)), lines.join('\n'));
   assert.equal(existsSync(p.dir), false);
+  // Written into by code of the PR, permissions put back after: a dependency, a source, a new file.
+  for (const tamper of [
+    (wt) => { chmodSync(join(wt, 'node_modules/dep'), 0o755); chmodSync(join(wt, 'node_modules/dep/index.js'), 0o644); writeFileSync(join(wt, 'node_modules/dep/index.js'), 'throw 1;\n'); chmodSync(join(wt, 'node_modules/dep/index.js'), 0o444); chmodSync(join(wt, 'node_modules/dep'), 0o555); },
+    (wt) => { chmodSync(join(wt, 'src/alpha/index.mjs'), 0o644); writeFileSync(join(wt, 'src/alpha/index.mjs'), 'export const x = 9;\n'); },
+    (wt) => { chmodSync(join(wt, 'test/alpha'), 0o755); writeFileSync(join(wt, 'test/alpha/extra.mjs'), ''); },
+  ]) {
+    const q = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000 }));
+    q.used = false;
+    tamper(q.wt);
+    const r = baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: q });
+    assert.equal(r.ok, false);
+    assert.match(r.why, /^the base's tree prepared beside the head changed after its build \(its content hash differs: \d+ files now, \d+ then\): no base-red verdict, the failures are the PR's$/);
+    assert.equal(existsSync(q.dir), false, 'removed, read-only or not');
+  }
+  // A verdict but no hash on the pipe: prepared inline.
+  const n = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000 }));
+  n.used = false;
+  n.digest = null;
+  const again = [];
+  assert.equal(baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: { ...n, wait: () => ({ ok: true }), drop: n.drop }, log: (l) => again.push(l) }).ok, true);
+  assert.ok(again.some((l) => /sent no content hash of the tree: the tree is prepared here/.test(l)));
+  n.drop();
+  assert.deepEqual(mine(), []);
 });
 
 test('base-red: dropping a preparation kills its whole process group, verdict or not', () => {

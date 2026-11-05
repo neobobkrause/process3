@@ -19,7 +19,7 @@
 // process the PR's tests left running, or loose objects rewritten in place; and, for a sibling two
 // test files import, one test failing in one importer here and in the other at the base (the id
 // does not name the importer, the count matches; confirming review of PR 133).
-import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, readlinkSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
@@ -67,21 +67,43 @@ export function writeTree(root, sha, dir) {
   }
 }
 
-// The first of the base's files in dir that is not the base's blob (its bytes, its link or its
-// executable bit), or null: the tree prepared beside the head is checked before the base runs in
-// it (confirming review of build gate-speed: the head's code runs while it exists). Git's own hash
-// (sha1 of "blob <size>\0" and the bytes, or of the link's target), so no filter or attribute applies.
-export function changedInTree(root, sha, dir) {
-  const oid = (body) => createHash('sha1').update(`blob ${body.length}\0`).update(body).digest('hex');
-  for (const x of blobs(root, sha)) {
-    const p = join(dir, x.path);
-    try {
-      const st = lstatSync(p);
-      if (x.mode === '120000') { if (!st.isSymbolicLink() || oid(Buffer.from(readlinkSync(p))) !== x.oid) return x.path; continue; }
-      if (!st.isFile() || oid(readFileSync(p)) !== x.oid || ((st.mode & 0o100) !== 0) !== (x.mode === '100755')) return x.path;
-    } catch { return x.path; }
-  }
-  return null;
+// The whole tree's content (build gate-speed, the coordinator's ruling on the residual: the head's
+// code runs while the base's tree exists): every file, link and directory under dir, node_modules
+// and built files included, by path, kind, permission bits and bytes (sha256), as one sha256.
+export function treeDigest(dir) {
+  const all = createHash('sha256');
+  let files = 0;
+  let bytes = 0;
+  const walk = (rel) => {
+    const p = rel ? join(dir, rel) : dir;
+    const st = lstatSync(p);
+    const mode = (st.mode & 0o7777).toString(8);
+    if (st.isSymbolicLink()) { all.update(`${rel}\0l\0${readlinkSync(p)}\n`); return; }
+    if (st.isDirectory()) {
+      all.update(`${rel}\0d\0${mode}\n`);
+      for (const n of readdirSync(p).sort()) walk(rel ? `${rel}/${n}` : n);
+      return;
+    }
+    if (!st.isFile()) { all.update(`${rel}\0o\0${mode}\n`); return; }
+    const body = readFileSync(p);
+    files++;
+    bytes += body.length;
+    all.update(`${rel}\0f\0${mode}\0${createHash('sha256').update(body).digest('hex')}\n`);
+  };
+  walk('');
+  return { digest: all.digest('hex'), files, bytes };
+}
+// Write permission off every file and directory under dir (children first), or back on for the
+// owner (directories first); links are left alone.
+export function setWritable(dir, on) {
+  const walk = (p) => {
+    const st = lstatSync(p);
+    if (st.isSymbolicLink()) return;
+    if (on) chmodSync(p, (st.mode & 0o7777) | 0o200);
+    if (st.isDirectory()) for (const n of readdirSync(p)) walk(join(p, n));
+    if (!on) chmodSync(p, st.mode & 0o7777 & ~0o222);
+  };
+  walk(dir);
 }
 
 // The test files that reach f, a module a failing test's id names: f itself when it is one, else
@@ -149,12 +171,13 @@ export function prepareTree(root, base, wt, { lockfiles = [], rows = [], timeout
 // call's, then dropped; a later call (another module, or the smoke list after the suite's)
 // prepares its own, as before. When the process ends without a verdict (it crashed or was killed)
 // or its install or build failed, baseRed prepares the tree inline, with its own budget. drop(): the process stopped, the tree removed; also at exit.
-// The head's install, build and tests run while the base's tree exists, so before the base runs
-// in it, its files are checked against the base's blobs (changedInTree); one that differs, and a
-// refused preparation, are prepared again inline. Residual, as for a process the PR's tests leave
-// running and now without one: code of the PR can still write into the tree's node_modules or
-// built files, or the verdict files, which are not checked; the tranche into main, which tolerates
-// nothing, is the backstop for a base-red the PR made.
+// The head's install, build and tests run while the base's tree exists (the coordinator's ruling,
+// 5 Nov: closed, not a residual). When its build ends the preparation makes the whole tree
+// read-only and sends its content hash (treeDigest: node_modules and built files included) on a
+// pipe only this process holds; right before the base runs in it, the hash is taken again, and a
+// tree that differs fails closed: no base-red verdict, the suite's failures are the PR's. No hash
+// sent, or a refused preparation: the tree is prepared again inline. A verdict file rewritten to
+// say ok gains nothing without the hash, which is not in a file.
 export const PREP = join(dirname(fileURLToPath(import.meta.url)), 'base-prep.mjs');
 const nap = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} }) {
@@ -171,7 +194,7 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
   let child;
   try {
     // The shell writes the exit status even when node dies, so the wait never outlives it.
-    child = spawn('/bin/sh', ['-c', '"$0" "$1" "$2"; echo $? > "$3"', process.execPath, PREP, argsFile, exitFile], { cwd: dir, stdio: ['ignore', fd, fd], env, detached: true });
+    child = spawn('/bin/sh', ['-c', '"$0" "$1" "$2"; echo $? > "$3"', process.execPath, PREP, argsFile, exitFile], { cwd: dir, stdio: ['ignore', fd, fd, 'pipe'], env, detached: true });
     child.on('error', () => {});
     child.unref();
   } finally { closeSync(fd); }
@@ -208,6 +231,7 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
       for (const l of text.split('\n').filter(Boolean).slice(-40)) log(l);
       if (!ended) { stop(); return { ok: false, timedOut: true, why: `the base's tree was not ready within ${Math.round((Date.now() - started) / 1000)} s` }; }
       done = true;
+      this.digest ??= pipeDigest(child);
       try { const r = JSON.parse(readFileSync(out, 'utf8')); log(`base-red: the base's tree was prepared in the background (${Math.round((statSync(out).mtimeMs - started) / 1000)} s after the gate started it)`); return r; } catch {
         log(`base-red: the background preparation ended without a verdict (exit ${String(readFileSync(exitFile, 'utf8')).trim()}): the tree is prepared here`);
         return null;
@@ -216,12 +240,31 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
     drop() {
       stop();
       process.removeListener('exit', stop);
+      try { setWritable(wt, true); } catch { /* not built, or gone */ }
       // A process not yet gone may still add a file while the tree is removed: once more, then leave it to the sweep.
       try { drop(); } catch { nap(500); try { drop(); } catch { /* the next withTemp sweeps it */ } }
     },
     // The process group killed as the OOM killer would, the exit status unwritten (tests).
     kill() { if (child?.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } } },
   };
+}
+
+// The digest the preparation sent on its pipe (fd 3), held by this process alone: not in a file the
+// head's code could rewrite with the tree. Read once the process has ended, without blocking; null
+// when none came (or the pipe's descriptor cannot be read here).
+function pipeDigest(child) {
+  const fd = child?.stdio?.[3]?._handle?.fd;
+  if (!Number.isInteger(fd) || fd < 0) return null;
+  const buf = Buffer.alloc(4096);
+  let text = '';
+  for (;;) {
+    let n;
+    try { n = readSync(fd, buf, 0, buf.length, null); } catch { break; }
+    if (!n) break;
+    text += buf.toString('utf8', 0, n);
+    if (text.length > 65536) break;
+  }
+  try { const d = JSON.parse(text.split('\n')[0]); return typeof d?.digest === 'string' && /^[0-9a-f]{64}$/.test(d.digest) ? d : null; } catch { return null; }
 }
 
 // Runs the PR's failing tests at the base and says which are tolerated. failing: runSuite's
@@ -244,9 +287,16 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     prepared.used = true;
     try {
       const p = prepared.wait(left());
-      const altered = p?.ok ? changedInTree(root, base, prepared.wt) : null;
-      if (p?.ok && !altered) return compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log });
-      if (altered) log(`base-red: ${altered} in the base's tree prepared beside the head is not the base's: the tree is prepared here`);
+      if (p?.ok && prepared.digest) {
+        // Recorded when its build ended, read-only since; checked right before the base runs in it.
+        const t0 = Date.now();
+        const now = treeDigest(prepared.wt);
+        log(`base-red: the base's tree checked, ${now.files} files, ${Math.round(now.bytes / 1048576)} MB, in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+        if (now.digest !== prepared.digest.digest) return no(`the base's tree prepared beside the head changed after its build (its content hash differs: ${now.files} files now, ${prepared.digest.files} then): no base-red verdict, the failures are the PR's`);
+        setWritable(prepared.wt, true);
+        return compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log });
+      }
+      if (p?.ok) log("base-red: the background preparation sent no content hash of the tree: the tree is prepared here");
       // Prepared beside the head, at a lower priority, on a deadline from the gate's start: a
       // failed install or build there may be the head's load or time, not the base's. Prepared
       // again here with base-red's own budget (review of build gate-speed).
