@@ -163,35 +163,110 @@ export function surfaceOf(read, file, inModule, seen = new Set()) {
 }
 
 // A relative specifier from a file, to a file `has` accepts: as written, with an extension, or its index.
+const JOINS = new Map(); // `${from}\0${spec}` -> the path it names, kept (a tree's every import is resolved)
 export function resolveSpec(from, spec, has) {
   if (!spec.startsWith('./') && !spec.startsWith('../')) return null;
-  const p = posix.normalize(posix.join(posix.dirname(from), spec)).replace(/\/$/, '');
-  for (const f of [p, ...EXTS.map((e) => p + e), ...EXTS.map((e) => `${p}/index${e}`)]) if (has(f)) return f;
+  const k = `${from}\0${spec}`;
+  let p = JOINS.get(k);
+  if (p === undefined) { p = posix.normalize(posix.join(posix.dirname(from), spec)).replace(/\/$/, ''); keep(JOINS, SPECS_MAX, k, p); }
+  if (has(p)) return p;
+  for (const e of EXTS) if (has(p + e)) return p + e;
+  for (const e of EXTS) if (has(`${p}/index${e}`)) return `${p}/index${e}`;
   return null;
 }
+
+// The reads below are by git object id, so what one read is kept for the process (merge train, 5 Nov:
+// a cold start's hold ran git grep over 92 trees and git show of 39,018 files, one git process
+// each, 364 s of its 422 s before the first pick; now a tree is one git ls-tree, and the files it
+// needs one git cat-file --batch, only those not read before).
+// A tree at ref: path -> { mode, type, oid }, trees and submodules included, in git's order.
+export function treeAt(root, ref) {
+  const out = new Map();
+  for (const line of git(['ls-tree', '-r', '-t', '-z', ref], { cwd: root }).split('\0')) {
+    const tab = line.indexOf('\t');
+    if (tab < 0) continue;
+    const [mode, type, oid] = line.slice(0, tab).split(' ');
+    out.set(line.slice(tab + 1), { mode, type, oid });
+  }
+  return out;
+}
+// Blob texts by object id, read in one git process; an id git cannot read is null (as a failed git show).
+const TEXTS = new Map(); // oid -> text, the files a surface read, kept while under TEXT_MAX characters
+const TEXT_MAX = 32 * 1024 * 1024;
+let textChars = 0;
+const keepText = (o, t) => {
+  TEXTS.set(o, t);
+  textChars += t.length;
+  for (const [k, v] of TEXTS) { if (textChars <= TEXT_MAX) break; TEXTS.delete(k); textChars -= v.length; } // the oldest first
+};
+const keep = (map, max, k, v) => { map.set(k, v); if (map.size > max) map.delete(map.keys().next().value); };
+export function blobTexts(root, oids, { cache = true } = {}) {
+  const out = new Map();
+  const want = [...new Set(oids)].filter((o) => { if (TEXTS.has(o)) { out.set(o, TEXTS.get(o)); return false; } return true; });
+  if (!want.length) return out;
+  const r = git(['cat-file', '--batch'], { cwd: root, allowFail: true, encoding: 'buffer', input: want.join('\n') + '\n' });
+  const buf = Buffer.isBuffer(r.stdout) ? r.stdout : Buffer.alloc(0);
+  let i = 0;
+  for (const o of want) {
+    const nl = buf.indexOf(10, i);
+    if (nl < 0) { out.set(o, null); continue; }
+    const head = buf.toString('latin1', i, nl).split(' ');
+    if (head[1] !== 'blob') { out.set(o, null); i = nl + 1; continue; } // "<oid> missing", or not a blob
+    const n = Number(head[2]);
+    const text = buf.toString('utf8', nl + 1, nl + 1 + n);
+    i = nl + 1 + n + 1;
+    out.set(o, text);
+    if (cache && text.length <= TEXT_MAX / 8) keepText(o, text);
+  }
+  return out;
+}
+// A code file's specifiers, by blob id (checks.mjs specifiers): the text itself is not kept. Read
+// in parts, so a whole tree's code is never in memory at once.
+const SPECS = new Map();
+const SPECS_MAX = 200000;
+const PART = 512;
+function specsOf(root, oids) {
+  const miss = [...new Set(oids)].filter((o) => !SPECS.has(o));
+  for (let i = 0; i < miss.length; i += PART) {
+    for (const [o, t] of blobTexts(root, miss.slice(i, i + PART), { cache: false })) keep(SPECS, SPECS_MAX, o, t === null ? [] : specifiers(t).map((x) => x.spec));
+  }
+  return (o) => SPECS.get(o) || [];
+}
+// Whether a blob's text has one of the words (git grep -F's test), by blob id and words.
+const WORDS = new Map();
+function hasWord(root, oids, words) {
+  const k = (o) => `${o}\0${JSON.stringify(words)}`;
+  const miss = [...new Set(oids)].filter((o) => !WORDS.has(k(o)));
+  for (const [o, t] of blobTexts(root, miss, { cache: false })) keep(WORDS, SPECS_MAX, k(o), t !== null && words.some((w) => t.includes(w)));
+  return (o) => WORDS.get(k(o)) === true;
+}
+// The files git grep reads in a tree: regular files (not links) ending in EXTS.
+const isCodeBlob = (p, e) => e?.type === 'blob' && /^100/.test(e.mode) && EXTS.some((x) => p.endsWith(x));
 
 // The provider's entry files at ref: its source files a file outside the module imports; else its index files.
 // An importer inside the provider module (its source, its tests, anything under its paths) is not
 // a user: the gate counts a module's tests as the module's own (checks.mjs ownerOf; review of PR 82).
-export function entryFiles(root, ref, { isProviderSource, providerPaths, inProvider = isProviderSource }) {
-  const all = git(['ls-tree', '-r', '--name-only', '-z', ref], { cwd: root }).split('\0').filter(Boolean);
+export function entryFiles(root, ref, { isProviderSource, providerPaths, inProvider = isProviderSource }, at = {}) {
+  const tree = at.tree || treeAt(root, ref);
+  const all = [...tree].filter(([, e]) => e.type !== 'tree').map(([p]) => p);
   const set = new Set(all);
   const mine = all.filter((f) => CODE.test(f) && isProviderSource(f));
   if (!mine.length) return [];
-  // Only files naming one of the provider's directories can import it: git grep narrows the read.
+  // Only files naming one of the provider's directories can import it (the words git grep -F
+  // looked for): every code file's imports are read by blob id, and the words are read only in
+  // the files whose imports reach the provider's source.
   const words = [...new Set(providerPaths.map((p) => p.replace(/\/$/, '').split('/').pop()).filter((w) => w && w !== '.'))];
   const found = new Set();
   if (words.length) {
-    const g = git(['grep', '-l', '-z', '-F', ...words.flatMap((w) => ['-e', w]), ref, '--', ...EXTS.map((e) => `*${e}`)], { cwd: root, allowFail: true });
-    const files = g.code === 0 ? g.stdout.split('\0').filter(Boolean).map((f) => f.slice(ref.length + 1)) : [];
-    for (const f of files) {
-      if (inProvider(f) || !CODE.test(f)) continue;
-      const text = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
-      for (const { spec } of specifiers(text)) {
-        const to = resolveSpec(f, spec, (x) => set.has(x));
-        if (to && isProviderSource(to)) found.add(to);
-      }
+    const files = [...tree].filter(([f, e]) => isCodeBlob(f, e) && CODE.test(f) && !inProvider(f));
+    const specs = specsOf(root, files.map(([, e]) => e.oid));
+    const reach = [];
+    for (const [f, e] of files) {
+      const to = specs(e.oid).map((spec) => resolveSpec(f, spec, (x) => set.has(x))).filter((x) => x && isProviderSource(x));
+      if (to.length) reach.push([e.oid, to]);
     }
+    const named = hasWord(root, reach.map(([o]) => o), words);
+    for (const [o, to] of reach) if (named(o)) for (const x of to) found.add(x);
   }
   if (found.size) return [...found].sort();
   return mine.filter((f) => /(^|\/)index\.[^/]+$/.test(f)).sort();
@@ -200,10 +275,19 @@ export function entryFiles(root, ref, { isProviderSource, providerPaths, inProvi
 // The surface of a provider at ref: the names every entry file exports, one map; where two entry
 // files export one name, the later file in path order wins.
 export function surfaceAt(root, ref, opts) {
-  const files = entryFiles(root, ref, opts);
+  const tree = treeAt(root, ref);
+  const files = entryFiles(root, ref, opts, { tree });
+  // The provider's own code files, read at once: a surface follows its imports within the module.
+  blobTexts(root, [...tree].filter(([p, e]) => e.type === 'blob' && CODE.test(p) && opts.isProviderSource(p)).map(([, e]) => e.oid));
   const cache = new Map();
+  const plain = (f) => f && f !== '.' && !f.startsWith('/') && !f.startsWith('../') && !f.endsWith('/') && posix.normalize(f) === f;
   const read = (f) => {
-    if (!cache.has(f)) { const r = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }); cache.set(f, r.code === 0 ? r.stdout : null); }
+    if (!cache.has(f)) {
+      const e = tree.get(f);
+      if (e?.type === 'blob') cache.set(f, blobTexts(root, [e.oid]).get(e.oid));
+      else if (!e && plain(f)) cache.set(f, null); // not in the tree: git show would fail
+      else { const r = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }); cache.set(f, r.code === 0 ? r.stdout : null); }
+    }
     return cache.get(f);
   };
   const out = new Map();
@@ -220,4 +304,6 @@ export function exportChanges(root, base, head, opts) {
   const changed = [...a.keys()].filter((k) => b.has(k) && a.get(k) !== b.get(k)).sort().map((k) => ({ name: k, before: a.get(k), after: b.get(k) }));
   return { removed, added, changed };
 }
+// For tests: forget every read kept.
+export function forgetReads() { TEXTS.clear(); SPECS.clear(); WORDS.clear(); JOINS.clear(); textChars = 0; }
 export const anyExportChange = (x) => !!x && (x.removed.length || x.added.length || x.changed.length) > 0;

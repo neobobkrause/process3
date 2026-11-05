@@ -88,21 +88,39 @@ export const fullGateMinutes = (runs) => (runs || []).filter((r) => r?.trigger =
 // The git reads behind (b) and (c), at `base` (the tranche as fetched) and a head this clone has.
 const entryAt = (root, ref, id) => { const t = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true }); if (t.code !== 0) throw new Error(`no ledger entry for ${id} on ${ref}`); return JSON.parse(t.stdout); };
 const mergeBase = (root, a, b) => { const r = git(['merge-base', a, b], { cwd: root, allowFail: true }); if (r.code !== 0) throw new Error(`git merge-base ${a} ${b.slice(0, 10)} failed`); return r.stdout.trim(); };
+// Each answer is kept for the process by what it reads: the merge base, the head, the ledger
+// entry (or entries and modules) and the config, never the tranche's name. A new tranche tip
+// whose merge base with a head is unchanged reads nothing again (5 Nov: every land moved the
+// tip, and every provider's surfaces were read again before the next pick).
+const ANSWERS = new Map();
+const ANSWERS_MAX = 20000;
+const kept = (key, f) => {
+  if (ANSWERS.has(key)) return ANSWERS.get(key);
+  const v = f();
+  ANSWERS.set(key, v);
+  if (ANSWERS.size > ANSWERS_MAX) ANSWERS.delete(ANSWERS.keys().next().value);
+  return v;
+};
+export const forgetAnswers = () => ANSWERS.clear();
 export function exportsChangedAt(root, cfg, base, p) {
   const e = entryAt(root, base, p.id);
   const mb = mergeBase(root, base, p.head);
-  const x = exportChanges(root, mb, p.head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((q) => underPath(f, q)), providerPaths: sourcePaths(cfg, e) });
-  return anyExportChange(x);
+  return kept(JSON.stringify(['exp', root, mb, p.head, e, cfg]), () => {
+    const x = exportChanges(root, mb, p.head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((q) => underPath(f, q)), providerPaths: sourcePaths(cfg, e) });
+    return anyExportChange(x);
+  });
 }
 export function importsFromAt(root, cfg, base, modules, u, p) {
   const e = entryAt(root, base, u.id);
   const mb = mergeBase(root, base, u.head);
-  const changed = git(['diff', '--name-only', '-z', mb, u.head], { cwd: root }).split('\0').filter(Boolean);
-  for (const f of changed.filter((x) => CODE.test(x) && (e.paths || []).some((q) => underPath(x, q)) && exists(root, u.head, x))) {
-    for (const { spec } of specifiers(git(['show', `${u.head}:${f}`], { cwd: root }))) {
-      if (!spec.startsWith('./') && !spec.startsWith('../')) continue;
-      if (ownerOf(modules, posix.normalize(posix.join(posix.dirname(f), spec)))?.id === p.id) return true;
+  return kept(JSON.stringify(['imp', root, mb, u.head, e, p.id, cfg, modules]), () => {
+    const changed = git(['diff', '--name-only', '-z', mb, u.head], { cwd: root }).split('\0').filter(Boolean);
+    for (const f of changed.filter((x) => CODE.test(x) && (e.paths || []).some((q) => underPath(x, q)) && exists(root, u.head, x))) {
+      for (const { spec } of specifiers(git(['show', `${u.head}:${f}`], { cwd: root }))) {
+        if (!spec.startsWith('./') && !spec.startsWith('../')) continue;
+        if (ownerOf(modules, posix.normalize(posix.join(posix.dirname(f), spec)))?.id === p.id) return true;
+      }
     }
-  }
-  return false;
+    return false;
+  });
 }

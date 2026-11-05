@@ -46,12 +46,12 @@ export function run(cmd, args = [], opts = {}) {
   const env = { ...process.env, ...(opts.env || {}) };
   for (const k of opts.unset || []) delete env[k];
   const r = spawnSync(cmd, args, {
-    cwd: opts.cwd, env, encoding: 'utf8',
+    cwd: opts.cwd, env, encoding: opts.encoding === 'buffer' ? undefined : 'utf8', // 'buffer': stdout as bytes (git cat-file --batch)
     maxBuffer: 256 * 1024 * 1024, input: opts.input, timeout: opts.timeout,
   });
   return {
     code: r.status === null ? (r.error ? 127 : 1) : r.status,
-    stdout: r.stdout || '', stderr: (r.stderr || '') + (r.error ? String(r.error) : ''),
+    stdout: r.stdout || '', stderr: String(r.stderr || '') + (r.error ? String(r.error) : ''),
     seconds: (Date.now() - t0) / 1000, timedOut: r.error?.code === 'ETIMEDOUT',
   };
 }
