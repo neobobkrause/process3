@@ -65,6 +65,7 @@ function io(head) {
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: (slug, r) => r.run_id === 11,
     ...honestBranch([5, 6, 7, 173, 364]),
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   };
 }
