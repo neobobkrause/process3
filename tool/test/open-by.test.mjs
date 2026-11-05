@@ -131,3 +131,53 @@ test('open_by uses: a gap is named only past the open layer, where the module is
   assert.doesNotMatch(out.join('\n'), /not ready, its uses not in build\/layers\.md: p2/);
   assert.match(out.join('\n'), /not ready, its uses not in build\/layers\.md: z3 \(layer 3\) uses ghost/);
 });
+
+// Coordinator, 5 Nov (copy at 53066d32): question-explorer (PR 346, draft) and agent-worker (PR 344)
+// were listed startable while each had its job's pull request open on a COMPLETE entry.
+test('a COMPLETE module with its job pull request open is listed in no list of next work', () => {
+  const root = repo();
+  const cfg = loadConfig(root);
+  const base = status(root, { offline: true, log: quiet }).rows;
+  const rows = [...base, { id: 'p2', tranche: 'COMPLETE', req: 'build/requirements/p2.md', pr: '#346 draft' }, { id: 'q2', tranche: 'COMPLETE', req: 'build/requirements/q2.md', pr: '#344 ready' }];
+  const ls = layerState(root, cfg, rows, null, { closed: [] });
+  const affected = { q2: [{ key: 'base:9', provider: 'base', ids: ['R1'], pr: 9, triage: { verdict: 'affected', evidence: 'x:1' } }] };
+  const next = nextWork(root, cfg, rows, null, { log: quiet, state: ls, notices: affected }).map((x) => x.file?.replace('build/requirements/', ''));
+  assert.ok(!next.includes('p2.md'), 'the open layer list');
+  assert.ok(!next.includes('q2.md'), 'the notice list');
+  // Without the open pull requests both are listed: the fixture reaches each list.
+  const free = [...base, { id: 'p2', tranche: 'COMPLETE', req: 'build/requirements/p2.md', pr: 'merged' }, { id: 'q2', tranche: 'COMPLETE', req: 'build/requirements/q2.md', pr: 'merged' }];
+  const all = nextWork(root, cfg, free, null, { log: quiet, state: layerState(root, cfg, free, null, { closed: [] }), notices: affected }).map((x) => x.file?.replace('build/requirements/', ''));
+  assert.ok(all.includes('p2.md') && all.includes('q2.md'));
+});
+
+test('open_by uses: a provider in a layer recorded closed is done despite its deferred marks, unless BLOCKED or its job is open', () => {
+  const layers = LAYERS.replace('| 4 | later | u4 |', '| 4 | later | u4, d4 |');
+  const root = repo({}, { 'build/layers.md': layers, 'build/modules.json': { modules: [...MODULES.modules, { id: 'd4', paths: ['src/d4/'], uses: ['p2'] }] }, 'build/requirements/d4.md': unmet(1) });
+  const cfg = loadConfig(root);
+  const rows = status(root, { offline: true, log: quiet }).rows;
+  const at = (rs, closed) => nextWork(root, cfg, rs, null, { log: quiet, state: layerState(root, cfg, rs, null, { closed }) }).map((x) => x.file.replace('build/requirements/', ''));
+  const closed = [{ row: 'closed', tranche: 'tranche', layer: 2 }];
+  // Layer 2 open: p2's unmet marks hold d4.
+  assert.ok(!at(rows, []).includes('d4.md'));
+  // Layer 2 recorded closed: p2's marks are deferred and d4 is ready.
+  assert.ok(at(rows, closed).includes('d4.md'));
+  // Still held while p2 is BLOCKED, or its job is open.
+  assert.ok(!at([...rows, { id: 'p2', tranche: 'COMPLETE', req: 'build/requirements/p2.md', blocked: 'why', flag: 'BLOCKED' }], closed).includes('d4.md'));
+  assert.ok(!at([...rows, { id: 'p2', tranche: 'COMPLETE', req: 'build/requirements/p2.md', pr: '#7 draft' }], closed).includes('d4.md'));
+});
+
+test('status: the flow line, and each BLOCKED job with its age, oldest first, its ruling owed past decision_minutes and by whom', () => {
+  const ago = (m) => new Date(Date.now() - m * 6e4).toISOString();
+  const blocked = (reason, m) => ({ status: { state: 'BLOCKED', reason, at: ago(m) } });
+  const root = repo({ coordinator: 'session_coord' }, {
+    'process/ledger/x3.json': entry('x3', { requirements: 'build/requirements/x3.md', ...blocked('the test harness cannot reach the worker', 45) }),
+    'process/ledger/w3.json': entry('w3', { requirements: 'build/requirements/w3.md', ...blocked('requirement R1 contradicts R2', 90) }),
+    'process/ledger/v3.json': entry('v3', { requirements: 'build/requirements/v3.md', ...blocked('waiting on a fixture', 5) }),
+  });
+  const out = [];
+  const r = status(root, { role: 'bob', offline: true, live: 3, log: (m) => out.push(m) });
+  const t = out.join('\n');
+  assert.match(t, /blocked:\n- w3: [^\n]*; blocked 9\d min; ruling owed by Bob: requirement R1 contradicts R2\n- x3: [^\n]*; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the test harness cannot reach the worker\n- v3: [^\n]*; blocked \d min\n/);
+  assert.match(t, /^flow: live 3\/20 \(default\), startable \d+, blocked 3 \(oldest 9\d min\)$/m);
+  assert.deepEqual([r.flow.startable, r.flow.blocked], [r.next.filter((x) => Number.isInteger(x.count) && !x.over).length, 3]);
+});

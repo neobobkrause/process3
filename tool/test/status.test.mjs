@@ -51,7 +51,7 @@ test('status --role bob: next work only from the open layer, at most the job cap
   assert.ok(out.includes('job cap 5 (P3_JOB_CAP): 3 job sessions live'), 'status prints the cap in force and its source');
   const four = [];
   status(root, { role: 'bob', offline: true, live: 4, log: (m) => four.push(m) });
-  assert.match(four.join('\n'), /1 listed \(jobs 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)$/);
+  assert.match(four.join('\n'), /1 listed \(jobs 4 of 5\), 1 wait\n- build\/requirements\/b.md: 1 \(layer 1\)\nflow: live 4\/5 \(P3_JOB_CAP\), startable 2, blocked 0$/);
   // Layer 1 stays open while busy's job is open, though no file in it is unmet but busy's.
   const held = makeRepo({ ...files, 'build/requirements/a.md': unmet(0), 'build/requirements/b.md': unmet(0) });
   openPassed(held);
@@ -236,7 +236,7 @@ test('status --role bob: a requirement file over requirements_cap is a split owe
   const big = Buffer.byteLength(unmet(2) + 'x'.repeat(400));
   assert.match(text, new RegExp(`split or consolidate before its job: build/requirements/big.md ${big} over 300`));
   assert.match(text, /split or consolidate before its job: build\/requirements\/many.md 4 unmet marks over 3/);
-  assert.match(text, /all 1 listed.*\n- build\/requirements\/small.md: 1$/);
+  assert.match(text, /all 1 listed.*\n- build\/requirements\/small.md: 1\nflow: [^\n]*startable 1, blocked 0$/);
   assert.doesNotMatch(text, /- build\/requirements\/(big|many).md/);
   // Still returned, marked: a split owed is work for BOB.
   assert.deepEqual(r.next.map((x) => [x.file, !!x.over]), [['build/requirements/small.md', false], ['build/requirements/big.md', true], ['build/requirements/many.md', true]]);
@@ -281,5 +281,5 @@ test('status --role bob: cap debt counts every requirement file over the cap fro
   assert.match(text, new RegExp(`^cap debt: 2 requirement files over the cap from layer 2 on, ${bytes} bytes; each is split or consolidated before its job$`, 'm'));
   assert.match(text, /^split or consolidate before its job: build\/requirements\/a.md \d+ over 300$/m);
   assert.doesNotMatch(text, /split or consolidate before its job: build\/requirements\/c.md/);
-  assert.match(text, /next work, layer 2 .*\n- build\/requirements\/b.md: 1 \(layer 2\)$/);
+  assert.match(text, /next work, layer 2 .*\n- build\/requirements\/b.md: 1 \(layer 2\)\nflow: [^\n]*startable 1, blocked 0$/);
 });

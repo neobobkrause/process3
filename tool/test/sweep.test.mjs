@@ -119,7 +119,7 @@ test('sweep step 3: a blocked job and an attempt far over its role\'s median', (
   recordStart(root, 'root', R, { log: quiet });
   recordStart(root, 'bob', B, { log: quiet });
   const r = run(root, { attempts: ['m2:job:200:7', 'm3:job:40:3'] });
-  assert.match(r.found.join('|'), /m1: BLOCKED\|m2: 200 min, over 3x the job median 30\|m2: 7 USD, over 3x the job median 2$/);
+  assert.match(r.found.join('|'), /m1: BLOCKED; blocked since unknown\|m2: 200 min, over 3x the job median 30\|m2: 7 USD, over 3x the job median 2$/);
   assert.equal(r.todo.length, 1);
   assert.throws(() => run(root, { attempts: ['nope'] }), /--attempt/);
 });
@@ -360,4 +360,23 @@ test('sweep: a merged job\'s branch, BLOCKED when last fetched, is not listed BL
   git(['fetch', '-q', 'origin', 'job/m'], { cwd: root });
   git(['checkout', '-q', 'tranche'], { cwd: root });
   assert.match(run(root).found.join('|'), /m: BLOCKED/);
+});
+
+// Coordinator, 5 Nov: starvation and ruling waits measured in the sweep row, and a technical ruling
+// owed past targets.decision_minutes reaches the coordinator from ROOT.
+test('sweep: the row records startable and blocked work; a ruling owed past decision_minutes goes to the coordinator', () => {
+  const at = new Date(Date.now() - 45 * 6e4).toISOString();
+  const root = withOrigin({
+    'process/config.json': { tranche: 'tranche', coordinator: 'session_coord' },
+    'process/ledger/m1.json': entry('m1', { status: { state: 'BLOCKED', reason: 'the fixture server will not start', at } }),
+  });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const r = run(root, { live: 2 });
+  const row = readState(root, 'process-state', SWEEP_ROWS_FILE).trim().split('\n').map((l) => JSON.parse(l)).at(-1);
+  assert.equal(row.blocked, 1);
+  assert.ok(row.blocked_oldest_min >= 45 && row.blocked_oldest_min < 50);
+  assert.equal(typeof row.startable, 'number');
+  assert.ok(r.todo.some((x) => /^ruling owed: send_message to the coordinator \(session_coord\): job m1; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the fixture server will not start$/.test(x)));
+  assert.match(r.found.join('|'), /m1: BLOCKED; blocked 4\d min; ruling owed by the coordinator/);
 });

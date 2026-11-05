@@ -9,7 +9,7 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { SILENT_HOURS, capLine, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { SILENT_HOURS, blockedJobs, capLine, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -114,7 +114,11 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       try {
         const ls = layerState(root, cfg, rows, tranche);
         if (ls?.ready || ls?.pending) found.push(`layer ${ls.cur.n} ${ls.ready ? 'ready to close' : 'owed a close'}`);
-        next = !!(ls?.ready || ls?.pending) || nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) }).length > 0;
+        const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
+        next = !!(ls?.ready || ls?.pending) || work.length > 0;
+        // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
+        const f = flow(cfg, rows, work, liveRow.live);
+        liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min };
       } catch (e) {
         if (!(e instanceof Fail)) throw e;
         found.push(`config: ${e.message}`);
@@ -132,8 +136,11 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       }
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
+    // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.
+    const waits = new Map(blockedJobs(cfg, rows).map((b) => [b.id, b]));
+    for (const b of waits.values()) if (b.by && b.by !== 'Bob') todo.push(`ruling owed: send_message to ${b.by}: job ${b.id}${b.text}`);
     for (const r of rows) {
-      if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') owed.push(`${r.id}: BLOCKED`);
+      if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') owed.push(`${r.id}: BLOCKED${waits.get(r.id)?.text ?? ''}`);
       else if (r.flag === 'WORKING, nothing pushed') {
         const age = t - ct(root, [`origin/${refOf(r)}`]);
         if (age > SILENT_HOURS * H) owed.push(`${r.id}: WORKING, nothing pushed for ${hours(age)}h`);
