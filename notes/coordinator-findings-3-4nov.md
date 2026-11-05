@@ -612,3 +612,4 @@
 - 16:31 ROOT, BOB, the MERGER and the pin-move child (session_018Bhcee9oeEB1Huxm8FqiN1) told my id. ROOT asked to confirm to BOB/MERGER and delete old sweep trig_01Hvg2iQ6kzaZUvoF3LJNYww.
 - 16:33 Live 2/20 (BOB 16:29, old pin). Train running (516 gating). Pin PR 521 (f339ba9) merge started 16:22 by the pin child, but MERGER at 16:29 says not in its queue: asked the pin child for its command's output and the old coordinator to relay the question to the MERGER (which correctly takes my orders only after the copy's id lands).
 - 16:31 probe coordinator id merged: probe PR 228 (7c6e944, 16:31:10); short session archived. Copy's waits in the train.
+- 16:32 Confirmed the successor session_018BhceevG6A8yj9fzc24C89 to ROOT, BOB and the MERGER as the named coordinator (closing today's gap where roles could not take orders between handoff and config). Nothing open on my side.
