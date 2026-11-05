@@ -688,3 +688,9 @@
 - Parallel window, first trial: positions 0-2 (364/561, 470/562, 472/563) built in a chain on fecf377 and all gated at once (563 green in 3.64 min). Plain PRs 557 and 564 then landed ahead and the train dropped all three: "window: PR 364 (spec PR 561) leaves the window: tranche moved to 85f411fd03". Plain queuing paused until the window lands; the fix (plain PRs take a window position) is build/plain-in-window, session_018BhcecNbHNfi84aeJBHhYW.
 - process3 merged: 172 (8f86f0f), 174 (2fb032c). Merging: 175 (struckTests split-before-base), then 170 (gate speed). 173 is back with its builder for a conflict.
 - Roles alive: ROOT (sweeping), BOB, MERGER, watcher idle.
+
+## 20:12 parallel merging proven (5 Nov)
+- Window rebuilt on 85f411fd03 at 19:51 (364/565, 470/566, 472/567). PR 364 landed 20:11:25Z at 808de5b52a on the spec-tested path, no second suite: "the merged result is the tree spec PR 565 tested, records aside: f1f5051875 carries Spec-Tested: 565". Spec gates: 565 18.01 min, 566 12.12 min, 567 3.52 min, all in parallel.
+- Ordered: end hold-17 (journey-check, 511 re-enters); resume plain queuing after 470 and 472 land; pin move to process3 b49569f with merge_train_window 8 (session_018BhceeYVPoKDpPSgBYejE9).
+- process3 merged: 175 (70de1c6), 173 (b49569f). 170's ci was cancelled at 10 min, with orphan node processes (a hanging test); sent back to its builder.
+- BOB 20:04: 0 startable; 51 COMPLETE PRs wait in the train. The train is the lever, so the window goes to 8.
