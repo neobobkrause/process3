@@ -27,8 +27,9 @@ const mergeRowSince = (rows, n) => rows.slice(rows.findLastIndex((r) => r.event 
 // The gate job's own cap (timeout-minutes in shims/process-gate.yml) and the default wait on it:
 // the cap and a queue. merge waited 30 min and merge --plain 20 on a gate capped at 45, so a slow
 // gate failed the merge while it still ran (defect sweep 4 Nov, #6 and #13).
-export const GATE_CAP_MINUTES = 45;
-export const GATE_WAIT_MINUTES = 60;
+// 90 since 5 Nov: the copy's slowest gates took 40-42 minutes and the old 45 cancelled them.
+export const GATE_CAP_MINUTES = 90;
+export const GATE_WAIT_MINUTES = 95;
 const RUNNING = ['queued', 'in_progress', 'waiting', 'pending', 'requested'];
 // Past the wait, a run still in progress is waited on until its own cap has passed since it
 // started (and a margin); nothing else is: not started, queued, or cancelled.

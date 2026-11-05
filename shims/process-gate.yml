@@ -27,7 +27,9 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 90 minutes (coordinator, 5 Nov): plane and control-plane gates take 40-42 minutes, so the
+    # earlier 45 cancelled the copy's control-plane PR 290 twice (runs 1619, 1671), release path.
+    timeout-minutes: 90
     permissions:
       contents: read
       pull-requests: read
@@ -69,7 +71,7 @@ jobs:
           repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
           git clone -q --filter=blob:none "$repo" "$RUNNER_TEMP/process3"
           # The tranche into main (build/main-gate-2, 4 Nov): main's pin can be older than the
-          # code that gated the tranche's jobs, and would run every suite past the 45 min cap.
+          # code that gated the tranche's jobs, and would run every suite past the gate's cap.
           # The tranche's own pin judges instead, only when it is a descendant of main's pin on
           # process3's own main or tranche, checked in the clone of the base's process_repo: a
           # later process, merged through process3's gate and review, that the tranche's job PRs
