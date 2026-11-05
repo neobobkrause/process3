@@ -104,7 +104,8 @@ export const LIVE_MIN = 65;
 const lastRow = (text) => jsonl(text).at(-1);
 const fresh = (row, t) => t - (Date.parse(row?.at) || 0) < CHECK_MIN * 6e4;
 // The row an idle continues from: the last that judged on a measured count (sweep or check).
-export const judged = (rows) => [...rows].reverse().find((r) => ['sweep', 'check'].includes(r.row) && Number.isInteger(r.live));
+// A job start --ready that started work ends any idle before it (it carries no idle_capacity).
+export const judged = (rows) => [...rows].reverse().find((r) => (['sweep', 'check'].includes(r.row) && Number.isInteger(r.live)) || (r.row === 'ready' && r.started?.length));
 export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = status, log = console.log } = {}) {
   const sb = cfg.state_branch;
   if (cfg.plan === 'pause' || cfg.plan === 'stop') return null;
@@ -127,17 +128,16 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   }
   const { reasons = [], ...rec } = ic || {};
   const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: f.startable, ...(ic ? { idle_capacity: rec } : {}) };
-  let landed = false;
+  // Another session's row landed first: nothing written, nothing pushed, nothing printed.
+  const LOST = new Fail('another check landed first');
   try {
     writeState(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, (dir) => {
       const p = join(dir, SWEEP_ROWS_FILE);
-      landed = !fresh(lastRow(existsSync(p) ? readFileSync(p, 'utf8') : ''), t);
-      if (!landed) return;
+      if (fresh(lastRow(existsSync(p) ? readFileSync(p, 'utf8') : ''), t)) throw LOST;
       mkdirSync(join(dir, 'metrics'), { recursive: true });
       appendFileSync(p, JSON.stringify(row) + '\n');
     });
-  } catch (e) { if (!(e instanceof Fail)) throw e; landed = false; }
-  if (!landed) return null;
+  } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
   if (ic?.dead) log(`dead ends (a Process3 defect), to the coordinator: ${ic.dead.join('; ')}`);
   if (ic?.alarm) {
     const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min${ic.owed_since ? ` (starts owed since ${ic.owed_since})` : ''}; ${reasons.join('; ')}`;
@@ -150,12 +150,18 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
 
 // p3.mjs main, before every command in a product: starts owed first for BOB's acts (status prints
 // its own), then the idle check, the wake naming the act's sender (a job's job-<id>).
+// Not before job start --ready or the sweep, which answer an idle themselves.
 export const JOB_ACTS = ['job complete', 'block', 'test', 'job sync'];
-export function beforeAct(root, cfg, name, a, { env = process.env, log = console.log } = {}) {
+export function senderFor(root, name, a) {
+  if (JOB_ACTS.includes(name) && a._[0]) return jobSender(String(a._[0]));
+  if (name === 'status' && a.role === 'job' && typeof a.module === 'string') return jobSender(a.module);
+  if (name === 'send' && /^job-/.test(String(a.from))) return String(a.from);
+  try { return senderOf(root, a.as); } catch { return 'bob'; }
+}
+export function beforeAct(root, cfg, name, a, { env = process.env, log = console.log, err = console.error } = {}) {
   if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
-  if (env.GITHUB_ACTIONS) return null;
-  const from = JOB_ACTS.includes(name) && a._[0] ? jobSender(String(a._[0])) : (() => { try { return senderOf(root, a.as); } catch { return 'bob'; } })();
-  try { return idleCheck(root, cfg, { by: name, from, log }); } catch (e) { log(`idle check not run: ${e.message}`); return null; }
+  if (env.GITHUB_ACTIONS || name === 'sweep' || (name === 'job start' && a.ready)) return null;
+  try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {

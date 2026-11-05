@@ -163,7 +163,8 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
   // (those it counted and those it started) for the idle checks between sweeps (sweep.mjs).
   try {
     writeState(root, cfg.state_branch, `job start --ready: ${started.length} started`, (dir) => {
-      if (!failed.length) paid(dir, begun); // a failed start leaves its starts owed
+      // A start that failed leaves its starts owed; a resumed one whose pull request was open did start.
+      if (!failed.some((f) => !/^a resumed start/.test(f.why))) paid(dir, begun);
       mkdirSync(join(dir, 'metrics'), { recursive: true });
       appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, job_cap: c.cap, started: started.map((x) => x.id) }) + '\n');
     });

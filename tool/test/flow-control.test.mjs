@@ -13,7 +13,7 @@ import { OWED_FILE, bobAct, hold, owe, owes, paid, readOwed } from '../lib/hold.
 import { capCheck, startable } from '../lib/ready.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
 import { flow, status } from '../lib/status.mjs';
-import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCapacity, idleCheck } from '../lib/sweep.mjs';
+import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCapacity, idleCheck, senderFor } from '../lib/sweep.mjs';
 import { main } from '../p3.mjs';
 import { git } from '../lib/util.mjs';
 
@@ -217,4 +217,20 @@ test('before each command: starts owed printed first for BOB\'s acts; the idle c
   const again = [];
   assert.equal(beforeAct(root, c, 'block', { _: ['b'] }, { env: {}, log: (l) => again.push(l) }), null);
   assert.deepEqual(again, []);
+  // A race: this clone's state branch is stale (its last row old), origin's has a fresh row; the
+  // re-read in the worktree finds it, and nothing is pushed or printed.
+  const t1 = Date.now() + (CHECK_MIN + 1) * 6e4;
+  const tip = git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root });
+  addRow(root, { at: new Date(t1 - 6e4).toISOString(), row: 'check', live: 1, job_cap: 4 });
+  const pushed = git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root });
+  git(['update-ref', `refs/remotes/origin/${SB}`, tip], { cwd: root });
+  const raced = [];
+  assert.equal(idleCheck(root, c, { by: 'block', from: 'job-b', t: t1, log: (l) => raced.push(l) }), null);
+  assert.deepEqual(raced, []);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root }), pushed, 'no commit pushed by the loser');
+  // A job's own status and send name it as the sender; job start --ready and the sweep check nothing.
+  assert.equal(senderFor(root, 'status', { role: 'job', module: 'q' }), 'job-q');
+  assert.equal(senderFor(root, 'send', { from: 'job-q' }), 'job-q');
+  assert.equal(beforeAct(root, c, 'job start', { _: [], ready: true }, { env: {}, log: quiet }), null);
 });
