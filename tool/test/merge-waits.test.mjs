@@ -11,7 +11,7 @@ import { readRows } from '../lib/metrics.mjs';
 import { mergedRange, noticeFile, withdrawNotice } from '../lib/notice.mjs';
 import { noticeTriage } from '../lib/triage.mjs';
 import { git, isShallow, loadConfig } from '../lib/util.mjs';
-import { commit, entry, makeRepo, onState } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo, onState } from './helpers.mjs';
 
 const quiet = () => {};
 const MIN = 60000;
@@ -90,6 +90,8 @@ function jobIO(root, { gate, merged = [] }) {
       comments: () => all(seen.length ? seen : [remoteTip(root)]),
       checkRun: (slug, sha) => gate(sha),
       verify: () => true,
+      gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
+      ...honestBranch([3, 7, 9]),
       mergePR: (slug, n, sha) => { merged.push(sha); return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -116,6 +118,23 @@ test('merge run again on the merge-row tip whose gate outran the wait waits on t
   git(['checkout', '-q', T], { cwd: root });
   assert.equal(readRows(root, 'alpha').filter((x) => x.row === 'merge').length, 1);
   git(['checkout', '-q', 'main'], { cwd: root });
+});
+
+// Confirming review of build/gate-check-bind: on the merge-row tip the gate is `first`, read by name;
+// it is bound there too, so a check that is no job of the process gate's run does not land it.
+test('merge run again on the merge-row tip binds its gate too: a check that is no gate job refuses, nothing merged', () => {
+  const { root, head } = jobRepo();
+  const first = jobIO(root, { gate: (sha) => (sha === head ? { status: 'completed', conclusion: 'success' } : { status: 'queued' }) });
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: first.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, minutes: 0, every: 0, log: quiet }), /did not finish within 0 min/);
+  const T = remoteTip(root);
+  const merged = [];
+  const again = jobIO(root, { merged, gate: () => ({ id: 56, app: { slug: 'github-actions' }, status: 'completed', conclusion: 'success', check_suite: { id: 900 } }) });
+  delete again.io.gateBound; // merge's own default binding
+  again.io.getJob = () => null; // check 56 was made through the checks API: no Actions job
+  again.io.getRun = () => null;
+  again.seen.push(head, T);
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: again.io, gateWait: [], reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, every: 0, log: quiet, wait: 0 }), /the gate on the merged result .* is not bound to pull request 3: its "gate" check 56 is no Actions job/);
+  assert.deepEqual(merged, [], 'GitHub is never asked to merge');
 });
 
 test('merge run again after the tranche moved brings the tip up to it, but writes no second merge row', () => {

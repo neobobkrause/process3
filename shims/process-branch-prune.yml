@@ -1,0 +1,86 @@
+# Process3 branch cleanup (Bob, 5 Nov: "The leftover branches issue should be something we setup
+# to run regularly rather than something I need to kick start over and over"). Daily, off-peak,
+# and on dispatch: `p3 branches prune` at the default branch's process pin deletes branches whose
+# commits are all in the tranche and closed train/head/* branches, never main, the tranche, the
+# state branch, a branch with an open pull request or one with a commit in the last 2 hours.
+# It deletes nothing until the approvals block in CLAUDE.md on the default branch carries Bob's
+# sentence (tool/lib/branches.mjs APPROVAL) with its marker phrase "the process's scheduled branch
+# cleanup workflow" (MARKER), as a paragraph of its own; until then each run prints a notice and
+# writes nothing. Dispatched with dry_run, it prints what it would delete and writes nothing.
+# A schedule runs only the default branch's copy of this file. A dispatch runs on the default
+# branch or on the tranche (named by the default branch's config; coordinator, 5 Nov 18:28: main
+# moves only at a round close, and the tranche's workflow files change only through the gated
+# merge tool); a dispatch on any other ref is skipped. The pin, the config and the approvals come
+# from origin's copy of that branch, never from the checkout (cold review of PR 167); the tool
+# refuses to delete outside this shim on those branches. No product code runs here: the checkout
+# is read by the pin's tool only, so
+# the job holds contents: write (the deletes and the state branch's row, both by git push, the
+# checkout's credentials kept for that) and pull-requests: read, nothing else.
+# Each action is pinned by its full commit, with its version beside it.
+# Copied into a product as .github/workflows/process-branch-prune.yml.
+name: process-branch-prune
+on:
+  schedule:
+    # 10:47 UTC: 02:47 in California, outside the working day and the 6-9 Pacific busy hours.
+    - cron: '47 10 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: print what would be deleted; delete nothing, write nothing
+        required: false
+        type: boolean
+        default: false
+# The job names its own permissions; nothing is granted by default.
+permissions: {}
+concurrency:
+  group: process-branch-prune
+  cancel-in-progress: false
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      # Full history (the counts against the tranche are local), file contents fetched when read.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: true
+      - name: the process pin
+        id: pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The default branch from GitHub: a schedule event's payload carries no repository
+          # (confirming review of PR 167), so the event's default branch is empty there.
+          DEFAULT=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch) && [ -n "$DEFAULT" ] || { echo "::error::could not read the default branch"; exit 1; }
+          tranche=$(git show "refs/remotes/origin/$DEFAULT:process/config.json" 2>/dev/null || echo '{}')
+          tranche=$(echo "$tranche" | jq -r '.tranche // "tranche"')
+          if [ "$GITHUB_REF" = "refs/heads/$DEFAULT" ]; then on=$DEFAULT
+          elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$GITHUB_REF" = "refs/heads/$tranche" ]; then on=$tranche
+          else echo "::notice::$GITHUB_EVENT_NAME on $GITHUB_REF: branch cleanup runs on $DEFAULT, or dispatched on $tranche; nothing to prune"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          base="refs/remotes/origin/$on"
+          pin=$(git rev-parse -q --verify "$base:.process") || { echo "::notice::no process pin on $on; nothing to prune"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; }
+          cfg=$(git show "$base:process/config.json" 2>/dev/null || echo '{}')
+          repo=$(echo "$cfg" | jq -r '.process_repo // "https://github.com/neobobkrause/process3"')
+          node=$(echo "$cfg" | jq -r '.node // "22"')
+          echo "$repo" | grep -qE '^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' || { echo "::error::process_repo is not a github.com repository"; exit 1; }
+          echo "$node" | grep -qE '^[0-9]+(\.[0-9]+)*$' || { echo "::error::node is not a version number"; exit 1; }
+          git clone -q --filter=blob:none -- "$repo" "$RUNNER_TEMP/process3"
+          git -C "$RUNNER_TEMP/process3" checkout -q "$pin"
+          echo "node=$node" >> "$GITHUB_OUTPUT"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.pin.outputs.skip != '1'
+        with:
+          node-version: ${{ steps.pin.outputs.node }}
+      - name: branches prune
+        if: steps.pin.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: node "$RUNNER_TEMP/process3/tool/p3.mjs" branches prune --ref "$GITHUB_REF" --run "$GITHUB_RUN_ID" $DRY_RUN

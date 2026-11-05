@@ -79,6 +79,10 @@ function github(root, ids) {
       ];
     },
     verify: () => true,
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
+    // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
+    prsFromBranch: (slug, b) => [...[...jobs.keys()].map(job), ...[...specs.keys()].map(spec)].filter((p) => p.head.ref === b),
+    baseEverChanged: () => false,
     checkRuns: (slug, sha, name) => [io.checkRun(slug, sha, name)],
     checkRun: (slug, sha) => {
       const red = ![...heads.values()].includes(sha) && sh(['grep', '-q', 'BROKEN', sha, '--', 'src']).code === 0;
@@ -324,6 +328,7 @@ test('verifyRow with a branch: a run of another branch, or another repository, a
   assert.equal(verifyRow('o/r', row, ctx, io(run())), true);
   assert.equal(verifyRow('o/r', row, ctx, io(run({ head_branch: 'foo' }))), false, 'another branch at the same commit, listing the spec PR by sha');
   assert.equal(verifyRow('o/r', row, ctx, io(run({ head_repository: { full_name: 'evil/r' } }))), false, 'another repository');
-  // Without a branch, as before: the open-PR listing alone.
-  assert.equal(verifyRow('o/r', row, { pr: 9, baseRef: 'tranche' }, io(run({ head_branch: 'foo' }))), true);
+  // Without a branch the live path no longer verifies at all (build/branch-bound): unbound reads
+  // the PRs of one branch, so a run must be held to it.
+  assert.equal(verifyRow('o/r', row, { pr: 9, baseRef: 'tranche' }, io(run())), false);
 });

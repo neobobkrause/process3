@@ -52,7 +52,7 @@ function world() {
     cfAsked: [],
     pin: PIN,
     files: { 'CLAUDE.md': `## Standing approvals from Bob\n\nThe owner's words.\n\n${LINES}`, '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY }, hooks: HOOKS }),
-      '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml'), '.github/workflows/process-record.yml': PIN.file('shims/process-record.yml'), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
+      '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml'), '.github/workflows/process-record.yml': PIN.file('shims/process-record.yml'), '.github/workflows/process-branch-prune.yml': PIN.file('shims/process-branch-prune.yml'), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
     env: { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value', CLOUDFLARE_ACCOUNT_ID: 'acc123' },
     asked: [],
   };

@@ -69,6 +69,10 @@ function github(root, ids) {
       ];
     },
     verify: () => true,
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
+    // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
+    prsFromBranch: (slug, b) => [...state.keys()].map(pr).filter((p) => p.head.ref === b),
+    baseEverChanged: () => false,
     checkRuns: (slug, sha, name) => { const g = io.checkRun(slug, sha, name); return g ? [g] : []; },
     // A merged result's gate is in progress for its first ctl.gateReads reads, then green.
     checkRun: (slug, sha) => {

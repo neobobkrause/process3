@@ -47,6 +47,23 @@ export function baseEverChanged(slug, n, { read = (args) => gh(args, { allowFail
   return Array.isArray(pages) && pages.every(Array.isArray) ? pages.flat().some((e) => BASE_CHANGES.includes(e?.event)) : null;
 }
 
+// Why the runs on branch are not bound to pull request n into base, or null (gate.mjs branchBound
+// gives the job merges' wording). GitHub lists only OPEN pull requests on a run (verifyRow), so
+// a second pull request from the branch into another base, whose workflow file could upload any
+// row, then closed, leaves its run listing only n (confirming review of build/train-spec, 5 Nov).
+// Every pull request ever opened from the branch must be into base and never have had its base
+// changed; pull requests cannot be deleted, so the list is complete. Unread, nothing binds.
+// n null: no pull request yet (job start --take-in, before it opens one): the history alone.
+export function unbound(slug, branch, n, base, io) {
+  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
+  if (!Array.isArray(from) || (n !== null && !from.some((x) => x.number === n))) return `the pull requests from ${branch} could not be read`;
+  const elsewhere = from.filter((x) => x.base?.ref !== base).map((x) => x.number);
+  if (elsewhere.length) return `${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`;
+  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
+  if (moved.length) return `the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`;
+  return null;
+}
+
 export function createPR(slug, { head, base, title, body, draft = true }) {
   const pr = gh(['api', '-X', 'POST', `repos/${slug}/pulls`, '--input', '-'], {
     input: JSON.stringify({ head, base, title, body, draft }),
@@ -129,6 +146,8 @@ export function gateRuns(all) {
 // side workflow can post a bot comment, but it cannot upload into another workflow's run.
 export const GATE_WORKFLOW = '.github/workflows/process-gate.yml';
 export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
+// An Actions job by id: a job's id is its check run's id; a check run made through the checks API is no job (404, null).
+export const getJob = (slug, id) => gh(['api', `repos/${slug}/actions/jobs/${id}`], { allowFail: true });
 export function runArtifactRow(slug, id) {
   return withTemp('p3-row-', (dir) => {
     try {
@@ -163,7 +182,9 @@ export function verifyRow(slug, row, { pr, baseRef, merged, branch }, io = { get
   // binds the row's commits to the PR's head and the tranche.
   const prs = a.pull_requests || [];
   if (a.event !== 'pull_request') return false;
-  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)
+  // The live path needs the branch (checked above), so unbound, read for that branch, covers every
+  // PR that could have run it (cold review of build/branch-bound).
+  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef) || !branch
     : !merged || a.head_branch !== merged.branch || a.head_repository?.full_name !== slug || a.conclusion !== 'success') return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);

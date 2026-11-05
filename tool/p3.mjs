@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
-import { laneAsk } from './lib/lane.mjs';
+import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
@@ -25,6 +25,7 @@ import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from '
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
+import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
@@ -175,6 +176,28 @@ const commands = {
   'lane ask': (a, root) => {
     if (a._.length !== 2) fail('lane ask <name> "<question>" --context <file>..., the question in quotes');
     laneAsk(root, a._[0], a._[1], { context: a.context, record: a.record, worker: a.worker, cost: a['cost-usd'] });
+    return 0;
+  },
+
+  // lane start <name> [--replace <session>|pending] | --record <session>: the lane's one session
+  // (lane.mjs): its seat written before the create_session call, refused while one is live.
+  // lane end <name> --session <id>|pending --why "<why>": the seat freed.
+  'lane start': (a, root) => {
+    if (a._.length !== 1) fail('lane start <name>');
+    const job = ['reopen', 'restart', 'stop', 'take-in', 'fresh-branch', 'over-cap', 'coordinator'].filter((k) => a[k] !== undefined);
+    if (job.length) fail(`lane start takes no ${job.map((k) => `--${k}`).join(', ')}: those are job start's; a lane's session is its seat (lane start, --replace, lane end)`);
+    laneStart(root, a._[0], { replace: a.replace, record: a.record, model: a.model });
+    return 0;
+  },
+  // lane artifact <name> <link> [--title "<name>"] | --drop: a lane design document's link, recorded for its successor.
+  'lane artifact': (a, root) => {
+    if (a._.length !== 2) fail('lane artifact <name> <link> [--title "<name>"] [--drop]');
+    laneArtifact(root, a._[0], a._[1], { title: a.title, drop: !!a.drop });
+    return 0;
+  },
+  'lane end': (a, root) => {
+    if (a._.length !== 1) fail('lane end <name> --session <id>|pending --why "<why>"');
+    laneEnd(root, a._[0], { session: a.session, why: a.why });
     return 0;
   },
 
@@ -382,6 +405,15 @@ const commands = {
   // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
   // --at HEAD judges the checkout's own commit (its pin and files), not the tranche tip: a
   // pin-move pull request runs it before it merges. session-branch is skipped then.
+  // branches prune [--dry-run] [--ref <the run's GITHUB_REF>] [--run <run id>]: the scheduled
+  // cleanup (shims/process-branch-prune.yml, lib/branches.mjs). Deletes only while the approvals
+  // block on the default branch carries Bob's sentence (branches.mjs APPROVAL); --dry-run prints
+  // what the rules would delete and writes nothing.
+  'branches prune': (a, root) => {
+    if (a._.length || a.ref === true || a.run === true) fail('branches prune [--dry-run] [--ref <ref>] [--run <run id>]');
+    return prune(root, { slug: repoSlug(root), dryRun: !!a['dry-run'], ref: a.ref, run: a.run }).ok ? 0 : 1;
+  },
+
   'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root), at: a.at === true ? fail('--at <ref>, e.g. --at HEAD') : a.at }).ok ? 0 : 1),
 
   // size [--at <ref>] [--gate <gate.json>] [--out <size.json>]: the product as the process sees it
