@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, entry, makeRepo, setJobCap, write } from './helpers.mjs';
 import { batchSetup, startReady } from '../lib/ready.mjs';
+import { jobStart } from '../lib/job.mjs';
 import { found } from '../lib/found.mjs';
 import { startCheck } from '../lib/start.mjs';
 import { flowFigures, quickBlocks } from '../lib/metrics.mjs';
@@ -33,56 +34,148 @@ function product(ids, { shallow = false } = {}) {
   git(['clone', '-q', '-b', 'tranche', bare, other], { cwd: tmpdir() });
   for (const [k, v] of [['user.email', 'o@example.com'], ['user.name', 'O'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: other });
   const move = (files) => { commit(other, files, 'a merge into the tranche'); git(['push', '-q', 'origin', 'tranche'], { cwd: other }); };
-  if (!shallow) return { root, move };
+  if (!shallow) return { root, move, other };
   // A session's clone is shallow (create_session's clone_depth): fetches there are --depth 1.
   const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
   git(['clone', '-q', '--depth', '1', '-b', 'tranche', `file://${bare}`, thin], { cwd: tmpdir() });
   for (const [k, v] of [['user.email', 'b@example.com'], ['user.name', 'B'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: thin });
   git(['checkout', '-q', '--detach'], { cwd: thin });
-  return { root: thin, move };
+  return { root: thin, move, other };
 }
 
-// A start as jobStart begins one: the setup it is given, refused as setupOrStop refuses.
-const starter = (calls, between) => (r, id, o) => {
-  const s = o.setup(r, {});
+// A start as jobStart begins one: the setup it is given, anchored, refused as setupOrStop refuses.
+const starter = (root, calls, between) => (r, id, o) => {
+  const s = o.setup(r, { anchor: true });
   if (!s.ok) fail(`the setup is not complete (${s.missing.join(', ')})`);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), git(['rev-parse', 'refs/remotes/origin/tranche'], { cwd: root }), `${id} starts at the tip`);
   calls.push(id);
   between(id);
   return { launch: { title: `job ${id}` } };
 };
+// The full setup check's session-branch condition is start check's own, anchored when asked.
+const full = (root, counter) => (r, o) => {
+  counter.n += 1;
+  const c = startCheck(root, { branch: 'tranche', anchor: o.anchor, log: quiet });
+  return c.ok ? base() : { ok: false, missing: ['session-branch'], results: [{ id: 'session-branch', state: 'missing', detail: `HEAD ${c.head.slice(0, 10)} is not the tip` }] };
+};
 const base = () => ({ ok: true, missing: [], results: [{ id: 'session-branch', state: 'set' }] });
+const CFG = (o) => ({ 'process/config.json': JSON.stringify({ ...loadConfig(mkdtempSync(join(tmpdir(), 'p3-cfg-'))), ...o }) });
 
 for (const shallow of [false, true]) {
-  test(`job start --ready${shallow ? ', in a shallow clone' : ''}: the tranche moving between starts voids none; a module whose own facts moved, or changed approvals, are refused`, (t) => {
+  test(`job start --ready${shallow ? ', in a shallow clone' : ''}: a merge between every pair of starts (config, ledger, unrelated job) voids none; each starts at the re-anchored tip; only a module whose own facts moved, or changed approvals, are refused`, (t) => {
     setJobCap(t, 10);
-    const { root, move } = product(['a', 'b', 'c', 'd'], { shallow });
-    const next = ['a', 'b', 'c', 'd'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
-    let checks = 0;
-    const setup = batchSetup(root, loadConfig(root), { setup: () => { checks += 1; return base(); } });
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const { root, move } = product(ids, { shallow });
+    const next = ids.map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+    const counter = { n: 0 };
+    const setup = batchSetup(root, loadConfig(root), { setup: full(root, counter) });
     const calls = [];
-    // After a: an unrelated merge; after b: one that changes c's requirement file, so c is not started.
-    const between = (id) => (id === 'a' ? move({ 'src/x.txt': 'other work' }) : id === 'b' ? move({ 'r/c.md': '- **R1** *(not yet met: x)* a\n- **R2** *(not yet met: y)* b\n' }) : null);
+    // The tranche moves before the first start too (BOB's wake fetched an older tip).
+    move({ 'src/early.txt': 'a merge before the pass' });
+    // Between every pair: a config change, a ledger change (a new entry), an unrelated job's merge;
+    // after d, one that changes f's requirement file, so f alone waits.
+    const merges = {
+      a: { 'process/config.json': JSON.stringify({ roles: { job: { model: 'another' } }, requirements_cap: 99999 }) },
+      b: { 'process/ledger/z.json': entry('z', { requirements: 'r/z.md' }), 'r/z.md': '- **R1** *(not yet met: x)* a\n' },
+      c: { 'src/c-other/x.txt': 'an unrelated job merged' },
+      d: { 'r/f.md': '- **R1** *(not yet met: x)* a\n- **R2** *(not yet met: y)* b\n' },
+      e: { 'process/ledger/y.json': entry('y', { requirements: 'r/y.md' }) },
+    };
     const out = [];
-    const r = startReady(root, { live: 0, remote: new Set(), read: () => ({ next }), start: starter(calls, between), setup, log: (l) => out.push(l) });
-    assert.deepEqual(calls, ['a', 'b', 'd'], 'the moved tranche voided no start; c, whose own file changed, waits');
-    assert.equal(checks, 1, 'the setup check runs once for the batch');
-    assert.equal(startCheck(root, { branch: 'tranche', log: quiet }).sameHead, false, 'the per-start session-branch check (before this fix) would have refused b and d');
-    assert.deepEqual(r.failed.map((f) => f.id), ['c']);
-    assert.match(out.join('\n'), /not started: c: its entry, requirement file or the product's config changed on the tranche since this run read it; run job start --ready again/);
-    // Changed approvals stop the next start.
+    const r = startReady(root, { live: 0, remote: new Set(), read: () => ({ next }), start: starter(root, calls, (id) => merges[id] && move(merges[id])), setup, log: (l) => out.push(l) });
+    assert.deepEqual(calls, ['a', 'b', 'c', 'd', 'e'], 'every merge between starts voided none; f, whose own file changed, waits');
+    assert.equal(counter.n, 1, 'the full setup check runs once for the batch');
+    assert.deepEqual(r.failed.map((x) => x.id), ['f']);
+    assert.match(out.join('\n'), /not started: f: its entry or requirement file, or the product's plan, tranche or state branch, changed on the tranche since this run read it; run job start --ready again/);
+    // A plan change voids the starts after it.
+    const plan = batchSetup(root, loadConfig(root), { setup: full(root, counter) });
+    const planned = [];
+    const p = startReady(root, { live: 0, remote: new Set(), read: () => ({ next: next.slice(0, 2) }), start: starter(root, planned, (id) => id === 'a' && move(CFG({ plan: 'pause' }))), setup: plan, log: quiet });
+    assert.deepEqual([planned, p.failed.map((x) => x.id)], [['a'], ['b']]);
+    move(CFG({}));
+    // Changed approvals stop the next start, and the checkout is not moved to them.
+    const before = git(['rev-parse', 'HEAD'], { cwd: root });
     move({ 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') });
-    const s = setup(root, {});
+    const s = setup(root, { anchor: true });
     assert.equal(s.ok, false);
     assert.deepEqual(s.missing, ['session-branch']);
     assert.match(s.results[0].detail, /the approvals at the tip of tranche .* changed: this session starts nothing more/);
-    // A checkout that moved off the commit the batch began at is refused.
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), before);
+    // A checkout with a commit of its own is never moved off it.
     move({ 'CLAUDE.md': APPROVALS });
     const again = batchSetup(root, loadConfig(root), { setup: base });
     assert.equal(again(root, {}).ok, true);
     commit(root, { 'mine.txt': 'a commit of its own' });
-    assert.match(again(root, {}).results[0].detail, /is not the commit this batch began at/);
+    const mine = git(['rev-parse', 'HEAD'], { cwd: root });
+    move({ 'src/later.txt': 'later' });
+    assert.match(again(root, {}).results[0].detail, /is not the tip of tranche .* could not be moved to it/);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), mine);
   });
 }
+
+test('job start <id>: a tranche moved since the session fetched it is re-anchored at the start, not refused', (t) => {
+  for (const shallow of [false, true]) {
+    const { root, move } = product(['a'], { shallow });
+    move({ 'process/ledger/z.json': entry('z'), 'process/config.json': JSON.stringify({ requirements_cap: 99999 }) });
+    let seen = null;
+    const setup = (r, o) => { const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet }); seen = c; return c.ok ? base() : { ok: false, missing: ['session-branch'], results: [] }; };
+    const r = jobStart(root, 'a', { coordinator: 's', setup, open: () => ({ number: 1, html_url: 'u' }), find: () => null, log: quiet });
+    assert.equal(seen.ok, true, shallow ? 'shallow' : 'full');
+    assert.ok(r.launch);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), git(['rev-parse', 'refs/remotes/origin/tranche'], { cwd: root }), 'back at the anchored tip');
+  }
+});
+
+test('the anchor: a job is cut from the tip it checked, never one fetched after; a pass reads the anchored tip\'s plan; a dirty checkout or a moved pin is not moved', () => {
+  for (const shallow of [false, true]) {
+    const { root, move, other } = product(['a', 'b'], { shallow });
+    // A merge changing the approvals lands right after the anchor, inside the setup check.
+    let anchored = null;
+    const setup = (r, o) => { const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet }); anchored = c.tip; move({ 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') }); return c.ok ? base() : { ok: false, missing: ['session-branch'], results: [] }; };
+    move({ 'src/x.txt': 'moved' });
+    jobStart(root, 'a', { coordinator: 's', setup, open: () => ({ number: 1, html_url: 'u' }), find: () => null, log: quiet });
+    assert.equal(git(['rev-parse', 'job/a^'], { cwd: root }), anchored, 'cut from the checked tip');
+    assert.equal(git(['show', 'job/a:CLAUDE.md'], { cwd: root }), APPROVALS.trimEnd());
+    move({ 'CLAUDE.md': APPROVALS });
+    // plan pause already on the tip when the pass begins: the pass reads it and starts nothing.
+    move(CFG({ plan: 'pause' }));
+    const calls = [];
+    const read = (r) => (loadConfig(r).plan === 'pause' ? { next: [] } : { next: [{ file: 'r/b.md', count: 1, module: 'b', entry_state: 'OPEN' }] });
+    startReady(root, { live: 0, remote: new Set(), read, start: (_, id) => { calls.push(id); return {}; }, setup: base, log: quiet });
+    assert.deepEqual(calls, [], shallow ? 'shallow' : 'full');
+    move(CFG({}));
+    // Tracked changes: never moved.
+    startCheck(root, { branch: 'tranche', anchor: true, log: quiet });
+    move({ 'src/y.txt': 'y' });
+    writeFileSync(join(root, 'CLAUDE.md'), APPROVALS + 'local edit\n');
+    const head = git(['rev-parse', 'HEAD'], { cwd: root });
+    assert.equal(startCheck(root, { branch: 'tranche', anchor: true, log: quiet }).sameHead, false);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
+    git(['checkout', '-q', '--', 'CLAUDE.md'], { cwd: root });
+    // A pin moved on the tranche: the tool running is not the tranche's, so never moved.
+    git(['update-index', '--add', '--cacheinfo', `160000,${head},.process`], { cwd: other });
+    git(['commit', '-q', '-m', 'pin'], { cwd: other });
+    git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: other });
+    assert.equal(startCheck(root, { branch: 'tranche', anchor: true, log: quiet }).sameHead, false);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
+  }
+});
+
+test('job start --ready: a pause or a module\'s own change landing just before the anchor (inside the setup check) is judged at the tip the job is cut from', (t) => {
+  setJobCap(t, 10);
+  for (const shallow of [false, true]) {
+    const { root, move } = product(['a', 'b', 'c'], { shallow });
+    const next = ['a', 'b', 'c'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+    // Before the anchor of b's start: b's own requirement file changes; before c's: plan pause.
+    const land = { b: { 'r/b.md': '- **R1** *(not yet met: x)* changed\n' }, c: CFG({ plan: 'pause' }) };
+    let current = null;
+    const setup = (r, o) => { if (land[current]) move(land[current]); const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet }); return c.ok ? base() : { ok: false, missing: ['session-branch'], results: [] }; };
+    const out = [];
+    const r = startReady(root, { live: 0, remote: new Set(), read: () => ({ next }), start: (rt, id, o) => { current = id; return jobStart(rt, id, { ...o, coordinator: 's', open: () => ({ number: 1, html_url: 'u' }), find: () => null, log: quiet }); }, setup, log: (l) => out.push(l) });
+    assert.deepEqual(r.started.map((x) => x.id), ["a"], (shallow ? "shallow " : "full ") + JSON.stringify(r.failed));
+    assert.deepEqual(r.failed.map((x) => [x.id, /changed on the tranche|plan pause/.exec(x.why)?.[0]]), [['b', 'changed on the tranche'], ['c', 'plan pause']]);
+  }
+});
 
 test('merge train: run bare it prints its usage and takes no lease, whatever the container\'s session id', (t) => {
   const root = makeRepo({ 'README.md': 'x' });

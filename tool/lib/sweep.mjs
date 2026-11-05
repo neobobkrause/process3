@@ -239,7 +239,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
             liveRow.idle_capacity = rec;
             if (ic.dead) todo.push(`dead ends to the coordinator (a Process3 defect): ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'tell Bob by push notification'} with "${ic.dead.join('; ')}"`);
             if (ic.alarm) {
-              const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${ic.empty} empty slot${ic.empty === 1 ? '' : 's'}: ${reasons.join('; ')}`;
+              const line = `IDLE CAPACITY: ${ic.live} job sessions live${listed ? ` (working ${f.working}, waiting ${f.waiting})` : ''} of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${ic.empty} empty slot${ic.empty === 1 ? '' : 's'}: ${reasons.join('; ')}`;
               found.push(line);
               owed.push(`IDLE CAPACITY, ${ic.empty} slots empty, ${ic.startable} startable: run ${READY_START} first; only a recorded hold (p3 hold) keeps a slot empty`);
               todo.push(`IDLE CAPACITY to the coordinator: ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'no coordinator in process/config.json: tell Bob by push notification'} with "${line}"`);

@@ -206,9 +206,13 @@ export function subscribeFor(slug, pr) {
   return { call, text: `then subscribe to the job's pull request with subscribe_pr_activity, so its completion, a red gate or a comment reaches you as an event:\n${JSON.stringify(call, null, 2)}` };
 }
 
+// HEAD when the setup check left it at the fetched tip (start.mjs anchor), else null.
+const anchoredTip = (root, cfg) => { const h = git(['rev-parse', 'HEAD'], { cwd: root }); return git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }).stdout.trim() === h ? h : null; };
+
 // The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
 function setupOrStop(root, cfg, slug, setup, log) {
-  const s = setup(root, { slug, log });
+  // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
+  const s = setup(root, { slug, log, anchor: true });
   // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
   // words for what to do (re-review of PR 24).
   if (s.missing.includes('session-branch')) {
@@ -227,7 +231,7 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
+export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, still, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
   // --restart with --fresh-branch (coordinator, 4 Nov): an OPEN module's new attempt on a fresh
   // branch; the start row records the restart's why with the fresh branch's.
   if (restart !== undefined && fresh !== undefined) {
@@ -239,13 +243,21 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
   if (fresh === true || (fresh !== undefined && !String(fresh).trim())) fail('--fresh-branch needs why the job\'s branch cannot go on');
-  const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
-  if (push) setupOrStop(root, cfg, slug, setup, log);
+  if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
+  const cfg = loadConfig(root); // the anchored checkout's
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
-  if (push) fetchRef(root, cfg.tranche);
-  const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  // The tip the setup check anchored to and checked (approvals, pin) is the one the job is cut
+  // from; a tip fetched after it was never checked (confirming review of the anchor).
+  const at = push ? anchoredTip(root, cfg) : null;
+  // The anchored tip's plan, and what the caller read the start from (job start --ready: the
+  // module's facts), judged at the tip the job is cut from (confirming review of the anchor).
+  if (push && (cfg.plan === 'pause' || cfg.plan === 'stop')) fail(`plan ${cfg.plan} at the tip of ${cfg.tranche}: take no new step; nothing was started`);
+  const moved = still?.(at || `origin/${cfg.tranche}`);
+  if (moved) fail(moved);
+  if (push && !at) fetchRef(root, cfg.tranche);
+  const from = at || (push ? `origin/${cfg.tranche}` : cfg.tranche);
   const ids = ledgerIds(root, from);
   const heads = push ? originJobs(root) : localJobs(root);
   let branch = branchOf(root, id, heads, ids, push);
@@ -399,9 +411,9 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
 function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, find, setup, compare: cmp, gh: io, log }) {
   if (from === true || !String(from ?? '').trim()) fail('--take-in needs the branch or pull request number of the earlier work');
   const x = { getPR, editPR, toDraft, addComment, ...io };
-  const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
-  if (push) setupOrStop(root, cfg, slug, setup, log);
+  if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
+  const cfg = loadConfig(root);
   const job = `job/${id}`;
   let source = String(from).trim();
   let pr = null;
@@ -415,10 +427,11 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   if (source === cfg.tranche || source === 'main' || source === cfg.state_branch) fail(`${source} is not earlier work; take in a work branch`);
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
-  const base = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  const at = push ? anchoredTip(root, cfg) : null;
+  const base = at || (push ? `origin/${cfg.tranche}` : cfg.tranche);
   const tip = push ? `origin/${source}` : source;
   if (push) {
-    fetchRef(root, cfg.tranche);
+    if (!at) fetchRef(root, cfg.tranche);
     if (!remoteTip(root, source)) fail(`no branch ${source} on origin`);
     if (source !== job && remoteTip(root, job)) fail(`${job} already exists on origin; take in onto it with --take-in ${job}, or bring it to Bob`);
     // A shallow clone: deepen both sides down to their merge base, so the diff and the merge

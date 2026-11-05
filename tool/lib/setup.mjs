@@ -332,7 +332,7 @@ export function fileLog(x, ref, file, root) {
 // not configured, skipped and confirmed conditions do not stop a start. With at (setup check
 // --at HEAD, before a pin-move pull request merges), that commit's pin and files are judged
 // instead of the tranche tip's, and session-branch is skipped.
-export function setupCheck(root, { slug, at = null, conditions = loadConditions(), io = {}, log = console.log } = {}) {
+export function setupCheck(root, { slug, at = null, anchor = false, conditions = loadConditions(), io = {}, log = console.log } = {}) {
   const local = loadConfig(root);
   let sha = null;
   if (at) {
@@ -365,7 +365,7 @@ export function setupCheck(root, { slug, at = null, conditions = loadConditions(
     const need = shallow ? (rev) => { if (git(['cat-file', '-e', `${rev}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', '--depth=1', 'origin', rev], { cwd: root }); } : undefined;
     return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner), { history, need });
   });
-  x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, log: () => {} }));
+  x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, anchor, log: () => {} }));
   let pinned;
   x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche, io.toolRoot || TOOL, sha || `origin/${x.cfg.tranche}`)) : pinned);
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));

@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { entry, makeRepo, openPassed, setJobCap } from './helpers.mjs';
 import { OWED_FILE, bobAct, hold, owe, owes, paid, readOwed } from '../lib/hold.mjs';
-import { capCheck, startable } from '../lib/ready.mjs';
+import { capCheck, startReady, startable } from '../lib/ready.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
 import { flow, status } from '../lib/status.mjs';
 import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCapacity, idleCheck, senderFor } from '../lib/sweep.mjs';
@@ -57,12 +57,41 @@ test('job start <id> checks the cap as job start --ready does: --live or --sessi
   assert.throws(() => capCheck(root, { live: '3' }), /3 job sessions live of the cap 4 less 1 held/);
 });
 
-test('start order: the release path first; debt (base-red found marks only) takes no slot while release work is startable', () => {
+test('start order: the release path first; debt (base-red found marks only) fills every slot left free after it, waiting only for the cap', (t) => {
   const x = (id, tag = {}) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN', ...tag });
   const r = startable([x('d1', { debt: true }), x('n1'), x('l1', { release: true }), x('l2', { release: true })]);
-  assert.deepEqual(r.go.map((j) => j.id), ['l1', 'l2', 'n1']);
-  assert.match(r.skip.find((s) => s.id === 'd1').why, /^debt \(base-red found marks only\): no slot while release-path work is startable$/);
+  assert.deepEqual(r.go.map((j) => j.id), ['l1', 'l2', 'n1', 'd1']);
   assert.deepEqual(startable([x('d1', { debt: true }), x('n1')]).go.map((j) => j.id), ['n1', 'd1'], 'no release work: debt last, not held');
+  // Coordinator, 5 Nov: cap 20, 6 live, 1 release and 3 debt startable: all 4 start.
+  const root = makeRepo({ 'README.md': 'x' });
+  const next = [x('d1', { debt: true }), x('d2', { debt: true }), x('l1', { release: true }), x('d3', { debt: true })];
+  setJobCap(t, 20);
+  const go = (cap, live) => { process.env.P3_JOB_CAP = String(cap); const calls = []; startReady(root, { live, remote: new Set(), read: () => ({ next, rows: [] }), start: (_, id) => { calls.push(id); return {}; }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: quiet }); return calls; };
+  assert.deepEqual(go(20, 6), ['l1', 'd1', 'd2', 'd3']);
+  // Debt waits only when release work would otherwise lack a slot.
+  assert.deepEqual(go(7, 6), ['l1']);
+  assert.deepEqual(go(8, 6), ['l1', 'd1']);
+});
+
+test('flow: with slots free, the requirement files over the cap are named as BOB\'s split acts that would open them', (t) => {
+  setJobCap(t, 20);
+  const over = { file: 'r/big.md', count: 9, over: 'split or consolidate before its job: r/big.md 90000 over 70000' };
+  const one = { file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN' };
+  const f = flow({}, [], [one, over], 6);
+  assert.deepEqual(f.splits_owed, ['r/big.md']);
+  assert.match(f.line, /startable 1, blocked 0; \d+ slots free: BOB's split acts would open them \(split or consolidate: r\/big\.md\)$/);
+  const full = flow({}, [], [one, over], 19);
+  assert.equal(full.splits_owed, undefined, 'no free slot: no split line');
+  assert.doesNotMatch(full.line, /split/);
+});
+
+test('flow: working and waiting add up to every unarchived job session the cap counts: another product\'s, and an older one beside its latest', () => {
+  const s = (id, title, st, at) => ({ id, title, session_status: st, updated_at: at });
+  const listed = [s('s1', 'job a', 'running', '2026-11-05T04:00:00Z'), s('s2', 'job a (restart)', 'idle', '2026-11-05T04:10:00Z'), s('s3', 'job zz', 'idle', '2026-11-05T04:00:00Z'), s('s4', 'job b', 'idle', '2026-11-05T04:00:00Z'), s('s5', 'job c', 'archived', '2026-11-05T04:00:00Z'), s('s6', 'BOB', 'running', '2026-11-05T04:00:00Z')];
+  const rows = [{ id: 'a', tranche: 'OPEN', branch: 'WORKING' }, { id: 'b', tranche: 'COMPLETE', pr: 'merged' }];
+  const f = flow({}, rows, [], 4, listed);
+  assert.equal(f.working + f.waiting, 4);
+  assert.match(f.line, /\(working 1, waiting 3: a BOB, zz not this product's, b archive\)/);
 });
 
 test('next work tags the release path (layer work, release_path) and debt (every unmet mark a base-red found mark)', () => {
@@ -74,7 +103,7 @@ test('next work tags the release path (layer work, release_path) and debt (every
   const out = status(root, { role: 'bob', offline: true, heads: new Set(), log: quiet });
   const by = Object.fromEntries(out.next.filter((y) => y.module).map((y) => [y.module, [!!y.release, !!y.debt]]));
   assert.deepEqual([by.a, by.b, by.c], [[true, false], [true, false], [false, true]]);
-  assert.deepEqual(startable(out.next).go.map((j) => j.id), ['a', 'b']);
+  assert.deepEqual(startable(out.next).go.map((j) => j.id), ['a', 'b', 'c'], 'debt last, in the slots left free');
 });
 
 test('starts owed: a marker the owing acts write and job start --ready pays up to its start; printed first, never a refusal', async () => {

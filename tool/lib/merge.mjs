@@ -3,7 +3,7 @@
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
 import { basename, join } from 'node:path';
-import { checkRun, checkRuns, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
+import { checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { diffNames, entriesAt, ownPaths } from './gate.mjs';
@@ -256,6 +256,24 @@ export function merge(root, n, opts = {}) {
 // GitHub has it, a green gate on the head that checked and agreed with the opener's newest
 // receipt, only the job's own files and ledger status, and the review triggers (refusing
 // --no-review when one fires).
+// A shallow clone (the MERGER's, 5 Nov: at clone_depth 1 every land failed at git merge-base): both
+// sides deepened down to their merge base by GitHub's compare (its counts plus one), and the clone
+// unshallowed once when that does not give the base GitHub names; one that cannot is refused plainly.
+export function deepenToBase(root, slug, base, head, read = compare) {
+  if (!isShallow(root)) return;
+  const refs = [base, head].map((b) => `+refs/heads/${b}:refs/remotes/origin/${b}`);
+  let c = null;
+  try { c = read(slug, base, head); } catch { c = null; }
+  if (Number.isInteger(c?.ahead_by) && Number.isInteger(c?.behind_by)) {
+    git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', refs[1]], { cwd: root, allowFail: true });
+    git(['fetch', '-q', `--depth=${c.behind_by + 1}`, 'origin', refs[0]], { cwd: root, allowFail: true });
+  }
+  const mb = () => git(['merge-base', `origin/${base}`, `origin/${head}`], { cwd: root, allowFail: true }).stdout.trim();
+  if (c?.merge_base_commit?.sha && mb() === c.merge_base_commit.sha) return;
+  const r = git(['fetch', '-q', '--unshallow', 'origin', ...refs], { cwd: root, allowFail: true });
+  if (r.code !== 0 || !mb()) fail(`this clone is shallow and the history between ${head} and ${base} could not be read (${r.code !== 0 ? `git fetch --unshallow: ${r.stderr.trim().split('\n').pop()}` : 'no merge base after unshallowing'}); nothing was merged. Run it again, or start this session without clone_depth`);
+}
+
 export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = GATE_WAIT_MINUTES, log = console.log, every, mergeableEvery }) {
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
@@ -265,6 +283,8 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
 
   const branch = pr.head.ref;
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
+  deepenToBase(root, slug, cfg.tranche, branch, io.compare);
   if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
   // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
   // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
@@ -659,6 +679,8 @@ export function mergePlain(root, n, opts = {}) {
   if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
   // The first close: the tranche named by the head's own config (held by pinChange below), with a pin.
   if (boot) bootstrapHead(root, pr.head.sha, { base, head, log });
+  deepenToBase(root, slug, base, head, io.compare);
+  if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = diffNames(root, mb, pr.head.sha);

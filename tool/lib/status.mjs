@@ -41,6 +41,9 @@ export function readSessions(file) {
   try { j = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`--sessions ${file}: not a readable JSON file (${e.message}); save your list_sessions result there`); }
   const list = [j, j?.data, j?.ccr?.data].find(Array.isArray);
   if (!list) fail(`--sessions ${file}: no list of sessions in it (a JSON list, or one under "data" or "ccr.data")`);
+  // One page of a longer list (copy, 5 Nov 04:36: list_sessions' first page held 6 of 16 job
+  // sessions, so 14 slots read empty with 4 free): every unarchived job session holds a slot.
+  if ([j, j?.ccr].some((x) => x?.has_more === true)) fail(`--sessions ${file}: list_sessions has more pages (has_more): call it with limit 100, and again with after_id <last_id> while has_more, and save every page's sessions as one list; every unarchived job session holds a slot`);
   return list.filter((x) => x && typeof x === 'object');
 }
 export const sessionId = (x) => x.id || '?';
@@ -318,15 +321,22 @@ export function flow(cfg, rows, next, live, listed = null) {
   // running or waiting (idle), and what a waiting one waits on where status knows it.
   const wait = [];
   let working = 0;
-  for (const r of listed ? rows : []) {
-    const js = jobSession(listed, r.id);
-    if (!js || isArchived(js)) continue;
+  // Every unarchived job session, as the cap counts them (review of 5cb2fab: the split left out
+  // other products' sessions and older duplicates); what each waiting one waits on where known.
+  for (const js of (listed || []).filter((x) => !isArchived(x))) {
+    const id = String(js.title || '').trim().match(/^job (\S+)( \(restart\))?$/)?.[1];
+    if (!id) continue;
     if (!isIdle(js)) { working++; continue; }
-    // A done job's idle session holds a slot until archived.
-    wait.push(`${r.id} ${!jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
+    const r = rows.find((y) => y.id === id);
+    // A done job's idle session, or an older one beside its latest, holds a slot until archived.
+    wait.push(`${id} ${!r ? 'not this product\'s' : jobSession(listed, id) !== js || !jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
   }
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
-  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };
+  // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
+  const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
+  const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
+  const splits = owed.length ? `; ${free} slot${free === 1 ? '' : 's'} free: BOB's split acts would open them (split or consolidate: ${owed.join(', ')})` : '';
+  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
@@ -784,7 +794,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const enteredList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && !x.notices && entered.has(x.file));
   // The release path first (coordinator, 5 Nov): process/config.json's release_path modules, and
   // the open round's layer and found work; debt (a file whose unmet marks are all base-red found
-  // marks) after it, never in a slot while release work is startable (ready.mjs startable).
+  // marks) after it, in the slots release work leaves free (ready.mjs startable).
   const rel = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
   const line = new RegExp(UNMET.source);
   for (const x of all) {
