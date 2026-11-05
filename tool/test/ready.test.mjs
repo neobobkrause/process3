@@ -21,12 +21,17 @@ test('startable: an OPEN entry never started, a COMPLETE one with a notice or fo
     { file: 'r/d.md', count: 1, module: 'd', entry_state: 'OPEN', over: 'split or consolidate before its job: r/d.md' },
     { file: 'r/e.md', count: 0, module: 'e', entry_state: 'COMPLETE', notices: ['p:9'] },
     { file: 'r/f.md', count: 1, module: 'f', entry_state: 'COMPLETE', found: ['F1', 'F2'] },
-    { file: 'r/g.md', count: 1, module: 'g', entry_state: 'COMPLETE' },
+    { file: 'r/g.md', count: 1, module: 'g', entry_state: 'BLOCKED' },
+    // Copy, 5 Nov: COMPLETE entries with unmet requirement marks in the open layer were BOB's judgment.
+    { file: 'r/h.md', count: 2, module: 'h', entry_state: 'COMPLETE', marks: ['R1', 'R4'] },
+    { file: 'r/i.md', count: 2, module: 'i', entry_state: 'COMPLETE', marks: ['R2'], found: ['F1'] },
     { triage: 'p:9' },
   ];
-  const { go, skip } = startable(next, { onOrigin: (id) => ['b', 'e', 'f', 'g'].includes(id) });
-  assert.deepEqual(go, [{ id: 'a', file: 'r/a.md' }, { id: 'e', file: 'r/e.md' }, { id: 'f', file: 'r/f.md', reopen: 'meet the found marks F1, F2' }]);
+  const { go, skip } = startable(next, { onOrigin: (id) => ['b', 'e', 'f', 'g', 'h', 'i'].includes(id) });
+  assert.deepEqual(go, [{ id: 'a', file: 'r/a.md' }, { id: 'e', file: 'r/e.md' }, { id: 'f', file: 'r/f.md', reopen: 'meet the found marks F1, F2' },
+    { id: 'h', file: 'r/h.md', reopen: 'meet the unmet requirement marks R1, R4' }, { id: 'i', file: 'r/i.md', reopen: 'meet the unmet requirement marks R2 and the found marks F1' }]);
   assert.deepEqual(skip.map((s) => s.id || s.file), ['b', 'r/c.md', 'g']);
+  assert.match(skip[2].why, /entry BLOCKED: BOB's judgment/);
   assert.match(skip[1].why, /no ledger entry/);
 });
 

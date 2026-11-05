@@ -6,7 +6,7 @@
 // each launch it prints with create_session and subscribes to each pull request.
 // Startable: a module with a ledger entry on the tranche and no job branch on origin, its
 // requirement file not over the cap: an OPEN entry never started; a COMPLETE one listed for a
-// provider notice (job start reopens it itself) or for found marks (reopened to meet them).
+// provider notice (job start reopens it itself) or for unmet or found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, READY_NEXT, jobStart } from './job.mjs';
 import { layerClose } from './layer.mjs';
@@ -32,7 +32,9 @@ export function startable(next, { onOrigin = () => false } = {}) {
     if (x.entry_state === 'OPEN' && onOrigin(x.module)) { skip.push({ file: x.file, id: x.module, why: `job/${x.module} is on origin: status says what it needs` }); continue; }
     if (x.entry_state === 'OPEN') go.push({ id: x.module, file: x.file });
     else if (x.entry_state === 'COMPLETE' && x.notices) go.push({ id: x.module, file: x.file });
-    else if (x.entry_state === 'COMPLETE' && x.found) go.push({ id: x.module, file: x.file, reopen: `meet the found marks ${x.found.join(', ')}` });
+    // Unmet requirement marks on a COMPLETE entry: reopened as found marks are, or the layer could
+    // never close (copy, 5 Nov: inquiry, basis-versions and four more sat as BOB's judgment).
+    else if (x.entry_state === 'COMPLETE' && (x.found || x.marks)) go.push({ id: x.module, file: x.file, reopen: `meet ${[x.marks && `the unmet requirement marks ${x.marks.join(', ')}`, x.found && `the found marks ${x.found.join(', ')}`].filter(Boolean).join(' and ')}` });
     else skip.push({ file: x.file, id: x.module, why: `entry ${x.entry_state}: BOB's judgment` });
   }
   return { go, skip };

@@ -13,6 +13,7 @@ import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
+import { startable as starts } from './ready.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
@@ -57,6 +58,9 @@ export const isIdle = (x) => state(x) === 'idle' || ['completed', 'failed', 'rev
 // A status row's job branch: its ref when a --fresh-branch start moved it, else job/<id>.
 export const refOf = (r) => r.ref || `job/${r.id}`;
 const jobHeads = (h) => [...(h || [])].filter((x) => x.startsWith('refs/heads/job/')).map((x) => x.slice(11));
+// A job open: its entry not COMPLETE, or a pull request open (a reopened COMPLETE module; copy, 5
+// Nov: question-explorer, PR 346, was listed startable); an entry never started is none.
+const jobOpen = (r) => !!r && !r.unstarted && (r.tranche !== 'COMPLETE' || !!r.pr?.startsWith('#'));
 export const jobDone = (r) => (r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
   && !/^(WORKING|BLOCKED)/.test(String(r.branch || '')) && !/draft|unknown/.test(String(r.pr || '')) && !r.flag;
 
@@ -171,7 +175,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements, ...(jb !== `job/${e.id}` ? { ref: jb } : {}) };
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
-    if (e.status?.state === 'BLOCKED' && e.status.reason) row.blocked = e.status.reason;
+    if (e.status?.state === 'BLOCKED') Object.assign(row, { since: e.status.at }, e.status.reason ? { blocked: e.status.reason } : {});
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
@@ -188,7 +192,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit for SILENT_HOURS (copy, 4 Nov: flagged 7 min after its start).
       if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1 && tipAge() > SILENT_HOURS * 36e5) row.flag = 'WORKING, nothing pushed';
       if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
-      if (!merged && s.state) row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined;
+      if (!merged && s.state) { row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined; row.since = s.state === 'BLOCKED' ? s.at : undefined; }
     }
     const pr = prs?.find((p) => p.head?.ref === jb);
     if (pr) {
@@ -277,9 +281,31 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       if (hold) log(`tranche close waits: ${hold}`);
     }
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
+    out.flow = flow(cfg, rows, out.next, live);
+    log(out.flow.line);
     return out;
   }
   return { rows, sessions, prs };
+}
+
+const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) => (t > 0 ? t : fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`));
+// The jobs BLOCKED awaiting a ruling (not deferred: a recorded reason and its pull request closed),
+// oldest first, each with its minutes since its block (its entry's status.at; unknown listed last).
+// Past targets.decision_minutes its ruling is owed: Bob's when its reason names a requirement (Build
+// Plan rule 9: the word or an R<id>), else the coordinator's (coordinator, 5 Nov: 44 job-hours BLOCKED in a day on the copy).
+export function blockedJobs(cfg, rows, t = Date.now()) {
+  const target = decisionMinutes(cfg);
+  return rows.filter((r) => (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') && !(r.blocked && !/^(#|unknown)/.test(r.pr || ''))).map((r) => {
+    const min = Date.parse(r.since || '') ? Math.floor((t - Date.parse(r.since)) / 6e4) : null;
+    const by = min > target ? (/requirement|\bR\d+\b/i.test(r.blocked || '') ? 'Bob' : `the coordinator${cfg.coordinator ? ` (${cfg.coordinator})` : ''}`) : null;
+    return { id: r.id, min, by, text: `; blocked ${min === null ? 'since unknown' : `${min} min`}${by ? `; ruling owed by ${by}: ${r.blocked || 'no reason recorded'}` : ''}` };
+  }).sort((a, b) => (b.min ?? -1) - (a.min ?? -1));
+}
+// One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
+// the work job start --ready would start (ready.mjs startable), and the jobs awaiting a ruling. The sweep records its numbers.
+export function flow(cfg, rows, next, live) {
+  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows), starts(next).go.length];
+  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, line: `flow: live ${live ?? '?'}/${c.cap} (${c.from}), startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
@@ -295,8 +321,10 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const idle = (r) => r.flag?.startsWith('WORKING') || (r.updated && Date.now() - Date.parse(r.updated) > IDLE_HOURS * 36e5);
   const groups = { blocked: [], owed: [], idle: [], open: [] };
   let merged = 0;
-  for (const r of rows) {
-    const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}`;
+  // Each job awaiting a ruling with its age, oldest first; every other row in ledger order.
+  const waits = new Map(blockedJobs(cfg, rows).map((b, i) => [b.id, { ...b, i }]));
+  for (const r of [...rows].sort((a, b) => (waits.get(a.id)?.i ?? 1e9) - (waits.get(b.id)?.i ?? 1e9))) {
+    const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}${waits.get(r.id)?.text ?? ''}`;
     if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
     else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed, with --job-cost-usd (its session's get_session usage.cost_usd)`);
     else if (r.flag && !r.flag.startsWith('WORKING')) groups.owed.push(line);
@@ -329,8 +357,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const reports = haveState ? toRoute(root, sb) : [];
   if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.replace(/^first: .*? job start --ready --live <n> \(\d+ jobs? ready\)\. Then: /, '').slice(0, 100)}`));
   // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
-  const target = Number(cfg.targets?.decision_minutes ?? 30);
-  if (!(target > 0)) fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`);
+  const target = decisionMinutes(cfg);
   for (const m of reports) {
     const mins = Math.floor((Date.now() - Date.parse(m.at)) / 6e4);
     if (mins > target) L.push(`unanswered ${m.from}-${m.n} ${mins}m (target ${target})`);
@@ -530,12 +557,19 @@ export function openBy(cfg) {
 // untriaged, held 90+ modules on the copy (coordinator, 4 Nov); triage answers it, or judges the
 // module affected, and then it holds the modules that use it.
 const noticeWork = (owed, id) => !!owed[id]?.some((n) => n.triage || n.rerun);
+// A provider done: in the layer map, no open job, no found marks, no notice work, and no unmet marks
+// or only those deferred when its layer was recorded closed, unless it is BLOCKED (coordinator, 5
+// Nov: deferred marks do not hold the layer, so they do not hold its users forever either).
+const doneIn = (ls, owed) => {
+  const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, closed: L.recorded }])));
+  return (id) => { const m = where.get(id); return !!m && !m.open && !m.found.length && !noticeWork(owed, id) && (!m.marks.length || (m.closed && !m.blocked)); };
+};
 export function readyByUses(root, cfg, ls, ref, owed = {}) {
   const modules = openBy(cfg) === 'uses' && ls?.cur ? readModules(root, cfg, ref) : null;
   if (!modules) return { ready: [], gaps: [] };
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
-  const done = (id) => { const m = where.get(id); return !m.open && !m.marks.length && !m.found.length && !noticeWork(owed, id); };
+  const done = doneIn(ls, owed);
   const ready = [];
   const gaps = [];
   for (const L of ls.layers.filter((x) => x.n >= ls.cur.n && !x.closed)) {
@@ -544,7 +578,7 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
       if (!u) continue;
       const missing = u.filter((p) => !where.has(p));
       if (missing.length && L.n > ls.cur.n) gaps.push({ id: m.id, layer: L.n, missing });
-      if (L.n > ls.cur.n && !missing.length && (!m.open || m.row?.unstarted) && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
+      if (L.n > ls.cur.n && !missing.length && !jobOpen(m.row) && !m.blocked && u.every(done)) ready.push({ ...m, layer: L.n });
     }
   }
   return { ready, gaps };
@@ -562,12 +596,12 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   const modules = by === 'uses' ? readModules(root, cfg, ref) || [] : [];
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, layer: L.n }])));
-  const done = (id) => { const m = where.get(id); return !!m && !m.open && !m.marks.length && !m.found.length && !noticeWork(owed, id); };
+  const done = doneIn(ls, owed);
   const reached = (n) => !ls.cur || n <= ls.cur.n;
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const ready = [];
   for (const m of where.values()) {
-    if (!m.found.length || (m.open && !m.row?.unstarted) || m.blocked) continue;
+    if (!m.found.length || jobOpen(m.row) || m.blocked) continue;
     const u = uses.get(m.id);
     // A module with no requirement file: its found-work entry is the file listed.
     if (u ? u.filter((p) => p !== m.id).every(done) : reached(m.layer)) ready.push(read(m.file) === null ? { ...m, file: foundFile(m.id), entry: true } : m);
@@ -576,9 +610,8 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   for (const id of foundEntries(root, ref).filter((x) => !where.has(x))) {
     const ids = unmetIds(read(foundFile(id))).filter(isFound);
     const row = rows.find((r) => r.id === id);
-    const open = !!row && !row.unstarted && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
     const u = uses.get(id) || [];
-    if (ids.length && !open && !row?.blocked && u.filter((p) => p !== id).every(done)) ready.push({ id, file: foundFile(id), layer: null, found: ids, marks: [], entry: true });
+    if (ids.length && !jobOpen(row) && !row?.blocked && u.filter((p) => p !== id).every(done)) ready.push({ id, file: foundFile(id), layer: null, found: ids, marks: [], entry: true });
   }
   return ready;
 }
@@ -599,7 +632,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   // entries were listed nowhere, so each waited for BOB to remember it).
   // status marks it (unstarted) only when it read origin's branches and GitHub's pull requests,
   // or, offline, when the caller passed origin's job/* heads (readyCount's one ls-remote).
-  const open = rows.filter((r) => r.tranche !== 'COMPLETE' && !r.unstarted);
+  const open = rows.filter(jobOpen);
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const taken = new Set(open.flatMap((r) => [r.req, `${dir}/${r.id}.md`]));
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
@@ -664,7 +697,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(ids.length > fids.length ? { marks: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found) || (entered.has(x.file) && x.entry_state === 'OPEN' && x.count > 0));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
@@ -727,7 +760,7 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   if (c.missing) { log(`completion round: ${c.file} is not on ${ref || 'the working tree'}`); return [{ file: c.file, missing: true }]; }
   const open = openItems(c);
   if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
-  const job = (id) => rows.find((r) => r.id === id && (r.tranche !== 'COMPLETE' || r.pr?.startsWith('#')));
+  const job = (id) => rows.find((r) => r.id === id && jobOpen(r));
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
   for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target}`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
