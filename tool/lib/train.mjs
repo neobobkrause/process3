@@ -20,7 +20,7 @@ import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, rev
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
 import { approvalsHash } from './start.mjs';
 import { randomBytes } from 'node:crypto';
-import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
+import { Fail, fail, git, isShallow, loadConfig, now, repoSlug } from './util.mjs';
 import { readAddress } from './roles.mjs';
 
 // A stop the train must never write past or retry: a lost lease, changed approvals, the disk.
@@ -359,6 +359,13 @@ export function train(root, opts = {}) {
   try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); } catch { /* unread: tried again */ }
   log(`merge train: lease held by ${session}${takeover ? ' (taken over from an expired lease)' : ''}`);
   try {
+    // A shallow clone cuts the history the provider hold reads (git merge-base of the tranche and a
+    // provider's head fails, and the hold reads "not held" for every provider: 5 Nov 07:04, the
+    // MERGER's session clone). Unshallow it once, here, after the lease and before the loop.
+    if (isShallow(root)) {
+      const u = git(['fetch', '-q', '--unshallow', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true });
+      log(u.code === 0 ? 'merge train: this clone was shallow; unshallowed once' : `merge train: this clone is shallow and could not be unshallowed (${u.stderr.trim().split('\n').pop()}); provider holds read as not held`);
+    }
     git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
     ctx.approvals = approvalsHash(root, `refs/remotes/origin/${cfg.tranche}`);
     return loop(root, ctx, { once, idleEvery, rounds: opts.rounds });
