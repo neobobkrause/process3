@@ -15,7 +15,7 @@ import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { merge, mergePlain, unagreed } from '../lib/merge.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { setupCheck } from '../lib/setup.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
 // The gate never posts; job post writes its row as a comment after the run, as here.
 const gate = (root, o) => { const r = gateRun(root, o); if (o.pr && o.post !== false) o.io.addComment(o.slug, o.pr, gateComment(r.run)); return r; };
 
@@ -43,6 +43,7 @@ function gateIO(comments = []) {
         return {};
       },
       verify: (s, r) => state.genuine.has(key(r)),
+      ...honestBranch([9, 105, 148]),
     },
   };
 }
@@ -80,7 +81,7 @@ function plainIO(p, comments, verify) {
     calls,
     io: {
       getPR: pr, requiredChecks: () => ({ checks: [{ context: 'gate' }] }), checkRuns: () => [green], checkRun: () => green,
-      comments: () => comments, verify, repo: { released: () => false, shim: () => null, descends: () => false },
+      comments: () => comments, verify, ...honestBranch([148]), repo: { released: () => false, shim: () => null, descends: () => false },
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -102,6 +103,25 @@ test('a refresh-only plain pull request: the gate regenerates byte-identical, re
   // Without a verified row that recorded it (a forged comment, or none), it is refused.
   assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, () => false).io }), /changes generated module files \(src\/alpha\/dist\/alpha\.bundle\.json\): no green process-gate run on .* regenerated them byte-identical/);
   assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, [], () => true).io }), /no green process-gate run/);
+});
+
+// Confirming review of build/train-spec, 5 Nov: a refresh row from a run of another PR from the
+// same branch (into a base with a workflow of its own, then closed) is not this PR's.
+test('merge --plain refuses a refresh row when its branch had another PR into another base, or a retargeted one', () => {
+  const p = product({ [BUNDLE]: fresh(SRC) });
+  const g = gateIO();
+  assert.equal(gateOn(p, g).run.refresh.result, 'identical');
+  back(p);
+  const forged = [
+    [{ prsFromBranch: (s, b) => [{ number: 148, head: { ref: b }, base: { ref: 'tranche' } }, { number: 90, state: 'closed', head: { ref: b }, base: { ref: 'x' } }] }, /pull request 148's gate runs are not bound to it: bob\/refresh also had pull request\(s\) 90 into another base/],
+    [{ baseEverChanged: () => true }, /the base of pull request\(s\) 148 from bob\/refresh was changed/],
+  ];
+  for (const [over, re] of forged) {
+    const f = plainIO(p, g.state.comments, g.io.verify);
+    Object.assign(f.io, over);
+    assert.throws(() => mergePlain(p.root, 148, { ...q, io: f.io }), re);
+    assert.equal(f.calls.merged, null);
+  }
 });
 
 test('a refresh that also changes a module\'s source is refused: no other file of a module may change', () => {
@@ -213,6 +233,7 @@ test('merge refuses an unchecked later attempt with the words that clear it', ()
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: () => true,
+    ...honestBranch([9, 105, 148]),
     mergePR: () => assert.fail('nothing merges'),
   };
   assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /checked receipt attempt 3 and agreed with it; its newest run left the receipt present: .* push a code change so the gate runs the suite, or, once the product's pin checks a receipt against the last green code run, give the gate on .* a new event \(edit the pull request/);

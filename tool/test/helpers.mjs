@@ -78,3 +78,10 @@ export function setJobCap(t, n) {
   if (n === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = String(n);
   t.after(() => { if (was === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = was; });
 }
+
+// An honest branch history for a fake io (github.mjs unbound): pull requests ns from any branch,
+// each into base, none ever retargeted.
+export const honestBranch = (ns, base = 'tranche') => ({
+  prsFromBranch: (s, b) => ns.map((number) => ({ number, head: { ref: b }, base: { ref: base } })),
+  baseEverChanged: () => false,
+});

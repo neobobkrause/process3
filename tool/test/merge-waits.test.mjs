@@ -11,7 +11,7 @@ import { readRows } from '../lib/metrics.mjs';
 import { mergedRange, noticeFile, withdrawNotice } from '../lib/notice.mjs';
 import { noticeTriage } from '../lib/triage.mjs';
 import { git, isShallow, loadConfig } from '../lib/util.mjs';
-import { commit, entry, makeRepo, onState } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo, onState } from './helpers.mjs';
 
 const quiet = () => {};
 const MIN = 60000;
@@ -90,6 +90,7 @@ function jobIO(root, { gate, merged = [] }) {
       comments: () => all(seen.length ? seen : [remoteTip(root)]),
       checkRun: (slug, sha) => gate(sha),
       verify: () => true,
+      ...honestBranch([3, 7, 9]),
       mergePR: (slug, n, sha) => { merged.push(sha); return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };

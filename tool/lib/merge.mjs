@@ -3,7 +3,7 @@
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
 import { basename, join } from 'node:path';
-import { checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
+import { baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { diffNames, entriesAt, ownPaths } from './gate.mjs';
@@ -157,7 +157,7 @@ export function reviewMeasures({ reviewed, reviewMinutes, reviewCostUsd, finding
 
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
-  const io = { getPR, comments, checkRun, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
   const measures = reviewMeasures(opts);
   // The job's cost, read by BOB from get_session on the job's session, idle by now (measured 4 Nov,
@@ -229,6 +229,9 @@ export function merge(root, n, opts = {}) {
     } else log(`${branch} is already the merged result at ${tip.slice(0, 10)}; nothing to push`);
     const run = tip === pr.head.sha ? first : waitForGate(slug, tip, { ...watch, was: pr.head.sha });
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
+    // Again once the merged result's gate is green: a PR opened from the branch since the first
+    // read could have run its own base's "gate" on the merged result.
+    if (tip !== pr.head.sha) boundOrFail(slug, branch, n, cfg.tranche, io);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
     // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
@@ -303,6 +306,12 @@ export function deepenToBase(root, slug, base, head, read = compare) {
   if (r.code !== 0 || !mb()) fail(`this clone is shallow and the history between ${head} and ${base} could not be read (${r.code !== 0 ? `git fetch --unshallow: ${r.stderr.trim().split('\n').pop()}` : 'no merge base after unshallowing'}); nothing was merged. Run it again, or start this session without clone_depth`);
 }
 
+// Refuses, naming the pull requests, when branch's runs are not bound to PR n into base (unbound).
+export function boundOrFail(slug, branch, n, base, io) {
+  const why = unbound(slug, branch, n, base, io);
+  if (why) fail(`pull request ${n}'s gate runs are not bound to it: ${why}; nothing was merged (bring it to Bob)`);
+}
+
 export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = GATE_WAIT_MINUTES, log = console.log, every, mergeableEvery, onGate, transient }) {
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
@@ -328,7 +337,11 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
   if (!receipt) fail(`pull request ${n} has no receipt`);
   // Each row names its Actions run; the row counts only when that run is the process gate on
-  // this tip, green, and its own artifact holds the same row (verifyRow).
+  // this tip, green, and its own artifact holds the same row (verifyRow), and every pull request
+  // ever opened from the branch is into the tranche, never retargeted (unbound): GitHub lists
+  // only open ones on a run, so a closed second PR into a base with a workflow of its own could
+  // have uploaded any row (confirming review of build/train-spec, 5 Nov).
+  boundOrFail(slug, branch, n, cfg.tranche, io);
   const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
     .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
   if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unagreed(gateRuns(all), pr.head.sha, receipt.attempt)}`);
@@ -667,8 +680,9 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
 // request changes byte-identical.
 // The row must be on the base as it is now: the bytes were compared on the head merged with
 // that base (review 1 of PR 95).
-function refreshGate(slug, n, sha, files, { base, baseSha, untracked = [], io, log }) {
+function refreshGate(slug, n, sha, files, { base, head, baseSha, untracked = [], io, log }) {
   if (io.checkRun(slug, sha, 'gate')?.conclusion !== 'success') fail(`pull request ${n} changes generated module files (${files.slice(0, 5).join(', ')}), and the gate on ${sha.slice(0, 10)} is not green`);
+  boundOrFail(slug, head, n, base, io);
   const rows = gateRuns(io.comments(slug, n)).filter((r) => r.sha === sha);
   const ok = rows.filter((r) => r.ok && r.base === baseSha && r.refresh?.result === 'identical' && files.every((f) => r.refresh.files?.includes(f)) && untracked.every((f) => r.refresh.untracked?.includes(f))).find((r) => io.verify(slug, r, { pr: n, baseRef: base }));
   if (!ok) {
@@ -682,7 +696,7 @@ function refreshGate(slug, n, sha, files, { base, baseSha, untracked = [], io, l
 
 export function mergePlain(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
-  const io = { getPR, requiredChecks, checkRuns, checkRun, comments, mergePR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), repo: processRepo(), ...(opts.io || {}) };
+  const io = { getPR, requiredChecks, checkRuns, checkRun, comments, mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), repo: processRepo(), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
@@ -774,7 +788,7 @@ export function mergePlain(root, n, opts = {}) {
   held();
   const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log, ...(opts.transient ? { transient: opts.transient } : {}) });
   log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
-  if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, baseSha: git(['rev-parse', baseRef], { cwd: root }), untracked, io, log });
+  if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, head, baseSha: git(['rev-parse', baseRef], { cwd: root }), untracked, io, log });
   // The base must still be the one checked.
   const again = io.getPR(slug, n);
   if (again.base?.ref !== base) fail(`pull request ${n} was retargeted to ${again.base?.ref} while it was checked`);

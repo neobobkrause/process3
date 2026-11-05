@@ -10,7 +10,7 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { baseEverChanged, checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, gateRuns, getPR, openPRs, prsFromBranch, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
@@ -836,7 +836,7 @@ export function train(root, opts = {}) {
   const session = opts.session;
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
-  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, prsFromBranch, baseEverChanged, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   // The batched reads: GitHub's at once, or, where a caller gives its own single read, that one in turn.
   const given = opts.io || {};
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;

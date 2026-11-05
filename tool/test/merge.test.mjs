@@ -8,7 +8,7 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { Fail, git } from '../lib/util.mjs';
-import { commit, entry, makeRepo, write } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo, write } from './helpers.mjs';
 
 function setup() {
   const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha') });
@@ -38,6 +38,7 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
       ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
+      ...honestBranch([3, 4, 5, 6, 7]),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -60,6 +61,39 @@ test('merge brings the branch up to the tranche, writes the merge row, and merge
   assert.equal(readRows(root, 'alpha').at(-1).review_rounds, 2, 'the merge row records its review rounds');
   git(['checkout', '-q', 'main'], { cwd: root });
   assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left');
+});
+
+// Confirming review of build/train-spec, 5 Nov: GitHub lists only open pull requests on a run.
+// A second PR from the job branch into a base whose workflow uploaded a forged green row, then
+// closed, leaves the run listing only the job's PR, so verifyRow alone would trust it.
+test('merge refuses gate rows from a branch that had another PR into another base, or a retargeted or unread one, naming it, and pushes nothing', () => {
+  const extra = (s, b) => [{ number: 3, head: { ref: b }, base: { ref: 'tranche' } }, { number: 90, state: 'closed', head: { ref: b }, base: { ref: 'x' } }];
+  const forged = [
+    [{ prsFromBranch: extra }, /pull request 3's gate runs are not bound to it: job\/alpha also had pull request\(s\) 90 into another base; nothing was merged/],
+    [{ baseEverChanged: (s, n) => n === 3 }, /not bound to it: the base of pull request\(s\) 3 from job\/alpha was changed or its history could not be read/],
+    [{ baseEverChanged: () => null }, /the base of pull request\(s\) 3, 4, 5, 6, 7 from job\/alpha was changed or its history could not be read/],
+    [{ prsFromBranch: () => null }, /the pull requests from job\/alpha could not be read/],
+    [{ prsFromBranch: () => [] }, /the pull requests from job\/alpha could not be read/],
+  ];
+  for (const [over, re] of forged) {
+    const { root, head } = setup();
+    const f = io(head);
+    Object.assign(f.io, over);
+    assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }), re);
+    assert.equal(f.calls.merged, null, 'nothing merged');
+    assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head, 'nothing pushed');
+  }
+});
+
+test('merge reads the branch again once the merged result is green: a PR opened from it while that gate ran refuses the land', () => {
+  const { root, head } = setup();
+  const f = io(head);
+  let reads = 0;
+  f.io.prsFromBranch = (s, b) => (++reads === 1 ? [{ number: 3, head: { ref: b }, base: { ref: 'tranche' } }] : extra2(b));
+  const extra2 = (b) => [{ number: 3, head: { ref: b }, base: { ref: 'tranche' } }, { number: 91, state: 'open', head: { ref: b }, base: { ref: 'x' } }];
+  assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }), /also had pull request\(s\) 91 into another base; nothing was merged/);
+  assert.equal(reads, 2);
+  assert.equal(f.calls.merged, null, 'GitHub is never asked to merge');
 });
 
 test('merge in a depth-1 clone (the MERGER\'s, 5 Nov): both sides deepened to their merge base by GitHub\'s compare, or unshallowed once without it, then merged end to end', () => {

@@ -72,6 +72,9 @@ function github(root, ids, plains, { aged = false } = {}) {
       ];
     },
     verify: () => true,
+    // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
+    prsFromBranch: (slug, b) => [...state.keys()].map(pr).filter((p) => p.head.ref === b),
+    baseEverChanged: () => false,
     requiredChecks: () => ({ checks: [{ context: 'gate' }] }),
     repo: { released: () => false, shim: () => null, descends: () => false },
     checkRuns: (slug, sha) => [gate(sha)],
