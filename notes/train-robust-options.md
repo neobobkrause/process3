@@ -236,3 +236,22 @@ wait); 8B makes "nothing lands under an in-flight gate" hold across any other fa
 restart, which 8A alone cannot; the addition covers the tool's own merges outside the train.
 GitHub's UI stays outside the tool, and merge()'s land check ("moved past the merged result the
 gate checked") still catches it as today.
+
+## 8. Ruling (coordinator, 5 Nov 13:27) and what was built (build/train-inflight)
+
+Ruled: 8A + 8B + the addition, in a PR of its own after PR 156. Conditions, and how each is met:
+- A hold never blocks past the gate's own cap: each `inflight` row carries `until` = now + max(90,
+  suite_timeout_minutes) + 15 min (the queue allowance); a pass that finds an unended row past its
+  until ends it ("its gate's cap passed"), whichever train wrote it; refuseUnderHold reads only
+  holds within their until.
+- The end row names its cause: landed; refused: <why> (a red gate among them); merged (elsewhere);
+  pull request closed; head moved to <sha>; tranche moved; its gate's cap passed; or the merge's
+  own failure when it leaves nothing to wait on (HOLD_ENDS).
+- Re-entry never re-pushes: the train calls merge() with noPush; a head that already holds this
+  PR's merge row on the current tip waits on its gate (jobChecks' rowTip wait), and anything that
+  would push a new merged result fails instead ("would need a new one"), which ends the hold.
+- A restarted train that finds an open hold on a tip the tranche has moved past ends it ("tranche
+  moved") and does not wait.
+Code: tool/lib/inflight.mjs (rows, open, start, end, refuseUnderHold), merge.mjs (TRANSIENT,
+guarded reads in waitForGate and waitForChecks, onGate, noPush, refusals in merge and mergePlain
+outside the train), train.mjs (hold, unhold, heldPass, the loop's hold-first pass).

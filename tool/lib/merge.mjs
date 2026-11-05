@@ -13,11 +13,12 @@ import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { wakeOnce } from './state.mjs';
+import { refuseUnderHold } from './inflight.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -42,15 +43,34 @@ const stillRunning = (run, t) => run?.status === 'in_progress'
 // neither the commit nor `was` (the head before the push, which GitHub may show for a moment),
 // the gate on the commit will never finish (the gate's concurrency group cancels it), so the wait
 // stops at once. After `minutes`, it goes on only while a run is in progress, up to its cap.
-export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = 15000, read = checkRun, pr, was, log = console.log } = {}) {
+// A GitHub read that failed for a reason that passes (build train-inflight, option 8A: copy PR
+// 290, 5 Nov 13:15, one HTTP 503 ended a 38-minute gate wait): a 5xx, a rate limit, a timeout or a
+// dropped connection. The waits read again with a growing pause instead of failing.
+export const TRANSIENT = (msg) => SERVER_ERROR.test(String(msg)) || /rate limit|HTTP 429|\b429 Too Many|timed out|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|connection reset|socket hang up|Bad Gateway|Service Unavailable|Gateway Time-?out|unexpected EOF|TLS handshake/i.test(String(msg));
+export const TRANSIENT_WAIT = { first: 15000, most: 120000 };
+// Runs f; a transient Fail is returned as { err } for the caller's loop to read again, anything
+// else is thrown.
+const guarded = (f) => { try { return { v: f() }; } catch (e) { if (e instanceof Fail && TRANSIENT(e.message)) return { err: e }; throw e; } };
+// The pause before the k-th read again in a row (15 s, 30 s, 60 s, then every 2 min by default),
+// and the end: past the wait and the gate's own cap after it, the last error stands.
+function transientPause(e, k, { until, log, wait = TRANSIENT_WAIT }) {
+  if (Date.now() > until + GATE_CAP_MINUTES * MINUTE) throw e;
+  const ms = Math.min(wait.most, wait.first * 2 ** (k - 1));
+  log(`GitHub read failed (${e.message.split('\n')[0].slice(0, 160)}); transient: read again in ${Math.round(ms / 1000)} s (${k} in a row), still waiting on the same run`);
+  sleep(ms);
+}
+export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = 15000, read = checkRun, pr, was, log = console.log, transient } = {}) {
   const until = Date.now() + minutes * MINUTE;
   let hard = null;
+  let k = 0;
   for (;;) {
-    const p = pr?.();
+    const g = guarded(() => [pr?.(), read(slug, sha, 'gate')]);
+    if (g.err) { transientPause(g.err, ++k, { until, log, wait: transient }); continue; }
+    k = 0;
+    const [p, run] = g.v;
     if (p && p.state && p.state !== 'open') fail(`the pull request is ${p.merged ? 'merged' : p.state} while the gate on ${sha.slice(0, 10)} was awaited; run merge again`);
     const at = p?.head?.sha;
     if (at && at !== sha && at !== was) fail(`${p.head.ref || 'the branch'} moved to ${at.slice(0, 10)} while the gate on ${sha.slice(0, 10)} was awaited: that gate will not finish; run merge again`);
-    const run = read(slug, sha, 'gate');
     if (run?.status === 'completed' && run.conclusion !== 'cancelled') return run;
     const t = Date.now();
     if (t >= until) {
@@ -157,7 +177,9 @@ export function merge(root, n, opts = {}) {
     if (jobCost !== null) log(`pull request ${n} is already merged: --job-cost-usd ${jobCost} is not recorded (a job's cost is written only by the merge that lands it)`);
     return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
   }
-  const { branch, watch, first, all, receipt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery });
+  // Outside the train, nothing lands under another pull request's in-flight gate (inflight.mjs).
+  if (!opts.beforeLand && pr.base?.ref === cfg.tranche) refuseUnderHold(root, cfg, n, { slug, io });
+  const { branch, watch, first, all, receipt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery, onGate: opts.onGate, transient: opts.transient });
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
   return withTemp('p3-merge-', (tmp) => {
@@ -197,7 +219,11 @@ export function merge(root, n, opts = {}) {
         tip = git(['rev-parse', 'HEAD'], { cwd: wt });
       }
     }
+    // The train's return to a held merged result pushes nothing new (the coordinator's ruling: its
+    // head holds this PR's merge row on the current tip); anything to push ends the hold instead.
+    if (opts.noPush && tip !== pr.head.sha) fail(`pull request ${n}'s held merged result ${pr.head.sha.slice(0, 10)} would need a new one (${tip.slice(0, 10)}): not pushed; the hold ends and the train merges it afresh`);
     if (tip !== pr.head.sha) {
+      opts.onGate?.(tip);
       git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: wt });
       log(`pushed ${tip.slice(0, 10)} to ${branch}; the gate runs on the merged result`);
     } else log(`${branch} is already the merged result at ${tip.slice(0, 10)}; nothing to push`);
@@ -207,6 +233,7 @@ export function merge(root, n, opts = {}) {
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
     // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
     opts.beforeLand?.();
+    if (!opts.beforeLand) refuseUnderHold(root, cfg, n, { slug, io });
     const r = mergeRetry(() => io.mergePR(slug, n, tip), {
       log, wait: opts.wait, reread: { read: () => io.getPR(slug, n), sha: tip },
       fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }),
@@ -276,7 +303,7 @@ export function deepenToBase(root, slug, base, head, read = compare) {
   if (r.code !== 0 || !mb()) fail(`this clone is shallow and the history between ${head} and ${base} could not be read (${r.code !== 0 ? `git fetch --unshallow: ${r.stderr.trim().split('\n').pop()}` : 'no merge base after unshallowing'}); nothing was merged. Run it again, or start this session without clone_depth`);
 }
 
-export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = GATE_WAIT_MINUTES, log = console.log, every, mergeableEvery }) {
+export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = GATE_WAIT_MINUTES, log = console.log, every, mergeableEvery, onGate, transient }) {
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
   if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
@@ -291,10 +318,11 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
   // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
   const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
-  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(every !== undefined ? { every } : {}) };
+  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(every !== undefined ? { every } : {}), ...(transient ? { transient } : {}) };
   // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
   let first = io.checkRun(slug, pr.head.sha, 'gate');
-  if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);
+  // The merged result an earlier run pushed is gating: the train holds the tranche for it first (inflight.mjs).
+  if (rowTip && first?.status !== 'completed') { onGate?.(pr.head.sha); first = waitForGate(slug, pr.head.sha, watch); }
   if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
   const all = io.comments(slug, n);
   const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
@@ -605,14 +633,17 @@ export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
 // defect sweep 4 Nov, #13; the tranche into main now runs only the suites its job merges did not
 // gate, gate.mjs trancheCover). Each round reads the pull request
 // (`pr`): a head that moved off sha stops the wait at once. GitHub judges the result.
-export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log } = {}) {
+export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log, transient } = {}) {
   const until = Date.now() + minutes * MINUTE;
   const extended = new Map();
+  let k = 0;
   for (;;) {
-    const p = pr?.();
+    const g = guarded(() => [pr?.(), names.map((name) => [name, read(slug, sha, name)?.[0]])]);
+    if (g.err) { transientPause(g.err, ++k, { until, log, wait: transient }); continue; }
+    k = 0;
+    const [p, runs] = g.v;
     if (p && p.state && p.state !== 'open') fail(`the pull request is ${p.merged ? 'merged' : p.state} while its checks on ${sha.slice(0, 10)} were awaited; run merge again`);
     if (p?.head?.sha && p.head.sha !== sha) fail(`${p.head.ref || 'the head'} moved to ${p.head.sha.slice(0, 10)} while its checks on ${sha.slice(0, 10)} were awaited; run merge again`);
-    const runs = names.map((name) => [name, read(slug, sha, name)?.[0]]);
     const states = runs.map(([name, r]) => [name, r ? (r.status === 'completed' ? r.conclusion : r.status) : 'not started']);
     const pending = states.filter(([, st]) => RUNNING.includes(st) || st === 'not started');
     if (!pending.length) return states;
@@ -738,7 +769,10 @@ export function mergePlain(root, n, opts = {}) {
   if (!rules) fail(`could not read the checks ${base} requires`);
   const names = [...new Set(rules.checks.map((c) => c.context))];
   if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
-  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log });
+  // Outside the train, nothing lands on the tranche under another pull request's in-flight gate.
+  const held = () => { if (!opts.beforeLand && base === (baseCfg?.tranche || DEFAULTS.tranche)) refuseUnderHold(root, { ...(baseCfg || {}), tranche: baseCfg?.tranche || DEFAULTS.tranche, state_branch: baseCfg?.state_branch || DEFAULTS.state_branch }, n, { slug, io }); };
+  held();
+  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log, ...(opts.transient ? { transient: opts.transient } : {}) });
   log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
   if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, baseSha: git(['rev-parse', baseRef], { cwd: root }), untracked, io, log });
   // The base must still be the one checked.
@@ -759,6 +793,7 @@ export function mergePlain(root, n, opts = {}) {
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
   // The merger's lease (train.mjs), when the train lands it, checked again just before GitHub is asked.
   opts.beforeLand?.();
+  held();
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: [reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),
