@@ -209,7 +209,7 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const jobMerges = !opened ? `job merges since the opening ${U}` : `job merges recorded: ${mergeRows.length} distinct pull requests since the opening (${allMerges.filter(inT).length} merge rows)${olderPRs.length ? `; older than this tranche, left out: ${olderPRs.map((p) => `#${p}`).join(', ')}` : ''}`;
   L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); ${jobMerges}` : `${opened ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(opened)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${jobMerges}; the rest plain)`}.`, '');
   // The review triggers' measure (Bob, 4 Nov): this tranche's job merges, each pull request once.
-  L.push(`- ${opened ? triggerSummary(mergeRows).line : `review triggers: ${U} (the tranche's opening not read)`}`, '');
+  L.push(`- ${opened ? triggerSummary(mergeRows, rows.filter((r) => r.row === 'triggers')).line : `review triggers: ${U} (the tranche's opening not read)`}`, '');
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
