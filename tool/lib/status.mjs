@@ -687,6 +687,38 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   return ready;
 }
 
+// Debt: a requirement file whose unmet marks are all base-red found marks.
+export function isDebt(text) {
+  const line = new RegExp(UNMET.source);
+  const u = (text || '').split('\n').filter((l) => line.test(l));
+  return u.length > 0 && u.every((l) => /not yet met:[^)]*base-red/i.test(l));
+}
+
+// The release path as readiness knows it (nextWork's x.release), for modules whose job is open
+// (the merge train's order, coordinator 5 Nov): process/config.json's release_path, and the open
+// layer's modules and modules with found marks, unless their file is debt. Read offline at ref:
+// the ledger there, with `open` the modules that have an open job pull request.
+export function releaseModules(root, cfg, ref, open = new Set()) {
+  const rel = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  const rows = [];
+  for (const text of Object.values(readLedgerTexts(root, ref))) {
+    let e;
+    try { e = JSON.parse(text); } catch { continue; }
+    if (!e?.id) continue;
+    const st = e.status?.state;
+    rows.push({ id: e.id, tranche: st, req: e.requirements || `${dir}/${e.id}.md`, ...(open.has(e.id) ? { pr: '#0 ready' } : st === 'COMPLETE' ? { pr: 'merged' } : {}), ...(st === 'BLOCKED' && e.status.reason ? { blocked: e.status.reason } : {}) });
+  }
+  let closed = [];
+  try { closed = closedRows(root, cfg); } catch { closed = []; }
+  const ls = layerState(root, cfg, rows, ref, { closed });
+  if (!ls) return rel;
+  const text = (f) => (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout : '');
+  const cur = new Set((ls.cur?.mods || []).map((m) => m.id));
+  for (const L of ls.layers) for (const m of L.mods) if ((cur.has(m.id) || m.found.length) && !isDebt(text(m.file))) rel.add(m.id);
+  return rel;
+}
+
 // Next work (Build Plan, Phase 2): the modules of the open layer whose requirement file has unmet
 // marks and that have no open job, fewest unmet first; none once the layer is ready to close (BOB's
 // act is then `layer close <n>`). With open_by "uses", after them the modules past the open layer
@@ -796,10 +828,8 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   // the open round's layer and found work; debt (a file whose unmet marks are all base-red found
   // marks) after it, in the slots release work leaves free (ready.mjs startable).
   const rel = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
-  const line = new RegExp(UNMET.source);
   for (const x of all) {
-    const u = (textOf(x.file) || '').split('\n').filter((l) => line.test(l));
-    if (u.length && u.every((l) => /not yet met:[^)]*base-red/i.test(l))) x.debt = true;
+    if (isDebt(textOf(x.file))) x.debt = true;
     if (rel.has(x.module) || ((list.includes(x) || foundList.includes(x)) && !x.debt)) x.release = true;
   }
   // Read only with a count: layer close and the sweep's check list next work with none (review).

@@ -1,6 +1,8 @@
 // merge train (Bob, 5 Nov; design option F, notes/merge-train-trial.md): the MERGER's one
 // long-running act, in its own session. A serial loop over merge(): every open job pull request into
-// the tranche that is green on its head merges, oldest green first, through merge() itself, with
+// the tranche that is green on its head merges, in order.mjs's order (the release path, providers
+// holding users, the shortest expected gate, any green over 45 min first) and after the providers
+// it waits for (order.mjs providerHolds), through merge() itself, with
 // its full re-gate of the merged result and every record as merge writes it. While one re-gate
 // runs, the next pull request is prepared (merge's own checks, and a merge-tree onto the result
 // being gated). One train runs: a lease on the state branch, renewed while it runs, checked again
@@ -8,7 +10,10 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, comments, getPR, openPRs, verifyRow } from './github.mjs';
+import { checkRun, checkRuns, comments, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
+import { readModules } from './notice.mjs';
+import { releaseModules } from './status.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
 import { P3, READY_START } from './job.mjs';
 import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, reviewMeasures, reviewRounds } from './merge.mjs';
@@ -35,6 +40,9 @@ export const BASELINES = [
 // The disk budget (copy, 5 Nov ~02:00: BOB's eight merge loops died when the session's disk
 // allowance filled). merge works in one worktree it removes when it ends (withTemp); before each
 // merge the train needs this much free space, else it stops and says so, never mid-merge.
+// The rows name the two measures apart (coordinator, 5 Nov): disk_free_mb, the free space before
+// the merge, and disk_used_mb, what the merge left on disk (free before less free after). The
+// rows before 5 Nov ~06:00 carried only the second, as disk_mb.
 export const DISK_MIN_MB = 512;
 export const diskFreeMb = (dir) => { const f = statfsSync(dir); return Math.floor(Number(f.bavail) * Number(f.bsize) / 1048576); };
 export const RETRIES_TO_BOB = 5;
@@ -125,7 +133,7 @@ export function leaseHeld(root, cfg, session, token, approvals) {
   if (approvals && approvalsHash(root, `refs/remotes/origin/${cfg.tranche}`) !== approvals) stop(`the approvals on ${cfg.tranche} changed since the train started: nothing is landed, the train stops; tell ROOT`);
 }
 
-// The job pull requests green on their head, oldest green first. Read-only.
+// The job pull requests green on their head and not held for a provider, in order.mjs's order. Read-only.
 function ready(root, ctx, skip = new Set()) {
   const { cfg, slug, io } = ctx;
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
@@ -133,25 +141,108 @@ function ready(root, ctx, skip = new Set()) {
   const open = io.openPRs(slug, cfg.tranche);
   if (!open) fail(`could not read the pull requests into ${cfg.tranche}`);
   const out = [];
+  const jobs = []; // every open job pull request into the tranche: drafts and gates running hold users too
   for (const p of open) {
-    if (skip.has(p.number) || p.draft || p.base?.ref !== cfg.tranche || !branchModule(p.head?.ref, ids)) continue;
+    if (p.base?.ref !== cfg.tranche || !branchModule(p.head?.ref, ids)) continue;
     if (p.base?.repo?.default_branch && p.base.repo.default_branch === cfg.tranche) continue; // never the default branch
+    jobs.push({ n: p.number, id: branchModule(p.head.ref, ids), head: p.head.sha, ref: p.head.ref, draft: !!p.draft });
+    if (skip.has(p.number) || p.draft) continue;
     // A green gate is read once per head and run (the loop reads every 15 s); any other state is read again.
+    const job = jobs.at(-1);
     const g = ctx.gates.get(p.head.sha) || io.checkRun(slug, p.head.sha, 'gate');
-    if (!(g?.status === 'completed' && g.conclusion === 'success')) { ctx.gates.delete(p.head.sha); continue; }
+    if (!(g?.status === 'completed' && g.conclusion === 'success')) { ctx.gates.delete(p.head.sha); if (g?.status === 'completed') job.stuck = `its gate ended ${g.conclusion}`; continue; }
     // Its row is posted by the gate workflow's post job, after the gate: merge needs it.
     const post = g.post || io.checkRun(slug, p.head.sha, 'post');
     // The post job of this gate run: it starts only once the gate has ended.
     if (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at))) continue;
     ctx.gates.set(p.head.sha, { ...g, post });
     const run = g.id ?? g.completed_at;
-    if ((ctx.backoff.get(`${p.number}@${p.head.sha}`)?.until || 0) > Date.now()) continue;
+    if ((ctx.backoff.get(`${p.number}@${p.head.sha}`)?.until || 0) > Date.now()) { job.stuck = 'the train is backing off it'; continue; }
     // A head refused (and handed to BOB) waits for a new head or gate run, or a review note made since.
     const at = ctx.refused.get(`${p.number}@${p.head.sha}@${run}`);
-    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at)) continue;
+    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at)) { job.stuck = 'the train refused it on this head'; continue; }
     out.push({ n: p.number, head: p.head.sha, run, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
   }
-  return out.sort((a, b) => String(a.green_at).localeCompare(String(b.green_at)));
+  return order(root, ctx, out, jobs);
+}
+
+// The order and the provider hold (order.mjs), with what each reads cached by head or tranche tip.
+// Every read that fails holds nothing and orders as unknown: the train never stalls on a read.
+function order(root, ctx, cands, jobs) {
+  const { cfg, slug, io } = ctx;
+  if (!cands.length) { ctx.held = []; return cands; }
+  const at = `refs/remotes/origin/${cfg.tranche}`;
+  const tip = git(['rev-parse', at], { cwd: root }).trim();
+  const c = (ctx.order ||= { tip: null, modules: null, release: null, exp: new Map(), imp: new Map(), mins: new Map(), runs: new Set(), seen: new Map(), heldAt: new Map(), said: new Set() });
+  const say = (l) => { if (!c.said.has(l)) { c.said.add(l); ctx.log(l); } };
+  if (c.tip !== tip) {
+    c.tip = tip;
+    c.exp.clear(); c.imp.clear(); // both read the tranche: its ledger entries, its modules, the merge-base
+    try { c.modules = readModules(root, cfg, at); } catch (e) { c.modules = null; say(`the modules file is unread at ${tip.slice(0, 10)} (${e.message}): nothing is held for a provider`); }
+    c.release = null;
+  }
+  const openIds = new Set(jobs.map((j) => j.id));
+  const key = [...openIds].sort().join(',');
+  if (!c.release || c.release.key !== key) {
+    let set = new Set();
+    try { set = releaseModules(root, cfg, at, openIds); } catch (e) { say(`the release path is unread at ${tip.slice(0, 10)} (${e.message}): no pull request is ordered by it`); }
+    c.release = { key, set };
+  }
+  // (d) a provider red on its head; (b) and (c) from git, on heads fetched once.
+  const reds = new Map();
+  // A provider that cannot land on its head (marked in ready) counts as red: it holds nothing.
+  // An unreadable gate read throws (providerHolds: no hold, said once); no run yet, or one running, holds.
+  const red = (p) => {
+    if (p.stuck) return true;
+    if (!reds.has(p.head)) {
+      const rs = io.checkRuns(slug, p.head, 'gate');
+      if (!Array.isArray(rs)) throw new Error(`its gate on ${p.head.slice(0, 10)} is unread`);
+      const g = rs[0];
+      reds.set(p.head, g?.status === 'completed' && g.conclusion !== 'success');
+    }
+    return reds.get(p.head);
+  };
+  const have = (j) => {
+    if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code === 0) return;
+    git(['fetch', '-q', 'origin', `+refs/heads/${j.ref}:refs/remotes/origin/${j.ref}`], { cwd: root, allowFail: true });
+    if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code !== 0) throw new Error(`${j.ref} at ${j.head.slice(0, 10)} is not fetched`);
+  };
+  const exportsChanged = (p) => { if (!c.exp.has(p.head)) { have(p); c.exp.set(p.head, exportsChangedAt(root, cfg, at, p)); } return c.exp.get(p.head); };
+  const importsFrom = (u, p) => { const k = `${u.head}>${p.id}`; if (!c.imp.has(k)) { have(u); c.imp.set(k, importsFromAt(root, cfg, at, c.modules, u, p)); } return c.imp.get(k); };
+  const graph = usesGraph(c.modules);
+  const holds = c.modules ? providerHolds(cands, jobs, { ...graph, red, exportsChanged, importsFrom, note: say }) : new Map();
+  const now = Date.now();
+  ctx.held = [];
+  for (const u of cands) {
+    const why = holds.get(u.n);
+    const was = c.seen.get(u.n);
+    if (why) {
+      const l = holdLine(u, why);
+      if (was !== l) ctx.log(l);
+      c.seen.set(u.n, l);
+      c.heldAt.set(u.n, now);
+      ctx.held.push({ pr: u.n, module: u.id, providers: why.map((w) => ({ module: w.provider, pr: w.pr })) });
+    } else if (was) { ctx.log(`PR ${u.n} (${u.id}) is no longer held: its providers merged, went red, or no longer change what it imports`); c.seen.delete(u.n); }
+  }
+  // Each module's full-gate minutes, from the gate rows on its pull requests (read once per head).
+  for (const u of cands) {
+    if (c.runs.has(`${u.n}@${u.head}`)) continue;
+    let runs = [];
+    try { runs = gateRuns(io.comments(slug, u.n) || []); } catch { continue; }
+    c.runs.add(`${u.n}@${u.head}`);
+    const m = c.mins.get(u.id) || new Map();
+    for (const r of runs) for (const x of fullGateMinutes([r])) m.set(`${r.sha}@${r.at ?? r.run_id ?? ''}`, x);
+    c.mins.set(u.id, m);
+  }
+  const free = cands.filter((u) => !holds.has(u.n)).map((u) => ({
+    ...u,
+    release: c.release.set.has(u.id),
+    holds: ctx.held.filter((h) => h.providers.some((p) => p.pr === u.n)).length,
+    gate_min: med([...(c.mins.get(u.id)?.values() || [])]),
+  }));
+  const agedFrom = agedFromOf(c.heldAt);
+  const known = med([...c.mins.values()].map((m) => med([...m.values()])));
+  return orderQueue(free, { now, agedFrom, known }).map((u) => ({ ...u, aged: now - agedFrom(u) > AGE_MIN * MIN }));
 }
 
 // Prepares the next pull request while PR `cur`'s re-gate runs: merge's own checks, and a
@@ -210,7 +301,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   };
   const free = ctx.diskFree(root);
   if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
-  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null };
+  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free };
   let r = null;
   try {
     r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
@@ -234,7 +325,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     }
   }
   row.minutes = mins(started, Date.now());
-  row.disk_mb = free - ctx.diskFree(root); // what this merge left on disk (the worktree is gone by now)
+  row.disk_used_mb = free - ctx.diskFree(root); // what this merge left on disk (the worktree is gone by now); not the free space, disk_free_mb
   let tries = 0;
   writeState(root, cfg.state_branch, `merge train: PR ${c.n} ${row.result}`, (wt) => { tries++; append(wt, TRAIN_FILE, { ...row, push_tries: tries }); });
   row.push_tries = tries;
@@ -257,7 +348,7 @@ export function train(root, opts = {}) {
   const session = opts.session;
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
-  const io = { getPR, comments, checkRun, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
@@ -311,6 +402,7 @@ export function trainBeat(root, { session, context, log = console.log } = {}) {
 }
 
 // The trial's measures from the train's rows and the merger's, beside both baselines, each named.
+const used = (r) => r.disk_used_mb ?? r.disk_mb; // disk_mb: the rows before 5 Nov ~06:00, the same measure
 export function trainSummary(rows = [], merger = []) {
   const m = rows.filter((r) => r.row === 'merge');
   const ok = m.filter((r) => r.result === 'merged');
@@ -330,7 +422,9 @@ export function trainSummary(rows = [], merger = []) {
     prepared_share: ok.length ? r1(ok.filter((r) => r.prepared).length / ok.length * 100) : 'unmeasured',
     queue_at_merge_end: depth,
     idle_gaps_min: { total: r1(m.reduce((s, r) => s + (r.idle_min || 0), 0)), worst: m.length ? r1(Math.max(...m.map((r) => r.idle_min || 0))) : 'unmeasured' },
-    disk_mb_per_merge: { median: r1(median(m.map((r) => r.disk_mb))), worst: m.some((r) => Number.isFinite(r.disk_mb)) ? r1(Math.max(...m.map((r) => r.disk_mb).filter(Number.isFinite))) : 'unmeasured' },
+    disk_mb_per_merge: { median: r1(median(m.map(used))), worst: m.some((r) => Number.isFinite(used(r))) ? r1(Math.max(...m.map(used).filter(Number.isFinite))) : 'unmeasured' },
+    disk_free_mb_least: m.some((r) => Number.isFinite(r.disk_free_mb)) ? Math.min(...m.map((r) => r.disk_free_mb).filter(Number.isFinite)) : 'unmeasured',
+    held_for_providers: new Set(m.flatMap((r) => (r.held || []).map((h) => h.pr))).size,
     lease_takeovers: merger.filter((r) => r.row === 'takeover').length,
     push_tries: { max: m.length ? Math.max(...m.map((r) => r.push_tries || 1)) : 'unmeasured', over_one: m.filter((r) => (r.push_tries || 1) > 1).length },
     merger_context_per_hour: span > 0 ? r1((ctxRows.at(-1).context - ctxRows[0].context) / span) : 'unmeasured',
@@ -338,5 +432,5 @@ export function trainSummary(rows = [], merger = []) {
 }
 export const trainLines = (s) => [
   `Merge train: ${s.merged} merged, ${s.refused} handed to BOB, ${s.retried} tries again later; green -> merged median ${s.green_to_merged.median} min, p90 ${s.green_to_merged.p90}, worst ${s.green_to_merged.worst}. Baselines: ${s.baselines.map((b) => `${b.name}: median ${b.median}${b.p90 ? `, p90 ${b.p90}` : ''}${b.worst ? `, worst ${b.worst}` : ''}`).join('; ')}.`,
-  `Prepared while the previous gate ran: ${s.prepared_share}% (prep median ${s.prep_minutes_median} min); queue depth as each merge neared its end ${JSON.stringify(s.queue_at_merge_end)}; idle gaps ${s.idle_gaps_min.total} min (worst ${s.idle_gaps_min.worst}); disk per merge median ${s.disk_mb_per_merge.median} MB (worst ${s.disk_mb_per_merge.worst}); lease takeovers ${s.lease_takeovers}; state-branch tries max ${s.push_tries.max}, ${s.push_tries.over_one} over one; merger context ${s.merger_context_per_hour}%/h.`,
+  `Prepared while the previous gate ran: ${s.prepared_share}% (prep median ${s.prep_minutes_median} min); queue depth as each merge neared its end ${JSON.stringify(s.queue_at_merge_end)}; idle gaps ${s.idle_gaps_min.total} min (worst ${s.idle_gaps_min.worst}); disk used per merge median ${s.disk_mb_per_merge.median} MB (worst ${s.disk_mb_per_merge.worst}), least free before a merge ${s.disk_free_mb_least} MB; ${s.held_for_providers} PR(s) held for a provider; lease takeovers ${s.lease_takeovers}; state-branch tries max ${s.push_tries.max}, ${s.push_tries.over_one} over one; merger context ${s.merger_context_per_hour}%/h.`,
 ];
