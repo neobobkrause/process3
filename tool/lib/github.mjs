@@ -158,11 +158,17 @@ export function runArtifactRow(slug, id) {
 // refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).
 // base_red and receipt_passed too: a records-only run checks a later receipt's excuses by them
 // (review of PR 134).
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed'];
+// tree, spec and spec_* too: a spec-tested fast path and the tranche cover trust a spec row for the
+// tree it tested and the job it judged, and a spec-tested row for the spec run it names (train-spec).
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
+// branch: the run must be on this branch of this repository whatever pull requests GitHub lists for
+// it (train-spec: GitHub lists the open PRs whose head sha OR branch matches, so a run of another
+// branch at the same commit could otherwise vouch here; final review of the tranche-based spec).
 export function verifyRow(slug, row, { pr, baseRef, merged, branch }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
   if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
+  if (branch !== undefined && (a.head_branch !== branch || a.head_repository?.full_name !== slug)) return false;
   // The run must be this pull request's own, into the tranche: not a second PR on the same
   // commit into a branch that carries a workflow of its own.
   // (Every pull request GitHub lists for the run must be into the tranche, in case it lists
@@ -174,12 +180,9 @@ export function verifyRow(slug, row, { pr, baseRef, merged, branch }, io = { get
   // binds the row's commits to the PR's head and the tranche.
   const prs = a.pull_requests || [];
   if (a.event !== 'pull_request') return false;
-  // GitHub lists a PR on a run whose head_sha OR head_branch matches: a second branch at the same
-  // commit, its PR into another base then closed, would list only this PR. The live path holds the
-  // run to the PR's own branch in this repository too, which unbound then covers (cold review of
-  // build/branch-bound).
-  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)
-      || !branch || a.head_branch !== branch || a.head_repository?.full_name !== slug
+  // The live path needs the branch (checked above), so unbound, read for that branch, covers every
+  // PR that could have run it (cold review of build/branch-bound).
+  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef) || !branch
     : !merged || a.head_branch !== merged.branch || a.head_repository?.full_name !== slug || a.conclusion !== 'success') return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);
