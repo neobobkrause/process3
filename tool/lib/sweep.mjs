@@ -67,7 +67,7 @@ function overMedian(root, ref, attempts) {
 // startable work while under half the cap for IDLE_MIN.empty: an alarm, each empty slot with its
 // reason (job start --ready's skip lines, then the holds). null when neither holds.
 export const IDLE_MIN = { work: 15, empty: 30 };
-export function idleCapacity({ live, cap, holds, work, onOrigin, layers, prev, freed, owed, t = Date.now() }) {
+export function idleCapacity({ live, cap, holds, work, onOrigin, layers, closable = null, prev, freed, owed, t = Date.now() }) {
   const held = slotsHeld(holds);
   const sel = readySelection(work, { onOrigin, holds, layers });
   // Modules parked in the merge train (their pull request ready, gate green) are neither startable
@@ -78,7 +78,9 @@ export function idleCapacity({ live, cap, holds, work, onOrigin, layers, prev, f
   const skip = sel.skip.filter((x) => !x.train && !x.unknown);
   const inWork = sel.held;
   const n = sel.go.length;
-  const kind = n > 0 && live < cap - held ? 'work' : n === 0 && live < cap / 2 ? 'empty' : null;
+  // A layer ready to close (review): job start --ready closes it first and starts the next layer's
+  // work, which this read cannot count; under the cap that is work not started, never "no work".
+  const kind = (n > 0 || closable !== null) && live < cap - held ? 'work' : n === 0 && closable === null && live < cap / 2 ? 'empty' : null;
   if (!kind) return null;
   // Not carried: never before the last sweep, which saw no such idle (review of PR 139).
   const p = prev?.idle_capacity;
@@ -94,15 +96,15 @@ export function idleCapacity({ live, cap, holds, work, onOrigin, layers, prev, f
   const judged = (x) => /BOB's judgment$/.test(x.why);
   const dead = skip.filter(judged).map((x) => `dead end ${x.id || x.file}: ${x.why}`);
   const lines = [...dead, ...skip.filter((x) => !judged(x)).map((x) => `${x.id || x.file}: ${x.why}`), ...inWork.map((y) => `${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`)].slice(0, empty - k);
-  const why = [...lines.filter((l) => l.startsWith('dead end ')), ...(k ? [`${k} x startable, not started`] : []), ...lines.filter((l) => !l.startsWith('dead end '))];
+  const why = [...(closable !== null ? [`layer ${closable} ready to close: job start --ready closes it, then starts the next layer's work`] : []), ...lines.filter((l) => l.startsWith('dead end ')), ...(k ? [`${k} x startable, not started`] : []), ...lines.filter((l) => !l.startsWith('dead end '))];
   const rest = empty - k - lines.length;
-  if (rest > 0) why.push(`${rest} x no startable work`);
+  if (rest > 0) why.push(closable !== null ? `${rest} x for the next layer's work` : `${rest} x no startable work`);
   if (train.length) why.push(`in the train, not startable: ${train.map((x) => `${x.id} PR ${x.train}`).join(', ')}`);
   if (unknown.length) why.push(`unknown, job branch unread, not counted: ${unknown.map((x) => x.id).join(', ')}`);
   // Modules after the open layer with unmet marks and no ledger entry: they can never start (item 7).
   const noEntry = work?.noEntry || [];
   if (noEntry.length) why.push(`no ledger entry, cannot start: ${noEntry.map((m) => `${m.id} (${m.count} unmet)`).join(', ')}`);
-  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train })) } : {}), ...(unknown.length ? { unknown: unknown.map((x) => x.id) } : {}), ...(noEntry.length ? { no_entry: noEntry.map((m) => ({ id: m.id, count: m.count })) } : {}), reasons: why };
+  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(closable !== null ? { layer_ready: closable } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train })) } : {}), ...(unknown.length ? { unknown: unknown.map((x) => x.id) } : {}), ...(noEntry.length ? { no_entry: noEntry.map((m) => ({ id: m.id, count: m.count })) } : {}), reasons: why };
 }
 
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
@@ -168,7 +170,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
       const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
       const onOrigin = onOriginOf(out.heads);
       count = readySelection(out.next, { onOrigin, holds, layers }).go.length;
-      ic = idleCapacity({ live, cap: jobCap(cfg).cap, holds, work: out.next, onOrigin, layers, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
+      ic = idleCapacity({ live, cap: jobCap(cfg).cap, holds, work: out.next, onOrigin, layers, closable: out.layer?.ready && out.layer.cur ? out.layer.cur.n : null, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
     }
   }
   const { reasons = [], ...rec } = ic || {};
@@ -298,7 +300,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
           // it could have begun, the tranche's tip or a job session's archive.
           const freed = Math.max(ct(root, [tranche]), ...(listed || []).filter((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim())).map((x) => Date.parse(x.updated_at) || 0));
-          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, onOrigin, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, owed: readOwed(root, sb), t });
+          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, onOrigin, closable: ls?.ready && ls.cur ? ls.cur.n : null, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, owed: readOwed(root, sb), t });
           if (ic) {
             const { reasons, ...rec } = ic;
             liveRow.idle_capacity = rec;

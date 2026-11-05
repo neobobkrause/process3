@@ -243,6 +243,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   // leaves its row unknown, never merged nor startable (the idle check, 5 Nov: a clone without
   // origin's job refs counted 26 startable against job start --ready's 2).
   let wanted = null;
+  let prHeads = new Set();
+  const noticed = new Set();
   // jobRefs, with offline (the idle check between sweeps): GitHub's open pull requests read once and
   // the job refs fetched exactly as online, everything else read offline, so the idle count is
   // job start --ready's from the same read.
@@ -256,10 +258,10 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     // fetch never finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
     const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
     const heads = new Set((prs || []).map((p) => p.head?.ref));
+    prHeads = heads;
     // And, for BOB, job/<id> of each user module with an unanswered provider notice: a COMPLETE
     // user whose auto-reopened start was pushed before its pull request opened names the notice
     // on that branch only (the state branch is fetched here once; bobStatus reuses the fetch).
-    const noticed = new Set();
     if (role === 'bob') { try { if (offline || fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     if (ls.code === 0) originHeads = new Set(ls.stdout.split('\n').map((l) => l.trim().split('\t')[1]).filter(Boolean));
@@ -287,7 +289,9 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
     if (e.status?.state === 'BLOCKED') Object.assign(row, { since: e.status.at, owner: e.status.owner }, e.status.reason ? { blocked: e.status.reason } : {});
     const haveBranch = git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0;
-    if (!haveBranch && wanted?.has(`refs/heads/${jb}`) && originHeads?.has(`refs/heads/${jb}`)) row.unread = true;
+    // Judged at the fetched tranche, on the branch this row reads (review: the wanted set was read
+    // before the fetch, from the local tranche): a ref the row needs, on origin, not in this clone.
+    if (!haveBranch && wanted && originHeads?.has(`refs/heads/${jb}`) && (e.status?.state !== 'COMPLETE' || prHeads.has(jb) || noticed.has(e.id))) row.unread = true;
     if (haveBranch) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};

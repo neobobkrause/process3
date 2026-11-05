@@ -281,23 +281,45 @@ test('the idle check counts startable work exactly as job start --ready does, in
   git(['commit', '-q', '-m', 'job start a (reopen)'], { cwd: root });
   git(['push', '-q', 'origin', 'job/a'], { cwd: root });
   const origin = git(['remote', 'get-url', 'origin'], { cwd: root });
-  const clone = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'c');
-  git(['clone', '-q', '--single-branch', '--branch', 'tranche', origin, clone], { cwd: root });
-  git(['config', 'user.email', 't@t'], { cwd: clone });
-  git(['config', 'user.name', 't'], { cwd: clone });
-  assert.equal(git(['for-each-ref', 'refs/remotes/origin/job/'], { cwd: clone }), '', 'the clone holds no job refs');
+  // Each side in its own fresh clone holding the tranche only: neither sees the other's fetches.
+  const fresh = () => {
+    const dir = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'c');
+    git(['clone', '-q', '--single-branch', '--branch', 'tranche', origin, dir], { cwd: root });
+    git(['config', 'user.email', 't@t'], { cwd: dir });
+    git(['config', 'user.name', 't'], { cwd: dir });
+    assert.equal(git(['for-each-ref', 'refs/remotes/origin/job/'], { cwd: dir }), '', 'the clone holds no job refs');
+    fetchState(dir, SB, { fresh: true });
+    return dir;
+  };
   const io = { slug: 'o/r', openPRs: () => [{ number: 5, draft: true, head: { ref: 'job/a', sha: 'a1' }, base: { ref: 'tranche' } }], checkRun: () => null, comments: () => [], prFiles: () => [], compare: () => null };
+  const clone = fresh();
   const c = { ...loadCfg(clone), coordinator: 'session_coord1', state_branch: SB, tranche: 'tranche', plan: 'run' };
-  fetchState(clone, SB, { fresh: true });
   addRow(clone, { at: ago(30), row: 'ready', live: 1, job_cap: 6, started: [] });
   const out = [];
   const row = idleCheck(clone, c, { by: 'status', t: Date.now(), io, log: (l) => out.push(l) });
+  const other = fresh();
   const lines = [];
-  startReady(clone, { live: '1', remote: undefined, read: (r, o) => status(r, { ...o, io }), start: () => { throw new Error('not in this test'); }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: (l) => lines.push(l) });
+  startReady(other, { live: '1', read: (r, o) => status(r, { ...o, io }), start: () => { throw new Error('not in this test'); }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: (l) => lines.push(l) });
   const ready = Number(lines.find((l) => /^ready: \d+ startable/.test(l))?.match(/^ready: (\d+)/)[1]);
   assert.equal(ready, 2, lines.join('\n'));
   assert.equal(row.startable, ready, 'the idle check\'s count is --ready\'s');
   assert.equal(row.idle_capacity.startable, ready);
+  // The old offline read, on a third fresh clone, counted a as startable: the defect this fixes.
+  const old = status(fresh(), { role: 'bob', offline: true, heads: new Set(['a']), log: quiet });
+  assert.equal(startable(old.next, { onOrigin: (id) => id === 'a' }).go.length, 3);
+  // job/b started (OPEN, its branch on origin, so wanted) and its fetch fails in this clone (a ref
+  // in the way): status marks the row unread, its pull request unknown; it is not startable.
+  git(['push', '-q', 'origin', 'tranche:refs/heads/job/b'], { cwd: root });
+  const blocked = fresh();
+  git(['update-ref', 'refs/remotes/origin/job/b/x', 'HEAD'], { cwd: blocked });
+  const seen = status(blocked, { role: 'bob', offline: true, jobRefs: true, io: { ...io, openPRs: () => [] }, log: quiet });
+  const b = seen.rows.find((r) => r.id === 'b');
+  assert.equal(b.unread, true, JSON.stringify(b));
+  assert.equal(b.pr, 'unknown (job/b unread)');
+  assert.ok(!startable(seen.next, { onOrigin: (id) => seen.heads.has(id) }).go.some((x) => x.id === 'b'));
+  // A merged module (COMPLETE, no pull request, no notice) whose branch is on origin is not wanted: never unread.
+  const merged = status(fresh(), { role: 'bob', offline: true, jobRefs: true, io: { ...io, openPRs: () => [] }, log: quiet });
+  assert.equal(merged.rows.find((r) => r.id === 'a').unread, undefined);
   // GitHub unread: no count and no judgment, said in the row.
   const later = Date.now() + (CHECK_MIN + 1) * 6e4;
   const blind = idleCheck(clone, c, { by: 'status', t: later, io: { ...io, openPRs: () => { throw new Error('offline'); } }, log: quiet });
@@ -313,4 +335,12 @@ test('a module whose job branch could not be read is unknown: not startable, not
   assert.equal(ic.startable, 1);
   assert.deepEqual(ic.unknown, ['a']);
   assert.ok(ic.reasons.includes('unknown, job branch unread, not counted: a'), ic.reasons.join(' | '));
+});
+
+test('a layer ready to close: the idle check says --ready closes it, never "no startable work"', () => {
+  const ic = idleCapacity({ live: 1, cap: 10, holds: [], work: [], layers: new Map(), closable: 3, freed: Date.now() - 60 * 6e4 });
+  assert.equal(ic.kind, 'work');
+  assert.equal(ic.layer_ready, 3);
+  assert.equal(ic.reasons[0], "layer 3 ready to close: job start --ready closes it, then starts the next layer's work");
+  assert.ok(!ic.reasons.some((l) => /no startable work/.test(l)), ic.reasons.join(' | '));
 });
