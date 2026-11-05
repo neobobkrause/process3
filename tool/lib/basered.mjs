@@ -19,7 +19,7 @@
 // process the PR's tests left running, or loose objects rewritten in place; and, for a sibling two
 // test files import, one test failing in one importer here and in the other at the base (the id
 // does not name the importer, the count matches; confirming review of PR 133).
-import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
@@ -185,7 +185,18 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
     try { return readFileSync(`/proc/${child.pid}/stat`, 'utf8').replace(/^.*\) /s, '')[0] !== 'Z'; } catch { return true; }
   };
   // The whole group, verdict or not: an install's or a build's descendants outlive a timeout's kill.
-  const group = () => { try { process.kill(-child.pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+  // A member that is a zombie is gone: the killed shell stays one, never reaped while the gate runs
+  // synchronously, and kill(-group, 0) still finds it (copy of ci, 5 Nov: every drop waited its
+  // full 5 s, and the tool's tests passed the job's 10 minutes). Read from /proc where it can be.
+  const group = () => {
+    try { process.kill(-child.pid, 0); } catch (e) { return e.code === 'EPERM'; }
+    let names;
+    try { names = readdirSync('/proc'); } catch { return true; }
+    return names.some((n) => {
+      if (!/^\d+$/.test(n)) return false;
+      try { const f = readFileSync(`/proc/${n}/stat`, 'utf8').replace(/^.*\) /s, '').split(' '); return Number(f[2]) === child.pid && f[0] !== 'Z'; } catch { return false; }
+    });
+  };
   const stop = () => {
     done = true;
     if (!child?.pid) return;
