@@ -54,6 +54,7 @@ const io = (head, mergePR) => ({
   ],
   checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
   verify: (slug, r) => r.run_id === 11,
+  gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
   ...honestBranch([3]),
   mergePR,
 });

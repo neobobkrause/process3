@@ -271,6 +271,7 @@ function mergeFixture(root, id, files) {
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: () => true,
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
     ...honestBranch([7, 8, 9, 10, 50, 51, 52, 77, 78, 224]),
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   };

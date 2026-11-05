@@ -704,6 +704,7 @@ test('merge passes on a green gate run that checked attempt 2, and refuses one t
     comments: () => [...f.state.comments, gate],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: () => true,
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
     ...honestBranch([3, 7, 9, 60, 301]),
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });

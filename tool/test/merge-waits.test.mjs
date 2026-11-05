@@ -90,6 +90,7 @@ function jobIO(root, { gate, merged = [] }) {
       comments: () => all(seen.length ? seen : [remoteTip(root)]),
       checkRun: (slug, sha) => gate(sha),
       verify: () => true,
+      gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
       ...honestBranch([3, 7, 9]),
       mergePR: (slug, n, sha) => { merged.push(sha); return { merged: true, sha: 'm'.repeat(40) }; },
     },
