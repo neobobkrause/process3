@@ -4,7 +4,7 @@ import { parseBlock, GATE, block } from '../lib/github.mjs';
 import { jobBlock, jobComplete, jobSender, jobStart, jobTest, startText } from '../lib/job.mjs';
 import { merge } from '../lib/merge.mjs';
 import { status } from '../lib/status.mjs';
-import { readEntry } from '../lib/ledger.mjs';
+import { checkLedger, readEntry } from '../lib/ledger.mjs';
 import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
@@ -158,6 +158,10 @@ test('block sets BLOCKED with its reason', () => {
   assert.throws(() => jobBlock(root, 'alpha', { push: false, log: quiet }), /needs --reason/);
   jobBlock(root, 'alpha', { reason: 'R65 names an error code nobody chose', push: false, log: quiet });
   assert.deepEqual(readEntry(root, 'alpha').status.reason, 'R65 names an error code nobody chose');
+  // --owner names who owes its ruling (audit of PR 139); the entry still validates.
+  assert.throws(() => jobBlock(root, 'alpha', { reason: 'x', owner: 'ROOT', push: false, log: quiet }), /--owner bob .* or coordinator/);
+  jobBlock(root, 'alpha', { reason: 'R65 names an error code nobody chose', owner: 'bob', push: false, log: quiet });
+  assert.deepEqual([readEntry(root, 'alpha').status.owner, checkLedger(root).length], ['bob', 0]);
 });
 
 test('a gate block round-trips through a comment body', () => {
@@ -546,7 +550,7 @@ test('a COMPLETE job whose pull request merged is refused, and named --reopen', 
   const { root, f } = completed();
   commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   f.gh.findPR = () => null;
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --reopen/);
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --live <n> --reopen/);
   assert.equal(readRows(root, 'alpha').length, 2);
 });
 

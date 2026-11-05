@@ -10,9 +10,13 @@
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, READY_NEXT, jobStart } from './job.mjs';
 import { layerClose } from './layer.mjs';
-import { heldBy, layersAt, slotsHeld } from './hold.mjs';
+import { heldBy, layersAt, paid, readHolds, slotsHeld } from './hold.mjs';
+import { SWEEP_ROWS_FILE } from './sweep.mjs';
+import { writeState } from './state.mjs';
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
-import { Fail, fail, git, loadConfig } from './util.mjs';
+import { Fail, fail, git, jobCap, loadConfig, now as stamp } from './util.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
 
@@ -20,6 +24,7 @@ export function startable(next, { onOrigin = () => false } = {}) {
   const go = [];
   const skip = [];
   const seen = new Set();
+  const kind = new Map();
   for (const x of next || []) {
     if (!x?.file || x.over || x.triage || x.missing || x.found_no_module) continue;
     if (x.module && seen.has(x.module)) continue;
@@ -37,7 +42,12 @@ export function startable(next, { onOrigin = () => false } = {}) {
     // never close (copy, 5 Nov: inquiry, basis-versions and four more sat as BOB's judgment).
     else if (x.entry_state === 'COMPLETE' && (x.found || x.marks)) go.push({ id: x.module, file: x.file, reopen: `meet ${[x.marks && `the unmet requirement marks ${x.marks.join(', ')}`, x.found && `the found marks ${x.found.join(', ')}`].filter(Boolean).join(' and ')}` });
     else skip.push({ file: x.file, id: x.module, why: x.after ? `unmet after its job: ${x.after.join(', ')}` : `entry ${x.entry_state}: BOB's judgment` });
+    if (go.at(-1)?.file === x.file) kind.set(go.at(-1), x.release ? 0 : x.debt ? 2 : 1);
   }
+  // The release path first, debt last (status.mjs nextWork tags them); while release work is
+  // startable, debt takes no slot (coordinator, 5 Nov).
+  go.sort((a, b) => kind.get(a) - kind.get(b));
+  if (go.some((j) => kind.get(j) === 0)) for (const j of go.filter((y) => kind.get(y) === 2)) { go.splice(go.indexOf(j), 1); skip.push({ file: j.file, id: j.id, why: 'debt (base-red found marks only): no slot while release-path work is startable' }); }
   return { go, skip };
 }
 
@@ -73,6 +83,7 @@ export function readyCount(root, { read = status } = {}) {
 
 export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
+  const begun = new Date(Date.now() - 1000).toISOString(); // the acts owed before this run (whole seconds: one second back) are its to pay
   const listed = sessions === undefined ? null : readSessions(sessions);
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
   const n = listed ? sessionsCount(listed, live, log) : Number(live);
@@ -136,8 +147,8 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
       // A resumed start whose pull request was already open may have its session running.
       if (r?.resumed && r.pr && !r.created) {
         for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);
-        failed.push({ id: j.id, why: 'a resumed start with its pull request open: check sessions; job start <id> prints its launch' });
-        log(`not started: ${j.id}: its pull request was already open; a session may be running. Check your sessions; \`${P3} job start ${j.id}\` prints its launch when none is`);
+        failed.push({ id: j.id, why: 'a resumed start with its pull request open: check sessions; job start <id> --live <n> prints its launch' });
+        log(`not started: ${j.id}: its pull request was already open; a session may be running. Check your sessions; \`${P3} job start ${j.id} --live <n>\` prints its launch when none is`);
         continue;
       }
       for (const l of held) log(l);
@@ -148,7 +159,32 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
       log(`not started: ${j.id}: ${e.message}${e instanceof Fail ? '' : ' (an unexpected error; the other starts went on)'}`);
     }
   }
+  // Starts owed paid up to this run's start (a later act's stands), and the live count it measured
+  // (those it counted and those it started) for the idle checks between sweeps (sweep.mjs).
+  try {
+    writeState(root, cfg.state_branch, `job start --ready: ${started.length} started`, (dir) => {
+      // A start that failed leaves its starts owed; a resumed one whose pull request was open did start.
+      if (!failed.some((f) => !/^a resumed start/.test(f.why))) paid(dir, begun);
+      mkdirSync(join(dir, 'metrics'), { recursive: true });
+      appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, job_cap: c.cap, started: started.map((x) => x.id) }) + '\n');
+    });
+  } catch (e) { if (!(e instanceof Fail)) throw e; log(`starts owed not cleared (${e.message}): run this again`); }
   if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);
   else log(`nothing started; ${P3} status --role bob --live ${n} lists BOB's other acts`);
   return { ok: !failed.length, closed, started, failed, skipped: skip, waiting: wait.map((x) => x.id) };
+}
+
+// job start <id> (not a restart, which replaces a session): the cap checked as job start --ready
+// checks it, the account's job sessions against the cap less the slots recorded holds keep.
+export function capCheck(root, { live, sessions } = {}) {
+  if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
+  const listed = sessions === undefined ? null : readSessions(sessions);
+  const n = listed ? sessionsCount(listed, live, () => {}) : Number(live);
+  if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start <id> --live <n> (or --sessions <file>): the account\'s job sessions, so the job cap holds as it does for job start --ready');
+  const cfg = loadConfig(root);
+  const { cap } = jobCap(cfg);
+  let held = 0;
+  try { held = slotsHeld(readHolds(root, cfg.state_branch)); } catch { held = 0; }
+  if (n >= cap - held) fail(`the job cap is full: ${n} job sessions live of the cap ${cap}${held ? ` less ${held} held` : ''}; nothing was started`);
+  return { n, cap, held };
 }

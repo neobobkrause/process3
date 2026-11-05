@@ -261,7 +261,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     if (push) fetchRef(root, branch);
     const starts = rowsAt(root, push ? `origin/${branch}` : branch, id).filter((r) => r.row === 'attempt' && r.event === 'start');
     // A fresh start whose push landed and whose pull request did not open resumes; it is not cut again.
-    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} without --fresh-branch and it resumes`);
+    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} --live <n> without --fresh-branch and it resumes`);
     const prior = Math.max(starts.length, ...starts.map((r) => Number(r.attempt) || 0));
     fresh0 = { from: branch, why: String(fresh).trim(), prior };
     branch = `job/${id}-${n}`;
@@ -456,7 +456,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   const outside = changed.filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`refused, nothing written: ${source} changes ${outside.length} file(s) outside module ${id}'s paths (${own.join(', ')}): ${outside.join(', ')}. BOB splits the work, or takes in only what fits`);
   const commits = git(['log', '--format=%h', `${mb.stdout.trim()}..${tip}`], { cwd: root }).split('\n').filter(Boolean);
-  if (!commits.length) fail(`${source} has no commits the tranche lacks; nothing to take in (a fresh start is job start ${id})`);
+  if (!commits.length) fail(`${source} has no commits the tranche lacks; nothing to take in (a fresh start is job start ${id} --live <n>)`);
   if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
   const local = git(['rev-parse', '-q', '--verify', `refs/heads/${job}`], { cwd: root, allowFail: true });
   if (local.code === 0 && local.stdout.trim() !== git(['rev-parse', tip], { cwd: root })) fail(`a local branch ${job} exists and is not ${source}'s tip; bring it to Bob`);
@@ -555,7 +555,7 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
   // again here (copy, 4 Nov: BOB opened PR 194 by hand to get past this refusal). A WORKING job
   // with no pull request is an unfinished start, which job start resumes.
   let pr = find(slug, branch);
-  if (!pr && state !== 'BLOCKED') fail(`${branch} has no open pull request; --restart continues an open one (an unfinished start resumes with job start ${id})`);
+  if (!pr && state !== 'BLOCKED') fail(`${branch} has no open pull request; --restart continues an open one (an unfinished start resumes with job start ${id} --live <n>)`);
   if (!pr) {
     pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: `job ${id}, BLOCKED: its draft pull request, opened again by job start --restart for the replacement session (${String(why).trim()}).`, draft: true });
     log(`draft pull request opened for the BLOCKED ${branch}: ${pr.html_url || `#${pr.number}`}`);
@@ -844,7 +844,7 @@ export function jobComplete(root, id, opts = {}) {
     : git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
   const pr = push ? io.findPR(slug, branch) : null;
   const entry = readEntry(root, id);
-  if (push && !pr) fail(entry.status.state === 'COMPLETE' ? `${id} is COMPLETE and ${branch} has no open pull request; a new attempt on a merged module is job start ${id} --reopen "<what it must do>"` : `no open pull request from ${branch}`);
+  if (push && !pr) fail(entry.status.state === 'COMPLETE' ? `${id} is COMPLETE and ${branch} has no open pull request; a new attempt on a merged module is job start ${id} --live <n> --reopen "<what it must do>"` : `no open pull request from ${branch}`);
   let again = null;
 
   if (entry.status.state === 'COMPLETE') {
@@ -1007,13 +1007,14 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
 
 // The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed. Commits only
 // the entry, and can run again to finish a push that failed.
-export function jobBlock(root, id, { reason, push = true, log = console.log } = {}) {
+export function jobBlock(root, id, { reason, owner, push = true, log = console.log } = {}) {
   if (!reason || reason === true) fail('block needs --reason "<why>"');
+  if (owner !== undefined && owner !== 'bob' && owner !== 'coordinator') fail('--owner bob (a requirement question: what the product must do) or coordinator (anything else)');
   const branch = onBranch(root, id);
   const e = readEntry(root, id);
   if (e.status.state === 'COMPLETE') fail(`${id} is COMPLETE; it cannot be blocked`);
-  if (!(e.status.state === 'BLOCKED' && e.status.reason === reason)) {
-    writeStatus(root, id, { state: 'BLOCKED', reason, at: now() });
+  if (!(e.status.state === 'BLOCKED' && e.status.reason === reason && e.status.owner === owner)) {
+    writeStatus(root, id, { state: 'BLOCKED', reason, at: now(), ...(owner ? { owner } : {}) });
     try { commitFiles(root, [entryFile(id)], `block ${id}: ${reason}`); } catch (err) { restore(root, [entryFile(id)]); throw err; }
   }
   if (push) {
