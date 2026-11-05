@@ -15,7 +15,8 @@ import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, impor
 import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
 import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
-import { P3, READY_START, bobWake, toolPin } from './job.mjs';
+import { P3, READY_FIRST, READY_START, bobWake, toolPin } from './job.mjs';
+import { owe, readAuto, starterLive } from './hold.mjs';
 import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
@@ -523,8 +524,16 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   }
   // BOB's acts after a merge (the triage the notice owes, the ready jobs' start), sent, not taken.
   if (r?.merged) {
-    const acts = firstActs(r.triage).map((l) => l.replace(/^(first|then): /, '')).join('; then ');
-    try { send(root, cfg.state_branch, { from: 'merger', to: 'bob', text: `merged PR ${c.n} (job ${c.id}): ${acts || READY_START}`, log: ctx.log }); } catch (e) { if (!(e instanceof Fail)) throw e; log(`tell BOB: merged PR ${c.n}: ${acts}`); }
+    // The land owes starts (hold.mjs), as a merge command's does (copy, 5 Nov: the train's lands
+    // wrote none, so only BOB's own reading of the message started the work they freed).
+    try { writeState(root, cfg.state_branch, `starts owed: merge ${c.n}`, (wt) => owe(wt, `merge ${c.n}`)); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; log(`starts owed not recorded (${e.message.split('\n')[0]}); the starter's next timed pass reads the land`); }
+    // With the starter running (auto.mjs), the starts are its: BOB is told only the triage owed.
+    let auto = false;
+    try { auto = starterLive(readAuto(root, cfg.state_branch)); } catch { auto = false; }
+    const lines = firstActs(r.triage).filter((l) => !auto || l !== READY_FIRST && !/job start --ready/.test(l));
+    const acts = lines.map((l) => l.replace(/^(first|then): /, '')).join('; then ');
+    const text = auto ? `merged PR ${c.n} (job ${c.id})${acts ? `: ${acts}` : ''}; the MERGER's starter starts the work it freed` : `merged PR ${c.n} (job ${c.id}): ${acts || READY_START}`;
+    try { send(root, cfg.state_branch, { from: 'merger', to: 'bob', text, log: ctx.log }); } catch (e) { if (!(e instanceof Fail)) throw e; log(`tell BOB: ${text}`); }
   }
   ctx.rows.push(row);
   return row;
