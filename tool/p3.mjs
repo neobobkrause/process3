@@ -19,7 +19,8 @@ import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, plainViaTrain, releaseSessionLeas
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { hold, owe, owes } from './lib/hold.mjs';
+import { hold, owe, owes, readAuto, starterLive } from './lib/hold.mjs';
+import { autoDone, autoLoop, autoStart } from './lib/auto.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -96,6 +97,7 @@ const commands = {
     // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
     if (a.ready) {
       if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap'], a['fresh-branch']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap, --fresh-branch');
+      try { const sb = loadConfig(root).state_branch; if (fetchState(root, sb)) { const au = readAuto(root, sb); if (starterLive(au)) console.log(`note: the MERGER's starter runs (${au.session}, last pass ${au.at}) and makes these starts itself; a start it already made is refused here as on origin`); } } catch { /* a note only */ }
       return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions, archived: list(a.archived).filter((x) => x !== true) }).ok ? 0 : 1;
     }
     // --fresh-branch goes with --reopen (a COMPLETE module) or --restart (an OPEN one), or alone.
@@ -106,6 +108,15 @@ const commands = {
     jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'] });
     return 0;
   },
+
+  // auto start --session <the MERGER's id>: the starter (auto.mjs), run by the MERGER in the
+  // background beside its train; --here is its loop, in the starter's own clone (the launcher's).
+  // auto done <pass> --created <module>=<session id>...: the sessions the MERGER created from a pass.
+  'auto start': (a, root) => {
+    if (a.here) { const r = autoLoop(root, { session: a.session }); return r.exit; }
+    return autoStart(root, { session: a.session });
+  },
+  'auto done': (a, root) => (autoDone(root, one(a, 'pass'), list(a.created).filter((x) => x !== true)), 0),
 
   // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {

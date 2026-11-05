@@ -115,12 +115,14 @@ export const OWED_FILE = 'flow/owed.json';
 export const OWED_ALARM_MIN = 15;
 export function owes(name, a) {
   if (['merge', 'job complete', 'block', 'layer close'].includes(name)) return `${name} ${a._[0] ?? ''}`.trim();
+  // A hold ended frees what it held (an expiry is the starter's to see: auto.mjs).
+  if (name === 'hold' && a.end !== undefined && a.end !== true) return `hold ended ${a.end}`;
   return name === 'notice triage' && a.record !== undefined ? `triage recorded ${a._[0] ?? ''}`.trim() : null;
 }
 export const bobAct = (name, a) => (name === 'job start' ? !a.ready : name === 'send' ? a.from === 'bob'
   : ['merge', 'layer close', 'notice triage', 'notice withdraw', 'tranche open', 'tranche close', 'lane ask', 'handoff', 'hold', 'found', 'pin move', 'release dev', 'deploy dev', 'walk internal'].includes(name));
 export function readOwed(root, sb) { try { return JSON.parse(readState(root, sb, OWED_FILE) || 'null'); } catch { return null; } }
-export const startsOwedLine = (o) => `starts owed since ${o.since} (${o.acts.map((x) => x.act).slice(-3).join('; ')}): run job start --ready`;
+export const startsOwedLine = (o, auto = null) => `starts owed since ${o.since} (${o.acts.map((x) => x.act).slice(-3).join('; ')}): ${starterLive(auto) ? `the MERGER's starter (${auto.session}) makes them` : 'run job start --ready'}`;
 // In a state worktree: owe(act) keeps the first act's time; paid(begun) drops the acts up to begun.
 export function owe(dir, act) {
   const f = join(dir, OWED_FILE);
@@ -137,3 +139,17 @@ export function paid(dir, begun) {
   if (later.length) writeFileSync(f, JSON.stringify({ since: later[0].at, acts: later }) + '\n');
   else rmSync(f, { force: true });
 }
+
+// The starter (auto.mjs; Bob, 5 Nov: "Why do you have to order BOB to start jobs?"): the MERGER's
+// second background loop, which makes every ready start without a session's judgment. Its state:
+// flow/auto.json { session, at (its last pass), pass, pending (launches printed, their sessions not
+// yet seen) }; its measure: metrics/starts.jsonl, a 'pass' row per pass and a 'created' row per job
+// session seen created, with the minutes from the starts owed to it.
+export const AUTO_FILE = 'flow/auto.json';
+export const STARTS_FILE = 'metrics/starts.jsonl';
+// Minutes: a pass at least this often (an archive or a gate gone green writes no owed row); none
+// sooner than gap after the last; a pass's list_sessions awaited this long; a launch not seen
+// created this long is printed again; a starter with no pass this long is not running.
+export const AUTO = { every: 10, gap: 3, sessionsWait: 10, reprint: 10, live: 25 };
+export function readAuto(root, sb) { try { return JSON.parse(readState(root, sb, AUTO_FILE) || 'null'); } catch { return null; } }
+export const starterLive = (a, t = Date.now()) => !!a?.session && t - (Date.parse(a.at) || 0) < AUTO.live * 6e4;
