@@ -201,8 +201,10 @@ test('merge train: a triggered PR lands only with a --reviewed note for its head
   assert.equal(run(root, g).rows.length, 0, 'not tried again at the same head, even by a new train');
   // A review note by anyone but the addressed BOB does not count; a cost note never overrides one.
   writeState(root, 'process-state', 'bob', (d) => { mkdirSync(join(d, 'addresses'), { recursive: true }); writeFileSync(join(d, 'addresses/bob.json'), JSON.stringify({ session: 'session_bob1' })); });
-  trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_job1', reviewed: 'self-reviewed', rounds: 1, reviewMinutes: 1, findings: 0, actedOn: 0, log: quiet });
-  assert.equal(run(root, g).rows[0].result, 'refused', 'a job\'s own review note is not BOB\'s');
+  assert.throws(() => trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_job1', reviewed: 'self-reviewed', rounds: 1, reviewMinutes: 1, findings: 0, actedOn: 0, log: quiet }), /a review note is BOB's to record/);
+  // One written by hand on the state branch counts for nothing either.
+  writeState(root, 'process-state', 'forged', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, 'metrics/train-notes.jsonl'), JSON.stringify({ at: new Date().toISOString(), row: 'note', by: 'session_job1', pr: 1, sha: g.tipOf('job/delta'), reviewed: 'self', rounds: 1, review_minutes: 1, findings: 0, findings_acted: 0 }) + '\n'); });
+  assert.equal(run(root, g).rows.length, 0, 'a note not by BOB does not even re-admit the head');
   trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_bob1', reviewed: 'fresh worker: the assertion moved to b.test.mjs', rounds: 1, reviewMinutes: 6, findings: 1, actedOn: 1, log: quiet });
   trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_merger1', jobCostUsd: 2.5, jobSession: 'session_job1', log: quiet });
   assert.throws(() => trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_merger1', log: quiet }), /its review .*its job cost/);
@@ -297,6 +299,19 @@ test('merge train: changed approvals on the tranche stop the train before it lan
     }
     return check(slug, sha, name);
   };
+  // A GitHub that would merge onto a moved base: the train itself must see the change.
+  const merge = g.io.mergePR;
+  g.io.mergePR = (slug, n, sha, o) => { git(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche'], { cwd: root }); return merge(slug, n, git(['commit-tree', `${sha}^{tree}`, '-p', 'refs/remotes/origin/tranche', '-p', sha, '-m', 'x'], { cwd: root }), o); };
   assert.throws(() => run(root, g), /approvals on tranche changed since the train started/);
   assert.deepEqual(g.calls.merged, []);
+});
+
+test('merge train: a transient failure waits, growing, without a hot loop; the fifth goes to BOB', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
+  const g = github(root, ids);
+  const verify = g.io.verify;
+  g.io.verify = (slug, r) => { if (r.sha === g.tipOf('job/alpha')) throw new Fail('gh api failed: HTTP 502'); return verify(slug, r); };
+  const r = train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: quiet, idleEvery: 1, rounds: 3, pipeline: false });
+  assert.deepEqual(r.rows.map((x) => [x.pr, x.result]), [[1, 'retry'], [2, 'merged']], 'PR 1 waits; PR 2 is not starved');
+  assert.equal(messages(root).filter((x) => /PR 1/.test(x.text)).length, 0);
 });
