@@ -32,6 +32,7 @@
       "properties": {
         "state": { "enum": ["OPEN", "WORKING", "BLOCKED", "COMPLETE"] },
         "reason": { "type": "string" },
+        "owner": { "enum": ["bob", "coordinator"] },
         "at": { "type": "string" }
       }
     }
