@@ -7,10 +7,12 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { commit, entry, makeRepo, onState } from './helpers.mjs';
-import { readSessions, recordedStarts } from '../lib/status.mjs';
+import { parkedSessions, readSessions, recordedStarts, sessionActs, sessionsBound, sessionsCount } from '../lib/status.mjs';
+import { archivable } from '../lib/ready.mjs';
+import { writeState } from '../lib/state.mjs';
 import { jobStart } from '../lib/job.mjs';
 import { startCheck } from '../lib/start.mjs';
-import { git, lockNote } from '../lib/util.mjs';
+import { DEEP_MARK, depth, fetchBranch, fetchJobRefs, git, lockNote, markedDeep } from '../lib/util.mjs';
 import { briefText as reviewBrief } from '../lib/review.mjs';
 import { briefText as triageBrief } from '../lib/triage.mjs';
 
@@ -51,20 +53,20 @@ test('item 1: one page of list_sessions stands when it holds every session the r
   const file = join(dir, 's.json');
   const page = (data) => { writeFileSync(file, JSON.stringify({ ccr: { data, has_more: true, last_id: data.at(-1)?.id } })); return file; };
   const s = (id, title, h, st = 'SESSION_STATUS_IDLE') => ({ id, title, session_status: st, created_at: iso(h), updated_at: iso(h) });
-  // No whole read recorded: a partial page is refused, since another product's or a merged job's
-  // unarchived session could be on any later page (review of PR 150).
-  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s6', 'other', 2)]), { root, offline: true }), /no whole read is recorded to say how far back a live job session can be/);
-  // The last whole read saw its oldest live job session (another product's, say) created at 01:30.
-  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(1.5), at: iso(8), live: 3 }) + '\n' });
-  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1), s('s7', 'job a', 3.1), s('s6', 'other', 2)]), { root, offline: true }), /a job session live at the last whole read \(created 2026-11-05T01:30:00\.000Z\) could be on them/);
-  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(5.1), at: iso(8), live: 1 }) + '\n' });
-  // Newest first, reaching back to 04:00 only: a's first session (started 03:00) could be on the next page.
+  // No record: a page stands once it reaches past the first start of every job the state branch
+  // records as possibly live (build/starter-fixes, coordinator 5 Nov: never every page back to 1 Aug).
+  assert.equal(readSessions(page([s('s9', 'build/x', 9), s('s6', 'other', 2)]), { root, offline: true }).length, 2);
+  // Newest first, reaching back to 05:06 only: a's first session (started 03:00) could be on the next page.
   const short = [s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1)];
-  assert.throws(() => readSessions(page(short), { root, offline: true }), /has_more\), and a recorded job session could be on them \(job a: 2 sessions started since 2026-11-05T03:00:00\.000Z\).*or until a page reaches past 2026-11-05T03:00:00\.000Z/);
+  assert.throws(() => readSessions(page(short), { root, offline: true }), /has_more\), and a recorded job session could be on them \(job a: 2 sessions started since 2026-11-05T03:00:00\.000Z\).*the last page reaches back no further than 2026-11-05T03:00:00\.000Z/);
   // Both of a's sessions listed: covered.
   assert.equal(readSessions(page([...short, s('s7', 'job a', 3.1, 'SESSION_STATUS_ARCHIVED')]), { root, offline: true }).length, 3);
-  // Reaching past a's first start (its first session archived and paged out): covered.
-  assert.equal(readSessions(page([...short, s('s6', 'other', 2)]), { root, offline: true }).length, 3);
+  // An older record (the oldest job session live at a whole read, created 01:30): a page must reach past it.
+  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(1.5), at: iso(8), live: 3 }) + '\n' });
+  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1), s('s7', 'job a', 3.1), s('s6', 'other', 2)]), { root, offline: true }), /a job session live at the last whole read \(created 2026-11-05T01:30:00\.000Z\) could be on them.*no further than 2026-11-05T01:30:00\.000Z/);
+  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(5.1), at: iso(8), live: 1 }) + '\n' });
+  // Reaching it stands: every session live then, and every one since, is on the page.
+  assert.equal(readSessions(page(short), { root, offline: true }).length, 2);
   // A session with no creation time reaches back nowhere; and without the record, a page is refused as before.
   assert.throws(() => readSessions(page([...short, { id: 's5', title: 'x' }]), { root, offline: true }), /could be on them/);
   assert.throws(() => readSessions(page([...short, s('s6', 'other', 2)])), /list_sessions has more pages \(has_more\): call it with limit 100/);
@@ -199,26 +201,129 @@ test('item 4: a branch tip truly not in the tranche after a full read is refused
   }
 });
 
-test('item 1: a whole read records the oldest live job session (any product); a partial page reaching past it records it again; a full read with none records now', () => {
+test('item 1: a read that stands records its newest session and its live job sessions; a later page need reach back only to that newest, the older live ones carried and counted (build/starter-fixes)', () => {
   const root = withOrigin({ 'process/ledger/a.json': entry('a') });
   const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
   const s = (id, title, h, st = 'SESSION_STATUS_IDLE') => ({ id, title, session_status: st, created_at: iso(h), updated_at: iso(h) });
-  const stored = () => { git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root }); return JSON.parse(git(['show', 'refs/remotes/origin/process-state:metrics/live-sessions.json'], { cwd: root })).oldest; };
+  const stored = () => { git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root }); return JSON.parse(git(['show', 'refs/remotes/origin/process-state:metrics/live-sessions.json'], { cwd: root })); };
   writeFileSync(file, JSON.stringify({ data: [s('s3', 'job x', 6), s('s2', 'job other-product', 2), s('s1', 'job old', 1, 'SESSION_STATUS_ARCHIVED')], has_more: false }));
   readSessions(file, { root });
-  assert.equal(stored(), iso(2), 'the oldest unarchived job session, another product\'s included');
-  // A page reaching past it stands, and its own oldest live job session is recorded.
-  writeFileSync(file, JSON.stringify({ data: [s('s4', 'job y', 7), s('s3', 'job x', 6), s('s2', 'job other-product', 2, 'SESSION_STATUS_ARCHIVED')], has_more: true }));
-  readSessions(file, { root });
-  assert.equal(stored(), iso(6));
-  // One stopping short of it is refused.
-  writeFileSync(file, JSON.stringify({ data: [s('s4', 'job y', 7)], has_more: true }));
-  assert.throws(() => readSessions(file, { root }), /a job session live at the last whole read \(created 2026-11-05T06:00:00\.000Z\) could be on them/);
-  // Not newest first: no bound, refused.
-  writeFileSync(file, JSON.stringify({ data: [s('s3', 'job x', 6), s('s4', 'job y', 7), s('s0', 'other', 1)], has_more: true }));
+  let r = stored();
+  assert.deepEqual([r.oldest, r.newest, r.live, r.sessions.map((x) => x.id)], [iso(2), iso(6), 2, ['s2', 's3']], 'the unarchived job sessions, another product\'s included, and the newest session read');
+  assert.ok(r.seen);
+  // A page reaching back to that newest session (06:00) stands; s2 (02:00), older than the page, is carried and counted.
+  writeFileSync(file, JSON.stringify({ data: [s('s5', 'build/z', 8), s('s4', 'job y', 7), s('s3', 'job x', 6)], has_more: true }));
+  const got = readSessions(file, { root });
+  assert.deepEqual(got.map((x) => [x.id, !!x.carried]), [['s5', false], ['s4', false], ['s3', false], ['s2', true]]);
+  assert.equal(sessionsCount(got, undefined, () => {}), 3, 'the carried session holds its slot');
+  r = stored();
+  assert.deepEqual([r.newest, r.sessions.map((x) => x.id), r.oldest], [iso(8), ['s2', 's3', 's4'], iso(2)]);
+  // One stopping short of the newest session read is refused, naming how far back to page.
+  writeFileSync(file, JSON.stringify({ data: [s('s6', 'job w', 9)], has_more: true }));
+  assert.throws(() => readSessions(file, { root }), /a session made since the last read that held every live job session \(its newest created 2026-11-05T08:00:00\.000Z\) could be on them: .*no further than 2026-11-05T08:00:00\.000Z/);
+  writeFileSync(file, JSON.stringify({ data: [s('s6', 'job w', 9), s('s5', 'build/z', 8)], has_more: true }));
+  assert.deepEqual(readSessions(file, { root }).map((x) => x.id), ['s6', 's5', 's2', 's3', 's4']);
+  // A page that shows a recorded session archived takes the page's word; not newest first: no bound.
+  writeFileSync(file, JSON.stringify({ data: [s('s6', 'job w', 9), s('s5', 'build/z', 8), s('s4', 'job y', 7, 'SESSION_STATUS_ARCHIVED')], has_more: true }));
+  assert.equal(sessionsCount(readSessions(file, { root }), undefined, () => {}), 3, 's6 and the carried s2 and s3');
+  assert.deepEqual(stored().sessions.map((x) => x.id), ['s2', 's3', 's6']);
+  writeFileSync(file, JSON.stringify({ data: [s('s4', 'job y', 7, 'SESSION_STATUS_ARCHIVED'), s('s6', 'job w', 9)], has_more: true }));
   assert.throws(() => readSessions(file, { root }), /this page is not newest first by created_at/);
-  // No live job session: the newest session on the list bounds any later one (not the time of the read).
-  writeFileSync(file, JSON.stringify({ data: [s('s4', 'build/z', 7)], has_more: false }));
+  // A whole read sees every one: none carried, and s2 archived since stops counting.
+  writeFileSync(file, JSON.stringify({ data: [s('s6', 'job w', 9), s('s5', 'build/z', 8), s('s4', 'job y', 7), s('s3', 'job x', 6), s('s2', 'job other-product', 2, 'SESSION_STATUS_ARCHIVED')], has_more: false }));
+  assert.equal(sessionsCount(readSessions(file, { root }), undefined, () => {}), 3);
+  assert.deepEqual(stored().sessions.map((x) => x.id), ['s3', 's4', 's6']);
+});
+
+test('item 1: the bound the starter asks for: the record\'s newest session; the oldest carried one once unseen for an hour; the first open start with no record', () => {
+  const root = withOrigin({ 'process/ledger/a.json': entry('a') });
+  jobBranch(root, 'a', startRow('a', 3));
+  const t = Date.parse(iso(10));
+  assert.deepEqual(sessionsBound(root, { offline: true, t }), { until: iso(3), why: 'the first start of the oldest open job' });
+  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(5) }) + '\n' });
+  assert.equal(sessionsBound(root, { offline: true, t }).until, iso(5));
+  const rec = (seen, o = { whole: true }) => onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(2), newest: iso(9), live: 2, sessions: [{ id: 's2', title: 'job b', created_at: iso(2) }, { id: 's8', title: 'job a', created_at: iso(8) }], seen, ...o }) + '\n' });
+  rec(iso(9.5));
+  assert.deepEqual(sessionsBound(root, { offline: true, t }), { until: iso(9), why: 'the newest session of the last read' });
+  rec(iso(8.5));
+  assert.equal(sessionsBound(root, { offline: true, t }).until, iso(2), 'carried sessions unseen for an hour: page back to the oldest');
+  // A record begun with no read of every page (pages bounded by the recorded starts): every page, an hour on.
+  rec(iso(9.5), { whole: false, partial_since: iso(9.5) });
+  assert.equal(sessionsBound(root, { offline: true, t }).until, iso(9));
+  rec(iso(9.5), { whole: false, partial_since: iso(8.9) });
+  assert.deepEqual(sessionsBound(root, { offline: true, t }), { until: null, all: true, why: 'no read of every page on record: one, an hour after the first bounded one' });
+});
+
+test('item 1 (review): a record begun from bounded pages is not whole; a session the page reaches past and does not show is dropped; a quiet read writes nothing; a carried session is counted, never acted on', () => {
+  const root = withOrigin({ 'process/ledger/a.json': entry('a'), 'process/ledger/m.json': entry('m') });
+  jobBranch(root, 'a', startRow('a', 3));
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  const s = (id, title, h, st = 'SESSION_STATUS_IDLE') => ({ id, title, session_status: st, created_at: iso(h), updated_at: iso(h) });
+  const stored = () => { git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root }); return JSON.parse(git(['show', 'refs/remotes/origin/process-state:metrics/live-sessions.json'], { cwd: root })); };
+  const commits = () => Number(git(['rev-list', '--count', 'refs/remotes/origin/process-state'], { cwd: root }));
+  // No record: pages reaching past a's start (03:00) stand, recorded as not whole.
+  writeFileSync(file, JSON.stringify({ data: [s('s9', 'job a', 9), s('s4', 'job m', 4), s('s2', 'other', 2)], has_more: true }));
   readSessions(file, { root });
-  assert.equal(stored(), iso(7));
+  let r = stored();
+  assert.deepEqual([r.whole, typeof r.partial_since, r.sessions.map((x) => x.id)], [false, 'string', ['s4', 's9']]);
+  // The same list again: nothing written (seen is moved on only once half stale).
+  const n = commits();
+  readSessions(file, { root });
+  assert.equal(commits(), n, 'a quiet read writes nothing');
+  // A page back to 05:00 only: s4 (04:00) is carried; a recorded session newer than the page's end and not on it is gone.
+  writeState(root, 'process-state', 'a phantom', (d) => { const x = JSON.parse(readFileSync(join(d, 'metrics/live-sessions.json'), 'utf8')); x.sessions.push({ id: 's6', title: 'job z', session_status: 'SESSION_STATUS_IDLE', created_at: iso(6) }); writeFileSync(join(d, 'metrics/live-sessions.json'), JSON.stringify(x) + '\n'); });
+  writeFileSync(file, JSON.stringify({ data: [s('s10', 'build/q', 10), s('s9', 'job a', 9), s('s5', 'build/p', 5)], has_more: true }));
+  const got = readSessions(file, { root });
+  assert.deepEqual(got.map((x) => [x.id, !!x.carried]), [['s10', false], ['s9', false], ['s5', false], ['s4', true]]);
+  r = stored();
+  assert.deepEqual([r.whole, r.sessions.map((x) => x.id), r.seen], [false, ['s4', 's9'], r.seen]);
+  // Every page read: whole.
+  writeFileSync(file, JSON.stringify({ data: [s('s10', 'build/q', 10), s('s9', 'job a', 9), s('s4', 'job m', 4)], has_more: false }));
+  readSessions(file, { root });
+  r = stored();
+  assert.deepEqual([r.whole, 'partial_since' in r], [true, false]);
+  // m merged, its idle session carried: counted against the cap, never archived on a past read's word, never parked.
+  const listed = [s('s9', 'job a', 9), { ...s('s4', 'job m', 4), carried: true }];
+  assert.deepEqual(archivable([{ id: 'm', tranche: 'COMPLETE', branch: 'COMPLETE', pr: 'merged' }], listed).sessions, []);
+  assert.deepEqual(archivable([{ id: 'm', tranche: 'COMPLETE', branch: 'COMPLETE', pr: 'merged' }], [s('s4', 'job m', 4)]).sessions.map((x) => x.session), ['s4']);
+  assert.deepEqual(parkedSessions(listed, [{ id: 'm', ready: true, gate: 'success', pr: '#7 ready' }]), []);
+  assert.equal(sessionsCount(listed, undefined, () => {}), 2);
+  assert.deepEqual(sessionActs([{ ...s('s4', 'job m', 1), carried: true }], { rows: [{ id: 'm', tranche: 'COMPLETE', branch: 'COMPLETE', pr: 'merged' }], now: Date.parse(iso(10)) }).acts, []);
+});
+
+test('train clone (review): marked deep, a --depth 1 fetch takes no depth and cuts nothing; a job head past main only, one main holds alone at its tip, and never a depth after any other failure', () => {
+  const src = makeRepo({ 'README.md': 'x' });
+  for (let i = 0; i < 5; i += 1) commit(src, { [`m${i}.txt`]: String(i) });
+  git(['branch', 'job/old', 'HEAD~2'], { cwd: src });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: src });
+  for (let i = 0; i < 6; i += 1) commit(src, { [`t${i}.txt`]: String(i) });
+  git(['checkout', '-q', '-b', 'job/new'], { cwd: src });
+  commit(src, { 'n.txt': 'n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['clone', '-q', '--bare', src, bare], { cwd: tmpdir() });
+  const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
+  git(['clone', '-q', '--depth', '1', '-b', 'main', `file://${bare}`, thin], { cwd: tmpdir() });
+  git(['fetch', '-q', '--shallow-exclude=main', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche'], { cwd: thin });
+  const past = () => Number(git(['rev-list', '--count', 'origin/tranche'], { cwd: thin }));
+  assert.equal(past(), 6);
+  assert.deepEqual(depth(thin), ['--depth', '1']);
+  git(['config', DEEP_MARK, 'true'], { cwd: thin });
+  assert.ok(markedDeep(thin));
+  assert.deepEqual(depth(thin), []);
+  fetchBranch(thin, 'tranche');
+  assert.equal(past(), 6, 'the history past main stands');
+  const trace = join(mkdtempSync(join(tmpdir(), 'p3-trace-')), 't.log');
+  process.env.GIT_TRACE = trace;
+  let ok;
+  try {
+    ok = [fetchJobRefs(thin, ['job/new']), fetchJobRefs(thin, ['job/old']), fetchJobRefs(thin, ['job/none'])];
+  } finally { delete process.env.GIT_TRACE; }
+  assert.deepEqual(ok, [true, true, false]);
+  const fetches = readFileSync(trace, 'utf8').split('\n').filter((l) => /built-in: git fetch/.test(l)).map((l) => l.replace(/^.*built-in: /, ''));
+  // job/new past main; job/old, main's alone (no commit selected), at its tip; job/none unknown: refused, never a depth.
+  assert.deepEqual(fetches.map((l) => l.split(' origin ')[0]), ['git fetch -q --shallow-exclude=main', 'git fetch -q --shallow-exclude=main', 'git fetch -q --depth=1', 'git fetch -q --shallow-exclude=main'], fetches.join('\n'));
+  assert.ok(/job\/old/.test(fetches[2]));
+  assert.equal(git(['rev-list', '--count', 'origin/job/old'], { cwd: thin }), '1');
+  assert.equal(past(), 6);
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/new'], { cwd: thin }), git(['rev-parse', 'tranche'], { cwd: src }));
 });

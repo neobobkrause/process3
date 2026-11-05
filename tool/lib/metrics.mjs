@@ -432,7 +432,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     surviving_prs: surviving,
     cost_per_surviving_pr: surviving ? cost / surviving : `pending: ${surv.map((s) => `PR ${s.pr} ${s.state}${s.due ? ` (read on ${s.due})` : ''}`).join(', ') || 'no merges'}`,
     gate_minutes: Math.round(gateMinutes * 100) / 100,
-    review_triggers: triggerSummary(merges),
+    review_triggers: triggerSummary(merges, rows.filter((r) => r.row === 'triggers')),
     gates,
     denials: measured.reduce((s, r) => s + (Number(r.denials) || 0), 0),
     refusals: refusalList(rows, new Map([...sessionRoles(rows), ...roles])),

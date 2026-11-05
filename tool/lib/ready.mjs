@@ -37,7 +37,7 @@ export function startable(next, { onOrigin = () => false } = {}) {
     // A module with an attempt open (a pull request, commits the tranche lacks, a flag) is never
     // started again here: status names its act (review of PR 100: a second notice relaunched it).
     // One parked in the merge train (its pull request ready, gate green) is the train's, named so (build train-robust, item 4).
-    if (x.attempt_open && x.in_train) { skip.push({ file: x.file, id: x.module, why: `in the train (PR ${x.in_train})`, train: x.in_train }); continue; }
+    if (x.attempt_open && x.in_train) { skip.push({ file: x.file, id: x.module, why: `in the train (PR ${x.in_train})`, train: x.in_train, ...(x.train_stuck ? { stuck: x.train_stuck } : {}) }); continue; }
     if (x.attempt_open) { skip.push({ file: x.file, id: x.module, why: 'its attempt is open: status says what it needs' }); continue; }
     // A lane's module while the lane's recorded session is live (lane.mjs): one session per lane.
     if (x.lane_held) { skip.push({ file: x.file, id: x.module, why: x.lane_held }); continue; }
@@ -85,7 +85,7 @@ export function archivable(rows, listed) {
   const sessions = [];
   for (const d of done) {
     const js = jobSession(listed, d.id);
-    if (js && !isArchived(js) && isIdle(js)) sessions.push({ session: sessionId(js), job: d.id, why: d.why });
+    if (js && !js.carried && !isArchived(js) && isIdle(js)) sessions.push({ session: sessionId(js), job: d.id, why: d.why });
   }
   return { jobs: done, sessions };
 }
