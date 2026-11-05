@@ -71,7 +71,7 @@ test('report tranche: every section from the record, and unmeasured where the re
   assert.match(md, /^# Tranche report: tranche/);
   // Flow (audit of PR 139): cap use beside velocity, efficiency and quality, no target; holds by setter.
   assert.match(md, /## Flow\n\nSince the opening[^\n]*a diagnostic, no target/);
-  assert.match(md, /- cap use: \d+% over [\d.]+ h; IDLE CAPACITY alarms \(sweeps\) 0\n- velocity: (?:[-\d.]+|unmeasured) marks per hour\n- efficiency: [^\n]*per merged PR, gate runs [^\n]*\n- quality: false-done share/);
+  assert.match(md, /- cap use: \d+% over [\d.]+ h; IDLE CAPACITY alarms \(idle stretches\) 0\n- velocity: (?:[-\d.]+|unmeasured) marks per hour\n- efficiency: [^\n]*per merged PR, gate runs [^\n]*\n- quality: false-done share/);
   assert.match(md, /\| live \| hours \| cap use \| marks per hour \| merges per job session-hour \| gate runs per PR \| false-done \| reopened marks \|[\s\S]*\| 1-5 \| 1 \| 20% \|/);
   assert.match(md, /\| s_bob \| gate queue full \| 1 \| 1 \|/);
   assert.doesNotMatch(md, /target 85%/);

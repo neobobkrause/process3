@@ -148,7 +148,7 @@ export function idleByDay(sweepRows) {
 
 // Cap use (Bob, 5 Nov: about 48% over a day, unseen): job session-hours over cap session-hours from
 // `from` to `to`, each sweep row's live and job_cap held until the next row (at most 2 h). A diagnostic, not a
-// target (audit of PR 139); with the sweeps that alarmed IDLE CAPACITY (each a wake) and the longest idle.
+// target (audit of PR 139); with the idle stretches that alarmed IDLE CAPACITY and the longest idle.
 const SPAN_H = 2;
 const spans = (sweepRows, a, b) => {
   const rows = sweepRows.filter((r) => r.row === 'sweep' && Date.parse(r.at) && Number.isInteger(r.live) && rowCap(r) > 0).sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
@@ -160,7 +160,8 @@ export function capUse(sweepRows, from, to = now()) {
   let job = 0, slots = 0;
   for (const { r, s: x, e } of spans(sweepRows, a, b)) { job += r.live * (e - x); slots += rowCap(r) * (e - x); }
   const alarms = sweepRows.filter((r) => r.idle_capacity?.alarm && Date.parse(r.at) >= a && Date.parse(r.at) <= b);
-  return { from: from || 'the first sweep row', to, job_session_h: Math.round(job / 36e4) / 10, cap_session_h: Math.round(slots / 36e4) / 10, use: slots ? Math.round(job / slots * 1000) / 1000 : 'unmeasured', idle_alarms: alarms.length, idle_longest_min: alarms.length ? Math.max(...alarms.map((r) => r.idle_capacity.min)) : 0 };
+  // One per idle stretch (its idle_capacity.since), however many sweep or tool-run check rows alarmed in it.
+  return { from: from || 'the first sweep row', to, job_session_h: Math.round(job / 36e4) / 10, cap_session_h: Math.round(slots / 36e4) / 10, use: slots ? Math.round(job / slots * 1000) / 1000 : 'unmeasured', idle_alarms: new Set(alarms.map((r) => r.idle_capacity.since ?? r.at)).size, idle_longest_min: alarms.length ? Math.max(...alarms.map((r) => r.idle_capacity.min)) : 0 };
 }
 
 // The flow figures (audit of PR 139: cap use beside velocity, efficiency and quality, so a knee shows).

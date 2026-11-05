@@ -174,7 +174,9 @@ test('flow: cap use beside velocity, efficiency and quality, whole and by concur
     { row: 'sweep', at: at(1), live: 6, job_cap: 20, idle_capacity: { alarm: true, min: 50 } },
     { row: 'sweep', at: at(3), live: 10, live_cap: 20, idle_capacity: { alarm: true, min: 170 } },
     { row: 'sweep', at: at(4), job_cap: 20 }, // unmeasured live: skipped
+    { row: 'check', at: at(3.1), live: 10, job_cap: 20, idle_capacity: { alarm: true, min: 176 } }, // a tool-run check in the same stretch
   ];
+  sweeps[2].idle_capacity.since = sweeps[4].idle_capacity.since = at(0.2);
   // Unmet marks at each hour: 30 at 0, 20 at 1, 18 at 3, 14 at 4 (a split adding met marks changes none).
   const unmet = { 0: 30, 1: 20, 3: 18, 4: 14 };
   const unmetAt = (iso) => unmet[(Date.parse(iso) - Date.parse(at(0))) / 36e5] ?? null;
