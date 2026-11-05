@@ -656,6 +656,8 @@ export function mergePlain(root, n, opts = {}) {
   const pr = io.getPR(slug, n);
   if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
   if (pr.draft) fail(`pull request ${n} is a draft`);
+  // The merge train names the head it brought up to the tranche (train.mjs plainOne): any other is refused.
+  if (opts.head && pr.head?.sha !== opts.head) fail(`pull request ${n} moved to ${String(pr.head?.sha).slice(0, 10)} from ${opts.head.slice(0, 10)}, the head the train chose; nothing was merged`);
   const base = pr.base.ref;
   const head = pr.head.ref;
   if (!pr.head.repo?.full_name || pr.head.repo.full_name !== slug) fail(`pull request ${n} comes from ${pr.head.repo?.full_name || 'a repository that no longer exists'}, not ${slug}`);
@@ -754,6 +756,8 @@ export function mergePlain(root, n, opts = {}) {
   baseHolds();
   // The first close stands on the gate itself, not only on GitHub's ruleset.
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
+  // The merger's lease (train.mjs), when the train lands it, checked again just before GitHub is asked.
+  opts.beforeLand?.();
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: [reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),
@@ -763,6 +767,7 @@ export function mergePlain(root, n, opts = {}) {
     check: () => {
       const p = io.getPR(slug, n);
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
+      opts.beforeLand?.();
       baseHolds();
     },
   });
@@ -776,5 +781,5 @@ export function mergePlain(root, n, opts = {}) {
   const what = `pin moved to ${pin}: run your wake steps (start check --wake prints a changed prompt), then status`;
   const wake = moved && as !== 'bob' ? bobWake(what, as) : null;
   if (wake) log(wakeLine(what, as));
-  return { merged: true, sha: r.sha, checks: names, wake };
+  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null };
 }

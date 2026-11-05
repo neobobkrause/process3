@@ -92,3 +92,25 @@ lands. B is smaller but adds a two-session handshake that can lapse; C is smalle
 when it matters most.
 
 Without a live train lease, `merge --plain` merges as today, so nothing changes when no train runs.
+
+## Chosen and built: A (coordinator, 5 Nov 08:36)
+
+The coordinator chose A (Bob's option F, serial per-PR merges by the MERGER, applied to plain pull
+requests), with two conditions, both built and tested (tool/test/train-plain.test.mjs):
+
+1. Callers keep today's contract. `merge <pr> --plain ...` into the tranche under a live lease
+   (train.mjs plainViaTrain) checks the review flags, queues a row (merger/plain.jsonl) and waits up
+   to --minutes for the train's row: it prints the same `merged pull request <n> at <sha>` line, the
+   same pin wake (`next act: wake BOB ...`), and exits 0; a refusal throws with the train's reason
+   (exit 1, as a mergePlain refusal). Past --minutes it withdraws the row (the train checks again
+   just before the land and never lands a withdrawn one) and fails; a train that stops while it
+   waits hands the merge back: the row is withdrawn and mergePlain runs here, as before.
+2. Never starved: the train takes every queued plain pull request before any job, oldest first,
+   whatever the job order says (release path, aged); one in backoff (GitHub slow, a moved base:
+   1, 2, 4, 8 min, the fifth try to BOB) lets jobs go meanwhile.
+
+The caller checks only the review flags before queueing; every other plain rule is mergePlain's,
+run by the train on the head that lands, so a refusal comes back as the train's row. The train's
+rows for plain merges are `row: 'plain'` in metrics/train.jsonl (the trial's merge measures are
+unchanged). mergePlain gained `head` (refuses any other head) and `beforeLand` (the lease and the
+withdrawal, checked before each GitHub merge call), and returns the pin wake's `what`.
