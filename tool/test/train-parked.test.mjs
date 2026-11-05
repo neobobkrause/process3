@@ -93,7 +93,7 @@ test('item 4: a module whose attempt is a ready pull request with a green gate i
   const cfg = { ...loadConfig(root), plan: 'run' };
   writeState(root, SB, 'row', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: ago(30), row: 'ready', live: 6, job_cap: 10, started: [] }) + '\n'); });
   const out = [];
-  idleCheck(root, cfg, { by: 'send', t: Date.now() + 20 * 6e4, io: gh(), read: () => ({ open: { state: 'open' }, rows: OFFLINE, next: NEXT.map((x) => ({ ...x })), holds: [] }), log: (l) => out.push(l) });
+  idleCheck(root, cfg, { by: 'send', t: Date.now() + 20 * 6e4, io: gh(), read: () => ({ open: { state: 'open' }, rows: OFFLINE, next: NEXT.map((x) => ({ ...x })), holds: [], prs: gh().openPRs(), heads: new Set(['a', 'c']) }), log: (l) => out.push(l) });
   const line = out.find((l) => /^IDLE CAPACITY/.test(l));
   assert.ok(line, out.join('\n'));
   assert.match(line, /in the train, not startable: a PR 443$/);

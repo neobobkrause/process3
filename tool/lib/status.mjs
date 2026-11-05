@@ -214,7 +214,7 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
   return { kinds, acts, line };
 }
 
-export function status(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, heads: givenHeads, log = console.log, io: given } = {}) {
+export function status(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
   // Starts owed, the first line (hold.mjs): a marker, never a refusal.
@@ -239,7 +239,16 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   // Offline, the caller's one ls-remote of job/* (readyCount) stands in: an OPEN entry with no
   // job branch on origin has no pull request either, so it is unstarted without GitHub read.
   let originHeads = offline && givenHeads ? new Set([...givenHeads].map((h) => `refs/heads/job/${h}`)) : null;
-  if (!offline) {
+  // The refs fetched for the jobs (below): a wanted ref origin has and this clone could not read
+  // leaves its row unknown, never merged nor startable (the idle check, 5 Nov: a clone without
+  // origin's job refs counted 26 startable against job start --ready's 2).
+  let wanted = null;
+  let prHeads = new Set();
+  const noticed = new Set();
+  // jobRefs, with offline (the idle check between sweeps): GitHub's open pull requests read once and
+  // the job refs fetched exactly as online, everything else read offline, so the idle count is
+  // job start --ready's from the same read.
+  if (!offline || jobRefs) {
     try { slug = repoSlug(root); prs = io.openPRs(slug, cfg.tranche); } catch { prs = null; }
     // The tranche and the branches job/<id> of the ledger's entries that are not COMPLETE, or
     // that have an open pull request (a reopen) or an unanswered notice: no other job/* ref is fetched (110 s measured
@@ -249,15 +258,15 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     // fetch never finds "nothing to do" by itself (11 to 37 s for an up-to-date tranche, against 3 to 5).
     const known = haveRef() ? readLedgerTexts(root, tranche) : readLedgerTexts(root);
     const heads = new Set((prs || []).map((p) => p.head?.ref));
+    prHeads = heads;
     // And, for BOB, job/<id> of each user module with an unanswered provider notice: a COMPLETE
     // user whose auto-reopened start was pushed before its pull request opened names the notice
     // on that branch only (the state branch is fetched here once; bobStatus reuses the fetch).
-    const noticed = new Set();
-    if (role === 'bob') { try { if (fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
+    if (role === 'bob') { try { if (offline || fetchState(root, cfg.state_branch)) for (const n of notices(root, cfg.state_branch)) for (const u of n.open) noticed.add(u); } catch { /* bobStatus reports it */ } }
     const ls = git(['ls-remote', '--heads', 'origin'], { cwd: root, allowFail: true });
     if (ls.code === 0) originHeads = new Set(ls.stdout.split('\n').map((l) => l.trim().split('\t')[1]).filter(Boolean));
     const kids = new Set(Object.keys(known).map((f) => f.slice(LEDGER_DIR.length + 1, -5)));
-    const wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); const jb = e.id && jobBranch(e.id, jobHeads(originHeads), kids); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(jb) || noticed.has(e.id)) ? [...new Set([`refs/heads/job/${e.id}`, `refs/heads/${jb}`])] : []; } catch { return []; } })]);
+    wanted = new Set([`refs/heads/${cfg.tranche}`, ...Object.values(known).flatMap((t) => { try { const e = JSON.parse(t); const jb = e.id && jobBranch(e.id, jobHeads(originHeads), kids); return e.id && (e.status?.state !== 'COMPLETE' || heads.has(jb) || noticed.has(e.id)) ? [...new Set([`refs/heads/job/${e.id}`, `refs/heads/${jb}`])] : []; } catch { return []; } })]);
     const local = new Map(git(['for-each-ref', '--format=%(objectname) %(refname)', 'refs/remotes/origin/'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split(' ').reverse()));
     const moved = (ls.code === 0 ? ls.stdout.split('\n') : []).map((l) => l.trim().split('\t')).filter(([sha, r]) => r && wanted.has(r)
       && local.get(`refs/remotes/origin/${r.slice(11)}`) !== sha);
@@ -279,7 +288,11 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements, ...(jb !== `job/${e.id}` ? { ref: jb } : {}) };
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
     if (e.status?.state === 'BLOCKED') Object.assign(row, { since: e.status.at, owner: e.status.owner }, e.status.reason ? { blocked: e.status.reason } : {});
-    if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
+    const haveBranch = git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0;
+    // Judged at the fetched tranche, on the branch this row reads (review: the wanted set was read
+    // before the fetch, from the local tranche): a ref the row needs, on origin, not in this clone.
+    if (!haveBranch && wanted && originHeads?.has(`refs/heads/${jb}`) && (e.status?.state !== 'COMPLETE' || prHeads.has(jb) || noticed.has(e.id))) row.unread = true;
+    if (haveBranch) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
       try { s = t.code === 0 ? JSON.parse(t.stdout).status || {} : {}; } catch { s = {}; }
@@ -304,6 +317,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       row.ready = !pr.draft;
       const run = io.checkRun(slug, pr.head.sha, 'gate');
       row.gate = run ? (run.conclusion || run.status) : 'none';
+    } else if (row.unread) {
+      row.pr = `unknown (${jb} unread)`;
     } else if (prs === null) {
       if (row.branch) row.pr = 'unknown (GitHub not read)';
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
@@ -360,7 +375,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, rows, holds, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, holds, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, rows, holds, prs, heads: idsOn(originHeads), ...bobStatus(root, cfg, { rows, prs: offline ? null : prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, holds, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
     out.layer = layerState(root, cfg, rows, ref, { closed });
@@ -388,12 +403,16 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     if (out.parked.length) { live = Number(live) - out.parked.length; log(parkedLine(out.parked)); }
     out.live = live;
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
-    out.flow = flow(cfg, rows, out.next, live, listed, holds);
+    out.flow = flow(cfg, rows, out.next, live, listed, holds, { onOrigin: onOriginOf(out.heads) });
     log(out.flow.line);
     return out;
   }
-  return { rows, sessions, prs, holds };
+  return { rows, sessions, prs, holds, heads: idsOn(originHeads) };
 }
+// The modules whose job/<id> origin has (null when origin's heads were not read), and the test
+// job start --ready's selection takes (ready.mjs startable onOrigin).
+const idsOn = (h) => (h ? new Set(jobHeads(h).map((x) => x.slice(4))) : null);
+export const onOriginOf = (heads) => (heads ? (id) => heads.has(id) : undefined);
 
 const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) => (t > 0 ? t : fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`));
 // The jobs BLOCKED awaiting a ruling (not deferred: a recorded reason and its pull request closed),
@@ -424,8 +443,8 @@ export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new 
 }
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
 // the work job start --ready would start (ready.mjs startable), and the jobs awaiting a ruling. The sweep records its numbers.
-export function flow(cfg, rows, next, live, listed = null, holds = []) {
-  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), starts(next).go.length];
+export function flow(cfg, rows, next, live, listed = null, holds = [], { onOrigin } = {}) {
+  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), starts(next, { onOrigin }).go.length];
   // Working against occupied (coordinator, 5 Nov): with list_sessions, each open job's live session
   // running or waiting (idle), and what a waiting one waits on where status knows it.
   const wait = [];
@@ -579,7 +598,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
       const file = `${dir}/${id}.md`;
       const row = rows.find((r) => r.id === id || r.req === file);
       const open = !!row && (row.tranche !== 'COMPLETE' || !!row.pr?.startsWith('#'));
-      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag && !(row.ahead > 0); // a restart's fresh start commit is unflagged
+      const merged = !!row && row.tranche === 'COMPLETE' && !open && !row.flag && !(row.ahead > 0) && !row.unread; // a restart's fresh start commit is unflagged
       const pr = row?.pr?.match(/^#(\d+)/)?.[1] ?? null;
       return { id, file, open, merged, blocked: row?.blocked || null, pr: pr && Number(pr), marks: marks(file), found: found(file, id), row };
     }) }))
@@ -714,7 +733,7 @@ const noticeWork = (owed, id) => !!owed[id]?.some((n) => n.triage || n.rerun);
 // unfinished start, commits and no pull request), or offline, GitHub unread, with commits its
 // branch holds that the tranche lacks or none counted (a shallow clone's --depth 1 tranche counts
 // a merged branch ahead, so there the row cannot say). A BLOCKED one, deferred or not, holds nothing.
-const busy = (r, shallow = false) => !!r && !r.blocked && r.flag !== 'BLOCKED' && (!!r.flag || (/^unknown/.test(r.pr || '') && !shallow && !(r.ahead === 0)));
+const busy = (r, shallow = false) => !!r && !r.blocked && r.flag !== 'BLOCKED' && (!!r.flag || !!r.unread || (/^unknown/.test(r.pr || '') && !shallow && !(r.ahead === 0)));
 const doneIn = (ls, owed, shallow = false) => {
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, closed: L.recorded }])));
   // Not done either: a provider whose branch holds commits the tranche lacks (reopened, its pull
@@ -918,7 +937,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(inLayer.has(file) && ids.length > fids.length ? { [after.has(file) ? 'after' : 'marks']: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}), ...(row.unread ? { unknown: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(inLayer.has(file) && ids.length > fids.length ? { [after.has(file) ? 'after' : 'marks']: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found) || (entered.has(x.file) && x.entry_state === 'OPEN' && x.count > 0));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);

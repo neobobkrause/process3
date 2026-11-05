@@ -39,6 +39,8 @@ export function startable(next, { onOrigin = () => false } = {}) {
     // One parked in the merge train (its pull request ready, gate green) is the train's, named so (build train-robust, item 4).
     if (x.attempt_open && x.in_train) { skip.push({ file: x.file, id: x.module, why: `in the train (PR ${x.in_train})`, train: x.in_train }); continue; }
     if (x.attempt_open) { skip.push({ file: x.file, id: x.module, why: 'its attempt is open: status says what it needs' }); continue; }
+    // Its job branch on origin unread here (status row.unread): unknown, neither started nor counted.
+    if (x.unknown) { skip.push({ file: x.file, id: x.module, why: 'unknown: its job branch could not be read', unknown: true }); continue; }
     if (!x.module) { skip.push({ file: x.file, why: 'no ledger entry: BOB writes it, then job start --ready starts it' }); continue; }
     // An OPEN entry with its branch on origin is a start already pushed (status lists its state);
     // a COMPLETE module keeps its merged branch, which job start's reopen moves on.
@@ -56,6 +58,16 @@ export function startable(next, { onOrigin = () => false } = {}) {
   // 14 slots empty with 1 release module startable and debt held).
   go.sort((a, b) => kind.get(a) - kind.get(b));
   return { go, skip };
+}
+
+// The selection job start --ready starts from, the one source the idle check counts too (copy, 5
+// Nov: the idle check counted 26 startable against --ready's 2): startable work with origin's job
+// heads, less the modules a live hold keeps (held: each with its hold).
+export function readySelection(next, { onOrigin, holds = [], layers = new Map() } = {}) {
+  const s = startable(next, { onOrigin });
+  const held = [];
+  const go = s.go.filter((j) => { const h = heldBy(holds, j.id, layers); if (h) held.push({ j, h }); return !h; });
+  return { go, skip: s.skip, held };
 }
 
 // The sessions BOB can archive to free a slot when the cap holds a ready job back (coordinator,
@@ -92,10 +104,14 @@ export function readyCount(root, { read = status } = {}) {
 // the setup check runs once for the batch, on its first start; each later start runs only the
 // session-branch check again, which re-fetches and moves the checkout to the current tip
 // (start.mjs anchor) when the tip's approvals are those it holds. A moved tip alone voids nothing.
+// A first start refused on the session branch alone (the tranche moved under it, or HEAD could not
+// be moved then) is not the batch's verdict: the next start runs the setup check again, re-anchoring
+// at the tip it fetched, as a single start does (copy, 5 Nov: a pass lost every start, twice).
 export function batchSetup(root, cfg, { setup = setupCheck, check = startCheck } = {}) {
   let once = null;
+  const branchOnly = (s) => !s.ok && s.missing?.length === 1 && s.missing[0] === 'session-branch';
   return (r, o) => {
-    if (!once) return (once = setup(r, o));
+    if (!once || branchOnly(once)) return (once = setup(r, o));
     if (!once.ok || !once.results?.some((x) => x.id === 'session-branch')) return once;
     const c = check(root, { branch: cfg.tranche, anchor: true, log: () => {} });
     const fresh = c.sameApprovals && c.sameHead;
@@ -159,12 +175,11 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   const parked = listed ? parkedSessions(listed, out.rows) : [];
   if (parked.length) { n -= parked.length; log(parkedLine(parked)); }
   const heads = remote || new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
-  const s = startable(out.next, { onOrigin: (id) => heads.has(id) });
-  const skip = s.skip;
   // The cap less the live holds only (Bob, 5 Nov): a held module is not started; slots held are not filled.
   const holds = out.holds || [];
   const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
-  const go = s.go.filter((j) => { const h = heldBy(holds, j.id, layers); if (h) skip.push({ file: j.file, id: j.id, why: `held by ${h.id} (${h.scope}, by ${h.by}, until ${h.until}): ${h.why}` }); return !h; });
+  const { go, skip: sk, held: kept } = readySelection(out.next, { onOrigin: (id) => heads.has(id), holds, layers });
+  const skip = [...sk, ...kept.map(({ j, h }) => ({ file: j.file, id: j.id, why: `held by ${h.id} (${h.scope}, by ${h.by}, until ${h.until}): ${h.why}` }))];
   const c = capLine(cfg, n, listed);
   if (c.note) log(c.note);
   const held = slotsHeld(holds);
