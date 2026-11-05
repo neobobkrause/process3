@@ -2,8 +2,11 @@
 // option B and the provider-first addendum). Serial still, one gate per pull request, the gate
 // unchanged: this only chooses which green pull request goes next, and which waits.
 //
-// Order: a pull request green (and not held) for over AGE_MIN goes first, oldest first, so a long
-// gate is never starved. The rest: the release path first (status.mjs releaseModules), then a
+// Order: a module named in process/config.json's release_path goes first of all (coordinator, 5 Nov
+// 11:20: on the copy the derived release set was 50 modules, so release first ordered almost
+// nothing). Among the named, and then among the rest, the order is as before: a pull request green
+// (and not held) for over AGE_MIN goes first, oldest first, so a long gate is never starved within
+// its tier (a stream of named pull requests can delay the rest). The rest: the release path first (status.mjs releaseModules), then a
 // provider holding users ahead of shorter ones (most held first), then the shortest expected gate
 // (its module's median full-gate minutes; unknown: the median over every module known), then the
 // oldest green.
@@ -67,7 +70,8 @@ export const holdLine = (u, why) => `PR ${u.n} (${u.id}) held: it imports ${why.
 // wait does not age it. An unread green time is NaN: never aged.
 export const agedFromOf = (heldAt) => (u) => { const g = Date.parse(u.green_at); return Number.isFinite(g) ? Math.max(g, heldAt.get(u.n) || 0) : NaN; };
 
-// The queue's order. c: { n, id, green_at, release, holds (users it holds), gate_min }. known: the
+// The queue's order. c: { n, id, green_at, named (its module is in release_path), release (in the
+// derived release set, status.mjs releaseModules), holds (users it holds), gate_min }. known: the
 // expected gate for an unknown one, the median over every module known (the train gives it);
 // without it, the median over this queue.
 export function orderQueue(cands, { now = Date.now(), ageMin = AGE_MIN, agedFrom = (c) => Date.parse(c.green_at), known = median(cands.map((c) => c.gate_min)) } = {}) {
@@ -75,6 +79,7 @@ export function orderQueue(cands, { now = Date.now(), ageMin = AGE_MIN, agedFrom
   const aged = (c) => { const t = agedFrom(c); return Number.isFinite(t) && now - t > ageMin * 60000; };
   const g = (c) => String(c.green_at);
   return [...cands].sort((a, b) => {
+    if (!!a.named !== !!b.named) return a.named ? -1 : 1;
     const A = aged(a); const B = aged(b);
     if (A !== B) return A ? -1 : 1;
     if (A) return agedFrom(a) - agedFrom(b) || g(a).localeCompare(g(b));

@@ -319,8 +319,10 @@ function order(root, ctx, cands, jobs) {
     for (const r of runs) for (const x of fullGateMinutes([r])) m.set(`${r.sha}@${r.at ?? r.run_id ?? ''}`, x);
     c.mins.set(u.id, m);
   }
+  const named = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
   const free = cands.filter((u) => !holds.has(u.n)).map((u) => ({
     ...u,
+    named: named.has(u.id),
     release: c.release.set.has(u.id),
     holds: ctx.held.filter((h) => h.providers.some((p) => p.pr === u.n)).length,
     gate_min: med([...(c.mins.get(u.id)?.values() || [])]),
@@ -428,7 +430,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   };
   const free = ctx.diskFree(root);
   if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
-  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free };
+  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, named: !!c.named, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free };
   let r = null;
   try {
     r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });

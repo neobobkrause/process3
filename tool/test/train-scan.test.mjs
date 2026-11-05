@@ -13,13 +13,14 @@ import { firstPick, scanFixture } from './train-scan-fixture.mjs';
 
 // The order the scan gave, read one by one on a clone holding every head (5 Nov, before the change):
 // 4 users held (103 for 102; 109 for 107; 113 and 114 for 112), drafts 105 and 111 and red 110 out.
-const ORDER = [100, 101, 116, 112, 107, 102, 119, 106, 117, 104, 108, 118, 115];
+// Since 5 Nov 11:20 a module named in release_path goes before all (order.mjs): m16 (116) first.
+const ORDER = [116, 100, 101, 112, 107, 102, 119, 106, 117, 104, 108, 118, 115];
 
 test('train scan: on a cold clone of 20 job PRs the first pick reads GitHub side by side, holds every user, and keeps the order', () => {
   const fx = scanFixture({ latency: 150, gitLatency: 0 });
   const root = fx.fresh();
   const cold = firstPick(fx, root);
-  assert.equal(cold.pr, 100, 'the aged PR goes first');
+  assert.equal(cold.pr, 116, 'the release_path PR goes first, ahead of the aged');
   assert.deepEqual(cold.queue, ORDER, 'every user held on a cold clone as on a warm one (before: no user head was fetched, none was held)');
   assert.ok(cold.maxPar >= 8, `GitHub reads side by side (at most ${cold.maxPar} at once; before, one at a time)`);
   // A restart in the same clone: the same order, and the hold's git reads come from the clone's cache.
