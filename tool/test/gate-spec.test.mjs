@@ -524,3 +524,35 @@ test('with the window closed, a spec-shaped PR is judged as a non-job PR and a S
   assert.ok(ran(w), 'the suite ran');
   assert.ok(!said.some((m) => /Spec-Tested|spec-tested/.test(m)), said.join('\n'));
 });
+
+// GitHub takes a pull_request run's workflow file from its merge, so from the spec head, which any
+// writer can push: a spec run whose head's process-gate.yml is not the land base's ran another
+// judge, even when the land carries the same file (its tree otherwise the spec head's).
+test('a spec head whose gate workflow is not the land base\'s: spec-tested refused, the suite runs; the cover refuses it too', () => {
+  const { w, x, s } = greenSpec();
+  const GATE_WF = '.github/workflows/process-gate.yml';
+  const wf = { [GATE_WF]: 'name: process gate\non: pull_request\njobs: { gate: { runs-on: ubuntu-latest, steps: [{ run: "echo green" }] } }\n' };
+  git(['checkout', '-q', '--detach', w.specHead], { cwd: w.root });
+  const forged = commit(w.root, wf, 'a gate workflow of the spec head\'s own');
+  x.state.comments[SPEC] = [];
+  post(x.state, SPEC, { ...s.run, run_id: 120, sha: forged, tree: treeOf(w.root, forged) });
+  const L = land(w, w.t1, { files: wf });
+  assert.deepEqual(diffNames(w.root, forged, L), ['process/metrics/alpha.jsonl'], 'the land is the spec head\'s tree, records aside');
+  const said = [];
+  const r = jobRun(w, x, { base: w.t1, head: L, log: (m) => said.push(m) });
+  assert.equal(r.run.trigger, 'code', said.join('\n'));
+  assert.equal(r.run.spec_pr, undefined);
+  assert.ok(ran(w), 'the suite ran');
+  assert.ok(said.some((m) => /^Spec-Tested is not taken: spec PR 9's run was judged on base [0-9a-f]{10}, which ran \.github\/workflows\/process-gate\.yml from its spec head [0-9a-f]{10}, not [0-9a-f]{10}'s/.test(m)), said.join('\n'));
+
+  // The cover: a spec-tested row on L (as if posted) naming that spec run, and GitHub's merge of L.
+  post(x.state, JOB, { ...r.run, run_id: 220, trigger: 'spec-tested', ok: true, findings: 0, suite: 'pass', spec_pr: SPEC, spec_run: 120, spec_sha: forged });
+  git(['checkout', '-q', '-B', 'tranche', w.t1], { cwd: w.root });
+  git(['merge', '-q', '--no-ff', '-m', `Merge job PR ${JOB}`, L], { cwd: w.root });
+  const c = rev(w.root, 'HEAD');
+  x.state.prs[JOB] = jobPR(w, { state: 'closed', merged: true, merge_commit_sha: c, head: { ref: 'job/alpha', sha: L, repo: { full_name: SLUG } } });
+  x.state.verifyOk = (row, ctx) => x.state.genuine.has(`${ctx.pr}|${row.run_id}`) && ctx.baseRef === 'tranche';
+  const m = jobMerge(w.root, loadConfig(w.root, c), c, { slug: SLUG, io: x.io });
+  assert.equal(m.ok, false);
+  assert.match(m.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
+});
