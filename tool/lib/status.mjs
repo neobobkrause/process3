@@ -16,9 +16,9 @@ import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
-import { holdLines, readHolds } from './hold.mjs';
+import { holdLines, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
-import { OPEN_BY, depth, exists, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
+import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -120,6 +120,8 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
 export function status(root, { role, module, context, live, sessions: sessionsFile, offline = false, heads: givenHeads, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
+  // Starts owed, the first line (hold.mjs): a marker, never a refusal.
+  try { if (offline || fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* the holds line says the state branch is unread */ }
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
   live = sessionsCount(listed, live, log);
@@ -285,7 +287,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       if (hold) log(`tranche close waits: ${hold}`);
     }
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
-    out.flow = flow(cfg, rows, out.next, live);
+    out.flow = flow(cfg, rows, out.next, live, listed);
     log(out.flow.line);
     return out;
   }
@@ -307,9 +309,20 @@ export function blockedJobs(cfg, rows, t = Date.now()) {
 }
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
 // the work job start --ready would start (ready.mjs startable), and the jobs awaiting a ruling. The sweep records its numbers.
-export function flow(cfg, rows, next, live) {
+export function flow(cfg, rows, next, live, listed = null) {
   const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows), starts(next).go.length];
-  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, line: `flow: live ${live ?? '?'}/${c.cap} (${c.from}), startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };
+  // Working against occupied (coordinator, 5 Nov): with list_sessions, each open job's live session
+  // running or waiting (idle), and what a waiting one waits on where status knows it.
+  const wait = [];
+  let working = 0;
+  for (const r of listed ? rows.filter(jobOpen) : []) {
+    const js = jobSession(listed, r.id);
+    if (!js || isArchived(js)) continue;
+    if (!isIdle(js)) { working++; continue; }
+    wait.push(`${r.id} ${r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
+  }
+  const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
+  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
@@ -542,7 +555,7 @@ export function noticeSlots(root, cfg, rows) {
       const rerun = !!unrecorded[u]?.includes(n.key);
       (owed[u] ||= []).push({ ...live, triage, rerun });
       if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${prN || `<job ${u}'s PR>`} (again: its answer was not recorded)` });
-      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u}, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u}` });
+      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u} --live <n>, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u} --live <n>` });
       else { (untriaged[n.key] ||= []).push(u); slots.push({ key: n.key, user: u, kind: 'triage', act: `${P3} notice triage ${n.key}` }); }
     }
   }
@@ -725,6 +738,16 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const noticeList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && x.notices);
   // Entered by BOB and outside the other lists: listed apart, after them.
   const enteredList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && !x.notices && entered.has(x.file));
+  // The release path first (coordinator, 5 Nov): process/config.json's release_path modules, and
+  // the open round's layer and found work; debt (a file whose unmet marks are all base-red found
+  // marks) after it, never in a slot while release work is startable (ready.mjs startable).
+  const rel = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
+  const line = new RegExp(UNMET.source);
+  for (const x of all) {
+    const u = (textOf(x.file) || '').split('\n').filter((l) => line.test(l));
+    if (u.length && u.every((l) => /not yet met:[^)]*base-red/i.test(l))) x.debt = true;
+    if (rel.has(x.module) || ((list.includes(x) || foundList.includes(x)) && !x.debt)) x.release = true;
+  }
   // Read only with a count: layer close and the sweep's check list next work with none (review).
   const cap = live === undefined ? null : jobCap(cfg).cap;
   const n = live === undefined ? Infinity : Math.max(0, cap - live);
@@ -774,6 +797,6 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
   const job = (id) => rows.find((r) => r.id === id && jobOpen(r));
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
-  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target}`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
+  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --live <n>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
 }
