@@ -189,7 +189,9 @@ export function reviewCostOf(root, cfg, id, { sessions = [], record, since = nul
     const why = want.length ? `no \`metrics add ${id} --role review\` row priced for ${want.join(', ')}` : since ? `no \`metrics add ${id} --role review\` row priced since the attempt started (${since})` : 'the attempt\'s start was not read and no --review-session was named';
     return { usd: 'unmeasured', why };
   }
-  return { usd: Math.round(mine.reduce((t, r) => t + Number(r.cost_usd), 0) * 1e4) / 1e4, from: `${mine.length} --role review row${mine.length > 1 ? 's' : ''}${mine.some((r) => r.session) ? ` (${[...new Set(mine.map((r) => r.session).filter(Boolean))].join(', ')})` : ''}` };
+  // A session's rows are its cost so far (metrics add, as BOB records its own): its latest counts once.
+  const bySession = [...new Map(mine.map((r, i) => [r.session || `#${i}`, r])).values()];
+  return { usd: Math.round(bySession.reduce((t, r) => t + Number(r.cost_usd), 0) * 1e4) / 1e4, from: `${mine.length} --role review row${mine.length > 1 ? 's' : ''}${mine.some((r) => r.session) ? ` (${[...new Set(mine.map((r) => r.session).filter(Boolean))].join(', ')})` : ''}` };
 }
 // The start of the job's current attempt, from its rows at the head (null: none read).
 export const attemptStart = (rows) => (rows || []).filter((r) => r.row === 'attempt' && r.event === 'start').pop()?.at || null;
@@ -233,7 +235,7 @@ export function merge(root, n, opts = {}) {
   return withTemp('p3-merge-', (tmp) => {
     const wt = join(tmp, id);
     git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
-    let { tip } = buildMerged(wt, cfg, {
+    let { tip, rejudged } = buildMerged(wt, cfg, {
       n, id, branch, onto: `origin/${cfg.tranche}`, ontoName: cfg.tranche, conflictHint: `; the job must bring itself up to date: ${P3} job sync ${id}, then job complete ${id} again`,
       reviewed, noReview, rounds, measures, triggers: trig.fired, jobCost, jobSession: opts.jobSession, attempt: receipt.attempt, log,
     });
@@ -301,7 +303,7 @@ export function merge(root, n, opts = {}) {
     // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
     // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
-    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT, ...(spec ? { spec: spec.fast ? { fast: true, pr: spec.pr } : { fast: false, why: spec.why } } : {}) };
+    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT, ...(rejudged ? { rejudged } : {}), ...(spec ? { spec: spec.fast ? { fast: true, pr: spec.pr } : { fast: false, why: spec.why } } : {}) };
   }, { root });
 }
 
@@ -313,6 +315,8 @@ export function merge(root, n, opts = {}) {
 // One merge row per pull request since its last receipt: a rerun that finds this PR's row
 // already on the branch writes none, and pushes only when the tranche moved since.
 function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHint = '', reviewed, noReview, rounds, measures, triggers, jobCost = null, jobSession, attempt, log = console.log }) {
+  const start = git(['rev-parse', 'HEAD'], { cwd: wt });
+  let rejudged = null;
   if (git(['merge-base', '--is-ancestor', onto, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
     const m = git(['merge', '-q', '--no-ff', '--no-edit', onto, '-m', `Bring ${branch} up to ${ontoName}`], { cwd: wt, allowFail: true });
     if (m.code !== 0) {
@@ -338,21 +342,6 @@ function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHi
     tip = git(['rev-parse', 'HEAD'], { cwd: wt });
   } else {
     log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
-    // The triggers judged again here, at the land, with this tool (day-1 study, 5 Nov: copy PR 173's
-    // row, prepared under the pin before the triggers, carried no triggers key): a row that lacks
-    // them, or recorded others, gets a triggers row beside it, which the report reads over it.
-    const was = rows.filter((r) => r.row === 'merge' && r.pr === n).pop();
-    const had = rows.slice(rows.indexOf(was) + 1).filter((r) => r.row === 'triggers' && r.pr === n).pop()?.triggers ?? was?.triggers;
-    const now_ = triggers || [];
-    const same = Array.isArray(had) && had.length === now_.length && had.every((t) => now_.includes(t));
-    if (triggers !== undefined && !same) {
-      const why = Array.isArray(had) ? `the merge row recorded ${had.length ? had.join(' and ') : 'none'} when prepared (tool ${was?.tool || 'unknown'}); judged again at the land` : `the merge row was prepared under an older pin (tool ${was?.tool || 'unknown'}) that recorded no triggers; judged at the land`;
-      appendRow(wt, id, { row: 'triggers', pr: n, triggers: now_, tool: toolPin(), why });
-      git(['add', '--', metricsFile(id)], { cwd: wt });
-      git(['commit', '-q', '-m', `review triggers for ${id} (PR ${n}), judged at the land`, '--', metricsFile(id)], { cwd: wt });
-      tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-      log(`PR ${n}'s merge row ${Array.isArray(had) ? `recorded triggers ${JSON.stringify(had)}` : 'recorded no triggers (prepared under an older pin)'}: ${JSON.stringify(now_)} judged at the land, recorded beside it`);
-    }
     // A rerun that brings the cost an earlier run lacked (review of PR 106: it was dropped):
     // the priced row, committed and gated as the merged result, as a moved tranche is.
     if (jobCost !== null && jobCostRow(wt, id, rows, { cost: jobCost, session: jobSession, attempt, log }) !== null) {
@@ -360,8 +349,29 @@ function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHi
       git(['commit', '-q', '-m', `job cost for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
       tip = git(['rev-parse', 'HEAD'], { cwd: wt });
     }
+    // The triggers judged again here, at the land, with this tool (day-1 study, 5 Nov: copy PR 173's
+    // row, prepared under the pin before the triggers, carried no triggers key). Record only: a row
+    // that lacks them, or recorded others, gets a triggers row beside it (the report reads it over
+    // the merge row) only when this land commits anyway; the head is never moved for it (a held
+    // merged result would end its hold, a green tip would gate again): then the merge says it, and
+    // returns it for the train's row.
+    const was = rows.filter((r) => r.row === 'merge' && r.pr === n).pop();
+    const had = rows.slice(rows.indexOf(was) + 1).filter((r) => r.row === 'triggers' && r.pr === n).pop()?.triggers ?? was?.triggers;
+    const now_ = triggers || [];
+    const same = Array.isArray(had) && had.length === now_.length && had.every((t) => now_.includes(t));
+    if (triggers !== undefined && !same) {
+      const why = Array.isArray(had) ? `the merge row recorded ${had.length ? had.join(' and ') : 'none'} when prepared (tool ${was?.tool || 'unknown'}); judged again at the land` : `the merge row was prepared under an older pin (tool ${was?.tool || 'unknown'}) that recorded no triggers; judged at the land`;
+      rejudged = { triggers: now_, why, written: tip !== start };
+      if (tip !== start) {
+        appendRow(wt, id, { row: 'triggers', pr: n, triggers: now_, tool: toolPin(), why });
+        git(['add', '--', metricsFile(id)], { cwd: wt });
+        git(['commit', '-q', '-m', `review triggers for ${id} (PR ${n}), judged at the land`, '--', metricsFile(id)], { cwd: wt });
+        tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+      }
+      log(`PR ${n}'s merge row ${Array.isArray(had) ? `recorded triggers ${JSON.stringify(had)}` : 'recorded no triggers (prepared under an older pin)'}: ${JSON.stringify(now_)} judged at the land, ${tip !== start ? 'recorded beside it' : 'not written to the head (nothing else to commit; the head is not moved for a record)'}`);
+    }
   }
-  return { tip, hasRow };
+  return { tip, hasRow, rejudged };
 }
 
 // The train's predicted merged result R(i) (C', notes/train-spec-plan.md): the job's head merged

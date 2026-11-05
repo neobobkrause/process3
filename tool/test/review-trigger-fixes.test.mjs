@@ -125,6 +125,12 @@ test('(3) a review carries to a moved head when the job\'s change is the same; o
   assert.deepEqual(sameChange(s.root, cfg, reviewedAt, synced), { same: true });
   assert.deepEqual(sameChange(s.root, cfg, reviewedAt, fixed), { same: false, why: 'the job\'s change itself differs' });
   assert.equal(sameChange(s.root, cfg, reviewedAt, 'f'.repeat(40)).unread, true);
+  // A binary file changed again between the heads is another change (its blob ids count).
+  git(['checkout', '-q', 'job/alpha'], { cwd: s.root });
+  const binA = commit(s.root, { 'src/alpha/logo.bin': Buffer.from([0, 1, 2, 0, 3]).toString('latin1') });
+  const binB = commit(s.root, { 'src/alpha/logo.bin': Buffer.from([0, 9, 9, 0, 3]).toString('latin1') });
+  git(['checkout', '-q', 'main'], { cwd: s.root });
+  assert.equal(sameChange(s.root, cfg, binA, binB).same, false);
   const bob = 'session_bob';
   const notes = [{ row: 'note', at: '2026-11-05T05:00:00Z', by: bob, pr: 364, sha: reviewedAt, reviewed: 'fresh reviewer: 1 fix', rounds: 2, review_minutes: 20, findings: 1, findings_acted: 1 }];
   const c = carriedNote(s.root, cfg, notes, 364, synced, bob);
@@ -155,7 +161,7 @@ test('(3) a head refused in the train and not reviewed since is stuck: status\'s
   assert.deepEqual([...stuck.keys()], [364], '365 moved since its refusal; 366 was reviewed since');
   assert.deepEqual(stuck.get(364), { pr: 364, head: 'd3af394aaaa', since: '2026-11-05T05:20:00Z', hours: 13.7, why: rows[0].why, reviewed_at: '7cac421bbbb' });
   const line = stuckLine(stuck.get(364), 'agent-worker');
-  assert.match(line, /^STUCK in the train: PR 364 \(job agent-worker\) since 2026-11-05T05:20:00Z \(13\.7h\): pull request 364 fires the review trigger security .*; BOB's review is of 7cac421bbb, not this head .*; review the head d3af394aaa \(p3 review brief 364\), then p3 merge train note 364 --reviewed \.\.\.$/);
+  assert.match(line, /^STUCK in the train: PR 364 \(job agent-worker\) since 2026-11-05T05:20:00Z \(13\.7h\): pull request 364 fires the review trigger security .*; BOB's review is of 7cac421bbb, not this head .*; review the head d3af394aaa \(node \.process\/tool\/p3\.mjs review brief 364\), then node \.process\/tool\/p3\.mjs merge train note 364 --reviewed \.\.\.$/);
   // The idle alarm names it with its reason, apart from the train that moves.
   const next = [
     { file: 'r/a.md', count: 1, module: 'agent-worker', entry_state: 'COMPLETE', attempt_open: true },
@@ -191,6 +197,18 @@ test('(4) a merge row prepared under an older pin, with no triggers, gets them j
   const differ = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }), { rows: [...base, { ...old, triggers: [], tool: 'abc' }] });
   merge(differ.root, 173, { slug: 'o/r', io: io(differ.head), ...reviewed, log: quiet });
   assert.match(originRows(differ.root).find((r) => r.row === 'triggers').why, /recorded none when prepared \(tool abc\); judged again at the land/);
+  // Nothing else to commit (the head already holds the tranche): the head is not moved for the record;
+  // the merge says it and returns it for the train's row, and a held result (noPush) still lands.
+  const held = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }), { rows: [...base, old] });
+  git(['checkout', '-q', 'job/alpha'], { cwd: held.root });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: held.root });
+  const top = git(['rev-parse', 'HEAD'], { cwd: held.root });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: held.root });
+  git(['checkout', '-q', 'main'], { cwd: held.root });
+  const said = [];
+  const h = merge(held.root, 173, { slug: 'o/r', io: io(top), ...reviewed, noPush: true, log: (l) => said.push(l) });
+  assert.deepEqual([h.merged, h.tip, h.rejudged.triggers, h.rejudged.written], [true, top, ['security'], false]);
+  assert.ok(said.some((l) => /judged at the land, not written to the head/.test(l)), said.join('\n'));
   // A fresh merge row names the tool that wrote it.
   const fresh = setup((r) => commit(r, { 'src/alpha/a.mjs': 'export const f = () => 46;\n' }));
   merge(fresh.root, 7, { slug: 'o/r', io: io(fresh.head), noReview: 'a constant', log: quiet });

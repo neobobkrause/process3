@@ -8,6 +8,7 @@
 // the row's; when BOB reviewed an earlier head, that head is named too. A head that moved since
 // the refusal is not stuck: the train judges the new head on its next pass.
 import { jsonl, readState } from './state.mjs';
+import { P3 } from './job.mjs';
 
 export const TRAIN_ROWS = 'metrics/train.jsonl'; // train.mjs TRAIN_FILE
 export const TRAIN_NOTES = 'metrics/train-notes.jsonl'; // train.mjs NOTES_FILE
@@ -33,7 +34,7 @@ export function trainStuck(rows, notes, prs, bob = null, t = Date.now()) {
 export function stuckLine(s, id) {
   const review = /review trigger/.test(s.why);
   const moved = s.reviewed_at ? `; BOB's review is of ${s.reviewed_at.slice(0, 10)}, not this head (the train carries a review to a moved head only when the job's change, records aside, is the same)` : '';
-  const act = review ? `review the head ${s.head.slice(0, 10)} (p3 review brief ${s.pr}), then p3 merge train note ${s.pr} --reviewed ...` : 'its refusal names the act';
+  const act = review ? `review the head ${s.head.slice(0, 10)} (${P3} review brief ${s.pr}), then ${P3} merge train note ${s.pr} --reviewed ...` : 'its refusal names the act';
   return `STUCK in the train: PR ${s.pr}${id ? ` (job ${id})` : ''} since ${s.since}${s.hours === null ? '' : ` (${s.hours}h)`}: ${s.why}${moved}; ${act}`;
 }
 

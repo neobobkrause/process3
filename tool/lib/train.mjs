@@ -172,8 +172,8 @@ export function sameChange(root, cfg, a, b) {
     if (mb.code !== 0 || !mb.stdout.trim()) return null;
     const base = mb.stdout.trim();
     const files = diffNames(root, base, sha).filter((f) => !isRecordPath(cfg, f)).sort();
-    const d = files.length ? git(['diff', '--no-renames', '--no-color', '-U3', base, sha, '--', ...files], { cwd: root }) : '';
-    return { files, diff: String(d).split('\n').filter((l) => !l.startsWith('index ')).map((l) => (l.startsWith('@@') ? l.replace(/^@@ [^@]* @@/, '@@') : l)).join('\n') };
+    const d = files.length ? git(['diff', '--no-renames', '--no-color', '--full-index', '-U3', base, sha, '--', ...files], { cwd: root }) : '';
+    return { files, diff: String(d).split('\n').filter((l, i, a) => !l.startsWith('index ') || /^Binary files /.test(a[i + 1] || '')).map((l) => (l.startsWith('@@') ? l.replace(/^@@ [^@]* @@/, '@@') : l)).join('\n') };
   };
   let x;
   let y;
@@ -561,6 +561,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     // the land's tree is the tree the spec gate tested, records aside; else the full re-gate).
     r = (ctx.merge || merge)(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, transient: ctx.transient, log: tick, onGate: (tip) => { if (c.window && ctx.window?.[0]?.n === c.n) ctx.window[0].pushed = tip; hold(root, ctx, c, tip); }, ...(c.held ? { noPush: true } : {}), ...(c.spec ? { spec: c.spec } : {}), beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
     row.result = 'merged';
+    if (r?.rejudged) row.triggers_rejudged = r.rejudged; // merge.mjs: triggers judged at the land over an older row
     row.merged_at = now();
     row.green_to_merged = mins(Date.parse(c.green_at), Date.now());
     row.queue_at_end = ctx.prepared?.depth ?? null;
