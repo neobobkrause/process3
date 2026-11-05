@@ -173,7 +173,7 @@ test('window of 1 (the default) is the serial train: no spec branch, no spec pul
   assert.ok(stateRows(root, TRAIN_FILE).every((r) => r.spec_fast === undefined));
 });
 
-test('a tranche moved by anything but the window closes every spec, and the window rebuilds on the new tip', () => {
+test('a tranche moved by anything but the window, in a file position 0 changes, closes every spec, and the window rebuilds on the new tip', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } }, 2);
   const g = github(root, ids);
   g.calls.hold = true; // nothing lands: only the move acts
@@ -184,7 +184,7 @@ test('a tranche moved by anything but the window closes every spec, and the wind
     if (++passes !== 2) return;
     git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
     git(['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: root });
-    commit(root, { 'hand.txt': 'a plain land' });
+    commit(root, { 'src/alpha/a.mjs': 'a' }); // a file position 0 changes (the same change: no conflict)
     git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
     git(['checkout', '-q', 'main'], { cwd: root });
     tip = g.tipOf('tranche');
@@ -302,7 +302,7 @@ test('a spec pull request whose close fails is closed at the next pass, and its 
     if (++passes !== 2) return;
     git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
     git(['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: root });
-    commit(root, { 'hand.txt': 'x' });
+    commit(root, { 'src/alpha/a.mjs': 'x' }); // a file position 0 changes: every spec closes
     git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
     git(['checkout', '-q', 'main'], { cwd: root });
   };

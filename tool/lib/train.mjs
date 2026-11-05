@@ -18,10 +18,10 @@ import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_FIRST, READY_START, bobWake, toolPin } from './job.mjs';
 import { owe, readAuto, starterLive } from './hold.mjs';
 import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, attemptStart, deepenToBase, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewCostOf, reviewMeasures, reviewRounds, reviewSessions } from './merge.mjs';
-import { diffNames, entriesAt } from './gate.mjs';
+import { builtOn, diffNames, entriesAt, offSpec } from './gate.mjs';
 import { rowsAt } from './metrics.mjs';
 import { TRAIN_NOTES, TRAIN_ROWS } from './stuck.mjs';
-import { admit, chainEnd, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
+import { admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
@@ -586,6 +586,8 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     row.queue_at_end = ctx.prepared?.depth ?? null;
     // The report's count of spec-tested lands against fallbacks (condition 4); null: not a window land.
     if (c.spec) { row.spec_pr = c.spec.pr; row.spec_fast = r?.spec?.fast === true; if (!row.spec_fast) row.spec_why = r?.spec?.why || 'merge gave no spec answer'; }
+    // A land on its spec that carried a disjoint tranche move: the move's ends, files and commits.
+    if (r?.spec?.move) row.spec_move = r.spec.move;
   } catch (e) {
     if (!(e instanceof Fail) || e instanceof Stop) throw e; // a lost lease, changed approvals: never land past it
     row.result = lasting(e.message) ? 'refused' : 'retry';
@@ -761,6 +763,9 @@ function openSpec(root, ctx, p) {
 }
 function admitWindow(root, ctx, w, list, tip) {
   const { cfg } = ctx;
+  // Positions kept over a tranche move are built on a start the tranche has left: one built behind
+  // them would lack the move too, so none is, until they have landed (onTrancheMoved).
+  if (w.some((p) => p.moved)) return;
   const ends = () => chainEnd(w, tip);
   // A plain one not built onto the chain's end stays in the queue: nothing is admitted past it, so
   // the window drains to it and it is judged on the tip (built there, or refused by plainOne).
@@ -821,6 +826,27 @@ function admitWindow(root, ctx, w, list, tip) {
     w.push(p);
   }
 }
+// How much of the window stands when the tranche moves from the window's start to tip (Bob, 5
+// Nov; copy: two plain lands of generated files and .gitignore lines closed three green specs):
+// the files the move changes, records aside, against each position's own change (its base to its
+// result). The first position that shares a file with the move (0 when anything is not readable,
+// or the tip is not after the start; the window's length when none does).
+function keptOver(root, ctx, w, tip) {
+  const start = chainStart(w);
+  if (!w.length || start === tip || w[0].moved === tip) return w.length;
+  const files = (a, b) => diffNames(root, a, b).filter((f) => !isRecordPath(ctx.cfg, f));
+  try {
+    if (w.some((p) => !p.base || !p.result) || git(['merge-base', '--is-ancestor', start, tip], { cwd: root, allowFail: true }).code !== 0) return 0;
+    const move = new Set(files(start, tip));
+    const j = w.findIndex((p) => files(p.base, p.result).some((f) => move.has(f)));
+    const from = j < 0 ? w.length : j;
+    if (from) ctx.log(`window: the tranche moved to ${s10(tip)} in ${move.size} file(s), records aside, none of which ${from === w.length ? 'the window changes' : `PR ${w.slice(0, from).map((p) => p.n).join(', ')} change`}: ${from} position(s) stand`);
+    return from;
+  } catch (e) {
+    if (!(e instanceof Fail) || e instanceof Stop) throw e;
+    return 0;
+  }
+}
 // One pass of the window: reconcile with the tranche and the jobs' heads, read the spec gates,
 // act on a red, land position 0 when green, fill the window. true when a land was tried.
 // Queued plain pull requests (plain: plainReady's rows, oldest first) take free positions before
@@ -843,8 +869,9 @@ function windowPass(root, ctx, { idle, plain = [] }) {
   });
   try {
     if (ctx.unclosed?.length) for (const { event, ...p } of ctx.unclosed.splice(0)) closeSpecs(ctx, [p], event);
-    const moved = onTrancheMoved(w, tip);
-    if (moved.close.length) { closeSpecs(ctx, moved.close); w = moved.keep; }
+    const moved = onTrancheMoved(w, tip, keptOver(root, ctx, w, tip));
+    if (moved.close.length) closeSpecs(ctx, moved.close);
+    w = moved.keep;
     // The jobs' heads, from ready()'s one read of the open pull requests.
     for (let i = 0; i < w.length; i++) {
       const p = w[i];
@@ -984,7 +1011,9 @@ function plainLand(root, ctx, p, { queue, idle }) {
     if (!readable(p.result) || !readable(row.sha)) why = `PR ${p.n} (plain) landed at ${s10(row.sha)}, not readable against its predicted result ${s10(p.result)}`;
     else {
       const entries = entriesAt(root, row.sha);
-      const differ = diffNames(root, p.result, row.sha).filter((f) => !isRecordOrLane(cfg, f, entries));
+      // Its predicted result plus a disjoint tranche move it was merged onto (offSpec) is its tree too.
+      const is = git(['rev-parse', `${row.sha}^1`], { cwd: root });
+      const { off: differ } = offSpec(root, { tested: p.result, head: row.sha, was: builtOn(root, p.result, is), is, skip: (f) => isRecordOrLane(cfg, f, entries) });
       if (differ.length) why = `PR ${p.n} (plain) landed as a tree other than its predicted result, outside the records: ${differ.slice(0, 5).join(', ')}`;
     }
   }

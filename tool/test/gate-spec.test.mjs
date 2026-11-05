@@ -314,6 +314,27 @@ test('spec-tested: a base-red spec run stands when its base is the land\'s base 
   assert.equal(ran(w), false, 'no suite ran');
 });
 
+test('spec-tested: the land on the tested tree plus a disjoint tranche move takes the spec run, and says so; the tranche cover follows it', () => {
+  const { w, x } = greenSpec();
+  const moved = disjoint(w);
+  const L = land(w, moved);
+  const said = [];
+  const r = jobRun(w, x, { base: moved, head: L, log: (m) => said.push(m) });
+  assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
+  assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.spec_run, r.run.ok], ['spec-tested', SPEC, 101, true], said.join('\n'));
+  assert.equal(ran(w), false, 'no suite ran');
+  assert.ok(said.some((m) => new RegExp(`with the disjoint tranche move ${w.t0.slice(0, 10)}\\.\\.${moved.slice(0, 10)} \\(2 file\\(s\\)\\): no suite runs`).test(m)), said.join('\n'));
+  // The cover of the tranche into main follows the row to the spec run, the move as at the land.
+  r.run.run_id = 202;
+  post(x.state, JOB, r.run);
+  git(['checkout', '-q', '-B', 'tranche', moved], { cwd: w.root });
+  git(['merge', '-q', '--no-ff', '-m', `Merge job PR ${JOB}`, L], { cwd: w.root });
+  const c = rev(w.root, 'HEAD');
+  x.state.prs[JOB] = jobPR(w, { state: 'closed', merged: true, merge_commit_sha: c, head: { ref: 'job/alpha', sha: L, repo: { full_name: SLUG } } });
+  x.state.verifyOk = (row, ctx) => x.state.genuine.has(`${ctx.pr}|${row.run_id}`) && ctx.baseRef === 'tranche';
+  assert.equal(jobMerge(w.root, loadConfig(w.root, c), c, { slug: SLUG, io: x.io }).ok, true);
+});
+
 // Each refusal falls back to the trigger the run would have had: a code run, its suite run here.
 function refused(name, arrange, opts) {
   test(`spec-tested refused, the suite runs: ${name}`, () => {
@@ -350,10 +371,19 @@ refused('the spec row\'s tree is not its own commit\'s tree', ({ w, x, s }) => {
   post(x.state, SPEC, { ...s.run, run_id: 102, tree: treeOf(w.root, w.t0) });
   return { base: w.t1, head: land(w, w.t1), why: /spec PR 9 has no verified green code run of alpha, on its own commit's tree/ };
 });
-refused('the head differs from the spec\'s tested commit outside the records (the tranche moved otherwise)', ({ w }) => {
+// The tranche moved since the spec run's base by a plain land that shares no file with the job
+// (window keep-disjoint, Bob, 5 Nov): a .gitignore line and a file outside the window.
+const disjoint = (w) => {
   git(['checkout', '-q', '--detach', w.t1], { cwd: w.root });
-  const moved = commit(w.root, { 'notes/other.md': 'another PR landed\n' }, 'tranche moved');
-  return { base: moved, head: land(w, moved), why: /the head differs from [0-9a-f]{10}, which spec PR 9's run 101 tested, in 1 file\(s\) outside the records: notes\/other\.md/ };
+  return commit(w.root, { '.gitignore': 'words/\n', 'notes/other.md': 'another PR landed\n' }, 'Merge plain PR 7 (tranche moved)');
+};
+refused('the head differs from the tested tree plus the disjoint tranche move by a change the move did not make', ({ w }) => {
+  const moved = disjoint(w);
+  return { base: moved, head: land(w, moved, { files: { 'notes/extra.md': 'not the move\'s\n' } }), why: /the head differs from [0-9a-f]{10}, which spec PR 9's run 101 tested, in 1 file\(s\) outside the records: notes\/extra\.md;/ };
+});
+refused('a file the move changed that the head holds otherwise than the tranche does', ({ w }) => {
+  const moved = disjoint(w);
+  return { base: moved, head: land(w, moved, { files: { 'notes/other.md': 'changed again in the land\n' } }), why: /outside the records: notes\/other\.md;/ };
 });
 refused('the job\'s receipt attempt is not the one the spec run agreed', ({ w, x }) => {
   x.state.comments[JOB].push({ id: 60, body: block(RECEIPT, receipt(w.job, { attempt: 2 })), user: { login: 'civicsmith' } });
