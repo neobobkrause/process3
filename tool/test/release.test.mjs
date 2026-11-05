@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { layerClose } from '../lib/layer.mjs';
 import { MARKER, RELEASES_FILE, checkVersion, defaultVersion, releaseBody, releaseConfig, releaseDev, releaseReady, releaseRun, releaseSign, tagOf } from '../lib/release.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
-import { commit, entry, makeRepo, write } from './helpers.mjs';
+import { commit, entry, makeRepo, onState, write } from './helpers.mjs';
 
 const quiet = () => {};
 const SHIM = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims', 'process-dev-release.yml');
@@ -42,18 +42,21 @@ test('version and tag naming', () => {
   for (const v of ['', '-x', 'a/b', 'a..b', 'a b', 'x.lock', 'x.', 'a'.repeat(65), 'v$1']) assert.throws(() => checkVersion(v), /the version must be/, v);
 });
 
-test('the layer rule: every layer closed, or the open layer closed with nothing of the next in the tip', () => {
-  const L = (n, closed, mods = []) => ({ n, closed, mods: mods.map(([id, open, merged]) => ({ id, open, merged })) });
-  assert.match(releaseReady(null).why, /no layer map/);
-  assert.deepEqual(releaseReady({ layers: [L(1, true)], cur: null }), { ok: true, why: 'every layer is closed' });
-  const first = L(1, false, [['a', false, true]]);
-  assert.match(releaseReady({ layers: [first], cur: first }).why, /layer 1 is open and no layer before it is closed/);
-  const quiet2 = L(2, false, [['d', false, false]]);
-  assert.equal(releaseReady({ layers: [L(1, true), quiet2], cur: quiet2 }).ok, true);
-  const busy = L(2, false, [['d', true, false], ['e', false, true]]);
-  const r = releaseReady({ layers: [L(1, true), busy], cur: busy });
-  assert.equal(r.ok, false);
-  assert.match(r.why, /layer 2 has work in the tip \(d open, e merged\); close it first/);
+test('the round rule (Bob, 5 Nov): a release only at a round close, deployed at the tip, its findings recorded', () => {
+  const tip = 'a'.repeat(40);
+  const open = { closed: false, why: 'the first round is open: layer 2 not closed' };
+  const shut = { closed: true, round: 'the first round', layer: 2 };
+  const none = { last: null, failing: 0, marks: 0, recorded: 0 };
+  const row = (commit, ok = true) => ({ slug: 'p3dev-l2', commit, ok });
+  const between = releaseReady({ rc: open, w: none }, tip);
+  assert.equal(between.ok, false);
+  assert.match(between.why, /a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
+  assert.match(releaseReady({ rc: shut, w: none }, tip).why, /the first round is closed but aaaaaaaaaa has no deploy row: `node \.process\/tool\/p3\.mjs deploy dev` first/);
+  assert.match(releaseReady({ rc: shut, w: { ...none, last: row('b'.repeat(40)) } }, tip).why, /has no deploy row \(the latest is p3dev-l2 bbbbbbbbbb\)/);
+  const held = releaseReady({ rc: shut, w: { last: row(tip, false), failing: 2, marks: 0, recorded: 0 } }, tip);
+  assert.equal(held.ok, false);
+  assert.match(held.why, /with 2 finding\(s\), 0 recorded/);
+  assert.deepEqual(releaseReady({ rc: shut, w: { ...none, last: row(tip) } }, tip), { ok: true, why: 'the first round closed, deployed and walked at aaaaaaaaaa (p3dev-l2)' });
 });
 
 // A product with origin: layer 1 of two, its modules complete, the release block in its config.
@@ -67,6 +70,8 @@ const product = (release = REL) => ({
   'build/requirements/d.md': unmet(1),
   'process/ledger/a.json': done('a'),
   'test/a/x.test.mjs': PASS,
+  'process/ledger/d.json': done('d'),
+  'test/d/x.test.mjs': PASS,
 });
 function withOrigin(files) {
   const root = makeRepo(files);
@@ -81,11 +86,27 @@ const statusIO = { openPRs: () => [], checkRun: () => null, compare: () => null 
 const io = { status: statusIO, compare: () => null, remoteRefs: () => '' };
 const slug = 'o/p';
 
-test('release dev: refused before a layer is closed, off the tranche tip, on a dirty tree, without a release block, on a taken version; then BOB\'s acts', () => {
+// A deploy row at the tip on origin's state branch, as deploy dev writes it.
+const deployed = (root, commit) => {
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
+  onState(root, { 'deploys/dev.jsonl': JSON.stringify({ row: 'dev-deploy', tranche: 'tranche', slug: 'p3dev-l2', commit, layer: 2, ok: true, stopped: null }) + '\n' });
+  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
+};
+
+test('release dev between layers (Bob, 5 Nov): layer 1 closed, layer 2 open: refused, naming what holds the round', () => {
   const { root } = withOrigin(product());
-  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: layer 1 is open and no layer before it is closed/);
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layers 1, 2 not closed\)/);
   assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
+});
+
+test('release dev at a closed round: refused until the round is deployed at the tip, then BOB\'s acts; refused off the tranche tip, on a dirty tree, without a release block, on a taken version', () => {
+  const { root } = withOrigin(product());
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(layerClose(root, '2', { io: statusIO, log: quiet }).ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the first round is closed but \w{10} has no deploy row: `node \.process\/tool\/p3\.mjs deploy dev` first/);
+  deployed(root, tip);
   const out = [];
   const r = releaseDev(root, { io, slug, log: (m) => out.push(m) });
   assert.equal(r.ok, true);

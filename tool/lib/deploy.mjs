@@ -146,6 +146,21 @@ export function roundClose(root, cfg, { ls, plan = cfg.plan, closed = [], ref, w
   return { closed: true, round: 'the completion round', layer };
 }
 
+// The round at the tranche tip `t` (origin/<tranche>), as deploy dev and release dev read it, and as
+// tranche close does: the plan as the tranche holds it, the layers from status's rows and layer
+// close's rows, the latest deploy row's findings. `s` is status's result (null under plan close,
+// which reads no layers); its prs null means GitHub was unreadable.
+export function roundAt(root, cfg, t, { io = {}, slug = null } = {}) {
+  const at = { slug, ...(io.compare ? { read: io.compare } : {}) };
+  const closed = closedRows(root, cfg, at);
+  let plan = null;
+  try { plan = loadConfig(root, t).plan; } catch { plan = null; }
+  const w = walkFindings(root, cfg, t, at);
+  const s = plan === 'close' ? null : status(root, { log: () => {}, io: io.status });
+  const rc = roundClose(root, cfg, { ls: s ? layerState(root, cfg, s.rows, t, { closed }) : null, plan, closed, ref: t, w });
+  return { rc, w, s, plan };
+}
+
 // The latest deploy row's findings and how many are recorded: a failed run counts one at least,
 // a walk its report's failures; recorded are the unmet found marks at `ref` whose source names
 // this run, its slug and its commit (\`found ... --from "walk <slug> <commit>"\`, as deploy dev
@@ -191,13 +206,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const dirty = git(['status', '--porcelain', '--untracked-files=no'], { cwd: root });
   if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
   fetchState(root, cfg.state_branch, { fresh: true });
-  const at = { slug: repo, ...(io.compare ? { read: io.compare } : {}) };
-  // The round close, read as tranche close reads it: the plan as the tranche holds it.
-  const closed = closedRows(root, cfg, at);
-  let plan = null;
-  try { plan = loadConfig(root, t).plan; } catch { plan = null; }
-  const w = walkFindings(root, cfg, t, at);
-  const rc = roundClose(root, cfg, { ls: plan === 'close' ? null : layerState(root, cfg, status(root, { log: () => {}, io: io.status }).rows, t, { closed }), plan, closed, ref: t, w });
+  const { rc, w } = roundAt(root, cfg, t, { io, slug: repo });
   if (!rc.closed) fail(`no development deployment now: a deploy and walk belong to a round close, never between layers (${rc.why}); it becomes due when the round closes`);
   if (w.last && w.last.ok && !w.failing && w.last.commit === tip) fail(`no development deployment now: ${tip.slice(0, 10)} is deployed and walked clean (${w.last.slug}); the next round's close makes the next one`);
   const layer = rc.layer;

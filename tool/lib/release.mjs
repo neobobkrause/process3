@@ -1,8 +1,9 @@
 // release dev (Build Plan Phase 3, the release row; Bob's word, 3 Nov: development only, there is
-// no public release). BOB cuts a development release from the tranche tip once its layers are
-// closed: the tool prints the dispatch of the product's shim process-dev-release.yml on the tranche
-// (checks and assemble on read-only tokens, then publish, in the environment p3dev-release, which
-// runs no product code: the tag p3dev-<version> and a draft release, never published, never latest).
+// no public release). BOB cuts a development release from the tranche tip at a round's close only,
+// never between layers (Bob, 5 Nov), once that round is deployed and walked at the tip: the tool
+// prints the dispatch of the product's shim process-dev-release.yml on the tranche (checks and
+// assemble on read-only tokens, then publish, in the environment p3dev-release, which runs no
+// product code: the tag p3dev-<version> and a draft release, never published, never latest).
 // --record then writes one row for the run to the state branch.
 // The shim calls `release run` (each check or the assemble, as the gate runs a suite), `release
 // version` (the dispatched version, checked) and `release sign` (only when sign_secret is set).
@@ -13,9 +14,8 @@ import { dirname, join, relative } from 'node:path';
 import { block, getRun, parseBlock } from './github.mjs';
 import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
-import { closedRows, layerState, status } from './status.mjs';
 import { loadRanges, platformRows } from './size.mjs';
-import { collectMasks, redact } from './deploy.mjs';
+import { collectMasks, redact, roundAt, runSource, walkHold } from './deploy.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -67,16 +67,17 @@ export function releaseConfig(cfg) {
   return { checks, assemble, out: out.replace(/\/+$/, ''), full_history: !!r.full_history, sign_secret: s || null, assemble_timeout_minutes: deflt };
 }
 
-// The release's layer rule (PR 48's record): every layer closed, or the open layer closed with
-// nothing of the next layer in the tip yet (no module of it with an open or merged job).
-export function releaseReady(ls) {
-  if (!ls) return { ok: false, why: 'there is no layer map' };
-  if (!ls.cur) return { ok: true, why: 'every layer is closed' };
-  const closedBefore = ls.layers.filter((L) => L.n < ls.cur.n && L.closed);
-  if (!closedBefore.length) return { ok: false, why: `layer ${ls.cur.n} is open and no layer before it is closed` };
-  const busy = ls.cur.mods.filter((m) => m.open || m.merged);
-  if (busy.length) return { ok: false, why: `layer ${ls.cur.n} has work in the tip (${busy.map((m) => `${m.id} ${m.open ? 'open' : 'merged'}`).join(', ')}); close it first` };
-  return { ok: true, why: `layer ${closedBefore.at(-1).n} is closed and layer ${ls.cur.n} has no work in the tip` };
+// The release's round rule (Bob, 5 Nov): a release only when the current round of the tranche
+// closes, never between layers, as deploy dev reads the round (roundAt). The round's close runs
+// close, internal walk, deploy dev, live walk, findings, then release dev: so the latest deploy row
+// must be at the tip, and its findings recorded (walkHold); recorded findings reopen the round as
+// the completion round, so the release waits for that round's close and its own deploy.
+export function releaseReady({ rc, w }, tip) {
+  if (!rc.closed) return { ok: false, why: `a release belongs to a round close, never between layers (${rc.why}); it becomes due when the round closes` };
+  if (!w.last || w.last.commit !== tip) return { ok: false, why: `${rc.round} is closed but ${tip.slice(0, 10)} has no deploy row${w.last ? ` (the latest is ${runSource(w.last)})` : ''}: \`${P3} deploy dev\` first, then its walk's findings, then the release` };
+  const hold = walkHold(w);
+  if (hold) return { ok: false, why: hold };
+  return { ok: true, why: `${rc.round} closed, deployed and walked at ${tip.slice(0, 10)} (${w.last.slug})` };
 }
 
 const runId = (url) => {
@@ -91,8 +92,9 @@ const defaultIO = {
   remoteRefs: (root, refs) => git(['ls-remote', 'origin', ...refs], { cwd: root }),
 };
 
-// release dev [--version <v>]: refused unless the layers allow it, the checkout is the tranche
-// tip with a clean tree, and the config has a valid release block; prints BOB's acts.
+// release dev [--version <v>]: refused until the current round has closed and been deployed and
+// walked at the tip; unless the checkout is the tranche tip with a clean tree and the config has
+// a valid release block; prints BOB's acts.
 // release dev --record <run url>: one row for the run on the state branch.
 export function releaseDev(root, { version, record, log = console.log, io: given = {}, slug = repoSlug(root) } = {}) {
   const io = { ...defaultIO, ...given };
@@ -107,10 +109,9 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   const dirty = git(['status', '--porcelain', '--untracked-files=no'], { cwd: root });
   if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
   fetchState(root, cfg.state_branch, { fresh: true });
-  const s = status(root, { log: () => {}, io: io.status });
-  if (s.prs === null) fail('GitHub unreadable: open pull requests not known, so the layers cannot be judged');
-  const ls = layerState(root, cfg, s.rows, t, { closed: closedRows(root, cfg, { slug, ...(io.compare ? { read: io.compare } : {}) }) });
-  const ready = releaseReady(ls);
+  const round = roundAt(root, cfg, t, { io, slug });
+  if (round.s && round.s.prs === null) fail('GitHub unreadable: open pull requests not known, so the round cannot be judged');
+  const ready = releaseReady(round, tip);
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
   const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
   const taken = io.remoteRefs(root, [`refs/tags/${tagOf(v)}`]).trim();
