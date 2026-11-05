@@ -717,3 +717,11 @@
 - Ledger-sync defect, 3rd occurrence (screens-public): coordinator one-off, the job sets its own WORKING with a reason; BOB stops editing live jobs' ledger entries; the process3 fix goes with the audit options.
 - control-plane's job complete was killed at 30 min by the background-command limit (its suite takes 31 min); rerun with a 2 h limit.
 - Audit 2 updated after Bob's Keep and Drop export: JOB-12 was a Keep that 177 reversed under Bob's name; GAT-6 skipping is Bob's call. Awaiting Bob's choices.
+
+## 23:58 coordinator refresh (5 Nov)
+- New coordinator session_018BhcefjWx4gCEPSaQ6JGxj; ROOT recorded it 23:54:50Z and archived session_018BhceevG6A8yj9fzc24C89.
+- Probe coordinator id: process3-probes PR 231 merged 95e75bc (23:56:53Z, `merge --plain --no-review`, record gate 0.12 min).
+- Scheduled tasks moved to this session: hourly flow trig_01XLmuM6ofCn78C3gtUQ1733 (:51, now also tracks layer 6 close and Bob's SLB/AUD answers); layer 6 baseline / merge-train report trig_01X1QHqQY9JRnyTFcVdpS8KZ (6 Nov 04:50, reframed as the SLB-10 baseline); survival reads trig_016pnkXpxg1P6RzpSNGM4EbP (16 Nov), trig_018MZu9XWhc33Yg2LRFkyaH9 (18 Nov). Predecessor's five deleted (review-trigger day-1 had already fired).
+- Keep and Drop page: 159 earlier answers seeded; SLB-1..11 and AUD-1..9 undecided. Bob asked about SLB-2: explained that it adds no layer job; one job per module still, which publishes to layer/<n>, possibly more than once; the layer is a branch that merges once at close.
+- Predecessor's last notes: PR 183 commit 2 carries Bob's three later rulings with tests, cold review extending to commit 2; screens-publish EVIDENCE fix is job PR 607 (session_018BhcegD4AUbhnEjj4C4stE).
+- Copy at 23:57: 379, 380 (drafts), 606, 411, 484, 485, 394 all open.
