@@ -175,7 +175,7 @@ export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gate
   // Each event once, with what it adds: a merge its gate runs; a complete claim whether a gate run of its receipt refuted it; a reopen its marks.
   const merges = [...new Map(rows.filter((r) => r.row === 'merge' && inW(r)).map((r) => [String(r.pr), r])).values()].map((r) => ({ at: Date.parse(r.at), runs: runsOf(r.pr) }));
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete' && inW(r)).map((c) => ({ at: Date.parse(c.at), refuted: (runsOf(c.pr) || []).some((x) => x.receipt_attempt === c.attempt && (x.suite === 'fail' || x.revert === 'fail')) }));
-  const reopens = rows.filter((r) => r.row === 'attempt' && r.event === 'start' && r.reopen && inW(r)).map((r) => ({ at: Date.parse(r.at), marks: (String(r.reopen).match(/\b[RF][\w.-]*\d\b/g) || []).length }));
+  const reopens = rows.filter((r) => r.row === 'attempt' && r.event === 'start' && r.reopen && !r.abandoned && inW(r)).map((r) => ({ at: Date.parse(r.at), marks: (String(r.reopen).match(/\b[RF][\w.-]*\d\b/g) || []).length }));
   const fall = (x, y) => { const [u, v] = [unmetAt(new Date(x).toISOString()), unmetAt(new Date(y).toISOString())]; return Number.isInteger(u) && Number.isInteger(v) ? u - v : null; };
   const blank = () => ({ h: 0, job: 0, slots: 0, fall: 0, merges: [], completes: [], reopens: [] });
   const sum = blank();

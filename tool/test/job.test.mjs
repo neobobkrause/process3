@@ -5,7 +5,7 @@ import { jobBlock, jobComplete, jobSender, jobStart, jobTest, startText } from '
 import { merge } from '../lib/merge.mjs';
 import { status } from '../lib/status.mjs';
 import { checkLedger, readEntry } from '../lib/ledger.mjs';
-import { appendRow, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
+import { appendRow, flowFigures, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, write } from './helpers.mjs';
 
@@ -954,7 +954,7 @@ test('--restart is refused for a COMPLETE module, without a branch or PR, and wi
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request; --restart continues an open one \(an unfinished start resumes/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: true, find: pr, notes: () => [], log: quiet }), /--restart needs why/);
   const m = mergedOnce();
-  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; a new attempt on a merged module is job start alpha --live <n> --reopen/);
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; its pull request is open with nothing beyond the tranche: BOB merges or closes it, then job start alpha --live <n> --reopen/);
 });
 
 test('--restart on a BLOCKED job with no open pull request opens its draft again and launches the replacement (copy, 4 Nov: PR 194 by hand)', () => {
@@ -1009,6 +1009,8 @@ test('an abandoned COMPLETE attempt (commits, PR closed unmerged): --restart nam
   const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'make the suite green', open: f.open, find, prs, log: quiet });
   assert.match(r.start, /Your branch is `job\/alpha-2`/);
   assert.match(r.start, /What it must do: make the suite green/);
+  assert.match(r.start, /starts afresh from the tranche: the attempt on `job\/alpha` \(#301, closed unmerged\) was abandoned/);
+  assert.doesNotMatch(r.start, /after an earlier attempt merged/);
   assert.equal(r.attempt, 3);
   const tip = tipOf(root, 'job/alpha-2');
   assert.equal(git(['rev-parse', `${tip}^`], { cwd: root }), tranche, 'cut from the tranche tip');
@@ -1037,6 +1039,26 @@ test('an abandoned WORKING attempt (commits, no PR): --restart and a plain start
   const row = lastRow(root, tipOf(root, 'job/alpha-2'));
   assert.deepEqual([row.attempt, row.reopen, row.abandoned], [2, 'finish R1', { branch: 'job/alpha', pr: null }]);
   assert.equal(JSON.parse(git(['show', `${tipOf(root, 'job/alpha-2')}:process/ledger/alpha.json`], { cwd: root })).status.state, 'WORKING');
+});
+
+test('an abandoned attempt records only a pull request after the branch\'s last merged one, and --reopen with --fresh-branch records it too', () => {
+  const s = abandonedComplete();
+  // #5 closed unmerged before #9 merged: it belongs to an earlier attempt.
+  const prs = () => [{ number: 5, state: 'closed', merged_at: null }, { number: 9, state: 'closed', merged_at: '2026-11-04T00:00:00Z' }];
+  jobStart(s.root, 'alpha', { coordinator: 's', setup: ready, reopen: 'redo', fresh: 'my own why', open: s.f.open, find: s.find, prs, log: quiet });
+  const row = lastRow(s.root, tipOf(s.root, 'job/alpha-2'));
+  assert.deepEqual([row.abandoned, row.fresh.why], [{ branch: 'job/alpha', pr: null }, 'my own why']);
+  // An OPEN tranche entry with --fresh-branch takes the abandoned route too.
+  const w = abandonedWorking();
+  const r = jobStart(w.root, 'alpha', { coordinator: 's', setup: ready, reopen: 'redo', fresh: 'why', open: w.f.open, find: w.find, prs: noPRs, log: quiet });
+  assert.match(r.start, /Your branch is `job\/alpha-2`/);
+});
+
+test('a start on an abandoned attempt is not counted as a reopen after a merge', () => {
+  const at = (h) => new Date(Date.parse('2026-11-05T00:00:00Z') + h * 36e5).toISOString();
+  const sweeps = [{ row: 'sweep', at: at(0), live: 2, job_cap: 20 }];
+  const rows = [{ row: 'attempt', event: 'start', at: at(0.5), reopen: 'meet R1 and R2' }, { row: 'attempt', event: 'start', at: at(0.6), reopen: 'meet R3', abandoned: { branch: 'job/a', pr: 3 } }];
+  assert.equal(flowFigures({ sweeps, rows, from: at(0), to: at(1) }).reopened_marks, 2);
 });
 
 // Copy, 5 Nov (agent-steps PR 392): COMPLETE, its pull request open and red, its session archived.
@@ -1072,6 +1094,9 @@ test('every refusal in job start and --restart names a route that works from tha
       return s;
     },
     'WORKING, PR open': () => ({ ...abandonedWorking(), find: () => pr }),
+    'unfinished start, PR open': () => { const root = withOrigin(); const f = fakeGitHub(); jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet }); return { root, f, find: () => pr, prs: noPRs }; },
+    'BLOCKED, PR open': () => ({ ...states['BLOCKED, no PR'](), find: () => pr }),
+    'merged COMPLETE, PR open': () => ({ ...states['merged COMPLETE'](), find: () => pr }),
     'COMPLETE, PR open': () => ({ ...abandonedComplete(), find: () => pr }),
   };
   const run = (s, mode, find = s.find) => {
@@ -1089,13 +1114,13 @@ test('every refusal in job start and --restart names a route that works from tha
       refusals += 1;
       const route = /--reopen "</.test(msg) ? 'reopen' : /--restart "</.test(msg) ? 'restart' : /resumes with job start alpha --live <n>/.test(msg) ? 'plain' : null;
       assert.ok(route, `${name}, ${mode}: the refusal names no route: ${msg}`);
-      const closed = route === 'reopen' && /BOB closes it/.test(msg);
+      const closed = route === 'reopen' && /closes it/.test(msg);
       if (!closed) assert.notEqual(route, mode, `${name}, ${mode}: the refusal names itself: ${msg}`);
       const s = make();
       assert.doesNotThrow(() => run(s, route, closed ? () => null : s.find), `${name}, ${mode} -> ${route}${closed ? ' after the close' : ''}: ${msg}`);
     }
   }
-  assert.ok(refusals >= 10, `walked ${refusals} refusals`);
+  assert.ok(refusals >= 14, `walked ${refusals} refusals`);
 });
 
 // P7: the receipt names the test for each mark the job struck.
