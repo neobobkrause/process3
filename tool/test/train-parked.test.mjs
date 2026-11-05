@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import { entry, makeRepo, openPassed, setJobCap } from './helpers.mjs';
 import { startReady, startable } from '../lib/ready.mjs';
 import { writeState } from '../lib/state.mjs';
-import { flow, inTrain, parkedSessions } from '../lib/status.mjs';
+import { flow, inTrain, parkedSessions, status } from '../lib/status.mjs';
 import { SWEEP_ROWS_FILE, idleCapacity, idleCheck, markInTrain, overCapOwed } from '../lib/sweep.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
@@ -23,13 +23,14 @@ const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not 
 const ago = (min) => new Date(Date.now() - min * 6e4).toISOString();
 
 // Layer 1 closed; layer 2's a, b and c have unmet marks; a's pull request is in the train.
-function product() {
+function product(files = {}, layers = '') {
   const root = makeRepo({
-    'build/layers.md': '| Layer | Modules |\n|---|---|\n| 1 | `done` |\n| 2 | `a`, `b`, `c` |\n',
+    'build/layers.md': '| Layer | Modules |\n|---|---|\n| 1 | `done` |\n| 2 | `a`, `b`, `c` |\n' + layers,
     'process/config.json': JSON.stringify({ coordinator: 'session_coord1' }),
     'build/requirements/done.md': '# done\n',
     'process/ledger/done.json': entry('done', { requirements: 'build/requirements/done.md', layer: 1, status: { state: 'COMPLETE' } }),
     ...Object.fromEntries(['a', 'b', 'c'].flatMap((id) => [[`build/requirements/${id}.md`, unmet(1)], [`process/ledger/${id}.json`, entry(id, { requirements: `build/requirements/${id}.md`, layer: 2 })]])),
+    ...files,
   });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -122,4 +123,22 @@ test('review: the sweep\'s over-cap owed line is judged on working sessions: gon
   assert.deepEqual(overCapOwed([line, 'x'], 5, 2, 6), ['x']);
   assert.deepEqual(overCapOwed([line], 7, 1, 6), ['7 working job sessions (1 more parked in the train), over the job cap of 6: archive finished ones before starting more']);
   assert.deepEqual(overCapOwed(['x'], 9, 1, 6), ['x']);
+});
+
+test('item 7: a module after the open layer with unmet marks and no ledger entry is named "no ledger entry: cannot start" with its count, in status and the idle-capacity line', () => {
+  const root = product({
+    'build/requirements/x.md': unmet(2),
+    'build/requirements/y.md': unmet(1),
+    'process/ledger/y.json': entry('y', { requirements: 'build/requirements/y.md', layer: 3 }),
+    'build/requirements/z.md': '# z\n',
+  }, '| 3 | `x`, `y`, `z` |\n');
+  const lines = [];
+  const out = status(root, { role: 'bob', offline: true, heads: new Set(), log: (l) => lines.push(l) });
+  assert.ok(lines.includes('- x (layer 3): no ledger entry: cannot start; 2 unmet marks'), lines.join('\n'));
+  assert.ok(!lines.some((l) => /^- [yz] \(layer 3\): no ledger entry/.test(l)), 'y has its entry; z has no unmet marks');
+  assert.deepEqual(out.next.noEntry, [{ id: 'x', file: 'build/requirements/x.md', layer: 3, count: 2 }]);
+  assert.ok(!out.next.some((w) => w.file === 'build/requirements/x.md'), 'never listed as work');
+  const ic = idleCapacity({ live: 1, cap: 10, holds: [], work: out.next, startable: 3, layers: new Map(), freed: Date.now() - 60 * 6e4 });
+  assert.ok(ic.reasons.includes('no ledger entry, cannot start: x (2 unmet)'), ic.reasons.join(' | '));
+  assert.deepEqual(ic.no_entry, [{ id: 'x', count: 2 }]);
 });

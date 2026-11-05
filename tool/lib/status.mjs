@@ -977,8 +977,21 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const triage = [...new Set(Object.values(owed).flat().filter((x) => !x.triage && !x.rerun).map((x) => x.key))].map((key) => ({ triage: key }));
   // The completion round (PLN-4): once every layer is closed, the completion file's open items.
   const round = ls && !ls.cur ? completionWork(root, cfg, rows, ref, log) : [];
+  // Modules of the layers after the open one with unmet marks and no ledger entry (build
+  // train-robust, item 7: 14 on the copy, 5 Nov, skipped silently, so no one saw they could never
+  // start): each named, with its count, until BOB writes its entry. On the returned list as noEntry,
+  // never as work (the idle-capacity line names them apart).
+  const asWork = new Set([...list, ...noticeList, ...foundList, ...enteredList].map((x) => x.file));
+  const noEntry = ls?.cur ? ls.layers.filter((L) => L.n > ls.cur.n).flatMap((L) => L.mods.filter((m) => !m.row && !asWork.has(m.file) && m.marks.length + m.found.length > 0)
+    .map((m) => ({ id: m.id, file: m.file, layer: L.n, count: m.marks.length + m.found.length }))) : [];
+  if (noEntry.length) {
+    log(`no ledger entry: cannot start (${noEntry.length} module${noEntry.length === 1 ? '' : 's'} after the open layer with unmet marks; BOB writes each entry, or no job ever starts it):`);
+    for (const m of noEntry) log(`- ${m.id} (layer ${m.layer}): no ledger entry: cannot start; ${m.count} unmet mark${m.count === 1 ? '' : 's'}`);
+  }
   // The returned list holds all of them: a split owed is still work for BOB (sweep counts it).
-  return [...list, ...noticeList, ...foundList, ...enteredList, ...big, ...triage, ...round, ...loose.map((f) => ({ file: NO_MODULE, found_no_module: f.id }))];
+  const out = [...list, ...noticeList, ...foundList, ...enteredList, ...big, ...triage, ...round, ...loose.map((f) => ({ file: NO_MODULE, found_no_module: f.id }))];
+  out.noEntry = noEntry;
+  return out;
 }
 
 // The completion file's open items, not deferred: a module item through job start as usual (its

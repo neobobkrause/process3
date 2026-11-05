@@ -156,3 +156,26 @@ subtract them and print `<k> job sessions parked in the train ... not counted ag
 idle check between sweeps judges on working sessions too. With `--live <n>` alone, n is taken as
 given (no listing says which sessions are parked). The sweep's "over the job cap" owed line still
 counts every job session.
+
+6. The release path's cost (coordinator, 5 Nov: 13.8 s of a warm pass on the copy). The train
+recomputed the release set whenever the tranche moved or the open job set changed. It is now
+cached (train.mjs releaseSet) by the inputs releaseModules reads: the tranche's tree, the
+closed-layer rows on the state branch, origin's main, the config, the tool's commit, and the open
+jobs on COMPLETE or BLOCKED entries (an open job on any other entry changes no input: layerState
+counts it open already). In memory and in the clone (`.git/p3-train-release.json`), so an
+unchanged tranche costs three ref reads and a restarted train at the same tip reads no file.
+The test compares cached and uncached sets for every open set of the fixture.
+
+7. Modules with no ledger entry after the open layer (coordinator, 5 Nov: 14 on the copy, skipped
+silently). nextWork names each module of a layer after the open one whose requirement file has
+unmet marks and that has no ledger entry, `- <id> (layer <n>): no ledger entry: cannot start;
+<k> unmet marks`, and returns them apart (noEntry), never as work; the idle-capacity line adds
+`no ledger entry, cannot start: <id> (<k> unmet), ...`.
+
+## Review rounds
+
+Round 1 (cold): five findings, all fixed, each with a test: the stale-lock break could restore a
+released lock (now broken under a `.break` file; a lock naming this process that it does not hold
+is stale); a state failure at the top of a pass stopped the train (now the next pass); the sweep
+never marked in-train modules (markInTrain there too); the sweep's over-cap line counted parked
+sessions (overCapOwed); a late row could be written twice (deduplicated).

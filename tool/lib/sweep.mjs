@@ -95,7 +95,10 @@ export function idleCapacity({ live, cap, holds, work, startable: count, layers,
   const rest = empty - k - lines.length;
   if (rest > 0) why.push(`${rest} x no startable work`);
   if (train.length) why.push(`in the train, not startable: ${train.map((x) => `${x.id} PR ${x.train}`).join(', ')}`);
-  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train })) } : {}), reasons: why };
+  // Modules after the open layer with unmet marks and no ledger entry: they can never start (item 7).
+  const noEntry = work?.noEntry || [];
+  if (noEntry.length) why.push(`no ledger entry, cannot start: ${noEntry.map((m) => `${m.id} (${m.count} unmet)`).join(', ')}`);
+  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train })) } : {}), ...(noEntry.length ? { no_entry: noEntry.map((m) => ({ id: m.id, count: m.count })) } : {}), reasons: why };
 }
 
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
