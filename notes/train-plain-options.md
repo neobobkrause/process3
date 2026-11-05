@@ -114,3 +114,16 @@ run by the train on the head that lands, so a refusal comes back as the train's 
 rows for plain merges are `row: 'plain'` in metrics/train.jsonl (the trial's merge measures are
 unchanged). mergePlain gained `head` (refuses any other head) and `beforeLand` (the lease and the
 withdrawal, checked before each GitHub merge call), and returns the pin wake's `what`.
+
+## Cold review fixes (PR 151)
+
+- The train brings up to date only a plain branch of this repository: never main, the default
+  branch, the tranche, the state branch or a job's branch (train.mjs plainBranch, checked when
+  queueing and again before the push). Any other goes to mergePlain as before.
+- The caller's --minutes count from the train's take (a `taken` row). Until then the row waits up
+  to one job's whole gate wait more, so a job merge in flight never makes a plain PR fail. The row
+  carries that limit (`take_by`), so a caller killed without withdrawing leaves nothing the train
+  lands later. A caller that stops on an error withdraws its row.
+- A withdrawal written while the train's land is already in flight: the caller waits, up to 5 min,
+  for the train's own row, then reads the pull request, so a land that went through is reported as
+  merged, not as a failure.

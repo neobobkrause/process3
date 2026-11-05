@@ -107,7 +107,7 @@ test('under a live lease a plain PR is queued, taken before an aged job, brought
   assert.ok(lines.some((l) => /PR 2 is queued for it at \w+, before any job pull request/.test(l)));
   assert.ok(lines.some((l) => new RegExp(`^merged pull request 2 at ${r.sha} \\(`).test(l)), 'the same merged line as mergePlain prints');
   // The head that landed is the queued head with the tranche merged in by the train, nothing else.
-  const landed = rows(root, TRAIN_FILE).find((x) => x.row === 'plain');
+  const landed = rows(root, TRAIN_FILE).find((x) => x.row === 'plain' && x.result !== 'taken');
   assert.equal(landed.result, 'merged');
   assert.equal(landed.head, queued['bob/found']);
   assert.equal(git(['rev-parse', `${landed.landed}^1`], { cwd: root }).trim(), queued['bob/found']);
@@ -183,7 +183,7 @@ test('the caller withdraws on its time limit, and the train never lands a withdr
   const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' }, 'bob/two': { 'notes/two.md': 'y' } });
   const g = github(root, ids, plains);
   const stopOther = otherTrain(root);
-  assert.throws(() => plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, minutes: 0, pause: () => {} }), /did not land pull request 1 within 0 min; it is withdrawn/);
+  assert.throws(() => plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, minutes: 0, queueMinutes: 0, pause: () => {} }), /did not land pull request 1 before its queue time ran out; it is withdrawn/);
   stopOther();
   runTrain(root, g);
   assert.deepEqual(g.calls.merged, [], 'withdrawn: not landed');
@@ -207,4 +207,65 @@ test('mergePlain refuses a head other than the one the train chose', () => {
   const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
   const g = github(root, ids, plains);
   assert.throws(() => mergePlain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, head: 'a'.repeat(40) }), /the head the train chose; nothing was merged/);
+});
+
+test('the train never pushes to a branch that is not a plain one of this repository: such a pull request is merged by mergePlain as before, never queued', () => {
+  const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  g.state.get(1).ref = 'main'; // a pull request from main into the tranche
+  const before = g.tipOf('main');
+  const stopOther = otherTrain(root);
+  assert.throws(() => plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, wait: 0, every: 0, pause: () => assert.fail('never queued') }));
+  assert.equal(rows(root, PLAIN_FILE).length, 0);
+  assert.equal(g.tipOf('main'), before);
+  stopOther();
+  // A row queued for it anyway (written by hand) is refused by the train, nothing pushed.
+  writeState(root, 'process-state', 'test: a queued main', (wt) => { mkdirSync(join(wt, 'merger'), { recursive: true }); appendFileSync(join(wt, PLAIN_FILE), JSON.stringify({ at: new Date().toISOString(), row: 'queue', id: 'x1', pr: 1, head: before, as: 'bob', no_review: 'x', rounds: 0, take_by: new Date(Date.now() + 60000).toISOString() }) + '\n'); });
+  runTrain(root, g);
+  assert.equal(g.tipOf('main'), before);
+  assert.match(rows(root, TRAIN_FILE).find((x) => x.row === 'plain' && x.result === 'refused').why, /is not a plain branch of o\/r the train may bring up to date/);
+});
+
+test('a queued row waits past --minutes while a job holds the train; --minutes count from the take', () => {
+  const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  const stopOther = otherTrain(root);
+  let pauses = 0;
+  // --minutes 0: before the take the row still has one job gate wait; the train takes it on the third read.
+  const r = plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, minutes: 0, pause: () => { if (++pauses === 3) { stopOther(); runTrain(root, g); } } });
+  assert.equal(r.merged, true);
+  assert.equal(pauses, 3);
+});
+
+test('a row whose caller died (no withdrawal) ends at its take_by: the train does not land it', () => {
+  const { root, ids, plains, queued } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  writeState(root, 'process-state', 'test: an abandoned row', (wt) => { mkdirSync(join(wt, 'merger'), { recursive: true }); appendFileSync(join(wt, PLAIN_FILE), JSON.stringify({ at: new Date(Date.now() - 200 * 60000).toISOString(), row: 'queue', id: 'dead', pr: 1, head: queued['bob/found'], as: 'bob', no_review: 'x', rounds: 0, take_by: new Date(Date.now() - 60000).toISOString() }) + '\n'); });
+  runTrain(root, g);
+  assert.deepEqual(g.calls.merged, []);
+});
+
+test('a caller that stops on an error withdraws its row', () => {
+  const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  const stopOther = otherTrain(root);
+  assert.throws(() => plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, pause: () => { throw new Fail('interrupted'); } }), /interrupted/);
+  stopOther();
+  assert.ok(rows(root, PLAIN_FILE).some((x) => x.row === 'withdraw' && /the caller stopped: interrupted/.test(x.why)));
+  runTrain(root, g);
+  assert.deepEqual(g.calls.merged, []);
+});
+
+test('a moved base is tried again with a backoff, not refused', () => {
+  const { root, ids, plains } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  const merge = g.io.mergePR;
+  let n = 0;
+  g.io.mergePR = (...a) => { if (n++ < 3) throw new Fail('gh api -X PUT failed: Base branch was modified. Review and try the merge again.'); return merge(...a); };
+  const stopOther = otherTrain(root);
+  const lines = [];
+  assert.throws(() => plainViaTrain(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', log: quiet, minutes: 5, pause: () => { if (lines.length) throw new Fail('stop'); stopOther(); runTrain(root, g, { log: (l) => lines.push(l) }); otherTrain(root); } }), /stop/);
+  const r = rows(root, TRAIN_FILE).filter((x) => x.row === 'plain' && x.result !== 'taken');
+  assert.equal(r[0].result, 'retry');
+  assert.ok(lines.some((l) => /PR 1 \(plain\) is tried again in 1 min/.test(l)));
 });
