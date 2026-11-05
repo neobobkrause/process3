@@ -137,7 +137,39 @@ export function ghMany(list, { allowFail = true, concurrency = GH_CONCURRENCY } 
 // branch pulls that branch's whole history (90 s measured 3 Nov), and a local merge base or
 // count of commits between two branches can be wrong. Fetches there take --depth 1.
 export const isShallow = (root) => git(['rev-parse', '--is-shallow-repository'], { cwd: root, allowFail: true }).stdout.trim() === 'true';
-export const depth = (root) => (isShallow(root) ? ['--depth', '1'] : []);
+// A shallow clone whose history was fetched deeper on purpose (the merge train's: the tranche past
+// main) carries this mark; a --depth 1 fetch there would cut that history back to one commit, so
+// its fetches take no depth (build/starter-fixes, 5 Nov).
+export const DEEP_MARK = 'p3.deep';
+export const markedDeep = (root) => git(['config', '--get', DEEP_MARK], { cwd: root, allowFail: true }).stdout.trim() === 'true';
+export const depth = (root) => (isShallow(root) && !markedDeep(root) ? ['--depth', '1'] : []);
+// The commits a shallow clone's history is cut at (empty in a full clone).
+export function shallowCuts(root) {
+  const f = git(['rev-parse', '--git-path', 'shallow'], { cwd: root, allowFail: true }).stdout.trim();
+  try { return new Set(readFileSync(resolve(root, f), 'utf8').split('\n').map((x) => x.trim()).filter(Boolean)); } catch { return new Set(); }
+}
+// Job heads fetched. In a shallow clone, only their commits main lacks: a plain fetch of a head cut
+// from a commit the clone lacks pulls main's whole history (1.2 GB on the copy). A head main holds
+// whole (git selects no commit) is fetched at its tip alone: main's commits are not on the
+// tranche's history past main, so that cut cuts nothing read there. Any other failure fetches
+// nothing more (never a depth after a network error). True when every ref was fetched.
+export function fetchJobRefs(root, refs, main = 'main') {
+  const spec = (ref) => `+refs/heads/${ref}:refs/remotes/origin/${ref}`;
+  const run = (args, rs) => git(['fetch', '-q', ...args, 'origin', ...rs.map(spec)], { cwd: root, allowFail: true });
+  if (!refs.length) return true;
+  if (!isShallow(root)) return run([], refs).code === 0;
+  const all = run([`--shallow-exclude=${main}`], refs);
+  if (all.code === 0) return true;
+  if (!/no commits selected/.test(all.stderr) && refs.length === 1) return false;
+  let ok = true;
+  for (const ref of refs) {
+    const one = refs.length === 1 ? all : run([`--shallow-exclude=${main}`], [ref]);
+    if (one.code === 0) continue;
+    if (/no commits selected/.test(one.stderr)) ok = run(['--depth=1'], [ref]).code === 0 && ok;
+    else ok = false;
+  }
+  return ok;
+}
 export const fetchBranch = (root, branch, opts = {}) => git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root, ...opts });
 
 export function repoRoot(cwd = process.cwd()) {
@@ -611,6 +643,13 @@ export function sweepTemp(root, { base = tmpdir(), now = Date.now() } = {}) {
   return gone;
 }
 export function withTemp(prefix, fn, { root } = {}) {
+  const { dir, drop } = holdTemp(prefix, { root });
+  try { return fn(dir); } finally { drop(); }
+}
+// A scratch directory held past one call (the base-red tree prepared beside the head's install,
+// basered.mjs startBase): removed by drop(), or at exit, or by the next withTemp once its owner
+// process is gone, as withTemp's are.
+export function holdTemp(prefix, { root } = {}) {
   if (!TEMP_PREFIXES.includes(prefix)) fail(`withTemp: ${prefix} is not a scratch prefix (TEMP_PREFIXES)`);
   sweepTemp(root);
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -618,5 +657,5 @@ export function withTemp(prefix, fn, { root } = {}) {
   // process.exit inside fn runs no finally: what is still held goes at exit.
   if (!exitHook) { exitHook = true; process.once('exit', () => { for (const [d, r] of temps) dropTemp(d, r); }); }
   temps.set(dir, root);
-  try { return fn(dir); } finally { dropTemp(dir, root); }
+  return { dir, drop: () => { if (temps.has(dir)) dropTemp(dir, root); } };
 }

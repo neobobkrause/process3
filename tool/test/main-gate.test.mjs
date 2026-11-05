@@ -83,6 +83,16 @@ test('a job PR whose gate was red at merge, or whose row is not verified, does n
   assert.deepEqual(r.run.through.map((x) => x.id), ['m1']);
 });
 
+// Build gate-speed: a job gate narrowed to the tests that read its requirements file
+// (requirementsOnly) leaves its module to run whole at the tranche into main.
+test('a job PR whose green gate ran only the tests reading its requirements file does not cover its module', () => {
+  const p = product(3);
+  const row = gateRunsOf(p.comments.get(2))[0];
+  p.comments.set(2, [{ id: 2, body: block(GATE, { runs: [{ ...row, requirements_only: [{ module: 'm1', files: [] }] }] }), user: { login: BOT } }]);
+  const r = run(p);
+  assert.deepEqual([r.run.scope, r.run.suite, r.run.through.map((x) => x.id)], [['m1'], 'pass', ['m0', 'm2']]);
+});
+
 test('a newer red row on the merged result outweighs an older green one', () => {
   const p = product(2);
   const pr = p.prs.get(1);

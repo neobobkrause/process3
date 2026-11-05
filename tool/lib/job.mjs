@@ -745,7 +745,10 @@ function struckTests(root, entry, base, given) {
   const heads = gone.some((r) => !here.has(r)) ? entries('HEAD').map((e) => ({ id: e.id, text: at('HEAD', e.requirements) })) : [];
   const into = (r) => {
     const re = new RegExp(`(?<![\\w.-])was ${esc(entry.id)} ${esc(r)}(?![\\w.-])`);
-    return heads.filter((e) => re.test(e.text) || (moved.has(r) && body(e.text).get(r) === mine.get(r))).map((e) => e.id);
+    // The same line, still unmet, at HEAD counts whether or not this branch wrote it: a split that
+    // copied the lines before the attempt's base (coordinator, 5 Nov: interface-shell, installer,
+    // control-plane). Residual: an unrelated module with the same id and line (review).
+    return heads.filter((e) => re.test(e.text) || (body(e.text).get(r) === mine.get(r) && markedIds(e.text).includes(r))).map((e) => e.id);
   };
   const movedOut = gone.filter((r) => !here.has(r) && !retired.has(r)).map((r) => ({ req: r, to: into(r) })).filter((m) => m.to.length);
   const out = movedOut.map((m) => m.req);

@@ -108,8 +108,11 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); const m = s.le
 const r2 = (x) => Math.round(x * 100) / 100;
 
 // The one report line (metrics report, report tranche), from merge rows, each pull request once.
-export function triggerSummary(merges) {
-  const rows = [...new Map(merges.map((r) => [String(r.pr), r])).values()];
+// rejudged: the triggers rows a land wrote beside a merge row prepared under an older pin, or one
+// whose triggers changed by the land (merge.mjs); the latest for a pull request is read over its row.
+export function triggerSummary(merges, rejudged = []) {
+  const later = new Map([...rejudged].filter((r) => r?.row === 'triggers' && Array.isArray(r.triggers)).sort((a, b) => String(a.at).localeCompare(String(b.at))).map((r) => [String(r.pr), r]));
+  const rows = [...new Map(merges.map((r) => [String(r.pr), r])).values()].map((r) => (later.has(String(r.pr)) ? { ...r, triggers: later.get(String(r.pr)).triggers } : r));
   const rec = rows.filter((r) => Array.isArray(r.triggers));
   const kind = (k) => rec.filter((r) => r.triggers.includes(k)).length;
   const fired = rec.filter((r) => r.triggers.length).length;

@@ -27,9 +27,9 @@ import { P3, toolPin } from './job.mjs';
 import { startReady } from './ready.mjs';
 import { readAddress } from './roles.mjs';
 import { approvalsHash } from './start.mjs';
-import { procAlive, procOf } from './train.mjs';
+import { LEASE_FILE, procAlive, procOf } from './train.mjs';
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
-import { readSessions, sessionId } from './status.mjs';
+import { readSessions, sessionId, sessionsBound } from './status.mjs';
 import { openState } from './tranche.mjs';
 import { Fail, fail, git, loadConfig, now } from './util.mjs';
 
@@ -59,6 +59,23 @@ export function due({ owed, auto, holds = [], t = Date.now(), quietUntil = 0 }) 
   if (expired) return `${expired.id} (${expired.scope}) expired`;
   if (t - last >= AUTO.every * MIN) return last ? `no pass for ${Math.round((t - last) / MIN)} min` : 'the first pass';
   return null;
+}
+
+// Who runs the starter (coordinator, 5 Nov 18:54: a new MERGER's starter waited 25 min after the
+// old one's last pass, its train's lease released and the old MERGER archived). The merge lease
+// decides: its live holder's starter runs and any other waits; a released lease hands the
+// starter over at once (its own session's starter stops passing). With no lease, or one lapsed
+// without a release (a silent MERGER, its starter maybe running still), the starter that passed
+// within AUTO.live minutes keeps it, as before. { go, why }.
+export function starterOwner({ lease, auto, session, t = Date.now() }) {
+  const other = auto?.session && auto.session !== session && starterLive(auto, t);
+  if (lease?.session) {
+    const live = !lease.released && Date.parse(lease.expires) > t;
+    if (live) return lease.session === session ? { go: true, why: 'this session holds the merge lease' } : { go: false, why: `the merge lease is ${lease.session}'s, to ${lease.expires}: its starter runs, this one waits` };
+    if (lease.released) return lease.session === session ? { go: false, why: `this session released the merge lease at ${lease.released}: its starter has handed over` } : { go: true, why: `the merge lease was released at ${lease.released}: the starter is handed over` };
+  }
+  if (other) return { go: false, why: `another starter, ${auto.session}'s, passed at ${auto.at || auto.beat}, and no live or released merge lease says whose it is: this one waits for its pass to lapse (${AUTO.live} min)` };
+  return { go: true, why: 'no other starter live' };
 }
 
 // The pending launches against the sessions listed: those whose job session (titled job <id>, or
@@ -99,8 +116,13 @@ export function autoPass(root, ctx) {
   const auto = readAuto(root, sb);
   let holds = [];
   try { holds = readHolds(root, sb, { offline: true, t }); } catch { holds = []; }
-  // Another starter running (a replaced MERGER's, its pass recent): this one waits.
-  if (auto?.session && auto.session !== session && starterLive(auto, t)) { log(`another starter, ${auto.session}'s, passed at ${auto.at}: this one waits for its pass to lapse (${AUTO.live} min)`); ctx.quietUntil = t + AUTO.gap * MIN; return null; }
+  // One starter at a time: the merge lease's holder's (starterOwner). Another's, the lease
+  // telling nothing, while its pass is recent.
+  let lease = null;
+  try { lease = JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { lease = null; }
+  const own = starterOwner({ lease, auto, session, t });
+  if (!own.go) { if (ctx.waitSaid !== own.why) log(own.why); ctx.waitSaid = own.why; ctx.quietUntil = t + AUTO.gap * MIN; return null; }
+  ctx.waitSaid = null;
   const why = due({ owed, auto, holds, t, quietUntil: ctx.quietUntil });
   if (!why) return null;
   // The tranche's tip: its approvals as at the start, its pin the one running.
@@ -117,11 +139,16 @@ export function autoPass(root, ctx) {
   // list_sessions, fresh: the cap's count and the launches' sessions.
   const file = ctx.sessionsFile;
   const asked = Date.now();
-  // One page, has_more included, as returned: readSessions takes it when it reaches past the oldest
-  // live job session (status.mjs); refused as partial, the next ask is for every page.
-  const ask = ctx.allPages
+  // Paged back only as far as readSessions needs (status.mjs sessionsBound: the record's newest
+  // session, a page or two; copy, 5 Nov 18:20: every page was asked, 22 pages back to 1 Aug).
+  // Refused all the same (the bound moved), the next ask is for its bound, read again; with the
+  // record unread, for every page.
+  const b = ctx.allPages ? { all: true } : ctx.bound(root);
+  const ask = b.unread || b.all
     ? `call list_sessions with limit 100, and again with after_id <last_id> while has_more, and save {"data": [every page's sessions], "has_more": false} to ${file}`
-    : `call list_sessions with limit 100 once and save its result to ${file} exactly as returned, has_more included`;
+    : b.until
+      ? `call list_sessions with limit 100, and again with after_id <last_id> while has_more and the last page's oldest created_at is after ${b.until} (${b.why}); save {"data": [every page's sessions, in order], "has_more": <the last page's has_more>} to ${file}`
+      : `call list_sessions with limit 100 once and save its result to ${file} exactly as returned, has_more included`;
   log(`AUTO SESSIONS ${file}: ${why}. Now ${ask}; this pass waits ${AUTO.sessionsWait} min for it, and the calls of an earlier AUTO-START block come first`);
   if (!ctx.waitFor(file, asked)) {
     log(`AUTO SESSIONS: nothing saved to ${file} within ${AUTO.sessionsWait} min; asked again in ${AUTO.gap} min`);
@@ -132,12 +159,15 @@ export function autoPass(root, ctx) {
   let listed;
   try { listed = readSessions(file, { root }); } catch (e) {
     if (!(e instanceof Fail)) throw e;
-    ctx.allPages = /has_more|page/.test(e.message);
-    log(`AUTO SESSIONS refused: ${e.message}${ctx.allPages ? '; the next ask is for every page' : ''}`);
+    // A bound that moved is read again at the next ask; a second refusal running asks for every page.
+    ctx.allPages = /has_more|page/.test(e.message) && !!ctx.refusedOnce;
+    ctx.refusedOnce = /has_more|page/.test(e.message);
+    log(`AUTO SESSIONS refused: ${e.message}${ctx.allPages ? '; the next ask is for every page' : ctx.refusedOnce ? '; the next ask pages back to its bound, read again' : ''}`);
     ctx.quietUntil = Date.now() + AUTO.gap * MIN;
     return { asked: true, saved: true, refused: e.message };
   }
   ctx.allPages = false;
+  ctx.refusedOnce = false;
   ctx.unanswered = false;
   const pass = (auto?.pass || 0) + 1;
   const { created, still } = reconcile(auto?.pending, listed);
@@ -196,7 +226,7 @@ export const waitForFile = (file, asked, { wait = AUTO.sessionsWait * MIN, every
 
 // A starter quiet on purpose (a paused plan, the tranche open not passed, an ask unanswered, no
 // pass due) still says it runs: a beat on flow/auto.json every AUTO.every minutes, its last pass
-// unchanged. Never over another session's starter that is live.
+// unchanged. Never over the starter another session owns (starterOwner).
 function beat(root, ctx, t = Date.now()) {
   if (t - (ctx.beatAt || 0) < AUTO.every * MIN) return;
   ctx.beatAt = t;
@@ -206,7 +236,9 @@ function beat(root, ctx, t = Date.now()) {
       const f = join(wt, AUTO_FILE);
       let cur = null;
       try { cur = JSON.parse(readFileUtf8(f) || 'null'); } catch { cur = null; }
-      if (cur?.session && cur.session !== ctx.session && starterLive(cur, t)) return;
+      let lease = null;
+      try { lease = JSON.parse(readFileUtf8(join(wt, LEASE_FILE)) || 'null'); } catch { lease = null; }
+      if (!starterOwner({ lease, auto: cur, session: ctx.session, t }).go) return;
       mkdirSync(dirname(f), { recursive: true });
       writeFileSync(f, JSON.stringify({ ...(cur || {}), ...(cur?.session === ctx.session ? {} : { pending: cur?.pending || [] }), session: ctx.session, beat: now(), quiet: why }, null, 2) + '\n');
     });
@@ -231,6 +263,7 @@ export function autoLoop(root, opts = {}) {
     waitFor: opts.waitFor || ((f, at) => waitForFile(f, at)),
     ready: opts.ready || startReady,
     open: opts.open || ((r, c) => openState(r, c)),
+    bound: opts.bound || ((r) => sessionsBound(r)),
     send: opts.send || send,
   };
   log(`the starter runs for ${session}: a pass when starts are owed, a hold expires, or every ${AUTO.every} min; each pass asks for list_sessions, then prints its calls as one AUTO-START block`);

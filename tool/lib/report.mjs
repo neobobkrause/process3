@@ -3,8 +3,6 @@
 // address and closed-layer rows, and the pull requests merged into the tranche. Every figure the
 // record lacks prints "unmeasured", never a guess. Overhead is metrics report's (overhead()).
 import { MERGER_FILE, TRAIN_FILE, trainLines, trainSummary } from './train.mjs';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
@@ -13,7 +11,7 @@ import { CLOSED_FILE } from './status.mjs';
 import { HOLDS_FILE, holdHours, landedPRs } from './hold.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
 import { triggerSummary } from './triggers.mjs';
-import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
+import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks, shallowCuts } from './util.mjs';
 
 const U = 'unmeasured';
 const usd = (x) => (typeof x === 'number' ? `$${(Math.round(x * 100) / 100).toFixed(2)}` : U);
@@ -69,10 +67,7 @@ function parentOf(root, sha) {
 }
 
 // The commits this shallow clone's history is cut at.
-function cuts(root) {
-  const f = gitOut(root, ['rev-parse', '--git-path', 'shallow']);
-  try { return new Set(readFileSync(resolve(root, f), 'utf8').split('\n').filter(Boolean)); } catch { return new Set(); }
-}
+const cuts = (root) => shallowCuts(root);
 
 // In a shallow clone (every session's), fetch only what the span, marks met and record-only
 // figures read: the tranche's commits main lacks and main before its first one, beside main's
@@ -214,7 +209,7 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const jobMerges = !opened ? `job merges since the opening ${U}` : `job merges recorded: ${mergeRows.length} distinct pull requests since the opening (${allMerges.filter(inT).length} merge rows)${olderPRs.length ? `; older than this tranche, left out: ${olderPRs.map((p) => `#${p}`).join(', ')}` : ''}`;
   L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); ${jobMerges}` : `${opened ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(opened)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${jobMerges}; the rest plain)`}.`, '');
   // The review triggers' measure (Bob, 4 Nov): this tranche's job merges, each pull request once.
-  L.push(`- ${opened ? triggerSummary(mergeRows).line : `review triggers: ${U} (the tranche's opening not read)`}`, '');
+  L.push(`- ${opened ? triggerSummary(mergeRows, rows.filter((r) => r.row === 'triggers')).line : `review triggers: ${U} (the tranche's opening not read)`}`, '');
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));
