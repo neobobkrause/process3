@@ -94,7 +94,10 @@ export function gate(root, opts) {
   // prior runs are another tree's. Only an open job PR into the tranche, from a job branch of this
   // repository, whose head is in the spec head, is judged so; anything else is red, and nothing
   // more runs (a spec that is not the job's change has nothing to test).
-  const spec = specRefs(live?.base?.ref, eventBranch);
+  // Only where the base's config opens the window (merge_train_window > 1); with the serial train
+  // a spec-shaped pull request is judged as any other (cold review of train-spec, finding 2).
+  const windowOn = (cfg.merge_train_window || 1) > 1;
+  const spec = windowOn ? specRefs(live?.base?.ref, eventBranch) : null;
   let branch = eventBranch;
   let jpr = null;
   let specWhy = null;
@@ -180,7 +183,7 @@ export function gate(root, opts) {
   // the real tranche, whose tree is the one a green spec run tested, records aside. Asked for by
   // the head's Spec-Tested trailer, judged here (specTested); anything short of that runs as it
   // would have without it.
-  const fast = !spec && jobReceipt && !(sinceGreen && !receiptRun) ? specTested(root, cfg, { slug, io, pr, base, head, tree, receipt: jobReceipt, job }) : null;
+  const fast = windowOn && !spec && jobReceipt && !(sinceGreen && !receiptRun) ? specTested(root, cfg, { slug, io, pr, base, head, tree, receipt: jobReceipt, job }) : null;
   if (fast && !fast.ok) log(`Spec-Tested is not taken: ${fast.why}; the gate runs as it would without it`);
 
   if (!spec && recordOnly && !jobReceipt) runRow.trigger = 'record';
@@ -395,6 +398,11 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
   if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
   if (blobAt(root, row.base, CONFIG_FILE) !== blobAt(root, base, CONFIG_FILE)) return no(`the base's ${CONFIG_FILE} differs from the spec run's`);
+  // The spec run's base is what judged it (its pin, its config, what changed, the revert and
+  // base-red checks): it must be this land's base, records aside (cold review of train-spec,
+  // finding 1: a spec pair any writer pushes, on a base of their choosing, stands for nothing else).
+  const baseOff = baseDiffers(root, cfg, row.base, base);
+  if (baseOff) return no(`spec PR ${n}'s run was judged on base ${String(row.base).slice(0, 10)}, which ${baseOff}`);
   if (row.revert === 'exempt' && !receipt.exempt?.revert) return no(`spec PR ${n}'s run passed its revert check by an exemption this receipt does not claim`);
   const kept = Array.isArray(row.receipt_passed) ? row.receipt_passed : [];
   if (!receiptAgrees(receipt.commands?.find((c) => c.suite), row.suite, row.base_red, kept)) return no(`the receipt does not agree with spec PR ${n}'s run ${row.run_id}`);
@@ -590,8 +598,16 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
     : { pr: row.spec_pr, baseRef: sp.base.ref, merged: { branch: sp.head.ref } };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || !io.verify(slug, r, ctx)) return null;
+    || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || baseDiffers(root, cfg, r.base, row.base) || !io.verify(slug, r, ctx)) return null;
   return r;
+}
+
+// Why a spec run's base `was` does not stand for the land's base `is` (they differ outside the
+// records, or one is unreadable); null when it does.
+function baseDiffers(root, cfg, was, is) {
+  if (!committed(root, was) || !committed(root, is)) return 'is not readable here';
+  const off = diffNames(root, was, is).filter((f) => !isRecordPath(cfg, f));
+  return off.length ? `differs from this land's base ${String(is).slice(0, 10)} outside the records: ${off.slice(0, 5).join(', ')}` : null;
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after
