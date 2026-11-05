@@ -43,6 +43,8 @@ function fakeGitHub(root, prs = {}) {
     find: (sl, head) => Object.values(prs).find((p) => p.head.ref === head) || null,
     gh: {
       getPR: (sl, n) => prs[n] || null,
+      prsFromBranch: (sl, b) => Object.values(prs).filter((p) => p.head?.ref === b),
+      baseEverChanged: () => false,
       editPR: (sl, n, f) => { s.edits.push({ n, ...f }); return { ...prs[n], ...f, base: { ref: f.base } }; },
       toDraft: (sl, pr) => { s.drafts.push(pr.number); return { ...pr, draft: true }; },
       addComment: (sl, n, body) => { s.comments.push({ n, body }); return { id: 1 }; },
@@ -74,14 +76,40 @@ test('take-in inside the module\'s paths: job/<id> at the work\'s tip, one merge
   assert.equal(git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root }), 'main');
 });
 
+// Cold review of build/branch-bound: a reused PR from job/<id> into another base, or one whose base
+// already changed, leaves the branch's runs bound to no job PR (github.mjs unbound), so merge
+// would refuse the job for good. Take-in refuses it before anything is written.
+test('take-in refuses to reuse a pull request from job/<id> into another base, or one already retargeted, writing nothing', () => {
+  for (const [base, changed, re] of [['main', false, /#6 cannot become alpha's job pull request: job\/alpha also had pull request\(s\) 6 into another base/], ['tranche', true, /the base of pull request\(s\) 6 from job\/alpha was changed/]]) {
+    const root = converting();
+    git(['push', '-q', 'origin', 'refs/remotes/origin/feature/a:refs/heads/job/alpha'], { cwd: root });
+    const slug = repoSlug(root);
+    const f = fakeGitHub(root, { 6: { number: 6, state: 'open', draft: false, html_url: 'pr6', node_id: 'N6', head: { ref: 'job/alpha', repo: { full_name: slug } }, base: { ref: base } } });
+    f.gh.baseEverChanged = () => changed;
+    const before = git(['ls-remote', 'origin'], { cwd: root });
+    assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', takeIn: '6', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet }), re);
+    assert.equal(git(['ls-remote', 'origin'], { cwd: root }), before, 'nothing pushed');
+    assert.equal(f.s.edits.length + f.s.opened.length, 0);
+  }
+});
+
+test('take-in onto a new pull request is refused when job/<id> already had one into another base', () => {
+  const root = converting();
+  const f = fakeGitHub(root, { 7: { number: 7, state: 'closed', head: { ref: 'job/alpha' }, base: { ref: 'main' } } });
+  const before = git(['ls-remote', 'origin'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', takeIn: 'feature/a', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet }), /a new pull request from job\/alpha cannot become alpha's job pull request: job\/alpha also had pull request\(s\) 7 into another base/);
+  assert.equal(git(['ls-remote', 'origin'], { cwd: root }), before, 'nothing pushed');
+  assert.equal(f.s.opened.length, 0);
+});
+
 test('take-in by number reuses a pull request from job/<id>: moved to the tranche and made a draft, no new PR', () => {
   const root = converting();
   git(['push', '-q', 'origin', 'refs/remotes/origin/feature/a:refs/heads/job/alpha'], { cwd: root });
   const slug = repoSlug(root);
-  const f = fakeGitHub(root, { 6: { number: 6, state: 'open', draft: false, html_url: 'pr6', node_id: 'N6', head: { ref: 'job/alpha', repo: { full_name: slug } }, base: { ref: 'main' } } });
+  const f = fakeGitHub(root, { 6: { number: 6, state: 'open', draft: false, html_url: 'pr6', node_id: 'N6', head: { ref: 'job/alpha', repo: { full_name: slug } }, base: { ref: 'tranche' } } });
   const r = jobStart(root, 'alpha', { coordinator: 's', takeIn: '6', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet });
   assert.equal(f.s.opened.length, 0, 'no new pull request');
-  assert.equal(f.s.edits[0].base, 'tranche');
+  assert.equal(f.s.edits[0].base, undefined, 'already into the tranche: no base is sent, so no base change is recorded');
   assert.match(f.s.edits[0].body, /Earlier work taken in: pull request #6 \(branch `job\/alpha`\)/);
   assert.deepEqual(f.s.drafts, [6]);
   assert.equal(r.pr.draft, true);

@@ -13,7 +13,7 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { writeState } from '../lib/state.mjs';
 import { TEMP_OWNER, TEMP_STALE_HOURS, git, sweepTemp, withTemp } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
 
 const LIB = join(dirname(fileURLToPath(import.meta.url)), '..', 'lib');
 
@@ -54,6 +54,7 @@ const io = (head, mergePR) => ({
   ],
   checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
   verify: (slug, r) => r.run_id === 11,
+  ...honestBranch([3]),
   mergePR,
 });
 const opts = (head, mergePR) => ({ slug: 'o/r', io: io(head, mergePR), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {}, wait: 0 });
