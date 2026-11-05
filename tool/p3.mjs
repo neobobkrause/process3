@@ -25,6 +25,7 @@ import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from '
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
+import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
@@ -382,6 +383,15 @@ const commands = {
   // condition is missing. The eleventh command (setup audit, 2 Nov); job start runs it first.
   // --at HEAD judges the checkout's own commit (its pin and files), not the tranche tip: a
   // pin-move pull request runs it before it merges. session-branch is skipped then.
+  // branches prune [--dry-run] [--ref <the run's GITHUB_REF>] [--run <run id>]: the scheduled
+  // cleanup (shims/process-branch-prune.yml, lib/branches.mjs). Deletes only while the approvals
+  // block on the default branch carries Bob's sentence (branches.mjs APPROVAL); --dry-run prints
+  // what the rules would delete and writes nothing.
+  'branches prune': (a, root) => {
+    if (a._.length || a.ref === true || a.run === true) fail('branches prune [--dry-run] [--ref <ref>] [--run <run id>]');
+    return prune(root, { slug: repoSlug(root), dryRun: !!a['dry-run'], ref: a.ref, run: a.run }).ok ? 0 : 1;
+  },
+
   'setup check': (a, root) => (setupCheck(root, { slug: repoSlug(root), at: a.at === true ? fail('--at <ref>, e.g. --at HEAD') : a.at }).ok ? 0 : 1),
 
   // size [--at <ref>] [--gate <gate.json>] [--out <size.json>]: the product as the process sees it

@@ -30,6 +30,7 @@ function files(over = {}) {
     '.claude/settings.json': JSON.stringify({ permissions: { deny: [] }, hooks: HOOKS }),
     '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml'),
     '.github/workflows/process-record.yml': PIN.file('shims/process-record.yml'),
+    '.github/workflows/process-branch-prune.yml': PIN.file('shims/process-branch-prune.yml'),
     'process/config.json': JSON.stringify({ tranche: 'tranche' }),
     ...over,
   };
@@ -92,15 +93,20 @@ test('no pin is missing; a pin older than the shim is not configured', () => {
 test('shim-drift: workflows equal the pin\'s shims and only allowed hooks; each gap names its fix', () => {
   const ok = judge(files())['shim-drift'];
   assert.equal(ok.state, 'set', ok.detail);
-  assert.match(ok.detail, /process-gate\.yml, process-record\.yml equal the pin pppppppppp's shims; 1 hook\(s\), each allowed/);
+  assert.match(ok.detail, /process-branch-prune\.yml, process-gate\.yml, process-record\.yml equal the pin pppppppppp's shims; 1 hook\(s\), each allowed/);
   const drift = judge(files({ '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml') + '\n# local' }))['shim-drift'];
   assert.equal(drift.state, 'missing');
   assert.match(drift.detail, /^\.github\/workflows\/process-gate\.yml differs from the pin's shim: BOB opens a plain pull request into tranche that copies \.process\/shims\/process-gate\.yml to it$/);
   const f = files();
   delete f['.github/workflows/process-record.yml'];
   assert.match(judge(f)['shim-drift'].detail, /process-record\.yml is absent: BOB opens a plain pull request/);
+  // The branch cleanup shim is a product file like the others: absent or changed is a gap.
+  const g = files();
+  delete g['.github/workflows/process-branch-prune.yml'];
+  assert.match(judge(g)['shim-drift'].detail, /^\.github\/workflows\/process-branch-prune\.yml is absent: BOB opens a plain pull request into tranche that copies \.process\/shims\/process-branch-prune\.yml to it$/);
+  assert.match(judge(files({ '.github/workflows/process-branch-prune.yml': 'x' }))['shim-drift'].detail, /process-branch-prune\.yml differs from the pin's shim/);
   // The development release shim: needed only with a release block; carried, it must equal the pin's.
-  assert.match(ok.detail, /^process-gate\.yml, process-record\.yml equal/);
+  assert.match(ok.detail, /^process-branch-prune\.yml, process-gate\.yml, process-record\.yml equal/);
   const rel = judge(files({ 'process/config.json': JSON.stringify({ tranche: 'tranche', release: {} }) }))['shim-drift'];
   assert.match(rel.detail, /process-dev-release\.yml is absent: BOB opens a plain pull request/);
   assert.equal(judge(files({ '.github/workflows/process-dev-release.yml': PIN.file('shims/process-dev-release.yml') }))['shim-drift'].state, 'set');
