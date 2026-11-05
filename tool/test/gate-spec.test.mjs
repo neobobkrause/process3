@@ -31,25 +31,35 @@ const product = (config = { merge_train_window: 2 }) => ({
 });
 const receipt = (sha, extra = {}) => ({ kind: 'receipt', module: 'alpha', attempt: 1, sha, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: {}, ...extra });
 
-// The tranche at t0 with module alpha; job/alpha's change; the window's PR ahead (R(-1), the spec
-// base); and R(0), the job merged onto it with its predicted merge row (the spec head).
-function world({ jobFiles, config } = {}) {
+// The tranche at t0 with module alpha; job/alpha's change; the PR ahead of it in the window
+// (`aheadFiles`, none at window position 0); the spec head train/head/5-1: t0 + the ahead change +
+// the job merged + its predicted merge row (R(0)), its PR into the tranche itself (base t0); and
+// t1, the tranche once the PR ahead landed (t0 + the same change, its own commit).
+function world({ jobFiles, config, aheadFiles = { 'notes/ahead.md': 'ahead in the window\n' } } = {}) {
   const mark = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'ran');
   const root = makeRepo(product(config));
   const t0 = rev(root, 'HEAD');
   git(['branch', 'tranche'], { cwd: root });
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   const job = commit(root, jobFiles ? jobFiles(mark) : { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': markedTest(mark) }, 'job change');
-  git(['checkout', '-q', '-b', 'train/spec/5-1', t0], { cwd: root });
-  const specBase = commit(root, { 'notes/ahead.md': 'ahead in the window\n' }, 'ahead');
-  git(['checkout', '-q', '-b', 'train/head/5-1'], { cwd: root });
+  const { ahead, specHead } = chain(root, t0, job, aheadFiles);
+  git(['checkout', '-q', '--detach', t0], { cwd: root });
+  const t1 = aheadFiles ? commit(root, aheadFiles, 'Merge job PR 4 (the PR ahead landed)') : t0;
+  git(['checkout', '-q', 'main'], { cwd: root });
+  return { root, mark, t0, t1, ahead, job, specHead };
+}
+// The train's prediction on `from`: the ahead change, then the job merged with its merge row.
+function chain(root, from, job, aheadFiles, name = 'train/head/5-1') {
+  git(['checkout', '-q', '--detach', from], { cwd: root });
+  const ahead = aheadFiles ? commit(root, aheadFiles, 'ahead in the window (predicted)') : from;
+  git(['checkout', '-q', '-B', name], { cwd: root });
   git(['merge', '-q', '--no-ff', '--no-edit', job], { cwd: root });
   const specHead = commit(root, { 'process/metrics/alpha.jsonl': mergeRow('2026-11-05T10:00:00Z') }, 'predicted merge row');
-  return { root, mark, t0, job, specBase, specHead };
+  return { ahead, specHead };
 }
 
 const jobPR = (w, over = {}) => ({ number: JOB, state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: w.job, repo: { full_name: SLUG } }, ...over });
-const specPR = (w, over = {}) => ({ number: SPEC, state: 'open', draft: true, user: { login: 'trainbot' }, base: { ref: 'train/spec/5-1' }, head: { ref: 'train/head/5-1', sha: w.specHead, repo: { full_name: SLUG } }, ...over });
+const specPR = (w, over = {}) => ({ number: SPEC, state: 'open', draft: true, user: { login: 'trainbot' }, base: { ref: 'tranche' }, head: { ref: 'train/head/5-1', sha: w.specHead, repo: { full_name: SLUG } }, ...over });
 
 // GitHub as the gate and the cover read it. A row verifies (verifyRow's stand-in) only when it was
 // posted as that PR's run (genuine "<pr>|<run_id>") and the context names that PR's base.
@@ -59,7 +69,7 @@ function makeIO(w, { receipts = [receipt(w.job)] } = {}) {
     comments: { [JOB]: receipts.map((r, i) => ({ id: i + 1, body: block(RECEIPT, r), user: { login: 'civicsmith' } })), [SPEC]: [] },
     genuine: new Set(),
     verified: [],
-    from: { 'job/alpha': [{ number: JOB, base: { ref: 'tranche' } }], 'train/head/5-1': [{ number: SPEC, base: { ref: 'train/spec/5-1' } }] },
+    from: { 'job/alpha': [{ number: JOB, base: { ref: 'tranche' } }], 'train/head/5-1': [{ number: SPEC, base: { ref: 'tranche' } }] },
     verifyOk: null,
   };
   const io = {
@@ -80,10 +90,10 @@ const post = (state, n, row, { genuine = true } = {}) => {
   if (genuine) state.genuine.add(`${n}|${row.run_id}`);
 };
 
-// The spec PR's gate run: the checkout is the spec head (its base is the head's ancestor).
-function specRun(w, x, over = {}) {
-  git(['checkout', '-q', '--detach', w.specHead], { cwd: w.root });
-  return gate(w.root, { base: w.specBase, head: w.specHead, branch: 'train/head/5-1', pr: SPEC, draft: true, slug: SLUG, io: x.io, log: quiet, ...over });
+// The spec PR's gate run, into the tranche at t0: the checkout is the spec head (t0 is its ancestor).
+function specRun(w, x, { base = w.t0, head = w.specHead, ...over } = {}) {
+  git(['checkout', '-q', '--detach', head], { cwd: w.root });
+  return gate(w.root, { base, head, branch: 'train/head/5-1', pr: SPEC, draft: true, slug: SLUG, io: x.io, log: quiet, ...over });
 }
 // A job PR's gate run on head, the checkout as given (GitHub's merge of head into base).
 function jobRun(w, x, { base, head, checkout = head, ...over }) {
@@ -99,40 +109,58 @@ function land(w, onto, { trailer = `Spec-Tested: ${SPEC}`, files = {} } = {}) {
 const ran = (w) => existsSync(w.mark);
 const forget = (w) => rmSync(w.mark, { force: true });
 
-// A green spec run, posted to the spec PR as run 101; the mark cleared after it.
-function greenSpec() {
-  const w = world();
+// A green spec run (base t0), posted to the spec PR as run 101; the mark cleared after it; then the
+// PR ahead lands, so the tranche is t1 and the land's base is t1.
+function greenSpec(opts) {
+  const w = world(opts);
   const x = makeIO(w);
   const s = specRun(w, x);
   assert.deepEqual(s.findings, [], JSON.stringify(s.findings));
   s.run.run_id = 101;
   post(x.state, SPEC, s.run);
   forget(w);
-  // The PR ahead landed first: the tranche is R(-1), so the land's base is the spec run's base.
-  git(['branch', '-f', 'tranche', w.specBase], { cwd: w.root });
+  git(['branch', '-f', 'tranche', w.t1], { cwd: w.root });
   return { w, x, s };
 }
 
-test('specRefs: a matching spec/head pair gives { pr, seq }; anything else is null', () => {
-  assert.deepEqual(specRefs('train/spec/5-1', 'train/head/5-1'), { pr: 5, seq: 1 });
-  assert.deepEqual(specRefs('train/spec/123-40', 'train/head/123-40'), { pr: 123, seq: 40 });
-  assert.deepEqual(specRefs('train/spec/7-0', 'train/head/7-0'), { pr: 7, seq: 0 });
-  for (const [b, h] of [
-    ['train/spec/5-1', 'train/head/6-1'], // another PR
-    ['train/spec/5-1', 'train/head/5-2'], // another build
-    ['train/head/5-1', 'train/spec/5-1'], // kinds swapped
-    ['train/spec/5-1', 'train/spec/5-1'],
-    ['train/head/5-1', 'train/head/5-1'],
-    ['train/spec/05-1', 'train/head/05-1'], // leading zeros
-    ['train/spec/5-01', 'train/head/5-01'],
-    ['train/spec/5-00', 'train/head/5-00'],
-    ['train/spec/0-1', 'train/head/0-1'], // PR 0
-    ['train/spec/5-1', 'job/alpha'],
-    ['tranche', 'train/head/5-1'],
-    ['train/spec/5-1/x', 'train/head/5-1'],
-    [undefined, 'train/head/5-1'],
-    ['train/spec/5-1', null],
-  ]) assert.equal(specRefs(b, h), null, `${b} / ${h}`);
+test('specRefs: a head train/head/<n>-<seq> into the tranche itself gives { pr, seq }; anything else is null', () => {
+  assert.deepEqual(specRefs('tranche', 'train/head/5-1', 'tranche'), { pr: 5, seq: 1 });
+  assert.deepEqual(specRefs('tranche-7', 'train/head/123-40', 'tranche-7'), { pr: 123, seq: 40 });
+  assert.deepEqual(specRefs('tranche', 'train/head/7-0', 'tranche'), { pr: 7, seq: 0 });
+  for (const [b, h, t] of [
+    ['train/spec/5-1', 'train/head/5-1', 'tranche'], // the old shape: a spec base
+    ['main', 'train/head/5-1', 'tranche'], // into another base
+    ['tranche', 'train/head/5-1', 'tranche-7'],
+    ['tranche', 'train/head/5-1', undefined], // no tranche named
+    ['tranche', 'train/head/5-1', ''],
+    [undefined, 'train/head/5-1', undefined],
+    ['tranche', 'train/spec/5-1', 'tranche'], // not a head
+    ['tranche', 'train/head/05-1', 'tranche'], // leading zeros
+    ['tranche', 'train/head/5-01', 'tranche'],
+    ['tranche', 'train/head/5-00', 'tranche'],
+    ['tranche', 'train/head/0-1', 'tranche'], // PR 0
+    ['tranche', 'train/head/5-1/x', 'tranche'],
+    ['tranche', 'train/head/5', 'tranche'],
+    ['tranche', 'job/alpha', 'tranche'],
+    ['tranche', null, 'tranche'],
+  ]) assert.equal(specRefs(b, h, t), null, `${b} / ${h} / ${t}`);
+});
+
+// The old shape (train/spec/x-y as the base) is no spec pair: a PR so built is judged as any
+// non-job PR, its own base's judge; the trailer naming one asks for nothing (test below).
+test('a train/head PR into train/spec/<n>-<seq> (the old shape) is not spec mode: judged as a non-job PR', () => {
+  const w = world();
+  const x = makeIO(w);
+  x.state.prs[SPEC] = specPR(w, { base: { ref: 'train/spec/5-1' } });
+  const d = specRun(w, x);
+  assert.deepEqual([d.run.spec, d.run.trigger, d.run.suite, d.findings.length], [undefined, 'draft', 'skipped', 0]);
+  assert.equal(ran(w), false);
+  x.state.prs[SPEC] = specPR(w, { base: { ref: 'train/spec/5-1' }, draft: false });
+  const r = specRun(w, x, { draft: false });
+  assert.equal(r.run.spec, undefined);
+  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt], ['code', ['alpha'], 'pass', 'skipped', 'not checked']);
+  assert.ok(!r.findings.some((f) => f.check === 'spec'));
+  assert.ok(r.changed.includes('notes/ahead.md'), 'judged on its whole diff, not as the job');
 });
 
 test('spec mode judges the run as the job: green, code, its suite run on a draft, the receipt from the job PR by its opener, the tree recorded', () => {
