@@ -76,12 +76,12 @@ const ROOT_ACTS = [
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   COORD_ACT,
 ];
-const ROOT_NOT = 'Nothing else: create no session or task but BOB, the watcher, a MERGER and the two tasks above, merge nothing, edit no task but your sweep task\'s prompt, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
+const ROOT_NOT = 'Nothing else: create no session or task but BOB, the watcher, the MERGER the sweep prints and the two tasks above, merge nothing, edit no task but your sweep task\'s prompt, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
 
 const BOB_ACTS = [
   `run \`${P3} start check\`, \`${P3} status\`, \`${P3} address root\` and the tool's job, merge, metrics, setup, handoff and send commands`,
   'start, message, interrupt and archive the job and lane sessions you start, and read their session records',
-  'git on the tranche and the state branch, through the tool; you merge plain PRs and the MERGER\'s handoffs',
+  'git on the tranche and the state branch, through the tool; merges only through the tool\'s merge',
   'review: start a read-only review worker per pull request, one review and one fix pass',
   'development releases, and deploys at tranche end, as Bob\'s standing approvals allow',
   'tell Bob by push notification when a decision is his, with options and a recommendation',
@@ -126,7 +126,7 @@ export function rootPrompt({ slug, tranche = 'tranche', approvals }) {
   return sized(L);
 }
 
-export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche = 'tranche', approvals }) {
+export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche = 'tranche', approvals, merger = false }) {
   // The coordinator's words reach BOB directly (measured 3-4 Nov: every coordinator decision went
   // coordinator to ROOT to BOB; PR 40 waited 47 minutes, mostly on that route). ROOT stays BOB's only
   // creator and its backstop.
@@ -140,7 +140,9 @@ export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche 
   } else L.push(`4. Report running to ROOT, then ${work}`);
   L.push(`5. At the start of every later turn: ${wakeSteps(tranche, approvals)}. If it says the approvals changed, send ROOT one message asking for your handover and take no further step; else steps 3 and 4. Answer each sweep message with one \`${P3} send root "<what you did or wait on>" --from bob\`, delivered as it prints: a woken BOB that writes nothing is handed over two hours later.`);
   L.push(`6. At each layer close, and at your handover before you report ready, \`${P3} metrics add bob --role bob --session <your id> --cost-usd <your cost so far, from your session record>\`; record each review worker's cost the same way under its job's module with \`--role review\`.`);
-  L.push('', '## Acts you may take', '', ...BOB_ACTS.map((a) => `- ${a}`), '', BOB_NOT);
+  // With a MERGER addressed, its train merges job pull requests: BOB's are plain ones and its handoffs.
+  const acts = merger ? BOB_ACTS.map((a) => a.replace('merges only through the tool\'s merge', 'you merge plain PRs and the MERGER\'s handoffs')) : BOB_ACTS;
+  L.push('', '## Acts you may take', '', ...acts.map((a) => `- ${a}`), '', BOB_NOT);
   return sized(L);
 }
 
@@ -165,9 +167,9 @@ export function mergerPrompt({ slug, rootId, tranche = 'tranche', approvals }) {
   L.push('1. `git submodule update --init .process` (the pin arrives empty).');
   L.push(`2. \`${P3} start check\`. If it fails, act on nothing, send ROOT both SHAs (\`${P3} send root "<text>" --from merger\`, delivered as it prints) and end.`);
   L.push(`3. Run \`${P3} merge train --session <your session id>\` in the background, its output to a file. It refuses while another merger's lease is live: report that to ROOT and end.`);
-  L.push(`4. Watch its output. Deliver each message it records (\`send ... --from merger\`) with send_message to the address it prints, then \`${P3} send delivered <n> --from merger\`. On "hourly: record your context", run the command it prints with the percent get_session on yourself shows. When a merged job's cost was written unmeasured, read it with get_session on the job's session and record it with \`${P3} merge train note <pr> --job-cost-usd <n> --job-session <its id>\`, never waiting on it; for a job PR not yet merged the same note puts the cost in its cost row.`);
+  L.push(`4. Watch its output. Deliver each message it records (\`send ... --from merger\`) with send_message to the address it prints, then \`${P3} send delivered <n> --from merger\`. On "hourly: record your context", run the command it prints with the percent get_session on yourself shows. When a merged job's cost was written unmeasured, read it with get_session on the job's session and record it with \`${P3} merge train note <pr> --job-cost-usd <n> --job-session <its id>\` (a cost only: a review is BOB's to record), never waiting on it.`);
   L.push(`5. When the train exits, read its last lines: a lost lease or a stop rule goes to ROOT, word for word, and you end; any other stop, run it again (step 3).`);
-  L.push(`6. At every later wake: ${wakeSteps(tranche, approvals)}. If it says the approvals changed, send ROOT one message and take no further step; else make sure the train runs (step 3).`);
+  L.push(`6. At every later wake: ${wakeSteps(tranche, approvals)}. If it says the approvals changed, stop the train, send ROOT one message and take no further step; else, if your train's background task is not running, start it (step 3); never a second one.`);
   L.push('', '## Acts you may take', '', '- the tool\'s `merge train` (with `note`, `beat`, `report`), `send`, `send delivered` and `start check`', '- get_session on a merged job\'s session, for its cost', '', 'Nothing else: you start no job or session, triage no notice, rule on nothing, merge nothing by hand, and edit no file. Every exception goes to BOB, as the train sends it.');
   return sized(L);
 }
@@ -233,7 +235,7 @@ export function startRole(root, role, { slug = repoSlug(root), address = readAdd
   }
   if (address.bob) fail(`BOB ${address.bob.session} is addressed (since ${address.bob.at}); replace it with handover begin, not start bob`);
   const rootId = address.root?.session || fail('no ROOT is addressed; ROOT records its own address first (start record root <its id>)');
-  const prompt = bobPrompt({ slug, rootId, sb: cfg.state_branch, tranche: cfg.tranche, approvals });
+  const prompt = bobPrompt({ slug, rootId, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger });
   const call = launch(slug, cfg, 'bob', 'BOB', prompt, tip);
   log(prompt, size(prompt));
   log(`start BOB with create_session:\n${JSON.stringify(call, null, 2)}`);
@@ -268,7 +270,7 @@ export function handoverBegin(root, { slug = repoSlug(root), address = readAddre
   const old = address.bob?.session || fail('no BOB is addressed; start one with start bob');
   const rootId = address.root?.session || fail('no ROOT is addressed; ROOT records its own address first (start record root <its id>)');
   const { tip, approvals } = tipApprovals(root, cfg);
-  const prompt = bobPrompt({ slug, rootId, oldBob: old, sb: cfg.state_branch, tranche: cfg.tranche, approvals });
+  const prompt = bobPrompt({ slug, rootId, oldBob: old, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger });
   const call = launch(slug, cfg, 'bob', 'BOB', prompt, tip);
   log(prompt, size(prompt));
   log(`Steps for ROOT, each its own command:
@@ -315,7 +317,7 @@ export function currentPrompt(root, role, { address = readAddress(root), oldBob,
   if (role === 'watcher') return watcherPrompt({ slug, tranche: cfg.tranche, approvals });
   if (role === 'merger') return mergerPrompt({ slug, rootId: address.root?.session || fail('no ROOT is addressed; the MERGER\'s prompt names it'), tranche: cfg.tranche, approvals });
   const rootId = address.root?.session || fail('no ROOT is addressed; BOB\'s prompt names it');
-  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals });
+  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger });
 }
 
 // { hash, old_bob } for the address file; null when this checkout cannot print the prompt (no

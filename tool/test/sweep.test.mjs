@@ -386,3 +386,23 @@ test('sweep: the row records startable and blocked work; a ruling owed past deci
   assert.match(run(bad).found.join('|'), /config: targets\.decision_minutes/);
   assert.ok(readState(bad, 'process-state', HEARTBEAT_FILE));
 });
+
+test('sweep: with merge_train, no MERGER is started; one whose lease lapsed is replaced, one just recorded is not', () => {
+  const root = withOrigin({ 'process/config.json': { tranche: 'tranche', merge_train: true } });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  assert.ok(run(root).todo.some((t) => /^start the MERGER: .*start merger, create_session.*start record merger/.test(t)));
+  const M = 'session_merger1';
+  writeState(root, 'process-state', 'merger', (d) => { mkdirSync(join(d, 'addresses'), { recursive: true }); writeFileSync(join(d, 'addresses/merger.json'), JSON.stringify({ session: M, at: new Date().toISOString() })); });
+  assert.ok(!run(root).todo.some((t) => /MERGER/.test(t)), 'just recorded: its train may not have started');
+  writeState(root, 'process-state', 'merger', (d) => {
+    writeFileSync(join(d, 'addresses/merger.json'), JSON.stringify({ session: M, at: OLD }));
+    mkdirSync(join(d, 'merger'), { recursive: true });
+    writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: OLD }));
+  });
+  const r = run(root);
+  assert.ok(r.found.some((f) => /^MERGER session_merger1 silent: its lease expired/.test(f)));
+  assert.ok(r.todo.some((t) => /^replace the MERGER: archive_session session_merger1, then .*start merger --replace session_merger1/.test(t)));
+  writeState(root, 'process-state', 'merger', (d) => writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: new Date(Date.now() + 6e5).toISOString() })));
+  assert.ok(!run(root).todo.some((t) => /MERGER/.test(t)), 'a live lease is its heartbeat');
+});

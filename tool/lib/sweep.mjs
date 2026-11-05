@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { P3, READY_START, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
-import { LEASE_FILE } from './train.mjs';
+import { LEASE, LEASE_FILE } from './train.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
 import { OWED_ALARM_MIN, bobAct, heldBy, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
@@ -264,9 +264,9 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     }
     // The MERGER (train.mjs): its heartbeat is its lease, renewed every LEASE.renew minutes; one
     // expired means the train is not running, and ROOT replaces the merger. With merge_train in
-    // the config, ROOT starts one when none is addressed.
+    // the config, ROOT starts one when none is addressed. One recorded less than LEASE.expire ago may not have started its train yet.
     const lease = (() => { try { return JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { return null; } })();
-    if (!addr.merger) { if (cfg.merge_train === true) { found.push('no MERGER addressed'); todo.push(`start the MERGER: ${P3} start merger, create_session with the call it prints, then ${P3} start record merger <its id>`); } } else if (!(Date.parse(lease?.expires) > t) || lease.session !== addr.merger.session) {
+    if (!addr.merger) { if (cfg.merge_train === true) { found.push('no MERGER addressed'); todo.push(`start the MERGER: ${P3} start merger, create_session with the call it prints, then ${P3} start record merger <its id>`); } } else if ((!(Date.parse(lease?.expires) > t) || lease.session !== addr.merger.session) && t - Date.parse(addr.merger.at) > LEASE.expire * 6e4) {
       found.push(`MERGER ${addr.merger.session} silent: ${lease ? `its lease ${lease.session === addr.merger.session ? `expired ${lease.expires}` : `is ${lease.session}'s`}` : 'no lease'}`);
       todo.push(`replace the MERGER: archive_session ${addr.merger.session}, then ${P3} start merger --replace ${addr.merger.session}, create_session with the call it prints, then ${P3} start record merger <its id>`);
     }

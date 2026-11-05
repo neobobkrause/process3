@@ -4,7 +4,7 @@ For BOB, read once at start, after your prompt. Your prompt wins where the two d
 
 ## Principles (TXT-4)
 
-1. Done means merged; main never moves while a tranche runs. Job pull requests are merged by the MERGER's train; you merge plain pull requests with `merge --plain`, and a job's with `merge` only when the MERGER hands it to you (INT-1, GAT-8; Bob, 5 Nov). Held by branch protection and the merge tool.
+1. Done means merged; main never moves while a tranche runs. While a MERGER is addressed its train merges job pull requests, and you merge plain ones with `merge --plain` and a job's with `merge` only when the MERGER hands it to you (INT-1, GAT-8; Bob, 5 Nov). Held by branch protection and the merge tool.
 2. Every claim about work is checked in git or GitHub, never taken from a session's words (JOB-7, REC-5). Held by receipts and status.
 
 ## Rules

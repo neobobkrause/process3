@@ -9,7 +9,8 @@ import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
-import { LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, train, trainNote, trainSummary } from '../lib/train.mjs';
+import { LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
+import { loadConfig } from '../lib/util.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -39,7 +40,7 @@ function setup(jobs) {
   return { root, ids };
 }
 
-function github(root, ids, { pending = false } = {}) {
+function github(root, ids, { pending = false, own = () => null } = {}) {
   const sh = (args) => git(args, { cwd: root, allowFail: true });
   const tipOf = (ref) => sh(['ls-remote', 'origin', `refs/heads/${ref}`]).stdout.split('\t')[0];
   const receipts = new Map(ids.map((id) => [id, tipOf(`job/${id}`)]));
@@ -67,8 +68,10 @@ function github(root, ids, { pending = false } = {}) {
       // The first read of a merged result is in progress (the train prepares the next then).
       if (pending && ![...receipts.values()].includes(sha) && !seen.has(sha)) { seen.add(sha); return { status: 'in_progress', started_at: new Date().toISOString() }; }
       // Red only on a merged result: a job's own head passed its gate (the receipt agreed).
+      const set = own(sha);
+      if (set) return set;
       const red = ![...receipts.values()].includes(sha) && sh(['grep', '-q', 'BROKEN', sha, '--', 'src']).code === 0;
-      return { status: 'completed', conclusion: red ? 'failure' : 'success', html_url: `https://ci/${sha.slice(0, 7)}`, completed_at: new Date().toISOString() };
+      return { id: 1, status: 'completed', conclusion: red ? 'failure' : 'success', html_url: `https://ci/${sha.slice(0, 7)}`, completed_at: new Date().toISOString() };
     },
     mergePR: (slug, n, sha) => {
       sh(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche']);
@@ -164,8 +167,9 @@ test('merge train: a tranche that moves during the re-gate is never landed stale
     return check(slug, sha);
   };
   const r = run(root, g);
-  assert.equal(r.rows[0].result, 'refused');
+  assert.equal(r.rows[0].result, 'retry', 'tried again on the tranche as it is, not handed to BOB');
   assert.match(r.rows[0].why, /moved past the merged result the gate checked/);
+  assert.equal(messages(root).length, 0);
   assert.deepEqual(g.calls.merged, []);
 });
 
@@ -194,12 +198,19 @@ test('merge train: a triggered PR lands only with a --reviewed note for its head
   const g = github(root, ids);
   assert.equal(run(root, g).rows[0].result, 'refused');
   assert.equal(run(root, g).rows.length, 0, 'not tried again at the same head, even by a new train');
-  trainNote(root, 1, { slug: 'o/r', io: g.io, reviewed: 'fresh worker: the assertion moved to b.test.mjs', rounds: 1, reviewMinutes: 6, findings: 1, actedOn: 1, log: quiet });
+  // A review note by anyone but the addressed BOB does not count; a cost note never overrides one.
+  writeState(root, 'process-state', 'bob', (d) => { mkdirSync(join(d, 'addresses'), { recursive: true }); writeFileSync(join(d, 'addresses/bob.json'), JSON.stringify({ session: 'session_bob1' })); });
+  trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_job1', reviewed: 'self-reviewed', rounds: 1, reviewMinutes: 1, findings: 0, actedOn: 0, log: quiet });
+  assert.equal(run(root, g).rows[0].result, 'refused', 'a job\'s own review note is not BOB\'s');
+  trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_bob1', reviewed: 'fresh worker: the assertion moved to b.test.mjs', rounds: 1, reviewMinutes: 6, findings: 1, actedOn: 1, log: quiet });
+  trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_merger1', jobCostUsd: 2.5, jobSession: 'session_job1', log: quiet });
+  assert.throws(() => trainNote(root, 1, { slug: 'o/r', io: g.io, session: 'session_merger1', log: quiet }), /its review .*its job cost/);
   // A note for that head, newer than the refusal, lets it be tried again.
   const r = run(root, g);
   assert.equal(r.rows[0].result, 'merged');
   git(['checkout', '-q', '--detach', g.tipOf('job/delta')], { cwd: root });
   assert.equal(readRows(root, 'delta').at(-1).reviewed, true);
+  assert.equal(readRows(root, 'delta').filter((x) => x.event === 'measured').pop().session_usd, 2.5, 'the cost note went in the cost row');
   git(['checkout', '-q', 'main'], { cwd: root });
 });
 
@@ -228,4 +239,62 @@ test('merge train: under its disk budget it stops before a merge starts, and rec
   assert.throws(() => run(root, g, { diskFree: () => 100 }), /STOP: 100 MB free, under the merger's disk budget of 512 MB; nothing was started for PR 2/);
   assert.deepEqual(g.calls.merged, [1]);
   assert.equal(g.tipOf('job/beta'), before, 'nothing pushed');
+});
+
+test('merge train: a second train in the same session is refused while the first holds the lease', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const g = github(root, ids);
+  takeLease(root, loadConfig(root), S, 'tok-first', { take: true });
+  assert.throws(() => run(root, g), /held by session_merger1 \(another train in this session\)/);
+  assert.deepEqual(g.calls.merged, []);
+});
+
+test('merge train: a green gate whose row is not posted yet waits, and is not refused', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  let posted = false;
+  const g = github(root, ids);
+  const check = g.io.checkRun;
+  g.io.checkRun = (slug, sha, name) => (name === 'post' && !posted ? { status: 'in_progress' } : check(slug, sha, name));
+  assert.equal(run(root, g).rows.length, 0);
+  posted = true;
+  assert.equal(run(root, g).rows[0].result, 'merged');
+});
+
+test('merge train: a transient refusal is tried again, unannounced; a gate re-run on the same head is read again', () => {
+  const { root, ids } = setup({ release: { 'src/release/a.mjs': 'r' } });
+  let verdict = 'failure';
+  const g = github(root, ids, { own: (sha) => (sha === g0() ? { id: verdict === 'failure' ? 7 : 8, status: 'completed', conclusion: verdict, completed_at: new Date().toISOString() } : null) });
+  const g0 = () => g.tipOf('job/release');
+  const head = g0();
+  // Red own gate: not ready, read again each round.
+  assert.equal(run(root, g).rows.length, 0);
+  verdict = 'success';
+  // GitHub failing mid-check: a retry, never handed to BOB, and the job/release branch name stops nothing.
+  const verify = g.io.verify;
+  g.io.verify = () => { throw new Fail('gh api repos/o/r/actions/runs/11 failed: HTTP 502'); };
+  const r = run(root, g);
+  assert.equal(r.rows[0].result, 'retry');
+  assert.equal(messages(root).length, 0);
+  g.io.verify = verify;
+  assert.equal(g0(), head);
+  assert.equal(run(root, g).rows[0].result, 'merged');
+});
+
+test('merge train: changed approvals on the tranche stop the train before it lands', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const g = github(root, ids);
+  const check = g.io.checkRun;
+  let changed = false;
+  g.io.checkRun = (slug, sha, name) => {
+    if (!changed && sha === g.tipOf('job/alpha') && g.calls.gates.length > 2) {
+      changed = true;
+      const wt = mkdtempSync(join(tmpdir(), 'p3-other-'));
+      git(['clone', '-q', '--branch', 'tranche', git(['remote', 'get-url', 'origin'], { cwd: root }), wt], { cwd: root });
+      commit(wt, { 'CLAUDE.md': '## Standing approvals from Bob\n\nwithdrawn\n' });
+      git(['push', '-q', 'origin', 'tranche'], { cwd: wt });
+    }
+    return check(slug, sha, name);
+  };
+  assert.throws(() => run(root, g), /approvals on tranche changed since the train started/);
+  assert.deepEqual(g.calls.merged, []);
 });

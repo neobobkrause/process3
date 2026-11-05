@@ -13,7 +13,14 @@ import { branchModule, ledgerIds } from './ledger.mjs';
 import { P3, READY_START } from './job.mjs';
 import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, reviewMeasures, reviewRounds } from './merge.mjs';
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
+import { approvalsHash } from './start.mjs';
+import { randomBytes } from 'node:crypto';
 import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
+import { readAddress } from './roles.mjs';
+
+// A stop the train must never write past or retry: a lost lease, changed approvals, the disk.
+export class Stop extends Fail {}
+const stop = (msg) => { throw new Stop(msg); };
 
 export const TRAIN_FILE = 'metrics/train.jsonl'; // one row per merge the train tried
 export const NOTES_FILE = 'metrics/train-notes.jsonl'; // a pull request's review and cost, per head
@@ -44,57 +51,70 @@ export function trainNote(root, n, opts = {}) {
   const { log = console.log } = opts;
   const io = { getPR, ...(opts.io || {}) };
   const cost = jobCostOf(opts.jobCostUsd);
+  const review = opts.reviewed !== undefined || opts.noReview !== undefined;
+  if (!review && cost === null) fail('merge train note <pr>: its review (--reviewed ... | --no-review "<why>"), its job cost (--job-cost-usd <n> [--job-session <id>]), or both');
+  const by = opts.session || (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
   const cfg = loadConfig(root);
   const pr = io.getPR(opts.slug || repoSlug(root), n);
   if (pr.base?.ref !== cfg.tranche) fail(`pull request ${n} is not into ${cfg.tranche}`);
-  // A merged job whose cost row was written unmeasured: its price, read later, as a row of its own.
-  if (pr.merged) {
-    if (cost === null || opts.reviewed || opts.noReview) fail(`pull request ${n} is merged: only its price is recorded now, --job-cost-usd <n> --job-session <id>`);
-    const row = { at: now(), row: 'price', pr: Number(n), sha: pr.head.sha, job_cost_usd: cost, job_session: opts.jobSession || null };
-    writeState(root, cfg.state_branch, `merge train price for PR ${n}`, (wt) => append(wt, NOTES_FILE, row));
-    log(`price for merged PR ${n}: ${cost} USD recorded`);
-    return row;
-  }
-  if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
-  const rounds = reviewRounds(opts);
-  const measures = reviewMeasures(opts);
-  const row = { at: now(), row: 'note', pr: Number(n), sha: pr.head.sha, reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision, ...measures, job_cost_usd: cost, job_session: opts.jobSession || null };
+  if (pr.merged && review) fail(`pull request ${n} is merged: only its job cost is recorded now`);
+  if (!pr.merged && pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
+  const rounds = review ? reviewRounds(opts) : null;
+  const row = { at: now(), row: 'note', by, pr: Number(n), sha: pr.head.sha, ...(review ? { reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision, ...reviewMeasures(opts) } : {}), ...(cost !== null ? { job_cost_usd: cost, job_session: opts.jobSession || null } : {}), ...(pr.merged ? { merged: true } : {}) };
   writeState(root, cfg.state_branch, `merge train note for PR ${n}`, (wt) => append(wt, NOTES_FILE, row));
-  log(`merge train note for PR ${n} at ${pr.head.sha.slice(0, 10)}: ${row.reviewed ? `reviewed, ${row.rounds} round(s)` : `no review: ${row.no_review}`}`);
+  log(`merge train note for PR ${n} at ${pr.head.sha.slice(0, 10)}: ${review ? (row.reviewed ? `reviewed, ${row.rounds} round(s)` : `no review: ${row.no_review}`) : ''}${review && cost !== null ? '; ' : ''}${cost !== null ? `job cost ${cost} USD` : ''}`);
   return row;
 }
-// merge()'s options from the newest note for this head; with none, --no-review (merge refuses it
-// when a trigger fires) and the job's cost unmeasured, priced later.
-const reviewOf = (note) => (note?.row === 'note' ? {
-  reviewed: note.reviewed || undefined, noReview: note.no_review || undefined, rounds: note.rounds || undefined, decision: note.decision || undefined,
-  reviewMinutes: note.review_minutes ?? undefined, findings: note.findings ?? undefined, actedOn: note.findings_acted ?? undefined,
-  ...(typeof note.review_usd === 'number' ? { reviewCostUsd: note.review_usd } : {}), jobCostUsd: note.job_cost_usd ?? undefined, jobSession: note.job_session || undefined,
-} : { noReview: TRAIN_NO_REVIEW });
+// A note's review counts only when BOB, as addressed now, wrote it (the merger and a job may
+// record only a cost): the newest such note for the head gives the review, the newest cost note
+// the cost, each apart, so a cost note never overrides a review.
+export function noteFor(notes, n, sha, bob) {
+  const mine = notes.filter((x) => x.row === 'note' && x.pr === n && x.sha === sha && !x.merged);
+  return { review: (bob ? mine.filter((x) => x.by === bob && (x.reviewed || x.no_review)).pop() : null) || null, cost: mine.filter((x) => x.job_cost_usd != null).pop() || null };
+}
+// merge()'s options from the notes for this head; with no review, --no-review (merge refuses it
+// when a trigger fires) and, with no cost, the job's cost unmeasured, priced later.
+const reviewOf = ({ review: r, cost: c }) => ({
+  ...(r ? { reviewed: r.reviewed || undefined, noReview: r.no_review || undefined, rounds: r.rounds || undefined, decision: r.decision || undefined, reviewMinutes: r.review_minutes ?? undefined, findings: r.findings ?? undefined, actedOn: r.findings_acted ?? undefined, ...(typeof r.review_usd === 'number' ? { reviewCostUsd: r.review_usd } : {}) } : { noReview: TRAIN_NO_REVIEW }),
+  ...(c ? { jobCostUsd: c.job_cost_usd, jobSession: c.job_session || undefined } : {}),
+});
 
 // The lease (one train at a time): taken when the train starts, refused under another session's
 // live lease; an expired one is taken over (a row says so); renewed every LEASE.renew minutes;
 // a renewal that finds another session's lease stops the train.
-export function takeLease(root, cfg, session, { take = false } = {}) {
+// The lease names the session and this process (a token), so a second train in the same session is refused too.
+export function takeLease(root, cfg, session, token, { take = false } = {}) {
   return writeState(root, cfg.state_branch, `merger lease: ${session}`, (wt) => {
     const p = join(wt, LEASE_FILE);
     let cur = null;
     if (existsSync(p)) { try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { cur = null; } }
     const t = Date.now();
-    const mine = cur?.session === session;
-    if (!mine && cur && Date.parse(cur.expires) > t) fail(`the merge train's lease is held by ${cur.session} until ${cur.expires}: one train runs`);
-    if (!take && !mine) fail(`the merger lost its lease (${cur ? `${cur.session} holds it` : 'none on the state branch'}): the train stops`);
+    const mine = cur?.session === session && cur?.token === token;
+    if (!mine && cur && Date.parse(cur.expires) > t) (take ? fail : stop)(`the merge train's lease is held by ${cur.session}${cur.session === session ? ' (another train in this session)' : ''} until ${cur.expires}: one train runs`);
+    if (!take && !mine) stop(`the merger lost its lease (${cur ? `${cur.session} holds it` : 'none on the state branch'}): the train stops`);
     mkdirSync(dirname(p), { recursive: true });
-    writeFileSync(p, JSON.stringify({ session, at: now(), expires: new Date(t + LEASE.expire * MIN).toISOString().replace(/\.\d+Z$/, 'Z'), since: mine && !take ? cur.since : now() }, null, 2) + '\n');
+    writeFileSync(p, JSON.stringify({ session, token, at: now(), expires: new Date(t + LEASE.expire * MIN).toISOString().replace(/\.\d+Z$/, 'Z'), since: mine ? cur.since : now() }, null, 2) + '\n');
     if (take && cur && !mine) append(wt, MERGER_FILE, { at: now(), row: 'takeover', session, from: cur.session, expired: cur.expires });
     return { takeover: !!(take && cur && !mine) };
   });
 }
-// Before a land: the lease, read fresh from origin, is this session's and live.
-export function leaseHeld(root, cfg, session) {
+// A train that ends gives its lease back (a killed one's lapses within LEASE.expire minutes).
+export function releaseLease(root, cfg, session, token) {
+  writeState(root, cfg.state_branch, `merger lease released: ${session}`, (wt) => {
+    const p = join(wt, LEASE_FILE);
+    let cur = null;
+    if (existsSync(p)) { try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { cur = null; } }
+    if (cur?.session === session && cur?.token === token) writeFileSync(p, JSON.stringify({ ...cur, expires: now(), released: now() }, null, 2) + '\n');
+  });
+}
+// Before a land: the lease, read fresh from origin, is this train's and live; the tranche's
+// approvals are those the train started under (Bob's word, changed, stops it).
+export function leaseHeld(root, cfg, session, token, approvals) {
   fetchState(root, cfg.state_branch, { fresh: true });
   let cur = null;
   try { cur = JSON.parse(readState(root, cfg.state_branch, LEASE_FILE) || 'null'); } catch { cur = null; }
-  if (cur?.session !== session || !(Date.parse(cur.expires) > Date.now())) fail(`the merger's lease is ${cur ? `${cur.session}'s, to ${cur.expires}` : 'gone'}: nothing is landed, the train stops`);
+  if (cur?.session !== session || cur?.token !== token || !(Date.parse(cur.expires) > Date.now())) stop(`the merger's lease is ${cur ? `${cur.session}'s, to ${cur.expires}` : 'gone'}: nothing is landed, the train stops`);
+  if (approvals && approvalsHash(root, `refs/remotes/origin/${cfg.tranche}`) !== approvals) stop(`the approvals on ${cfg.tranche} changed since the train started: nothing is landed, the train stops; tell ROOT`);
 }
 
 // The job pull requests green on their head, oldest green first. Read-only.
@@ -107,13 +127,19 @@ function ready(root, ctx, skip = new Set()) {
   const out = [];
   for (const p of open) {
     if (skip.has(p.number) || p.draft || p.base?.ref !== cfg.tranche || !branchModule(p.head?.ref, ids)) continue;
-    // A head refused (and handed to BOB) waits for a new head, or a note for it made since.
-    const at = ctx.refused.get(`${p.number}@${p.head.sha}`);
-    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.at >= at)) continue;
-    // A finished gate on a head is read once (the loop reads every 15 s).
+    if (p.base?.repo?.default_branch && p.base.repo.default_branch === cfg.tranche) continue; // never the default branch
+    // A green gate is read once per head and run (the loop reads every 15 s); any other state is read again.
     const g = ctx.gates.get(p.head.sha) || io.checkRun(slug, p.head.sha, 'gate');
-    if (g?.status === 'completed') ctx.gates.set(p.head.sha, g);
-    if (g?.status === 'completed' && g.conclusion === 'success') out.push({ n: p.number, head: p.head.sha, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
+    if (!(g?.status === 'completed' && g.conclusion === 'success')) { ctx.gates.delete(p.head.sha); continue; }
+    // Its row is posted by the gate workflow's post job, after the gate: merge needs it.
+    const post = g.post || io.checkRun(slug, p.head.sha, 'post');
+    if (post?.status !== 'completed') continue;
+    ctx.gates.set(p.head.sha, { ...g, post });
+    const run = g.id ?? g.completed_at;
+    // A head refused (and handed to BOB) waits for a new head or gate run, or a review note made since.
+    const at = ctx.refused.get(`${p.number}@${p.head.sha}@${run}`);
+    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && (x.reviewed || x.no_review) && x.at >= at)) continue;
+    out.push({ n: p.number, head: p.head.sha, run, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
   }
   return out.sort((a, b) => String(a.green_at).localeCompare(String(b.green_at)));
 }
@@ -130,19 +156,24 @@ function prepare(root, ctx, cur) {
       const pr = ctx.io.getPR(ctx.slug, c.n);
       if (pr.head?.sha !== c.head) continue;
       jobChecks(root, c.n, pr, c.id, { cfg: ctx.cfg, slug: ctx.slug, io: ctx.io, noReview: reviewOf(ctx.noteFor(c)).noReview, log: () => {} });
+      ctx.renew();
       const tip = ctx.io.getPR(ctx.slug, cur).head?.sha;
       if (tip && git(['merge-tree', '--write-tree', tip, c.head], { cwd: root, allowFail: true }).code !== 0) { ctx.log(`PR ${c.n} would conflict with PR ${cur}'s merged result; it is judged again once ${cur} lands`); continue; }
       next = c;
       break;
-    } catch (e) { if (!(e instanceof Fail)) throw e; refuse(root, ctx, c, e.message); }
+    } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; if (lasting(e.message)) refuse(root, ctx, c, e.message); }
   }
   ctx.prepared = { n: next?.n ?? null, depth: list.length, prep_min: mins(t, Date.now()) };
   ctx.log(`prepared ${next ? `PR ${next.n}` : 'none'} while PR ${cur}'s gate runs (queue ${list.length}, ${ctx.prepared.prep_min} min)`);
 }
 
 // An exception, handed to BOB once per pull request head: p3 send bob, delivered by the merger.
+// A refusal that lasts until the job or BOB acts; anything else (GitHub slow or unread, a gate
+// row not yet there, a moved tranche) is tried again on the next round, and BOB is not told.
+const LASTING = /review trigger|conflicts with|bring itself up to date|outside its module|^ledger:|has no ledger entry|gate on the merged result is|not from a job branch|no receipt|checked receipt attempt|disagrees/;
+export const lasting = (why) => LASTING.test(String(why).split('\n')[0]);
 function refuse(root, ctx, c, why) {
-  const key = `${c.n}@${c.head}`;
+  const key = `${c.n}@${c.head}@${c.run}`;
   const told = ctx.refused.has(key);
   ctx.refused.set(key, now());
   if (told) return;
@@ -161,28 +192,26 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   const started = Date.now();
   const prep = ctx.prepared?.n === c.n ? ctx.prepared : null;
   ctx.prepared = null;
-  let renewed = Date.now();
   const tick = (l) => {
     log(l);
-    if (Date.now() - renewed >= LEASE.renew * MIN) { takeLease(root, cfg, ctx.session); renewed = Date.now(); ctx.renewed = renewed; }
+    ctx.renew();
     if (ctx.pipeline && ctx.prepared === null && /^waiting for the gate/.test(l)) prepare(root, ctx, c.n);
   };
   const free = ctx.diskFree(root);
-  if (free < ctx.diskMin) fail(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
-  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null };
+  if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
+  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null };
   let r = null;
   try {
-    r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => leaseHeld(root, cfg, ctx.session) });
+    r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
     row.result = 'merged';
     row.merged_at = now();
     row.green_to_merged = mins(Date.parse(c.green_at), Date.now());
     row.queue_at_end = ctx.prepared?.depth ?? null;
   } catch (e) {
-    if (!(e instanceof Fail)) throw e;
-    if (/lease/.test(e.message)) throw e; // stop on loss: never land without it
-    row.result = 'refused';
+    if (!(e instanceof Fail) || e instanceof Stop) throw e; // a lost lease, changed approvals: never land past it
+    row.result = lasting(e.message) ? 'refused' : 'retry';
     row.why = e.message.split('\n')[0].slice(0, 300);
-    refuse(root, ctx, c, e.message);
+    if (row.result === 'refused') refuse(root, ctx, c, e.message); else log(`PR ${c.n} is tried again later: ${row.why}`);
   }
   row.minutes = mins(started, Date.now());
   row.disk_mb = free - ctx.diskFree(root); // what this merge left on disk (the worktree is gone by now)
@@ -208,16 +237,31 @@ export function train(root, opts = {}) {
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
   const io = { getPR, comments, checkRun, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), rows: [], gates: new Map(), prepared: null, notes: [] };
-  ctx.noteFor = (c) => ctx.notes.filter((x) => x.row === 'note' && x.pr === c.n && x.sha === c.head).pop() || null;
-  const { takeover } = takeLease(root, cfg, session, { take: true });
+  ctx.token = randomBytes(8).toString('hex');
+  let bob = null;
+  try { bob = readAddress(root).bob?.session || null; } catch { bob = null; }
+  ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, bob);
+  const { takeover } = takeLease(root, cfg, session, ctx.token, { take: true });
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
+  ctx.approvals = approvalsHash(root, `refs/remotes/origin/${cfg.tranche}`);
+  ctx.renewed = Date.now();
+  ctx.renew = () => { if (Date.now() - ctx.renewed >= LEASE.renew * MIN) { takeLease(root, cfg, session, ctx.token); ctx.renewed = Date.now(); } };
   // Heads refused by an earlier train wait as this one's would (a restart re-sends nothing).
-  try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}`, x.at); } catch { /* unread: tried again */ }
+  try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); } catch { /* unread: tried again */ }
   log(`merge train: lease held by ${session}${takeover ? ' (taken over from an expired lease)' : ''}`);
+  try { return loop(root, ctx, { once, idleEvery }); } catch (e) {
+    ctx.lost = e instanceof Stop && /lease/.test(e.message);
+    throw e;
+  } finally {
+    if (!ctx.lost) { try { releaseLease(root, cfg, session, ctx.token); } catch (e) { log(`the lease was not released (${e.message}); it lapses within ${LEASE.expire} min`); } }
+  }
+}
+function loop(root, ctx, { once, idleEvery }) {
+  const { cfg, log, session } = ctx;
   let idleFrom = Date.now();
   let hour = Math.floor(Date.now() / 36e5);
-  ctx.renewed = Date.now();
   for (;;) {
-    if (Date.now() - ctx.renewed >= LEASE.renew * MIN) { takeLease(root, cfg, session); ctx.renewed = Date.now(); }
+    ctx.renew();
     if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE));
     const list = ready(root, ctx);
     const first = list.find((c) => c.n === ctx.prepared?.n) || list[0];

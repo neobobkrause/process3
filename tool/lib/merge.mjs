@@ -145,6 +145,8 @@ export function merge(root, n, opts = {}) {
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
+  // The merge train names the head it chose (and its review note was for): any other is refused.
+  if (opts.head && pr.head?.sha !== opts.head) fail(`pull request ${n} moved to ${String(pr.head?.sha).slice(0, 10)} from ${opts.head.slice(0, 10)}, the head the train chose; nothing was merged`);
   const id = branchModule(pr.head?.ref, ledgerIds(root, `origin/${cfg.tranche}`));
   // A job's pull request already merged: merge again only records its provider notices, the step
   // a failed state-branch write left undone (idempotent).
