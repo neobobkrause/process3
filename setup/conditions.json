@@ -208,7 +208,7 @@
     {
       "id": "actions-settings",
       "what": "Workflows get a read-only token by default, and GitHub Actions may not create or approve pull requests.",
-      "why": "Only the gate's post job is given a write token, by its own permissions block; nothing else in Actions can approve its own way into the tranche.",
+      "why": "Only the gate's post job and the branch cleanup's prune job (process-branch-prune.yml, contents: write, deleting nothing until Bob's approval sentence is in the approvals block) are given a write token, each by its own permissions block, and neither runs product code; nothing else in Actions can approve its own way into the tranche.",
       "value": "default workflow permissions: read; allow GitHub Actions to create and approve pull requests: off",
       "who": "the developer (Settings, Actions, General)",
       "read": "confirmed once on the onboarding page"

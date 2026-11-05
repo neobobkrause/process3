@@ -204,8 +204,8 @@ test('removing the tool is a finding', () => {
 import { verifyRow } from '../lib/github.mjs';
 test('a gate row is trusted only when its run is the process gate on that commit and its artifact matches', () => {
   const row = { sha: 'c1', base: 'b', trigger: 'code', ok: true, receipt: 'agrees', receipt_attempt: 1, suite: 'pass', revert: 'pass', run_id: 5 };
-  const run = { path: '.github/workflows/process-gate.yml', head_sha: 'c1', status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 4, base: { ref: 'tranche' } }] };
-  const ctx = { pr: 4, baseRef: 'tranche' };
+  const run = { path: '.github/workflows/process-gate.yml', head_sha: 'c1', status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 4, base: { ref: 'tranche' } }], head_branch: 'job/m', head_repository: { full_name: 'o/r' } };
+  const ctx = { pr: 4, baseRef: 'tranche', branch: 'job/m' };
   const io = (r, art) => ({ getRun: () => r, runArtifactRow: () => art });
   assert.equal(verifyRow('o/r', row, ctx, io(run, { ...row, minutes: 1 })), true);
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, path: '.github/workflows/x-process-gate.yml' }, row)), false);
@@ -214,6 +214,12 @@ test('a gate row is trusted only when its run is the process gate on that commit
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
   assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
+  // GitHub lists an open PR on a run that matches its head sha OR branch: a run on a second
+  // branch at the same commit (its own PR into another base, closed), or a fork's same-named
+  // branch, lists this PR, and is not its run (cold review of build/branch-bound).
+  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, head_branch: 'y' }, row)), false, 'a second branch at the same commit');
+  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, head_repository: { full_name: 'fork/r' } }, row)), false, 'a fork');
+  assert.equal(verifyRow('o/r', row, { pr: 4, baseRef: 'tranche' }, io(run, row)), false, 'no branch to hold it to');
   // A merged PR's run lists no pull request (copy, 4 Nov): trusted only when the caller has read
   // the merged PR and names its branch, and the run is on it, in this repository, and green.
   const gone = { ...run, pull_requests: [], head_branch: 'job/m', head_repository: { full_name: 'o/r' } };

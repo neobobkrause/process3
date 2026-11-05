@@ -65,6 +65,9 @@ function github(root, ids, { pending = false, own = () => null, unread = () => f
       ];
     },
     verify: () => true,
+    // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
+    prsFromBranch: (slug, b) => [...state.keys()].map(pr).filter((p) => p.head.ref === b),
+    baseEverChanged: () => false,
     // Every gate run on a commit (the provider hold's read): null when unreadable, as github.mjs.
     checkRuns: (slug, sha, name) => { if (unread(sha)) return null; const g = io.checkRun(slug, sha, name); return g ? [g] : []; },
     checkRun: (slug, sha) => {
@@ -237,6 +240,18 @@ test('merge train refuses hostile job PRs exactly as merge does, and hands each 
   assert.match(why[4], /fires the review trigger.*--no-review is refused/);
   const m = messages(root);
   assert.equal(m.filter((x) => /PR 4 .*fires a review trigger and has no review recorded/.test(x.text)).length, 1);
+});
+
+// Confirming review of build/train-spec, 5 Nov: a job branch with a second PR into another base
+// (its run, then closed, lists only the job's PR) is refused as merge refuses it.
+test('merge train refuses a job PR whose branch had another PR into another base, naming it, and merges nothing', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const g = github(root, ids);
+  const honest = g.io.prsFromBranch;
+  g.io.prsFromBranch = (s, b) => [...honest(s, b), { number: 90, state: 'closed', head: { ref: b }, base: { ref: 'x' } }];
+  const r = train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: quiet, once: true });
+  assert.deepEqual(g.calls.merged, []);
+  assert.match(r.rows.find((x) => x.pr === 1)?.why || '', /job\/alpha also had pull request\(s\) 90 into another base/);
 });
 
 test('merge train: a triggered PR lands only with a --reviewed note for its head', () => {
