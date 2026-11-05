@@ -174,12 +174,29 @@ test('base-red: the prepared tree serves one call; the next, and one whose prepa
   const crashed = { base: s.base, used: false, wait: () => null, drop: () => { dropped++; } };
   assert.equal(baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: crashed }).ok, true);
   assert.equal(dropped, 1);
-  // A failed preparation is the verdict, as inline.
+  // A failed preparation beside the head is prepared again here, with base-red's own budget.
+  const refused = { base: s.base, used: false, wait: () => ({ ok: false, why: "the base's build failed: killed" }), drop: () => {} };
+  const again = [];
+  assert.equal(baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: refused, log: (l) => again.push(l) }).ok, true);
+  assert.ok(again.some((l) => /the background preparation refused \(the base's build failed: killed\): the tree is prepared here/.test(l)));
+  // A base that cannot be written is refused, inline or not.
   const bad = startBase(s.root, { base: 'f'.repeat(40), cfg, timeout: 60000 });
   const r = baseRed(s.root, e, { base: 'f'.repeat(40), failing: [{ file: 'src/alpha/index.mjs', name: 'x' }], cfg, timeout: 60000, prepared: bad });
   assert.match(r.why, /^(the base's tree could not be prepared|new failing test file)/);
   bad.drop();
   assert.deepEqual(mine(), []);
+});
+
+test('base-red: a preparation whose process is gone without a verdict is not waited for', () => {
+  const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
+  const rows = [{ paths: ['gen/slow.txt'], regenerate: ['node', '-e', 'setTimeout(() => {}, 20000)'], verify: ['true'] }];
+  const p = startBase(s.root, { base: s.base, cfg: loadConfig(s.root), rows, timeout: 60000 });
+  // The whole group killed, the shell's exit status unwritten (an OOM kill).
+  p.kill();
+  const t0 = Date.now();
+  assert.equal(p.wait(30000), null);
+  assert.ok(Date.now() - t0 < 10000, `${Date.now() - t0} ms`);
+  p.drop();
 });
 
 test('base-red: a preparation not ready within the wait is stopped and refused with why', () => {
@@ -214,6 +231,7 @@ test('a change only to the requirements file runs only the tests that read it: t
   const r = run(s, exempt(s));
   assert.deepEqual(r.findings, []);
   assert.deepEqual([r.run.suite, r.run.tests], ['pass', [{ total: 2, pass: 2, fail: 0 }]]);
+  assert.deepEqual(r.run.requirements_only, [{ module: 'alpha', files: ['test/alpha/ids.test.mjs', 'test/alpha/uses-helper.test.mjs'] }]);
   assert.ok(r.lines.some((l) => l === 'alpha: only its requirements file req/alpha.md changed: the suite runs the 2 test file(s) that read it (test/alpha/helper.mjs, test/alpha/ids.test.mjs, reached from test/alpha/ids.test.mjs, test/alpha/uses-helper.test.mjs)'), r.lines.join('\n'));
   // The tranche into main runs every suite whole.
   const cfg = loadConfig(s.root);
@@ -227,14 +245,16 @@ test('no test reading the requirements file: the suite is not run, and passes wi
   const s = setup({ 'test/alpha/other.test.mjs': RED_ELSEWHERE }, { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' }, { alpha: { paths: ['src/alpha/', 'req/alpha.md'] } });
   const r = run(s, exempt(s));
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.suite, r.run.tests, r.run.receipt], ['pass', [{ total: 0, pass: 0, fail: 0 }], 'agrees']);
+  assert.deepEqual([r.run.suite, r.run.tests, r.run.receipt, r.run.requirements_only], ['pass', [{ total: 0, pass: 0, fail: 0 }], 'agrees', [{ module: 'alpha', files: [] }]]);
+  assert.ok(!r.lines.some((l) => /prepared beside/.test(l)), 'no suite runs: no base tree is prepared');
   assert.ok(r.lines.some((l) => /no test reads it \(none of its tests names alpha\.md or req\): the suite is not run/.test(l)), r.lines.join('\n'));
 });
 
 test('the whole suite runs when code beside the tests may read the requirements file', () => {
   const cases = [
     ['its source names it', { 'src/alpha/doc.mjs': "export const doc = 'req/alpha.md';\n" }, {}, /src\/alpha\/doc\.mjs, of the module's own paths/],
-    ['its preload names its directory', { 'test/hook.mjs': "globalThis.where = 'req';\n" }, { suite: { cwd: '.', command: ['node', '--import', './test/hook.mjs', '--test'] } }, /test\/hook\.mjs, which the suite preloads/],
+    ['its preload names it', { 'test/hook.mjs': "globalThis.where = 'alpha.md';\n" }, { suite: { cwd: '.', command: ['node', '--import', './test/hook.mjs', '--test'] } }, /test\/hook\.mjs, which the suite preloads/],
+    ['a fixture of its tests names its directory', { 'test/alpha/paths.json': '["req"]\n' }, {}, /test\/alpha\/paths\.json, a file of its tests that is not a script/],
     ['a script elsewhere names it', { 'tools/check.mjs': "export const f = 'alpha.md';\n" }, {}, /tools\/check\.mjs, outside its tests, names alpha\.md/],
   ];
   for (const [what, files, alpha, why] of cases) {
@@ -244,6 +264,9 @@ test('the whole suite runs when code beside the tests may read the requirements 
     assert.deepEqual([r.run.suite, r.run.tests[0].total], ['base-red', 3], what);
     assert.ok(r.lines.some((l) => why.test(l) && /the whole suite runs/.test(l)), `${what}: ${r.lines.join('\n')}`);
   }
+  // Beside the tests, only the file's own name counts: its directory's word is prose there.
+  const w = reqOnly({ 'src/alpha/words.mjs': "export const msg = 'its req read x, not in words.json';\n" });
+  assert.deepEqual(run(w, exempt(w)).run.tests, [{ total: 2, pass: 2, fail: 0 }]);
   // Named only in a comment that starts a line: not a reader.
   const c = reqOnly({ 'src/alpha/doc.mjs': '/* alpha: its requirements are\n * req/alpha.md */\n// see req/alpha.md\nexport const y = 1;\n' });
   assert.deepEqual(run(c, exempt(c)).run.tests, [{ total: 2, pass: 2, fail: 0 }]);

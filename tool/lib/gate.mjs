@@ -1,12 +1,12 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, lstatSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
-import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
+import { install, normPath, reportsEvents, runSuite, suffixOf, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
@@ -168,7 +168,10 @@ export function gate(root, opts) {
     // Base-red's tree (basered.mjs startBase): its install and build beside the head's, ready if
     // the suite fails. Not for the tranche into main, which tolerates nothing, nor with a stand-in
     // exec (the tests'), which a process of its own cannot use.
-    const prepared = scope.length && branch !== cfg.tranche && !exec && opts.prepareBase !== false
+    // A change only to a module's requirements file runs only the tests that read it.
+    const onlyOf = new Map(scope.map((e) => [e, branch !== cfg.tranche ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log }) : null]));
+    const runsTests = scope.some((e) => onlyOf.get(e) === null || onlyOf.get(e).length);
+    const prepared = runsTests && branch !== cfg.tranche && !exec && opts.prepareBase !== false
       ? startBase(root, { base: revertBase, cfg, rows: gen.rows, timeout, log }) : null;
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
@@ -187,9 +190,9 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      // A change only to the module's requirements file runs only the tests that read it.
-      const only = branch !== cfg.tranche ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log }) : null;
-      if (only && !only.length) { results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
+      const only = onlyOf.get(e);
+      if (only && !only.length) { (runRow.requirements_only ||= []).push({ module: e.id, files: [] }); results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
+      if (only) (runRow.requirements_only ||= []).push({ module: e.id, files: only });
       const s = withEvents((events) => runSuite(root, e, only || undefined, { timeout, events }));
       results.push(s);
       if (s.exit !== 0) {
@@ -480,7 +483,9 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   const ctx = { pr: n, baseRef: cfg.tranche, merged: { branch } };
   const bound = (r) => isAnc(root, r.sha, p2) && isAnc(root, r.base, p1) && io.verify(slug, r, ctx);
   // A base-red run (basered.mjs) does not cover: the tranche runs that suite again, tolerating nothing.
-  const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id);
+  // Nor does a run narrowed to the tests that read a requirements file (requirementsOnly): the
+  // tranche runs that suite whole once (review of build gate-speed).
+  const suiteRan = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
   const row = runs.filter((r) => r.sha === p2).pop();
   if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
   const tested = row.trigger === 'record-since-green'
@@ -497,19 +502,23 @@ export function jobMerge(root, cfg, c, { slug, io }) {
 // nothing imports it, so it changes a test's result only by being read as text, and code that
 // reads it names it: by its file name (journey-check.md), or by its directory's (requirements),
 // from which a path to it is built. When the only files a pull request changes, records aside, are
-// this module's requirements file (not for the tranche into main, which runs every suite whole),
+// this module's requirements file (not for the tranche into main),
 // the suite runs only its test files that reach, by import through the test paths (reachers), a
 // script under its test paths whose code names either: the requirement-id tests. Code is the text
-// but for comments that start a line. The whole suite runs instead when anything else of what the
-// suite runs may read it: a file of the module's own paths (Markdown and the requirements file
-// aside), a file the suite command preloads (--import, --require), or a generator of the
-// generated rows naming either name, or a script anywhere in the repository (records aside) naming
-// the file's own name, since the module's tests run that code too and any of them could read it
-// through it. None reaching it: no test can see the change, and the suite is not run (a pass of
-// none). Returns the root-relative test files to run, [] for none, or null for the whole suite.
-// Only for a Markdown requirements file. Residual: code that reaches the file without naming it or
-// its directory (a walk of the whole tree that reads every file), or a comment-like line inside a
-// multi-line string.
+// but for comments that start a line. The whole suite runs instead when other code the suite runs
+// names the file's own name: a file of the module's own paths (Markdown and the requirements file
+// aside), a file the suite command preloads (--import, --require), a generator of the generated
+// rows, or a script anywhere in the repository (records aside), since the module's tests run that
+// code too and any of them could read it through it; or when a data file of its tests (a fixture)
+// names either name. None reaching it: no test can see the change, and the suite is not run (a pass of
+// none). The row names the narrowed modules (requirements_only), and such a run does not cover the
+// module at the tranche into main (jobMerge): its whole suite runs there once, the backstop for
+// a reader this misses. Returns the root-relative test files to run, [] for none, or null for the
+// whole suite.
+// Only for a Markdown requirements file. Residual, for the tranche's whole run: code outside the
+// tests that builds the path from the directory or the ledger's field, code that reaches the file
+// without naming it (a walk of the whole tree that reads every file), or a comment-like line inside
+// a multi-line string.
 const LINE_COMMENTS = (text) => {
   const out = [];
   let block = false;
@@ -532,32 +541,42 @@ export function requirementsOnly(root, cfg, e, { changed, rows = [], log = () =>
   const name = basename(req);
   const dir = dirname(req) === '.' ? null : basename(dirname(req));
   const read = (f) => { try { const t = readFileSync(join(root, f), 'utf8'); return t.includes('\0') ? '' : t; } catch { return ''; } };
-  const names = (f, text = read(f)) => { const c = SCRIPT.test(f) ? LINE_COMMENTS(text) : text; return c.includes(name) || (dir !== null && c.includes(dir)); };
+  const tokens = [name, ...(dir !== null ? [dir] : [])];
+  const names = (f, text = read(f), ts = tokens) => { const c = SCRIPT.test(f) ? LINE_COMMENTS(text) : text; return ts.some((t) => c.includes(t)); };
+  // Code beside the tests is read for the file's own name: its directory's is prose all over a
+  // product's code (copy, 5 Nov: a words generator's messages say "requirements"), and a path it
+  // builds from the directory is the residual the tranche's whole run is for.
+  const named = (f) => names(f, read(f), [name]);
   const whole = (why) => { log(`${e.id}: only its requirements file ${req} changed, but ${why}: the whole suite runs`); return null; };
   const tree = new Set(testTreeFiles(root, e));
   const code = e.paths.flatMap((p) => listFiles(root, p)).filter((f) => f !== req && !f.endsWith('.md') && !tree.has(f));
-  const hit = code.find((f) => names(f));
-  if (hit) return whole(`${hit}, of the module's own paths, names ${name} or ${dir}`);
+  const hit = code.find(named);
+  if (hit) return whole(`${hit}, of the module's own paths, names ${name}`);
   const cwd = e.suite?.cwd || '.';
   const cmd = e.suite?.command || [];
   const pre = cmd.flatMap((a, i) => (['--import', '--require', '-r'].includes(cmd[i - 1]) ? [a] : /^--(import|require)=/.test(a) ? [a.slice(a.indexOf('=') + 1)] : []))
     .map((a) => normPath(join(cwd, a))).filter((f) => existsSync(join(root, f)));
   const gens = rows.flatMap((r) => r.regenerate || []).filter((a) => SCRIPT.test(a)).map((a) => normPath(a)).filter((f) => existsSync(join(root, f)));
-  const other = [...pre, ...gens].find((f) => names(f));
-  if (other) return whole(`${other}, which the suite preloads or a generator runs, names ${name} or ${dir}`);
-  const named = git(['grep', '-l', '-z', '-F', '-e', name, '--', '.'], { cwd: root, allowFail: true }).stdout.split('\0').filter(Boolean)
-    .filter((f) => SCRIPT.test(f) && !tree.has(f) && !isRecordPath(cfg, f) && !f.split('/').includes('node_modules') && LINE_COMMENTS(read(f)).includes(name));
-  if (named.length) return whole(`${named.slice(0, 3).join(', ')}, outside its tests, names ${name}`);
+  const other = [...pre, ...gens].find(named);
+  if (other) return whole(`${other}, which the suite preloads or a generator runs, names ${name}`);
+  const elsewhere = git(['grep', '-l', '-z', '-F', '-e', name, '--', '.'], { cwd: root, allowFail: true }).stdout.split('\0').filter(Boolean)
+    .filter((f) => SCRIPT.test(f) && !tree.has(f) && !isRecordPath(cfg, f) && !f.split('/').includes('node_modules') && named(f));
+  if (elsewhere.length) return whole(`${elsewhere.slice(0, 3).join(', ')}, outside its tests, names ${name}`);
+  // A data file of the tests naming it (a fixture listing paths): which test reads that is not known.
+  const data = [...tree].find((f) => !SCRIPT.test(f) && !f.endsWith('.md') && !f.split('/').includes('node_modules') && names(f));
+  if (data) return whole(`${data}, a file of its tests that is not a script, names ${tokens.join(' or ')}`);
   const readers = [...tree].filter((f) => SCRIPT.test(f) && names(f));
-  const files = [...new Set(readers.flatMap((f) => reachers(root, e, f)))].filter((f) => testFiles(root, e).includes(f)).sort();
-  log(`${e.id}: only its requirements file ${req} changed: ${files.length ? `the suite runs the ${files.length} test file(s) that read it (${readers.join(', ')}${files.join(',') === readers.join(',') ? '' : `, reached from ${files.join(', ')}`})` : `no test reads it (none of its tests names ${name}${dir ? ` or ${dir}` : ''}): the suite is not run`}`);
+  const files = [...new Set(readers.flatMap((f) => reachers(root, e, f)))].sort();
+  log(`${e.id}: only its requirements file ${req} changed: ${files.length ? `the suite runs the ${files.length} test file(s) that read it (${readers.join(', ')}${files.join(',') === readers.join(',') ? '' : `, reached from ${files.join(', ')}`})` : `no test reads it (none of its tests names ${tokens.join(' or ')}): the suite is not run`}`);
   return files;
 }
-// Every file under p, tracked or built, node_modules and .git left out; root-relative.
+// Every file under p, tracked or built, node_modules and .git left out, a symlinked file read
+// through (not a symlinked directory: no cycle); root-relative.
 const listFiles = (root, p, out = []) => {
   const at = join(root, p);
   let st;
   try { st = lstatSync(at); } catch { return out; }
+  if (st.isSymbolicLink()) { try { if (statSync(at).isFile()) out.push(normPath(p)); } catch { /* dangling */ } return out; }
   if (st.isFile()) out.push(normPath(p));
   else if (st.isDirectory()) for (const n of readdirSync(at).sort()) if (n !== 'node_modules' && n !== '.git') listFiles(root, join(p, n), out);
   return out;

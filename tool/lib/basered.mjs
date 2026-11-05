@@ -128,8 +128,8 @@ export function prepareTree(root, base, wt, { lockfiles = [], rows = [], timeout
 // overlap: the base's tests still run after the head's suite, alone on the runner (E1: more
 // concurrency inside the 4-vCPU runner does not help). The tree is the first matching baseRed
 // call's, then dropped; a later call (another module, or the smoke list after the suite's)
-// prepares its own, as before. When the process ends without a verdict (it crashed or was killed),
-// baseRed prepares the tree inline. drop(): the process stopped, the tree removed; also at exit.
+// prepares its own, as before. When the process ends without a verdict (it crashed or was killed)
+// or its install or build failed, baseRed prepares the tree inline, with its own budget. drop(): the process stopped, the tree removed; also at exit.
 // Residual, as for a process the PR's tests leave running: the head's install, build and tests run
 // while the base's tree exists, and code of the PR could write into it.
 export const PREP = join(dirname(fileURLToPath(import.meta.url)), 'base-prep.mjs');
@@ -154,8 +154,16 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
   } finally { closeSync(fd); }
   const started = Date.now();
   let done = false;
+  // The wrapper still runs: spawned, and neither gone nor a zombie (never reaped while the gate
+  // runs synchronously). Where /proc cannot be read, the wait's deadline bounds it.
+  const alive = () => {
+    if (!child?.pid) return false;
+    try { process.kill(child.pid, 0); } catch (e) { return e.code === 'EPERM'; }
+    try { return readFileSync(`/proc/${child.pid}/stat`, 'utf8').replace(/^.*\) /s, '')[0] !== 'Z'; } catch { return true; }
+  };
   const stop = () => { if (!done && child?.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } } done = true; };
-  process.once('exit', stop);
+  // Before the scratch directories' own exit hook removes the tree the install still writes to.
+  process.prependOnceListener('exit', stop);
   log(`base-red: the base ${base.slice(0, 10)}'s tree is prepared beside the head's install`);
   return {
     base, wt, dir, used: false,
@@ -163,8 +171,9 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
     // process ended without one (baseRed then prepares the tree inline).
     wait(ms) {
       const until = Date.now() + ms;
-      while (!existsSync(exitFile) && Date.now() < until) nap(200);
+      while (!existsSync(exitFile) && Date.now() < until && alive()) nap(200);
       const ended = existsSync(exitFile);
+      if (!ended && !alive()) { done = true; log('base-red: the background preparation is gone without a verdict: the tree is prepared here'); return null; }
       const text = (() => { try { return readFileSync(logFile, 'utf8'); } catch { return ''; } })();
       for (const l of text.split('\n').filter(Boolean).slice(-40)) log(l);
       if (!ended) { stop(); return { ok: false, why: `the base's tree was not ready within ${Math.round((Date.now() - started) / 1000)} s` }; }
@@ -175,6 +184,8 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
       }
     },
     drop() { stop(); process.removeListener('exit', stop); drop(); },
+    // The process group killed as the OOM killer would, the exit status unwritten (tests).
+    kill() { if (child?.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } } },
   };
 }
 
@@ -198,7 +209,12 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     prepared.used = true;
     try {
       const p = prepared.wait(left());
-      if (p) return p.ok ? compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log }) : no(p.why);
+      if (p?.ok) return compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log });
+      // Prepared beside the head, at a lower priority, on a deadline from the gate's start: a
+      // failed install or build there may be the head's load or time, not the base's. Prepared
+      // again here with base-red's own budget (review of build gate-speed).
+      if (p && !/^the base's tree was not ready within/.test(p.why)) log(`base-red: the background preparation refused (${p.why}): the tree is prepared here`);
+      else if (p) return no(p.why);
     } catch (e) {
       return no(`the base's tree could not be prepared: ${String(e.message).slice(0, 300)}`);
     } finally { prepared.drop(); }
