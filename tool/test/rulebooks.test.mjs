@@ -1,5 +1,5 @@
 // Rulebooks (TXT-3, TXT-5, TXT-6): one per role, at most ten rules and about 4 KB, each rule and
-// principle citing a Ledger line or Bob's word and naming what holds it or saying nudge; and each
+// principle citing a Ledger line, Bob's own word or the coordinator's ruling and naming what holds it or saying nudge; and each
 // role's prompt names its own file, since a skill cannot be loaded by role without a hook (ENF-1).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,7 +14,7 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (role) => readFileSync(join(repo, 'rulebooks', `${role}.md`), 'utf8');
 const section = (t, name) => (t.split(`## ${name}`)[1] || '').split('\n## ')[0];
 const items = (s) => s.split('\n').filter((l) => /^\d+\. /.test(l));
-const CITE = /\((?:[A-Z]{2,3}-\d+|P\d+|Bob)[^)]*\)/;
+const CITE = /\((?:[A-Z]{2,3}-\d+|P\d+|Bob|coordinator)[^)]*\)/;
 
 test('each rulebook: ten rules at most, three principles at most, under 4 KB, every line cited and held or a nudge', () => {
   for (const role of RULEBOOKS) {
