@@ -8,6 +8,8 @@ import { test } from 'node:test';
 import { BOT, GATE, block } from '../lib/github.mjs';
 import { jobStart, jobSync, startText } from '../lib/job.mjs';
 import { startReady } from '../lib/ready.mjs';
+import { bobPrompt } from '../lib/roles.mjs';
+import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport,
@@ -24,15 +26,15 @@ const modules = { modules: [{ id: 'a', uses: [] }, { id: 'b', uses: ['a'] }, { i
 const layers = '# The layers\n\n| layer | name | modules |\n| --- | --- | --- |\n| 1 | One | a, b, c |\n| 2 | Two | d |\n';
 
 // A product on the tranche with a bare origin: modules a, b (uses a), c in layer 1, d (uses a) in layer 2.
-function product({ strategy = 'layer' } = {}) {
+function product({ strategy = 'layer', over = {}, done = false } = {}) {
   const files = {
     'process/config.json': { merge_strategy: strategy, modules_file: 'build/modules.json' },
     'build/layers.md': layers,
     'build/modules.json': modules,
   };
   for (const id of ['a', 'b', 'c', 'd']) {
-    files[`process/ledger/${id}.json`] = entry(id, { layer: id === 'd' ? 2 : 1 });
-    files[`req/${id}.md`] = req(id);
+    files[`process/ledger/${id}.json`] = entry(id, { layer: id === 'd' ? 2 : 1, ...(done ? { status: { state: 'COMPLETE' } } : {}), ...(over[id] || {}) });
+    files[`req/${id}.md`] = done ? req(id).replace(' *(not yet met: T1)*', '') : req(id);
     files[`test/${id}/t.test.mjs`] = "import test from 'node:test'; test('ok', () => {});\n";
   }
   files['src/a/index.mjs'] = 'export function a(x) { return x; }\n';
@@ -113,7 +115,7 @@ test('layer open: cuts layer/<n> from the tranche tip, records the open, and lis
   fetchState(root, SB, { fresh: true });
   assert.equal(JSON.parse(readState(root, SB, flowFile(1, 'open'))).from, r.from);
   assert.deepEqual(r.startable.map((x) => x.id), ['a', 'b', 'c']);
-  assert.ok(lines.some((l) => /ROOT starts them; no other session creates a job/.test(l)));
+  assert.ok(lines.some((l) => /BOB starts them; no other session creates a job/.test(l)));
   // Again: nothing cut twice, the open kept.
   assert.equal(layerOpen(root, 1, { io: openIO, log: quiet }).from, r.from);
   // The next layer waits for this one's merge.
@@ -163,6 +165,22 @@ test('a layer job\'s START names layer publish and the halt on a reschedule; a t
   assert.match(startText({ ...args, tranche: 'tranche' }), /job complete a --not-verified/);
 });
 
+test('BOB starts the layer\'s jobs: status --role bob lists them, and BOB\'s prompt names them in place of job start --ready', async () => {
+  const { root } = product();
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(layerLines(root, cfg, { slug: 'o/p', io: openIO }), ['layer flow: layer 1 is next and not open: `node .process/tool/p3.mjs layer open 1`']);
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const lines = layerLines(root, cfg, { slug: 'o/p', io: openIO });
+  assert.match(lines[0], /layer 1 open on layer\/1; .*not started 3/);
+  assert.ok(lines.includes('- node .process/tool/p3.mjs job start a --live <n>'));
+  assert.ok(lines.some((l) => /yours to start, BOB/.test(l)));
+  const p = (layer) => bobPrompt({ slug: 'o/p', rootId: 'r', approvals: 'a'.repeat(64), layer });
+  assert.match(p(true), /jobs to start.*layer jobs <n>/);
+  assert.doesNotMatch(p(true), /job start --ready/);
+  assert.match(p(false), /job start --ready/);
+});
+
 test('take-in is refused in the layer flow', () => {
   const { root } = product();
   git(['branch', 'layer/1', 'tranche'], { cwd: root });
@@ -191,6 +209,22 @@ test('interface signal: an export change or a Provides change counts; a change i
   const p = interfaceChange(root, cfg, 'a', marks, prov);
   assert.equal(p.changed, true);
   assert.ok(p.provides);
+});
+
+test('interface signal: a changed provider test naming a Public / Provides requirement counts (a return shape the exports do not show); the trigger is named', () => {
+  const { root } = product();
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const base = commit(root, { 'req/a.md': req('a', '- **R2** `materials(x)` answers the list of materials'), 'test/a/r2.test.mjs': "import test from 'node:test'; test('R2 answers a list', () => {});\n", 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private', () => {});\n" }, 'R2 in Provides');
+  // The answer's shape changes ({materials: [...]}); the exports and the Provides text do not.
+  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r2.test.mjs': "import test from 'node:test'; test('R2 answers {materials: [...]}', () => {});\n" }, 'shape');
+  const x = interfaceChange(root, cfg, 'a', base, shape);
+  assert.equal(x.exports, null);
+  assert.equal(x.provides, null);
+  assert.deepEqual(x.provides_tests, ['test/a/r2.test.mjs']);
+  assert.deepEqual(x.triggers, ['provides-test']);
+  // A test of a requirement not in Provides changes nothing.
+  const priv = commit(root, { 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private, again', () => {});\n" }, 'private test');
+  assert.equal(interfaceChange(root, cfg, 'a', shape, priv).changed, false);
 });
 
 test('module states: rescheduled until a land holds the provider\'s land; deferred when BLOCKED; complete after a land', () => {
@@ -304,11 +338,12 @@ test('land: no combined re-test; an interface change reschedules users in the la
   assert.equal(ra.land.interface.changed, true);
   assert.deepEqual(ra.land.users_rescheduled, ['b']);
   assert.deepEqual(ra.land.users_noticed, ['d']);
-  assert.ok(lines.some((l) => /send to job b's session \(PR 9\), send_message priority now: .*Halt any test run now/.test(l)));
+  assert.ok(lines.some((l) => /BOB delivers to job b's session \(PR 9\), with send_message priority now: .*Halt any test run now/.test(l)));
   fetchState(root, SB, { fresh: true });
   const rows = flowRows(root, SB, 1);
   assert.equal(rows.reschedules.length, 1);
   assert.equal(rows.reschedules[0].provider_land, ra.land.merge);
+  assert.deepEqual(rows.reschedules[0].triggers, ['exports']);
   const notice = JSON.parse(readState(root, SB, 'notices/a-2.json'));
   assert.deepEqual(notice.users, ['d']);
 });
@@ -372,6 +407,26 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   assert.equal(rep.lands, 4);
   assert.equal(rep.reschedules, 1);
   assert.equal(typeof rep.hours_open_to_merged, 'number');
+});
+
+test('layer merge runs the layer checks but no module suite: a red entry check refuses the merge; green, it merges and still no suite ran', async () => {
+  const marker = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'suite-ran');
+  const suite = { cwd: '.', command: ['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, '1')`, '--test'] };
+  const flag = join(mkdtempSync(join(tmpdir(), 'p3-flag-')), 'red');
+  const check = ['node', '-e', `process.exit(require('fs').existsSync(${JSON.stringify(flag)}) ? 3 : 0)`];
+  const { root, bare } = product({ done: true, over: { a: { suite }, b: { suite }, c: { suite, checks: [check] } } });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const { writeFileSync, existsSync } = await import('node:fs');
+  writeFileSync(flag, '1');
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 70, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  let opened = 0;
+  await assert.rejects(layerMerge(root, 1, { io: { ...mio, createPR: (...a) => { opened++; return mio.createPR(...a); } }, wait: false, log: quiet }), /the layer checks found 1 finding\(s\).*no module suite ran/);
+  assert.equal(opened, 0, 'no PR opened on a red layer check');
+  assert.equal(existsSync(marker), false, 'no module suite ran');
+  const { rmSync } = await import('node:fs');
+  rmSync(flag);
+  assert.equal((await layerMerge(root, 1, { io: mio, wait: false, log: quiet })).ok, true);
+  assert.equal(existsSync(marker), false, 'no module suite ran at the merge either');
 });
 
 test('the gate\'s layer trigger: each module covered by a verified green land; a provider\'s later interface change is a finding, nothing re-runs', async () => {

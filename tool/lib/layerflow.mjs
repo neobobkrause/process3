@@ -60,6 +60,10 @@ const layerNum = (n) => (/^\d+$/.test(String(n)) ? Number(n) : fail(`the layer's
 // is the job's progress, not a change of what the module offers). null: no such section.
 const MARK = /\s*\*\(not yet met[^)]*\)\*/gi;
 export function providesText(md) {
+  const raw = providesRaw(md, true);
+  return raw;
+}
+function providesRaw(md, norm = false) {
   if (md === null || md === undefined) return null;
   let pub = false;
   let prov = false;
@@ -72,7 +76,7 @@ export function providesText(md) {
       if (h[1].length <= 2) { pub = /^public\b/.test(t); prov = false; } else { prov = pub && /^provides\b/.test(t); if (prov) found = true; }
       continue;
     }
-    if (prov) { const x = l.replace(MARK, '').replace(/\s+/g, ' ').trim(); if (x) out.push(x); }
+    if (prov) { const x = norm ? l.replace(MARK, '').replace(/\s+/g, ' ').trim() : l; if (x) out.push(x); }
   }
   return found ? out.join('\n') : null;
 }
@@ -86,7 +90,7 @@ const textAt = (root, ref, f) => (f && exists(root, ref, f) ? git(['show', `${re
 // counts as changed, so a user is never left unwarned by a bad read (unread says why).
 export function interfaceChange(root, cfg, id, before, after) {
   const e = entryAt(root, after, id) || entryAt(root, before, id);
-  if (!e) return { changed: false, exports: null, provides: null, why: `no ledger entry for ${id}` };
+  if (!e) return { changed: false, exports: null, provides: null, triggers: [], why: `no ledger entry for ${id}` };
   const files = diffNames(root, before, after);
   const src = files.filter((f) => isSource(cfg, e, f));
   const req = !!e.requirements && files.includes(e.requirements);
@@ -101,8 +105,24 @@ export function interfaceChange(root, cfg, id, before, after) {
       if (anyExportChange(x)) out.exports = x;
     } catch (err) { out.unread = String(err.message || err).slice(0, 200); }
   }
-  out.changed = !!(out.exports || out.provides || out.unread);
+  // A return shape is not in the exports (Bob, 5 Nov: a provider answered {materials: [...]} for a
+  // list, its exports unchanged, and screens-publish read it wrongly). A changed test of the
+  // provider that names one of its Public / Provides requirements (a word R<id> the section holds,
+  // read at after, else before) counts too: it reschedules, it refuses nothing.
+  const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
+  if (tests.length) {
+    const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
+    const hit = ids.length ? tests.filter((f) => { const t = `${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`; return ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w])`).test(t)); }) : [];
+    if (hit.length) out.provides_tests = hit.sort();
+  }
+  out.triggers = [...(out.exports ? ['exports'] : []), ...(out.provides ? ['provides-text'] : []), ...(out.provides_tests ? ['provides-test'] : []), ...(out.unread ? ['exports-unread'] : [])];
+  out.changed = out.triggers.length > 0;
   return out;
+}
+// The requirement ids the Public / Provides section names (**R<id>**), or null without a section.
+export function providesIds(md) {
+  const t = providesRaw(md);
+  return t === null ? null : [...new Set([...t.matchAll(/\*\*(R[\w.-]+?)\*\*/g)].map((m) => m[1]))];
 }
 export function interfaceText(ic) {
   const parts = [];
@@ -113,6 +133,7 @@ export function interfaceText(ic) {
     if (x.added.length) parts.push(`added ${x.added.join(', ')}`);
   }
   if (ic.provides) parts.push('its Public / Provides section changed');
+  if (ic.provides_tests) parts.push(`its tests of Public / Provides requirements changed (${ic.provides_tests.join(', ')}), which may mean a changed answer shape`);
   if (ic.unread) parts.push(`its exports could not be read (${ic.unread}), counted as changed`);
   return parts.join('; ') || 'no change';
 }
@@ -171,7 +192,7 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
 export const DONE = ['complete', 'deferred'];
 export const mergeReady = (states) => states.every((s) => DONE.includes(s.state));
 
-// What ROOT may start (the tool lists, ROOT starts; Bob, 5 Nov): each module not started, and each
+// What BOB may start (the tool lists, BOB starts; Bob, 5 Nov): each module not started, and each
 // complete one a reschedule reopened (its PR landed, so a new attempt).
 export function startable(states) {
   return states.flatMap((s) => {
@@ -211,6 +232,28 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   return { n, ref, mods: L.mods, layers, rows, entries, prs, states };
 }
 
+// The lines status --role bob prints in the layer flow: the open layer's modules by state and the
+// jobs BOB starts (Bob, 5 Nov: BOB starts jobs; no other session creates one), or the layer to open.
+export function layerLines(root, cfg, { slug, io = {} } = {}) {
+  const layers = layersAt(root, cfg, `refs/remotes/origin/${cfg.tranche}`);
+  const L = [];
+  for (const { n } of layers) {
+    const r = flowRows(root, cfg.state_branch, n);
+    if (r.merged) continue;
+    if (!r.open) { L.push(`layer flow: layer ${n} is next and not open: \`${P3} layer open ${n}\``); return L; }
+    fetchBranch(root, layerBranch(n), { allowFail: true });
+    const x = readLayer(root, cfg, n, { io, slug });
+    const by = (k) => x.states.filter((s) => s.state === k).map((s) => s.id);
+    L.push(`layer flow: layer ${n} open on ${layerBranch(n)}; ${['complete', 'deferred', 'published', 'working', 'rescheduled', 'not started'].map((k) => `${k} ${by(k).length}`).join(', ')}`);
+    for (const s of x.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
+    const st = startable(x.states);
+    if (st.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...st.map((q) => `- ${q.cmd}`));
+    if (mergeReady(x.states) && !x.prs.length) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
+    return L;
+  }
+  return L.length ? L : ['layer flow: every layer has merged'];
+}
+
 // ---- layer open -----------------------------------------------------------------------------
 
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
@@ -243,7 +286,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   if (!rows.open) writeRows(root, cfg.state_branch, `layer ${n} open on ${b}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by }]]);
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
-  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). ROOT starts them; no other session creates a job:`);
+  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}`);
   return { ok: true, branch: b, from: at, startable: s };
 }
@@ -255,7 +298,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   fetchLayer(root, cfg, n);
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   const s = startable(L.states);
-  log(s.length ? `layer ${n}: ${s.length} job(s) can start; ROOT starts them (job start counts the cap):` : `layer ${n}: no job can start`);
+  log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
   for (const x of s) log(`  ${x.cmd}`);
   return { ok: true, startable: s, states: L.states };
 }
@@ -406,7 +449,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_noticed: ic.changed ? later : [] };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land]];
   if (ic.changed) {
-    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic) }]);
+    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers }]);
     if (later.length) {
       const key = noticeKey(id, n0);
       files.push([noticeFile(key), { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: later, source: 1, ...(ic.exports ? { exports: ic.exports } : {}), layer_flow: { layer: n, provides: !!ic.provides } }]);
@@ -423,7 +466,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
     for (const u of same) {
       const p = open.find((q) => branchModule(q.head?.ref, ids) === u);
       const text = `layer ${n}: ${id} changed its interface (land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and re-runs your suite against ${id}'s new version. A run started before this never counts.`;
-      if (p) { msgs.push({ user: u, pr: p.number, text }); log(`send to job ${u}'s session (PR ${p.number}), send_message priority now: ${text}`); } else log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`);
+      if (p) { msgs.push({ user: u, pr: p.number, text }); log(`BOB delivers to job ${u}'s session (PR ${p.number}), with send_message priority now: ${text}`); } else log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`);
     }
     if (later.length) log(`provider notice ${noticeKey(id, n0)} for ${later.length} user(s) in later layers: ${later.join(', ')}`);
   }
@@ -447,6 +490,18 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   const x = { findPR, createPR, checkRun, getPR, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   const b = layerBranch(n);
   const head = rev(root, L.ref);
+  // The layer's checks (INT-4; Bob, 5 Nov): what layer close runs, less the module suites (no test
+  // run at close): each entry's checks, the generated rows built, and every committed generated
+  // path regenerated, a finding when one differs. Red: nothing opened, nothing merged.
+  const { layerChecks } = await import('./layer.mjs');
+  const mods = L.states.map((s) => ({ id: s.id, blocked: s.state === 'deferred' ? s.why : null }));
+  const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, withSuites: false, log, ...(x.exec ? { exec: x.exec } : {}) });
+  const red = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
+  if (red.length) {
+    for (const f of red) log(`${f.check}: ${f.file}: ${f.message}`);
+    fail(`layer ${n} cannot merge: the layer checks found ${red.length} finding(s) on ${b} ${short(head)}; no module suite ran`);
+  }
+  log(`layer ${n}: the layer checks passed on ${short(head)} (no module suite runs at the merge)`);
   let pr = x.findPR(slug, b);
   if (pr && pr.base?.ref !== cfg.tranche) fail(`the open pull request from ${b} (#${pr.number}) is into ${pr.base?.ref}, not ${cfg.tranche}`);
   if (!pr) pr = x.createPR(slug, { head: b, base: cfg.tranche, title: `layer ${n}`, body: layerBody(n, L), draft: false });
@@ -574,6 +629,8 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
     gate_runs: per.reduce((s, x) => s + x.gate_runs, 0), lands: rows.lands.length,
     interface_changes: rows.lands.filter((l) => l.interface?.changed).length,
     reschedules: rows.reschedules.length,
+    // Which trigger fired, per reschedule (Bob, 5 Nov): exports, Provides text, or a Provides test.
+    reschedule_triggers: Object.fromEntries(['exports', 'provides-text', 'provides-test', 'exports-unread'].map((k) => [k, rows.reschedules.filter((r) => (r.triggers || []).includes(k)).length])),
     reschedule_changed_result: resultChanges(rows.reschedules, rows.runs, anc),
     halted_runs: halted.length, minutes_lost_to_halts: Math.round(halted.reduce((s, r) => s + (r.minutes_lost || 0), 0) * 10) / 10,
     per_module: per,
