@@ -13,7 +13,7 @@ import { layerClose } from './layer.mjs';
 import { heldBy, layersAt, paid, readHolds, slotsHeld } from './hold.mjs';
 import { SWEEP_ROWS_FILE } from './sweep.mjs';
 import { writeState } from './state.mjs';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
 import { Fail, fail, fetchBranch, git, jobCap, loadConfig, now as stamp } from './util.mjs';
@@ -22,6 +22,7 @@ import { setupCheck } from './setup.mjs';
 import { startCheck } from './start.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
+export const SESSIONS_FRESH_MIN = 10;
 
 export function startable(next, { onOrigin = () => false } = {}) {
   const go = [];
@@ -104,10 +105,15 @@ export function batchSetup(root, cfg, { setup = setupCheck, check = startCheck }
 // What one start needs unchanged since the batch's read: its entry and requirement file at the tranche tip.
 const factsAt = (root, cfg, j) => [entryFile(j.id), j.file].map((p) => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}:${p}`], { cwd: root, allowFail: true }).stdout.trim()).join(' ');
 
-export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
+export function startReady(root, { live, coordinator, model, sessions, archived, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const begun = new Date(Date.now() - 1000).toISOString(); // the acts owed before this run (whole seconds: one second back) are its to pay
-  const listed = sessions === undefined ? null : readSessions(sessions);
+  // The live count read once, fresh, at the pass's start (copy, 5 Nov 03:40: 12 counted from an
+  // earlier read, 9 live): a --sessions file saved over SESSIONS_FRESH_MIN ago is refused, and the
+  // sessions archived since it was saved (--archived <id>) count as archived.
+  if (sessions !== undefined && Date.now() - statSync(sessions).mtimeMs > SESSIONS_FRESH_MIN * 6e4) fail(`--sessions ${sessions} was saved over ${SESSIONS_FRESH_MIN} min ago: save list_sessions again now, then run this`);
+  const gone = new Set([].concat(archived ?? []).filter((x) => typeof x === 'string'));
+  const listed = sessions === undefined ? null : readSessions(sessions).map((x) => (gone.has(sessionId(x)) ? { ...x, session_status: 'archived' } : x));
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
   const n = listed ? sessionsCount(listed, live, log) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the account\'s job sessions list_sessions shows (titled job <id>, every product; roles, builds and others not counted), or --sessions <file>, so the cap holds');
@@ -150,7 +156,7 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
   if (wait.length) {
     // The cap holds jobs back: the idle sessions of COMPLETE or merged jobs BOB can archive.
     const a = archivable(out.rows, listed);
-    if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);
+    if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again with --archived <id> for each (or a list_sessions saved after): ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);
     else {
       // The PR-ready ones first (their sessions surely still stand); at most 10 named.
       const jobs = [...a.jobs.filter((x) => x.why !== 'merged'), ...a.jobs.filter((x) => x.why === 'merged')];

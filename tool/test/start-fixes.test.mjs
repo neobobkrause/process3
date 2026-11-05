@@ -3,7 +3,7 @@
 // count of jobs started then blocked within 15 minutes.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, entry, makeRepo, setJobCap } from './helpers.mjs';
@@ -119,4 +119,20 @@ test('flow: started then blocked within 15 min, its count and share by module, f
   assert.equal(quickBlocks(root, undefined, {}), null);
   assert.deepEqual(flowFigures({ quick: q, from: at(0), to: at(1) }).started_then_blocked, q);
   assert.equal(flowFigures({ from: at(0), to: at(1) }).started_then_blocked, 'unmeasured');
+});
+
+test('job start --ready: the live count is read fresh at the pass\'s start; a stale --sessions file is refused, and sessions archived since count as archived', (t) => {
+  setJobCap(t, 12);
+  const root = makeRepo({ 'README.md': 'x' });
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  // 12 job sessions live as listed; BOB archived three of them since (copy, 5 Nov 03:40: 12 counted, 9 live).
+  writeFileSync(file, JSON.stringify(Array.from({ length: 12 }, (_, i) => ({ id: `session_j${i}`, title: `job m${i}`, session_status: 'idle' }))));
+  const next = ['a', 'b', 'c', 'd'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+  const calls = [];
+  const go = (o) => startReady(root, { sessions: file, remote: new Set(), read: () => ({ next, rows: [] }), start: (_, id) => { calls.push(id); return {}; }, log: quiet, setup: base, fetch: () => {}, ...o });
+  assert.equal(go({}).started.length, 0, 'the file\'s 12 fill the cap of 12');
+  assert.deepEqual(go({ archived: ['session_j0', 'session_j1', 'session_j2'] }).started.map((x) => x.id), ['a', 'b', 'c'], 'counted 9: three slots');
+  const old = (Date.now() - 11 * 60000) / 1000;
+  utimesSync(file, old, old);
+  assert.throws(() => go({}), /saved over 10 min ago: save list_sessions again now/);
 });
