@@ -5,7 +5,8 @@
 // Order: a module named in process/config.json's release_path goes first of all (coordinator, 5 Nov
 // 11:20: on the copy the derived release set was 50 modules, so release first ordered almost
 // nothing). Among the named, and then among the rest, the order is as before: a pull request green
-// (and not held) for over AGE_MIN goes first, oldest first, so a long gate is never starved. The rest: the release path first (status.mjs releaseModules), then a
+// (and not held) for over AGE_MIN goes first, oldest first, so a long gate is never starved within
+// its tier (a stream of named pull requests can delay the rest). The rest: the release path first (status.mjs releaseModules), then a
 // provider holding users ahead of shorter ones (most held first), then the shortest expected gate
 // (its module's median full-gate minutes; unknown: the median over every module known), then the
 // oldest green.
