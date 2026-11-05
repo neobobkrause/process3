@@ -7,7 +7,7 @@
 // those of the read file by file.
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -101,4 +101,17 @@ test('train scan 2: a new tranche tip whose merge base with a head is unchanged 
   // An entry that changed is read again: its answer is kept by the entry it read.
   commit(root, { [entryFile('prov')]: entry('prov', { paths: ['other/'] }) }, 'prov moves');
   assert.equal(exportsChangedAt(root, cfg, 't', P), false, 'its source is other/ now, which its head does not change');
+});
+
+test('train scan 2: a file git could not read is read again next time, never kept as empty (review)', () => {
+  const p = { isProviderSource: (f) => f.startsWith('prov/'), inProvider: (f) => f.startsWith('prov/'), providerPaths: ['prov/'] };
+  const root = makeRepo({ 'prov/index.mjs': "export * from './a.mjs';\n", 'prov/a.mjs': 'export const a = 1;\n', 'u/x.mjs': "import { a } from '../prov/a.mjs';\n" });
+  const oid = git(['rev-parse', 'HEAD:u/x.mjs'], { cwd: root });
+  const loose = join(git(['rev-parse', '--absolute-git-dir'], { cwd: root }), 'objects', oid.slice(0, 2), oid.slice(2));
+  const bytes = readFileSync(loose);
+  forgetReads();
+  rmSync(loose);
+  assert.deepEqual(entryFiles(root, 'HEAD', p), ['prov/index.mjs'], 'unread: no importer, as a failed git grep and git show read it');
+  writeFileSync(loose, bytes);
+  assert.deepEqual(entryFiles(root, 'HEAD', p), ['prov/a.mjs'], 'read again once it can be');
 });

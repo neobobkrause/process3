@@ -200,45 +200,68 @@ const keepText = (o, t) => {
   for (const [k, v] of TEXTS) { if (textChars <= TEXT_MAX) break; TEXTS.delete(k); textChars -= v.length; } // the oldest first
 };
 const keep = (map, max, k, v) => { map.set(k, v); if (map.size > max) map.delete(map.keys().next().value); };
+// Read in parts of PART ids. A part git could not read whole (it failed, or its output is cut
+// short) leaves its ids null, and a null is never kept: it is read again next time.
+const PART = 512;
+let unread = 0; // blobs read as null so far: an answer made from one is not kept (order.mjs)
+export const unreadCount = () => unread;
 export function blobTexts(root, oids, { cache = true } = {}) {
   const out = new Map();
   const want = [...new Set(oids)].filter((o) => { if (TEXTS.has(o)) { out.set(o, TEXTS.get(o)); return false; } return true; });
-  if (!want.length) return out;
-  const r = git(['cat-file', '--batch'], { cwd: root, allowFail: true, encoding: 'buffer', input: want.join('\n') + '\n' });
-  const buf = Buffer.isBuffer(r.stdout) ? r.stdout : Buffer.alloc(0);
-  let i = 0;
-  for (const o of want) {
-    const nl = buf.indexOf(10, i);
-    if (nl < 0) { out.set(o, null); continue; }
-    const head = buf.toString('latin1', i, nl).split(' ');
-    if (head[1] !== 'blob') { out.set(o, null); i = nl + 1; continue; } // "<oid> missing", or not a blob
-    const n = Number(head[2]);
-    const text = buf.toString('utf8', nl + 1, nl + 1 + n);
-    i = nl + 1 + n + 1;
-    out.set(o, text);
-    if (cache && text.length <= TEXT_MAX / 8) keepText(o, text);
+  for (let p = 0; p < want.length; p += PART) {
+    const part = want.slice(p, p + PART);
+    const r = git(['cat-file', '--batch'], { cwd: root, allowFail: true, encoding: 'buffer', input: part.join('\n') + '\n' });
+    const buf = r.code === 0 && Buffer.isBuffer(r.stdout) ? r.stdout : Buffer.alloc(0);
+    let i = 0;
+    for (const o of part) {
+      out.set(o, null);
+      const nl = buf.indexOf(10, i);
+      if (nl < 0) continue;
+      const head = buf.toString('latin1', i, nl).split(' ');
+      i = nl + 1;
+      if (head[0] !== o || head[1] !== 'blob') continue; // "<oid> missing", or not a blob: unread
+      const n = Number(head[2]);
+      if (!Number.isInteger(n) || nl + 1 + n >= buf.length) { i = buf.length; continue; } // cut short
+      const text = buf.toString('utf8', nl + 1, nl + 1 + n);
+      i = nl + 1 + n + 1;
+      out.set(o, text);
+      if (cache && text.length <= TEXT_MAX / 8) keepText(o, text);
+    }
   }
+  for (const v of out.values()) if (v === null) unread++;
   return out;
 }
-// A code file's specifiers, by blob id (checks.mjs specifiers): the text itself is not kept. Read
-// in parts, so a whole tree's code is never in memory at once.
+// A code file's specifiers, by blob id (checks.mjs specifiers): the text itself is not kept. The
+// answer of a call is its own reads (a cache evicting mid-call never drops one); an unread blob
+// reads as none and is read again next call, as git show's failure was.
 const SPECS = new Map();
 const SPECS_MAX = 200000;
-const PART = 512;
 function specsOf(root, oids) {
-  const miss = [...new Set(oids)].filter((o) => !SPECS.has(o));
+  const got = new Map();
+  const miss = [];
+  for (const o of new Set(oids)) { if (SPECS.has(o)) got.set(o, SPECS.get(o)); else miss.push(o); }
   for (let i = 0; i < miss.length; i += PART) {
-    for (const [o, t] of blobTexts(root, miss.slice(i, i + PART), { cache: false })) keep(SPECS, SPECS_MAX, o, t === null ? [] : specifiers(t).map((x) => x.spec));
+    for (const [o, t] of blobTexts(root, miss.slice(i, i + PART), { cache: false })) {
+      const v = t === null ? [] : specifiers(t).map((x) => x.spec);
+      got.set(o, v);
+      if (t !== null) keep(SPECS, SPECS_MAX, o, v);
+    }
   }
-  return (o) => SPECS.get(o) || [];
+  return (o) => got.get(o) || [];
 }
 // Whether a blob's text has one of the words (git grep -F's test), by blob id and words.
 const WORDS = new Map();
 function hasWord(root, oids, words) {
   const k = (o) => `${o}\0${JSON.stringify(words)}`;
-  const miss = [...new Set(oids)].filter((o) => !WORDS.has(k(o)));
-  for (const [o, t] of blobTexts(root, miss, { cache: false })) keep(WORDS, SPECS_MAX, k(o), t !== null && words.some((w) => t.includes(w)));
-  return (o) => WORDS.get(k(o)) === true;
+  const got = new Map();
+  const miss = [];
+  for (const o of new Set(oids)) { if (WORDS.has(k(o))) got.set(o, WORDS.get(k(o))); else miss.push(o); }
+  for (const [o, t] of blobTexts(root, miss, { cache: false })) {
+    const v = t !== null && words.some((w) => t.includes(w));
+    got.set(o, v);
+    if (t !== null) keep(WORDS, SPECS_MAX, k(o), v);
+  }
+  return (o) => got.get(o) === true;
 }
 // The files git grep reads in a tree: regular files (not links) ending in EXTS.
 const isCodeBlob = (p, e) => e?.type === 'blob' && /^100/.test(e.mode) && EXTS.some((x) => p.endsWith(x));

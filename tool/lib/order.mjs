@@ -18,8 +18,9 @@
 // other than green, or the train refused it or is backing off it: train.mjs). A draft provider holds. Anything unread (a branch not
 // fetched, a surface unreadable) holds nothing and says so: the train never stalls on a read.
 // BOB's draft mark stays the manual hold.
+import { createHash } from 'node:crypto';
 import { posix } from 'node:path';
-import { anyExportChange, exportChanges } from './exports.mjs';
+import { anyExportChange, exportChanges, unreadCount } from './exports.mjs';
 import { ownerOf, specifiers } from './checks.mjs';
 import { isSource, sourcePaths } from './notice.mjs';
 import { entryFile } from './ledger.mjs';
@@ -94,9 +95,13 @@ const mergeBase = (root, a, b) => { const r = git(['merge-base', a, b], { cwd: r
 // tip, and every provider's surfaces were read again before the next pick).
 const ANSWERS = new Map();
 const ANSWERS_MAX = 20000;
-const kept = (key, f) => {
+// The key is a hash of what was read (the modules file alone is ~100 KB on the copy).
+const kept = (what, f) => {
+  const key = createHash('sha256').update(JSON.stringify(what)).digest('hex');
   if (ANSWERS.has(key)) return ANSWERS.get(key);
+  const was = unreadCount();
   const v = f();
+  if (unreadCount() !== was) return v; // a file it needed was unread: read again next time
   ANSWERS.set(key, v);
   if (ANSWERS.size > ANSWERS_MAX) ANSWERS.delete(ANSWERS.keys().next().value);
   return v;
@@ -105,7 +110,7 @@ export const forgetAnswers = () => ANSWERS.clear();
 export function exportsChangedAt(root, cfg, base, p) {
   const e = entryAt(root, base, p.id);
   const mb = mergeBase(root, base, p.head);
-  return kept(JSON.stringify(['exp', root, mb, p.head, e, cfg]), () => {
+  return kept(['exp', root, mb, p.head, e, cfg], () => {
     const x = exportChanges(root, mb, p.head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((q) => underPath(f, q)), providerPaths: sourcePaths(cfg, e) });
     return anyExportChange(x);
   });
@@ -113,7 +118,7 @@ export function exportsChangedAt(root, cfg, base, p) {
 export function importsFromAt(root, cfg, base, modules, u, p) {
   const e = entryAt(root, base, u.id);
   const mb = mergeBase(root, base, u.head);
-  return kept(JSON.stringify(['imp', root, mb, u.head, e, p.id, cfg, modules]), () => {
+  return kept(['imp', root, mb, u.head, e, p.id, cfg, modules], () => {
     const changed = git(['diff', '--name-only', '-z', mb, u.head], { cwd: root }).split('\0').filter(Boolean);
     for (const f of changed.filter((x) => CODE.test(x) && (e.paths || []).some((q) => underPath(x, q)) && exists(root, u.head, x))) {
       for (const { spec } of specifiers(git(['show', `${u.head}:${f}`], { cwd: root }))) {
