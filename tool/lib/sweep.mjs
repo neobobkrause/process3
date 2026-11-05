@@ -15,6 +15,7 @@ import { readySelection } from './ready.mjs';
 import { SILENT_HOURS, onOriginOf, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { checkRun, openPRs } from './github.mjs';
+import { readStuck, stuckLine } from './stuck.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 // One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
@@ -99,12 +100,16 @@ export function idleCapacity({ live, cap, holds, work, onOrigin, layers, closabl
   const why = [...(closable !== null ? [`layer ${closable} ready to close: job start --ready closes it, then starts the next layer's work`] : []), ...lines.filter((l) => l.startsWith('dead end ')), ...(k ? [`${k} x startable, not started`] : []), ...lines.filter((l) => !l.startsWith('dead end '))];
   const rest = empty - k - lines.length;
   if (rest > 0) why.push(closable !== null ? `${rest} x for the next layer's work` : `${rest} x no startable work`);
-  if (train.length) why.push(`in the train, not startable: ${train.map((x) => `${x.id} PR ${x.train}`).join(', ')}`);
+  // One stuck in the train (stuck.mjs) is named with its reason: parked, it would sit unseen (copy PR 364, 13.5 h).
+  const stuck = train.filter((x) => x.stuck);
+  for (const x of stuck) why.push(x.stuck);
+  const moving = train.filter((x) => !x.stuck);
+  if (moving.length) why.push(`in the train, not startable: ${moving.map((x) => `${x.id} PR ${x.train}`).join(', ')}`);
   if (unknown.length) why.push(`unknown, job branch unread, not counted: ${unknown.map((x) => x.id).join(', ')}`);
   // Modules after the open layer with unmet marks and no ledger entry: they can never start (item 7).
   const noEntry = work?.noEntry || [];
   if (noEntry.length) why.push(`no ledger entry, cannot start: ${noEntry.map((m) => `${m.id} (${m.count} unmet)`).join(', ')}`);
-  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(closable !== null ? { layer_ready: closable } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train })) } : {}), ...(unknown.length ? { unknown: unknown.map((x) => x.id) } : {}), ...(noEntry.length ? { no_entry: noEntry.map((m) => ({ id: m.id, count: m.count })) } : {}), reasons: why };
+  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(closable !== null ? { layer_ready: closable } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train, ...(x.stuck ? { stuck: true } : {}) })) } : {}), ...(unknown.length ? { unknown: unknown.map((x) => x.id) } : {}), ...(noEntry.length ? { no_entry: noEntry.map((m) => ({ id: m.id, count: m.count })) } : {}), reasons: why };
 }
 
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
@@ -135,13 +140,17 @@ export function markInTrain(root, cfg, next, rows, { io = {} } = {}) {
   try {
     const slug = io.slug || repoSlug(root);
     const prs = read.openPRs(slug, cfg.tranche) || [];
+    // Stuck in the train (stuck.mjs), from the state branch the caller fetched; unread: none named.
+    let bob = null;
+    try { bob = readAddress(root).bob?.session || null; } catch { bob = null; }
+    const stuck = read.stuck ? read.stuck(prs) : readStuck(root, cfg.state_branch, prs, bob) || new Map();
     for (const x of open) {
       const r = (rows || []).find((y) => y.id === x.module);
       if (r?.flag) continue; // a flagged attempt needs an act: not the train's (as status.mjs inTrain)
       const pr = prs.find((p) => p.head?.ref === refOf(r || { id: x.module }) && !p.draft && p.base?.ref === cfg.tranche);
       if (!pr) continue;
       const run = read.checkRun(slug, pr.head.sha, 'gate');
-      if (run?.conclusion === 'success') { x.in_train = pr.number; k++; }
+      if (run?.conclusion === 'success') { x.in_train = pr.number; if (stuck.has(pr.number)) x.train_stuck = stuckLine(stuck.get(pr.number), x.module); k++; }
     }
   } catch { /* GitHub unread: the lines stay as they were */ }
   return k;
@@ -293,6 +302,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
         // An open attempt read without its pull request (offline): named in the train from GitHub (item 4).
         if (!offline) markInTrain(root, cfg, work, rows, { io: io || {} });
+        // Stuck in the train: BOB's act whatever the idle (copy PR 364 sat 13.5 h, nothing owed).
+        for (const x of work) if (x.train_stuck) owed.push(x.train_stuck);
         next = !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const onOrigin = onOriginOf(originHeads);

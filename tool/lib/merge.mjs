@@ -2,14 +2,15 @@
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
+import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
-import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
+import { appendRow, bobMetricsFile, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { diffNames, entriesAt, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored } from './anchor.mjs';
-import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, wakeLine } from './job.mjs';
+import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, toolPin, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
 import { wakeOnce } from './state.mjs';
@@ -155,11 +156,53 @@ export function reviewMeasures({ reviewed, reviewMinutes, reviewCostUsd, finding
   return { review_minutes: minutes, review_usd: usd, findings: f, findings_acted: a };
 }
 
+// The review workers' cost (review-trigger day-1 study, 5 Nov: all 7 reviewed merges read review_usd
+// "unmeasured"), when no --review-cost-usd gives it: from --review-record <file>, the review
+// session's get_session result saved as JSON (one, a list, or under data), its
+// external_metadata.usage.cost_usd; else from the module's rows `metrics add <id> --role review`
+// writes (process/metrics/<id>.bob.jsonl, in this checkout and on the tranche): those naming a
+// --review-session, or, with none named, those since the job's attempt started (since). Returns
+// { usd, from } or { usd: 'unmeasured', why }.
+export const reviewSessions = (v) => [...new Set((Array.isArray(v) ? v : v === undefined || v === null ? [] : [v]).flatMap((x) => String(x).split(',')).map((x) => sessionForm(x.trim())).filter(Boolean))];
+export function reviewCostOf(root, cfg, id, { sessions = [], record, since = null } = {}) {
+  const want = reviewSessions(sessions);
+  if (record !== undefined && record !== null) {
+    if (record === true || !String(record).trim()) fail('--review-record <file>: the review session\'s get_session result, saved as JSON');
+    let j;
+    try { j = JSON.parse(readFileSync(String(record), 'utf8')); } catch (e) { fail(`--review-record ${record}: not a readable JSON file (${e.message})`); }
+    const list = (Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [j]).filter((x) => x && typeof x === 'object');
+    const mine = list.filter((x) => !want.length || want.includes(sessionForm(String(x.id || x.session_id || ''))));
+    const costs = mine.map((x) => Number(x.external_metadata?.usage?.cost_usd)).filter((x) => Number.isFinite(x) && x > 0);
+    if (!costs.length) fail(`--review-record ${record}: no session${want.length ? ` ${want.join(', ')}` : ''} in it with external_metadata.usage.cost_usd above 0`);
+    return { usd: Math.round(costs.reduce((t, x) => t + x, 0) * 1e4) / 1e4, from: `review session record${mine.length > 1 ? 's' : ''} ${mine.map((x) => sessionForm(String(x.id || x.session_id || '?'))).join(', ')}` };
+  }
+  const file = bobMetricsFile(id);
+  const parse = (t) => String(t || '').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } });
+  const onTranche = git(['show', `refs/remotes/origin/${cfg.tranche}:${file}`], { cwd: root, allowFail: true });
+  let here = [];
+  try { here = readRows(root, id, file); } catch { here = []; }
+  const seen = new Set();
+  const rows = [...(onTranche.code === 0 ? parse(onTranche.stdout) : []), ...here].filter((r) => { const k = JSON.stringify(r); if (seen.has(k)) return false; seen.add(k); return true; });
+  const review = rows.filter((r) => r.row === 'attempt' && r.event === 'measured' && r.role === 'review' && (r.module ?? id) === id && Number(r.cost_usd) > 0);
+  const mine = want.length ? review.filter((r) => want.includes(sessionForm(r.session))) : since ? review.filter((r) => String(r.at) >= String(since)) : [];
+  if (!mine.length) {
+    const why = want.length ? `no \`metrics add ${id} --role review\` row priced for ${want.join(', ')}` : since ? `no \`metrics add ${id} --role review\` row priced since the attempt started (${since})` : 'the attempt\'s start was not read and no --review-session was named';
+    return { usd: 'unmeasured', why };
+  }
+  return { usd: Math.round(mine.reduce((t, r) => t + Number(r.cost_usd), 0) * 1e4) / 1e4, from: `${mine.length} --role review row${mine.length > 1 ? 's' : ''}${mine.some((r) => r.session) ? ` (${[...new Set(mine.map((r) => r.session).filter(Boolean))].join(', ')})` : ''}` };
+}
+// The start of the job's current attempt, from its rows at the head (null: none read).
+export const attemptStart = (rows) => (rows || []).filter((r) => r.row === 'attempt' && r.event === 'start').pop()?.at || null;
+
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
   const io = { getPR, comments, checkRun, mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
   const rounds = reviewRounds(opts);
-  const measures = reviewMeasures(opts);
+  let measures = reviewMeasures(opts);
+  if (!reviewed && (opts.reviewSession !== undefined || opts.reviewRecord !== undefined)) fail('--no-review ran no review: drop --review-session and --review-record');
+  if (opts.reviewCostFrom && typeof measures.review_usd === 'number') measures = { ...measures, review_usd_from: String(opts.reviewCostFrom) };
+  // A review the train carried from an earlier head with the same change (train.mjs carriedNote).
+  if (reviewed && opts.reviewedHead) measures = { ...measures, reviewed_head: String(opts.reviewedHead) };
   // The job's cost, read by BOB from get_session on the job's session, idle by now (measured 4 Nov,
   // 11:49: mid-turn a session's own record has no usage). A value not read is refused before
   // anything runs; an omitted one records the cost unmeasured and never stops the merge.
@@ -180,6 +223,11 @@ export function merge(root, n, opts = {}) {
   // Outside the train, nothing lands under another pull request's in-flight gate (inflight.mjs).
   if (!opts.beforeLand && pr.base?.ref === cfg.tranche) refuseUnderHold(root, cfg, n, { slug, io });
   const { branch, watch, first, all, receipt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery, onGate: opts.onGate, transient: opts.transient });
+  if (reviewed && measures.review_usd === 'unmeasured') {
+    const c = reviewCostOf(root, cfg, id, { sessions: opts.reviewSession, record: opts.reviewRecord, since: attemptStart(rowsAt(root, pr.head.sha, id)) });
+    measures = { ...measures, review_usd: c.usd, ...(c.from ? { review_usd_from: c.from } : { review_usd_why: c.why }) };
+    log(c.from ? `review cost: ${c.usd} USD, from ${c.from}` : `review cost: unmeasured (${c.why}); record it before the merge with ${P3} metrics add ${id} --role review --session <the review session> --cost-usd <its get_session usage.cost_usd>, or pass --review-cost-usd <n>`);
+  }
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
   return withTemp('p3-merge-', (tmp) => {
@@ -282,7 +330,7 @@ function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHi
     jobCostRow(wt, id, rows, { cost: jobCost, session: jobSession, attempt, log });
     appendRow(wt, id, {
       row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rr.rounds, ...(rr.decision ? { decision: rr.decision } : {}),
-      triggers: triggers || [], ...(measures || {}),
+      triggers: triggers || [], ...(measures || {}), tool: toolPin(),
       minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
     });
     git(['add', '--', metricsFile(id)], { cwd: wt });
@@ -290,6 +338,21 @@ function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHi
     tip = git(['rev-parse', 'HEAD'], { cwd: wt });
   } else {
     log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
+    // The triggers judged again here, at the land, with this tool (day-1 study, 5 Nov: copy PR 173's
+    // row, prepared under the pin before the triggers, carried no triggers key): a row that lacks
+    // them, or recorded others, gets a triggers row beside it, which the report reads over it.
+    const was = rows.filter((r) => r.row === 'merge' && r.pr === n).pop();
+    const had = rows.slice(rows.indexOf(was) + 1).filter((r) => r.row === 'triggers' && r.pr === n).pop()?.triggers ?? was?.triggers;
+    const now_ = triggers || [];
+    const same = Array.isArray(had) && had.length === now_.length && had.every((t) => now_.includes(t));
+    if (triggers !== undefined && !same) {
+      const why = Array.isArray(had) ? `the merge row recorded ${had.length ? had.join(' and ') : 'none'} when prepared (tool ${was?.tool || 'unknown'}); judged again at the land` : `the merge row was prepared under an older pin (tool ${was?.tool || 'unknown'}) that recorded no triggers; judged at the land`;
+      appendRow(wt, id, { row: 'triggers', pr: n, triggers: now_, tool: toolPin(), why });
+      git(['add', '--', metricsFile(id)], { cwd: wt });
+      git(['commit', '-q', '-m', `review triggers for ${id} (PR ${n}), judged at the land`, '--', metricsFile(id)], { cwd: wt });
+      tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+      log(`PR ${n}'s merge row ${Array.isArray(had) ? `recorded triggers ${JSON.stringify(had)}` : 'recorded no triggers (prepared under an older pin)'}: ${JSON.stringify(now_)} judged at the land, recorded beside it`);
+    }
     // A rerun that brings the cost an earlier run lacked (review of PR 106: it was dropped):
     // the priced row, committed and gated as the merged result, as a moved tranche is.
     if (jobCost !== null && jobCostRow(wt, id, rows, { cost: jobCost, session: jobSession, attempt, log }) !== null) {

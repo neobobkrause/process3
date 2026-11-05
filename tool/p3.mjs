@@ -275,7 +275,9 @@ const commands = {
     return 0;
   },
 
-  // merge <pr> (--reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n>] | --no-review "<why>") [--decision "<why>"] [--minutes 95] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
+  // merge <pr> (--reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n> | --review-session <id>[,<id>] | --review-record <file>] | --no-review "<why>") [--decision "<why>"] [--minutes 95] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
+  // With no --review-cost-usd, the review's cost is read from the review session's saved get_session result (--review-record), else the
+  // module's `metrics add <id> --role review` rows (those of --review-session, or since the attempt started); none read: unmeasured, said why.
   // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
   //   Into the tranche while a merge train holds its lease, it is queued for the train (ahead of every job) and waits for its land (train.mjs plainViaTrain).
@@ -284,19 +286,19 @@ const commands = {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
     if (a.plain) return plainViaTrain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
-    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
+    return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], reviewSession: a['review-session'], reviewRecord: a['review-record'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
   },
 
   // merge train --session <id> [--once]: the MERGER's loop (train.mjs): each job PR green on its
   // head merges through merge, oldest green first, under the merger's lease; exceptions go to BOB.
-  // merge train note <pr> (--reviewed ... --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> | --no-review "<why>") [--decision "<why>"] [--job-cost-usd <n> [--job-session <id>]]:
-  //   the review (and cost) the train merges this PR's current head with.
+  // merge train note <pr> (--reviewed ... --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n> | --review-session <id> | --review-record <file>] | --no-review "<why>") [--decision "<why>"] [--job-cost-usd <n> [--job-session <id>]]:
+  //   the review (and cost) the train merges this PR's current head with; the review's cost read as merge reads it, here, from BOB's checkout.
   // merge train beat --session <id> --context <pct>: the merger's context, hourly.
   // merge train release --session <id>: a stopped train's lease given back by its own session.
   // merge train report: the trial's measures beside the baselines.
   'merge train': (a, root) => {
     const sub = a._[0];
-    if (sub === 'note') return (trainNote(root, Number(one({ _: a._.slice(1) }, 'pull request number')), { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision, reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'], jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }), 0);
+    if (sub === 'note') return (trainNote(root, Number(one({ _: a._.slice(1) }, 'pull request number')), { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision, reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], reviewSession: a['review-session'], reviewRecord: a['review-record'], findings: a.findings, actedOn: a['acted-on'], jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }), 0);
     if (sub === 'beat') return (trainBeat(root, { session: a.session, context: a.context }), 0);
     if (sub === 'release') return (releaseSessionLease(root, loadConfig(root), a.session), 0);
     if (sub === 'report') {
