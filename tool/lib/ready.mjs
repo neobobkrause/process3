@@ -16,7 +16,7 @@ import { writeState } from './state.mjs';
 import { appendFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
-import { Fail, fail, fetchBranch, git, jobCap, loadConfig, now as stamp } from './util.mjs';
+import { CONFIG_FILE, Fail, fail, fetchBranch, git, jobCap, loadConfig, now as stamp } from './util.mjs';
 import { entryFile } from './ledger.mjs';
 import { setupCheck } from './setup.mjs';
 import { startCheck } from './start.mjs';
@@ -86,24 +86,31 @@ export function readyCount(root, { read = status } = {}) {
 }
 
 // A moving tranche (copy, 5 Nov: every start after the first was lost while merges landed during
-// the batch, until BOB paused them): the setup check runs once for the batch, and each start
-// re-reads at the current tip only what it needs. HEAD behind the tip with the same approvals is
-// the tranche moving, not a stale session; changed approvals refuse the start.
+// the batch, until BOB paused them): the setup check runs once for the batch, on its first start,
+// whose HEAD must be the tip as ever. Each later start re-reads at the current tip only what it
+// needs: the approvals unchanged and HEAD the one the first start passed with (a moved tranche, not
+// a stale session; no ancestry walk, which a shallow clone cannot do), and its own facts (factsAt).
 export function batchSetup(root, cfg, { setup = setupCheck, check = startCheck } = {}) {
   let once = null;
+  let head = null;
   return (r, o) => {
-    once ||= setup(r, o);
-    if (!once.results?.some((x) => x.id === 'session-branch')) return once;
+    if (!once) {
+      once = setup(r, o);
+      if (once.ok) head = git(['rev-parse', 'HEAD'], { cwd: root });
+      return once;
+    }
+    if (!head || !once.results?.some((x) => x.id === 'session-branch')) return once;
     const c = check(root, { branch: cfg.tranche, log: () => {} });
-    const fresh = c.sameApprovals && git(['merge-base', '--is-ancestor', c.head, c.tip], { cwd: root, allowFail: true }).code === 0;
-    const detail = fresh ? `HEAD is ${c.sameHead ? 'the tip' : 'behind the tip'} of ${cfg.tranche}, with its approvals` : `HEAD ${String(c.head).slice(0, 10)} is not on ${cfg.tranche} (${String(c.tip).slice(0, 10)}) with its approvals${c.sameApprovals ? '' : ': the approvals changed, so this session starts nothing more'}`;
+    const fresh = c.sameApprovals && c.head === head;
+    const detail = fresh ? `HEAD is the tip of ${cfg.tranche} this batch began at, with the tip's approvals` : c.sameApprovals ? `HEAD ${String(c.head).slice(0, 10)} is not the commit this batch began at` : `the approvals at the tip of ${cfg.tranche} (${String(c.tip).slice(0, 10)}) changed: this session starts nothing more`;
     const missing = [...once.missing.filter((m) => m !== 'session-branch'), ...(fresh ? [] : ['session-branch'])];
     return { ...once, ok: !missing.length, missing, results: once.results.map((x) => (x.id === 'session-branch' ? { ...x, state: fresh ? 'set' : 'missing', detail } : x)) };
   };
 }
 
-// What one start needs unchanged since the batch's read: its entry and requirement file at the tranche tip.
-const factsAt = (root, cfg, j) => [entryFile(j.id), j.file].map((p) => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}:${p}`], { cwd: root, allowFail: true }).stdout.trim()).join(' ');
+// What one start needs unchanged since the batch's read, at the tranche tip: its entry, its
+// requirement file and the product's config (jobStart reads the checkout's: model, clone, cap).
+const factsAt = (root, cfg, j) => [entryFile(j.id), j.file, CONFIG_FILE].map((p) => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}:${p}`], { cwd: root, allowFail: true }).stdout.trim()).join(' ');
 
 export function startReady(root, { live, coordinator, model, sessions, archived, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
@@ -172,8 +179,8 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
     // The tranche may have moved since the read: only this module's own facts must hold.
     fetch(cfg.tranche);
     if (factsAt(root, cfg, j) !== facts.get(j.id)) {
-      failed.push({ id: j.id, why: 'its entry or requirement file changed on the tranche since this run read it' });
-      log(`not started: ${j.id}: its entry or requirement file changed on the tranche since this run read it; run job start --ready again`);
+      failed.push({ id: j.id, why: "its entry, requirement file or the product's config changed on the tranche since this run read it" });
+      log(`not started: ${j.id}: its entry, requirement file or the product's config changed on the tranche since this run read it; run job start --ready again`);
       continue;
     }
     // Each start's lines are held until it ends: a start that fails after printing its launch

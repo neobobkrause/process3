@@ -19,7 +19,7 @@ const quiet = () => {};
 const APPROVALS = '# P\n\n## Standing approvals from Bob\n\nSessions may push.\n';
 
 // BOB's checkout at the tranche tip, an origin, and a second clone that moves the tranche.
-function product(ids) {
+function product(ids, { shallow = false } = {}) {
   const root = makeRepo({ 'CLAUDE.md': APPROVALS, ...Object.fromEntries(ids.flatMap((id) => [[`process/ledger/${id}.json`, entry(id, { requirements: `r/${id}.md` })], [`r/${id}.md`, '- **R1** *(not yet met: x)* a\n']])) });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -32,7 +32,13 @@ function product(ids) {
   git(['clone', '-q', '-b', 'tranche', bare, other], { cwd: tmpdir() });
   for (const [k, v] of [['user.email', 'o@example.com'], ['user.name', 'O'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: other });
   const move = (files) => { commit(other, files, 'a merge into the tranche'); git(['push', '-q', 'origin', 'tranche'], { cwd: other }); };
-  return { root, move };
+  if (!shallow) return { root, move };
+  // A session's clone is shallow (create_session's clone_depth): fetches there are --depth 1.
+  const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
+  git(['clone', '-q', '--depth', '1', '-b', 'tranche', `file://${bare}`, thin], { cwd: tmpdir() });
+  for (const [k, v] of [['user.email', 'b@example.com'], ['user.name', 'B'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: thin });
+  git(['checkout', '-q', '--detach'], { cwd: thin });
+  return { root: thin, move };
 }
 
 // A start as jobStart begins one: the setup it is given, refused as setupOrStop refuses.
@@ -45,33 +51,37 @@ const starter = (calls, between) => (r, id, o) => {
 };
 const base = () => ({ ok: true, missing: [], results: [{ id: 'session-branch', state: 'set' }] });
 
-test('job start --ready: the tranche moving between starts voids none; a module whose own facts moved, or changed approvals, are refused', (t) => {
-  setJobCap(t, 10);
-  const { root, move } = product(['a', 'b', 'c', 'd']);
-  const next = ['a', 'b', 'c', 'd'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
-  let checks = 0;
-  const setup = batchSetup(root, loadConfig(root), { setup: () => { checks += 1; return base(); } });
-  const calls = [];
-  // After a: an unrelated merge; after b: one that changes c's requirement file; after c... c is not started.
-  const between = (id) => (id === 'a' ? move({ 'src/x.txt': 'other work' }) : id === 'b' ? move({ 'r/c.md': '- **R1** *(not yet met: x)* a\n- **R2** *(not yet met: y)* b\n' }) : null);
-  const out = [];
-  const r = startReady(root, { live: 0, remote: new Set(), read: () => ({ next }), start: starter(calls, between), setup, log: (l) => out.push(l) });
-  assert.deepEqual(calls, ['a', 'b', 'd'], 'the moved tranche voided no start; c, whose own file changed, waits');
-  assert.equal(checks, 1, 'the setup check runs once for the batch');
-  assert.equal(startCheck(root, { branch: 'tranche', log: quiet }).sameHead, false, 'the per-start session-branch check (before this fix) would have refused b and d');
-  assert.deepEqual(r.failed.map((f) => f.id), ['c']);
-  assert.match(out.join('\n'), /not started: c: its entry or requirement file changed on the tranche since this run read it; run job start --ready again/);
-  // Changed approvals stop the next start.
-  move({ 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') });
-  const s = setup(root, {});
-  assert.equal(s.ok, false);
-  assert.deepEqual(s.missing, ['session-branch']);
-  assert.match(s.results[0].detail, /the approvals changed/);
-  // A checkout off the tranche is still refused.
-  commit(root, { 'mine.txt': 'a commit of its own' });
-  move({ 'CLAUDE.md': APPROVALS });
-  assert.equal(batchSetup(root, loadConfig(root), { setup: base })(root, {}).ok, false);
-});
+for (const shallow of [false, true]) {
+  test(`job start --ready${shallow ? ', in a shallow clone' : ''}: the tranche moving between starts voids none; a module whose own facts moved, or changed approvals, are refused`, (t) => {
+    setJobCap(t, 10);
+    const { root, move } = product(['a', 'b', 'c', 'd'], { shallow });
+    const next = ['a', 'b', 'c', 'd'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+    let checks = 0;
+    const setup = batchSetup(root, loadConfig(root), { setup: () => { checks += 1; return base(); } });
+    const calls = [];
+    // After a: an unrelated merge; after b: one that changes c's requirement file, so c is not started.
+    const between = (id) => (id === 'a' ? move({ 'src/x.txt': 'other work' }) : id === 'b' ? move({ 'r/c.md': '- **R1** *(not yet met: x)* a\n- **R2** *(not yet met: y)* b\n' }) : null);
+    const out = [];
+    const r = startReady(root, { live: 0, remote: new Set(), read: () => ({ next }), start: starter(calls, between), setup, log: (l) => out.push(l) });
+    assert.deepEqual(calls, ['a', 'b', 'd'], 'the moved tranche voided no start; c, whose own file changed, waits');
+    assert.equal(checks, 1, 'the setup check runs once for the batch');
+    assert.equal(startCheck(root, { branch: 'tranche', log: quiet }).sameHead, false, 'the per-start session-branch check (before this fix) would have refused b and d');
+    assert.deepEqual(r.failed.map((f) => f.id), ['c']);
+    assert.match(out.join('\n'), /not started: c: its entry, requirement file or the product's config changed on the tranche since this run read it; run job start --ready again/);
+    // Changed approvals stop the next start.
+    move({ 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') });
+    const s = setup(root, {});
+    assert.equal(s.ok, false);
+    assert.deepEqual(s.missing, ['session-branch']);
+    assert.match(s.results[0].detail, /the approvals at the tip of tranche .* changed: this session starts nothing more/);
+    // A checkout that moved off the commit the batch began at is refused.
+    move({ 'CLAUDE.md': APPROVALS });
+    const again = batchSetup(root, loadConfig(root), { setup: base });
+    assert.equal(again(root, {}).ok, true);
+    commit(root, { 'mine.txt': 'a commit of its own' });
+    assert.match(again(root, {}).results[0].detail, /is not the commit this batch began at/);
+  });
+}
 
 test('merge train: run bare it prints its usage and takes no lease, whatever the container\'s session id', (t) => {
   const root = makeRepo({ 'README.md': 'x' });
@@ -93,12 +103,15 @@ test('found: a module whose test pins its requirement ids is refused with the re
   const titles = `// ${req}\ntest("R1 R2 R3 the three", () => {});\ntest("R4: d", () => {});\n`;
   const root = makeRepo({
     [req]: ids, 'build/requirements/n.md': ids.replace(/m\.md/g, 'n.md'),
-    'process/ledger/m.json': entry('m', { requirements: req, tests: ['test/m/'] }),
+    'process/ledger/m.json': entry('m', { requirements: req, tests: ['test/m/'], status: { state: 'COMPLETE' } }),
+    'process/ledger/o.json': entry('o', { requirements: req, tests: ['test/m/'] }),
     'process/ledger/n.json': entry('n', { requirements: 'build/requirements/n.md', tests: ['test/n/'] }),
     'test/m/requirements-ids.test.mjs': pin, 'test/n/n.test.mjs': titles.replace(req, 'build/requirements/n.md'),
   });
-  assert.throws(() => found(root, 'm', 'the walk found x', { write: true, offline: true, log: quiet }),
-    /test\/m\/requirements-ids\.test\.mjs pins the ids of build\/requirements\/m\.md.*nothing was written\. The route: `node \.process\/tool\/p3\.mjs job start m --reopen "the walk found x"`, the job adding its own F mark and admitting it in that test/);
+  assert.throws(() => found(root, 'm', 'the walk found "Save" at $HOME', { write: true, offline: true, log: quiet }),
+    /test\/m\/requirements-ids\.test\.mjs pins the ids of build\/requirements\/m\.md.*nothing was written\. The route: `node \.process\/tool\/p3\.mjs job start m --reopen 'the walk found "Save" at \$HOME'`, the job adding its own F mark and admitting it in that test/);
+  // Quoted for the shell; a module not COMPLETE is routed to its job, not to a reopen it would refuse.
+  assert.throws(() => found(root, 'o', "it's broken", { offline: true, log: quiet }), /The route: its job \(OPEN\) takes it: give the finding to its session, or once it is COMPLETE, `node \.process\/tool\/p3\.mjs job start o --reopen 'it'\\''s broken'`/);
   assert.equal(readFileSync(join(root, req), 'utf8'), ids, 'nothing written');
   assert.equal(found(root, 'n', 'the walk found y', { write: true, offline: true, log: quiet }).mark, 'F1');
 });
@@ -114,7 +127,7 @@ test('flow: started then blocked within 15 min, its count and share by module, f
   const refs = new Map([['a', 'job/a'], ['b', 'job/b'], ['z', null]]);
   refs.branches = (m) => (m === 'z' ? [] : [`refs/heads/job/${m}`]);
   const q = quickBlocks(root, refs, { from: at(-1), to: at(120) });
-  assert.deepEqual(q, { minutes: 15, starts: 3, blocked: 1, share: 0.33, by_module: [{ module: 'a', starts: 2, blocked: 1 }] });
+  assert.deepEqual(q, { minutes: 15, starts: 3, blocked: 1, share: 0.33, by_module: [{ module: 'a', starts: 2, blocked: 1 }], unread: ['z'] });
   assert.equal(quickBlocks(root, refs, { from: at(30), to: at(120) }).blocked, 0, 'only starts in the window');
   assert.equal(quickBlocks(root, undefined, {}), null);
   assert.deepEqual(flowFigures({ quick: q, from: at(0), to: at(1) }).started_then_blocked, q);

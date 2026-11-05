@@ -220,17 +220,21 @@ export function unmetAtRef(root, cfg, ref) {
 // Started then blocked within QUICK_BLOCK_MIN (coordinator, 5 Nov: jobs started without their
 // providers ready): each `job start <id> (attempt` commit in the window on the module's job
 // branches, and whether a `block <id>:` commit followed it within the minutes, before its next
-// start. By module, those with one; null when the job branches were not read.
+// start. By module, those with one; unread, the modules whose branches were not read (the figure
+// leaves them out); null when no job branch was read.
 export const QUICK_BLOCK_MIN = 15;
 export function quickBlocks(root, jobRefs, { from, to = now() } = {}) {
   if (!jobRefs) return null;
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
   let starts = 0;
   const by = [];
-  for (const [m] of jobRefs) {
+  const unread = new Set();
+  for (const [m, at] of jobRefs) {
+    if (!at) unread.add(m);
     const ev = new Map();
     for (const ref of jobRefs.branches?.(m) || []) {
-      const r = git(['log', '--format=%H%x09%cI%x09%s', `--grep=^job start ${m} (attempt `, `--grep=^block ${m}: `, ref], { cwd: root, allowFail: true });
+      const r = git(['-c', 'grep.patternType=basic', 'log', '--format=%H%x09%cI%x09%s', `--grep=^job start ${m} (attempt `, `--grep=^block ${m}: `, ref], { cwd: root, allowFail: true });
+      if (r.code !== 0) unread.add(m);
       for (const l of r.code === 0 ? r.stdout.split('\n').filter(Boolean) : []) { const [sha, at, s] = l.split('\t'); ev.set(sha, { at: Date.parse(at), start: s.startsWith('job start') }); }
     }
     const xs = [...ev.values()].sort((p, q) => p.at - q.at);
@@ -241,7 +245,7 @@ export function quickBlocks(root, jobRefs, { from, to = now() } = {}) {
     if (n) by.push({ module: m, starts: mine.length, blocked: n });
   }
   const blocked = by.reduce((t, x) => t + x.blocked, 0);
-  return { minutes: QUICK_BLOCK_MIN, starts, blocked, share: starts ? r2(blocked / starts) : 'unmeasured', by_module: by };
+  return { minutes: QUICK_BLOCK_MIN, starts, blocked, share: starts ? r2(blocked / starts) : 'unmeasured', by_module: by, unread: [...unread] };
 }
 
 // The commits on ref in [from, to] that job sync made ("Bring job/<id> up to") and that revert ("Revert").
