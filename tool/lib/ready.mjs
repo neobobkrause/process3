@@ -15,7 +15,7 @@ import { SWEEP_ROWS_FILE } from './sweep.mjs';
 import { writeState } from './state.mjs';
 import { appendFileSync, mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
+import { capLine, isArchived, isIdle, jobDone, jobSession, parkedLine, parkedSessions, readSessions, sessionId, sessionsCount, status } from './status.mjs';
 import { Fail, fail, fetchBranch, git, jobCap, loadConfig, now as stamp } from './util.mjs';
 import { entryFile } from './ledger.mjs';
 import { keyAt } from './anchor.mjs';
@@ -36,6 +36,8 @@ export function startable(next, { onOrigin = () => false } = {}) {
     if (x.module) seen.add(x.module);
     // A module with an attempt open (a pull request, commits the tranche lacks, a flag) is never
     // started again here: status names its act (review of PR 100: a second notice relaunched it).
+    // One parked in the merge train (its pull request ready, gate green) is the train's, named so (build train-robust, item 4).
+    if (x.attempt_open && x.in_train) { skip.push({ file: x.file, id: x.module, why: `in the train (PR ${x.in_train})`, train: x.in_train }); continue; }
     if (x.attempt_open) { skip.push({ file: x.file, id: x.module, why: 'its attempt is open: status says what it needs' }); continue; }
     if (!x.module) { skip.push({ file: x.file, why: 'no ledger entry: BOB writes it, then job start --ready starts it' }); continue; }
     // An OPEN entry with its branch on origin is a start already pushed (status lists its state);
@@ -125,13 +127,13 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   const gone = new Set([].concat(archived ?? []).filter((x) => typeof x === 'string'));
   const listed = sessions === undefined ? null : readSessions(sessions, { root }).map((x) => (gone.has(sessionId(x)) ? { ...x, session_status: 'archived' } : x));
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
-  const n = listed ? sessionsCount(listed, live, log) : Number(live);
+  let n = listed ? sessionsCount(listed, live, log) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the account\'s job sessions list_sessions shows (titled job <id>, every product; roles, builds and others not counted), or --sessions <file>, so the cap holds');
   // The pass reads at the anchored tip (confirming review: status read the pre-anchor checkout's
   // plan, so a pause already on the tip let every start go on); a refusal here is the first start's.
   try { startCheck(root, { branch: loadConfig(root).tranche, anchor: true, log: () => {} }); } catch (e) { if (!(e instanceof Fail)) throw e; }
   const quiet = [];
-  let out = read(root, { role: 'bob', live: n, log: (l) => quiet.push(l) });
+  let out = read(root, { role: 'bob', live: n, ...(listed ? { listed } : {}), log: (l) => quiet.push(l) });
   const cfg = loadConfig(root);
   // INT-4, the next layer starts at once after a close (copy, 4 Nov: layer 4 sat ready to close
   // over an hour, 0 startable): an open layer ready to close is closed here first, by layer close
@@ -150,8 +152,12 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
     }
     for (const l of held.filter((x) => x !== r?.wake && x !== READY_NEXT)) log(l);
     closed = L.cur.n;
-    out = read(root, { role: 'bob', live: n, log: () => {} });
+    out = read(root, { role: 'bob', live: n, ...(listed ? { listed } : {}), log: () => {} });
   }
+  // The cap counts job sessions doing work (build train-robust, item 5): status leaves out the
+  // listed sessions parked in the train.
+  const parked = listed ? parkedSessions(listed, out.rows) : [];
+  if (parked.length) { n -= parked.length; log(parkedLine(parked)); }
   const heads = remote || new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
   const s = startable(out.next, { onOrigin: (id) => heads.has(id) });
   const skip = s.skip;
@@ -216,7 +222,7 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
       // A start that failed leaves its starts owed; a resumed one whose pull request was open did start.
       if (!failed.some((f) => !/^a resumed start/.test(f.why))) paid(dir, begun);
       mkdirSync(join(dir, 'metrics'), { recursive: true });
-      appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, job_cap: c.cap, started: started.map((x) => x.id) }) + '\n');
+      appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, ...(parked.length ? { parked: parked.length } : {}), job_cap: c.cap, started: started.map((x) => x.id) }) + '\n');
     });
   } catch (e) { if (!(e instanceof Fail)) throw e; log(`starts owed not cleared (${e.message}): run this again`); }
   if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);

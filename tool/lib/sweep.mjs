@@ -12,8 +12,9 @@ import { fetchState, jsonl, messages, messagesFile, readState, writeState } from
 import { openPinMoves } from './pin.mjs';
 import { OWED_ALARM_MIN, bobAct, heldBy, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { startable } from './ready.mjs';
-import { SILENT_HOURS, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { SILENT_HOURS, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
+import { checkRun, openPRs } from './github.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 // One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
@@ -67,7 +68,11 @@ function overMedian(root, ref, attempts) {
 export const IDLE_MIN = { work: 15, empty: 30 };
 export function idleCapacity({ live, cap, holds, work, startable: count, layers, prev, freed, owed, t = Date.now() }) {
   const held = slotsHeld(holds);
-  const { go, skip } = startable(work);
+  const { go, skip: all } = startable(work);
+  // Modules parked in the merge train (their pull request ready, gate green) are neither startable
+  // nor a reason a slot is empty: named apart, with their PRs (build train-robust, item 4).
+  const train = all.filter((x) => x.train);
+  const skip = all.filter((x) => !x.train);
   const inWork = go.map((j) => ({ j, h: heldBy(holds, j.id, layers) })).filter((y) => y.h);
   const n = Math.max(0, count - inWork.length);
   const kind = n > 0 && live < cap - held ? 'work' : n === 0 && live < cap / 2 ? 'empty' : null;
@@ -89,7 +94,8 @@ export function idleCapacity({ live, cap, holds, work, startable: count, layers,
   const why = [...lines.filter((l) => l.startsWith('dead end ')), ...(k ? [`${k} x startable, not started`] : []), ...lines.filter((l) => !l.startsWith('dead end '))];
   const rest = empty - k - lines.length;
   if (rest > 0) why.push(`${rest} x no startable work`);
-  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(dead.length ? { dead } : {}), reasons: why };
+  if (train.length) why.push(`in the train, not startable: ${train.map((x) => `${x.id} PR ${x.train}`).join(', ')}`);
+  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train })) } : {}), reasons: why };
 }
 
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
@@ -107,7 +113,30 @@ const fresh = (row, t) => t - (Date.parse(row?.at) || 0) < CHECK_MIN * 6e4;
 // The row an idle continues from: the last that judged on a measured count (sweep or check).
 // A job start --ready that started work ends any idle before it (it carries no idle_capacity).
 export const judged = (rows) => [...rows].reverse().find((r) => (['sweep', 'check'].includes(r.row) && Number.isInteger(r.live)) || (r.row === 'ready' && r.started?.length));
-export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = status, log = console.log } = {}) {
+// Next work whose attempt is open, read offline (a reopened module, its entry COMPLETE on the
+// tranche, commits on its branch): one read of GitHub's open pull requests and each one's gate
+// says which sit in the merge train, ready with a green gate (build train-robust, item 4: the
+// copy's idle checks listed interface-assets 443 and four more as "its attempt is open" against
+// empty slots). Marked in_train; unread, left as they were. io: { openPRs, checkRun }, for tests.
+export function markInTrain(root, cfg, next, rows, { io = {} } = {}) {
+  const open = (next || []).filter((x) => x.attempt_open && !x.in_train && x.module);
+  if (!open.length) return 0;
+  const read = { openPRs, checkRun, ...io };
+  let k = 0;
+  try {
+    const slug = io.slug || repoSlug(root);
+    const prs = read.openPRs(slug, cfg.tranche) || [];
+    for (const x of open) {
+      const r = (rows || []).find((y) => y.id === x.module);
+      const pr = prs.find((p) => p.head?.ref === refOf(r || { id: x.module }) && !p.draft && p.base?.ref === cfg.tranche);
+      if (!pr) continue;
+      const run = read.checkRun(slug, pr.head.sha, 'gate');
+      if (run?.conclusion === 'success') { x.in_train = pr.number; k++; }
+    }
+  } catch { /* GitHub unread: the lines stay as they were */ }
+  return k;
+}
+export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = status, io, log = console.log } = {}) {
   const sb = cfg.state_branch;
   if (cfg.plan === 'pause' || cfg.plan === 'stop') return null;
   if (fresh(lastRow(readState(root, sb, SWEEP_ROWS_FILE)), t) || !fetchState(root, sb)) return null;
@@ -122,6 +151,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
     const heads = new Set(ls.stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
     const out = read(root, { role: 'bob', offline: true, ...(ls.code === 0 ? { heads } : {}), log: () => {} });
     if (out.open?.state === 'open') {
+      markInTrain(root, cfg, out.next, out.rows, { io });
       f = flow(cfg, out.rows, out.next, live);
       const holds = out.holds || [];
       ic = idleCapacity({ live, cap: jobCap(cfg).cap, holds, work: out.next, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
@@ -206,6 +236,10 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     owed.length = 0; // heartbeat only
   } else {
     const { rows, sessions, holds = [] } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
+    // The cap and the idle alarm count job sessions doing work (build train-robust, item 5): a
+    // listed session parked in the train is not counted, and the sweep row records how many.
+    const parked = listed ? parkedSessions(listed, rows) : [];
+    if (parked.length && liveRow.live !== undefined) { liveRow = { ...liveRow, live: liveRow.live - parked.length, parked: parked.length }; found.push(parkedLine(parked)); }
     const tranche = `origin/${cfg.tranche}`;
     const t = Date.now();
     // Step 2: hand over BOB flagged REFRESH, or woken over two hours ago with no write to the

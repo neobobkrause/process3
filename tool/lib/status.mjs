@@ -132,6 +132,25 @@ const lower = (v) => String(v || '').toLowerCase();
 const state = (x) => lower(x.session_status).replace(/^session_status_/, '');
 export const isArchived = (x) => state(x) === 'archived';
 export const isIdle = (x) => state(x) === 'idle' || ['completed', 'failed', 'review_ready'].includes(lower(x.status_bucket));
+// A job parked in the merge train (build train-robust, items 4 and 5; coordinator, 5 Nov): its pull
+// request ready with a green gate on its head and nothing flagged, so the train merges it with no
+// act of the job's. Its PR number, or null. Its idle session does no work: the cap and the idle
+// alarm do not count it (parkedSessions). Next work read offline names such a module in the
+// train from GitHub (sweep.mjs markInTrain).
+export const inTrain = (r) => (r && r.ready && r.gate === 'success' && !r.flag && /^#\d+ ready$/.test(String(r.pr || '')) ? Number(String(r.pr).slice(1).split(' ')[0]) : null);
+// The job sessions parked in the train: each such job's latest session, unarchived and idle (a
+// session still running is working, whatever its pull request). [{ id, pr, session }].
+export function parkedSessions(listed, rows) {
+  const out = [];
+  for (const r of rows || []) {
+    const pr = inTrain(r);
+    if (!pr || !listed) continue;
+    const js = jobSession(listed, r.id);
+    if (js && !isArchived(js) && isIdle(js)) out.push({ id: r.id, pr, session: sessionId(js) });
+  }
+  return out;
+}
+export const parkedLine = (p) => `${p.length} job session${p.length === 1 ? '' : 's'} parked in the train (ready, gate green, idle) not counted against the cap: ${p.map((x) => `${x.id} PR ${x.pr}`).join(', ')}`;
 // A job's result recorded: COMPLETE (on the tranche, or on its branch, its pull request ready),
 // no attempt reopened and nothing flagged. Its idle sessions can go (job start --ready, sweep).
 // A status row's job branch: its ref when a --fresh-branch start moved it, else job/<id>.
@@ -195,13 +214,13 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
   return { kinds, acts, line };
 }
 
-export function status(root, { role, module, context, live, sessions: sessionsFile, offline = false, heads: givenHeads, log = console.log, io: given } = {}) {
+export function status(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, heads: givenHeads, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   const cfg = loadConfig(root);
   // Starts owed, the first line (hold.mjs): a marker, never a refusal.
   try { if (offline || fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* the holds line says the state branch is unread */ }
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
-  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline });
+  const listed = givenListed || (sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline }));
   live = sessionsCount(listed, live, log);
   const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
   if (!(replaceMs > 0)) fail(`targets.replace_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.replace_minutes)}`);
@@ -364,6 +383,10 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       const hold = walkHold(w);
       if (hold) log(`tranche close waits: ${hold}`);
     }
+    // The cap counts job sessions doing work (item 5): a listed session parked in the train is not counted.
+    out.parked = listed ? parkedSessions(listed, rows) : [];
+    if (out.parked.length) { live = Number(live) - out.parked.length; log(parkedLine(out.parked)); }
+    out.live = live;
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
     out.flow = flow(cfg, rows, out.next, live, listed, holds);
     log(out.flow.line);
@@ -417,7 +440,8 @@ export function flow(cfg, rows, next, live, listed = null, holds = []) {
     // A done job's idle session, or an older one beside its latest, holds a slot until archived.
     wait.push(`${id} ${!r ? 'not this product\'s' : jobSession(listed, id) !== js || !jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
   }
-  const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
+  const parked = listed ? parkedSessions(listed, rows).length : 0;
+  const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''}${parked ? `; ${parked} parked in the train, not counted` : ''})` : '';
   // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
   const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
   const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];

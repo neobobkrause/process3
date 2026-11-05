@@ -15,10 +15,10 @@ import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, impor
 import { readModules } from './notice.mjs';
 import { releaseModules } from './status.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
-import { P3, READY_START, toolPin, wakeLine } from './job.mjs';
-import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, reviewMeasures, reviewRounds } from './merge.mjs';
+import { P3, READY_START, bobWake, toolPin } from './job.mjs';
+import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
 import { isJob } from './workflows.mjs';
-import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
+import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { approvalsHash } from './start.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { Fail, fail, git, heartbeat, isShallow, loadConfig, now, repoSlug } from './util.mjs';
@@ -57,6 +57,31 @@ export const STEPS_SAID_MS = 5000;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const mins = (a, b) => Math.round((b - a) / MIN * 10) / 10;
 const append = (wt, path, row) => { mkdirSync(dirname(join(wt, path)), { recursive: true }); appendFileSync(join(wt, path), JSON.stringify(row) + '\n'); };
+// A train row written after its merge was tried (build train-robust, option 2B: copy, 5 Nov 12:21,
+// the row of PR 499's land failed to write, the Fail stopped the train, and the land went
+// unrecorded). A row that cannot be written is kept and tried again at the top of every pass;
+// the failure never stops the train. A Stop (a lost lease) still stops it.
+function record(root, ctx, msg, row, onTry) {
+  try {
+    writeState(root, ctx.cfg.state_branch, msg, (wt) => { onTry?.(); append(wt, TRAIN_FILE, row); });
+    return true;
+  } catch (e) {
+    if (!(e instanceof Fail) || e instanceof Stop) throw e;
+    ctx.pending.push({ msg, row });
+    ctx.log(`the train's row for PR ${row.pr} (${row.result}) was not written (${e.message.split('\n')[0]}); it is tried again at the next pass`);
+    return false;
+  }
+}
+function flushPending(root, ctx) {
+  const left = [];
+  for (const p of ctx.pending.splice(0)) {
+    try { writeState(root, ctx.cfg.state_branch, p.msg, (wt) => append(wt, TRAIN_FILE, { ...p.row, late: now() })); ctx.log(`the train's row for PR ${p.row.pr} (${p.row.result}) is written, late`); } catch (e) {
+      if (!(e instanceof Fail) || e instanceof Stop) throw e;
+      left.push(p);
+    }
+  }
+  ctx.pending.push(...left);
+}
 const pick = (xs, q) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.ceil(q * s.length) - 1)] : null; };
 const median = (xs) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? (s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 
@@ -456,7 +481,9 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   row.minutes = mins(started, Date.now());
   row.disk_used_mb = free - ctx.diskFree(root); // what this merge left on disk (the worktree is gone by now); not the free space, disk_free_mb
   let tries = 0;
-  writeState(root, cfg.state_branch, `merge train: PR ${c.n} ${row.result}`, (wt) => { tries++; append(wt, TRAIN_FILE, { ...row, push_tries: tries }); });
+  // push_tries is set on the row only as it is written, so a row kept for a later pass is the same row.
+  const out = { ...row };
+  record(root, ctx, `merge train: PR ${c.n} ${row.result}`, out, () => { tries++; out.push_tries = tries; });
   row.push_tries = tries;
   // BOB's acts after a merge (the triage the notice owes, the ready jobs' start), sent, not taken.
   if (r?.merged) {
@@ -524,14 +551,17 @@ export function plainViaTrain(root, n, opts = {}) {
   const withdraw = (why) => writeState(root, cfg.state_branch, `merge train: PR ${n} withdrawn (plain)`, (wt) => append(wt, PLAIN_FILE, { at: now(), row: 'withdraw', id, pr: Number(n), why }));
   const read = () => { fetchState(root, cfg.state_branch, { fresh: true }); return jsonl(readState(root, cfg.state_branch, TRAIN_FILE)).filter((r) => r.row === 'plain' && r.queue === id); };
   const ended = (rows) => rows.find((r) => ['merged', 'refused', 'withdrawn'].includes(r.result));
-  const report = (end) => {
-    if (end.result === 'merged') {
-      log(`merged pull request ${n} at ${end.sha} (${end.merged_at})`);
-      if (end.what) log(wakeLine(end.what, q.as));
-      return { merged: true, sha: end.sha, checks: end.checks || [], wake: end.wake || null, what: end.what || null, train: true };
-    }
-    return null;
+  // The pin move's wake, printed once per merge commit (state.mjs wakeOnce): from the train's row,
+  // or, where no row carries it (a train that stopped after its land, an older row), from git
+  // (merge.mjs pinWake; build train-robust, option 2A: copy PR 499, 5 Nov 12:21, woke no one).
+  const wakeOf = (sha, end) => (end?.what ? { what: end.what, wake: end.wake || bobWake(end.what, q.as) } : pinWake(root, cfg.tranche, sha, q.as));
+  const landed = (sha, end, line) => {
+    log(line);
+    const w = wakeOf(sha, end);
+    if (w.what) printWake(root, cfg.state_branch, { pr: Number(n), sha, what: w.what, wake: w.wake, as: q.as, by: 'caller', log });
+    return { merged: true, sha, checks: end?.checks || [], wake: w.wake || null, what: w.what || null, train: true };
   };
+  const report = (end) => (end.result === 'merged' ? landed(end.sha, end, `merged pull request ${n} at ${end.sha} (${end.merged_at})`) : null);
   let said = null;
   let rows = [];
   let withdrawn = false;
@@ -563,7 +593,7 @@ export function plainViaTrain(root, n, opts = {}) {
         const fin = ended(rows);
         if (fin?.result === 'merged') return report(fin);
         const p = io.getPR(slug, n);
-        if (p.merged) { log(`merged pull request ${n} at ${p.merge_commit_sha} (by the train)`); return { merged: true, sha: p.merge_commit_sha, checks: [], wake: null, what: null, train: true }; }
+        if (p.merged) return landed(p.merge_commit_sha, null, `merged pull request ${n} at ${p.merge_commit_sha} (by the train)`);
         if (gone) { log(`the merge train no longer holds the tranche; PR ${n} is withdrawn from its queue and merged here`); return direct(); }
         fail(`the merge train did not land pull request ${n} ${taken ? `within ${minutes} min of taking it` : 'before its queue time ran out'}; it is withdrawn from the queue and nothing was merged; run merge again`);
       }
@@ -580,7 +610,7 @@ export function plainViaTrain(root, n, opts = {}) {
 function plainReady(root, ctx) {
   const rows = jsonl(readState(root, ctx.cfg.state_branch, PLAIN_FILE));
   const trains = jsonl(readState(root, ctx.cfg.state_branch, TRAIN_FILE));
-  const ended = plainEnds(trains);
+  const ended = plainEnds([...trains, ...(ctx.pending || []).map((p) => p.row)]);
   const gone = new Set(rows.filter((r) => r.row === 'withdraw').map((r) => r.id));
   ctx.withdrawn = gone;
   const taken = new Set(trains.filter((r) => r.row === 'plain' && r.result === 'taken').map((r) => r.queue));
@@ -643,7 +673,10 @@ function syncPlain(root, ctx, q) {
   return m;
 }
 // What a plain merge is tried again for (GitHub slow or a moved base), else refused and sent to BOB.
-const PLAIN_AGAIN = /moved since GitHub reported|moved while|moved past|changed while its base moved|still running on|has not said whether|could not read|could not be read|was not pushed|does not show|not up to date|base moved/i;
+// A clash on the state branch in this clone (cannot read origin's state branch, a ref-lock
+// failure, the state lock held past its wait) is tried again too (build train-robust, option 1A:
+// copy, 5 Nov 12:36, PR 502 refused for "cannot lock ref" and queued again by hand).
+const PLAIN_AGAIN = /moved since GitHub reported|moved while|moved past|changed while its base moved|still running on|has not said whether|could not read|could not be read|was not pushed|does not show|not up to date|base moved|cannot read origin's|cannot lock ref|unable to update local ref|the state lock|was refused \d+ times/i;
 function plainOne(root, ctx, q, { queue, idle }) {
   const { cfg, slug, log } = ctx;
   const started = Date.now();
@@ -661,7 +694,12 @@ function plainOne(root, ctx, q, { queue, idle }) {
       ctx.plainTaken.add(q.id);
     }
     const p = ctx.io.getPR(slug, q.pr);
-    if (p.merged) { Object.assign(row, { result: 'merged', sha: p.merge_commit_sha, merged_at: now(), elsewhere: true }); }
+    if (p.merged) {
+      // Landed before this pass (a train that stopped after its land, or by hand): the wake from
+      // git (build train-robust, option 2A), recorded once per merge commit; its caller prints it.
+      const w = pinWake(root, cfg.tranche, p.merge_commit_sha, q.as ?? 'bob');
+      Object.assign(row, { result: 'merged', sha: p.merge_commit_sha, merged_at: now(), elsewhere: true, wake: w.wake, what: w.what });
+    }
     else {
       const head = syncPlain(root, ctx, q);
       const withdrawn = () => {
@@ -670,7 +708,7 @@ function plainOne(root, ctx, q, { queue, idle }) {
         if (pr.some((r) => r.row === 'withdraw' && r.id === q.id)) fail(`pull request ${q.pr} was withdrawn from the queue by its caller; nothing was landed`);
         if (callerGone(pr, q.id)) fail(`pull request ${q.pr} was withdrawn from the queue: its caller did not renew it within ${GATE_WAIT_MINUTES} min; nothing was landed`);
       };
-      const r = mergePlain(root, q.pr, { reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.rounds, decision: q.decision || undefined, as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
+      const r = mergePlain(root, q.pr, { quietWake: true, reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.rounds, decision: q.decision || undefined, as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
       Object.assign(row, { result: 'merged', sha: r.sha, landed: head, merged_at: now(), checks: r.checks, wake: r.wake || null, what: r.what || null });
     }
   } catch (e) {
@@ -693,7 +731,12 @@ function plainOne(root, ctx, q, { queue, idle }) {
     row.tries = b.tries;
   }
   row.minutes = mins(started, Date.now());
-  writeState(root, cfg.state_branch, `merge train: PR ${q.pr} ${row.result} (plain)`, (wt) => append(wt, TRAIN_FILE, row));
+  // The wake's record, once per merge commit, before the row (a row kept for later still has it recorded).
+  if (row.result === 'merged' && row.wake) {
+    try { wakeOnce(root, cfg.state_branch, { pr: q.pr, sha: row.sha, what: row.what, wake: row.wake, by: 'train' }); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; }
+    log(`PR ${q.pr} moved the pin: the wake of BOB is its caller's to give (${q.by || 'its queue row'}), printed once`);
+  }
+  record(root, ctx, `merge train: PR ${q.pr} ${row.result} (plain)`, row);
   if (row.result === 'merged') log(`merged PR ${q.pr} (plain) at ${String(row.sha).slice(0, 10)}, queued ${row.waited_min} min before it was taken`);
   ctx.rows.push(row);
   return row;
@@ -715,7 +758,7 @@ export function train(root, opts = {}) {
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
   if (!given.checkRunsMany) io.checkRunsMany = given.checkRuns ? (s, pairs) => pairs.map(([sha, name]) => io.checkRuns(s, sha, name)) : checkRunsMany;
   if (!given.commentsMany) io.commentsMany = given.comments ? (s, ns) => ns.map((n) => { try { return io.comments(s, n) || []; } catch { return null; } }) : commentsMany;
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.onQueue = opts.onQueue; // a test reads the queue each round
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
@@ -754,6 +797,7 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
   let passes = 0;
   for (;;) {
     ctx.renew();
+    if (ctx.pending.length) flushPending(root, ctx);
     const t0 = Date.now();
     ctx.steps = [];
     timed(ctx, 'state', () => { if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE)); });

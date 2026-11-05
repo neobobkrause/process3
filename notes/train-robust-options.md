@@ -130,3 +130,29 @@ every merged-without-row path, recorded in the elsewhere row) + 2B's small part 
 failure retried next pass, never stopping the train) + 3A (per-clone state lock). About 150 lines
 and 200 of tests, in state.mjs, util.mjs, train.mjs and merge.mjs (pinWakeOf beside mergePlain's
 own pin check, which then uses it).
+
+## Ruling (coordinator, 5 Nov 12:42) and items 4 and 5
+
+Ruled: 1A + 2A + 2B's small part + 3A, as recommended. Conditions: the lock is never held across a
+gate wait or a network call other than the state fetch or push itself; a stale lock from a dead
+pid is broken, a live one waited on up to 90 s then reported, never skipped; the wake printed and
+recorded once, deduplicated by merge commit (`merger/wakes.jsonl`: one `wake` row, the record, and
+one `printed` row per merge commit; the train records, its caller prints, the train's own log
+carries no wake line, so the MERGER no longer sends one too, as it did for 499 at 12:21:13).
+
+4. In-train jobs in the idle alarm. The copy's alarm (merger-35, 12:36) came from the idle check
+that runs before commands, which reads status offline: a reopened module (its entry COMPLETE on
+the tranche, commits on its branch) reads as "its attempt is open" with no pull request known,
+and each took an empty slot's reason. The idle check now reads GitHub's open pull requests once
+and, for those modules only, each head's gate (sweep.mjs markInTrain): one ready with a green gate
+is named "in the train (PR n)", apart from the empty slots' reasons
+(`in the train, not startable: <id> PR <n>, ...`). GitHub unread leaves the lines as before.
+
+5. Cap and alarm count working sessions. With a listing (`--sessions`, the sweep's), a job's
+latest session that is idle, unarchived, with its pull request ready and its gate green
+(status.mjs parkedSessions) is not counted against the cap: status, job start --ready and the sweep
+subtract them and print `<k> job sessions parked in the train ... not counted against the cap:
+<id> PR <n>`; the sweep and ready rows record the working count as `live` and `parked`, so the
+idle check between sweeps judges on working sessions too. With `--live <n>` alone, n is taken as
+given (no listing says which sessions are parked). The sweep's "over the job cap" owed line still
+counts every job session.

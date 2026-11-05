@@ -4,7 +4,7 @@
 // The tool cannot call send_message: send records and prints, the session delivers.
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fail, git, now, pushRetry, quietly, withTemp } from './util.mjs';
+import { Fail, fail, fetchRetry, git, now, pushRetry, quietly, withStateLock, withTemp } from './util.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -23,7 +23,9 @@ const fetched = new Map();
 export function fetchState(root, sb, { fresh = false } = {}) {
   const key = `${root}\0${sb}`;
   if (!fresh && fetched.has(key)) return fetched.get(key);
-  const r = git(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root, allowFail: true });
+  // Under the clone's state lock, a ref-lock clash retried (build train-robust: two p3 processes
+  // in one clone failed "cannot lock ref" and the train refused a plain row, copy 5 Nov 12:36).
+  const r = withStateLock(root, () => fetchRetry(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root }));
   if (r.code !== 0 && !/couldn't find remote ref/i.test(r.stderr)) fail(`cannot read origin's ${sb}: ${r.stderr.trim()}`);
   fetched.set(key, r.code === 0);
   return r.code === 0;
@@ -50,8 +52,11 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 // recording, withdraw and triage (one file per row, added only when absent), layer close
 // (layers/closed.jsonl), release record (releases/dev.jsonl), deploy dev (deploys/dev.jsonl) and
 // tranche open and close (metrics/tranche-open.jsonl, tranches/closed.jsonl, appended). A failure inside `change` pushes nothing.
+// The whole write (fetch, change, commit, push, read-back) holds the clone's state lock (util.mjs
+// withStateLock): a `change` makes no network call, so nothing but the state fetch and push is
+// waited on under it.
 export function writeState(root, sb, msg, change) {
-  return quietly(() => writeStateNow(root, sb, msg, change));
+  return quietly(() => withStateLock(root, () => writeStateNow(root, sb, msg, change)));
 }
 function writeStateNow(root, sb, msg, change) {
   const have = fetchState(root, sb, { fresh: true });
@@ -202,4 +207,36 @@ export function outcome(root, sb, { from, n, result, reason, log = console.log }
     put(wt, messagesFile(from), JSON.stringify({ at: now(), row: 'outcome', n, outcome: result, ...(reason ? { reason } : {}) }) + '\n', true);
   });
   log(`message ${from}-${n} recorded ${result}`);
+}
+
+// A pin move's wake, recorded and printed once per merge commit (build train-robust; the
+// coordinator's ruling, 5 Nov: the train's row, a later pass's "merged elsewhere" row and the
+// waiting caller can each reach the same land). merger/wakes.jsonl holds at most one 'wake' row
+// (the record: who saw it first) and one 'printed' row (who printed it) per merge commit.
+// print: whether this run would print it. Returns { recorded, print, printed }: recorded and
+// print true for the run whose row landed; a record that cannot be written returns both true
+// (null on recorded) so the wake is printed rather than lost.
+export const WAKES_FILE = 'merger/wakes.jsonl';
+export function wakeOnce(root, sb, { pr, sha, what, wake, by, print = false }) {
+  const SAME = new Error('nothing new'); // nothing to write: no commit, no push
+  let seen = null;
+  try {
+    return writeState(root, sb, `pin wake for PR ${pr}: ${by}${print ? ', printed' : ''}`, (wt) => {
+      const file = join(wt, WAKES_FILE);
+      const rows = jsonl(existsSync(file) ? readFileSync(file, 'utf8') : '').filter((r) => r.sha === sha);
+      const had = rows.find((r) => r.row === 'wake');
+      const printed = rows.find((r) => r.row === 'printed');
+      const add = [];
+      if (!had) add.push({ at: now(), row: 'wake', pr, sha, what, wake, by });
+      if (print && !printed) add.push({ at: now(), row: 'printed', pr, sha, by });
+      seen = { recorded: !had, print: print && !printed, printed: printed || null };
+      if (!add.length) throw SAME;
+      put(wt, WAKES_FILE, add.map((r) => JSON.stringify(r)).join('\n') + '\n', true);
+      return seen;
+    });
+  } catch (e) {
+    if (e === SAME) return seen;
+    if (!(e instanceof Fail)) throw e;
+    return { recorded: null, print, printed: null, error: e.message };
+  }
 }
