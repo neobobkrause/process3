@@ -462,7 +462,7 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   // The spec run's base was a tranche tip (its run is bound into the tranche, as a job PR's): it
   // must be this land's base or behind it, with the same judge, and a base-red suite stands only
   // on this very base (a test failing at an older tip may have been fixed since).
-  const baseOff = baseDiffers(root, row, base);
+  const baseOff = baseDiffers(root, cfg, row, base);
   if (baseOff) return no(`spec PR ${n}'s run was judged on base ${String(row.base).slice(0, 10)}, which ${baseOff}`);
   if (row.revert === 'exempt' && !receipt.exempt?.revert) return no(`spec PR ${n}'s run passed its revert check by an exemption this receipt does not claim`);
   const kept = Array.isArray(row.receipt_passed) ? row.receipt_passed : [];
@@ -657,7 +657,7 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   const entries = r ? entriesAt(root, head) : [];
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || offSpec(root, { tested: r.sha, head, was: r.base, is: row.base, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }) }).off.length || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
+    || offSpec(root, { tested: r.sha, head, was: r.base, is: row.base, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }) }).off.length || baseDiffers(root, cfg, r, row.base) || !io.verify(slug, r, ctx)) return null;
   // Read after the row (final review, L1).
   if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
   return r;
@@ -665,20 +665,33 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
 
 // Why a spec run (row) does not stand for a land on base `is`: its base, a tranche tip, is not
 // `is` or behind it, or the judge differs (the pin, the config, the gate workflow), or its suite
-// was base-red on another base; null when it stands.
+// was base-red on a base this one differs from otherwise than baseRedCarries allows; null when it stands.
 const GATE_FILE = '.github/workflows/process-gate.yml';
 export const JUDGE_FILES = ['.process', CONFIG_FILE, GATE_FILE];
-function baseDiffers(root, row, is) {
+function baseDiffers(root, cfg, row, is) {
   const was = row?.base;
   if (!committed(root, was) || !committed(root, is)) return 'is not readable here';
   if (!isAnc(root, was, is)) return `is not ${String(is).slice(0, 10)}, this land's base, nor behind it`;
   const judge = JUDGE_FILES.filter((f) => blobAt(root, was, f) !== blobAt(root, is, f));
   if (judge.length) return `has another judge than ${String(is).slice(0, 10)}: ${judge.join(', ')}`;
-  if (row.suite === 'base-red' && was !== is) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}`;
+  const moved = row.suite === 'base-red' && was !== is ? baseRedMoved(root, cfg, row, was, is) : [];
+  if (moved.length) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}, which differs from it in ${moved.length} file(s) the spec run neither ran with nor left as they were: ${moved.slice(0, 5).join(', ')}`;
   // GitHub takes a pull_request run's workflow file from its merge, i.e. from the spec head: it must
   // be the land base's too (the spec head is any writer's branch; review of the tranche-based spec).
   if (!committed(root, row.sha) || blobAt(root, row.sha, GATE_FILE) !== blobAt(root, is, GATE_FILE)) return `ran ${GATE_FILE} from its spec head ${String(row.sha).slice(0, 10)}, not ${String(is).slice(0, 10)}'s`;
   return null;
+}
+
+// A base-red spec run's tolerance carries from its base `was` to a land's base `is` (coordinator,
+// 5 Nov; copy: spec 566 for PR 470, base-red on 85f411fd03, refused at its land on 808de5b52a, PR
+// 364's land ahead of it, and its full gate found the same 15 tests red at the base) when each file
+// between them, records aside, is as the spec run ran it (the land ahead of it in the window), or as
+// at `was` in the tree it tested (a tranche move disjoint from it). The files that are neither.
+function baseRedMoved(root, cfg, row, was, is) {
+  return diffNames(root, was, is).filter((f) => !isRecordPath(cfg, f)).filter((f) => {
+    const t = blobAt(root, row.sha, f);
+    return t !== blobAt(root, is, f) && t !== blobAt(root, was, f);
+  });
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after

@@ -440,10 +440,35 @@ refused('the gate workflow differs between the spec run\'s base and the land\'s'
   ...judgeMoved((w) => commit(w.root, { '.github/workflows/process-gate.yml': 'name: process gate\n' }, 'the gate workflow changed'))(g),
   why: /which has another judge than [0-9a-f]{10}: \.github\/workflows\/process-gate\.yml;/,
 }));
-refused('the spec run was base-red on an older tranche tip than the land\'s base', ({ w, x, s }) => {
+const baseRedSpec = ({ x, s }) => {
   x.state.comments[SPEC] = [];
   post(x.state, SPEC, { ...s.run, run_id: 109, suite: 'base-red', base_red: [{ module: 'alpha', tests: ['test/alpha/old.test.mjs::nothing'] }] });
-  return { base: w.t1, head: land(w, w.t1), why: /which ran base-red, tolerated on that base, not on [0-9a-f]{10}/ };
+};
+refused('the spec run was base-red on an older tranche tip, and the land ahead of it landed otherwise than the spec ran it', (g) => {
+  baseRedSpec(g);
+  // PR 4 ahead landed another notes/ahead.md than the predicted one the spec run ran with.
+  git(['checkout', '-q', '--detach', g.w.t0], { cwd: g.w.root });
+  const t1 = commit(g.w.root, { 'notes/ahead.md': 'landed otherwise\n' }, 'Merge job PR 4 (not as predicted)');
+  // The land's tree is refused first (a file neither tested nor the move's); the base-red rule
+  // (baseRedMoved) refuses the same base behind it.
+  return { base: t1, head: land(g.w, t1), why: /in 1 file\(s\) outside the records: notes\/ahead\.md;/ };
+});
+
+// Copy, 5 Nov 20:11: spec 566 for PR 470 at position 1, base-red on 85f411fd03 (15 tests red at
+// the base too); PR 364 ahead landed at 808de5b52a as the tree its spec tested, records aside; 470's
+// land refused the fast path and its full gate found the same tests red at the base.
+test('spec-tested: a base-red spec run carries to a land base that is the land ahead of it in the window, and over a disjoint tranche move too', () => {
+  const g = greenSpec();
+  baseRedSpec(g);
+  const { w, x } = g;
+  const said = [];
+  const r = jobRun(w, x, { base: w.t1, head: land(w, w.t1), log: (m) => said.push(m) });
+  assert.deepEqual([r.run.trigger, r.run.spec_run, r.run.suite, r.run.ok], ['spec-tested', 109, 'base-red', true], said.join('\n'));
+  assert.equal(ran(w), false, 'no suite ran');
+  const moved = disjoint(w);
+  const r2 = jobRun(w, x, { base: moved, head: land(w, moved), log: (m) => said.push(m) });
+  assert.deepEqual([r2.run.trigger, r2.run.spec_run, r2.run.suite, r2.run.ok], ['spec-tested', 109, 'base-red', true], said.join('\n'));
+  assert.equal(ran(w), false, 'no suite ran');
 });
 
 // The spec-tested land, its row posted on the job PR as run 201, and GitHub's merge of the job PR
