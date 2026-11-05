@@ -326,7 +326,11 @@ export function flow(cfg, rows, next, live, listed = null) {
     wait.push(`${r.id} ${!jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
   }
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
-  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };
+  // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
+  const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
+  const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
+  const splits = owed.length ? `; ${free} slot${free === 1 ? '' : 's'} free: BOB's split acts would open them (split or consolidate: ${owed.join(', ')})` : '';
+  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
@@ -784,7 +788,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const enteredList = all.filter((x) => !x.over && !layerWork(x) && !foundList.includes(x) && !x.notices && entered.has(x.file));
   // The release path first (coordinator, 5 Nov): process/config.json's release_path modules, and
   // the open round's layer and found work; debt (a file whose unmet marks are all base-red found
-  // marks) after it, never in a slot while release work is startable (ready.mjs startable).
+  // marks) after it, in the slots release work leaves free (ready.mjs startable).
   const rel = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
   const line = new RegExp(UNMET.source);
   for (const x of all) {

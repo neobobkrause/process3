@@ -34,13 +34,13 @@ function product(ids, { shallow = false } = {}) {
   git(['clone', '-q', '-b', 'tranche', bare, other], { cwd: tmpdir() });
   for (const [k, v] of [['user.email', 'o@example.com'], ['user.name', 'O'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: other });
   const move = (files) => { commit(other, files, 'a merge into the tranche'); git(['push', '-q', 'origin', 'tranche'], { cwd: other }); };
-  if (!shallow) return { root, move };
+  if (!shallow) return { root, move, other };
   // A session's clone is shallow (create_session's clone_depth): fetches there are --depth 1.
   const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
   git(['clone', '-q', '--depth', '1', '-b', 'tranche', `file://${bare}`, thin], { cwd: tmpdir() });
   for (const [k, v] of [['user.email', 'b@example.com'], ['user.name', 'B'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: thin });
   git(['checkout', '-q', '--detach'], { cwd: thin });
-  return { root: thin, move };
+  return { root: thin, move, other };
 }
 
 // A start as jobStart begins one: the setup it is given, anchored, refused as setupOrStop refuses.
@@ -123,6 +123,41 @@ test('job start <id>: a tranche moved since the session fetched it is re-anchore
     assert.equal(seen.ok, true, shallow ? 'shallow' : 'full');
     assert.ok(r.launch);
     assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), git(['rev-parse', 'refs/remotes/origin/tranche'], { cwd: root }), 'back at the anchored tip');
+  }
+});
+
+test('the anchor: a job is cut from the tip it checked, never one fetched after; a pass reads the anchored tip\'s plan; a dirty checkout or a moved pin is not moved', () => {
+  for (const shallow of [false, true]) {
+    const { root, move, other } = product(['a', 'b'], { shallow });
+    // A merge changing the approvals lands right after the anchor, inside the setup check.
+    let anchored = null;
+    const setup = (r, o) => { const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet }); anchored = c.tip; move({ 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') }); return c.ok ? base() : { ok: false, missing: ['session-branch'], results: [] }; };
+    move({ 'src/x.txt': 'moved' });
+    jobStart(root, 'a', { coordinator: 's', setup, open: () => ({ number: 1, html_url: 'u' }), find: () => null, log: quiet });
+    assert.equal(git(['rev-parse', 'job/a^'], { cwd: root }), anchored, 'cut from the checked tip');
+    assert.equal(git(['show', 'job/a:CLAUDE.md'], { cwd: root }), APPROVALS.trimEnd());
+    move({ 'CLAUDE.md': APPROVALS });
+    // plan pause already on the tip when the pass begins: the pass reads it and starts nothing.
+    move(CFG({ plan: 'pause' }));
+    const calls = [];
+    const read = (r) => (loadConfig(r).plan === 'pause' ? { next: [] } : { next: [{ file: 'r/b.md', count: 1, module: 'b', entry_state: 'OPEN' }] });
+    startReady(root, { live: 0, remote: new Set(), read, start: (_, id) => { calls.push(id); return {}; }, setup: base, log: quiet });
+    assert.deepEqual(calls, [], shallow ? 'shallow' : 'full');
+    move(CFG({}));
+    // Tracked changes: never moved.
+    startCheck(root, { branch: 'tranche', anchor: true, log: quiet });
+    move({ 'src/y.txt': 'y' });
+    writeFileSync(join(root, 'CLAUDE.md'), APPROVALS + 'local edit\n');
+    const head = git(['rev-parse', 'HEAD'], { cwd: root });
+    assert.equal(startCheck(root, { branch: 'tranche', anchor: true, log: quiet }).sameHead, false);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
+    git(['checkout', '-q', '--', 'CLAUDE.md'], { cwd: root });
+    // A pin moved on the tranche: the tool running is not the tranche's, so never moved.
+    git(['update-index', '--add', '--cacheinfo', `160000,${head},.process`], { cwd: other });
+    git(['commit', '-q', '-m', 'pin'], { cwd: other });
+    git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: other });
+    assert.equal(startCheck(root, { branch: 'tranche', anchor: true, log: quiet }).sameHead, false);
+    assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
   }
 });
 

@@ -49,10 +49,10 @@ export function startable(next, { onOrigin = () => false } = {}) {
     else skip.push({ file: x.file, id: x.module, why: x.after ? `unmet after its job: ${x.after.join(', ')}` : `entry ${x.entry_state}: BOB's judgment` });
     if (go.at(-1)?.file === x.file) kind.set(go.at(-1), x.release ? 0 : x.debt ? 2 : 1);
   }
-  // The release path first, debt last (status.mjs nextWork tags them); while release work is
-  // startable, debt takes no slot (coordinator, 5 Nov).
+  // The release path first, debt last (status.mjs nextWork tags them): debt fills every slot the
+  // work before it leaves free in the same pass, and waits only for the cap (coordinator, 5 Nov:
+  // 14 slots empty with 1 release module startable and debt held).
   go.sort((a, b) => kind.get(a) - kind.get(b));
-  if (go.some((j) => kind.get(j) === 0)) for (const j of go.filter((y) => kind.get(y) === 2)) { go.splice(go.indexOf(j), 1); skip.push({ file: j.file, id: j.id, why: 'debt (base-red found marks only): no slot while release-path work is startable' }); }
   return { go, skip };
 }
 
@@ -128,6 +128,9 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
   const n = listed ? sessionsCount(listed, live, log) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the account\'s job sessions list_sessions shows (titled job <id>, every product; roles, builds and others not counted), or --sessions <file>, so the cap holds');
+  // The pass reads at the anchored tip (confirming review: status read the pre-anchor checkout's
+  // plan, so a pause already on the tip let every start go on); a refusal here is the first start's.
+  try { startCheck(root, { branch: loadConfig(root).tranche, anchor: true, log: () => {} }); } catch (e) { if (!(e instanceof Fail)) throw e; }
   const quiet = [];
   let out = read(root, { role: 'bob', live: n, log: (l) => quiet.push(l) });
   const cfg = loadConfig(root);

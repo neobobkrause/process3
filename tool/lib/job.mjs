@@ -206,6 +206,9 @@ export function subscribeFor(slug, pr) {
   return { call, text: `then subscribe to the job's pull request with subscribe_pr_activity, so its completion, a red gate or a comment reaches you as an event:\n${JSON.stringify(call, null, 2)}` };
 }
 
+// HEAD when the setup check left it at the fetched tip (start.mjs anchor), else null.
+const anchoredTip = (root, cfg) => { const h = git(['rev-parse', 'HEAD'], { cwd: root }); return git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }).stdout.trim() === h ? h : null; };
+
 // The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
 function setupOrStop(root, cfg, slug, setup, log) {
   // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
@@ -245,8 +248,11 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const cfg = loadConfig(root); // the anchored checkout's
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
-  if (push) fetchRef(root, cfg.tranche);
-  const from = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  // The tip the setup check anchored to and checked (approvals, pin) is the one the job is cut
+  // from; a tip fetched after it was never checked (confirming review of the anchor).
+  const at = push ? anchoredTip(root, cfg) : null;
+  if (push && !at) fetchRef(root, cfg.tranche);
+  const from = at || (push ? `origin/${cfg.tranche}` : cfg.tranche);
   const ids = ledgerIds(root, from);
   const heads = push ? originJobs(root) : localJobs(root);
   let branch = branchOf(root, id, heads, ids, push);
@@ -416,10 +422,11 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   if (source === cfg.tranche || source === 'main' || source === cfg.state_branch) fail(`${source} is not earlier work; take in a work branch`);
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
-  const base = push ? `origin/${cfg.tranche}` : cfg.tranche;
+  const at = push ? anchoredTip(root, cfg) : null;
+  const base = at || (push ? `origin/${cfg.tranche}` : cfg.tranche);
   const tip = push ? `origin/${source}` : source;
   if (push) {
-    fetchRef(root, cfg.tranche);
+    if (!at) fetchRef(root, cfg.tranche);
     if (!remoteTip(root, source)) fail(`no branch ${source} on origin`);
     if (source !== job && remoteTip(root, job)) fail(`${job} already exists on origin; take in onto it with --take-in ${job}, or bring it to Bob`);
     // A shallow clone: deepen both sides down to their merge base, so the diff and the merge
