@@ -32,7 +32,7 @@ export function webCommitByOwner(root, sha, owner, lookup = gh, slug) {
   const c = lookup(['api', `repos/${slug}/commits/${sha}`], { allowFail: true });
   if (!c || typeof c !== 'object') return { ok: false, unread: true, why: 'could not read the commit from GitHub' };
   const ok = c.committer?.login === 'web-flow' && c.commit?.verification?.verified === true && c.author?.login === owner;
-  return ok ? { ok, message: c.commit?.message } : {
+  return ok ? { ok, message: c.commit?.message, date: c.commit?.committer?.date } : {
     ok,
     why: `author ${c.author?.login ?? '?'}, committer ${c.committer?.login ?? '?'}, verified ${c.commit?.verification?.verified ?? '?'}`,
   };

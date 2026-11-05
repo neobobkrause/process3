@@ -60,10 +60,16 @@ test('hold: a row on the state branch, printed first by status with who, why and
 test('hold: Bob\'s word is his own verified website commit whose message names the hold; his hold only expires', (t) => {
   setJobCap(t, 20);
   const root = withOrigin();
-  const web = (message, login = 'neobobkrause') => () => ({ author: { login }, committer: { login: 'web-flow' }, commit: { message, verification: { verified: true } } });
-  assert.throws(() => hold(root, 'slots:10', { why: 'x', by: 'bob', until: '4h', word: 'abc', io: { lookup: web('hold slots:10', 'someone') }, log: quiet }), /abc is not \(author someone/);
-  assert.throws(() => hold(root, 'slots:10', { why: 'x', by: 'bob', until: '4h', word: 'abc', io: { lookup: web('hold slots:9') }, log: quiet }), /message does not name it/);
-  const r = hold(root, 'slots:10', { why: 'budget', by: 'bob', until: '4h', word: 'abc1234567890', io: { lookup: web('hold slots:10 for the budget review') }, log: quiet });
+  const date = new Date(Date.now() + 6e4).toISOString(); // the word given just now
+  const web = (message, login = 'neobobkrause') => () => ({ author: { login }, committer: { login: 'web-flow' }, commit: { message, committer: { date }, verification: { verified: true } } });
+  const set = (scope, until, message, word = 'abc', login) => hold(root, scope, { why: 'budget', by: 'bob', until, word, io: { lookup: web(message, login) }, log: quiet });
+  assert.throws(() => set('slots:10', '4h', 'hold slots:10 4h', 'abc', 'someone'), /abc is not \(author someone/);
+  assert.throws(() => set('slots:10', '4h', 'hold slots:9 4h'), /message does not name it/);
+  assert.throws(() => set('slots:6', '4h', 'hold slots:60 4h'), /message does not name it/); // the exact scope, not a prefix
+  assert.throws(() => set('slots:10', '4h', 'hold slots:10'), /message does not name it/); // a time is part of his word
+  assert.throws(() => set('slots:10', '5h', 'hold slots:10 4h.'), /--until is past the 4h his word gives/);
+  const r = set('slots:10', '4h', 'hold slots:10 4h for the budget review', 'abc1234567890');
+  assert.throws(() => set('slots:10', '1h', 'hold slots:10 4h for the budget review', 'abc1234567890'), /abc1234567890 already set a hold/);
   assert.equal(r.word, 'abc1234567890');
   assert.match(lines(root)[1], /^- hold-1 slots:10, by bob \(Bob's word abc1234567\)/);
   assert.throws(() => hold(root, undefined, { end: 'hold-1', by: S }), /Bob's hold; only Bob ends it/);
@@ -110,10 +116,12 @@ test('idle capacity: work startable under the cap less holds for 15 min, or none
   const base = { live: 6, cap: 20, holds, work, startable: 2, layers: new Map(), t }; // flow's count: a and b
   const fresh = idleCapacity({ ...base, freed: t - 5 * 6e4 });
   assert.deepEqual([fresh.kind, fresh.min, fresh.alarm, fresh.held, fresh.startable, fresh.empty], ['work', 5, false, 4, 1, 10]);
-  assert.deepEqual(fresh.reasons, ['r/c.md: no ledger entry: BOB writes it, then job start --ready starts it', 'b: held by hold-1 (by session_coord1): split', '8 x startable, not started']);
+  assert.deepEqual(fresh.reasons, ['1 x startable, not started', 'r/c.md: no ledger entry: BOB writes it, then job start --ready starts it', 'b: held by hold-1 (by session_coord1): split', '7 x no startable work']);
   // The last sweep saw the same idle: its since carries.
-  const carried = idleCapacity({ ...base, freed: t, prev: { kind: 'work', since: new Date(t - 20 * 6e4).toISOString() } });
+  const carried = idleCapacity({ ...base, freed: t, prev: { at: new Date(t - 9 * 6e4).toISOString(), idle_capacity: { kind: 'work', since: new Date(t - 20 * 6e4).toISOString() } } });
   assert.deepEqual([carried.min, carried.alarm], [20, true]);
+  // Not carried: never before the last sweep, which saw none (an old tranche tip proves nothing).
+  assert.equal(idleCapacity({ ...base, freed: t - 300 * 6e4, prev: { at: new Date(t - 10 * 6e4).toISOString() } }).min, 10);
   // At the cap less holds: no idle.
   assert.equal(idleCapacity({ ...base, live: 16, freed: t - 60 * 6e4 }), null);
   // Nothing startable: idle only under half the cap, and only after 30 min.

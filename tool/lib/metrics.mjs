@@ -148,7 +148,7 @@ export function idleByDay(sweepRows) {
 
 // Cap use (Bob, 5 Nov: about 48% over a day, unseen): job session-hours over cap session-hours from
 // `from` to `to`, each sweep row's live and job_cap held until the next row; beside USE_TARGET,
-// with the sweep's IDLE CAPACITY alarms in the window and the longest.
+// with the sweeps that alarmed IDLE CAPACITY in the window (each a wake) and the longest idle.
 export const USE_TARGET = 0.85;
 export function capUse(sweepRows, from, to = now()) {
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];

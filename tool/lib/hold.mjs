@@ -74,11 +74,15 @@ export function hold(root, scope, { why, by, until, word, end, io = {}, log = co
   const weight = m[1] === 'slots' ? Number(m[2]) : m[1] === 'module' ? 1 : [...layersAt(root, cfg).values()].filter((n) => n === Number(m[2])).length;
   const big = [at - t > HOLD_MAX_H * 36e5 && `longer than ${HOLD_MAX_H} hours`, weight > cap / 4 && `on ${weight} slots, more than a quarter of the cap ${cap}`].filter(Boolean);
   if (big.length) {
-    const only = `refused: a hold ${big.join(' and ')} only Bob can set: his own commit through GitHub's website whose message names "hold ${scope}", then --by bob --word <its sha>`;
+    const only = `refused: a hold ${big.join(' and ')} only Bob can set: his own commit through GitHub's website whose message says "hold ${m[0]} <n>h" (or <n>m), used once, then --by bob --word <its sha> with --until no later than that from his commit`;
     if (by !== 'bob' || typeof word !== 'string') fail(only);
     const w = webCommitByOwner(root, word, cfg.approvals.owner, io.lookup);
     if (!w.ok) fail(`${only}; ${word} is not (${w.why})`);
-    if (!String(w.message || '').includes(`hold ${scope}`)) fail(`${only}; ${word}'s message does not name it`);
+    // Bound to this scope exactly, a time from his commit, and one hold (review of PR 139).
+    const d = String(w.message || '').match(new RegExp(`(?:^|\\s)hold ${m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} (\\d+)([mh])(?:\\s|[.,;]|$)`));
+    if (!d) fail(`${only}; ${word}'s message does not name it`);
+    if (!(at <= Date.parse(w.date) + Number(d[1]) * (d[2] === 'h' ? 36e5 : 6e4))) fail(`${only}; --until is past the ${d[1]}${d[2]} his word gives from ${w.date}`);
+    if (readHolds(root, sb, { t }).some((h) => h.word === word)) fail(`${only}; ${word} already set a hold`);
   } else if (by === 'bob') fail('--by bob only with --word <sha> for a hold only Bob can set; otherwise --by <your session id>');
   const row = { row: 'hold', scope: m[0], why: why.trim(), by, until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z'), ...(big.length ? { word } : {}) };
   const { id } = writeState(root, sb, `hold: ${m[0]}`, (dir) => {

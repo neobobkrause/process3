@@ -71,12 +71,16 @@ export function idleCapacity({ live, cap, holds, work, startable: count, layers,
   const n = Math.max(0, count - inWork.length);
   const kind = n > 0 && live < cap - held ? 'work' : n === 0 && live < cap / 2 ? 'empty' : null;
   if (!kind) return null;
-  const since = Math.min(t, prev?.kind === kind && Date.parse(prev.since) ? Date.parse(prev.since) : freed || t);
+  // Not carried: never before the last sweep, which saw no such idle (review of PR 139).
+  const p = prev?.idle_capacity;
+  const since = Math.min(t, p?.kind === kind && Date.parse(p.since) ? Date.parse(p.since) : Math.max(freed || t, Date.parse(prev?.at) || 0));
   const min = Math.floor((t - since) / 6e4);
   const empty = Math.max(0, cap - held - live);
-  const why = [...skip.map((s) => `${s.id || s.file}: ${s.why}`), ...inWork.map((y) => `${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`)].slice(0, empty);
-  const rest = empty - why.length;
-  if (rest > 0) why.push(`${rest} x ${kind === 'work' ? 'startable, not started' : 'no startable work'}`);
+  // The startable work first, each slot it could fill; then skip lines and holds; the rest empty of work.
+  const k = Math.min(n, empty);
+  const why = [...(k ? [`${k} x startable, not started`] : []), ...[...skip.map((s) => `${s.id || s.file}: ${s.why}`), ...inWork.map((y) => `${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`)].slice(0, empty - k)];
+  const rest = empty - k - (why.length - (k ? 1 : 0));
+  if (rest > 0) why.push(`${rest} x no startable work`);
   return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind], reasons: why };
 }
 
@@ -147,7 +151,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
           // it could have begun, the tranche's tip or a job session's archive.
           const freed = Math.max(ct(root, [tranche]), ...(listed || []).filter((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim())).map((x) => Date.parse(x.updated_at) || 0));
-          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: jsonl(readState(root, sb, SWEEP_ROWS_FILE)).at(-1)?.idle_capacity, freed, t });
+          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: jsonl(readState(root, sb, SWEEP_ROWS_FILE)).at(-1), freed, t });
           if (ic) {
             const { reasons, ...rec } = ic;
             liveRow.idle_capacity = rec;
