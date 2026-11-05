@@ -2,7 +2,7 @@
 // local bare origin, a fake gate (red on any tree holding "BROKEN") and a fake GitHub whose merge
 // refuses a base that moved, as GitHub does.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -118,8 +118,15 @@ test('merge train merges the oldest green job PR through merge: its re-gate, one
   assert.equal(s.baselines.length, 2);
 });
 
-test('merge train: in a shallow clone it unshallows once before the loop, so the provider hold can read merge-base', () => {
-  const { root: src, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+test('merge train: in a shallow clone it fetches the tranche\'s history past main only, never unshallows, and mends a head\'s merge base from GitHub\'s compare (copy, 5 Nov 18:08: --unshallow took ~400 s of 458)', () => {
+  const { root: src, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
+  // The tranche moves on past main, and beta is cut from that commit (a head the history past main holds).
+  git(['checkout', '-q', 'tranche'], { cwd: src });
+  for (let i = 0; i < 3; i += 1) commit(src, { [`t${i}.txt`]: String(i) });
+  git(['checkout', '-q', 'job/beta'], { cwd: src });
+  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: src });
+  git(['push', '-q', 'origin', 'tranche', 'job/beta'], { cwd: src });
+  git(['checkout', '-q', 'main'], { cwd: src });
   const bare = git(['remote', 'get-url', 'origin'], { cwd: src }).trim();
   const root = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
   git(['clone', '-q', '--depth', '1', '--no-single-branch', '--branch', 'main', `file://${bare}`, root], { cwd: src });
@@ -127,10 +134,25 @@ test('merge train: in a shallow clone it unshallows once before the loop, so the
   assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }).trim(), 'true');
   const lines = [];
   const g = github(root, ids);
-  run(root, g, { log: (l) => lines.push(l) });
-  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }).trim(), 'false');
-  assert.ok(lines.some((l) => /shallow; unshallowed once/.test(l)));
+  const asked = [];
+  // GitHub's compare, as origin answers it.
+  const count = (a, b) => Number(git(['rev-list', '--count', a, `^${b}`], { cwd: bare }));
+  g.io.compare = (slug, base, head) => { asked.push(head); return { ahead_by: count(head, base), behind_by: count(base, head), merge_base_commit: { sha: git(['merge-base', base, head], { cwd: bare }) } }; };
+  // The fetches git ran (this repository is so small a deepening reaches its root, so the clone's
+  // shallow mark alone says nothing).
+  const trace = join(mkdtempSync(join(tmpdir(), 'p3-trace-')), 't.log');
+  process.env.GIT_TRACE = trace;
+  try { run(root, g, { log: (l) => lines.push(l) }); } finally { delete process.env.GIT_TRACE; }
+  const fetches = readFileSync(trace, 'utf8').split('\n').filter((l) => /built-in: git fetch/.test(l));
+  assert.ok(lines.some((l) => /^merge train: this clone is shallow; tranche's history past main fetched in \d+ ms$/.test(l)), lines.join('\n'));
+  assert.ok(fetches.some((l) => /--shallow-exclude=main origin \+refs\/heads\/tranche:/.test(l)));
+  assert.ok(!fetches.some((l) => /--unshallow|--depth[= ]\d/.test(l)), fetches.join('\n'));
   assert.deepEqual(g.calls.merged, [1]);
+  // Every commit the tranche has past main is here; each job head's merge base reads locally.
+  assert.equal(Number(git(['rev-list', '--count', 'origin/tranche', '^origin/main'], { cwd: root })), count('tranche', 'main'));
+  for (const id of ids) assert.equal(git(['merge-base', 'origin/tranche', `origin/job/${id}`], { cwd: root, allowFail: true }).code, 0, id);
+  // alpha, cut from main, was deepened to its base by the compare; beta's base was in the history past main.
+  assert.ok(asked.includes('job/alpha') && !asked.includes('job/beta'), asked.join(','));
   // A full clone is left as it is and says nothing about it.
   const more = [];
   run(src, github(src, ids), { log: (l) => more.push(l) });

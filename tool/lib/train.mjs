@@ -10,21 +10,21 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, createPR, editPR, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, compare, createPR, editPR, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
 import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_FIRST, READY_START, bobWake, toolPin } from './job.mjs';
 import { owe, readAuto, starterLive } from './hold.mjs';
-import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
+import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, deepenToBase, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
 import { admit, chainEnd, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
 import { approvalsHash } from './start.mjs';
 import { createHash, randomBytes } from 'node:crypto';
-import { Fail, SERVER_ERROR, fail, git, heartbeat, isShallow, loadConfig, now, repoSlug } from './util.mjs';
+import { DEEP_MARK, Fail, SERVER_ERROR, fail, fetchJobRefs, git, heartbeat, isShallow, loadConfig, markedDeep, now, repoSlug } from './util.mjs';
 import { readAddress } from './roles.mjs';
 
 // A stop the train must never write past or retry: a lost lease, changed approvals, the disk.
@@ -304,9 +304,11 @@ function order(root, ctx, cands, jobs) {
     return reds.get(p.head);
   };
   const have = (j) => {
-    if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code === 0) return;
-    git(['fetch', '-q', 'origin', `+refs/heads/${j.ref}:refs/remotes/origin/${j.ref}`], { cwd: root, allowFail: true });
-    if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code !== 0) throw new Error(`${j.ref} at ${j.head.slice(0, 10)} is not fetched`);
+    if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code !== 0) {
+      fetchRefs(root, [j.ref]);
+      if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code !== 0) throw new Error(`${j.ref} at ${j.head.slice(0, 10)} is not fetched`);
+    }
+    mendBase(root, ctx, at, j);
   };
   const size = c.exp.size + c.imp.size;
   const exportsChanged = (p) => { if (!c.exp.has(p.head)) { have(p); c.exp.set(p.head, exportsChangedAt(root, cfg, at, p)); } return c.exp.get(p.head); };
@@ -383,8 +385,23 @@ function fetchHeads(root, js) {
   const r = git(['cat-file', '--batch-check'], { cwd: root, allowFail: true, input: list.map((j) => `${j.head}^{commit}`).join('\n') + '\n' });
   const lines = r.stdout.split('\n');
   const miss = [...new Set(list.filter((j, i) => r.code !== 0 || /missing|ambiguous/.test(lines[i] || 'missing')).map((j) => j.ref))];
-  if (miss.length) git(['fetch', '-q', 'origin', ...miss.map((ref) => `+refs/heads/${ref}:refs/remotes/origin/${ref}`)], { cwd: root, allowFail: true });
+  if (miss.length) fetchRefs(root, miss);
 }
+const MAIN = 'main';
+const fetchRefs = (root, refs) => fetchJobRefs(root, refs, MAIN);
+// A head's merge base with the tranche, in a shallow clone: read locally when the history holds it
+// (a common ancestor the clone shows is a true one), else both sides deepened to the base GitHub's compare names (merge.mjs deepenToBase: never a cut,
+// the whole history only when that fails). Once per head per tranche tip (its commit, not its name).
+function mendBase(root, ctx, at, j) {
+  if (!isShallow(root)) return;
+  const k = `${git(['rev-parse', at], { cwd: root, allowFail: true }).stdout.trim()}@${j.head}`;
+  const done = (ctx.mended ||= new Set());
+  if (done.has(k)) return;
+  done.add(k);
+  if (git(['merge-base', at, j.head], { cwd: root, allowFail: true }).code === 0) return;
+  try { deepenToBase(root, ctx.slug, ctx.cfg.tranche, j.ref, ctx.io.compare || compare); } catch (e) { if (!(e instanceof Fail)) throw e; ctx.log(`merge train: ${e.message.split(';')[0]}; its hold reads as not held`); }
+}
+
 // The hold's git reads (export change by head, import by user head and provider), kept in the clone
 // by tranche tip and config, so a restarted train at the same tip reads none of them again.
 const ORDER_CACHE = 'p3-train-order.json';
@@ -400,7 +417,9 @@ function loadOrderCache(root, cfg, tip, c) {
   } catch { /* none, or unread: read again */ }
 }
 function saveOrderCache(root, cfg, tip, c) {
-  if (isShallow(root)) return; // a cut history can read wrong without failing: never kept
+  // A cut history can read wrong without failing: never kept, but in the train's own clone, its
+  // history past main fetched and each head's merge base read or mended before any read (mendBase).
+  if (isShallow(root) && !markedDeep(root)) return;
   try { writeFileSync(cachePath(root), JSON.stringify({ key: cacheKey(cfg, tip), exp: Object.fromEntries(c.exp), imp: Object.fromEntries(c.imp) })); } catch { /* a cache only */ }
 }
 
@@ -1152,10 +1171,20 @@ export function train(root, opts = {}) {
   try {
     // A shallow clone cuts the history the provider hold reads (git merge-base of the tranche and a
     // provider's head fails, and the hold reads "not held" for every provider: 5 Nov 07:04, the
-    // MERGER's session clone). Unshallow it once, here, after the lease and before the loop.
+    // MERGER's session clone; create_session gives a shallow clone with or without clone_depth).
+    // The tranche's own history past main is fetched once, here, after the lease and before the
+    // loop; the whole history is not (copy, 5 Nov 18:08: --unshallow took ~400 s of a 458 s
+    // lease-to-pick; measured here, 303 s against 58 s past main). That fetch stops at each merge
+    // of main into the tranche (both its parents cut; report.mjs deepen mends those, measured on
+    // the copy at 11 s for no head more read): a head still without its merge base, cut from main
+    // or from below such a merge, is deepened to the one GitHub's compare names when the hold
+    // first reads it (mendBase).
     if (isShallow(root)) {
-      const u = git(['fetch', '-q', '--unshallow', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true });
-      log(u.code === 0 ? 'merge train: this clone was shallow; unshallowed once' : `merge train: this clone is shallow and could not be unshallowed (${u.stderr.trim().split('\n').pop()}); provider holds read as not held`);
+      // Marked first: no --depth 1 fetch in this clone (util.mjs depth) cuts what is fetched now.
+      git(['config', DEEP_MARK, 'true'], { cwd: root, allowFail: true });
+      const t0 = Date.now();
+      const u = git(['fetch', '-q', `--shallow-exclude=${MAIN}`, 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true });
+      log(u.code === 0 ? `merge train: this clone is shallow; ${cfg.tranche}'s history past ${MAIN} fetched in ${Date.now() - t0} ms` : `merge train: this clone is shallow and ${cfg.tranche}'s history past ${MAIN} was not fetched (${u.stderr.trim().split('\n').pop()}); each head's merge base is read from GitHub's compare as the hold needs it`);
     }
     git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
     ctx.approvals = approvalsHash(root, `refs/remotes/origin/${cfg.tranche}`);

@@ -13,6 +13,7 @@ import { startReady } from '../lib/ready.mjs';
 import { bobPrompt, mergerPrompt } from '../lib/roles.mjs';
 import { jsonl, readState, writeState } from '../lib/state.mjs';
 import { git } from '../lib/util.mjs';
+import { sessionsBound } from '../lib/status.mjs';
 
 const quiet = () => {};
 const SB = 'process-state';
@@ -300,4 +301,34 @@ test('starts owed: a hold ended owes them; the prompts give the MERGER the start
   const bp = bobPrompt({ slug: 'o/p', rootId: 'session_root1', approvals: H, merger: true });
   assert.match(bp, /`node \.process\/tool\/p3\.mjs job start --ready --live <n>` when status's `starter:` line says NOT RUNNING, then take up what status shows/);
   assert.doesNotMatch(bobPrompt({ slug: 'o/p', rootId: 'session_root1', approvals: H }), /starter/);
+});
+
+test('the starter asks list_sessions back only to the bound readSessions needs; refused once, the bound read again; twice running, every page (copy, 5 Nov 18:20: 22 pages back to 1 Aug)', (t) => {
+  setJobCap(t, 20);
+  const root = withOrigin();
+  writeState(root, SB, 'owed', (dir) => owe(dir, 'merge 41'));
+  const was = { ...AUTO };
+  t.after(() => Object.assign(AUTO, was));
+  Object.assign(AUTO, { gap: 0, every: 0 });
+  // A page that never reaches back far enough: has_more, newest first, ending after the record's newest session.
+  const now = Date.now();
+  const page = { data: [{ id: 'session_n', title: 'build/x', session_status: 'SESSION_STATUS_IDLE', created_at: new Date(now).toISOString() }], has_more: true };
+  writeState(root, SB, 'record', (dir) => { mkdirSync(join(dir, 'metrics'), { recursive: true }); writeFileSync(join(dir, 'metrics/live-sessions.json'), JSON.stringify({ oldest: new Date(now - 864e5).toISOString(), newest: new Date(now - 36e5).toISOString(), live: 0, sessions: [], seen: new Date(now).toISOString(), whole: true }) + '\n'); });
+  const bounds = [];
+  const { opts } = fakes(null, () => assert.fail('no pass stands'), {
+    rounds: 3,
+    waitFor: (f) => { writeFileSync(f, JSON.stringify(page)); return true; },
+    bound: (r) => { const b = sessionsBound(r); bounds.push(b); return b; },
+  });
+  const out = [];
+  autoLoop(root, { ...opts, log: (l) => out.push(l) });
+  const asks = out.filter((l) => /^AUTO SESSIONS .*: .*Now call/.test(l));
+  assert.equal(asks.length, 3, out.join('\n'));
+  const until = new Date(now - 36e5).toISOString();
+  assert.equal(bounds[0].until, until);
+  assert.match(asks[0], new RegExp(`again with after_id <last_id> while has_more and the last page's oldest created_at is after ${until.replace(/[.]/g, '\\.')} \\(the newest session of the last read\\); save \\{"data": \\[every page's sessions, in order\\], "has_more": <the last page's has_more>\\}`));
+  assert.match(asks[1], /while has_more and the last page's oldest created_at is after /, 'one refusal: its bound, read again');
+  assert.match(asks[2], /while has_more, and save \{"data": \[every page's sessions\], "has_more": false\}/, 'two running: every page');
+  assert.ok(out.some((l) => /AUTO SESSIONS refused: .*; the next ask pages back to its bound, read again$/.test(l)));
+  assert.ok(out.some((l) => /AUTO SESSIONS refused: .*; the next ask is for every page$/.test(l)));
 });
