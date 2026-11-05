@@ -237,9 +237,9 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
     if (!row.internal_walk.ok) log(`the internal walk's findings enter as found marks: \`${P3} found <module> "<finding>" --from "internal walk ${runSource(row)}"\` (not a gate: the deploy went on)`);
   }
   // Kept beside the step files before the push, so a failed state-branch write loses nothing.
+  if (keptInner.some((k) => k.text !== undefined)) mkdirSync(join(logs, 'report-internal'), { recursive: true });
   const stored = [...kept, ...keptInner].filter((x) => x.text !== undefined);
-  for (const k of stored) writeFileSync(join(logs, `report-${k.stored.split('/').slice(3).join('-')}`), k.text);
-  // Kept beside the step files before the push, so a failed state-branch write loses nothing.
+  for (const k of stored) writeFileSync(join(logs, `report-${keptInner.includes(k) ? 'internal/' : ''}${basename(k.from)}`), k.text);
   writeFileSync(join(logs, 'row.json'), JSON.stringify(row) + '\n');
   try {
     writeState(root, cfg.state_branch, `development deployment ${s}, ${rc.round}: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
@@ -270,6 +270,7 @@ function stepRunner(root, { io, log, logs, masks, results, dep, slug }) {
   const go = (stage, argvs, { guard = false, deadline = null, unset = [] } = {}) => {
     for (const a of argvs) {
       const argv = a.map((x) => x.split('{slug}').join(slug));
+      if (deadline && Date.now() >= deadline) { results.push({ stage, name: redact(argv.join(' '), masks), exit: 1, seconds: 0, timed_out: true }); log(`${stage}: out of time, not run: ${redact(argv.join(' '), masks)}`); return false; }
       log(`::group::${redact(`${stage}: ${argv.join(' ')}`, masks)}`);
       const timeout = deadline ? Math.max(1, deadline - Date.now()) : dep.timeout_minutes * MINUTE;
       const r = io.exec(argv[0], argv.slice(1), { cwd: root, timeout, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT', ...unset] });
