@@ -8,7 +8,7 @@ import { comments, gateRuns, getPR } from './github.mjs';
 import { distinctRows, leadTimes, openedAt } from './lead.mjs';
 import { jobBranch, startBranch } from './ledger.mjs';
 import { triggerSummary } from './triggers.mjs';
-import { DEFAULTS, fail, git, now } from './util.mjs';
+import { DEFAULTS, fail, git, now, rowCap } from './util.mjs';
 
 export const METRICS_DIR = 'process/metrics';
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
@@ -144,6 +144,19 @@ export function idleByDay(sweepRows) {
     days.set(day, d);
   }
   return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+// Cap use (Bob, 5 Nov: about 48% over a day, unseen): job session-hours over cap session-hours from
+// `from` to `to`, each sweep row's live and job_cap held until the next row; beside USE_TARGET,
+// with the sweeps that alarmed IDLE CAPACITY in the window (each a wake) and the longest idle.
+export const USE_TARGET = 0.85;
+export function capUse(sweepRows, from, to = now()) {
+  const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
+  const rows = sweepRows.filter((r) => r.row === 'sweep' && Date.parse(r.at) && Number.isInteger(r.live) && rowCap(r) > 0).sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
+  let job = 0, slots = 0;
+  rows.forEach((r, i) => { const d = Math.min(b, Date.parse(rows[i + 1]?.at) || b) - Math.max(a, Date.parse(r.at)); if (d > 0) { job += r.live * d; slots += rowCap(r) * d; } });
+  const alarms = sweepRows.filter((r) => r.idle_capacity?.alarm && Date.parse(r.at) >= a && Date.parse(r.at) <= b);
+  return { from: from || 'the first sweep row', to, job_session_h: Math.round(job / 36e4) / 10, cap_session_h: Math.round(slots / 36e4) / 10, use: slots ? Math.round(job / slots * 1000) / 1000 : 'unmeasured', target: USE_TARGET, idle_alarms: alarms.length, idle_longest_min: alarms.length ? Math.max(...alarms.map((r) => r.idle_capacity.min)) : 0 };
 }
 
 // ROOT's context per sweep (P2-G10), from the sweep rows: the addressed ROOT's (the last row's
@@ -335,6 +348,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
     bob_idle_by_day: idleByDay(sweepRows),
+    cap_use: capUse(sweepRows, opened),
     root_context: rootContext(sweepRows, refreshAt),
     wakes: wakes(rows),
     overhead: overhead(rows, layerOf(layers), { opened, jobRows: lead.jobRows || [] }),

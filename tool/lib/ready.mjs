@@ -10,6 +10,7 @@
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, READY_NEXT, jobStart } from './job.mjs';
 import { layerClose } from './layer.mjs';
+import { heldBy, layersAt, slotsHeld } from './hold.mjs';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
@@ -99,10 +100,17 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
     out = read(root, { role: 'bob', live: n, log: () => {} });
   }
   const heads = remote || new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
-  const { go, skip } = startable(out.next, { onOrigin: (id) => heads.has(id) });
+  const s = startable(out.next, { onOrigin: (id) => heads.has(id) });
+  const skip = s.skip;
+  // The cap less the live holds only (Bob, 5 Nov): a held module is not started; slots held are not filled.
+  const holds = out.holds || [];
+  const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
+  const go = s.go.filter((j) => { const h = heldBy(holds, j.id, layers); if (h) skip.push({ file: j.file, id: j.id, why: `held by ${h.id} (${h.scope}, by ${h.by}, until ${h.until}): ${h.why}` }); return !h; });
   const c = capLine(cfg, n, listed);
   if (c.note) log(c.note);
-  const now = go.slice(0, Math.max(0, c.cap - n));
+  const held = slotsHeld(holds);
+  if (held) log(`${held} slot${held === 1 ? '' : 's'} held by recorded holds (status lists them)`);
+  const now = go.slice(0, Math.max(0, c.cap - held - n));
   const wait = go.slice(now.length);
   log(`ready: ${go.length} startable (${c.line}); starting ${now.length}${wait.length ? `, ${wait.length} wait for the cap: ${wait.map((x) => x.id).join(', ')}` : ''}`);
   if (wait.length) {
