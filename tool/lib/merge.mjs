@@ -206,13 +206,14 @@ export function merge(root, n, opts = {}) {
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
     // Again once the merged result's gate is green: a PR opened from the branch since the first
     // read could have run its own base's "gate" on the merged result.
-    if (tip !== pr.head.sha) {
-      boundOrFail(slug, branch, n, cfg.tranche, io);
-      const t0 = Date.now();
-      const why = io.gateBound(slug, run, { sha: tip, branch, n, base: cfg.tranche });
-      if (why) fail(`the gate on the merged result ${tip.slice(0, 10)} is not bound to pull request ${n}: ${why}; nothing was merged (bring it to Bob)`);
-      log(`the gate on the merged result is the process gate's run on ${branch} (read in ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
-    }
+    if (tip !== pr.head.sha) boundOrFail(slug, branch, n, cfg.tranche, io);
+    // Bound on every land, the held return and a rerun on the merge-row tip too (whose gate is
+    // `first`, read by name): after the branch, so a retargeted PR is refused first (confirming
+    // review of build/gate-check-bind).
+    const t0 = Date.now();
+    const why = io.gateBound(slug, run, { sha: tip, branch, n, base: cfg.tranche });
+    if (why) fail(`the gate on the merged result ${tip.slice(0, 10)} is not bound to pull request ${n}: ${why}; nothing was merged (bring it to Bob)`);
+    log(`the gate on the merged result is the process gate's run on ${branch} (read in ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
     // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
