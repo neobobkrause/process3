@@ -86,7 +86,7 @@ export function hold(root, scope, { why, by, until, prs, end, log = console.log 
   if (end !== undefined) {
     const h = holds.find((x) => x.id === end);
     if (!h) fail(`no hold ${JSON.stringify(end)} on ${sb}:${HOLDS_FILE}`);
-    if (!h.live) fail(`${h.id} holds nothing already (${h.ended ? 'ended' : 'expired'})`);
+    if (!h.live) fail(`${h.id} holds nothing already (${h.ended ? 'ended' : h.done !== null && h.done <= t ? 'its PRs landed' : 'expired'})`);
     writeState(root, sb, `hold: end ${h.id}`, (dir) => { put(dir, { at: now(), row: 'end', id: h.id, by }); return {}; });
     log(`${h.id} ended: ${h.scope} holds nothing now; job start --ready starts what it held`);
     return { ended: h.id };
@@ -104,7 +104,7 @@ export function hold(root, scope, { why, by, until, prs, end, log = console.log 
     if (!(at > t)) fail(`--until <a future time (ISO) or <n>m or <n>h>, not ${JSON.stringify(until)}`);
   }
   // A hold on a scope still held, or held until the last hour, renews it: the chain stays visible.
-  const prev = holds.filter((h) => h.scope === m[0] && !h.ended && h.left > -36e5).at(-1);
+  const prev = holds.filter((h) => h.scope === m[0] && !h.ended && h.left > -36e5 && !(h.done !== null && h.done < t - 36e5)).at(-1);
   const row = { row: 'hold', scope: m[0], why: why.trim(), by, ...(at !== null ? { until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z') } : {}), ...(nums.length ? { prs: [...new Set(nums.map(Number))] } : {}), ...(prev ? { renews: prev.id } : {}) };
   const { id } = writeState(root, sb, `hold: ${m[0]}`, (dir) => {
     const f = join(dir, HOLDS_FILE);

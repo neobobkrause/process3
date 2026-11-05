@@ -420,6 +420,26 @@ test('merge train: a user PR is held while its provider PR that changes what it 
   assert.deepEqual(g.calls.merged, [2, 1], 'the user goes once its provider merged');
 });
 
+test('merge train: a held user whose own gate goes red, its provider still open, is logged as data', () => {
+  const { root, ids } = setup(usesJobs, usesBase);
+  let redUser = false;
+  const beta = () => g.tipOf('job/beta');
+  const g = github(root, ids, { own: (sha) => (redUser && sha === beta() ? { id: 8, status: 'completed', conclusion: 'failure', completed_at: new Date().toISOString() } : null) });
+  g.state.get(2).draft = true;
+  const lines = [];
+  train(root, { once: false, rounds: 2, idleEvery: 0, session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: (l) => {
+    lines.push(l);
+    if (redUser || !/^PR 1 \(beta\) held:/.test(l)) return;
+    // The user pushes a new head, whose gate ends red, while its provider is still open.
+    const was = beta();
+    const next = git(['commit-tree', `${was}^{tree}`, '-p', was, '-m', 'a new head'], { cwd: root });
+    git(['push', '-q', 'origin', `${next}:refs/heads/job/beta`], { cwd: root });
+    redUser = true;
+  } });
+  assert.deepEqual(g.calls.merged, []);
+  assert.ok(lines.some((l) => /^provider hold data: PR 1 \(beta\), its gate on the tranche without alpha \(PR 2\): went red \(failure\), head [0-9a-f]{10}$/.test(l)), lines.join('\n'));
+});
+
 test('merge train: a draft provider holds its user; a red provider holds nothing', () => {
   const { root, ids } = setup(usesJobs, usesBase);
   const g = github(root, ids);

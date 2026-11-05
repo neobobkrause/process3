@@ -1,7 +1,7 @@
 // merge (GAT-8, INT-1): BOB brings a job's branch up to the tranche, writes the merge row, waits
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
-// could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
+// could switch off in its own copy of the gate workflow: ownership, and a receipt read by the gate.
 import { basename, join } from 'node:path';
 import { checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';

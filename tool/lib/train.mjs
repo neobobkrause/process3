@@ -273,9 +273,24 @@ function ready(root, ctx, skip = new Set()) {
 
 // The order and the provider hold (order.mjs), with what each reads cached by head or tranche tip.
 // Every read that fails holds nothing and orders as unknown: the train never stalls on a read.
+// A held PR gone from the queue because its own gate ended red, its providers still open: its
+// gate on the tranche without them went red (data only, Bob, 5 Nov).
+function leftHeld(ctx, c, cands, jobs) {
+  const inQueue = new Set(cands.map((u) => u.n));
+  for (const [n, why] of c?.heldBy || []) {
+    if (inQueue.has(n)) continue;
+    const j = jobs.find((x) => x.n === n);
+    const red = /^its gate ended /.test(j?.stuck || '');
+    const open = why.filter((w) => jobs.some((x) => x.n === w.pr));
+    if (red && open.length) ctx.log(`provider hold data: PR ${n} (${j.id}), its gate on the tranche without ${open.map((w) => `${w.provider} (PR ${w.pr})`).join(', ')}: went red (${j.stuck.replace(/^its gate ended /, '')}), head ${String(j.head).slice(0, 10)}`);
+    c.seen.delete(n);
+    c.heldBy.delete(n);
+  }
+}
+
 function order(root, ctx, cands, jobs) {
   const { cfg, slug, io } = ctx;
-  if (!cands.length) { ctx.held = []; return cands; }
+  if (!cands.length) { ctx.held = []; leftHeld(ctx, ctx.order, cands, jobs); return cands; }
   const at = `refs/remotes/origin/${cfg.tranche}`;
   const tip = git(['rev-parse', at], { cwd: root }).trim();
   const c = (ctx.order ||= { tip: null, modules: null, release: null, exp: new Map(), imp: new Map(), mins: new Map(), runs: new Set(), seen: new Map(), heldAt: new Map(), said: new Set() });
@@ -333,15 +348,18 @@ function order(root, ctx, cands, jobs) {
     if (why) {
       const l = holdLine(u, why);
       // Data only, to judge provider holds later (Bob, 5 Nov): the held PR's own gate ran on the
-      // tranche without the provider (still open); whether it went red there is logged and kept.
+      // tranche without the provider (still open). Only a green PR is held, so this reads green;
+      // one whose gate goes red while held leaves the queue, and that is logged below.
       const g = ctx.gates.get(u.head);
       const without = !g ? 'unread' : g.status !== 'completed' ? 'running' : g.conclusion === 'success' ? 'green' : 'red';
       if (was !== l) { ctx.log(l); ctx.log(`provider hold data: PR ${u.n} (${u.id}), its gate on the tranche without ${why.map((w) => `${w.provider} (PR ${w.pr})`).join(', ')}: ${without === 'red' ? 'went red' : without === 'green' ? 'did not go red (green)' : without}, head ${u.head.slice(0, 10)}`); }
       c.seen.set(u.n, l);
       c.heldAt.set(u.n, now);
       ctx.held.push({ pr: u.n, module: u.id, providers: why.map((w) => ({ module: w.provider, pr: w.pr })), gate_without_provider: without, head: u.head });
-    } else if (was) { ctx.log(`PR ${u.n} (${u.id}) is no longer held: its providers merged, went red, or no longer change what it imports`); c.seen.delete(u.n); }
+      (c.heldBy ||= new Map()).set(u.n, why);
+    } else if (was) { ctx.log(`PR ${u.n} (${u.id}) is no longer held: its providers merged, went red, or no longer change what it imports`); c.seen.delete(u.n); c.heldBy?.delete(u.n); }
   }
+  leftHeld(ctx, c, cands, jobs);
   // Each module's full-gate minutes, from the gate rows on its pull requests (read once per head).
   const unread = cands.filter((u) => !c.runs.has(`${u.n}@${u.head}`));
   const read = timed(ctx, 'gate minutes', () => io.commentsMany(slug, unread.map((u) => u.n)));
