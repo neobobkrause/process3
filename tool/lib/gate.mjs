@@ -337,7 +337,7 @@ function measuredBy(root, cfg, receipt, green) {
 }
 
 // The tranche into main (PR 89's report, 4 Nov): one gate job running every changed module's
-// suite would pass its 45 min cap on a tranche of 30+ modules, so main could never merge. Every
+// suite would pass its cap on a tranche of 30+ modules, so main could never merge. Every
 // module file the tranche changes was last changed, on the tranche's first-parent history, by
 // some commit. When that commit is a job's merge whose gate was green on the merged result, the
 // file's state was tested there, and its suite is not run again: the gate names the job PR. Any
