@@ -12,7 +12,7 @@ import { fetchState, jsonl, messages, messagesFile, readState, writeState } from
 import { openPinMoves } from './pin.mjs';
 import { OWED_ALARM_MIN, bobAct, heldBy, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { startable } from './ready.mjs';
-import { SILENT_HOURS, blockedJobs, capLine, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { SILENT_HOURS, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -287,7 +287,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
     // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.
     let waits = new Map();
-    try { waits = new Map(blockedJobs(cfg, rows, t, holds).map((b) => [b.id, b])); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`config: ${e.message}`); }
+    try { waits = new Map(blockedJobs(cfg, rows, t, holds, holdLayers(root, cfg, holds)).map((b) => [b.id, b])); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`config: ${e.message}`); }
     for (const b of waits.values()) if (b.by && b.by !== 'Bob') todo.push(`ruling owed: send_message to ${b.by}: job ${b.id}${b.text}`);
     for (const r of rows) {
       // Under a live hold: shown held, never owed (the hold is the ruling's record).

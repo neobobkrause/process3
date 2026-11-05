@@ -729,15 +729,18 @@ function struckTests(root, entry, base, given) {
   const retired = new Set(retiredIds(was, now, gone));
   // Moved out by a split (coordinator, 5 Nov: jurisdictions R109 and four more, copied to
   // jurisdictions-b and -c, each line "was jurisdictions R<n>"): an id whose line is no longer in
-  // the module's file at the attempt's head owes no test; the receipt names it moved, and where to.
+  // the module's file at the attempt's head, and that another module's file names as moved from it
+  // (or holds unchanged), owes no test; the receipt names it moved, and where to. A line deleted
+  // with no such destination still owes its test (review: else a job could drop what it cannot meet).
   const here = body(now);
-  const out = gone.filter((r) => !here.has(r) && !retired.has(r));
+  const esc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const heads = gone.some((r) => !here.has(r)) ? entries('HEAD').map((e) => ({ id: e.id, text: at('HEAD', e.requirements) })) : [];
   const into = (r) => {
-    const re = new RegExp(`\\bwas ${entry.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ${r}\\b`);
-    const to = entries('HEAD').filter((e) => { const t = at('HEAD', e.requirements); return re.test(t) || (moved.has(r) && body(t).get(r) === mine.get(r)); }).map((e) => e.id);
-    return to.length ? to : null;
+    const re = new RegExp(`(?<![\\w.-])was ${esc(entry.id)} ${esc(r)}(?![\\w.-])`);
+    return heads.filter((e) => re.test(e.text) || (moved.has(r) && body(e.text).get(r) === mine.get(r))).map((e) => e.id);
   };
-  const movedOut = out.map((r) => ({ req: r, to: into(r) }));
+  const movedOut = gone.filter((r) => !here.has(r) && !retired.has(r)).map((r) => ({ req: r, to: into(r) })).filter((m) => m.to.length);
+  const out = movedOut.map((m) => m.req);
   const struck = gone.filter((r) => !moved.has(r) && !retired.has(r) && !out.includes(r));
   const named = new Map();
   for (const g of given) {

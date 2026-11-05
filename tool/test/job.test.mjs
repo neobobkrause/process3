@@ -1182,7 +1182,7 @@ test('job complete asks no test for a mark moved to another requirement file or 
 
 // Coordinator, 5 Nov: a split copied jurisdictions R109 and four more to jurisdictions-b and -c,
 // each line "was jurisdictions R<n>" under a new id; job complete still asked tests for them.
-test('job complete asks no test for a requirement no longer in the module\'s file at its head; the receipt lists it moved, with the new module', () => {
+test('job complete asks no test for a requirement moved out of the module\'s file to another module\'s; the receipt lists it moved; a line deleted with nowhere to go still owes its test', () => {
   const root = product();
   commit(root, { 'process/ledger/alpha-b.json': entry('alpha-b', { requirements: 'req/alpha-b.md' }), 'req/alpha-b.md': '# alpha-b\n', 'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R5** *(not yet met: y)* does y.\n- **R6** *(not yet met: z)* does z.\n' });
   git(['branch', '-f', 'tranche', 'main'], { cwd: root });
@@ -1195,11 +1195,15 @@ test('job complete asks no test for a requirement no longer in the module\'s fil
     'src/alpha/x.mjs': 'export const x = 1;\n',
   });
   const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  assert.throws(() => run([]), /struck R1 with no --test/, 'R5 and R6 are not asked for');
-  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface']);
+  // R6's line was deleted and no file names it moved: it still owes a test; R5 does not.
+  assert.throws(() => run([]), /struck R1, R6 with no --test/, 'R5 is not asked for');
+  // "was alpha R5" names R5 only: not R5.1 or R50, and not a module whose id alpha prefixes.
+  commit(root, { 'req/alpha-b.md': '# alpha-b\n\n- **R1** *(not yet met: y)* does y. (was alpha R5)\n- **R2** *(not yet met: q)* q. (was alpha R6.1)\n- **R3** *(not yet met: q)* q. (was alphabet R6)\n' });
+  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 x at the interface']), /struck R6 with no --test/);
+  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R6=test/alpha/x.test.mjs::R1 x at the interface']);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1']);
-  assert.deepEqual(r.receipt.moved, [{ req: 'R5', to: ['alpha-b'] }, { req: 'R6', to: null }]);
+  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R6']);
+  assert.deepEqual(r.receipt.moved, [{ req: 'R5', to: ['alpha-b'] }]);
 });
 
 test('metrics report: BOB\'s idle time per day, and the overhead share per job and per layer', () => {

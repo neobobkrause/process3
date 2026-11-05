@@ -459,3 +459,15 @@ test('sweep and status: a BLOCKED job under a live module hold is shown held, wi
   const rows = [{ id: 'm1', tranche: 'BLOCKED', blocked: 'x', pr: '#9 draft', since: at }];
   assert.equal(blockedJobs({}, rows, Date.now(), [{ ...h, kind: 'module', value: 'm1', live: false }])[0].by, 'the coordinator');
 });
+
+test('sweep: a live layer hold on a BLOCKED job\'s layer holds it as a module hold does', async () => {
+  const { hold } = await import('../lib/hold.mjs');
+  const at = new Date(Date.now() - 60 * 6e4).toISOString();
+  const root = withOrigin({ 'build/layers.md': '| layer | modules |\n|---|---|\n| 2 | m1 |\n', 'process/ledger/m1.json': entry('m1', { layer: 2, status: { state: 'BLOCKED', reason: 'the worker binding is missing', at } }) });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const h = hold(root, 'layer:2', { why: 'layer 2 waits for the binding', by: 'session_coord1', until: '90m', log: quiet });
+  const r = run(root);
+  assert.ok(!r.todo.some((x) => /ruling owed/.test(x)), r.todo.join('\n'));
+  assert.ok(r.found.some((x) => x.startsWith(`m1: BLOCKED; blocked 60 min; held (${h.id} layer:2, by session_coord1)`)), r.found.join('\n'));
+});

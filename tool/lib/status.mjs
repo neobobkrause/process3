@@ -16,7 +16,7 @@ import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
-import { heldBy, holdLines, readHolds, readOwed, startsOwedLine } from './hold.mjs';
+import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -380,6 +380,11 @@ const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) =
 // A job whose module is under a live hold (hold.mjs, `hold module:<id>`) owes no ruling: the hold
 // is the ruling's record (coordinator, 5 Nov: op-declarations, held to 11:27, relayed as owed every
 // sweep). It is shown held, with the hold's reason and expiry; layers: a layer hold holds it too.
+// The layer map a live layer hold needs (else none read); unread, a layer hold holds nothing here.
+export function holdLayers(root, cfg, holds) {
+  if (!(holds || []).some((h) => h.live && h.kind === 'layer')) return new Map();
+  try { return layersAt(root, cfg); } catch { return new Map(); }
+}
 export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new Map()) {
   const target = decisionMinutes(cfg);
   return rows.filter((r) => (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') && !(r.blocked && !/^(#|unknown)/.test(r.pr || ''))).map((r) => {
@@ -435,7 +440,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const merger = haveState && readState(root, sb, addressFile('merger')) !== null; // job merges are the MERGER's
   let merged = 0;
   // Each job awaiting a ruling with its age, oldest first; every other row in ledger order.
-  const waits = new Map(blockedJobs(cfg, rows, Date.now(), holds).map((b, i) => [b.id, { ...b, i }]));
+  const waits = new Map(blockedJobs(cfg, rows, Date.now(), holds, holdLayers(root, cfg, holds)).map((b, i) => [b.id, { ...b, i }]));
   for (const r of [...rows].sort((a, b) => (waits.get(a.id)?.i ?? 1e9) - (waits.get(b.id)?.i ?? 1e9))) {
     const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}${waits.get(r.id)?.text ?? ''}`;
     if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
