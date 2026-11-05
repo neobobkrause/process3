@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
-import { lane, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
+import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
@@ -178,22 +178,18 @@ const commands = {
     return 0;
   },
 
-  // lane start <name> [--replace <session>|pending] | --record <session>; with a lane module, job start's options (--reopen, --restart, --stop, --take-in, --fresh-branch, --over-cap) and --live/--sessions:
-  // the lane's one session (lane.mjs): its seat written before the create_session call, refused while one is live.
+  // lane start <name> [--replace <session>|pending] | --record <session>: the lane's one session
+  // (lane.mjs): its seat written before the create_session call, refused while one is live.
   // lane end <name> --session <id>|pending --why "<why>": the seat freed.
   'lane start': (a, root) => {
     if (a._.length !== 1) fail('lane start <name>');
-    // A lane with a module starts its job: the checks job start makes (the grants check, the cap).
-    const cfg = loadConfig(root);
-    if (lane(cfg, a._[0]).module) {
-      if (a.restart === undefined || a['fresh-branch'] !== undefined) {
-        fetchState(root, cfg.state_branch, { fresh: true });
-        const o = openState(root, cfg);
-        if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
-      }
-      if (a.restart === undefined) capCheck(root, { live: a.live, sessions: a.sessions });
-    }
-    laneStart(root, a._[0], { replace: a.replace, record: a.record, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'], coordinator: a.coordinator, model: a.model });
+    laneStart(root, a._[0], { replace: a.replace, record: a.record, model: a.model });
+    return 0;
+  },
+  // lane artifact <name> <link> [--title "<name>"] | --drop: a lane design document's link, recorded for its successor.
+  'lane artifact': (a, root) => {
+    if (a._.length !== 2) fail('lane artifact <name> <link> [--title "<name>"] [--drop]');
+    laneArtifact(root, a._[0], a._[1], { title: a.title, drop: !!a.drop });
     return 0;
   },
   'lane end': (a, root) => {

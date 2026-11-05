@@ -7,11 +7,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobStart, startText } from '../lib/job.mjs';
-import { LANE_SESSIONS_FILE, laneAsk, laneEnd, laneOfModule, laneSeatFor, laneStart, markLaneHeld, readSeats, seatsOf } from '../lib/lane.mjs';
+import { LANE_SESSIONS_FILE, laneArtifact, laneAsk, laneEnd, laneOfModule, laneSeatFor, laneStart, markLaneHeld, readArtifacts, readSeats, seatsOf } from '../lib/lane.mjs';
 import { readySelection, startable } from '../lib/ready.mjs';
 import { laneDefects, sessionActs } from '../lib/status.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const S1 = 'session_lane1';
@@ -35,7 +35,10 @@ test('lane start holds one seat per lane: refused while one is live or pending, 
   assert.equal(r.call.title, 'lane ux');
   assert.equal(r.call.source_revision, 'tranche');
   assert.match(r.prompt, /You are the ux lane's one session in o\/p/);
-  assert.match(r.prompt, /Design lanes, run under BOB, own their lane folders\. Within the product's principles you decide design and wording in `design\/ux\/`, and your changes land through the gated merge train like any job's/);
+  assert.match(r.prompt, /Design lanes, run under BOB, own their lane folders\. Within the product's principles you decide design and wording there, and your changes land through the gated merge train like any job's/);
+  assert.match(r.prompt, /claude\.ai artifacts and documents, never repository files/);
+  assert.match(r.prompt, /- none recorded yet/);
+  assert.match(r.prompt, /`design\/ux\/` holds only what the product's build reads.*One changing only `design\/ux\/` takes the gate's records-only path/);
   assert.ok(Buffer.byteLength(r.prompt) <= 4096);
   assert.match(out.join('\n'), /then: .* lane start ux --record <the new session id>/);
   // The seat is written before the create_session call is printed: a second start is refused at once.
@@ -50,7 +53,7 @@ test('lane start holds one seat per lane: refused while one is live or pending, 
   const rep = [];
   const r2 = laneStart(root, 'ux', { replace: S1, slug: 'o/p', log: (m) => rep.push(m) });
   assert.equal(r2.replaces, S1);
-  assert.match(r2.prompt, /replacing `session_lane1`/);
+  assert.match(r2.prompt, /You replace `session_lane1`/);
   assert.match(rep.join('\n'), /archive_session session_lane1/);
   laneStart(root, 'ux', { record: S2, log: quiet });
   assert.equal(readSeats(root, loadConfig(root)).get('ux').session, S2);
@@ -72,40 +75,36 @@ test('seatsOf: an end frees only the seat it names; a record fills only a pendin
   assert.equal(seatsOf([{ row: 'start', lane: 'ai', at: 't' }, { row: 'end', lane: 'ai', session: null }]).size, 0);
 });
 
-test('a lane with a module: its one session is the module\'s job, so lane start starts the job, and job start refuses while a recorded seat holds the lane', () => {
-  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': '# alpha\n', 'design/ux/a.md': 'a\n' });
-  // A seat recorded before the lane named its module (or a lane session started by lane start).
-  laneStart(root, 'ux', { slug: 'o/p', log: quiet });
-  laneStart(root, 'ux', { record: S1, log: quiet });
-  commit(root, { 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux', module: 'alpha' }] } });
-  git(['branch', '-f', 'tranche'], { cwd: root });
+test('a lane with a module: the lane\'s session and the module\'s job are one seat; job start refuses beside the seat, lane start beside the job', () => {
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux', module: 'alpha' }] }, 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': '# alpha\n', 'design/ux/a.md': 'a\n' });
   assert.equal(laneOfModule(loadConfig(root), 'alpha').name, 'ux');
   assert.equal(laneOfModule(loadConfig(root), 'beta'), null);
-  assert.throws(() => laneStart(root, 'ux', { record: S2, log: quiet }), /lane ux's session is job alpha's .*--restart/);
+  assert.equal(laneOfModule({ lanes: [{ dir: 'x' }] }, 'alpha'), null);
+  // The module's job at work: it is the lane's one session, so lane start refuses.
+  assert.throws(() => laneStart(root, 'ux', { slug: 'o/p', log: quiet, jobOpen: () => ({ branch: 'job/alpha', state: 'WORKING' }) }), /job alpha, lane ux's module, is WORKING on job\/alpha: it is the lane's one session now.*nothing was started/);
+  const r = laneStart(root, 'ux', { slug: 'o/p', log: quiet, jobOpen: () => false });
+  assert.match(r.prompt, /The marks of `alpha`, this lane's module, are your work; no job of it starts while you are live/);
+  laneStart(root, 'ux', { record: S1, log: quiet });
   assert.match(laneSeatFor(root, loadConfig(root), 'alpha', { fetch: false }).why, /job alpha is lane ux's module, and lane ux's session session_lane1 is live/);
   assert.equal(laneSeatFor(root, loadConfig(root), 'beta', { fetch: false }), null);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 'session_bob', push: false, log: quiet }), /job alpha is lane ux's module.*one session per lane.*nothing was started/);
-  // lane start passes job start's options through; job start's own check refuses beside the seat.
-  assert.throws(() => laneStart(root, 'ux', { log: quiet, reopen: 'a', restart: 'b' }), /one of --reopen, --restart and --take-in/);
-  const got = [];
-  laneStart(root, 'ux', { log: quiet, overCap: 'why', fresh: 'f', start: (_, id, o) => got.push([id, o.overCap, o.fresh, o.reopen]) });
-  assert.deepEqual(got, [['alpha', 'why', 'f', undefined]]);
-  assert.throws(() => laneStart(root, 'ux', { push: false, log: quiet, start: (r, id, o) => jobStart(r, id, { ...o, coordinator: 'session_bob', push: false }) }), /job alpha is lane ux's module.*nothing was started/);
   // A restart replaces the job's own session: one session still, so it is not refused here.
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 'session_bob', restart: 'gone', push: false, log: quiet }), (e) => !/lane ux/.test(e.message));
-  // The seat recorded before the module was named is ended here, or nothing could free it.
-  laneEnd(root, 'ux', { session: S1, why: 'the lane now names its module', log: quiet });
+  laneEnd(root, 'ux', { session: S1, why: 'backlog done', log: quiet });
   assert.equal(laneSeatFor(root, loadConfig(root), 'alpha', { fetch: false }), null);
-  assert.throws(() => laneEnd(root, 'ux', { session: S1, why: 'again', log: quiet }), /it ends as the job does/);
-  // A malformed lane is never every job start's refusal.
-  assert.equal(laneOfModule({ lanes: [{ dir: 'x' }] }, 'alpha'), null);
-  // With no seat recorded, lane start of a moduled lane is the module's job start.
-  const free = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux', module: 'alpha' }] } }).root;
-  const calls = [];
-  const r = laneStart(free, 'ux', { reopen: 'meet R2', log: quiet, start: (_, id, o) => { calls.push([id, o.reopen]); return { ok: 1 }; } });
-  assert.deepEqual(calls, [['alpha', 'meet R2']]);
-  assert.deepEqual(r.job, { ok: 1 });
-  assert.throws(() => laneStart(withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'd' }] }, 'd/a': 'a\n' }).root, 'ux', { reopen: 'x', log: quiet }), /are for a lane with a module; lane ux names none/);
+});
+
+test('lane artifact records a lane\'s design documents\' links for its successor: the START and the ask brief list them', () => {
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
+  assert.throws(() => laneArtifact(root, 'ux', 'not a link', { log: quiet }), /the document's https link/);
+  laneArtifact(root, 'ux', 'https://claude.ai/artifact/AAA', { title: 'Design doc', log: quiet });
+  laneArtifact(root, 'ux', 'https://claude.ai/artifact/BBB', { log: quiet });
+  laneArtifact(root, 'ux', 'https://claude.ai/artifact/BBB', { drop: true, log: quiet });
+  assert.throws(() => laneArtifact(root, 'ux', 'https://claude.ai/artifact/CCC', { drop: true, log: quiet }), /records no/);
+  assert.deepEqual(readArtifacts(root, loadConfig(root), 'ux').map((a) => [a.title, a.url]), [['Design doc', 'https://claude.ai/artifact/AAA']]);
+  assert.match(laneStart(root, 'ux', { slug: 'o/p', log: quiet }).prompt, /- Design doc: https:\/\/claude\.ai\/artifact\/AAA/);
+  laneEnd(root, 'ux', { session: 'pending', why: 'test', log: quiet });
+  assert.match(laneAsk(root, 'ux', 'which?', { log: quiet }).brief, /The lane's design documents .*\n- Design doc: https:\/\/claude\.ai\/artifact\/AAA/);
 });
 
 test('job start --ready and the starter skip a lane\'s module while its lane\'s seat is held (readySelection)', () => {

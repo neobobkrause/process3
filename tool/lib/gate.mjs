@@ -11,7 +11,7 @@ import { baseRed, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
-import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordPath, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
@@ -125,11 +125,21 @@ export function gate(root, opts) {
   // is built and verified, not compared; the .gitignore lines added for it are not other files.
   const untracked = plain?.length ? removedGenerated(root, gen.rows, plain, head).filter((f) => ignoredHere(root, f)) : [];
   const ignores = untracked.length ? ignoreLines(root, mb, head, changed, untracked) : [];
-  const recordOnly = changed.every((f) => isRecordPath(cfg, f));
+  // A lane's pull request (lane.mjs; Bob, 5 Nov): every file inside one lane's folder, records
+  // aside, and not a job's nor the tranche's: the records-only path, no suite, no install or
+  // build; the record checks above still run. A generated output is built, never committed.
+  const lanePR = !job && branch !== cfg.tranche ? laneOnly(cfg, changed, entries) : null;
+  if (lanePR) {
+    runRow.lane = lanePR;
+    for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
+  }
+  const recordOnly = changed.every((f) => isRecordPath(cfg, f)) || !!lanePR;
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
-    && diffNames(root, lastGreen.sha, head).every((f) => isRecordPath(cfg, f));
+    // A lane's folder counts as records here: a lane's land between a job's green run and its
+    // merge does not send the job back through its suite (Bob, 5 Nov).
+    && diffNames(root, lastGreen.sha, head).every((f) => isRecordOrLane(cfg, f, entries));
 
   // The base the job's change is reverted to: the first parent of GitHub's merge checkout,
   // the tranche as it was merged with, else the event's base.
@@ -144,7 +154,7 @@ export function gate(root, opts) {
   // A plain pull request, or a job's with no receipt yet, keeps the record fast path.
   const jobReceipt = entry && !draft && receipt?.module === job ? receipt : null;
   const stands = jobReceipt && sinceGreen && git(['merge-base', '--is-ancestor', jobReceipt.sha, head], { cwd: root, allowFail: true }).code === 0
-    ? measuredBy(root, cfg, jobReceipt, lastGreen) : null;
+    ? measuredBy(root, cfg, jobReceipt, lastGreen, entries) : null;
   const receiptRun = !!jobReceipt && (recordOnly || sinceGreen) && !stands?.ok;
 
   if (recordOnly && !jobReceipt) runRow.trigger = 'record';
@@ -321,11 +331,11 @@ export function receiptAgrees(claimed, suite, red, passed = []) {
 // commit whose files, records aside, are that run's (the same tree, so the same suite and
 // results), that run ran the job's suite, and a revert exemption that run relied on is still
 // claimed. { ok } or { ok: false, why }.
-function measuredBy(root, cfg, receipt, green) {
+function measuredBy(root, cfg, receipt, green, entries = []) {
   const job = receipt.module;
   if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail', 'base-red'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, did not run the ${job} suite` };
   const same = git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
-    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordPath(cfg, f));
+    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries));
   if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${String(green.sha).slice(0, 10)}, tested` };
   if (green.revert === 'exempt' && !receipt.exempt?.revert) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, passed its revert check by an exemption this receipt does not claim` };
   // The row keeps only the passes an earlier receipt excused: a test this one excuses that the row
@@ -354,7 +364,7 @@ function measuredBy(root, cfg, receipt, green) {
 // module still runs when a module it uses changed on the tranche after its merge.
 export const MERGE_TITLE = /^Merge job PR (\d+)$/;
 export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, log = () => {} }) {
-  const need = changed.filter((f) => !isRecordPath(cfg, f) && entries.some((e) => inModule(e, f)));
+  const need = changed.filter((f) => !isRecordOrLane(cfg, f, entries) && entries.some((e) => inModule(e, f)));
   const last = new Map();
   const chain = need.length ? git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean) : [];
   if (need.length) {

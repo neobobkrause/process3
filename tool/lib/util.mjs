@@ -348,6 +348,38 @@ export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r));
 
+// Lanes' folders (lane.mjs; Bob, 5 Nov: "lanes' file changes need not be tested the way jobs do").
+// A lane's folder is its config "dir"; one at the root, or holding the process's own files, the
+// workflows or the session settings, is no lane folder here, so nothing outside a lane rides it.
+const NOT_LANE = ['process', '.process', '.github', '.claude', 'CLAUDE.md'];
+export function laneDirs(cfg) {
+  const ls = Array.isArray(cfg?.lanes) ? cfg.lanes : [];
+  return ls.filter((l) => l && typeof l.name === 'string' && l.name.trim() && typeof l.dir === 'string')
+    .map((l) => ({ name: l.name.trim(), dir: l.dir.trim().replace(/^\.\//, '').replace(/\/+$/, ''), module: typeof l.module === 'string' ? l.module.trim() : null }))
+    .filter((l) => l.dir && l.dir !== '.' && !l.dir.startsWith('/') && !l.dir.split('/').includes('..') && !NOT_LANE.some((n) => underPath(l.dir, n)));
+}
+// The lane whose folder holds f, or null; a file a ledger module other than the lane's own owns
+// (its paths or tests: entries, the ledger's) is that module's, judged as today.
+export function laneOfPath(cfg, f, entries = []) {
+  const l = laneDirs(cfg).find((x) => underPath(f, x.dir));
+  if (!l) return null;
+  const other = entries.some((e) => e.id !== l.module && [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)));
+  return other ? null : l.name;
+}
+export const isRecordOrLane = (cfg, f, entries = []) => isRecordPath(cfg, f) || !!laneOfPath(cfg, f, entries);
+// The one lane a change is all inside, records aside, or null: no file of a lane's folder, a file
+// outside every lane's folder, or files of two lanes' folders.
+export function laneOnly(cfg, files, entries = []) {
+  const names = new Set();
+  for (const f of files) {
+    if (isRecordPath(cfg, f)) continue;
+    const n = laneOfPath(cfg, f, entries);
+    if (!n) return null;
+    names.add(n);
+  }
+  return names.size === 1 ? [...names][0] : null;
+}
+
 // --key value, --key=value (for a value that starts with --) and --flag; repeated keys become arrays; the rest are positional.
 export function parseArgs(argv) {
   const out = { _: [] };
