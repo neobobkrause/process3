@@ -217,3 +217,15 @@ test('merge train: the next PR is prepared while a re-gate runs, and merges on t
   assert.notEqual(git(['grep', '-q', 'BROKEN', 'refs/remotes/origin/tranche', '--', 'src'], { cwd: root, allowFail: true }).code, 0, 'the failed PR is not in the base');
   assert.ok(messages(root).some((x) => /PR 1 \(job alpha\): its merged result is red/.test(x.text)));
 });
+
+test('merge train: under its disk budget it stops before a merge starts, and records the disk each merge used', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
+  const g = github(root, ids);
+  const r = run(root, g);
+  assert.ok(Number.isFinite(r.rows[0].disk_mb), 'disk used per merge in the row');
+  assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left after the merge');
+  const before = g.tipOf('job/beta');
+  assert.throws(() => run(root, g, { diskFree: () => 100 }), /STOP: 100 MB free, under the merger's disk budget of 512 MB; nothing was started for PR 2/);
+  assert.deepEqual(g.calls.merged, [1]);
+  assert.equal(g.tipOf('job/beta'), before, 'nothing pushed');
+});

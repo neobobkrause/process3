@@ -6,7 +6,7 @@
 // being gated). One train runs: a lease on the state branch, renewed while it runs, checked again
 // just before each land. The merger hands every exception to BOB (p3 send bob); it starts no job,
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { checkRun, comments, getPR, openPRs, verifyRow } from './github.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
@@ -24,6 +24,11 @@ export const BASELINES = [
   { name: 'green -> merged, the simulation of 4-5 Nov (measure/merge-train-sim)', median: 8.7, p90: 33.7 },
   { name: 'complete -> merge row, the merge rows of 4-5 Nov', median: 11.0, worst: 85 },
 ];
+// The disk budget (copy, 5 Nov ~02:00: BOB's eight merge loops died when the session's disk
+// allowance filled). merge works in one worktree it removes when it ends (withTemp); before each
+// merge the train needs this much free space, else it stops and says so, never mid-merge.
+export const DISK_MIN_MB = 512;
+export const diskFreeMb = (dir) => { const f = statfsSync(dir); return Math.floor(Number(f.bavail) * Number(f.bsize) / 1048576); };
 export const TRAIN_NO_REVIEW = 'merge train: no review recorded, and no review trigger fired';
 const MIN = 60000;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -162,6 +167,8 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     if (Date.now() - renewed >= LEASE.renew * MIN) { takeLease(root, cfg, ctx.session); renewed = Date.now(); ctx.renewed = renewed; }
     if (ctx.pipeline && ctx.prepared === null && /^waiting for the gate/.test(l)) prepare(root, ctx, c.n);
   };
+  const free = ctx.diskFree(root);
+  if (free < ctx.diskMin) fail(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
   const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null };
   let r = null;
   try {
@@ -178,6 +185,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     refuse(root, ctx, c, e.message);
   }
   row.minutes = mins(started, Date.now());
+  row.disk_mb = free - ctx.diskFree(root); // what this merge left on disk (the worktree is gone by now)
   let tries = 0;
   writeState(root, cfg.state_branch, `merge train: PR ${c.n} ${row.result}`, (wt) => { tries++; append(wt, TRAIN_FILE, { ...row, push_tries: tries }); });
   row.push_tries = tries;
@@ -199,7 +207,7 @@ export function train(root, opts = {}) {
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail('merge train --session <your session id>: the lease is held by a session');
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
   const io = { getPR, comments, checkRun, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, refused: new Map(), rows: [], gates: new Map(), prepared: null, notes: [] };
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.noteFor = (c) => ctx.notes.filter((x) => x.row === 'note' && x.pr === c.n && x.sha === c.head).pop() || null;
   const { takeover } = takeLease(root, cfg, session, { take: true });
   // Heads refused by an earlier train wait as this one's would (a restart re-sends nothing).
@@ -250,6 +258,7 @@ export function trainSummary(rows = [], merger = []) {
     prepared_share: ok.length ? r1(ok.filter((r) => r.prepared).length / ok.length * 100) : 'unmeasured',
     queue_at_merge_end: depth,
     idle_gaps_min: { total: r1(m.reduce((s, r) => s + (r.idle_min || 0), 0)), worst: m.length ? r1(Math.max(...m.map((r) => r.idle_min || 0))) : 'unmeasured' },
+    disk_mb_per_merge: { median: r1(median(m.map((r) => r.disk_mb))), worst: m.some((r) => Number.isFinite(r.disk_mb)) ? r1(Math.max(...m.map((r) => r.disk_mb).filter(Number.isFinite))) : 'unmeasured' },
     lease_takeovers: merger.filter((r) => r.row === 'takeover').length,
     push_tries: { max: m.length ? Math.max(...m.map((r) => r.push_tries || 1)) : 'unmeasured', over_one: m.filter((r) => (r.push_tries || 1) > 1).length },
     merger_context_per_hour: span > 0 ? r1((ctxRows.at(-1).context - ctxRows[0].context) / span) : 'unmeasured',
@@ -257,5 +266,5 @@ export function trainSummary(rows = [], merger = []) {
 }
 export const trainLines = (s) => [
   `Merge train: ${s.merged} merged, ${s.refused} handed to BOB; green -> merged median ${s.green_to_merged.median} min, p90 ${s.green_to_merged.p90}, worst ${s.green_to_merged.worst}. Baselines: ${s.baselines.map((b) => `${b.name}: median ${b.median}${b.p90 ? `, p90 ${b.p90}` : ''}${b.worst ? `, worst ${b.worst}` : ''}`).join('; ')}.`,
-  `Prepared while the previous gate ran: ${s.prepared_share}% (prep median ${s.prep_minutes_median} min); queue depth as each merge neared its end ${JSON.stringify(s.queue_at_merge_end)}; idle gaps ${s.idle_gaps_min.total} min (worst ${s.idle_gaps_min.worst}); lease takeovers ${s.lease_takeovers}; state-branch tries max ${s.push_tries.max}, ${s.push_tries.over_one} over one; merger context ${s.merger_context_per_hour}%/h.`,
+  `Prepared while the previous gate ran: ${s.prepared_share}% (prep median ${s.prep_minutes_median} min); queue depth as each merge neared its end ${JSON.stringify(s.queue_at_merge_end)}; idle gaps ${s.idle_gaps_min.total} min (worst ${s.idle_gaps_min.worst}); disk per merge median ${s.disk_mb_per_merge.median} MB (worst ${s.disk_mb_per_merge.worst}); lease takeovers ${s.lease_takeovers}; state-branch tries max ${s.push_tries.max}, ${s.push_tries.over_one} over one; merger context ${s.merger_context_per_hour}%/h.`,
 ];
