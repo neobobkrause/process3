@@ -2,6 +2,7 @@
 // (MSG-1, MSG-3, MSG-6). Each file has one writer (REC-2): handoff/<role>.md by that role,
 // messages/<sender>.jsonl by that sender. The address file is build K's; send only reads it.
 // The tool cannot call send_message: send records and prints, the session delivers.
+import { askFindings } from './asks.mjs';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Fail, fail, fetchRetry, git, now, pushRetry, quietly, withStateLock, withTemp } from './util.mjs';
@@ -90,8 +91,11 @@ const put = (wt, path, text, append = false) => {
 export const morePointer = (k) => `(${k} more status line${k === 1 ? '' : 's'}: status --role bob lists them all)`;
 export function handoff(root, sb, { role = 'bob', tranche, lines, notes = [], log = console.log }) {
   roleName(role, 'the role');
-  const tip = git(['log', '-1', '--format=%H %s', tranche], { cwd: root });
   if (notes.length > HANDOFF_MAX.notes) fail(`at most ${HANDOFF_MAX.notes} notes`);
+  // His words verbatim, and nothing routed to Bob off the closed list (coordinator rules 1 and 2).
+  const asks = askFindings(notes.map((n) => String(n).replace(/\s+/g, ' ').trim()).join('\n'));
+  if (asks.length) fail(`a note is refused: ${asks.map((x) => `"${x.line.slice(0, 80)}": ${x.why}`).join('; ')}`);
+  const tip = git(['log', '-1', '--format=%H %s', tranche], { cwd: root });
   const head = [`# Handoff for ${role}, ${now()}`, `tranche ${tip}`, ''];
   const tail = notes.length ? ['', 'notes:', ...notes.map((n) => `- ${String(n).replace(/\s+/g, ' ').trim()}`)] : [];
   const join_ = (body) => [...head, ...body, ...tail].join('\n') + '\n';

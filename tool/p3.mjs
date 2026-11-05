@@ -32,6 +32,7 @@ import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
+import { handoffCheck } from './lib/asks.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { switchIn, switchOut, switchQuiet } from './lib/switch.mjs';
@@ -55,7 +56,10 @@ const commands = {
 
   // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
   // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
+  // handoff --check <file>...: a coordinator's handoff or findings file, read against coordinator
+  // rules 1 and 2 (Bob's words verbatim; nothing routed to Bob off the closed list); writes nothing.
   handoff: (a, root) => {
+    if (a.check !== undefined) return handoffCheck(list(a.check).filter((x) => x !== true));
     const lines = [];
     const s = status(root, { role: 'bob', context: a.context, log: (l) => lines.push(l) });
     handoff(root, loadConfig(root).state_branch, { role: 'bob', tranche: s.tranche, lines, notes: list(a.note).filter((x) => x !== true) });
@@ -193,7 +197,7 @@ const commands = {
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
 
-  // block <id> --reason "<why>" [--owner bob|coordinator]: who owes its ruling; bob only for a requirement question, what the product must do (rule 9)
+  // block <id> --reason "<why>" [--owner bob|coordinator]: who owes its ruling; bob only with a reason opening (a)-(d), coordinator rule 1's closed list
   block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason, owner: a.owner }).ok ? 0 : 1),
 
   // metrics add <id> --attempt n --session s [--tokens n] [--cost-usd x] [--denials n]
