@@ -1180,6 +1180,28 @@ test('job complete asks no test for a mark moved to another requirement file or 
   assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R4']);
 });
 
+// Coordinator, 5 Nov: a split copied jurisdictions R109 and four more to jurisdictions-b and -c,
+// each line "was jurisdictions R<n>" under a new id; job complete still asked tests for them.
+test('job complete asks no test for a requirement no longer in the module\'s file at its head; the receipt lists it moved, with the new module', () => {
+  const root = product();
+  commit(root, { 'process/ledger/alpha-b.json': entry('alpha-b', { requirements: 'req/alpha-b.md' }), 'req/alpha-b.md': '# alpha-b\n', 'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R5** *(not yet met: y)* does y.\n- **R6** *(not yet met: z)* does z.\n' });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    'req/alpha-b.md': '# alpha-b\n\n- **R1** *(not yet met: y)* does y. (was alpha R5)\n',
+    'req/alpha.md': '# alpha\n\n- **R1** does x.\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
+    'src/alpha/x.mjs': 'export const x = 1;\n',
+  });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  assert.throws(() => run([]), /struck R1 with no --test/, 'R5 and R6 are not asked for');
+  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface']);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1']);
+  assert.deepEqual(r.receipt.moved, [{ req: 'R5', to: ['alpha-b'] }, { req: 'R6', to: null }]);
+});
+
 test('metrics report: BOB\'s idle time per day, and the overhead share per job and per layer', () => {
   const idle = idleByDay([
     { at: '2026-11-01T01:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 0.5 },

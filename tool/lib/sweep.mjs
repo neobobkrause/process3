@@ -227,7 +227,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
         next = !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
-        const f = flow(cfg, rows, work, liveRow.live, listed);
+        const f = flow(cfg, rows, work, liveRow.live, listed, holds);
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
         if (liveRow.live !== undefined) {
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
@@ -287,10 +287,11 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
     // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.
     let waits = new Map();
-    try { waits = new Map(blockedJobs(cfg, rows).map((b) => [b.id, b])); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`config: ${e.message}`); }
+    try { waits = new Map(blockedJobs(cfg, rows, t, holds).map((b) => [b.id, b])); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`config: ${e.message}`); }
     for (const b of waits.values()) if (b.by && b.by !== 'Bob') todo.push(`ruling owed: send_message to ${b.by}: job ${b.id}${b.text}`);
     for (const r of rows) {
-      if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') owed.push(`${r.id}: BLOCKED${waits.get(r.id)?.text ?? ''}`);
+      // Under a live hold: shown held, never owed (the hold is the ruling's record).
+      if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') (waits.get(r.id)?.held ? found : owed).push(`${r.id}: BLOCKED${waits.get(r.id)?.text ?? ''}`);
       else if (r.flag === 'WORKING, nothing pushed') {
         const age = t - ct(root, [`origin/${refOf(r)}`]);
         if (age > SILENT_HOURS * H) owed.push(`${r.id}: WORKING, nothing pushed for ${hours(age)}h`);

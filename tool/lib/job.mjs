@@ -715,7 +715,8 @@ function struckTests(root, entry, base, given) {
   const at = (ref, f = entry.requirements) => git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
   const [was, now] = [at(base), at('HEAD')];
   const left = new Set(markedIds(now));
-  const files = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t).requirements; } catch { return null; } }).filter((f) => f && f !== entry.requirements);
+  const entries = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter((e) => e?.requirements && e.requirements !== entry.requirements);
+  const files = (ref) => entries(ref).map((e) => e.requirements);
   const body = (t) => new Map(String(t).split('\n').map((l) => [l.match(/\*\*([RF][\w.-]+)\*\*/)?.[1], l.replace(/\*\(not yet met.*?\)\*/g, '').replace(/^[\s*+\d.-]*/, '').replace(/\s+/g, ' ').trim()]).filter(([id]) => id));
   const gone = markedIds(was).filter((r) => !left.has(r));
   const other = new Set(gone.length ? files('HEAD') : []);
@@ -726,7 +727,18 @@ function struckTests(root, entry, base, given) {
     return markedIds(h).filter((r) => !b.has(r) && lines.get(r) === mine.get(r));
   }));
   const retired = new Set(retiredIds(was, now, gone));
-  const struck = gone.filter((r) => !moved.has(r) && !retired.has(r));
+  // Moved out by a split (coordinator, 5 Nov: jurisdictions R109 and four more, copied to
+  // jurisdictions-b and -c, each line "was jurisdictions R<n>"): an id whose line is no longer in
+  // the module's file at the attempt's head owes no test; the receipt names it moved, and where to.
+  const here = body(now);
+  const out = gone.filter((r) => !here.has(r) && !retired.has(r));
+  const into = (r) => {
+    const re = new RegExp(`\\bwas ${entry.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ${r}\\b`);
+    const to = entries('HEAD').filter((e) => { const t = at('HEAD', e.requirements); return re.test(t) || (moved.has(r) && body(t).get(r) === mine.get(r)); }).map((e) => e.id);
+    return to.length ? to : null;
+  };
+  const movedOut = out.map((r) => ({ req: r, to: into(r) }));
+  const struck = gone.filter((r) => !moved.has(r) && !retired.has(r) && !out.includes(r));
   const named = new Map();
   for (const g of given) {
     if (/^notice:/.test(String(g))) continue; // accepted and ignored, for jobs started when the START asked for it
@@ -744,7 +756,7 @@ function struckTests(root, entry, base, given) {
     if (!text.stdout.includes(t.name)) fail(`--test ${label}: ${t.file} does not contain "${t.name}"`);
     return t;
   };
-  return struck.map((r) => holds(r, named.get(r)));
+  return { tests: struck.map((r) => holds(r, named.get(r))), moved: movedOut };
 }
 
 // The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
@@ -975,7 +987,7 @@ export function jobComplete(root, id, opts = {}) {
     again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
   } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
-  const tests = struckTests(root, entry, base, opts.tests || []);
+  const { tests, moved } = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
@@ -1032,7 +1044,7 @@ export function jobComplete(root, id, opts = {}) {
   // The receipt is saved in the COMPLETE commit, so a rerun after a failed push can post it.
   const receipt = {
     kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
-    commands, tests, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
+    commands, tests, ...(moved.length ? { moved } : {}), not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
     ...(again ? { after: again.after } : {}),
     ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}),
   };
