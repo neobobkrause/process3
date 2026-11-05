@@ -8,7 +8,7 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
-import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
+import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
@@ -341,12 +341,14 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const age = (t) => (t ? `${Math.round((Date.now() - Date.parse(t)) / 36e5 * 10) / 10}h ago` : 'unknown');
   const idle = (r) => r.flag?.startsWith('WORKING') || (r.updated && Date.now() - Date.parse(r.updated) > IDLE_HOURS * 36e5);
   const groups = { blocked: [], owed: [], idle: [], open: [] };
+  const merger = haveState && readState(root, sb, addressFile('merger')) !== null; // job merges are the MERGER's
   let merged = 0;
   // Each job awaiting a ruling with its age, oldest first; every other row in ledger order.
   const waits = new Map(blockedJobs(cfg, rows).map((b, i) => [b.id, { ...b, i }]));
   for (const r of [...rows].sort((a, b) => (waits.get(a.id)?.i ?? 1e9) - (waits.get(b.id)?.i ?? 1e9))) {
     const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}${waits.get(r.id)?.text ?? ''}`;
     if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
+    else if (r.ready && r.gate === 'success' && merger) groups.open.push(`${line}; the MERGER's train merges it`);
     else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed, with --job-cost-usd (its session's get_session usage.cost_usd)`);
     else if (r.flag && !r.flag.startsWith('WORKING')) groups.owed.push(line);
     else if (r.pr === 'merged') merged++;

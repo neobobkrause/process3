@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RULEBOOKS, rulebook } from '../lib/job.mjs';
-import { bobPrompt, rootPrompt, watcherPrompt } from '../lib/roles.mjs';
+import { bobPrompt, mergerPrompt, rootPrompt, watcherPrompt } from '../lib/roles.mjs';
 import { briefText } from '../lib/review.mjs';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -38,6 +38,7 @@ test('each role prompt names its own rulebook, and only that one', () => {
     root: rootPrompt({ slug: 'o/r', approvals: a }),
     bob: bobPrompt({ slug: 'o/r', rootId: 'session_x', approvals: a }),
     watcher: watcherPrompt({ slug: 'o/r', approvals: a }),
+    merger: mergerPrompt({ slug: 'o/r', rootId: 'session_x', approvals: a }),
     worker: briefText({ pr: { number: 1, title: 't', base: { ref: 'tranche' }, head: { ref: 'build/x', sha: 'f'.repeat(40) } }, files: [], job: null, owner: 'o', approvalsFile: 'CLAUDE.md' }),
   };
   for (const [role, p] of Object.entries(prompts)) {

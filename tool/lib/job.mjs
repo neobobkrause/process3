@@ -64,7 +64,7 @@ export const wakeLine = (what, from) => (from === 'bob' ? null : `next act: wake
 
 // TXT-3, TXT-5: each role's rulebook, in the pinned process. The platform loads a skill by its
 // description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
-export const RULEBOOKS = ['bob', 'root', 'watcher', 'job', 'worker'];
+export const RULEBOOKS = ['bob', 'root', 'watcher', 'merger', 'job', 'worker'];
 export const rulebook = (role) => `.process/rulebooks/${role}.md`;
 export const rulebookLine = (role, who = 'your prompt') => `Your rulebook is \`${rulebook(role)}\`: read it once, after \`git submodule update --init .process\` fills the pin; ${who} wins where they differ.`;
 

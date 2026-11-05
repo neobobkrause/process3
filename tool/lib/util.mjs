@@ -101,6 +101,8 @@ export const DEFAULTS = {
   reading_bob: ['CLAUDE.md'],
   // The plan: run, pause or stop. The job cap is not a config key: jobCap reads it.
   plan: 'run',
+  // The merge train (train.mjs, Bob's trial, 5 Nov): true, ROOT's sweep keeps a MERGER running.
+  merge_train: false,
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
@@ -367,7 +369,7 @@ export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = 
 // withTemp: a scratch directory whose owner process is gone, or one an older tool left (no owner
 // file) over TEMP_STALE_HOURS old, is removed. Kept on purpose, outside withTemp: the
 // development deploy's and release's step-log directories, the evidence their output names.
-export const TEMP_PREFIXES = ['p3-merge-', 'p3-state-', 'p3-layer-', 'p3-row-', 'p3-failing-', 'p3-base-red-'];
+export const TEMP_PREFIXES = ['p3-train-', 'p3-merge-', 'p3-state-', 'p3-layer-', 'p3-row-', 'p3-failing-', 'p3-base-red-'];
 export const TEMP_OWNER = '.p3-owner';
 export const TEMP_STALE_HOURS = 3;
 const temps = new Map();

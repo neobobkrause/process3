@@ -145,6 +145,8 @@ export function merge(root, n, opts = {}) {
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
   const pr = io.getPR(slug, n);
+  // The merge train names the head it chose (and its review note was for): any other is refused.
+  if (opts.head && pr.head?.sha !== opts.head) fail(`pull request ${n} moved to ${String(pr.head?.sha).slice(0, 10)} from ${opts.head.slice(0, 10)}, the head the train chose; nothing was merged`);
   const id = branchModule(pr.head?.ref, ledgerIds(root, `origin/${cfg.tranche}`));
   // A job's pull request already merged: merge again only records its provider notices, the step
   // a failed state-branch write left undone (idempotent).
@@ -153,50 +155,7 @@ export function merge(root, n, opts = {}) {
     if (jobCost !== null) log(`pull request ${n} is already merged: --job-cost-usd ${jobCost} is not recorded (a job's cost is written only by the merge that lands it)`);
     return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
   }
-  if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
-  if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
-  if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
-  if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
-  waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });
-
-  const branch = pr.head.ref;
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
-  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
-  // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
-  // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
-  const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
-  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(opts.every !== undefined ? { every: opts.every } : {}) };
-  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
-  let first = io.checkRun(slug, pr.head.sha, 'gate');
-  if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);
-  if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
-  const all = io.comments(slug, n);
-  const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
-  if (!receipt) fail(`pull request ${n} has no receipt`);
-  // Each row names its Actions run; the row counts only when that run is the process gate on
-  // this tip, green, and its own artifact holds the same row (verifyRow).
-  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
-    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
-  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unagreed(gateRuns(all), pr.head.sha, receipt.attempt)}`);
-
-  // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
-  // module and records, and nothing in the ledger but its own status. The paths come from the
-  // tranche's copy of the entry, never from the job's branch.
-  const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
-  const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
-  if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
-  const baseEntry = JSON.parse(entryText.stdout);
-  const own = ownPaths(baseEntry);
-  const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
-  if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
-  // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
-  const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
-  if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
-  // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
-  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
-  if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
-  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
-  if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
+  const { branch, watch, first, all, receipt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery });
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
   return withTemp('p3-merge-', (tmp) => {
@@ -244,12 +203,15 @@ export function merge(root, n, opts = {}) {
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
+    // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
+    opts.beforeLand?.();
     const r = mergeRetry(() => io.mergePR(slug, n, tip), {
       log, wait: opts.wait, reread: { read: () => io.getPR(slug, n), sha: tip },
       fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }),
       check: () => {
         const p = io.getPR(slug, n);
         if (p.state !== 'open' || p.base?.ref !== cfg.tranche || p.head?.sha !== tip) fail(`pull request ${n} changed while its base moved; run merge again`);
+        opts.beforeLand?.();
         // The gate ran on the job merged with the tranche as it was: a tranche that moved past
         // that is a new merged result, which merge gates afresh when run again.
         if (git(['merge-base', '--is-ancestor', `refs/remotes/origin/${cfg.tranche}`, tip], { cwd: root, allowFail: true }).code !== 0) fail(`${cfg.tranche} moved past the merged result the gate checked; run merge again`);
@@ -287,6 +249,60 @@ export function merge(root, n, opts = {}) {
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
     return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
   }, { root });
+}
+
+// The per-PR checks a job's merge holds before it brings the job in (merge, and each member of
+// the merge train): open, ready, into the tranche, from a job branch, mergeable, the branch where
+// GitHub has it, a green gate on the head that checked and agreed with the opener's newest
+// receipt, only the job's own files and ledger status, and the review triggers (refusing
+// --no-review when one fires).
+export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = GATE_WAIT_MINUTES, log = console.log, every, mergeableEvery }) {
+  if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
+  if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
+  if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
+  if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
+  waitMergeable(slug, n, pr, { every: mergeableEvery, read: io.getPR, log });
+
+  const branch = pr.head.ref;
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
+  // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
+  // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
+  const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
+  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(every !== undefined ? { every } : {}) };
+  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
+  let first = io.checkRun(slug, pr.head.sha, 'gate');
+  if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);
+  if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
+  const all = io.comments(slug, n);
+  const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
+  if (!receipt) fail(`pull request ${n} has no receipt`);
+  // Each row names its Actions run; the row counts only when that run is the process gate on
+  // this tip, green, and its own artifact holds the same row (verifyRow).
+  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
+    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
+  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unagreed(gateRuns(all), pr.head.sha, receipt.attempt)}`);
+
+  // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
+  // module and records, and nothing in the ledger but its own status. The paths come from the
+  // tranche's copy of the entry, never from the job's branch.
+  const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
+  const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
+  const baseEntry = JSON.parse(entryText.stdout);
+  const own = ownPaths(baseEntry);
+  const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
+  if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
+  // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
+  const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
+  if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
+  // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
+  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
+  if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
+  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
+  if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
+
+  return { branch, watch, first, all, receipt, mb, baseEntry, trig };
 }
 
 // --job-cost-usd: a figure above 0, or none (null). 0 is a figure not read: no job costs nothing.
