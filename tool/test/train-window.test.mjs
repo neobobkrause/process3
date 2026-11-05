@@ -63,6 +63,12 @@ function github(root, ids) {
     },
     editPR: (slug, n, f) => { assert.deepEqual(f, { state: 'closed' }); specs.get(Number(n)).open = false; calls.closed.push(Number(n)); return { number: Number(n) }; },
     comments: (slug, n) => {
+      // A spec PR: its gate's row, judged as the job (trigger code) unless calls.unjudged says not.
+      if (specs.has(Number(n))) {
+        const sha = specs.get(Number(n)).sha;
+        const g = io.checkRun(slug, sha);
+        return [{ id: 3, body: block(GATE, { runs: [{ sha, ok: g.conclusion === 'success', trigger: calls.unjudged ? 'draft' : 'code', run_id: 12 }] }), user: { login: BOT } }];
+      }
       const s = jobs.get(Number(n));
       const head = tipOf(`job/${s.id}`);
       return [
@@ -240,4 +246,15 @@ test('a land whose tree is not the spec\'s tested tree takes the full re-gate (n
   assert.ok(win.some((r) => r.event === 'fallback' && r.pr === 1 && r.landed));
   assert.ok(win.some((r) => r.event === 'close' && r.pr === 2 && r.seq === 1 && /PR 1 landed by its full re-gate/.test(r.cause)), JSON.stringify(win));
   assert.ok(win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 2));
+});
+
+test('a spec gate red that did not judge the job (the job PR moved or was unread while it ran) is closed and rebuilt, not refused', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'BROKEN' } }, 2);
+  const g = github(root, ids);
+  g.calls.unjudged = true;
+  run(root, g, 3); // pass 2 closes beta's spec and lands alpha; pass 3 rebuilds beta
+  const win = stateRows(root, WINDOW_FILE);
+  assert.ok(win.some((r) => r.event === 'close' && r.pr === 2 && /spec gate red, not the job's: its run did not judge the job \(draft\)/.test(r.cause)), JSON.stringify(win));
+  assert.ok(!stateRows(root, TRAIN_FILE).some((r) => r.pr === 2 && r.result === 'refused'), 'beta is not refused');
+  assert.ok(win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 2), 'rebuilt');
 });

@@ -727,14 +727,35 @@ function windowPass(root, ctx, { idle }) {
         const s = specState(g);
         if (s === 'red' && g.conclusion === 'cancelled') { p.state = 'cancelled'; p.url = g.html_url; return; }
         const post = posts[j];
-        if (s === 'green' && (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at)))) return;
+        // Green or red, the run's row must be posted: the fast path reads a green one, and a red is
+        // the job's only when its row shows the job was judged (below).
+        if (s !== 'gating' && (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at)))) return;
         p.state = s;
         p.url = g?.html_url;
       });
     }
     const gone = w.findIndex((p) => p.state === 'cancelled');
     if (gone >= 0) { const r = onHeadMoved(w, w[gone].n, `spec gate cancelled (${w[gone].url || 'no run'})`); closeSpecs(ctx, r.close); w = r.keep; }
-    const red = firstRed(w);
+    // A red is the job's only when the spec run judged the job (its row's trigger is code) and the job
+    // PR is as admitted now; a spec run that could not judge it (the job PR moved, closed or unread
+    // while it ran: a spec finding, no suite) is closed and rebuilt, never refused.
+    let red = firstRed(w);
+    if (red >= 0) {
+      const p = w[red];
+      let judged = null;
+      try {
+        const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result).pop();
+        const o = io.getPR(slug, p.n);
+        const same = o?.state === 'open' && !o.draft && o.base?.ref === cfg.tranche && (o.head?.sha === p.head || o.head?.sha === p.pushed);
+        judged = !row ? 'no row' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
+      } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; judged = `unread: ${e.message.split('\n')[0]}`; }
+      if (judged !== true) {
+        const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`);
+        closeSpecs(ctx, r.close);
+        w = r.keep;
+        red = -1;
+      }
+    }
     if (red >= 0) {
       const { refuse: p, close, keep } = onRed(w, red);
       const why = `the gate on the merged result is failure (spec PR ${p.spec_pr}, ${s10(p.result)} on ${red ? `PR ${w.slice(0, red).map((x) => x.n).join(', ')} ahead` : 'the tranche tip'}): ${p.url || 'no run'}`;
