@@ -3,7 +3,7 @@ Process3 coordinator handoff, 5 Nov (b), from session_01RAN5ekK8nutcUSV3rTsfxn. 
 START, in order:
 1. Record your id as `coordinator` in process/config.json on the copy's and the probe's tranche, each by a short session (copy PR 341 and probe PR 221 are the pattern: merge with `--plain --no-review "one-field coordinator id change"`; tranche only, never main, never force-push).
 2. Move my scheduled tasks to yourself (get_trigger, create the same prompt bound to you, delete mine): trig_01WBadBUrZQcUg1R4FAoyLzg (16 Nov Phase 1 survival read), trig_01DyYeP535c2Re5DnyjZ5SZo (18 Nov Phase 2 survival read), trig_0184DpPd8aFiFWGQ29G2vwP3 (5 Nov 19:00 review-trigger check), trig_014xnuA1o4AqdnUiWWudxgJx (hourly flow check, cron; recreate hourly).
-3. Adopt my open children (each reports to my id; tell each your id): build/start-fixes session_01RAN5epGLjtAL82eSXYyj3s (see OPEN 1).
+3. Adopt my open children (each reports to my id; tell each your id): the pin-move session to c9c5aa1 if still open (see OPEN 1).
 4. Tell BOB (session_01RAN5eomXNvM23EMwtLVBHG) and ROOT (session_01RAN5emK1snYonbEbVPHbAP) your id. Archive me.
 5. Check your context at every check-in; hand over at 60%.
 
@@ -22,7 +22,7 @@ STATE AT HANDOFF (about 04:00):
 - Started-then-blocked this round: 6 (ai-use, citation, contradiction, agent-steps, ai-runs, op-grades). Rulings given 03:13-03:50 are in findings.
 
 OPEN (yours):
-1. build/start-fixes (session_01RAN5epGLjtAL82eSXYyj3s): starts robust to a moving tranche; lease-taking commands require args; found refuses pinned modules with the reopen route; started-then-blocked in Flow; fresh live count per pass; readiness counting a reopened/unmerged provider as done (verify vs PR 137 jobOpen). When it merges: pin move (short copy session running `pin move ... --report <you>`), then tell BOB to un-draft and merge PR 388 (merge_train: true); ROOT starts the MERGER (its prompt refresh at the pin allows it; if not, ROOT tells you). The trial (notes/merge-train-trial.md) starts at the MERGER's first merge: watch the first merges, apply stop rules, report to Bob after one day.
+1. build/start-fixes MERGED as PR 143 (c9c5aa1); pin move to it started 04:06. When the pin lands: pin move (short copy session running `pin move ... --report <you>`), then tell BOB to un-draft and merge PR 388 (merge_train: true); ROOT starts the MERGER (its prompt refresh at the pin allows it; if not, ROOT tells you). The trial (notes/merge-train-trial.md) starts at the MERGER's first merge: watch the first merges, apply stop rules, report to Bob after one day.
 2. Round close for the first dev release when 175, 290, 314 merge: plan: close, internal walk, deploy dev, live walk, findings round, tranche close, release dev, install, upgrade test.
 3. Process change smoke on 2-3 open job branches before process PRs reach the shared gate (velocity audit, not yet built).
 4. Lanes: only after Bob says he has read LAN-1..LAN-10.
