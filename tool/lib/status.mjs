@@ -5,7 +5,7 @@ import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs }
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
-import { REFRESH_AT, jobBranchAt, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
+import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
@@ -449,9 +449,16 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
   };
   const here = (m) => { const f = `${LEDGER_DIR}/${m.row.id}.json`; const b = blob(ref, f); return b === null || b !== blob('refs/remotes/origin/main', f); };
+  // The R marks its last start reopened it for: its start row on the tranche (no history read, so a
+  // shallow clone reads it too; review of PR 138).
+  const left = (m) => String((ref ? rowsAt(root, ref, m.row.id) : readRows(root, m.row.id)).filter((r) => r.event === 'start').pop()?.reopen || '').match(/^meet the unmet requirement marks (R\d+(?:, R\d+)*)/)?.[1].split(', ') || [];
   for (const L of layers) {
     L.recorded = recorded.has(L.n);
-    L.worked = L.mods.some((m) => m.merged && here(m));
+    for (const m of L.mods) m.here = m.merged && here(m);
+    L.worked = L.mods.some((m) => m.here);
+    // Merged in this tranche after a reopen for these marks: unmet after its job, deferred at the
+    // close, never reopened for them again this tranche (coordinator, 5 Nov: a reopen per start --ready).
+    for (const m of L.mods) if (m.here && m.marks.length) { const l = left(m); if (m.marks.every((x) => l.includes(x))) m.after = m.marks; }
     L.closed = L.recorded || (!L.worked && L.mods.every((m) => !m.open && !m.marks.length));
   }
   const cur = layers.find((L) => !L.closed) || null;
@@ -686,6 +693,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const texts = new Map();
   const textOf = (f) => (texts.has(f) ? texts.get(f) : (texts.set(f, whole(f)), texts.get(f)));
   const foundBy = new Set(foundReady.map((m) => m.file));
+  const after = new Set((ls?.layers || []).flatMap((L) => L.mods.filter((m) => m.after).map((m) => m.file)));
   // A found-work entry's module is taken while its job is open (taken holds its requirement file).
   const entryTaken = (f) => f.startsWith(`${FOUND_DIR}/`) && open.some((r) => foundFile(r.id) === f);
   // An OPEN entry BOB wrote and no job started: BOB's choice, startable whatever its layer or
@@ -697,7 +705,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(ids.length > fids.length ? { marks: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(inLayer.has(file) && ids.length > fids.length ? { [after.has(file) ? 'after' : 'marks']: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found) || (entered.has(x.file) && x.entry_state === 'OPEN' && x.count > 0));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
@@ -720,7 +728,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
   const shownF = foundList.slice(0, Math.max(0, n - shown.length - shownN.length));
   const shownE = enteredList.slice(0, Math.max(0, n - shown.length - shownN.length - shownF.length));
-  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}`;
+  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}${x.after ? `; unmet after its job: ${x.after.join(', ')} (layer close defers them)` : ''}`;
   const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (jobs ${live} of ${cap}), ${a.length - b.length} wait`);
   if (list.length) {
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --sessions <file> (or --live <the account's job sessions>) to list at most the job cap less them` : waits(list, shown)}`);

@@ -115,7 +115,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const ls = layerState(root, cfg, rows, tranche);
         if (ls?.ready || ls?.pending) found.push(`layer ${ls.cur.n} ${ls.ready ? 'ready to close' : 'owed a close'}`);
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
-        next = !!(ls?.ready || ls?.pending) || work.length > 0;
+        next = !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live);
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min };

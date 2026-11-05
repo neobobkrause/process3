@@ -91,6 +91,17 @@ const io = { openPRs: () => [], checkRun: () => null, compare: () => null };
 const PASS = "import test from 'node:test';\ntest('ok', () => {});\n";
 const FAIL = "import test from 'node:test';\ntest('no', () => { throw new Error('x'); });\n";
 
+// Coordinator, 5 Nov: a module reopened for its marks in this tranche whose job left them is
+// deferred with that reason, never reopened again.
+test('layer close: marks a reopen in this tranche left unmet are deferred as unmet after its job', () => {
+  const reopened = `${JSON.stringify({ row: 'attempt', event: 'start', role: 'job', attempt: 2, reopen: 'meet the unmet requirement marks R1, R2' })}\n`;
+  const { root, bare } = withOrigin({ ...base, 'process/metrics/a.jsonl': reopened, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
+  const out = [];
+  assert.equal(layerClose(root, '1', { io, log: (m) => out.push(m) }).ok, true);
+  assert.deepEqual(JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare })).deferred, { a: { why: 'unmet after its job', marks: ['R1', 'R2'] } });
+  assert.match(out.join('\n'), /deferred: a 2 \(unmet after its job\)/);
+});
+
 test('layer close: runs the suites on the tranche tip, records the close with its deferred marks, prints the next layer', () => {
   const { root, bare } = withOrigin({ ...base, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
   const out = [];
