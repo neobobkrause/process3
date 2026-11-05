@@ -597,6 +597,8 @@ function heldPass(root, ctx, h, { idle }) {
 // tree the spec gate tested, records aside; anything else is the full re-gate. Nothing is ever
 // force-pushed or deleted: spec branches are new refs, spec pull requests are closed, not deleted.
 const s10 = (x) => String(x ?? '').slice(0, 10);
+// A spec gate red that did not judge the job (no row, a crash, a timeout) is rebuilt this many times for one head, then refused.
+export const SPEC_REBUILDS = 3;
 // The window's rows, written at the end of a pass in one state write (kept and tried again on failure).
 function windowRow(ctx, ev) {
   const row = { at: now(), row: 'spec', session: ctx.session, ...ev };
@@ -619,7 +621,13 @@ function closeSpecs(ctx, ps, event = 'close') {
   for (const p of ps) {
     ctx.causes.set(p.n, p.cause);
     if (p.spec_pr && !p.closed) {
-      try { ctx.io.editPR(ctx.slug, p.spec_pr, { state: 'closed' }); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; ctx.log(`spec PR ${p.spec_pr} was not closed (${e.message.split('\n')[0]}); it tests nothing the train will land`); }
+      try { ctx.io.editPR(ctx.slug, p.spec_pr, { state: 'closed' }); } catch (e) {
+        if (!(e instanceof Fail) || e instanceof Stop) throw e;
+        // Tried again at the top of each pass (cold review: an open spec gate is runner time spent on nothing).
+        ctx.log(`spec PR ${p.spec_pr} was not closed (${e.message.split('\n')[0]}); tried again next pass`);
+        (ctx.unclosed ||= []).push({ ...p, event });
+        continue;
+      }
     }
     if (p.spec_pr) windowRow(ctx, { event, pr: p.n, seq: p.seq, position: p.position, spec_pr: p.spec_pr, base: p.base, head: p.result, cause: p.cause });
     ctx.log(`window: PR ${p.n}${p.spec_pr ? ` (spec PR ${p.spec_pr})` : ''} leaves the window: ${p.cause}`);
@@ -664,6 +672,8 @@ function admitWindow(root, ctx, w, list, tip) {
   const queue = list.filter((c) => !ctx.buildFailed.has(`${c.n}@${c.head}@${ends()}`));
   for (const c of admit(w, queue, ctx.k, { causes: ctx.causes })) {
     if (w.length >= ctx.k) break;
+    // Red once behind others: only at the head of the window, on the tranche tip itself.
+    if (w.length && ctx.solo.has(`${c.n}@${c.head}`)) continue;
     const onto = ends();
     const position = w.length;
     let res;
@@ -703,11 +713,12 @@ function admitWindow(root, ctx, w, list, tip) {
 // act on a red, land position 0 when green, fill the window. true when a land was tried.
 function windowPass(root, ctx, { idle }) {
   const { cfg, slug, io, log } = ctx;
-  const list = ready(root, ctx);
+  let list = ready(root, ctx);
   ctx.onQueue?.(list);
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
   let w = ctx.window;
   try {
+    if (ctx.unclosed?.length) closeSpecs(ctx, ctx.unclosed.splice(0).map(({ event, ...p }) => p));
     const moved = onTrancheMoved(w, tip);
     if (moved.close.length) { closeSpecs(ctx, moved.close); w = moved.keep; }
     // The jobs' heads, from ready()'s one read of the open pull requests.
@@ -727,6 +738,7 @@ function windowPass(root, ctx, { idle }) {
         const s = specState(g);
         if (s === 'red' && g.conclusion === 'cancelled') { p.state = 'cancelled'; p.url = g.html_url; return; }
         const post = posts[j];
+        p.run_id = g?.id ?? null;
         // Green or red, the run's row must be posted: the fast path reads a green one, and a red is
         // the job's only when its row shows the job was judged (below).
         if (s !== 'gating' && (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at)))) return;
@@ -744,13 +756,28 @@ function windowPass(root, ctx, { idle }) {
       const p = w[red];
       let judged = null;
       try {
-        const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result).pop();
+        // The row of this check run, verified as the spec PR's own (cold review: never another run's).
+        const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && (p.run_id == null || x.run_id === p.run_id)).pop();
         const o = io.getPR(slug, p.n);
         const same = o?.state === 'open' && !o.draft && o.base?.ref === cfg.tranche && (o.head?.sha === p.head || o.head?.sha === p.pushed);
-        judged = !row ? 'no row' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
+        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: specBase(p.n, p.seq) }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
       } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; judged = `unread: ${e.message.split('\n')[0]}`; }
-      if (judged !== true) {
+      // A red that is not the job's is rebuilt, up to SPEC_REBUILDS times for one head; then it is
+      // refused as the serial train refuses a gate that ends so (cold review: a gate that times out
+      // every time would cycle for ever).
+      const k = `${p.n}@${p.head}`;
+      if (judged !== true && (ctx.rebuilt.get(k) || 0) + 1 < SPEC_REBUILDS) {
+        ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
         const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`);
+        closeSpecs(ctx, r.close);
+        w = r.keep;
+        red = -1;
+      } else if (judged !== true) p.notJudged = `${judged}, ${SPEC_REBUILDS} times`;
+      else if (red > 0) {
+        // Red behind others that have not landed (cold review: a green spec is not a land): never
+        // refused on a base that may not come to be; it is judged again at the head of the window.
+        ctx.solo.add(k);
+        const r = onHeadMoved(w, p.n, `spec gate red behind PR ${w.slice(0, red).map((x) => x.n).join(', ')}: judged again at the head of the window`);
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
@@ -758,8 +785,9 @@ function windowPass(root, ctx, { idle }) {
     }
     if (red >= 0) {
       const { refuse: p, close, keep } = onRed(w, red);
-      const why = `the gate on the merged result is failure (spec PR ${p.spec_pr}, ${s10(p.result)} on ${red ? `PR ${w.slice(0, red).map((x) => x.n).join(', ')} ahead` : 'the tranche tip'}): ${p.url || 'no run'}`;
+      const why = `the gate on the merged result is failure${p.notJudged ? ` with no judgment of the job (${p.notJudged})` : ''} (spec PR ${p.spec_pr}, ${s10(p.result)} on ${red ? `PR ${w.slice(0, red).map((x) => x.n).join(', ')} ahead` : 'the tranche tip'}): ${p.url || 'no run'}`;
       refuse(root, ctx, p, why);
+      list = list.filter((c) => c.n !== p.n); // read before the refusal: not admitted again this pass
       record(root, ctx, `merge train: PR ${p.n} refused`, { at: now(), row: 'merge', session: ctx.session, pr: p.n, module: p.id, head: p.head, run: p.run, green_at: p.green_at, result: 'refused', why: why.slice(0, 300), spec_pr: p.spec_pr, window: true });
       closeSpecs(ctx, [{ ...p, cause: `red: ${why}` }, ...close]);
       w = keep;
@@ -785,7 +813,7 @@ function specDone(root, ctx, c, r, row) {
   if (w[0]?.n !== c.n) return;
   const p = w[0];
   if (r?.merged) {
-    const fast = r.spec?.fast === true;
+    const fast = r.spec?.fast === true || !p.spec_pr; // its own merged result, landed on its own gate: the chain holds
     if (p.spec_pr) windowRow(ctx, { event: fast ? 'land' : 'fallback', pr: p.n, seq: p.seq, position: 0, spec_pr: p.spec_pr, base: p.base, head: p.result, landed: r.sha, cause: fast ? 'landed on its spec' : `landed by the full re-gate: ${r.spec?.why || 'no spec answer'}` });
     if (p.spec_pr) closeSpecs(ctx, [{ ...p, cause: 'landed' }], 'closed');
     const { keep } = onLand(w, r.sha);
@@ -805,6 +833,8 @@ function restoreWindow(root, ctx) {
   const live = ctx.windowRows.filter((r) => r.row === 'spec' && r.event === 'build' && !ended.has(`${r.pr}-${r.seq}`));
   const open = live.filter((r) => { try { return io.getPR(slug, r.spec_pr)?.state === 'open'; } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; return true; } }).map((r) => r.spec_pr);
   const { window, close } = restore(ctx.windowRows, open, tip);
+  // The predicted results, which a fresh clone lacks (cold review): the window builds onto them.
+  if (window.length) git(['fetch', '-q', 'origin', ...window.map((p) => `+refs/heads/${specHead(p.n, p.seq)}:refs/remotes/origin/${specHead(p.n, p.seq)}`)], { cwd: root, allowFail: true });
   closeSpecs(ctx, close);
   ctx.window = window;
   log(`window: restarted with ${window.length} position(s)${window.length ? ` (PR ${window.map((p) => p.n).join(', ')})` : ''}${close.length ? `; ${close.length} spec(s) closed` : ''}`);
@@ -1078,7 +1108,7 @@ export function train(root, opts = {}) {
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], inflight: null, transient: opts.transient, bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   // The window (window.mjs), only past 1: merge and the merged-result build are given by a test.
-  Object.assign(ctx, { k: cfg.merge_train_window || 1, merge: opts.merge || merge, build: opts.build || buildResult, window: [], windowRows: [], causes: new Map(), seqs: new Map(), buildFailed: new Set() });
+  Object.assign(ctx, { k: cfg.merge_train_window || 1, merge: opts.merge || merge, build: opts.build || buildResult, window: [], windowRows: [], causes: new Map(), seqs: new Map(), buildFailed: new Set(), rebuilt: new Map(), solo: new Set() });
   ctx.onQueue = opts.onQueue; // a test reads the queue each round
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
   const { takeover, dead } = takeLease(root, cfg, session, ctx.token, { take: true });

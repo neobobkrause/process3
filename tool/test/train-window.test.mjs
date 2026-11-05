@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { fetchState, jsonl, readState } from '../lib/state.mjs';
-import { TRAIN_FILE, WINDOW_FILE, buildResult, train, trainLines, trainSummary } from '../lib/train.mjs';
+import { SPEC_REBUILDS, TRAIN_FILE, WINDOW_FILE, buildResult, train, trainLines, trainSummary } from '../lib/train.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -67,7 +67,7 @@ function github(root, ids) {
       if (specs.has(Number(n))) {
         const sha = specs.get(Number(n)).sha;
         const g = io.checkRun(slug, sha);
-        return [{ id: 3, body: block(GATE, { runs: [{ sha, ok: g.conclusion === 'success', trigger: calls.unjudged ? 'draft' : 'code', run_id: 12 }] }), user: { login: BOT } }];
+        return [{ id: 3, body: block(GATE, { runs: [{ sha, ok: g.conclusion === 'success', trigger: calls.unjudged ? 'draft' : 'code', run_id: g.id }] }), user: { login: BOT } }];
       }
       const s = jobs.get(Number(n));
       const head = tipOf(`job/${s.id}`);
@@ -101,7 +101,7 @@ const stateRows = (root, f) => { fetchState(root, 'process-state', { fresh: true
 const refs = (root) => new Map(git(['ls-remote', 'origin', 'refs/heads/train/*'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t').reverse()));
 const run = (root, g, rounds, lines = []) => train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, idleEvery: 1, rounds, log: (l) => lines.push(l) });
 
-test('window of 3: specs on the chain, red at position 1 refused, the one behind rebuilt on R(0), lands on their spec, no ref rewritten or deleted', () => {
+test('window of 3: specs on the chain; a red at position 1 is not refused behind PR 1 but judged again at the head, then refused; the one behind rebuilt; lands on their spec; no ref rewritten or deleted', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'BROKEN' }, gamma: { 'src/gamma/a.mjs': 'c' } }, 3);
   const g = github(root, ids);
   const seen = new Map(); // every train/* ref, with the first sha it held
@@ -128,8 +128,12 @@ test('window of 3: specs on the chain, red at position 1 refused, the one behind
   const merged = train.filter((r) => r.result === 'merged');
   assert.deepEqual(merged.map((r) => [r.pr, r.spec_fast]), [[1, true], [3, true]], 'both landed on their spec');
   const win = stateRows(root, WINDOW_FILE);
-  assert.ok(win.some((r) => r.event === 'close' && r.pr === 3 && r.seq === 1 && /red ahead: PR 2/.test(r.cause)), JSON.stringify(win));
-  assert.ok(win.some((r) => r.event === 'build' && r.pr === 3 && r.seq === 2));
+  // Red behind PR 1 (not landed yet): closed, not refused; judged again at the head of the window.
+  assert.ok(win.some((r) => r.event === 'close' && r.pr === 2 && r.seq === 1 && /red behind PR 1: judged again at the head/.test(r.cause)), JSON.stringify(win));
+  assert.ok(win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 2 && r.position === 0));
+  assert.equal(train.filter((r) => r.pr === 2 && r.result === 'refused').length, 1, 'refused once, at the head');
+  assert.ok(!win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 3), 'never rebuilt after its refusal');
+  assert.ok(win.some((r) => r.event === 'close' && r.pr === 3 && r.seq === 2 && /red ahead: PR 2/.test(r.cause)), JSON.stringify(win));
   assert.deepEqual(win.filter((r) => r.event === 'land').map((r) => r.pr), [1, 3]);
   // Every spec pull request is closed by the end; every spec branch is still there.
   assert.deepEqual([...g.specs.values()].filter((s) => s.open), []);
@@ -140,7 +144,7 @@ test('window of 3: specs on the chain, red at position 1 refused, the one behind
   assert.ok(trainLines(s).some((l) => /Window lands: 2 on their spec gate, 0 by the full re-gate/.test(l)));
   // Each land's tranche tree is the spec's tested tree, records aside.
   const landed = g.tipOf('tranche');
-  const tested = seen.get('refs/heads/train/head/3-2');
+  const tested = refs(root).get('refs/heads/train/head/3-3');
   const off = git(['diff', '--name-only', tested, landed], { cwd: root }).split('\n').filter((f) => f && !f.startsWith('process/metrics/'));
   assert.deepEqual(off, []);
 });
@@ -257,4 +261,38 @@ test('a spec gate red that did not judge the job (the job PR moved or was unread
   assert.ok(win.some((r) => r.event === 'close' && r.pr === 2 && /spec gate red, not the job's: its run did not judge the job \(draft\)/.test(r.cause)), JSON.stringify(win));
   assert.ok(!stateRows(root, TRAIN_FILE).some((r) => r.pr === 2 && r.result === 'refused'), 'beta is not refused');
   assert.ok(win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 2), 'rebuilt');
+});
+
+test('a spec gate that ends red without judging the job, again and again, is refused after SPEC_REBUILDS tries, as the serial train refuses such a gate', () => {
+  const { root, ids } = setup({ beta: { 'src/beta/a.mjs': 'BROKEN' } }, 2);
+  const g = github(root, ids);
+  g.calls.unjudged = true;
+  run(root, g, 8);
+  const builds = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'build' && r.pr === 1);
+  assert.equal(builds.length, SPEC_REBUILDS);
+  const refused = stateRows(root, TRAIN_FILE).filter((r) => r.pr === 1 && r.result === 'refused');
+  assert.equal(refused.length, 1);
+  assert.match(refused[0].why, new RegExp(`gate on the merged result is failure with no judgment of the job \\(its run did not judge the job \\(draft\\), ${SPEC_REBUILDS} times\\)`));
+});
+
+test('a spec pull request whose close fails is closed at the next pass, and its row written then', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } }, 2);
+  const g = github(root, ids);
+  g.calls.hold = true;
+  const edit = g.io.editPR;
+  let fails = 1;
+  g.io.editPR = (...a) => { if (fails-- > 0) throw new Fail('gh api -X PATCH failed: HTTP 502'); return edit(...a); };
+  let passes = 0;
+  const onQueue = () => {
+    if (++passes !== 2) return;
+    git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
+    git(['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: root });
+    commit(root, { 'hand.txt': 'x' });
+    git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
+    git(['checkout', '-q', 'main'], { cwd: root });
+  };
+  train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, idleEvery: 1, rounds: 4, log: () => {}, onQueue });
+  assert.ok(!g.specs.get(101).open && !g.specs.get(102).open, 'both closed in the end');
+  const closes = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'close' && r.seq === 1);
+  assert.deepEqual(closes.map((r) => r.pr).sort(), [1, 2], 'one row each, once closed');
 });
