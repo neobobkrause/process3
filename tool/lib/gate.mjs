@@ -602,7 +602,7 @@ export function jobMerge(root, cfg, c, { slug, io }) {
 // the merged result only in records, and verifies as the spec PR's run into its spec base. Once
 // the spec PR is closed GitHub may list no pull request on its runs, as on a merged one's
 // (verifyRow): the run is then bound by its branch, as a merged job PR's is, when every PR from
-// the spec head was into that spec base, never retargeted (branchBound). null when not shown.
+// the spec head was into the tranche, never retargeted (branchBound). null when not shown.
 function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
@@ -618,7 +618,8 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
 // Why a spec run (row) does not stand for a land on base `is`: its base, a tranche tip, is not
 // `is` or behind it, or the judge differs (the pin, the config, the gate workflow), or its suite
 // was base-red on another base; null when it stands.
-export const JUDGE_FILES = ['.process', CONFIG_FILE, '.github/workflows/process-gate.yml'];
+const GATE_FILE = '.github/workflows/process-gate.yml';
+export const JUDGE_FILES = ['.process', CONFIG_FILE, GATE_FILE];
 function baseDiffers(root, row, is) {
   const was = row?.base;
   if (!committed(root, was) || !committed(root, is)) return 'is not readable here';
@@ -626,6 +627,9 @@ function baseDiffers(root, row, is) {
   const judge = JUDGE_FILES.filter((f) => blobAt(root, was, f) !== blobAt(root, is, f));
   if (judge.length) return `has another judge than ${String(is).slice(0, 10)}: ${judge.join(', ')}`;
   if (row.suite === 'base-red' && was !== is) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}`;
+  // GitHub takes a pull_request run's workflow file from its merge, i.e. from the spec head: it must
+  // be the land base's too (the spec head is any writer's branch; review of the tranche-based spec).
+  if (!committed(root, row.sha) || blobAt(root, row.sha, GATE_FILE) !== blobAt(root, is, GATE_FILE)) return `ran ${GATE_FILE} from its spec head ${String(row.sha).slice(0, 10)}, not ${String(is).slice(0, 10)}'s`;
   return null;
 }
 
