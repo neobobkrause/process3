@@ -312,3 +312,4 @@
 
 # 5 Nov, coordinator session_01RAN5ekK8nutcUSV3rTsfxn
 - 00:10 took over (handoff 5nov). Tasks moved: trig_01WBadBUrZQcUg1R4FAoyLzg (16 Nov Phase 1 survival read), trig_01DyYeP535c2Re5DnyjZ5SZo (18 Nov Phase 2 survival read), trig_0184DpPd8aFiFWGQ29G2vwP3 (5 Nov 19:00 review-trigger day-1 check); old ones deleted. Coordinator id sessions: copy session_01RAN5enDndxDW8EnJ76hJvD, probe session_01RAN5eon57hq8WQQLtbavBr (tranche only). Pin child session_01RAN5eoEN9Lc8W8JViVWXEs already done (PR 340) and archived. build/internal-walk session_01RAN5enf9NfJfoPRm87D9si told the new id. BOB and ROOT told. Old coordinator archived (30.11 USD, 612k context).
+- 00:11 coordinator id recorded: copy PR 341 (eb6ce1f), probe PR 221 (ba8b3d6; first merge stopped on gate in_progress, same command once after green). Both short sessions archived.
