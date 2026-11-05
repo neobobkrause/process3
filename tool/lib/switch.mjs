@@ -6,7 +6,7 @@
 // The tool cannot call Claude's session or task tools: both commands read saved results and print acts.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { P3 } from './job.mjs';
+import { P3, routeFor } from './job.mjs';
 import { readAddress, tipApprovals } from './roles.mjs';
 import { accountCheck } from './setup.mjs';
 import { fetchState, readState, toRoute, undelivered, writeState } from './state.mjs';
@@ -59,7 +59,7 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
   out.jobs = ids.map((id) => {
     const s = jobSession(sessions.filter((x) => !isArchived(x)), id);
     const r = rows.find((y) => y.id === id) || {};
-    return { module: id, session: sessionId(s), branch: refOf({ id, ...r }), pr: r.pr || null, state: r.branch || r.tranche || 'not in the ledger', release: release.has(id) };
+    return { module: id, session: sessionId(s), branch: refOf({ id, ...r }), pr: r.pr || null, state: r.branch || r.tranche || 'not in the ledger', ahead: r.ahead ?? null, release: release.has(id) };
   }).sort((a, b) => (b.release - a.release) || a.module.localeCompare(b.module));
   out.messages = unanswered(root, sb);
   return out;
@@ -91,6 +91,9 @@ export function switchOut(root, { tasks, sessions, by, read = status, log = cons
   const s = readSessions(sessions);
   const { rows } = read(root, { log: () => {} });
   const m = manifest(root, { tasks: t, sessions: s, by, rows, cfg });
+  // A job whose pull request GitHub did not answer for would be restarted by the wrong route (review of PR 149).
+  const unread = m.jobs.filter((j) => /^unknown/.test(String(j.pr)));
+  if (unread.length) fail(`GitHub was not read for the pull requests of ${unread.map((j) => j.module).join(', ')}; nothing was written. Run switch out again once gh api user works on this account`);
   const w = writeState(root, cfg.state_branch, `switch out: manifest by ${by}`, (wt) => {
     mkdirSync(dirname(join(wt, MANIFEST_FILE)), { recursive: true });
     writeFileSync(join(wt, MANIFEST_FILE), JSON.stringify(m, null, 2) + '\n');
@@ -146,9 +149,11 @@ const freshPrompt = (m, prompt, approvals) => {
   return p;
 };
 
-export function restartActs(m, { by, sessions, cfg, approvals, addresses = m.addresses, messages = [], t = Date.now() }) {
+export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, messages = [], t = Date.now() }) {
   const L = [];
-  const old = (r) => addresses[r]?.session;
+  // The manifest's ids: a switch in run again after (c) must not name the new roles as the old (review of PR 149).
+  const old = (r) => m.addresses[r]?.session;
+  for (const r of ROLES) if (old(r) && addresses[r]?.session && addresses[r].session !== old(r)) L.push(`note: ${r} is now addressed to ${addresses[r].session}, not the manifest's ${old(r)}: skip its start in (c) if that session is the new one`);
   L.push(cfg.coordinator === by
     ? `(a) The coordinator id: ${by} is already \`coordinator\` in process/config.json on ${cfg.tranche}.`
     : `(a) The coordinator records its id: on a branch cut from origin/${cfg.tranche}, set "coordinator": "${by}" in process/config.json, push it, open a pull request into ${cfg.tranche}, and merge it: \`${P3} merge <pr> --plain --no-review "coordinator id after the account switch"\`. The same on each product this coordinator holds (the probe too).`);
@@ -165,13 +170,18 @@ export function restartActs(m, { by, sessions, cfg, approvals, addresses = m.add
     const bound = k.role === 'coordinator' ? {} : ROLES.includes(k.role) ? { persistent_session_id: `<the new ${k.role} id: ${P3} address ${k.role}>` } : { persistent_session_id: `<unknown: it was bound to ${k.session || 'no session'}; the coordinator decides>` };
     L.push(`    - ${k.name || k.id} (${k.role}${k.role === 'coordinator' ? ', created from the coordinator session itself' : ''}): ${JSON.stringify({ name: k.name, ...when, ...bound, prompt: freshPrompt(m, k.prompt, approvals) })}`);
   }
-  const live = m.jobs.filter((j) => String(j.pr || '').startsWith('#'));
-  const resume = m.jobs.filter((j) => !String(j.pr || '').startsWith('#') && /^(WORKING|BLOCKED)/.test(j.state));
-  const done = m.jobs.filter((j) => !live.includes(j) && !resume.includes(j));
-  L.push(live.length || resume.length ? `(e) BOB restarts every recorded job, release path first, each its own command, then the create_session it prints:` : '(e) No recorded job to restart.');
-  for (const j of live) L.push(`    - \`${P3} job start ${j.module} --restart "account switch: its session ${j.session} was on the old Claude account" --stop idle\`${j.release ? ' (release path)' : ''}`);
-  for (const j of resume) L.push(`    - \`${P3} job start ${j.module} --sessions ${sessions}\` (no open pull request: an unfinished start resumes)${j.release ? ' (release path)' : ''}`);
-  for (const j of done) L.push(`    - ${j.module}: ${j.state}${j.pr ? `, PR ${j.pr}` : ''}: nothing to restart`);
+  // Each job by routeFor's route (job.mjs): an open pull request, or BLOCKED, is a --restart; a
+  // WORKING start with one commit resumes; anything else is routeFor's words for BOB.
+  const open = (j) => String(j.pr || '').startsWith('#');
+  const state = (j) => String(j.state).split(' ')[0];
+  const restart = m.jobs.filter((j) => open(j) || state(j) === 'BLOCKED');
+  const resume = m.jobs.filter((j) => !restart.includes(j) && state(j) === 'WORKING' && j.ahead === 1);
+  const other = m.jobs.filter((j) => !restart.includes(j) && !resume.includes(j));
+  const rel = (j) => (j.release ? ' (release path)' : '');
+  L.push(restart.length || resume.length ? '(e) BOB restarts every recorded job, release path first, each its own command, then the create_session it prints:' : '(e) No recorded job to restart.');
+  for (const j of restart) L.push(`    - \`${P3} job start ${j.module} --restart "account switch: its session ${j.session} was on the old Claude account" --stop idle\`${rel(j)}`);
+  for (const j of resume) L.push(`    - \`${P3} job start ${j.module} --sessions <list_sessions saved now>\` (an unfinished start resumes)${rel(j)}`);
+  for (const j of other) L.push(`    - ${j.module}: ${j.state}${j.pr ? `, PR ${j.pr}` : ''}: ${['WORKING', 'COMPLETE'].includes(state(j)) ? routeFor(j.module, { state: state(j), ahead: j.ahead, open: open(j) }) : 'nothing to restart'}${rel(j)}`);
   L.push(`(f) BOB: \`${P3} job start --ready --sessions <list_sessions saved now>\`.`);
   L.push(messages.length ? `(g) The unanswered messages, re-addressed: deliver each with send_message to the new session (\`${P3} address <role>\`, or the new job <id> session), then \`${P3} send delivered <n> --from <sender>\`:` : '(g) No unanswered messages.');
   for (const x of messages) L.push(`    - ${x.from}-${x.n} to ${x.to}${ROLES.includes(x.to) ? '' : ' (the new job session)'}: "MSG ${x.from}-${x.n} to ${x.to}: ${x.text}"`);
@@ -202,6 +212,6 @@ export function switchIn(root, { sessions, by, approvals, slug = repoSlug(root),
   // The manifest's unanswered messages and any the record has gained since, once each.
   const seen = new Map([...m.messages, ...unanswered(root, cfg.state_branch)].map((x) => [`${x.from}-${x.n}`, x]));
   log('Restart, in order, each act its own command:');
-  for (const l of restartActs(m, { by, sessions, cfg: { ...tranche, tranche: cfg.tranche }, approvals: tipApprovals(root, cfg).approvals, addresses, messages: [...seen.values()] })) log(l);
+  for (const l of restartActs(m, { by, cfg: { ...tranche, tranche: cfg.tranche }, approvals: tipApprovals(root, cfg).approvals, addresses, messages: [...seen.values()] })) log(l);
   return { ok: true, manifest: m };
 }

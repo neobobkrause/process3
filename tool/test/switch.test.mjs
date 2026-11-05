@@ -65,6 +65,9 @@ const SESSIONS = { data: [
   { id: 'session_jobalpha', title: 'job alpha', session_status: 'running', updated_at: '2026-11-05T05:40:00Z' },
   { id: 'session_jobalpha0', title: 'job alpha', session_status: 'idle', updated_at: '2026-11-05T01:00:00Z' },
   { id: 'session_jobdelta', title: 'job delta', session_status: 'running', updated_at: '2026-11-05T05:41:00Z' },
+  { id: 'session_jobeps', title: 'job eps', session_status: 'idle', updated_at: '2026-11-05T05:30:00Z' },
+  { id: 'session_jobzeta', title: 'job zeta', session_status: 'idle', updated_at: '2026-11-05T05:30:00Z' },
+  { id: 'session_jobeta', title: 'job eta', session_status: 'idle', updated_at: '2026-11-05T05:30:00Z' },
   { id: 'session_jobbeta', title: 'job beta', session_status: 'archived', updated_at: '2026-11-05T05:00:00Z' },
   { id: 'session_jobgamma', title: 'job gamma (restart)', session_status: 'idle', updated_at: '2026-11-05T05:00:00Z' },
   { id: ID.bob, title: 'BOB', session_status: 'running' },
@@ -72,7 +75,10 @@ const SESSIONS = { data: [
 const ROWS = [
   { id: 'alpha', tranche: 'OPEN', branch: 'WORKING', pr: '#445 draft' },
   { id: 'beta', tranche: 'OPEN', branch: 'WORKING', pr: '#444 draft' },
-  { id: 'delta', tranche: 'OPEN', branch: 'BLOCKED (a question)', pr: '#290 ready' },
+  { id: 'delta', tranche: 'OPEN', branch: 'BLOCKED (a question)', pr: '#290 ready', ahead: 2 },
+  { id: 'eps', tranche: 'OPEN', branch: 'BLOCKED (no PR)', ahead: 2 },
+  { id: 'zeta', tranche: 'OPEN', branch: 'WORKING', ahead: 4 },
+  { id: 'eta', tranche: 'OPEN', branch: 'WORKING', ahead: 1 },
 ];
 const read = () => ({ rows: ROWS });
 const account = (perm = { push: true, admin: false }, login = 'civicsmith') => (p) => (p === 'user' ? (login ? { login } : null) : /^repos\//.test(p) ? { permissions: perm } : null);
@@ -102,7 +108,10 @@ test('switch out writes the manifest, and only it, and prints the stop acts in o
   assert.deepEqual(m.jobs.map((j) => [j.module, j.session, j.branch, j.pr, j.state]), [
     ['delta', 'session_jobdelta', 'job/delta', '#290 ready', 'BLOCKED (a question)'],
     ['alpha', 'session_jobalpha', 'job/alpha', '#445 draft', 'WORKING'],
+    ['eps', 'session_jobeps', 'job/eps', null, 'BLOCKED (no PR)'],
+    ['eta', 'session_jobeta', 'job/eta', null, 'WORKING'],
     ['gamma', 'session_jobgamma', 'job/gamma', null, 'not in the ledger'],
+    ['zeta', 'session_jobzeta', 'job/zeta', null, 'WORKING'],
   ]);
   assert.deepEqual(m.messages.map((x) => `${x.from}-${x.n}`), ['root-2']);
   const text = out.join('\n');
@@ -113,6 +122,16 @@ test('switch out writes the manifest, and only it, and prints the stop acts in o
   assert.match(text, /- trig_flow hourly flow \(coordinator\)/);
   assert.doesNotMatch(text, /trig_off/);
   assert.doesNotMatch(text, /—/);
+});
+
+test('switch out refuses, writing nothing, when GitHub was not read for the live jobs\' pull requests', () => {
+  const root = product();
+  const { t, s } = files(root, { tasks: TASKS, sessions: SESSIONS });
+  const before = git(['rev-parse', 'origin/process-state'], { cwd: root });
+  const unread = () => ({ rows: ROWS.map((r) => ({ ...r, pr: 'unknown (GitHub not read)' })) });
+  assert.throws(() => switchOut(root, { tasks: t, sessions: s, by: COORD, read: unread, log: quiet }), /GitHub was not read for the pull requests of delta, alpha, eps, eta, zeta; nothing was written/);
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
+  assert.equal(git(['rev-parse', 'origin/process-state'], { cwd: root }), before);
 });
 
 test('switch out refuses a task list with more pages, and needs --by, --tasks and --sessions', () => {
@@ -152,6 +171,11 @@ test('switch in, preflight held: the restart\'s acts (a) to (g) in order, tasks 
   const [d, a] = ['job start delta --restart', 'job start alpha --restart'].map((k) => out.findIndex((l) => l.includes(k)));
   assert.ok(d >= 0 && d < a, 'the release path first');
   assert.match(out[d], /\(release path\)$/);
+  // Each job by routeFor's route: BLOCKED with no PR restarts (its draft reopened), a one-commit
+  // WORKING start resumes with a list_sessions saved now, an abandoned attempt reopens.
+  assert.match(text, /job start eps --restart "account switch/);
+  assert.match(text, /`node .process\/tool\/p3.mjs job start eta --sessions <list_sessions saved now>` \(an unfinished start resumes\)/);
+  assert.match(text, /zeta: WORKING: its work never merged and no pull request is open: job start zeta --live <n> --reopen/);
   assert.match(text, /\(f\) BOB: `node .process\/tool\/p3.mjs job start --ready --sessions/);
   assert.match(text, /- root-2 to bob: "MSG root-2 to bob: notice triage 413 first"/);
 });
@@ -214,6 +238,8 @@ test('merge train release: the session\'s own lease given back at once; another 
   assert.ok(Date.parse(lease().expires) <= Date.now());
   assert.ok(lease().released);
   assert.match(readState(root, cfg.state_branch, MERGER_FILE), /"row":"release","session":"session_mergerold"/);
+  // The released train, still running, cannot renew it back.
+  assert.throws(() => takeLease(root, cfg, ID.merger, 'tok-killed'), /released by merge train release/);
   // A new train takes it at once, not after LEASE.expire.
   assert.deepEqual(takeLease(root, cfg, 'session_mergernew', 'tok-new', { take: true }).takeover, true);
   assert.throws(() => releaseSessionLease(root, cfg, 'nope', { log: quiet }), /--session/);

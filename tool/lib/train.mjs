@@ -107,6 +107,8 @@ export function takeLease(root, cfg, session, token, { take = false } = {}) {
     const mine = cur?.session === session && cur?.token === token;
     if (!mine && cur && Date.parse(cur.expires) > t) (take ? fail : stop)(`the merge train's lease is held by ${cur.session}${cur.session === session ? ' (another train in this session)' : ''} until ${cur.expires}: one train runs`);
     if (!take && !mine) stop(`the merger lost its lease (${cur ? `${cur.session} holds it` : 'none on the state branch'}): the train stops`);
+    // A lease given back by merge train release is never renewed (review of PR 149): the train stops.
+    if (!take && cur?.released) stop(`the merger lost its lease (released by merge train release at ${cur.released}): the train stops`);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, JSON.stringify({ session, token, at: now(), expires: new Date(t + LEASE.expire * MIN).toISOString().replace(/\.\d+Z$/, 'Z'), since: mine ? cur.since : now() }, null, 2) + '\n');
     if (take && cur && !mine) append(wt, MERGER_FILE, { at: now(), row: 'takeover', session, from: cur.session, expired: cur.expires });
@@ -135,15 +137,16 @@ export function releaseSessionLease(root, cfg, session, { log = console.log } = 
   };
   fetchState(root, cfg.state_branch, { fresh: true });
   if (!check(read(readState(root, cfg.state_branch, LEASE_FILE)))) { log(`no live lease of ${session}: nothing to release`); return { released: false }; }
-  writeState(root, cfg.state_branch, `merger lease released: ${session}`, (wt) => {
+  const { released } = writeState(root, cfg.state_branch, `merger lease released: ${session}`, (wt) => {
     const p = join(wt, LEASE_FILE);
     const cur = existsSync(p) ? read(readFileSync(p, 'utf8')) : null;
-    if (!check(cur)) return;
+    if (!check(cur)) return { released: false };
     writeFileSync(p, JSON.stringify({ ...cur, expires: now(), released: now() }, null, 2) + '\n');
     append(wt, MERGER_FILE, { at: now(), row: 'release', session });
+    return { released: true };
   });
-  log(`the merge train's lease of ${session} is released; a new train takes it at once`);
-  return { released: true };
+  log(released ? `the merge train's lease of ${session} is released; a new train takes it at once` : `the lease of ${session} lapsed before the release: nothing to release`);
+  return { released };
 }
 // Before a land: the lease, read fresh from origin, is this train's and live; the tranche's
 // approvals are those the train started under (Bob's word, changed, stops it).
