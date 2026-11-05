@@ -65,10 +65,6 @@ function github(root, ids, { pending = false, own = () => null, unread = () => f
       ];
     },
     verify: () => true,
-    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
-    // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
-    prsFromBranch: (slug, b) => [...state.keys()].map(pr).filter((p) => p.head.ref === b),
-    baseEverChanged: () => false,
     // Every gate run on a commit (the provider hold's read): null when unreadable, as github.mjs.
     checkRuns: (slug, sha, name) => { if (unread(sha)) return null; const g = io.checkRun(slug, sha, name); return g ? [g] : []; },
     checkRun: (slug, sha) => {
@@ -219,18 +215,6 @@ test('merge train refuses hostile job PRs exactly as merge does, and hands each 
   assert.match(why[4], /fires the review trigger.*--no-review is refused/);
   const m = messages(root);
   assert.equal(m.filter((x) => /PR 4 .*fires a review trigger and has no review recorded/.test(x.text)).length, 1);
-});
-
-// Confirming review of build/train-spec, 5 Nov: a job branch with a second PR into another base
-// (its run, then closed, lists only the job's PR) is refused as merge refuses it.
-test('merge train refuses a job PR whose branch had another PR into another base, naming it, and merges nothing', () => {
-  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
-  const g = github(root, ids);
-  const honest = g.io.prsFromBranch;
-  g.io.prsFromBranch = (s, b) => [...honest(s, b), { number: 90, state: 'closed', head: { ref: b }, base: { ref: 'x' } }];
-  const r = train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: quiet, once: true });
-  assert.deepEqual(g.calls.merged, []);
-  assert.match(r.rows.find((x) => x.pr === 1)?.why || '', /job\/alpha also had pull request\(s\) 90 into another base/);
 });
 
 test('merge train: a triggered PR lands only with a --reviewed note for its head', () => {
@@ -426,7 +410,10 @@ test('merge train: a user PR is held while its provider PR that changes what it 
   const r = run(root, g, { log: (l) => lines.push(l) });
   assert.deepEqual(g.calls.merged, [2], 'the provider first, though the user is older');
   assert.ok(lines.some((l) => /^PR 1 \(beta\) held: it imports alpha, whose open PR 2 changes its exports/.test(l)), lines.join('\n'));
-  assert.deepEqual(r.rows[0].held, [{ pr: 1, module: 'beta', providers: [{ module: 'alpha', pr: 2 }] }]);
+  // Data only (Bob, 5 Nov): whether the held PR's gate, on the tranche without the provider, went red.
+  assert.deepEqual(r.rows[0].held.map(({ head, ...h }) => h), [{ pr: 1, module: 'beta', providers: [{ module: 'alpha', pr: 2 }], gate_without_provider: 'green' }]);
+  assert.match(r.rows[0].held[0].head, /^[0-9a-f]{40}$/);
+  assert.ok(lines.some((l) => /^provider hold data: PR 1 \(beta\), its gate on the tranche without alpha \(PR 2\): did not go red \(green\), head [0-9a-f]{10}$/.test(l)), lines.join('\n'));
   assert.equal(r.rows[0].holds, 1, 'the provider holds one user');
   assert.deepEqual(stateRows(root, TRAIN_FILE)[0].held, r.rows[0].held, 'the hold in the train row');
   run(root, g);

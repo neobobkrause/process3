@@ -16,7 +16,7 @@ import { PLAIN_FILE, TRAIN_FILE, plainViaTrain, releaseLease, takeLease, train }
 import { PIN_WHAT, pinWake, printWake } from '../lib/merge.mjs';
 import { wakeLine } from '../lib/job.mjs';
 import { Fail, STATE_LOCK, fetchRetry, git, loadConfig, stateLockPath, withStateLock } from '../lib/util.mjs';
-import { entry, honestBranch, makeRepo } from './helpers.mjs';
+import { entry, makeRepo } from './helpers.mjs';
 
 const S = 'session_merger1';
 const OTHER = 'session_othertrain';
@@ -66,7 +66,6 @@ function github(root) {
     getPR: () => pr(),
     comments: () => [],
     verify: () => true,
-    ...honestBranch([1]),
     requiredChecks: () => ({ checks: [{ context: 'gate' }] }),
     repo: { released: () => true, shim: () => null, descends: () => true },
     checkRuns: (slug, sha) => [gate(sha)],

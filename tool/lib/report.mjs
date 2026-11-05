@@ -10,7 +10,7 @@ import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
 import { FLOW_RULE as flowRule, QUICK_BLOCK_MIN, countCommits, flowFigures, quickBlocks, idleByDay, unmetAtRef, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
-import { HOLDS_FILE, holdHours } from './hold.mjs';
+import { HOLDS_FILE, holdHours, landedPRs } from './hold.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
 import { triggerSummary } from './triggers.mjs';
 import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
@@ -151,7 +151,7 @@ function recordOnly(root, cfg, base, main, tip, deep) {
 // deepened: deepen()'s result in a shallow clone.
 // The base-red tests on each merged PR's newest green gate run: [{ module, pr, test, base, since }],
 // since the `at` of the PR's first gate row that tolerated it; null when a PR's comments could not
-// be read. A smoke test red at the base too (gate.mjs smoke) is owed as the suite's are.
+// be read. A smoke test red at the base too (rows written while the gate ran a smoke list) is owed as the suite's are.
 const tolerated = (g) => [g?.base_red, g?.smoke?.base_red].flatMap((x) => (Array.isArray(x) ? x : []));
 export function baseRedOwed(mergeRows, runsOf) {
   const out = [];
@@ -335,7 +335,7 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
     L.push(`- cap use: ${pc(fl.cap_use)} over ${fl.hours} h; IDLE CAPACITY alarms (idle stretches) ${fl.idle_alarms}`, `- velocity: ${fl.velocity_per_h} marks per hour`, `- efficiency: ${fl.merges_per_job_session_h} merges per job session-hour; per merged PR, gate runs ${fl.gate_runs_per_pr}, syncs ${fl.syncs_per_pr}, cancels ${fl.cancels_per_pr}`, `- quality: false-done share ${pc(fl.false_done_share)}; reopened marks ${fl.reopened_marks}; reverts ${fl.reverts}`, `- started then blocked within ${qb?.minutes ?? QUICK_BLOCK_MIN} min: ${qb ? `${qb.blocked} of ${qb.starts} starts (${pc(qb.share)})${qb.by_module.length ? `; by module: ${qb.by_module.map((x) => `${x.module} ${x.blocked} of ${x.starts}`).join(', ')}` : ''}${qb.unread?.length ? `; unmeasured, branches not read: ${qb.unread.join(', ')}` : ''}` : U}`, '');
     if (fl.buckets.length) L.push(...table(['live', 'hours', 'cap use', 'marks per hour', 'merges per job session-hour', 'gate runs per PR', 'false-done', 'reopened marks'], fl.buckets.map((q) => [q.live, q.hours, pc(q.cap_use), q.velocity_per_h, q.merges_per_job_session_h, q.gate_runs_per_pr, pc(q.false_done_share), q.reopened_marks])), '');
   }
-  const held = hh === null ? null : holdHours(hh, opened, end);
+  const held = hh === null ? null : holdHours(hh, opened, end, landedPRs(root, tip));
   L.push(`Hold-hours by setter and reason${held === null ? `: ${U}` : held.length ? ':' : ': none.'}`, '');
   if (held?.length) L.push(...table(['set by', 'reason', 'holds', 'hours'], held.map((x) => [x.by, x.why, x.holds, x.hours])), '');
 

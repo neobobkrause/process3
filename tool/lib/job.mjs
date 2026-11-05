@@ -2,7 +2,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, aheadBy, block, checkRuns, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft, baseEverChanged, unbound } from './github.mjs';
+import { RECEIPT, addComment, aheadBy, block, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
 import { checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
 import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
@@ -136,7 +136,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. If a new test cannot fail with your change reverted, add \`--exempt-revert "<why>"\`.`);
+  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. The gate names, for the reviewer, any changed test that still passes with your change reverted; \`--exempt-revert "<why>"\` records why one cannot fail.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -423,12 +423,11 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const entry0 = JSON.parse(t.stdout);
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
-  // The requirements cap (REQ-6): a trigger for BOB's split or consolidation, never a refusal.
-  // The job waits only until the file is under the cap or BOB records why it starts over it.
+  // The requirements cap (REQ-6): a trigger for BOB's split or consolidation, never a refusal
+  // (Bob, 5 Nov: 32 of 32 refusals overridden). The figure is kept in the start row.
   const reqAt = entry0.requirements ? git(['show', `${from}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
   const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
-  if (over && overWhy === undefined) fail(`${over}; nothing was started. BOB splits or consolidates the file, or records --over-cap "<why>" on the start`);
-  if (over) log(`${over}; starting over the cap: ${overWhy}`);
+  if (over) log(`${over}; starting over the cap${overWhy === undefined ? '' : `: ${overWhy}`}`);
   if (reopen && fresh0?.abandoned) {
     // The abandoned attempt never merged: the tranche may still read OPEN or BLOCKED.
     if (!['OPEN', 'BLOCKED', 'COMPLETE'].includes(entry0.status.state)) fail(`${id} is ${entry0.status.state} on ${cfg.tranche}; bring it to Bob`);
@@ -464,7 +463,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -508,7 +507,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
 // the job's new draft pull request, which BOB closes or keeps: the tool closes nothing.
 function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, find, setup, compare: cmp, gh: io, log }) {
   if (from === true || !String(from ?? '').trim()) fail('--take-in needs the branch or pull request number of the earlier work');
-  const x = { getPR, editPR, toDraft, addComment, prsFromBranch, baseEverChanged, ...io };
+  const x = { getPR, editPR, toDraft, addComment, ...io };
   const slug = push ? repoSlug(root) : 'local/local';
   if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
   const cfg = loadConfig(root);
@@ -523,15 +522,6 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     source = pr.head.ref;
   } else if (push) pr = find(slug, source);
   if (source === cfg.tranche || source === 'main' || source === cfg.state_branch) fail(`${source} is not earlier work; take in a work branch`);
-  // A reused pull request is moved to the tranche; one from job/<id> into another base, or one
-  // whose base already changed, leaves the branch's runs bound to no job PR (github.mjs unbound),
-  // so merge would refuse the job for good (cold review of build/branch-bound): refused here.
-  // A new pull request from job/<id> is bound only when every earlier one from it was too.
-  if (push) {
-    const reuse = pr && pr.head.ref === job;
-    const loose = unbound(slug, job, reuse ? pr.number : null, cfg.tranche, x);
-    if (loose) fail(`${reuse ? `pull request #${pr.number}` : `a new pull request from ${job}`} cannot become ${id}'s job pull request: ${loose}, so merge could never trust its gate runs. Nothing was written; bring it to Bob`);
-  }
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
   const at = push ? anchoredTip(root, cfg) : null;
@@ -559,8 +549,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   // The requirements cap (REQ-6), as a fresh start holds it.
   const reqAt = entry0.requirements ? git(['show', `${base}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
   const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
-  if (over && overWhy === undefined) fail(`${over}; nothing was started. BOB splits or consolidates the file, or records --over-cap "<why>" on the start`);
-  if (over) log(`${over}; starting over the cap: ${overWhy}`);
+  if (over) log(`${over}; starting over the cap${overWhy === undefined ? '' : `: ${overWhy}`}`);
   // A job already started on this branch (WORKING is written only on job/<id>, so the tranche
   // still reads OPEN) is never launched twice (review of PR 55): its entry on the work's tip,
   // or a start row the tranche lacks, refuses it.
@@ -605,7 +594,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     const owed = noticesFor(root, cfg, id, push);
     const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), attempt, reading, takeIn: take, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch: job, take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch: job, take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     git(['add', '--', ...paths], { cwd: root });
     git(['commit', '-q', '-m', `job start ${id} (attempt ${attempt}): take in ${source}${take.pr ? ` (#${take.pr})` : ''}, ${commits.length} commit(s)`], { cwd: root });
     committed = true;
@@ -618,8 +607,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
       if (remoteTip(root, job) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${job} did not land`);
       if (pr && pr.head.ref === job) {
         // Reused: the job's own branch already had this pull request.
-        // Already into the tranche (unbound above): base is not sent, so no edit can record a base change.
-        let p = x.editPR(slug, pr.number, { title: `job: ${id}`, body: start });
+        let p = x.editPR(slug, pr.number, { base: cfg.tranche, title: `job: ${id}`, body: start });
         if (!p.draft) p = x.toDraft(slug, p);
         result.pr = p;
         log(`pull request reused as the job's draft into ${cfg.tranche}: ${p.html_url}`);
@@ -968,7 +956,7 @@ export function jobComplete(root, id, opts = {}) {
   // named cse_, BOB's and get_session session_, so a delta never found the other's row).
   const sid = sessionForm(typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null);
   if (cost !== null && !sid) fail('--cost-usd needs the session it is the cost of: --session <your session id>; the row counts only that session\'s cost since its last row');
-  const io = { findPR, addComment, markReady, comments, toDraft, getPR, editPR, checkRuns, ...(opts.gh || {}) };
+  const io = { findPR, addComment, markReady, comments, toDraft, getPR, editPR, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
   const cfg = loadConfig(root);
@@ -1127,7 +1115,6 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
   const all = io.comments(slug, pr.number);
   let posted = latestBlock(slug, pr.number, RECEIPT, all, { from: pr.user?.login || null });
   let url = posted?.comment?.html_url;
-  const saved = receipt; // the complete's own receipt, which its ready run judged
   const amendedReceipt = amend && amendReceipt(receipt, amend, posted?.data);
   const amended = !!amendedReceipt;
   if (amended) receipt = amendedReceipt;
@@ -1141,74 +1128,15 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
     url = c.html_url;
     posted = { comment: { ...c, created_at: c.created_at || now() }, data: receipt };
   }
-  // The ready below starts the gate run that reads the receipt; a pull request already ready
-  // gets none from a comment (copy, 5 Nov, PRs 462-492): regate gives it one.
+  // The ready below starts the gate run that reads the receipt. An amended receipt changes no
+  // claim the gate reads, so a pull request already ready is not gated again.
   if (pr.draft) io.markReady(slug, pr.number);
-  else if (amend) regate(slug, pr, sha, posted, { io, log, all, saved });
   log(`receipt: ${url}`);
   // The job's report: its pull request is ready for BOB's merge once the gate passes.
   // Its session named, for BOB's merge to read the job's cost from (merge --job-cost-usd).
   const sid = readRows(root, id).filter((r) => r.event === 'complete').pop()?.session;
   log(wakeLine(`job ${id} complete, PR #${pr.number} ready${sid ? `, session ${sid}` : ''}`, jobSender(id)));
   return { ok: true, receipt: receipt || posted?.data };
-}
-
-// An amended receipt on a ready pull request (build/receipt-regate, 5 Nov; notes/receipt-
-// regate-options.md, option A): no commit, so no event, and the red gate on the head stood until
-// a person re-ran it. A body edit fires pull_request: edited, and the gate runs again on the same
-// head, with the base as it is now, and reads the new receipt. Only when:
-// (1) the newest receipt claims a revert exemption (the one amended claim the gate reads) other
-//     than the one last re-gated (the receipt the marker names), or, with no marker, than the
-//     complete's own receipt, which its ready run judged: a --not-verified-only amendment is not,
-//     but one posted after a re-gate edit failed still carries the exemption (cold review);
-// (2) the newest gate run on the head is not green and started before the receipt: a run since
-//     has read it, and process-gate cancels a run in progress, so a green or train-held gate is
-//     never touched. Unreadable runs stop, never read as none (cold review);
-// (3) no marker already names this receipt (a rerun edits once).
-// Returns whether it edited.
-export const REGATE = 'p3:regate';
-const MARK = new RegExp(`^<!-- ${REGATE} (\\S+) -->.*$`, 'm');
-const regateLine = (key, url) => `<!-- ${REGATE} ${key} --> Gate re-run for the amended receipt ${url}.`;
-const keyOf = (c) => String(c.id ?? c.html_url);
-// The time of the oldest receipt, in the unbroken run of the opener's newest receipts ending at c,
-// whose revert exemption is the one c claims.
-function firstWith(all, c, opener, revert) {
-  const mine = all.filter((x) => (!opener || x.user?.login === opener) && parseBlock(x.body, RECEIPT));
-  if (!mine.some((x) => keyOf(x) === keyOf(c))) mine.push(c);
-  let at = c.created_at;
-  for (const x of mine.slice(0, mine.findIndex((x) => keyOf(x) === keyOf(c))).reverse()) {
-    if (parseBlock(x.body, RECEIPT)?.exempt?.revert !== revert) break;
-    at = x.created_at || at;
-  }
-  return at;
-}
-export function regate(slug, pr, sha, posted, { io, log = console.log, all = [], saved = null }) {
-  const c = posted?.comment;
-  const r = posted?.data;
-  if (!c || !r?.exempt?.revert || !r.amended) return false;
-  const key = keyOf(c);
-  const body = String(io.getPR(slug, pr.number)?.body ?? '');
-  const was = body.match(MARK)?.[1];
-  if (was === key) return false;
-  const marked = was ? all.find((x) => keyOf(x) === was) : null;
-  const judged = marked ? parseBlock(marked.body, RECEIPT)?.exempt?.revert : saved?.exempt?.revert;
-  if (judged === r.exempt.revert) return false;
-  const runs = io.checkRuns(slug, sha, 'gate');
-  if (!Array.isArray(runs)) fail(`the amended receipt is posted, but the gate runs on ${sha.slice(0, 10)} could not be read, so the gate was not re-run; run job complete again`);
-  const g = runs[0] || null;
-  if (g?.status === 'completed' && g.conclusion === 'success') return false;
-  // Since the first of the newest receipts that carry this exemption: a run started after it read
-  // it, whatever --not-verified-only receipts came since (confirming review). Same second counts
-  // as before: GitHub's times are whole seconds, and a run then may have read the comments first.
-  const since = firstWith(all, c, pr.user?.login, r.exempt.revert);
-  if (g && !(g.started_at && since && Date.parse(g.started_at) <= Date.parse(since))) return false;
-  const line = regateLine(key, c.html_url);
-  const next = was ? body.replace(MARK, () => line) : `${body}${body ? '\n\n' : ''}${line}`;
-  try { io.editPR(slug, pr.number, { body: next }); } catch (e) {
-    fail(`the amended receipt is posted, but the pull request's body edit that re-runs the gate failed (${e.message}); run job complete again`);
-  }
-  log(`gate re-run triggered on ${sha.slice(0, 10)} for the amended receipt (the gate was ${g ? (g.status === 'completed' ? g.conclusion : `${g.status}, started before the receipt`) : 'not run'}): watch https://github.com/${slug}/pull/${pr.number}/checks`);
-  return true;
 }
 
 // The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed. Commits only

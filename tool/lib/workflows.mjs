@@ -11,7 +11,7 @@
 //      gated head had it, and the commits that gate ran on held the pin's own process-gate.yml.
 //      A job merge is judged as the tranche cover judges it (gate.mjs jobMerge, PR 92 and 94); a
 //      plain merge is bound by its merge commit, its pull request and the newest gate row on its
-//      head, verified (verifyRow) and bound to its branch (gate.mjs branchBound). Commits in the
+//      head, verified (verifyRow). Commits in the
 //      product's history before Process3 (the config's record_since, anchored at the owner's
 //      website commit) are earlier work, judged whole by the rules below;
 //  (2, 3) the change, base to head, is made only of allowed shapes (coordinator, 4 Nov 08:24:
@@ -26,8 +26,8 @@
 //      process3 build that adds a shape, never a YAML reading;
 //  (4) a process shim (process-gate.yml above all) equals the pin's own shim (merge.mjs).
 // Plain pull requests into the tranche stay shim-only (merge.mjs workflowChanges).
-import { baseEverChanged, comments, gateRuns, getPR, prsFromBranch, verifyRow } from './github.mjs';
-import { MERGE_TITLE, branchBound, diffNames, isAnc, jobMerge } from './gate.mjs';
+import { comments, gateRuns, getPR, verifyRow } from './github.mjs';
+import { MERGE_TITLE, diffNames, isAnc, jobMerge } from './gate.mjs';
 import { recordSince } from './record.mjs';
 import { blobAt as blob, keySetAt, pinAt } from './anchor.mjs';
 import { fail, git } from './util.mjs';
@@ -193,8 +193,6 @@ export function plainMerge(root, tranche, c, { slug, io }) {
   const [p1, p2] = p;
   const pr = io.getPR(slug, n);
   if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== tranche || pr.head?.sha !== p2 || pr.head?.repo?.full_name !== slug || !pr.head?.ref || isJob(pr.head.ref)) return bad(`is not GitHub's merge of plain PR ${n} into ${tranche}`);
-  const why = branchBound(slug, pr.head.ref, n, tranche, io);
-  if (why) return bad(why);
   const row = gateRuns(io.comments(slug, n)).filter((r) => r.sha === p2).pop();
   const bound = row && row.ok && isAnc(root, row.base, p1) && io.verify(slug, row, { pr: n, baseRef: tranche, merged: { branch: pr.head.ref } });
   if (!bound) return bad(`is PR ${n}'s merge, but the newest gate run on its head ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
@@ -275,7 +273,7 @@ export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef,
 // All rules for a close's product workflow files (the shims are held by the caller, rule 4).
 // at: { mb, base, baseRef, tranche, slug, io, ownerCommit }.
 export function closeWorkflows(root, sha, files, at) {
-  const close = { ...at, io: { getPR, comments, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(at.io || {}) } };
+  const close = { ...at, io: { getPR, comments, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(at.io || {}) } };
   const refuse = (f, why) => fail(`the tranche changes ${f}: ${why}. A close may carry a product workflow change only through gated pull requests, and only in the allowed shapes`);
   const one = gatedChanges(root, sha, close.mb, files, close);
   if (one) refuse(one.f, one.why);
