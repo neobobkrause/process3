@@ -17,7 +17,7 @@ import { CLOSED_FILE, releaseModules } from './status.mjs';
 import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, bobWake, toolPin } from './job.mjs';
 import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
-import { admit, chainEnd, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specBase, specHead, specState } from './window.mjs';
+import { admit, chainEnd, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
@@ -635,6 +635,7 @@ function closeSpecs(ctx, ps, event = 'close') {
 }
 // The seqs already taken on the remote for PR n's spec pairs: a name is never reused.
 function takenSeqs(root, n) {
+  // train/spec/* too: spec bases the first build pushed are never reused either.
   const r = git(['ls-remote', 'origin', `refs/heads/train/spec/${n}-*`, `refs/heads/train/head/${n}-*`], { cwd: root, allowFail: true });
   if (r.code !== 0) fail(`could not read the spec branches of PR ${n} on origin`);
   return r.stdout.split('\n').map((l) => /refs\/heads\/train\/(?:spec|head)\/\d+-(\d+)$/.exec(l.trim())?.[1]).filter(Boolean).map(Number);
@@ -650,19 +651,20 @@ export function buildResult(root, ctx, c, onto) {
   const { branch, receipt, trig } = jobChecks(root, c.n, pr, c.id, { cfg, slug, io, noReview: note.noReview, log: () => {} });
   return mergedResult(root, cfg, { n: c.n, id: c.id, branch, head: c.head, onto, ontoName: s10(onto), reviewed: note.reviewed, noReview: note.noReview, rounds, measures, triggers: trig.fired, attempt: receipt.attempt, log: () => {} });
 }
-// Pushes the spec pair as new refs (both or neither) and opens its draft spec pull request.
+// Pushes the spec head as a new ref and opens its draft spec pull request into the tranche itself
+// (the coordinator's ruling, 17:20): the run's base, and so its judge, is the tranche's.
 function openSpec(root, ctx, p) {
-  const base = specBase(p.n, p.seq);
+  const base = ctx.cfg.tranche;
   const head = specHead(p.n, p.seq);
   let err = '';
   for (let t = 0; t < 4; t++) {
-    const r = git(['push', '-q', '--atomic', 'origin', `${p.base}:refs/heads/${base}`, `${p.result}:refs/heads/${head}`], { cwd: root, allowFail: true });
+    const r = git(['push', '-q', 'origin', `${p.result}:refs/heads/${head}`], { cwd: root, allowFail: true });
     if (r.code === 0) { err = ''; break; }
     err = (r.stderr || r.stdout || '').trim().split('\n').pop();
     if (!SERVER_ERROR.test(err)) break;
     sleep(2000 * 2 ** t);
   }
-  if (err) fail(`the spec pair ${base} / ${head} was not pushed: ${err}`);
+  if (err) fail(`the spec head ${head} was not pushed: ${err}`);
   const sp = ctx.io.createPR(ctx.slug, { head, base, draft: true, title: `train spec: PR ${p.n} at position ${p.position} (${p.seq})`, body: `The merge train's speculative gate for PR #${p.n}: its head ${p.head} merged onto ${p.base} (${p.position ? 'the window ahead of it' : 'the tranche tip'}). Never merged; closed by the train. ${p.cause}` });
   return sp.number;
 }
@@ -763,7 +765,7 @@ function windowPass(root, ctx, { idle }) {
         const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && p.run_id != null && x.run_id === p.run_id).pop();
         const o = io.getPR(slug, p.n);
         const same = o?.state === 'open' && !o.draft && o.base?.ref === cfg.tranche && (o.head?.sha === p.head || o.head?.sha === p.pushed);
-        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: specBase(p.n, p.seq) }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
+        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: cfg.tranche }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
       } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; judged = `unread: ${e.message.split('\n')[0]}`; }
       // A red that is not the job's is rebuilt, up to SPEC_REBUILDS times for one head; then it is
       // refused as the serial train refuses a gate that ends so (cold review: a gate that times out

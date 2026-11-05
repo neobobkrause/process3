@@ -2,16 +2,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  SPEC_REF, admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specBase, specHead, specState,
+  SPEC_REF, admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState,
 } from '../lib/window.mjs';
 
 const P = (n, over = {}) => ({ n, id: `m${n}`, base: `b${n}`, result: `r${n}`, state: 'gating', ...over });
 
-test('spec names: specBase and specHead match SPEC_REF with the same pr and seq', () => {
-  assert.equal(specBase(12, 3), 'train/spec/12-3');
+test('spec names: specHead matches SPEC_REF with its pr and seq; the old spec base names do not', () => {
   assert.equal(specHead(12, 3), 'train/head/12-3');
-  assert.deepEqual([...SPEC_REF.exec(specBase(12, 3))].slice(1), ['spec', '12', '3']);
-  assert.deepEqual([...SPEC_REF.exec(specHead(12, 3))].slice(1), ['head', '12', '3']);
+  assert.deepEqual([...SPEC_REF.exec(specHead(12, 3))].slice(1), ['12', '3']);
+  assert.equal(SPEC_REF.test('train/spec/12-3'), false);
   assert.equal(SPEC_REF.test('train/spec-1'), false);
 });
 

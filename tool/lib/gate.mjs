@@ -72,8 +72,9 @@ export function gate(root, opts) {
   const { cfg, findings, bootstrap } = gateConfig(root, { base, head, branch: eventBranch, slug, io }); // the trusted side
   if (bootstrap) log(`the base has no Process3: the gate runs with the head's ${RUN_KEYS.join(', ')}, its anchored keys held`);
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
-  const mb = git(['merge-base', head, base], { cwd: root });
-  const changed = diffNames(root, mb, head);
+  // In spec mode both are the job PR's own (below): the spec head holds the window ahead of it too.
+  let mb = git(['merge-base', head, base], { cwd: root });
+  let changed = diffNames(root, mb, head);
   let gatePassed = null; // the ids the gate's own suite run saw pass (the receipt check)
   // tree: what this run tests, the checkout (GitHub's merge of the head into the base) as it is
   // before anything runs. A spec-tested fast path stands on a row only for the tree it names.
@@ -87,9 +88,10 @@ export function gate(root, opts) {
   // live, whichever run is kept judges the pull request as it is. A failed read stops the run.
   const live = pr ? io.getPR(slug, pr) : null;
   const entries = entriesAt(root, head);
-  // Spec mode (train-spec C'): a draft PR from train/head/<n>-<seq> into train/spec/<n>-<seq>
-  // (base ref read from the live PR, so the workflow passes nothing new) tests job PR n's change
-  // merged onto the window ahead of it. It is judged exactly as job PR n's own gate would judge
+  // Spec mode (train-spec C', tranche-based as the coordinator ruled at 17:20): a draft PR from
+  // train/head/<n>-<seq> into the tranche itself (base ref read from the live PR, so the workflow
+  // passes nothing new) tests job PR n's change merged onto the window ahead of it. Its base is the
+  // tranche, so its judge (pin, config, gate code) is the tranche's, bound as a job PR's run is. It is judged exactly as job PR n's own gate would judge
   // it: n's branch, draft state and receipt (by n's opener), and no record fast path, since its
   // prior runs are another tree's. Only an open job PR into the tranche, from a job branch of this
   // repository, whose head is in the spec head, is judged so; anything else is red, and nothing
@@ -97,9 +99,10 @@ export function gate(root, opts) {
   // Only where the base's config opens the window (merge_train_window > 1); with the serial train
   // a spec-shaped pull request is judged as any other (cold review of train-spec, finding 2).
   const windowOn = (cfg.merge_train_window || 1) > 1;
-  const spec = windowOn ? specRefs(live?.base?.ref, eventBranch) : null;
+  const spec = windowOn ? specRefs(live?.base?.ref, eventBranch, cfg.tranche) : null;
   let branch = eventBranch;
   let jpr = null;
+  let jobHead = null;
   let specWhy = null;
   if (spec) {
     runRow.spec = { pr: spec.pr, seq: spec.seq };
@@ -112,8 +115,19 @@ export function gate(root, opts) {
             : !branchModule(ref, new Set(entries.map((e) => e.id))) ? `is from ${ref}, not a job branch`
               : !isAnc(root, jpr.head?.sha, head) ? `has head ${String(jpr.head?.sha).slice(0, 10)}, which is not in the spec head ${String(head).slice(0, 10)}` : null;
     if (specWhy) findings.push(F('spec', '(spec)', `spec run for job PR ${spec.pr} (${eventBranch}): job PR ${spec.pr} ${specWhy}, so this is not that job's change to test`));
-    else { branch = ref; log(`spec run: judged as job PR ${spec.pr} (${ref}) merged onto ${live.base.ref}`); }
+    else {
+      branch = ref;
+      // The job's own change, as its own gate judges it: what the job's head changed since it left
+      // the tranche, not the jobs ahead of it that the spec head also holds.
+      jobHead = jpr.head.sha;
+      mb = git(['merge-base', jobHead, base], { cwd: root });
+      changed = diffNames(root, mb, jobHead);
+      log(`spec run: judged as job PR ${spec.pr} (${ref}, ${String(jobHead).slice(0, 10)}) merged onto the window ahead of it, on ${live.base.ref}`);
+    }
   }
+  // The commit the static checks read (ledger, start row, imports, generated): the job's own head
+  // in spec mode, as its own gate read it; the suite runs on the checkout either way.
+  const judged = jobHead || head;
   const draft = spec ? specWhy !== null || jpr.draft !== false : typeof live?.draft === 'boolean' ? live.draft : eventDraft;
   if (!spec && draft !== eventDraft) {
     // Kept in the row too, so a run the race touched is visible without its log (review 1 of PR 74).
@@ -130,9 +144,9 @@ export function gate(root, opts) {
   const entry = job ? entries.find((e) => e.id === job) || null : null;
   if (job && !entry) findings.push(F('ledger', entryFile(job), `branch ${branch} has no ledger entry`));
   // The job's branch is the one its latest start row names (a --fresh-branch start's job/<id>-<n>).
-  const named = entry && startBranch(rowsAt(root, head, job), job);
+  const named = entry && startBranch(rowsAt(root, judged, job), job);
   if (named && named !== branch) findings.push(F('ledger', metricsFile(job), `branch ${branch} is not job ${job}'s branch: its latest start row names ${named}`));
-  findings.push(...checkLedger(root, { ref: head, base: mb, branch }));
+  findings.push(...checkLedger(root, { ref: judged, base: mb, branch }));
 
   // A job writes only its module's files and tests, and its own records (ARC-2).
   if (entry) {
@@ -142,9 +156,9 @@ export function gate(root, opts) {
   const gen = generatedRows(cfg);
   findings.push(...gen.findings);
   if (entry) {
-    const im = importFindings(root, cfg, { base, head, entry, changed });
+    const im = importFindings(root, cfg, { base, head: judged, entry, changed });
     if (im.skipped) { runRow.imports = 'skipped'; log(im.skipped); } else runRow.imports = im.findings.length ? 'fail' : 'pass';
-    findings.push(...im.findings, ...committedGenerated(root, gen.rows, { head, changed }));
+    findings.push(...im.findings, ...committedGenerated(root, gen.rows, { head: judged, changed }));
   }
 
   // A plain pull request (not the tranche's own) that changes a generated file a module owns is a
@@ -353,16 +367,15 @@ export function gate(root, opts) {
   return { run: runRow, findings, changed };
 }
 
-// The spec pair (train-spec C'): base train/spec/<n>-<seq>, head train/head/<n>-<seq>, the same
-// job PR n and build seq on both, in canonical decimal. { pr, seq }, or null.
-export const SPEC_REF = /^train\/(spec|head)\/(\d+)-(\d+)$/;
-export function specRefs(baseRef, headRef) {
-  const b = SPEC_REF.exec(typeof baseRef === 'string' ? baseRef : '');
+// A spec pull request (train-spec C', tranche-based): head train/head/<n>-<seq>, base the tranche
+// itself. { pr: n, seq }, in canonical decimal, or null.
+export const SPEC_REF = /^train\/head\/(\d+)-(\d+)$/;
+export function specRefs(baseRef, headRef, tranche) {
   const h = SPEC_REF.exec(typeof headRef === 'string' ? headRef : '');
-  if (!b || !h || b[1] !== 'spec' || h[1] !== 'head' || b[2] !== h[2] || b[3] !== h[3]) return null;
-  const pr = Number(b[2]);
-  const seq = Number(b[3]);
-  return pr > 0 && Number.isSafeInteger(pr) && Number.isSafeInteger(seq) && String(pr) === b[2] && String(seq) === b[3] ? { pr, seq } : null;
+  if (!h || typeof tranche !== 'string' || !tranche || baseRef !== tranche) return null;
+  const pr = Number(h[1]);
+  const seq = Number(h[2]);
+  return pr > 0 && Number.isSafeInteger(pr) && Number.isSafeInteger(seq) && String(pr) === h[1] && String(seq) === h[2] ? { pr, seq } : null;
 }
 const treeOf = (root, sha) => git(['rev-parse', `${sha}^{tree}`], { cwd: root, allowFail: true }).stdout?.trim() || null;
 const committed = (root, sha) => /^[0-9a-f]{40}$/.test(String(sha)) && git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code === 0;
@@ -385,9 +398,9 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   const n = Number(t[0]);
   if (tree !== treeOf(root, head)) return no(`this run's checkout is not ${String(head).slice(0, 10)}'s tree: the tranche is not its ancestor`);
   const sp = io.getPR(slug, n);
-  const refs = specRefs(sp?.base?.ref, sp?.head?.ref);
+  const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== pr || sp.head?.repo?.full_name !== slug) return no(`PR ${n} is not a spec pull request of PR ${pr} in ${slug}`);
-  const ctx = { pr: n, baseRef: sp.base.ref };
+  const ctx = { pr: n, baseRef: cfg.tranche };
   const row = gateRuns(io.comments(slug, n) || [])
     .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
     .reverse().find((r) => committed(root, r.sha) && typeof r.tree === 'string' && r.tree === treeOf(root, r.sha) && io.verify(slug, r, ctx));
@@ -398,10 +411,10 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
   if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
   if (blobAt(root, row.base, CONFIG_FILE) !== blobAt(root, base, CONFIG_FILE)) return no(`the base's ${CONFIG_FILE} differs from the spec run's`);
-  // The spec run's base is what judged it (its pin, its config, what changed, the revert and
-  // base-red checks): it must be this land's base, records aside (cold review of train-spec,
-  // finding 1: a spec pair any writer pushes, on a base of their choosing, stands for nothing else).
-  const baseOff = baseDiffers(root, cfg, row.base, base);
+  // The spec run's base was a tranche tip (its run is bound into the tranche, as a job PR's): it
+  // must be this land's base or behind it, with the same judge, and a base-red suite stands only
+  // on this very base (a test failing at an older tip may have been fixed since).
+  const baseOff = baseDiffers(root, row, base);
   if (baseOff) return no(`spec PR ${n}'s run was judged on base ${String(row.base).slice(0, 10)}, which ${baseOff}`);
   if (row.revert === 'exempt' && !receipt.exempt?.revert) return no(`spec PR ${n}'s run passed its revert check by an exemption this receipt does not claim`);
   const kept = Array.isArray(row.receipt_passed) ? row.receipt_passed : [];
@@ -592,22 +605,28 @@ export function jobMerge(root, cfg, c, { slug, io }) {
 // the spec head was into that spec base, never retargeted (branchBound). null when not shown.
 function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;
-  const refs = specRefs(sp?.base?.ref, sp?.head?.ref);
+  const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== n || sp.head?.repo?.full_name !== slug) return null;
-  const ctx = sp.state === 'open' || branchBound(slug, sp.head.ref, row.spec_pr, sp.base.ref, io) ? { pr: row.spec_pr, baseRef: sp.base.ref }
-    : { pr: row.spec_pr, baseRef: sp.base.ref, merged: { branch: sp.head.ref } };
+  const ctx = sp.state === 'open' || branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io) ? { pr: row.spec_pr, baseRef: cfg.tranche }
+    : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref } };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || baseDiffers(root, cfg, r.base, row.base) || !io.verify(slug, r, ctx)) return null;
+    || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
   return r;
 }
 
-// Why a spec run's base `was` does not stand for the land's base `is` (they differ outside the
-// records, or one is unreadable); null when it does.
-function baseDiffers(root, cfg, was, is) {
+// Why a spec run (row) does not stand for a land on base `is`: its base, a tranche tip, is not
+// `is` or behind it, or the judge differs (the pin, the config, the gate workflow), or its suite
+// was base-red on another base; null when it stands.
+export const JUDGE_FILES = ['.process', CONFIG_FILE, '.github/workflows/process-gate.yml'];
+function baseDiffers(root, row, is) {
+  const was = row?.base;
   if (!committed(root, was) || !committed(root, is)) return 'is not readable here';
-  const off = diffNames(root, was, is).filter((f) => !isRecordPath(cfg, f));
-  return off.length ? `differs from this land's base ${String(is).slice(0, 10)} outside the records: ${off.slice(0, 5).join(', ')}` : null;
+  if (!isAnc(root, was, is)) return `is not ${String(is).slice(0, 10)}, this land's base, nor behind it`;
+  const judge = JUDGE_FILES.filter((f) => blobAt(root, was, f) !== blobAt(root, is, f));
+  if (judge.length) return `has another judge than ${String(is).slice(0, 10)}: ${judge.join(', ')}`;
+  if (row.suite === 'base-red' && was !== is) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}`;
+  return null;
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after

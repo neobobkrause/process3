@@ -753,6 +753,8 @@ export function mergePlain(root, n, opts = {}) {
   const head = pr.head.ref;
   if (!pr.head.repo?.full_name || pr.head.repo.full_name !== slug) fail(`pull request ${n} comes from ${pr.head.repo?.full_name || 'a repository that no longer exists'}, not ${slug}`);
   if (isJob(head)) fail(`pull request ${n} is a job's (${head}); merge it without --plain`);
+  // A train spec pull request (train-spec C') is never merged: it is a test of a predicted merged result.
+  if (/^train\/head\//.test(head)) fail(`pull request ${n} is the merge train's spec (${head}): it is never merged; the job's own pull request lands`);
   if (isJob(base)) fail(`pull request ${n} is into ${base}, a job's branch`);
   const main = base === 'main' || base === pr.base.repo?.default_branch;
   // Before anything waits on checks: a conflicted pull request gets none (copy PR 108, 4 Nov).

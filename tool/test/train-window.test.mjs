@@ -11,6 +11,7 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { fetchState, jsonl, readState } from '../lib/state.mjs';
 import { SPEC_REBUILDS, TRAIN_FILE, WINDOW_FILE, buildResult, train, trainLines, trainSummary } from '../lib/train.mjs';
 import { Fail, git } from '../lib/util.mjs';
+import { mergePlain } from '../lib/merge.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const S = 'session_merger1';
@@ -116,10 +117,17 @@ test('window of 3: specs on the chain; a red at position 1 is not refused behind
   assert.equal(g.calls.created.length, 3, lines.join('\n'));
   const [a, b, c] = g.calls.created;
   assert.deepEqual([a.head, b.head, c.head], ['train/head/1-1', 'train/head/2-1', 'train/head/3-1']);
-  // Each spec's base is the one ahead's head commit (R(i-1)); the first is the tranche tip.
-  assert.equal(seen.get('refs/heads/train/spec/1-1'), g.tipOf('tranche'));
-  assert.equal(seen.get('refs/heads/train/spec/2-1'), seen.get('refs/heads/train/head/1-1'));
-  assert.equal(seen.get('refs/heads/train/spec/3-1'), seen.get('refs/heads/train/head/2-1'));
+  // Every spec PR is into the tranche itself; no spec base branch exists. The chain is in the heads:
+  // R(0) is built on the tranche tip, each next on the one ahead (its first parent's history).
+  assert.deepEqual([a.base, b.base, c.base], ['tranche', 'tranche', 'tranche']);
+  assert.ok(![...seen.keys()].some((r) => r.startsWith('refs/heads/train/spec/')));
+  const anc = (x, y) => git(['merge-base', '--is-ancestor', x, y], { cwd: root, allowFail: true }).code === 0;
+  assert.ok(anc(g.tipOf('tranche'), seen.get('refs/heads/train/head/1-1')));
+  assert.ok(anc(seen.get('refs/heads/train/head/1-1'), seen.get('refs/heads/train/head/2-1')));
+  assert.ok(anc(seen.get('refs/heads/train/head/2-1'), seen.get('refs/heads/train/head/3-1')));
+  const rows = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'build');
+  assert.equal(rows[0].base, g.tipOf('tranche'));
+  assert.equal(rows[1].base, seen.get('refs/heads/train/head/1-1'));
   assert.deepEqual(g.calls.merged, [], 'nothing lands in the build pass');
   run(root, g, 6, lines);
   watch();
@@ -185,7 +193,8 @@ test('a tranche moved by anything but the window closes every spec, and the wind
   assert.deepEqual(g.calls.closed.sort(), [101, 102]);
   // Rebuilt on the new tip, with fresh names.
   assert.deepEqual(g.calls.created.slice(2).map((x) => x.head), ['train/head/1-2', 'train/head/2-2']);
-  assert.equal(refs(root).get('refs/heads/train/spec/1-2'), tip);
+  assert.ok(git(['merge-base', '--is-ancestor', tip, refs(root).get('refs/heads/train/head/1-2')], { cwd: root, allowFail: true }).code === 0, 'rebuilt on the new tip');
+  assert.equal(stateRows(root, WINDOW_FILE).find((r) => r.event === 'build' && r.pr === 1 && r.seq === 2).base, tip);
   assert.ok(win.some((r) => r.event === 'build' && r.pr === 1 && r.seq === 2 && /rebuilt after: tranche moved/.test(r.cause)));
   assert.deepEqual(g.calls.merged, []);
 });
@@ -297,4 +306,10 @@ test('a spec pull request whose close fails is closed at the next pass, and its 
   assert.ok(!g.specs.get(101).open && !g.specs.get(102).open, 'both closed in the end');
   const closes = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'close' && r.seq === 1);
   assert.deepEqual(closes.map((r) => r.pr).sort(), [1, 2], 'one row each, once closed');
+});
+
+test('merge --plain refuses a train spec pull request, even one made ready: only the job PR lands', () => {
+  const { root } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } }, 2);
+  const pr = { number: 101, state: 'open', draft: false, base: { ref: 'tranche' }, head: { ref: 'train/head/1-1', sha: 'a'.repeat(40), repo: { full_name: 'o/r' } }, user: { login: 'civicsmith' } };
+  assert.throws(() => mergePlain(root, 101, { slug: 'o/r', noReview: 'a probe', log: () => {}, io: { getPR: () => pr, mergePR: () => { throw new Error('merged'); } } }), /is the merge train's spec \(train\/head\/1-1\): it is never merged/);
 });

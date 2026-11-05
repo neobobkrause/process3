@@ -1,9 +1,10 @@
 // The merge train's window (notes/train-spec-plan.md, option C' as the coordinator ruled it, 5 Nov).
 // Pure: no git, no GitHub; train.mjs reads both and drives these. Up to k green job pull requests
 // gate at once, each on its predicted merged result R(i): the job's head merged onto R(i-1), with
-// R(-1) the tranche tip. Each sits on a spec pair, base `train/spec/<pr>-<seq>` at R(i-1) and head
-// `train/head/<pr>-<seq>` at R(i), its own draft spec pull request between them. Names are fresh
-// per build and never reused or deleted (a reused name would need a force-push).
+// R(-1) the tranche tip. Each has a spec head `train/head/<pr>-<seq>` at R(i) and its own draft spec
+// pull request from it into the tranche itself (the coordinator's ruling, 5 Nov 17:20: the run's
+// judge is the tranche's). Names are fresh per build and never reused or deleted (a reused name
+// would need a force-push). `base` stays R(i-1): the chain, not a branch.
 //
 // A position: { n, id, head (the job's head), ref, run, green_at, seq, spec_pr, base (R(i-1)),
 // result (R(i)), state: building|gating|green|red, start? }. `start` is set on position 0 only
@@ -11,8 +12,7 @@
 // is the landed R(0)'s; before any land the chain starts at position 0's base.
 // Every close and build carries its cause, the window rows' `cause` (condition 4).
 
-export const SPEC_REF = /^train\/(spec|head)\/(\d+)-(\d+)$/;
-export const specBase = (n, seq) => `train/spec/${n}-${seq}`;
+export const SPEC_REF = /^train\/head\/(\d+)-(\d+)$/;
 export const specHead = (n, seq) => `train/head/${n}-${seq}`;
 const s10 = (x) => String(x ?? '').slice(0, 10);
 

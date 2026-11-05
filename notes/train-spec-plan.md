@@ -140,23 +140,37 @@ The parts and the contracts between them:
 - **Position 0 that is its own merged result** (its head already holds the tranche tip and its
   merge row): no spec PR, since its spec head would be the job PR's own commit and share its check
   runs; it lands on its own gate, as the serial train lands it.
-- **Branches:** every spec pair is pushed with `--atomic` as two new refs; a name taken on the
-  remote (ls-remote) or in a row is never used again, so no push is ever a rewrite. Spec PRs are
+- **Branches:** every spec head is pushed as a new ref; a name taken on the remote (ls-remote,
+  `train/spec/*` and `train/head/*`) or in a row is never used again, so no push is ever a rewrite. Spec PRs are
   closed, never deleted; branches are never deleted. There is no non-deletion route to clean them
-  (auto-delete on merge is a repository setting, and spec PRs never merge): they accumulate, two
+  (auto-delete on merge is a repository setting, and spec PRs never merge): they accumulate, one
   per build; a prune needs Bob.
 - **Pin:** the gate and job post run at the base's pin, so on the copy the spec path works only
   once the copy's `.process` pin carries this code; before that, a window over 1 must stay off.
 
-## Open: the spec run's judge is chosen by an unprotected branch (confirming review, finding A)
+## The spec run's judge (confirming review, finding A; closed by the coordinator's ruling, 17:20)
 
-A spec run executes the pin (`.process`) and gate workflow of its spec base, a `train/spec/*`
-branch any writer can create or move. Its row is written by that code, so every field the fast path
-and the cover read (`base`, `tree`, `ok`, `trigger`, `spec`, `receipt`) can be forged by whoever
-pushes a spec pair; `verifyRow` ties the row to the run's head sha, its workflow path and its base
-ref name, never to the base sha the run used. Before this build the gate trusted only runs into the
-tranche, whose pin and workflow are protected. Until the run's real base sha is bound independently
-of its row (proposed: every push to the spec base ref, read from GitHub's repository activity API,
-is its single creation at `row.base`; the spec PR's base never changed; `row.base` an ancestor of
-`row.sha`), or Bob's ruleset protects `train/**` refs, `merge_train_window` stays at 1. With 1, the
-gate takes neither spec mode nor the fast path, and the train builds no spec.
+Found: a spec run executes the pin (`.process`) and gate workflow of its base. With bases on
+`train/spec/*`, branches any writer can create or move, the run's code and so its whole row
+(`base`, `tree`, `ok`, `spec`, `receipt`) could be forged by whoever pushed a spec pair; `verifyRow`
+ties a row to the run's head sha, workflow path and base ref name, never to the base sha it ran on.
+
+Ruled and built: **every spec pull request is into the tranche itself**, from `train/head/<pr>-<seq>`
+at R(i), which is built on the tranche tip (R(0)) or on the R ahead of it. No spec base branch
+exists. The run's base is a tranche tip, so its pin, config and gate code are the tranche's, under
+the same ruleset and the same `verifyRow` binding (base ref = the tranche) that job PRs rest on;
+GitHub's merge checkout of R(i) into that tip is R(i)'s tree. What changes with it:
+
+- **Gate, spec mode:** `changed` and its merge-base are the job PR's own head's (the spec head also
+  holds the jobs ahead); ledger, start row, imports and generated checks read the job's head, as
+  its own gate does; the suite runs on the checkout; revert and base-red run against the run's base,
+  the tranche tip.
+- **Fast path and cover:** the spec run's base must be the land's base or behind it on the tranche,
+  with the same judge (`.process`, `process/config.json`, `.github/workflows/process-gate.yml`); a
+  base-red suite stands only on the land's very base (a test failing at an older tip may have been
+  fixed by a job ahead and broken again by this one).
+- **Never merged:** spec PRs stay drafts (GitHub merges no draft); `merge` refuses a non-job branch
+  and `merge --plain` refuses `train/head/*` by name.
+- **Noise:** up to k draft PRs into the tranche; status, sweep and the train select job branches
+  only. Any product workflow on `pull_request` into the tranche also runs for each spec PR: a trial
+  pre-check on the copy.
