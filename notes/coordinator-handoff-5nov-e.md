@@ -17,7 +17,7 @@ ROLES LIVE (all on this account, all from the restart)
 - Watcher session_018BhceeMjF6AwKvAHJwkQ1L (daily trig_01AvKAsQ3dLkB3pryqQ6C3Ji, 11:17).
 
 STATE AT HANDOFF
-- process3 tranche: c4f2cae (PRs 145, 147, 146). PR 148 (train unshallows a shallow clone at start; 804/804; one cold review, nothing blocking) is being merged by `merge 148 --plain --reviewed ... --rounds 1` from my session; if it is still open, merge it the same way. Its pin move can wait for the next batch (this MERGER is already unshallowed).
+- process3 tranche: 7ce6425 (PRs 145, 147, 146, and 148 merged 07:24: the train unshallows a shallow clone at start; 804/804; one cold review). Copy pin is still c4f2cae: move it to 7ce6425 with the next batch (this MERGER is already unshallowed, so it is not urgent).
 - Copy: tranche e234b71, pin c4f2cae (PR 449), process-gate.yml job cap 90. Coordinator id in config names me (PR 448); probe too (PR 224).
 - Live jobs at 07:19: 1/20 (control-plane restart on PR 290, release path). BOB is making the other replacement starts one at a time: journey-check 314, answer-envelope 386, interface-assets 443, member-roster 446, screens-daily 439, screens-settings 437, question-explorer 346, capture-requests, screens-wizards, case-checker (--reopen), plane (--fresh-branch, ruled 07:19).
 - Release path: control-plane 290 and journey-check 314 need a gate on a branch that took in the tranche (a pull_request gate runs the head's process-gate.yml). Then round close for the first dev release (handoff b OPEN 2).
