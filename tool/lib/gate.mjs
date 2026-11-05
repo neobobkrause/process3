@@ -192,7 +192,7 @@ export function gate(root, opts) {
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     // A lane's folder counts as records here: a lane's land between a job's green run and its
     // merge does not send the job back through its suite (Bob, 5 Nov).
-    && diffNames(root, lastGreen.sha, head).every((f) => isRecordOrLane(cfg, f, entries));
+    && diffNames(root, lastGreen.sha, head).every((f) => isRecordOrLane(cfg, f, entries, { self: job }));
 
   // The base the job's change is reverted to: the first parent of GitHub's merge checkout,
   // the tranche as it was merged with, else the event's base.
@@ -430,8 +430,8 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   if (unbound) return no(`spec PR ${n}'s branch is not bound to it: ${unbound.replace(/^is PR \d+'s merge, but /, '')}`);
   const at = String(row.sha).slice(0, 10);
   // Lane folders count as records here, as in record-since-green (lane.mjs; Bob, 5 Nov).
-  const lanes = entriesAt(root, head);
-  const off = diffNames(root, row.sha, head).filter((f) => !isRecordOrLane(cfg, f, lanes));
+  const entries = entriesAt(root, head);
+  const off = diffNames(root, row.sha, head).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
   if (off.length) return no(`the head differs from ${at}, which spec PR ${n}'s run ${row.run_id} tested, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
   // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
   if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
@@ -471,7 +471,7 @@ function measuredBy(root, cfg, receipt, green, entries = []) {
   const job = receipt.module;
   if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail', 'base-red'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, did not run the ${job} suite` };
   const same = git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
-    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries));
+    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries, { self: job }));
   if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${String(green.sha).slice(0, 10)}, tested` };
   if (green.revert === 'exempt' && !receipt.exempt?.revert) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, passed its revert check by an exemption this receipt does not claim` };
   // The row keeps only the passes an earlier receipt excused: a test this one excuses that the row
@@ -613,7 +613,7 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
   const tested = row.trigger === 'record-since-green'
     ? runs.filter((r) => r.sha === row.after).reverse().find((r) => suiteRan(r) && bound(r))
-    : row.trigger === 'spec-tested' ? specRan(root, cfg, { slug, io, n, row, head: p2, suiteRan })
+    : row.trigger === 'spec-tested' ? specRan(root, cfg, { slug, io, n, row, head: p2, suiteRan, job: id })
       : suiteRan(row) ? row : null;
   if (!tested) return no(`is PR ${n}'s merge, but no verified green run of the ${id} suite stands behind its merged result`);
   const e = git(['show', `${p1}:${entryFile(id)}`], { cwd: root, allowFail: true });
@@ -628,15 +628,16 @@ export function jobMerge(root, cfg, c, { slug, io }) {
 // the spec PR is closed GitHub may list no pull request on its runs, as on a merged one's
 // (verifyRow): the run is then bound by its branch, as a merged job PR's is, when every PR from
 // the spec head was into the tranche, never retargeted (branchBound). null when not shown.
-function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
+function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== n || sp.head?.repo?.full_name !== slug) return null;
   // Bound whether open or closed (confirming review, finding 1): every PR from the spec head is this one, into the tranche.
   const ctx = sp.state === 'open' ? { pr: row.spec_pr, baseRef: cfg.tranche, branch: sp.head.ref } : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref }, branch: sp.head.ref };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
+  const entries = r ? entriesAt(root, head) : [];
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || !diffNames(root, r.sha, head).every((f) => isRecordOrLane(cfg, f, entriesAt(root, head))) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
+    || !diffNames(root, r.sha, head).every((f) => isRecordOrLane(cfg, f, entries, { self: job })) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
   // Read after the row (final review, L1).
   if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
   return r;

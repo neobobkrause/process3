@@ -22,7 +22,7 @@ import { dirname, join, relative } from 'node:path';
 import { P3, rulebook } from './job.mjs';
 import { entryFile, jobBranch, ledgerIds, originJobs } from './ledger.mjs';
 import { addressFile, fetchState, jsonl, readState, writeState } from './state.mjs';
-import { fail, fetchBranch, git, list, loadConfig, now, repoSlug } from './util.mjs';
+import { fail, fetchBranch, git, laneDirs, list, loadConfig, now, repoSlug } from './util.mjs';
 
 export const LANES_FILE = 'lanes/asks.jsonl';
 
@@ -33,7 +33,11 @@ export function lanes(cfg) {
   return ls.map((l, i) => {
     if (!l || typeof l !== 'object' || typeof l.name !== 'string' || !l.name.trim()) fail(`lane ${i + 1} in process/config.json has no name`);
     const module = typeof l.module === 'string' && l.module.trim() ? l.module.trim() : null;
-    return { name: l.name.trim(), dir: typeof l.dir === 'string' && l.dir.trim() ? l.dir.trim().replace(/\/$/, '') : null, module };
+    const dir = typeof l.dir === 'string' && l.dir.trim() ? l.dir.trim().replace(/\/$/, '') : null;
+    // One parser of a lane's folder with the gate's (util.mjs laneDirs): a folder it would not
+    // count is refused here, so no lane's START promises a path the gate does not give.
+    if (dir && !laneDirs({ lanes: [l] }).length) fail(`lane ${l.name.trim()}'s dir ${JSON.stringify(dir)} cannot be a lane folder: not the root, nor under process/, .process/, .github/, .claude/ or CLAUDE.md, nor outside the checkout`);
+    return { name: l.name.trim(), dir: dir ? dir.replace(/^\.\//, '') : null, module };
   });
 }
 // The lane whose ledger module this is (a lane's "module" in process/config.json), or null.
@@ -250,6 +254,7 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   const l = lane(cfg, name);
   fetchState(root, cfg.state_branch, { fresh: true });
   const seat = readSeats(root, cfg).get(l.name);
+  if (record === undefined && (cfg.plan === 'pause' || cfg.plan === 'stop')) fail(`plan ${cfg.plan}: take no new step; no lane session was started`);
   const id = (v, what) => (typeof v === 'string' && /^session_[A-Za-z0-9]+$/.test(v) ? v : fail(`${what} <session id (session_...)>, not ${JSON.stringify(v ?? '')}`));
   if (record !== undefined) {
     const sid = id(record, '--record');
@@ -314,4 +319,14 @@ export function markLaneHeld(cfg, seats, next) {
     if (s) x.lane_held = `lane ${l.name}'s session ${seatName(s)} is live: its work is the lane's, one session per lane`;
   }
   return next;
+}
+
+// The lane a module's job is the one session of, with its design documents' links, for the job's
+// START (job.mjs); null for a module of no lane. The links unread are none, never a refusal.
+export function laneForStart(root, cfg, id) {
+  const l = laneOfModule(cfg, id);
+  if (!l) return null;
+  let artifacts = [];
+  try { artifacts = readArtifacts(root, cfg, l.name); } catch { artifacts = []; }
+  return { ...l, artifacts };
 }

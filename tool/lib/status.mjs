@@ -1072,7 +1072,7 @@ export function laneDefects(cfg, seats, { rows = [], listed = null } = {}) {
     }
     const js = l.module ? jobSession(live, l.module) : null;
     if (js) { holders.delete(`job ${l.module}`); holders.add(sessionId(js)); }
-    if (holders.size > 1) out.push(`defect: lane ${l.name} has ${holders.size} live sessions (${[...holders].join(', ')}): one session per lane at a time; end or archive all but one (${l.module ? `job ${l.module}'s is the lane's` : `lane end ${l.name}`})`);
+    if (holders.size > 1) out.push(`defect: lane ${l.name} has ${holders.size} live sessions (${[...holders].join(', ')}): one session per lane at a time; end or archive all but one (lane end ${l.name} frees the lane's seat${l.module ? `; job ${l.module} ends as it completes` : ''})`);
   }
   return out;
 }

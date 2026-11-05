@@ -191,7 +191,7 @@ export function merge(root, n, opts = {}) {
     });
     // A speculated land (train window, C'): L is pushed marked for the gate's spec-tested path only
     // when it is the tree the spec gate tested, records aside; else the gate on L runs in full.
-    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, log }) : null;
+    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, job: id, log }) : null;
     if (spec?.tip) tip = spec.tip;
     // The train's return to a held merged result pushes nothing new (the coordinator's ruling: its
     // head holds this PR's merge row on the current tip); anything to push ends the hold instead.
@@ -320,7 +320,7 @@ export const SPEC_TRAILER = 'Spec-Tested';
 // bytes pushed are the bytes built; anything else is today's full re-gate, and says why. A tip
 // that is already the PR's head is never rewritten (nothing new is pushed): it is fast only when
 // an earlier run pushed it with this trailer.
-function specMark(wt, cfg, { pr: sp, sha }, { tip, was, log = console.log }) {
+function specMark(wt, cfg, { pr: sp, sha }, { tip, was, job = null, log = console.log }) {
   const trailer = `${SPEC_TRAILER}: ${sp}`;
   const marked = (c) => git(['log', '-1', '--format=%B', c], { cwd: wt }).split('\n').some((l) => l.trim() === trailer);
   const slow = (why) => { log(`spec PR ${sp}: ${why}; the gate on the merged result runs in full`); return { fast: false, why }; };
@@ -328,7 +328,7 @@ function specMark(wt, cfg, { pr: sp, sha }, { tip, was, log = console.log }) {
   if (tip === was && !marked(tip)) return slow('nothing pushed');
   // Lane folders count as records, as in the gate's record-since-green (lane.mjs; Bob, 5 Nov).
   const entries = entriesAt(wt, tip);
-  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordOrLane(cfg, f, entries));
+  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
   if (differ.length) return slow(`the merged result ${tip.slice(0, 10)} differs from the tree spec PR ${sp} tested (${sha.slice(0, 10)}) outside the records: ${differ.slice(0, 5).join(', ')}${differ.length > 5 ? ` and ${differ.length - 5} more` : ''}`);
   if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside`); return { fast: true, pr: sp }; }
   const shape = (c) => git(['rev-list', '--no-walk', '--format=%T %P', c], { cwd: wt }).split('\n').pop();

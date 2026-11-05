@@ -183,6 +183,8 @@ const commands = {
   // lane end <name> --session <id>|pending --why "<why>": the seat freed.
   'lane start': (a, root) => {
     if (a._.length !== 1) fail('lane start <name>');
+    const job = ['reopen', 'restart', 'stop', 'take-in', 'fresh-branch', 'over-cap', 'coordinator'].filter((k) => a[k] !== undefined);
+    if (job.length) fail(`lane start takes no ${job.map((k) => `--${k}`).join(', ')}: those are job start's; a lane's session is its seat (lane start, --replace, lane end)`);
     laneStart(root, a._[0], { replace: a.replace, record: a.record, model: a.model });
     return 0;
   },

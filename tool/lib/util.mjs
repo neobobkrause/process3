@@ -372,13 +372,17 @@ export function laneDirs(cfg) {
 }
 // The lane whose folder holds f, or null; a file a ledger module other than the lane's own owns
 // (its paths or tests: entries, the ledger's) is that module's, judged as today.
-export function laneOfPath(cfg, f, entries = []) {
+// Never a lane path: any module's tests; a file of the job being gated (self), so a job's own
+// code is always tested; CLAUDE.md, .claude/, .github/ or .process/ anywhere in the folder.
+const GOVERNS = /(^|\/)(CLAUDE\.md$|\.claude\/|\.github\/|\.process\/)/;
+export function laneOfPath(cfg, f, entries = [], { self = null } = {}) {
   const l = laneDirs(cfg).find((x) => underPath(f, x.dir));
-  if (!l) return null;
-  const other = entries.some((e) => e.id !== l.module && [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)));
+  if (!l || GOVERNS.test(f)) return null;
+  const owns = (e, ps) => (ps || []).some((p) => underPath(f, p));
+  const other = entries.some((e) => owns(e, e.tests) || ((e.id !== l.module || e.id === self) && owns(e, e.paths)));
   return other ? null : l.name;
 }
-export const isRecordOrLane = (cfg, f, entries = []) => isRecordPath(cfg, f) || !!laneOfPath(cfg, f, entries);
+export const isRecordOrLane = (cfg, f, entries = [], opts = {}) => isRecordPath(cfg, f) || !!laneOfPath(cfg, f, entries, opts);
 // The one lane a change is all inside, records aside, or null: no file of a lane's folder, a file
 // outside every lane's folder, or files of two lanes' folders.
 export function laneOnly(cfg, files, entries = []) {

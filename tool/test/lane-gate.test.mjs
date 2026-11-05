@@ -112,3 +112,23 @@ test('the tranche\'s cover asks no suite for a lane\'s folder; the predicates ho
   const c = trancheCover(s.root, { ...loadConfig(s.root), lanes: LANES }, { head: s.base, mb: s.base, changed: ['design/ux/words.json'], entries: [ux], slug: null, io: {} });
   assert.deepEqual(c.uncovered, []);
 });
+
+test('a job\'s own code, any module\'s tests and the files that govern sessions are never lane paths', () => {
+  const cfg = { records: ['process/metrics/'], lanes: LANES };
+  const ux = entry('ux-design', { paths: ['design/ux/'], tests: ['design/ux/test/'] });
+  // The lane's module's own job: its files in the folder are its code, tested as a job's.
+  assert.equal(laneOfPath(cfg, 'design/ux/gen.mjs', [ux]), 'ux');
+  assert.equal(laneOfPath(cfg, 'design/ux/gen.mjs', [ux], { self: 'ux-design' }), null);
+  assert.equal(isRecordOrLane(cfg, 'design/ux/gen.mjs', [ux], { self: 'ux-design' }), false);
+  assert.equal(laneOfPath(cfg, 'design/ux/test/gen.test.mjs', [ux]), null);
+  for (const f of ['design/ux/CLAUDE.md', 'design/ux/.claude/settings.json', 'design/ux/.github/workflows/x.yml', 'design/ux/.process/x']) assert.equal(laneOfPath(cfg, f, []), null, f);
+});
+
+test('a job of the lane\'s module whose own lane-folder code changed since its green run runs its suite again', () => {
+  const s = setup({ cfg: { lanes: [{ name: 'ux', dir: 'design/ux', module: 'alpha' }] }, alpha: { paths: ['src/alpha/', 'design/ux/'] } });
+  const h1 = onBranch(s, 'job/alpha', { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const io = fakeIO({ kind: 'receipt', module: 'alpha', attempt: 1, sha: h1, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: {} });
+  assert.equal(run(s, h1, 'job/alpha', io).run.trigger, 'code');
+  const h2 = commit(s.root, { 'design/ux/words.json': '{"e":1}\n' });
+  assert.equal(run(s, h2, 'job/alpha', io).run.trigger, 'code');
+});
