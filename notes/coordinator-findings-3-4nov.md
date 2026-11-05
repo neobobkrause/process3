@@ -536,3 +536,5 @@
 - 12:23 pin move -> 43a5876 (153 release tier): session_018BhcegsNkx99LYyf1WY2X1 (open pin moves by search: 0; prompt step 12 adds a hand notice if no wake prints).
 - 12:12 process3 PR 155 (receipt-regate, option A): 856/856, cold review 4 findings fixed with tests. Confirming review asked (gate change), then I merge with --rounds 2.
 - 12:24 process3 PR 155 (receipt-regate) merged 105c202 by me: --plain --reviewed --rounds 2 (cold 4 fixed; confirming 2 fixed: exemption time from the first receipt carrying it, same-second counts as before). 858/858. Build archived. Pin session told (now) to retarget to 105c202 if it has not pushed; else 43a5876 stands.
+- 12:22 MERGER on 06ab532: stopped 12:20:26 (499 merged 12:20:25), released, wake ok, restart 12:22:43, first real pick PR 414 at ~12:23:46 = 63 s (was 629 s on 73508ce). Cold pass 45.0 s, 42 ready: hold reads 24.9 s, release path 7.7 s, gate reads 2.8, post reads 2.5, gate minutes 2.4, heads fetch 2.1, rest <1 s each.
+- 12:24 copy coordinator id merged: PR 500 at 18fbc6d; config names me. Short session archived.
