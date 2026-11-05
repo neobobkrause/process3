@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
-import { LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
+import { LEASE_FILE, MERGER_FILE, Stop, TRAIN_FILE, TRAIN_NO_REVIEW, takeLease, train, trainNote, trainSummary, writeFree, writePaths } from '../lib/train.mjs';
 import { loadConfig } from '../lib/util.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -19,9 +19,10 @@ const quiet = () => {};
 const done = JSON.stringify({ row: 'attempt', event: 'complete', at: new Date(Date.now() - 5 * 60000).toISOString(), attempt: 1 }) + '\n';
 
 // Jobs (id -> files their branch commits); each a PR numbered in order.
-function setup(jobs) {
+function setup(jobs, base = {}) {
   const ids = Object.keys(jobs);
   const root = makeRepo({
+    ...base,
     ...Object.fromEntries(ids.map((id) => [`process/ledger/${id}.json`, entry(id)])),
     ...Object.fromEntries(ids.map((id) => [`test/${id}/a.test.mjs`, "import assert from 'node:assert';\nassert.equal(1, 1);\n"])),
   });
@@ -49,7 +50,7 @@ function github(root, ids, { pending = false, own = () => null } = {}) {
   const calls = { merged: [], gates: [] };
   const pr = (n) => {
     const s = state.get(Number(n));
-    return { number: Number(n), state: s.open ? 'open' : 'closed', merged: s.merged, merge_commit_sha: s.merge || null, draft: false, mergeable: true, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: `job/${s.id}`, sha: tipOf(`job/${s.id}`), repo: { full_name: 'o/r' } } };
+    return { number: Number(n), state: s.open ? 'open' : 'closed', merged: s.merged, merge_commit_sha: s.merge || null, draft: !!s.draft, mergeable: true, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: `job/${s.id}`, sha: tipOf(`job/${s.id}`), repo: { full_name: 'o/r' } } };
   };
   const io = {
     openPRs: () => [...state.keys()].filter((n) => state.get(n).open).map(pr),
@@ -232,16 +233,35 @@ test('merge train: the next PR is prepared while a re-gate runs, and merges on t
   assert.ok(messages(root).some((x) => /PR 1 \(job alpha\): its merged result is red/.test(x.text)));
 });
 
-test('merge train: under its disk budget it stops before a merge starts, and records the disk each merge used', () => {
+test('merge train: under its disk budget it stops before a merge starts, and records the disk free and used apart', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
   const g = github(root, ids);
   const r = run(root, g);
-  assert.ok(Number.isFinite(r.rows[0].disk_mb), 'disk used per merge in the row');
+  assert.ok(Number.isFinite(r.rows[0].disk_used_mb), 'disk used per merge in the row');
+  assert.ok(r.rows[0].disk_free_mb >= 512, 'the free space before the merge in the row, measured');
+  assert.equal(r.rows[0].disk_mb, undefined, 'no ambiguous disk column');
   assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left after the merge');
   const before = g.tipOf('job/beta');
-  assert.throws(() => run(root, g, { diskFree: () => 100 }), /STOP: 100 MB free, under the merger's disk budget of 512 MB; nothing was started for PR 2/);
+  assert.throws(() => run(root, g, { diskFree: () => 100 }), (e) => e instanceof Stop && /STOP: 100 MB free, under the merger's disk budget of 512 MB .*nothing more is merged or written/.test(e.message));
   assert.deepEqual(g.calls.merged, [1]);
   assert.equal(g.tipOf('job/beta'), before, 'nothing pushed');
+  // The lease is given back on that stop: a new train starts at once.
+  run(root, g);
+  assert.deepEqual(g.calls.merged, [1, 2]);
+});
+
+test('merge train: the disk is measured where the train writes, the least free of the checkout, its git directory and the temporary directory', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const paths = writePaths(root);
+  assert.ok(paths.includes(root) && paths.includes(tmpdir()) && paths.some((p) => p.endsWith('.git')), paths.join(', '));
+  // Only the temporary directory (where merge's and the state branch's worktrees go) is short.
+  assert.deepEqual(writeFree(root, (p) => (p === tmpdir() ? 3 : 90000)), { mb: 3, at: tmpdir() });
+  // With the real measure and a budget over any disk: the train stops before its first merge,
+  // naming where it measured; nothing merged, no row.
+  const g = github(root, ids);
+  assert.throws(() => run(root, g, { diskMinMb: 1e12 }), (e) => e instanceof Stop && /^STOP: \d+ MB free, under the merger's disk budget of 1000000000000 MB \(the least free of .*\); nothing more is merged or written/.test(e.message));
+  assert.deepEqual(g.calls.merged, []);
+  assert.equal(stateRows(root, TRAIN_FILE).length, 0);
 });
 
 test('merge train: a second train in the same session is refused while the first holds the lease', () => {
@@ -314,4 +334,54 @@ test('merge train: a transient failure waits, growing, without a hot loop; the f
   const r = train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: quiet, idleEvery: 1, rounds: 3, pipeline: false });
   assert.deepEqual(r.rows.map((x) => [x.pr, x.result]), [[1, 'retry'], [2, 'merged']], 'PR 1 waits; PR 2 is not starved');
   assert.equal(messages(root).filter((x) => /PR 1/.test(x.text)).length, 0);
+});
+
+// Provider first (order.mjs): beta uses alpha; alpha's job adds an export beta's job imports.
+const usesBase = {
+  'process/config.json': { modules_file: 'build/modules.json' },
+  'build/modules.json': { modules: [{ id: 'alpha', paths: ['src/alpha/'], tests: ['test/alpha/'], uses: [] }, { id: 'beta', paths: ['src/beta/'], tests: ['test/beta/'], uses: ['alpha'] }] },
+  'src/alpha/index.mjs': 'export const a = 1;\n',
+};
+const usesJobs = { beta: { 'src/beta/a.mjs': "import { b } from '../alpha/index.mjs';\nexport const c = b;\n" }, alpha: { 'src/alpha/index.mjs': 'export const a = 1;\nexport const b = 2;\n' } };
+
+test('merge train: a user PR is held while its provider PR that changes what it imports is open, and goes once the provider merges', () => {
+  const { root, ids } = setup(usesJobs, usesBase);
+  const g = github(root, ids); // PR 1 beta (the user, first by number), PR 2 alpha (the provider)
+  const lines = [];
+  const r = run(root, g, { log: (l) => lines.push(l) });
+  assert.deepEqual(g.calls.merged, [2], 'the provider first, though the user is older');
+  assert.ok(lines.some((l) => /^PR 1 \(beta\) held: it imports alpha, whose open PR 2 changes its exports/.test(l)), lines.join('\n'));
+  assert.deepEqual(r.rows[0].held, [{ pr: 1, module: 'beta', providers: [{ module: 'alpha', pr: 2 }] }]);
+  assert.equal(r.rows[0].holds, 1, 'the provider holds one user');
+  assert.deepEqual(stateRows(root, TRAIN_FILE)[0].held, r.rows[0].held, 'the hold in the train row');
+  run(root, g);
+  assert.deepEqual(g.calls.merged, [2, 1], 'the user goes once its provider merged');
+});
+
+test('merge train: a draft provider holds its user; a red provider holds nothing', () => {
+  const { root, ids } = setup(usesJobs, usesBase);
+  const g = github(root, ids);
+  g.state.get(2).draft = true;
+  const r = run(root, g);
+  assert.deepEqual(g.calls.merged, [], 'the user waits for its draft provider');
+  assert.equal(r.rows.length, 0);
+  // The provider goes red on its head: the user is not held for it any more.
+  const alpha = g.tipOf('job/alpha');
+  const red = github(root, ids, { own: (sha) => (sha === alpha ? { id: 9, status: 'completed', conclusion: 'failure', completed_at: new Date().toISOString() } : null) });
+  red.state.get(2).draft = true;
+  run(root, red);
+  assert.deepEqual(red.calls.merged, [1]);
+});
+
+test('merge train: a provider whose PR does not change its exports, or that its user does not import, holds nothing', () => {
+  // alpha's job changes only a body; beta imports alpha.
+  const same = setup({ beta: usesJobs.beta, alpha: { 'src/alpha/index.mjs': 'export const a = 1 + 0;\n' } }, usesBase);
+  const g1 = github(same.root, same.ids);
+  run(same.root, g1);
+  assert.deepEqual(g1.calls.merged, [1]);
+  // alpha adds an export; beta's change imports nothing of alpha.
+  const apart = setup({ beta: { 'src/beta/a.mjs': 'export const c = 3;\n' }, alpha: usesJobs.alpha }, usesBase);
+  const g2 = github(apart.root, apart.ids);
+  run(apart.root, g2);
+  assert.deepEqual(g2.calls.merged, [1]);
 });
