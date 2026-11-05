@@ -347,8 +347,8 @@ export function starterLines(auto, rows, owed, t = Date.now()) {
   const live = starterLive(auto, t);
   const fig = m.n ? `owed to started: median ${m.median} min, p90 ${m.p90} min, last ${m.last} min (${m.n} starts in 24 h)` : 'owed to started: no start measured in 24 h';
   const quiet = auto?.quiet && (Date.parse(auto.beat) || 0) > (Date.parse(auto.at) || 0) ? `; quiet: ${auto.quiet}` : '';
-  const state = live ? `running (${auto.session}, ${auto.at ? `last pass ${auto.pass} at ${auto.at}` : 'no pass yet'}${quiet}${auto.pending?.length ? `; ${auto.pending.length} launch${auto.pending.length === 1 ? '' : 'es'} not yet seen created: ${auto.pending.map((p) => p.id).join(', ')}` : ''})`
-    : `NOT RUNNING${auto?.at ? ` (last pass ${auto.at})` : ''}: BOB runs ${P3} job start --ready until the MERGER runs ${P3} auto start`;
+  const state = live ? `running (${auto.session}, ${auto.at ? `last pass ${auto.pass} at ${auto.at}` : 'no pass yet'}${quiet}${auto.pending?.length ? `; ${auto.pending.length} launch${auto.pending.length === 1 ? '' : 'es'} not yet seen created: ${auto.pending.map((p) => p.id).join(', ')}` : ''}): it makes every ready start; BOB starts none, subscribes to the pull requests its messages name and keeps the judgments (entries, holds, blocked, over-cap, reopens)`
+    : `NOT RUNNING${auto?.at ? ` (last pass ${auto.at})` : ''}: BOB runs ${P3} job start --ready (deliver what it prints) and tells ROOT the starter is down`;
   const now2 = owed?.since ? `; starts owed now for ${Math.round((t - Date.parse(owed.since)) / MIN)} min` : '';
   return [`starter: ${state}; ${fig}${now2}`];
 }

@@ -8,7 +8,7 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
-import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, writeState } from './state.mjs';
+import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
@@ -217,7 +217,7 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
 
 export function status(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
-  const cfg = loadConfig(root);
+  let cfg = loadConfig(root);
   // Starts owed, the first line (hold.mjs): a marker, never a refusal.
   try {
     if (offline || fetchState(root, cfg.state_branch)) {
@@ -228,6 +228,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       if (role === 'bob' && (au || readState(root, cfg.state_branch, addressFile('merger')) !== null)) for (const l of starterLines(au, readStarts(root, cfg.state_branch), o)) log(l);
     }
   } catch { /* the holds line says the state branch is unread */ }
+  cfg = withCoordinator(root, cfg);
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = givenListed || (sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline }));
   live = sessionsCount(listed, live, log);

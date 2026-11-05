@@ -177,8 +177,8 @@ test('the starter: starts owed make a pass that asks for list_sessions, runs --r
   const m = startsMeasure(all);
   assert.equal(m.n, 2);
   const line = starterLines(readAuto(root, SB), all, null)[0];
-  assert.match(line, /^starter: running \(session_merger1, last pass 2 at .*\); owed to started: median [\d.]+ min, p90 [\d.]+ min, last [\d.]+ min \(2 starts in 24 h\)$/);
-  assert.match(starterLines({ session: M, at: ago(AUTO.live + 1) }, [], { since: ago(20) })[0], /^starter: NOT RUNNING \(last pass .*\): BOB runs node \.process\/tool\/p3\.mjs job start --ready until the MERGER runs .* auto start; owed to started: no start measured in 24 h; starts owed now for 20 min$/);
+  assert.match(line, /^starter: running \(session_merger1, last pass 2 at .*\): it makes every ready start; BOB starts none, subscribes to the pull requests its messages name and keeps the judgments \(entries, holds, blocked, over-cap, reopens\); owed to started: median [\d.]+ min, p90 [\d.]+ min, last [\d.]+ min \(2 starts in 24 h\)$/);
+  assert.match(starterLines({ session: M, at: ago(AUTO.live + 1) }, [], { since: ago(20) })[0], /^starter: NOT RUNNING \(last pass .*\): BOB runs node \.process\/tool\/p3\.mjs job start --ready \(deliver what it prints\) and tells ROOT the starter is down; owed to started: no start measured in 24 h; starts owed now for 20 min$/);
 });
 
 test('the starter: a launch not seen created within AUTO.reprint is printed again; an unanswered ask passes nothing and waits AUTO.gap', (t) => {
@@ -293,13 +293,11 @@ test('starts owed: a hold ended owes them; the prompts give the MERGER the start
   assert.equal(owes('hold', { _: [], end: 'hold-3' }), 'hold ended hold-3');
   assert.equal(owes('hold', { _: ['slots:2'] }), null);
   const mp = mergerPrompt({ slug: 'o/p', rootId: 'session_root1', approvals: H });
-  assert.match(mp, new RegExp(`4a\\. Also run \`node \\.process/tool/p3\\.mjs auto start --session <your session id> --approvals ${H}\` in the background`));
+  assert.match(mp, new RegExp(`4a\\. Run \`node \\.process/tool/p3\\.mjs auto start --session <your session id> --approvals ${H}\` in the background too`));
   assert.match(mp, /stop the train and the starter, send ROOT one message/);
-  assert.match(mp, /on an `AUTO-START` block, make its calls in order/);
-  assert.match(mp, /Never subscribe to a job's pull request yourself/);
+  assert.match(mp, /on `AUTO-START`, its calls in order, then its `auto done` line with the new ids/);
   assert.match(mp, /never a second of either/);
   const bp = bobPrompt({ slug: 'o/p', rootId: 'session_root1', approvals: H, merger: true });
-  assert.match(bp, /read status's `starter:` line: while it says running, the MERGER's starter makes every ready start/);
-  assert.match(bp, /When it says NOT RUNNING, run `node \.process\/tool\/p3\.mjs job start --ready --live <n>` yourself/);
+  assert.match(bp, /`node \.process\/tool\/p3\.mjs job start --ready --live <n>` when status's `starter:` line says NOT RUNNING, then take up what status shows/);
   assert.doesNotMatch(bobPrompt({ slug: 'o/p', rootId: 'session_root1', approvals: H }), /starter/);
 });

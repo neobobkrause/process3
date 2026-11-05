@@ -144,6 +144,15 @@ export function toRoute(root, sb) {
   });
 }
 
+// The config with `coordinator` resolved (Bob, 5 Nov 16:33: ROOT refreshes the coordinator): ROOT's
+// addresses/coordinator.json on the state branch as last fetched, else process/config.json's.
+// roles.mjs coordinatorOf is the same rule over an address read already.
+export const withCoordinator = (root, cfg) => {
+  let c = null;
+  try { c = address(root, cfg.state_branch, 'coordinator'); } catch { c = null; }
+  return c ? { ...cfg, coordinator: c } : cfg;
+};
+
 // The address read from git at this moment: the session id, or null.
 export function address(root, sb, role) {
   const t = readState(root, sb, addressFile(role));
