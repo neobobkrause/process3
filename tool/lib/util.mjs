@@ -170,6 +170,10 @@ export const DEFAULTS = {
   plan: 'run',
   // The merge train (train.mjs, Bob's trial, 5 Nov): true, ROOT's sweep keeps a MERGER running.
   merge_train: false,
+  // The merge train's window (train.mjs, window.mjs; notes/train-spec-plan.md, option C'): how many
+  // green pull requests gate at once, each on its predicted merged result behind those ahead. 1 is
+  // the serial train, unchanged; a whole number up to MERGE_TRAIN_WINDOW_MAX.
+  merge_train_window: 1,
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
@@ -207,6 +211,10 @@ export const DEFAULTS = {
   // also the lead times' proposed targets (metrics report, report tranche), each figure beside its own.
   targets: { start_minutes: 10, merge_minutes: 15, decision_minutes: 30, replace_minutes: 30 },
 };
+
+// The widest window: k spec gates and one confirm gate share the runners (the plan: k = 4 keeps the
+// peak about 15 of 20), so 8 is already past the cap.
+export const MERGE_TRAIN_WINDOW_MAX = 8;
 
 // open_by values (status --role bob): "uses" the default, "layer" the old behaviour.
 export const OPEN_BY = ['uses', 'layer'];
@@ -312,8 +320,12 @@ export function configOf(c, where = CONFIG_FILE) {
     const r = recs.find((x) => typeof x === 'string' && (underPath(strip(g), strip(x)) || underPath(strip(x), strip(g))));
     if (r !== undefined) fail(`${where}: the generated path ${g} and the records path ${r} overlap; a generated file is never a record`);
   }
+  // A window the train cannot run is refused where the config is read, never mid-train.
+  const k = c.merge_train_window ?? DEFAULTS.merge_train_window;
+  if (!Number.isInteger(k) || k < 1 || k > MERGE_TRAIN_WINDOW_MAX) fail(`${where}: merge_train_window ${JSON.stringify(c.merge_train_window)} is not a whole number from 1 to ${MERGE_TRAIN_WINDOW_MAX} (1: the serial train)`);
   return {
     ...DEFAULTS, ...c,
+    merge_train_window: k,
     // A null tranche is the default one, as the anchor reads it (second confirming review of PR 97).
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
