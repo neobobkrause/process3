@@ -1,8 +1,8 @@
 # Owner asks: one-time sweep of the coordinator handoffs, 5 Nov
 
-BOB (verbatim), 5 Nov 14:50: "you're taking things that I say and thinking that I'm saying I want to review some aspect of that thing. I'M NOT SAYING THAT. You should know what I need to review - and nothing else."
+Asked for by Bob, 5 Nov: what goes to him is a closed list, now `rulebooks/coordinator.md` rule 1 (the builder's summary; his points live in the rulebooks, cited by date).
 
-Coordinator's (this build): every item in `notes/coordinator-handoff-*.md` (on `start/coordinator-4nov`, 4 Nov 00:25 to 5 Nov 11:55) marked "Bob's", "for Bob", "asked Bob", "waiting on Bob" or "until Bob", classified against the closed list in `rulebooks/coordinator.md` rule 1: (a) an act his approvals reserve to him or forbid to sessions, (b) his credentials or keys, (c) a missing or contradictory product requirement, (d) his account and subscription moves. NOT HIS means the coordinator decides it at once, records it, and reports it after in one line; no item here waits for him. `node tool/p3.mjs handoff --check notes/coordinator-handoff-*.md` finds 16 lines across the ten files; the next handoff passes it.
+Coordinator's (this build): every item in `notes/coordinator-handoff-*.md` (on `start/coordinator-4nov`, 4 Nov 00:25 to 5 Nov 11:55) marked "Bob's", "for Bob", "asked Bob", "waiting on Bob" or "until Bob", classified against the closed list in `rulebooks/coordinator.md` rule 1: (a) an act his approvals reserve to him or forbid to sessions, (b) his credentials or keys, (c) a missing or contradictory product requirement, (d) his account and subscription moves. NOT HIS means the coordinator decides it at once, records it, and reports it after in one line; no item here waits for him. `node tool/p3.mjs handoff --check notes/coordinator-handoff-*.md` finds 31 lines across the ten files (routing, restated words, rules); the next handoff is the generated page, `node tool/p3.mjs handoff --role coordinator`, which passes it.
 
 | # | Item, as the handoffs carried it | First / last handoff | Class | Whose |
 |---|---|---|---|---|
