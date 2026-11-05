@@ -9,6 +9,8 @@ import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
+import { layerMode, layerOfBranch } from './layerbase.mjs';
+import { layerCover } from './layerflow.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
@@ -270,8 +272,20 @@ export function gate(root, opts) {
   const fast = windowOn && !spec && jobReceipt && !recordOnly && !sinceGreen ? specTested(root, cfg, { slug, io, pr, base, head, tree, job }) : null;
   if (fast && !fast.ok) log(`Spec-Tested is not taken: ${fast.why}; the gate runs as it would without it`);
 
+  // The shared layer branch's merge (layerflow.mjs; Bob, 5 Nov: no test run at layer close): a pull
+  // request from layer/<n> into the tranche, with the base's merge_strategy "layer", runs no suite;
+  // each module it changes must be covered by its last land's verified green gate run, on a head
+  // that held every interface change of its providers. Anything short is a finding, never a re-run.
+  const layerPR = !spec && !job && layerMode(cfg) && layerOfBranch(branch) !== null && (live?.base?.ref ?? null) === cfg.tranche;
   if (!spec && recordOnly) runRow.trigger = 'record';
   else if (draft) runRow.trigger = 'draft';
+  else if (layerPR) {
+    runRow.trigger = 'layer';
+    const lc = layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io });
+    runRow.layer = { n: layerOfBranch(branch), covered: lc.covered.map((c) => c.id), findings: lc.findings.length };
+    for (const c of lc.covered) log(`${c.id}: covered by its land of PR ${c.pr} (${String(c.merge).slice(0, 10)}); no suite runs`);
+    findings.push(...lc.findings);
+  }
   else if (fast?.ok) {
     // The spec run's suite and revert stand for this tree; ownership, ledger, imports and the
     // receipt are judged on this pull request as usual.

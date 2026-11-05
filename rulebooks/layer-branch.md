@@ -1,0 +1,14 @@
+# The shared layer branch (trial)
+
+Only where the product's `process/config.json` says `"merge_strategy": "layer"`; without it the train's flow runs, unchanged. Design: the note "Shared Layer Branch" (Bob, 5 Nov), with his rulings: no gate or test run at layer close; a rescheduled job halts its run and restarts; one small PR per publish, landed by the merge tool on a green gate; the tool lists the jobs, ROOT starts them.
+
+The steps, with who runs each (`p3` is `node .process/tool/p3.mjs`):
+
+1. BOB: `p3 layer open <n>`. It cuts `layer/<n>` from the tranche tip and lists the jobs that can start. It refuses while an earlier layer opened this way has not merged.
+2. ROOT: runs each `job start <id> --live <n>` line from `p3 layer jobs <n>`. No other session creates a job. `job start --ready` starts nothing in this flow. Each job branch is cut from `layer/<n>`, and its draft PR goes into it.
+3. The job: works and pushes on its own branch. When its suite passes, it runs `p3 layer publish <id>` with job complete's flags. Publish brings the branch up to the layer tip and refuses any file outside the module. It runs the module's checks and suite, and marks the PR ready. While the suite runs, it reads the state branch every 30 s. A reschedule for the module halts the run, and publish starts again on the new layer tip.
+4. BOB (the merge tool): `p3 layer land <pr>` once the gate on the PR's tip is green. There is no combined re-test, even when the layer has moved on in other modules. The land is refused when the run behind it started before a provider's newest interface change. At the land, the provider's exports and its Public / Provides section are compared before and after. A change does two things: it reschedules the provider's users in this layer (send each running one the message the land prints, with send_message priority now), and it leaves a provider notice for its users in later layers.
+5. BOB: `p3 layer status <n>`, then `p3 layer merge <n>` when every module is complete or deferred, no reschedule is outstanding, and no publish PR is open. That is one PR from `layer/<n>` into the tranche. Its gate runs no suite: it checks that each module has a verified green land on a head that held its providers' interface changes. The merge also writes the layer's close row.
+6. Anyone: `p3 layer report <n> [--tool-from <process3 sha>]` gives the trial's measures. These are gate runs per module, hours from open to merged, reschedules per module, how often a reschedule changed the user's result, the runs halted and the minutes they cost, and the tool lines added and removed.
+
+The state is on the state branch, under `layerflow/<n>/`, one file per event: open, run, land, reschedule, merged.

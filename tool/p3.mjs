@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
+import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerStatus } from './lib/layerflow.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
@@ -132,6 +133,27 @@ const commands = {
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
   'layer close': (a, root) => (layerClose(root, one(a, 'layer number'), { as: senderOf(root, a.as) }).ok ? 0 : 1),
+
+  // The shared layer branch (layerflow.mjs), only with process/config.json "merge_strategy": "layer":
+  // layer open <n>: cut layer/<n> from the tranche tip; lists the jobs that can start, which ROOT starts.
+  // layer jobs <n>: the jobs that can start now (not started, or reopened by a reschedule).
+  // layer status <n>: each module's state, and whether the layer can merge.
+  // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
+  // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
+  // layer merge <n> [--no-wait]: the layer into the tranche as one PR, once every module is complete or deferred.
+  // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
+  'layer open': (a, root) => (layerOpen(root, one(a, 'layer number'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
+  'layer jobs': (a, root) => (layerJobs(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer publish': async (a, root) => {
+    const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
+    const every = a.every === undefined ? 30 : Number(a.every);
+    if (!Number.isFinite(every) || every <= 0) fail(`--every <seconds>, not ${JSON.stringify(a.every)}`);
+    return (await layerPublish(root, one(a, 'module'), { every: every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
+  },
+  'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer merge': async (a, root) => ((await layerMerge(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer report': (a, root) => (layerReport(root, one(a, 'layer number'), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
 
   // pin move <product slug> --report <session id> --why "<what it unblocks>" --pin <sha> [--tranche <name>]:
   // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
