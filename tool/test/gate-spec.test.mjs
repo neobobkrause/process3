@@ -21,17 +21,21 @@ const markedTest = (mark, want = 2) => `import test from 'node:test'; import a f
 const rev = (root, r) => git(['rev-parse', r], { cwd: root });
 const treeOf = (root, r) => rev(root, `${r}^{tree}`);
 const mergeRow = (at) => JSON.stringify({ row: 'merge', pr: JOB, at }) + '\n';
+// The product at t0: module alpha, and the base config that opens the window (merge_train_window
+// > 1); spec mode and the fast path run only there.
+const product = (config = { merge_train_window: 2 }) => ({
+  ...(config ? { 'process/config.json': config } : {}),
+  'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+  'src/alpha/index.mjs': 'export const x = 1;\n',
+  'test/alpha/old.test.mjs': inertTest,
+});
 const receipt = (sha, extra = {}) => ({ kind: 'receipt', module: 'alpha', attempt: 1, sha, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: {}, ...extra });
 
 // The tranche at t0 with module alpha; job/alpha's change; the window's PR ahead (R(-1), the spec
 // base); and R(0), the job merged onto it with its predicted merge row (the spec head).
-function world({ jobFiles } = {}) {
+function world({ jobFiles, config } = {}) {
   const mark = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'ran');
-  const root = makeRepo({
-    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
-    'src/alpha/index.mjs': 'export const x = 1;\n',
-    'test/alpha/old.test.mjs': inertTest,
-  });
+  const root = makeRepo(product(config));
   const t0 = rev(root, 'HEAD');
   git(['branch', 'tranche'], { cwd: root });
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
@@ -104,6 +108,8 @@ function greenSpec() {
   s.run.run_id = 101;
   post(x.state, SPEC, s.run);
   forget(w);
+  // The PR ahead landed first: the tranche is R(-1), so the land's base is the spec run's base.
+  git(['branch', '-f', 'tranche', w.specBase], { cwd: w.root });
   return { w, x, s };
 }
 
@@ -166,11 +172,7 @@ test('spec mode judges the run as the job: green, code, its suite run on a draft
 // spec PR's; this holds without it).
 test('spec mode takes no prior run\'s fast path: the job PR\'s green run on the same tree, records aside, is not stood on', () => {
   const mark = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'ran');
-  const root = makeRepo({
-    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
-    'src/alpha/index.mjs': 'export const x = 1;\n',
-    'test/alpha/old.test.mjs': inertTest,
-  });
+  const root = makeRepo(product());
   const t0 = rev(root, 'HEAD');
   git(['branch', 'tranche'], { cwd: root });
   git(['branch', 'train/spec/5-1'], { cwd: root });
@@ -308,21 +310,44 @@ refused('the checkout is not the head\'s tree (the tranche is not its ancestor)'
   return { base: moved, head: L, checkout: rev(w.root, 'HEAD'), why: /this run's checkout is not [0-9a-f]{10}'s tree/ };
 });
 
-test('the tranche cover follows a spec-tested row to its spec run; refused when that run is missing or does not verify', () => {
-  const { w, x } = greenSpec();
+// Cold review of train-spec, finding 1: the spec run's base must be the land's, records aside. The
+// spec run's gate runs at its base's pin and config, so a spec pair pushed on a base of the
+// author's choosing can carry any row; these rows are what such a run could post.
+refused('the spec run\'s base lacks the ahead change the land\'s base holds', ({ w, x, s }) => {
+  x.state.comments[SPEC] = [];
+  post(x.state, SPEC, { ...s.run, run_id: 103, base: w.t0 });
+  return { base: w.specBase, head: land(w, w.specBase), why: /spec PR 9's run was judged on base [0-9a-f]{10}, which differs from this land's base [0-9a-f]{10} outside the records: notes\/ahead\.md/ };
+});
+refused('the spec run\'s base pins another .process', ({ w, x, s }) => {
+  git(['checkout', '-q', '--detach', w.specBase], { cwd: w.root });
+  git(['update-index', '--add', '--cacheinfo', `160000,${w.t0},.process`], { cwd: w.root });
+  git(['commit', '-q', '-m', 'another pin'], { cwd: w.root });
+  const pinned = rev(w.root, 'HEAD');
+  x.state.comments[SPEC] = [];
+  post(x.state, SPEC, { ...s.run, run_id: 104, base: pinned });
+  return { base: w.specBase, head: land(w, w.specBase), why: /spec PR 9's run was judged on base [0-9a-f]{10}, which differs from this land's base [0-9a-f]{10} outside the records: \.process;/ };
+});
+
+// The spec-tested land, its row posted on the job PR as run 201, and GitHub's merge of the job PR
+// into the tranche (at R(-1)): the merge commit c, whose tree is L's.
+function covered() {
+  const { w, x, s } = greenSpec();
   const L = land(w, w.specBase);
   const r = jobRun(w, x, { base: w.specBase, head: L });
   assert.equal(r.run.trigger, 'spec-tested');
   r.run.run_id = 201;
   post(x.state, JOB, r.run);
-  // GitHub's merge of the job PR into the tranche (at R(-1)): the merge commit's tree is L's.
   git(['checkout', '-q', '-B', 'tranche', w.specBase], { cwd: w.root });
   git(['merge', '-q', '--no-ff', '-m', `Merge job PR ${JOB}`, L], { cwd: w.root });
   const c = rev(w.root, 'HEAD');
   x.state.prs[JOB] = jobPR(w, { state: 'closed', merged: true, merge_commit_sha: c, head: { ref: 'job/alpha', sha: L, repo: { full_name: SLUG } } });
-  const cfg = loadConfig(w.root, c);
   // The merged job PR's runs bind by branch; the spec PR's open runs by the PR.
   x.state.verifyOk = (row, ctx) => x.state.genuine.has(`${ctx.pr}|${row.run_id}`);
+  return { w, x, s, r, c, cfg: loadConfig(w.root, c) };
+}
+
+test('the tranche cover follows a spec-tested row to its spec run; refused when that run is missing or does not verify', () => {
+  const { w, x, c, cfg } = covered();
   assert.deepEqual(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }), { ok: true, pr: JOB, id: 'alpha', own: jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).own });
   assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'train/spec/5-1' && !v.ctx.merged));
   // The spec PR closed (its runs may list no PR): bound by its branch, every PR from it into the spec base.
@@ -349,4 +374,58 @@ test('the tranche cover follows a spec-tested row to its spec run; refused when 
   // The spec PR named is not a spec pair for this job.
   x.state.prs[SPEC] = specPR(w, { base: { ref: 'train/spec/6-1' }, head: { ref: 'train/head/6-1', sha: w.specHead, repo: { full_name: SLUG } } });
   assert.match(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).why, refusal);
+});
+
+// Cold review of train-spec, finding 1: the spec run's base is what judged it (its pin, config,
+// revert and base-red checks); the cover stands on it only when it is the spec-tested row's base,
+// records aside.
+test('the tranche cover refuses a spec run judged on a base that differs from the spec-tested row\'s outside the records', () => {
+  const { w, x, s, r, c, cfg } = covered();
+  const cover = (specRun, base) => {
+    x.state.comments[SPEC] = [];
+    post(x.state, SPEC, { ...s.run, run_id: specRun, base });
+    x.state.comments[JOB] = x.state.comments[JOB].filter((m) => m.user.login !== BOT);
+    post(x.state, JOB, { ...r.run, run_id: specRun + 100, spec_run: specRun });
+    return jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io });
+  };
+  // Control: a spec run on the land's own base, posted the same way, covers.
+  assert.equal(cover(105, w.specBase).ok, true);
+  // A spec run on t0, without the ahead change the land's base holds: no cover.
+  const off = cover(106, w.t0);
+  assert.equal(off.ok, false);
+  assert.match(off.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
+  // A record-only difference in the base is not one.
+  git(['checkout', '-q', '--detach', w.specBase], { cwd: w.root });
+  const recs = commit(w.root, { 'process/metrics/beta.jsonl': '{}\n' }, 'records only');
+  assert.equal(cover(107, recs).ok, true);
+});
+
+// With the serial train (merge_train_window 1, or not set) there is no spec mode and no fast path:
+// a spec-shaped pull request is judged as any other, and a Spec-Tested trailer asks for nothing.
+test('with the window closed, a spec-shaped PR is judged as a non-job PR and a Spec-Tested trailer is ignored', () => {
+  for (const config of [{ merge_train_window: 1 }, {}, null]) {
+    const at = JSON.stringify(config);
+    const w = world({ config });
+    const x = makeIO(w);
+    const d = specRun(w, x);
+    assert.deepEqual([d.run.spec, d.run.trigger, d.run.suite], [undefined, 'draft', 'skipped'], at);
+    assert.equal(ran(w), false, at);
+    x.state.prs[SPEC] = specPR(w, { draft: false });
+    const r = specRun(w, x, { draft: false });
+    assert.equal(r.run.spec, undefined, at);
+    assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt], ['code', ['alpha'], 'pass', 'skipped', 'not checked'], at);
+    assert.ok(!r.findings.some((f) => f.check === 'spec'), at);
+    assert.ok(ran(w), `${at}: the suite ran`);
+  }
+  // A green spec run under an open window; then the tranche closes the window (a records-only
+  // change) and the land asks for the fast path: not even considered.
+  const { w, x } = greenSpec();
+  git(['checkout', '-q', '--detach', w.specBase], { cwd: w.root });
+  const serial = commit(w.root, { 'process/config.json': { merge_train_window: 1 } }, 'serial train');
+  const L = land(w, serial);
+  const said = [];
+  const r = jobRun(w, x, { base: serial, head: L, log: (m) => said.push(m) });
+  assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.suite, r.run.receipt], ['code', undefined, 'pass', 'agrees']);
+  assert.ok(ran(w), 'the suite ran');
+  assert.ok(!said.some((m) => /Spec-Tested|spec-tested/.test(m)), said.join('\n'));
 });
