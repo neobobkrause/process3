@@ -15,10 +15,12 @@ import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
 import { flow, status } from '../lib/status.mjs';
 import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCapacity, idleCheck, senderFor } from '../lib/sweep.mjs';
 import { main } from '../p3.mjs';
-import { git } from '../lib/util.mjs';
+import { git, loadConfig as loadCfg } from '../lib/util.mjs';
 
 const SB = 'process-state';
 const quiet = () => {};
+// GitHub as the idle check reads it (once): no open pull requests.
+const GH = { slug: 'o/r', openPRs: () => [], checkRun: () => null, comments: () => [], prFiles: () => [] };
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n';
 const ago = (min, t = Date.now()) => new Date(t - min * 6e4).toISOString();
 
@@ -174,16 +176,16 @@ test('fault injection: a spoken limit is found by tool runs between sweeps and c
   addRow(root, { at: ago(6, t0), row: 'ready', live: 1, job_cap: 4, started: [] });
   writeState(root, SB, 'owed', (d) => owe(d, 'merge 9'));
   const said = [];
-  const first = idleCheck(root, c, { by: 'job complete', from: 'job-a', t: t0, log: (l) => said.push(l)});
+  const first = idleCheck(root, c, { io: GH, by: 'job complete', from: 'job-a', t: t0, log: (l) => said.push(l)});
   assert.equal(first.idle_capacity.kind, 'work');
   assert.equal(first.idle_capacity.alarm, false);
-  assert.equal(idleCheck(root, c, { by: 'status', t: t0 + 60e3, log: quiet }), null, 'within CHECK_MIN no second check');
+  assert.equal(idleCheck(root, c, { io: GH, by: 'status', t: t0 + 60e3, log: quiet }), null, 'within CHECK_MIN no second check');
   // 16 minutes on: the starts owed is over 15 min old, the check alarms, BOB and the coordinator woken.
   const later = t0 + 16 * 6e4;
   addRow(root, { at: ago(30, later), row: 'ready', live: 1, job_cap: 4, started: [] });
   writeState(root, SB, 'owed old', (d) => writeFileSync(join(d, OWED_FILE), JSON.stringify({ since: ago(16, later), acts: [{ at: ago(16, later), act: 'merge 9' }] })));
   const out = [];
-  const alarm = idleCheck(root, c, { by: 'job complete', from: 'job-a', t: later, log: (l) => out.push(l) });
+  const alarm = idleCheck(root, c, { io: GH, by: 'job complete', from: 'job-a', t: later, log: (l) => out.push(l) });
   assert.equal(alarm.idle_capacity.alarm, true);
   assert.match(out.join('\n'), /^IDLE CAPACITY: 1 job sessions live of the cap 4, 3 startable, for \d+ min \(starts owed since \S+\); 3 x startable, not started/m);
   assert.match(out.join('\n'), /next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "IDLE CAPACITY.*job start --ready --live <n>: run status" --from job-a`/);
@@ -192,10 +194,10 @@ test('fault injection: a spoken limit is found by tool runs between sweeps and c
   // job start --ready filled the cap: measured 4 live; the next check finds nothing idle.
   addRow(root, { at: new Date(later + 6e4).toISOString(), row: 'ready', live: 4, job_cap: 4, started: ['a', 'b', 'c'] });
   writeState(root, SB, 'paid', (d) => paid(d, new Date(later + 6e5).toISOString()));
-  const cleared = idleCheck(root, c, { by: 'status', t: later + (CHECK_MIN + 1) * 6e4, log: quiet });
+  const cleared = idleCheck(root, c, { io: GH, by: 'status', t: later + (CHECK_MIN + 1) * 6e4, log: quiet });
   assert.equal(cleared.idle_capacity, undefined);
   // No measured live count (none within LIVE_MIN): no judgment.
-  assert.equal(idleCheck(root, c, { by: 'status', t: later + 200 * 6e4, log: quiet }).live, 'unmeasured');
+  assert.equal(idleCheck(root, c, { io: GH, by: 'status', t: later + 200 * 6e4, log: quiet }).live, 'unmeasured');
 });
 
 // Fault injection 2: a dead end, next work that job start --ready skips as BOB's judgment (an
@@ -210,10 +212,10 @@ test('fault injection: a dead end is listed first by the next tool run and sent 
   const stuck = { file: 'build/requirements/z.md', count: 2, module: 'z', entry_state: 'DEFERRED' };
   const read = (extra) => (r, o) => { const x = status(r, o); return { ...x, next: [...x.next, ...extra] }; };
   const out = [];
-  const row = idleCheck(root, c, { by: 'test', t: t0, read: read([stuck]), log: (l) => out.push(l) });
+  const row = idleCheck(root, c, { io: GH, by: 'test', t: t0, read: read([stuck]), log: (l) => out.push(l) });
   assert.deepEqual(row.idle_capacity.dead, ["dead end z: entry DEFERRED: BOB's judgment"]);
   assert.match(out.join('\n'), /^dead ends \(a Process3 defect\), to the coordinator: dead end z: entry DEFERRED: BOB's judgment$/m);
-  const after = idleCheck(root, c, { by: 'test', t: t0 + (CHECK_MIN + 1) * 6e4, read: read([]), log: quiet });
+  const after = idleCheck(root, c, { io: GH, by: 'test', t: t0 + (CHECK_MIN + 1) * 6e4, read: read([]), log: quiet });
   assert.equal(after.idle_capacity.dead, undefined);
 });
 
@@ -239,12 +241,12 @@ test('before each command: starts owed printed first for BOB\'s acts; the idle c
   beforeAct(root, c, 'merge', { _: ['5'] }, { env: { GITHUB_ACTIONS: 'true' }, log: (l) => out.push(l) });
   assert.match(out[0], /^starts owed since/);
   const said = [];
-  const row = beforeAct(root, c, 'job complete', { _: ['a'] }, { env: {}, log: (l) => said.push(l) });
+  const row = beforeAct(root, c, 'job complete', { _: ['a'] }, { env: {}, io: GH, log: (l) => said.push(l) });
   assert.equal(row.idle_capacity.alarm, true);
   assert.match(said.join('\n'), /next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "IDLE CAPACITY.*" --from job-a`/);
   // Another session within CHECK_MIN: no second row, no second wake.
   const again = [];
-  assert.equal(beforeAct(root, c, 'block', { _: ['b'] }, { env: {}, log: (l) => again.push(l) }), null);
+  assert.equal(beforeAct(root, c, 'block', { _: ['b'] }, { env: {}, io: GH, log: (l) => again.push(l) }), null);
   assert.deepEqual(again, []);
   // A race: this clone's state branch is stale (its last row old), origin's has a fresh row; the
   // re-read in the worktree finds it, and nothing is pushed or printed.
@@ -254,7 +256,7 @@ test('before each command: starts owed printed first for BOB\'s acts; the idle c
   const pushed = git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root });
   git(['update-ref', `refs/remotes/origin/${SB}`, tip], { cwd: root });
   const raced = [];
-  assert.equal(idleCheck(root, c, { by: 'block', from: 'job-b', t: t1, log: (l) => raced.push(l) }), null);
+  assert.equal(idleCheck(root, c, { io: GH, by: 'block', from: 'job-b', t: t1, log: (l) => raced.push(l) }), null);
   assert.deepEqual(raced, []);
   fetchState(root, SB, { fresh: true });
   assert.equal(git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root }), pushed, 'no commit pushed by the loser');
@@ -262,4 +264,53 @@ test('before each command: starts owed printed first for BOB\'s acts; the idle c
   assert.equal(senderFor(root, 'status', { role: 'job', module: 'q' }), 'job-q');
   assert.equal(senderFor(root, 'send', { from: 'job-q' }), 'job-q');
   assert.equal(beforeAct(root, c, 'job start', { _: [], ready: true }, { env: {}, log: quiet }), null);
+});
+
+// The copy, 5 Nov 15:47: the idle check counted 26 startable against job start --ready's 2, and
+// its count depended on whose clone ran it. A clone holding no job/* refs (cloned with the tranche
+// only): module a, COMPLETE on the tranche with unmet marks, has its reopen pushed (job/a on origin,
+// commits the tranche lacks) and its pull request open. --ready skips it; the idle check, offline
+// on this clone, counted it. Both now count from one read and one selection, and agree.
+test('the idle check counts startable work exactly as job start --ready does, in a clone without origin\'s job refs', (t) => {
+  setJobCap(t, 6);
+  const root = product({ 'process/ledger/a.json': entry('a', { requirements: 'build/requirements/a.md', layer: 2, status: { state: 'COMPLETE' } }) });
+  git(['push', '-q', 'origin', 'tranche:refs/heads/tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/a', 'tranche'], { cwd: root });
+  writeFileSync(join(root, 'a.txt'), 'reopened\n');
+  git(['add', 'a.txt'], { cwd: root });
+  git(['commit', '-q', '-m', 'job start a (reopen)'], { cwd: root });
+  git(['push', '-q', 'origin', 'job/a'], { cwd: root });
+  const origin = git(['remote', 'get-url', 'origin'], { cwd: root });
+  const clone = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'c');
+  git(['clone', '-q', '--single-branch', '--branch', 'tranche', origin, clone], { cwd: root });
+  git(['config', 'user.email', 't@t'], { cwd: clone });
+  git(['config', 'user.name', 't'], { cwd: clone });
+  assert.equal(git(['for-each-ref', 'refs/remotes/origin/job/'], { cwd: clone }), '', 'the clone holds no job refs');
+  const io = { slug: 'o/r', openPRs: () => [{ number: 5, draft: true, head: { ref: 'job/a', sha: 'a1' }, base: { ref: 'tranche' } }], checkRun: () => null, comments: () => [], prFiles: () => [], compare: () => null };
+  const c = { ...loadCfg(clone), coordinator: 'session_coord1', state_branch: SB, tranche: 'tranche', plan: 'run' };
+  fetchState(clone, SB, { fresh: true });
+  addRow(clone, { at: ago(30), row: 'ready', live: 1, job_cap: 6, started: [] });
+  const out = [];
+  const row = idleCheck(clone, c, { by: 'status', t: Date.now(), io, log: (l) => out.push(l) });
+  const lines = [];
+  startReady(clone, { live: '1', remote: undefined, read: (r, o) => status(r, { ...o, io }), start: () => { throw new Error('not in this test'); }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: (l) => lines.push(l) });
+  const ready = Number(lines.find((l) => /^ready: \d+ startable/.test(l))?.match(/^ready: (\d+)/)[1]);
+  assert.equal(ready, 2, lines.join('\n'));
+  assert.equal(row.startable, ready, 'the idle check\'s count is --ready\'s');
+  assert.equal(row.idle_capacity.startable, ready);
+  // GitHub unread: no count and no judgment, said in the row.
+  const later = Date.now() + (CHECK_MIN + 1) * 6e4;
+  const blind = idleCheck(clone, c, { by: 'status', t: later, io: { ...io, openPRs: () => { throw new Error('offline'); } }, log: quiet });
+  assert.equal(blind.unread, 'GitHub');
+  assert.equal(blind.startable, null);
+  assert.equal(blind.idle_capacity, undefined);
+});
+
+test('a module whose job branch could not be read is unknown: not startable, not merged, named in the idle line', () => {
+  const next = [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'COMPLETE', marks: ['R1'], unknown: true }, { file: 'r/b.md', count: 1, module: 'b', entry_state: 'OPEN' }];
+  assert.deepEqual(startable(next).go.map((x) => x.id), ['b']);
+  const ic = idleCapacity({ live: 1, cap: 10, holds: [], work: next, layers: new Map(), freed: Date.now() - 60 * 6e4 });
+  assert.equal(ic.startable, 1);
+  assert.deepEqual(ic.unknown, ['a']);
+  assert.ok(ic.reasons.includes('unknown, job branch unread, not counted: a'), ic.reasons.join(' | '));
 });
