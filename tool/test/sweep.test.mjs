@@ -379,4 +379,10 @@ test('sweep: the row records startable and blocked work; a ruling owed past deci
   assert.equal(typeof row.startable, 'number');
   assert.ok(r.todo.some((x) => /^ruling owed: send_message to the coordinator \(session_coord\): job m1; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the fixture server will not start$/.test(x)));
   assert.match(r.found.join('|'), /m1: BLOCKED; blocked 4\d min; ruling owed by the coordinator/);
+  // A bad targets.decision_minutes is a finding; the sweep still writes its heartbeat.
+  const bad = withOrigin({ 'process/config.json': { tranche: 'tranche', targets: { decision_minutes: 0 } }, 'process/ledger/m1.json': entry('m1', { status: { state: 'BLOCKED', reason: 'x', at } }) });
+  recordStart(bad, 'root', R, { log: quiet });
+  recordStart(bad, 'bob', B, { log: quiet });
+  assert.match(run(bad).found.join('|'), /config: targets\.decision_minutes/);
+  assert.ok(readState(bad, 'process-state', HEARTBEAT_FILE));
 });

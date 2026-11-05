@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { entry, makeRepo, openPassed } from './helpers.mjs';
-import { layerState, nextWork, status } from '../lib/status.mjs';
+import { blockedJobs, flow, layerState, nextWork, status } from '../lib/status.mjs';
 import { setupCheck } from '../lib/setup.mjs';
 import { startable } from '../lib/ready.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
@@ -145,6 +145,12 @@ test('a COMPLETE module with its job pull request open is listed in no list of n
   const next = nextWork(root, cfg, rows, null, { log: quiet, state: ls, notices: affected }).map((x) => x.file?.replace('build/requirements/', ''));
   assert.ok(!next.includes('p2.md'), 'the open layer list');
   assert.ok(!next.includes('q2.md'), 'the notice list');
+  // The found list (the copy's case): q2 with a found mark and its job pull request open.
+  const found = repo({}, { 'build/requirements/q2.md': '- **F1** *(not yet met: x)* found\n' });
+  const fr = [...status(found, { offline: true, log: quiet }).rows, { id: 'q2', tranche: 'COMPLETE', req: 'build/requirements/q2.md', pr: '#346 draft' }];
+  const at = (rs) => nextWork(found, cfg, rs, null, { log: quiet, state: layerState(found, cfg, rs, null, { closed: [] }) }).map((x) => x.file);
+  assert.ok(!at(fr).includes('build/requirements/q2.md'));
+  assert.ok(at(fr.map((r) => (r.id === 'q2' ? { ...r, pr: 'merged' } : r))).includes('build/requirements/q2.md'), 'listed once its pull request is not open');
   // Without the open pull requests both are listed: the fixture reaches each list.
   const free = [...base, { id: 'p2', tranche: 'COMPLETE', req: 'build/requirements/p2.md', pr: 'merged' }, { id: 'q2', tranche: 'COMPLETE', req: 'build/requirements/q2.md', pr: 'merged' }];
   const items = nextWork(root, cfg, free, null, { log: quiet, state: layerState(root, cfg, free, null, { closed: [] }), notices: affected });
@@ -183,5 +189,11 @@ test('status: the flow line, and each BLOCKED job with its age, oldest first, it
   const t = out.join('\n');
   assert.match(t, /blocked:\n- w3: [^\n]*; blocked 9\d min; ruling owed by Bob: requirement R1 contradicts R2\n- x3: [^\n]*; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the test harness cannot reach the worker\n- v3: [^\n]*; blocked \d min\n/);
   assert.match(t, /^flow: live 3\/20 \(default\), startable \d+, blocked 3 \(oldest 9\d min\)$/m);
-  assert.deepEqual([r.flow.startable, r.flow.blocked], [r.next.filter((x) => Number.isInteger(x.count) && !x.over).length, 3]);
+  assert.deepEqual([r.flow.startable, r.flow.blocked], [startable(r.next).go.length, 3]);
+  // Startable is what job start --ready would start: an open attempt, or a file with no entry, is not.
+  assert.equal(flow({}, [], [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN', attempt_open: true }, { file: 'r/b.md', count: 1 }], 0).startable, 0);
+  // Deferred (a reason, its pull request closed, on a reopened COMPLETE module too) awaits no ruling;
+  // a reason naming a requirement id is Bob's.
+  const old = ago(60);
+  assert.deepEqual(blockedJobs({}, [{ id: 'd', tranche: 'COMPLETE', flag: 'BLOCKED', blocked: 'x', pr: 'merged', since: old }, { id: 'e', tranche: 'BLOCKED', blocked: 'R4 contradicts R7', pr: '#9 draft', since: old }]).map((b) => [b.id, b.by]), [['e', 'Bob']]);
 });

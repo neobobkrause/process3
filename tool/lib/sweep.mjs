@@ -137,7 +137,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
     // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.
-    const waits = new Map(blockedJobs(cfg, rows).map((b) => [b.id, b]));
+    let waits = new Map();
+    try { waits = new Map(blockedJobs(cfg, rows).map((b) => [b.id, b])); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`config: ${e.message}`); }
     for (const b of waits.values()) if (b.by && b.by !== 'Bob') todo.push(`ruling owed: send_message to ${b.by}: job ${b.id}${b.text}`);
     for (const r of rows) {
       if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') owed.push(`${r.id}: BLOCKED${waits.get(r.id)?.text ?? ''}`);

@@ -13,6 +13,7 @@ import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
+import { startable as starts } from './ready.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
@@ -291,19 +292,19 @@ const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) =
 // The jobs BLOCKED awaiting a ruling (not deferred: a recorded reason and its pull request closed),
 // oldest first, each with its minutes since its block (its entry's status.at; unknown listed last).
 // Past targets.decision_minutes its ruling is owed: Bob's when its reason names a requirement (Build
-// Plan rule 9), else the coordinator's (coordinator, 5 Nov: 44 job-hours BLOCKED in a day on the copy).
+// Plan rule 9: the word or an R<id>), else the coordinator's (coordinator, 5 Nov: 44 job-hours BLOCKED in a day on the copy).
 export function blockedJobs(cfg, rows, t = Date.now()) {
   const target = decisionMinutes(cfg);
-  return rows.filter((r) => (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') && !(r.blocked && !r.pr)).map((r) => {
+  return rows.filter((r) => (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') && !(r.blocked && !/^(#|unknown)/.test(r.pr || ''))).map((r) => {
     const min = Date.parse(r.since || '') ? Math.floor((t - Date.parse(r.since)) / 6e4) : null;
-    const by = min > target ? (/requirement/i.test(r.blocked || '') ? 'Bob' : `the coordinator${cfg.coordinator ? ` (${cfg.coordinator})` : ''}`) : null;
+    const by = min > target ? (/requirement|\bR\d+\b/i.test(r.blocked || '') ? 'Bob' : `the coordinator${cfg.coordinator ? ` (${cfg.coordinator})` : ''}`) : null;
     return { id: r.id, min, by, text: `; blocked ${min === null ? 'since unknown' : `${min} min`}${by ? `; ruling owed by ${by}: ${r.blocked || 'no reason recorded'}` : ''}` };
   }).sort((a, b) => (b.min ?? -1) - (a.min ?? -1));
 }
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
-// the startable work nextWork listed, and the jobs awaiting a ruling. The sweep records its numbers.
+// the work job start --ready would start (ready.mjs startable), and the jobs awaiting a ruling. The sweep records its numbers.
 export function flow(cfg, rows, next, live) {
-  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows), next.filter((x) => Number.isInteger(x.count) && !x.over).length];
+  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows), starts(next).go.length];
   return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, line: `flow: live ${live ?? '?'}/${c.cap} (${c.from}), startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };
 }
 
