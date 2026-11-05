@@ -237,3 +237,33 @@ def run(policy,lam=12,H=180,pf=0.05,k=4,fast=False,seed=0,age=60,bmax=8,backlog=
     left=len([x for x in pending if x['t']<=H])+len(win)
     return dict(merged_h=merged/(H/60),med=st.median(waits) if waits else float('nan'),p90=q(waits,.9),left=left,gm=gm/max(merged,1),peak=peak)
 ```
+
+## Addendum (05:35): provider-first ordering, asked by the coordinator
+
+**Today.** `train.mjs` `ready()` (origin/tranche, lines 129-155) takes every non-draft job PR that is green on its head and post-gated, oldest green first. Nothing orders a provider before its users. A back-to-back group, such as action-grammar PR 396 before screens-action 420 and actions 431, is held only because BOB marks the users draft. At 05:33, 16 of the 45 open job PRs were drafts, 420 and 431 among them.
+
+**Can readiness's uses graph drive it as it stands? Not as a blanket rule.** Suppose the train held every PR that has a provider in `uses` with an open job PR, with the cycle exclusion that `status.mjs` `waitsOnUses` uses (the `reaches` check). Measured on the 45 open job PRs at 05:33:
+- **41 of 45 would be held** on direct `uses`, and 43 on the full closure.
+- The only unheld roots are extraction 432, interface-assets 443 and member-roster 446, **all of them drafts**.
+
+So the train would serialise nearly everything behind three drafts and stall. `uses` says what a module may import. It does not say that this PR needs that PR's change.
+
+**The precise edge, from data the tool already computes:** hold user PR U behind open provider PR P only when all three of these hold:
+1. P is in U's direct `uses` and P does not reach U (the `reaches` exclusion).
+2. P's diff changes P's export surface: `exports.mjs` `exportChanges(root, mb, P.head, ...)` and `anyExportChange`, the same test the provider-notice route uses.
+3. U's changed files import from P, under ARC-1's import resolution (`checks.mjs` `importFindings`). At its tightest, U imports one of the names P adds or changes.
+
+That is a read-only computation in the train on two PRs' diffs, with no change to the gate. **BOB's draft mark stays as the manual override**: a user can still be held explicitly, and a train note could release a hold that should not apply. Each provider holds behind its own providers, so the order follows the topological order without a transitive hold. I did not compute how many of today's PRs this edge would hold, since that needs both diffs per PR pair. I expect a handful. It is the first number to read in a build.
+
+**Per option:**
+
+| option | how provider-first is honoured | what it costs |
+|---|---|---|
+| A serial | the hold above filters `ready()`. A held U waits until P lands, then U's re-gate on tranche+P is the exact test | none beyond the filter. A red P holds its users until P's job fixes it |
+| B ordering | the hold first. Then **a provider with held users goes ahead of shorter PRs**: sort by (held users descending, then expected gate minutes), with aging applied only to PRs not held | the same filter plus about 5 lines in the sort |
+| C speculative | the window must be a **topological prefix**: U is admitted only if P has landed or is ahead of it in the window. U's spec base then holds P, so U is gated on exactly tranche + P + U, **the test the back-to-back group needs**, and a red P discards U automatically. C turns BOB's hand-held order into a gated one | the hold plus one admission rule. U waits at most P's gate time in the window, not a whole serial turn |
+| D batch | members in topological order inside the batch. Bisection splits in that order (left half first), so a user is never landed without its provider | adds to D's existing weaknesses. D is still not recommended |
+| E faster gates | ordering is unchanged. Strength is helped by the existing tranche cover (gate.mjs lines 390-400): a module whose provider changed on the tranche after the module's merge is re-run at layer close and in the tranche into main | none |
+| **F** (recommended) | C's topological-prefix admission + B's provider-first sort + the precise hold, with BOB's draft mark kept as an override | together about 40-60 lines more in `train.mjs` on top of C, with tests, and no gate change |
+
+**Effect on the recommendation.** It still holds. Under F, back-to-back groups stop needing BOB's draft marking and get a stronger guarantee than today: the user is gated with its provider, not merely after it. Under A or B, a provider-first sort is cheap but each user still pays a full serial turn after its provider.
