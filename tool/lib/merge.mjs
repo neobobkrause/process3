@@ -18,7 +18,7 @@ import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, gh, git, isRecordOrLane, isRecordPath, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordOrLane, isRecordPath, isShallow, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -358,19 +358,33 @@ function specMark(wt, cfg, { pr: sp, sha }, { tip, was, job = null, log = consol
 // receipt, only the job's own files and ledger status, and the review triggers (refusing
 // --no-review when one fires).
 // A shallow clone (the MERGER's, 5 Nov: at clone_depth 1 every land failed at git merge-base): both
-// sides deepened down to their merge base by GitHub's compare (its counts plus one), and the clone
+// sides deepened down to their merge base by GitHub's compare (its counts), and the clone
 // unshallowed once when that does not give the base GitHub names; one that cannot is refused plainly.
+// The history already there is never cut (--depth sets a ref's depth and shortens a history
+// fetched deeper: the merge train's tranche, fetched past main, build/starter-fixes 5 Nov): the
+// base GitHub names read locally returns at once; else each side deepens from the clone's cut
+// (--deepen), by GitHub's count where its tip is the cut (a depth-1 clone: the depth --depth
+// gave), else by doubling from one (a cut deep in the history: the commits just past it).
 export function deepenToBase(root, slug, base, head, read = compare) {
   if (!isShallow(root)) return;
   const refs = [base, head].map((b) => `+refs/heads/${b}:refs/remotes/origin/${b}`);
   let c = null;
   try { c = read(slug, base, head); } catch { c = null; }
-  if (Number.isInteger(c?.ahead_by) && Number.isInteger(c?.behind_by)) {
-    git(['fetch', '-q', `--depth=${c.ahead_by + 1}`, 'origin', refs[1]], { cwd: root, allowFail: true });
-    git(['fetch', '-q', `--depth=${c.behind_by + 1}`, 'origin', refs[0]], { cwd: root, allowFail: true });
-  }
   const mb = () => git(['merge-base', `origin/${base}`, `origin/${head}`], { cwd: root, allowFail: true }).stdout.trim();
-  if (c?.merge_base_commit?.sha && mb() === c.merge_base_commit.sha) return;
+  const sha = c?.merge_base_commit?.sha;
+  const ok = () => !!sha && mb() === sha;
+  if (ok()) return;
+  if (Number.isInteger(c?.ahead_by) && Number.isInteger(c?.behind_by)) {
+    const deepen = (ref, n) => git(['fetch', '-q', `--deepen=${n}`, 'origin', ref], { cwd: root, allowFail: true }).code === 0;
+    const tipCut = (b) => shallowCuts(root).has(git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${b}^{commit}`], { cwd: root, allowFail: true }).stdout.trim());
+    const side = (b, ref, count) => {
+      if (tipCut(b)) return deepen(ref, Math.max(1, count)) && ok();
+      for (let n = 1, got = 0; got < Math.max(1, count) && isShallow(root); got += n, n *= 2) if (deepen(ref, n) && ok()) return true;
+      return ok();
+    };
+    if (side(head, refs[1], c.ahead_by) || side(base, refs[0], c.behind_by)) return;
+  }
+  if (ok()) return;
   const r = git(['fetch', '-q', '--unshallow', 'origin', ...refs], { cwd: root, allowFail: true });
   if (r.code !== 0 || !mb()) fail(`this clone is shallow and the history between ${head} and ${base} could not be read (${r.code !== 0 ? `git fetch --unshallow: ${r.stderr.trim().split('\n').pop()}` : 'no merge base after unshallowing'}); nothing was merged. Run it again, or start this session without clone_depth`);
 }
@@ -427,7 +441,9 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   waitMergeable(slug, n, pr, { every: mergeableEvery, read: io.getPR, log });
 
   const branch = pr.head.ref;
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
+  // The job's head: in a shallow clone its commits main lacks only (util.mjs fetchJobRefs), else as ever.
+  if (!isShallow(root) || !fetchJobRefs(root, [branch])) git(['fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
   if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
   deepenToBase(root, slug, cfg.tranche, branch, io.compare);
   if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
