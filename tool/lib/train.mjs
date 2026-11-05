@@ -16,9 +16,10 @@ import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
 import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, bobWake, toolPin } from './job.mjs';
-import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
+import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
+import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
 import { approvalsHash } from './start.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { Fail, fail, git, heartbeat, isShallow, loadConfig, now, repoSlug } from './util.mjs';
@@ -488,7 +489,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, named: !!c.named, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free };
   let r = null;
   try {
-    r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
+    r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, transient: ctx.transient, log: tick, onGate: (tip) => hold(root, ctx, c, tip), ...(c.held ? { noPush: true } : {}), beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
     row.result = 'merged';
     row.merged_at = now();
     row.green_to_merged = mins(Date.parse(c.green_at), Date.now());
@@ -505,7 +506,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
       b.until = Date.now() + Math.min(8, 2 ** (b.tries - 1)) * MIN;
       ctx.backoff.set(k, b);
       ctx.gates.delete(c.head);
-      if (b.tries >= RETRIES_TO_BOB) refuse(root, ctx, c, `${row.why} (${b.tries} tries)`); else log(`PR ${c.n} is tried again in ${Math.round((b.until - Date.now()) / MIN)} min: ${row.why}`);
+      if (b.tries >= RETRIES_TO_BOB) { refuse(root, ctx, c, `${row.why} (${b.tries} tries)`); row.to_bob = true; } else log(`PR ${c.n} is tried again in ${Math.round((b.until - Date.now()) / MIN)} min: ${row.why}`);
     }
   }
   row.minutes = mins(started, Date.now());
@@ -515,6 +516,11 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   const out = { ...row };
   record(root, ctx, `merge train: PR ${c.n} ${row.result}`, out, () => { tries++; out.push_tries = tries; });
   row.push_tries = tries;
+  // The hold ends with its cause once the gate's merge is over; a merge to try again keeps it.
+  if (ctx.inflight?.pr === c.n) {
+    const cause = r?.merged ? 'landed' : row.result === 'refused' ? `refused: ${row.why}` : row.to_bob ? `handed to BOB after ${RETRIES_TO_BOB} tries: ${row.why}` : HOLD_ENDS.test(row.why || '') ? row.why : null;
+    if (cause) unhold(root, ctx, ctx.inflight, cause);
+  }
   // BOB's acts after a merge (the triage the notice owes, the ready jobs' start), sent, not taken.
   if (r?.merged) {
     const acts = firstActs(r.triage).map((l) => l.replace(/^(first|then): /, '')).join('; then ');
@@ -522,6 +528,54 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   }
   ctx.rows.push(row);
   return row;
+}
+
+// The in-flight hold (inflight.mjs; build train-inflight, option 8B). Opened when merge() has a
+// merged result gating (pushed now, or found gating from an earlier run): until that gate's
+// merge ends, each pass goes back to it first and nothing else lands. Ended with its cause: landed,
+// refused (a red gate among them), or a failure that leaves nothing to wait on (HOLD_ENDS). A
+// failure to try again (a GitHub error that outlasted the wait's own retries) keeps it.
+const suiteMinutes = (cfg) => (Number(cfg.suite_timeout_minutes) > 0 ? Number(cfg.suite_timeout_minutes) : 0);
+export const HOLD_MINUTES = (cfg) => Math.max(GATE_CAP_MINUTES, suiteMinutes(cfg)) + INFLIGHT_QUEUE_MIN;
+const HOLD_ENDS = /is merged while|is closed while|moved to \S+ while the gate|moved past the merged result|did not finish within|would need a new one|the head the train chose|retargeted|the gate is not green on|is a draft|is into \S+, not/;
+function hold(root, ctx, c, tip) {
+  if (ctx.inflight?.pr === c.n && ctx.inflight.tip === tip) return;
+  ctx.inflight = { pr: c.n, tip, module: c.id, until: new Date(Date.now() + HOLD_MINUTES(ctx.cfg) * MIN).toISOString() };
+  try { startHold(root, ctx.cfg.state_branch, { pr: c.n, module: c.id, tip, session: ctx.session, minutes: HOLD_MINUTES(ctx.cfg) }); ctx.log(`PR ${c.n}'s merged result ${tip.slice(0, 10)} is gating: nothing else lands on ${ctx.cfg.tranche} until its merge ends`); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; ctx.log(`the hold for PR ${c.n} was not recorded (${e.message.split('\n')[0]}); this train holds it all the same`); }
+}
+function unhold(root, ctx, h, cause) {
+  try { endHold(root, ctx.cfg.state_branch, { pr: h.pr, tip: h.tip, cause: String(cause).split('\n')[0].slice(0, 300), session: ctx.session }); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; ctx.log(`the end of PR ${h.pr}'s hold was not recorded (${e.message.split('\n')[0]}); its until ends it`); }
+  ctx.log(`PR ${h.pr}'s hold at ${String(h.tip).slice(0, 10)} ended: ${String(cause).split('\n')[0]}`);
+  ctx.inflight = null;
+}
+// A pass under a hold: the held PR again, or the hold ended. Returns true when the pass is spent
+// (nothing else is taken this pass), false when the hold ended and the pass goes on as usual.
+function heldPass(root, ctx, h, { idle }) {
+  const { cfg, slug, io } = ctx;
+  ctx.inflight = { pr: h.pr, tip: h.tip, module: h.module, until: h.until };
+  // Never past its until, written or not (a dead train's hold).
+  if (!(Date.parse(h.until) > Date.now())) { unhold(root, ctx, h, `its gate's cap passed (${h.until})`); return false; }
+  let pr;
+  try { pr = io.getPR(slug, h.pr); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; ctx.log(`PR ${h.pr} (held) unread this pass (${e.message.split('\n')[0]}): nothing else lands; read again next pass`); return true; }
+  if (pr.merged) { unhold(root, ctx, h, `merged (${pr.merge_commit_sha || 'elsewhere'})`); return false; }
+  if (pr.state !== 'open') { unhold(root, ctx, h, `pull request ${pr.state}`); return false; }
+  if (pr.head?.sha !== h.tip) { unhold(root, ctx, h, `head moved to ${String(pr.head?.sha).slice(0, 10)}`); return false; }
+  // Withdrawn (made a draft) or retargeted: nothing to wait on (cold review of build train-inflight).
+  if (pr.draft) { unhold(root, ctx, h, 'withdrawn: made a draft'); return false; }
+  if (pr.base?.ref !== cfg.tranche) { unhold(root, ctx, h, `retargeted to ${pr.base?.ref}`); return false; }
+  // Its gate ended red (or cancelled): the hold ends with it.
+  let g = null;
+  try { g = io.checkRun(slug, h.tip, 'gate'); } catch { g = null; }
+  if (g?.status === 'completed' && g.conclusion !== 'success') { unhold(root, ctx, h, `gate ${g.conclusion}${g.html_url ? `: ${g.html_url}` : ''}`); return false; }
+  // The tip fetched with the tranche (a restarted train's clone may lack it): only a tip known and
+  // not holding the tranche reads as "tranche moved"; one not readable keeps the hold.
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${pr.head.ref}:refs/remotes/origin/${pr.head.ref}`], { cwd: root, allowFail: true });
+  const anc = git(['merge-base', '--is-ancestor', `refs/remotes/origin/${cfg.tranche}`, h.tip], { cwd: root, allowFail: true }).code;
+  if (anc === 1) { unhold(root, ctx, h, 'tranche moved'); return false; }
+  if (anc !== 0) { ctx.log(`PR ${h.pr}'s held tip ${String(h.tip).slice(0, 10)} is not readable in this clone this pass: the hold stands; read again next pass`); return true; }
+  if ((ctx.backoff.get(`${h.pr}@${h.tip}`)?.until || 0) > Date.now()) return true; // tried again after its wait; nothing else meanwhile
+  mergeOne(root, ctx, { n: h.pr, id: h.module || branchModule(pr.head.ref, ledgerIds(root, `origin/${cfg.tranche}`)), head: h.tip, ref: pr.head.ref, run: null, green_at: null, held: true }, { queue: 0, idle });
+  return true;
 }
 
 // Plain pull requests through the train (build train-plain, 5 Nov; notes/train-plain-options.md,
@@ -788,7 +842,7 @@ export function train(root, opts = {}) {
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
   if (!given.checkRunsMany) io.checkRunsMany = given.checkRuns ? (s, pairs) => pairs.map(([sha, name]) => io.checkRuns(s, sha, name)) : checkRunsMany;
   if (!given.commentsMany) io.commentsMany = given.comments ? (s, ns) => ns.map((n) => { try { return io.comments(s, n) || []; } catch { return null; } }) : commentsMany;
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], inflight: null, transient: opts.transient, bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.onQueue = opts.onQueue; // a test reads the queue each round
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
@@ -847,6 +901,14 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
     try { bob = readAddress(root, { fetch: false }).bob?.session || null; } catch { bob = null; }
     if (bob !== ctx.bob) log(bob ? `review notes count from BOB ${bob}` : 'no BOB addressed: no review note counts');
     ctx.bob = bob;
+    // A merged result gating under a hold goes before everything (inflight.mjs).
+    const h = unendedHold(readHolds(root, cfg.state_branch)) || ctx.inflight; // this train's, when its row was not written
+    if (h && heldPass(root, ctx, h, { idle: mins(idleFrom, Date.now()) })) {
+      idleFrom = Date.now();
+      if (once || --rounds <= 0) return { rows: ctx.rows };
+      if (ctx.inflight) sleep(idleEvery);
+      continue;
+    }
     // A queued plain pull request goes before every job (its caller waits): oldest first.
     const plain = timed(ctx, 'plain', () => plainReady(root, ctx));
     expirePlain(root, ctx);

@@ -236,3 +236,39 @@ wait); 8B makes "nothing lands under an in-flight gate" hold across any other fa
 restart, which 8A alone cannot; the addition covers the tool's own merges outside the train.
 GitHub's UI stays outside the tool, and merge()'s land check ("moved past the merged result the
 gate checked") still catches it as today.
+
+## 8. Ruling (coordinator, 5 Nov 13:27) and what was built (build/train-inflight)
+
+Ruled: 8A + 8B + the addition, in a PR of its own after PR 156. Conditions, and how each is met:
+- A hold never blocks past the gate's own cap: each `inflight` row carries `until` = now + max(90,
+  suite_timeout_minutes) + 15 min (the queue allowance); a pass that finds an unended row past its
+  until ends it ("its gate's cap passed"), whichever train wrote it; refuseUnderHold reads only
+  holds within their until.
+- The end row names its cause: landed; refused: <why> (a red gate among them); merged (elsewhere);
+  pull request closed; head moved to <sha>; tranche moved; its gate's cap passed; or the merge's
+  own failure when it leaves nothing to wait on (HOLD_ENDS).
+- Re-entry never re-pushes: the train calls merge() with noPush; a head that already holds this
+  PR's merge row on the current tip waits on its gate (jobChecks' rowTip wait), and anything that
+  would push a new merged result fails instead ("would need a new one"), which ends the hold.
+- A restarted train that finds an open hold on a tip the tranche has moved past ends it ("tranche
+  moved") and does not wait.
+Code: tool/lib/inflight.mjs (rows, open, start, end, refuseUnderHold), merge.mjs (TRANSIENT,
+guarded reads in waitForGate and waitForChecks, onGate, noPush, refusals in merge and mergePlain
+outside the train), train.mjs (hold, unhold, heldPass, the loop's hold-first pass).
+
+Item 8 review round 1 (cold): fixed, each tested: a held gate ending red kept the hold to its cap
+(now ended "gate <conclusion>"); a held PR made a draft or retargeted kept it (now ended
+"withdrawn: made a draft" / "retargeted to <base>"); a restarted clone lacking the held tip ended
+the hold as "tranche moved" and landed the next job (the tip is now fetched, and an unreadable tip
+keeps the hold); the outside refusal let a merge through once the held gate was green but not yet
+landed (now only a red or cancelled gate frees it); TRANSIENT gained "context deadline exceeded"
+and "connection refused". Kept: the hold's until (105 min with the 90-minute cap) can end before a
+late-starting gate's run does; that only frees merges outside the train (the train stays serial),
+and the ruling bounds a hold by the gate's cap. Kept: the first return to a held PR is not backed
+off (the loop's idle pause stands between passes; backing it off only delays the held gate).
+
+Item 8 review round 2 (confirming): (a) to (e) confirmed fixed; both kept items judged acceptable.
+Two low findings, fixed: a held PR that landed outside the train (no end row) kept merges outside
+it refused until until (refuseUnderHold now reads the held PR: merged, closed or off its tip holds
+nothing; tested); a held PR handed to BOB after its retries kept the hold (now ended "handed to BOB
+after 5 tries: ...").
