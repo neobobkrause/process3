@@ -51,6 +51,13 @@ test('item 1: one page of list_sessions stands when it holds every session the r
   const file = join(dir, 's.json');
   const page = (data) => { writeFileSync(file, JSON.stringify({ ccr: { data, has_more: true, last_id: data.at(-1)?.id } })); return file; };
   const s = (id, title, h, st = 'SESSION_STATUS_IDLE') => ({ id, title, session_status: st, created_at: iso(h), updated_at: iso(h) });
+  // No whole read recorded: a partial page is refused, since another product's or a merged job's
+  // unarchived session could be on any later page (review of PR 150).
+  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s6', 'other', 2)]), { root, offline: true }), /no whole read is recorded to say how far back a live job session can be/);
+  // The last whole read saw its oldest live job session (another product's, say) created at 01:30.
+  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(1.5), at: iso(8), live: 3 }) + '\n' });
+  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s7', 'job a', 3.1), s('s8', 'job a (restart)', 5.1), s('s6', 'other', 2)]), { root, offline: true }), /a job session live at the last whole read \(created 2026-11-05T01:30:00\.000Z\) could be on them/);
+  onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(5.1), at: iso(8), live: 1 }) + '\n' });
   // Newest first, reaching back to 04:00 only: a's first session (started 03:00) could be on the next page.
   const short = [s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1)];
   assert.throws(() => readSessions(page(short), { root, offline: true }), /has_more\), and a recorded job session could be on them \(job a: 2 sessions started since 2026-11-05T03:00:00\.000Z\).*or until a page reaches past 2026-11-05T03:00:00\.000Z/);
@@ -190,4 +197,25 @@ test('item 4: a branch tip truly not in the tranche after a full read is refused
     else assert.equal(msg, null);
     assert.equal(git(['ls-remote', bare, 'refs/heads/job/a'], { cwd: full }).split('\t')[0], stray, 'origin\'s job/a is as it was');
   }
+});
+
+test('item 1: a whole read records the oldest live job session (any product); a partial page reaching past it records it again; a full read with none records now', () => {
+  const root = withOrigin({ 'process/ledger/a.json': entry('a') });
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  const s = (id, title, h, st = 'SESSION_STATUS_IDLE') => ({ id, title, session_status: st, created_at: iso(h), updated_at: iso(h) });
+  const stored = () => { git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root }); return JSON.parse(git(['show', 'refs/remotes/origin/process-state:metrics/live-sessions.json'], { cwd: root })).oldest; };
+  writeFileSync(file, JSON.stringify({ data: [s('s3', 'job x', 6), s('s2', 'job other-product', 2), s('s1', 'job old', 1, 'SESSION_STATUS_ARCHIVED')], has_more: false }));
+  readSessions(file, { root });
+  assert.equal(stored(), iso(2), 'the oldest unarchived job session, another product\'s included');
+  // A page reaching past it stands, and its own oldest live job session is recorded.
+  writeFileSync(file, JSON.stringify({ data: [s('s4', 'job y', 7), s('s3', 'job x', 6), s('s2', 'job other-product', 2, 'SESSION_STATUS_ARCHIVED')], has_more: true }));
+  readSessions(file, { root });
+  assert.equal(stored(), iso(6));
+  // One stopping short of it is refused.
+  writeFileSync(file, JSON.stringify({ data: [s('s4', 'job y', 7)], has_more: true }));
+  assert.throws(() => readSessions(file, { root }), /a job session live at the last whole read \(created 2026-11-05T06:00:00\.000Z\) could be on them/);
+  writeFileSync(file, JSON.stringify({ data: [s('s4', 'build/z', 7)], has_more: false }));
+  const t = Date.now();
+  readSessions(file, { root });
+  assert.ok(Date.parse(stored()) >= t - 1000, 'no live job session: any later one is newer than now');
 });

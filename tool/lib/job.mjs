@@ -297,8 +297,6 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     return { cfg: c, at: a, from: a || (push ? `origin/${c.tranche}` : c.tranche) };
   };
   let { cfg, at, from } = anchor();
-  const lead = jobCoordinator(root, cfg, coordinator, push);
-  model ||= cfg.roles?.job?.model;
   let ids = ledgerIds(root, from);
   const heads = push ? originJobs(root) : localJobs(root);
   let branch = branchOf(root, id, heads, ids, push);
@@ -322,6 +320,9 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
       }
     }
   }
+  // The coordinator and model as the tip the job is cut from names them.
+  const lead = jobCoordinator(root, cfg, coordinator, push);
+  model ||= cfg.roles?.job?.model;
   // --reopen on an abandoned attempt (BOB on the copy, 5 Nov: case-checker's job/case-checker-2,
   // COMPLETE with 6 commits, its PR 301 closed unmerged): a fresh branch, the reopen text its
   // task; the start row names the abandoned branch and its last closed pull request.

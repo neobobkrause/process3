@@ -8,7 +8,7 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
-import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
+import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
@@ -19,8 +19,8 @@ import { baseRedOwed } from './report.mjs';
 import { holdLines, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
 export const IDLE_HOURS = 2;
@@ -43,18 +43,38 @@ export function readSessions(file, { root, offline = false } = {}) {
   if (!list) fail(`--sessions ${file}: no list of sessions in it (a JSON list, or one under "data" or "ccr.data")`);
   const out = list.filter((x) => x && typeof x === 'object');
   // One page of a longer list (copy, 5 Nov 04:36: list_sessions' first page held 6 of 16 job
-  // sessions, so 14 slots read empty with 4 free): every unarchived job session holds a slot.
-  // Paging the whole account cost ~5 min a wake (copy, 5 Nov: 1,843 sessions), so a partial list
-  // stands when it holds every session the record knows: list_sessions is newest first, and each
-  // open job's unmerged start rows name its sessions (sessionCover). Refused only when one could be missing.
-  if ([j, j?.ccr].some((x) => x?.has_more === true)) {
-    const more = `call it with limit 100, and again with after_id <last_id> while has_more, and save every page's sessions as one list; every unarchived job session holds a slot`;
-    if (!root) fail(`--sessions ${file}: list_sessions has more pages (has_more): ${more}`);
+  // sessions, so 14 slots read empty with 4 free): every unarchived job session holds a slot,
+  // every product's and a merged job's not yet archived too. Paging the whole account cost ~5 min
+  // a wake (copy, 5 Nov: 1,843 sessions), so a partial list stands when, newest first, it reaches
+  // past the oldest job session live at the last whole read (LIVE_OLDEST: a session is never
+  // unarchived, and a newer one is on the page) and past each open job's recorded sessions
+  // (sessionCover); a read that stands records the oldest live one again. Else it is refused.
+  const partial = [j, j?.ccr].some((x) => x?.has_more === true);
+  const more = `call it with limit 100, and again with after_id <last_id> while has_more, and save every page's sessions as one list; every unarchived job session holds a slot`;
+  if (partial && !root) fail(`--sessions ${file}: list_sessions has more pages (has_more): ${more}`);
+  if (!root) return out;
+  const cfg = loadConfig(root);
+  // Unread (no origin, no state branch): a whole list stands as ever; a partial one is refused below.
+  let was = null;
+  try { if (!offline) fetchState(root, cfg.state_branch); was = JSON.parse(readState(root, cfg.state_branch, LIVE_OLDEST) || 'null'); } catch { was = null; }
+  const made = out.map((x) => Date.parse(x.created_at || ''));
+  const reach = made.some((t) => !Number.isFinite(t)) ? Infinity : Math.min(...made); // a session with no time: the page reaches back nowhere
+  if (partial) {
+    if (!Number.isFinite(Date.parse(was?.oldest || ''))) fail(`--sessions ${file}: list_sessions has more pages (has_more), and no whole read is recorded to say how far back a live job session can be: ${more} (once; later pages need reach back only past the oldest live job session)`);
+    if (!(reach <= Date.parse(was.oldest))) fail(`--sessions ${file}: list_sessions has more pages (has_more), and a job session live at the last whole read (created ${was.oldest}) could be on them: ${more}, or until a page reaches past ${was.oldest}`);
     const c = sessionCover(root, out, { offline });
     if (c.missing.length) fail(`--sessions ${file}: list_sessions has more pages (has_more), and a recorded job session could be on them (${c.missing.map((m) => `job ${m.id}: ${m.count} session${m.count === 1 ? '' : 's'} started since ${m.first}`).slice(0, 5).join('; ')}${c.missing.length > 5 ? `; ${c.missing.length - 5} more` : ''}): ${more}, or until a page reaches past ${c.missing.map((m) => m.first).sort()[0]}`);
   }
+  // Every live job session is on this list now: the oldest one's creation (none: now) is recorded.
+  const live = out.filter((x) => !isArchived(x) && /^job \S+( \(restart\))?$/.test(String(x.title || '').trim())).map((x) => Date.parse(x.created_at || ''));
+  if (!offline && Number.isFinite(reach) && live.every(Number.isFinite)) {
+    const oldest = new Date(live.length ? Math.min(...live) : Date.now()).toISOString();
+    if (oldest !== was?.oldest) { try { writeState(root, cfg.state_branch, 'sessions: the oldest live job session', (wt) => { mkdirSync(join(wt, dirname(LIVE_OLDEST)), { recursive: true }); writeFileSync(join(wt, LIVE_OLDEST), JSON.stringify({ oldest, at: new Date().toISOString(), live: live.length }) + '\n'); }); } catch { /* recorded at the next whole read */ } }
+  }
   return out;
 }
+// The creation time of the oldest job session (any product) live at the last read that held them all.
+export const LIVE_OLDEST = 'metrics/live-sessions.json';
 // The job sessions the record knows: for each job branch on origin (job/<id>, or a --fresh-branch
 // start's job/<id>-<n>), its start rows the tranche has not merged (an open run; a merged job has
 // none) and the state branch's restart rows since the first, its time and how many (each started one session). A partial

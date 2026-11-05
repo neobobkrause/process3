@@ -110,8 +110,9 @@ export function takeLease(root, cfg, session, token, { take = false, proc = proc
     const t = Date.now();
     const mine = cur?.session === session && cur?.token === token;
     const live = cur && Date.parse(cur.expires) > t;
-    const dead = take && live && !mine && cur.session === session && alive(cur.proc) === false;
-    if (!mine && live && !dead) (take ? fail : stop)(`the merge train's lease is held by ${cur.session}${cur.session === session ? ` (another train in this session${cur.proc?.pid ? `, process ${cur.proc.pid}, still running` : ''})` : ''} until ${cur.expires}: one train runs`);
+    const runs = take && live && !mine && cur.session === session ? alive(cur.proc) : null;
+    const dead = runs === false;
+    if (!mine && live && !dead) (take ? fail : stop)(`the merge train's lease is held by ${cur.session}${cur.session === session ? ` (another train in this session${runs ? `, process ${cur.proc.pid}, still running` : ', its process not readable here, so it waits for the lease time'})` : ''} until ${cur.expires}: one train runs`);
     if (!take && !mine) stop(`the merger lost its lease (${cur ? `${cur.session} holds it` : 'none on the state branch'}): the train stops`);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, JSON.stringify({ session, token, ...(proc ? { proc } : {}), at: now(), expires: new Date(t + LEASE.expire * MIN).toISOString().replace(/\.\d+Z$/, 'Z'), since: mine ? cur.since : now() }, null, 2) + '\n');

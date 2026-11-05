@@ -179,6 +179,11 @@ test('sweep --sessions: every unarchived job session holds a slot, idle complete
   // (restart speed, 5 Nov), and is refused, with the way to read the rest, once a recorded open
   // job's session could be on the next page.
   writeFileSync(file, JSON.stringify({ data: list.slice(0, 6), has_more: true, last_id: 'session_j5' }));
+  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /no whole read is recorded/);
+  writeState(root, SB, 'whole read', (d) => writeFileSync(join(d, 'metrics/live-sessions.json'), JSON.stringify({ oldest: ago(60) })));
+  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /a job session live at the last whole read/);
+  const dated = list.slice(0, 6).map((x) => ({ ...x, created_at: ago(90) }));
+  writeFileSync(file, JSON.stringify({ data: dated, has_more: true, last_id: 'session_j5' }));
   assert.doesNotThrow(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }));
   commit(root, { 'process/ledger/m6.json': entry('m6') }, 'entry m6');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
@@ -187,6 +192,9 @@ test('sweep --sessions: every unarchived job session holds a slot, idle complete
   git(['push', '-q', 'origin', 'job/m6'], { cwd: root });
   git(['checkout', '-q', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
+  // A later whole read, and a page reaching past it but not past m6's start 30 min ago.
+  writeState(root, SB, 'whole read', (d) => writeFileSync(join(d, 'metrics/live-sessions.json'), JSON.stringify({ oldest: ago(20) })));
+  writeFileSync(file, JSON.stringify({ data: list.slice(0, 6).map((x) => ({ ...x, created_at: ago(25) })), has_more: true, last_id: 'session_j5' }));
   assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /list_sessions has more pages \(has_more\), and a recorded job session could be on them \(job m6: 1 session started since .*call it with limit 100, and again with after_id <last_id> while has_more/);
 });
 
