@@ -395,7 +395,11 @@ const commands = {
   // With --wake, once the approvals hold, the calling role's prompt against the one it started
   // from: a changed prompt is printed once, with its pin, and recorded (prompt refresh).
   'start check': (a, root) => {
-    if (!a.wake) return startCheck(root, { branch: a.branch, setup: true }).ok ? 0 : 1;
+    // A role's first check re-anchors as job start does (coordinator, 5 Nov: ROOT, BOB and the
+    // MERGER failed theirs on every tranche merge landing between create_session and the check,
+    // with the train merging every few minutes): a clean checkout the tip has moved past, with
+    // the tip's approvals and pin, moves to the tip; anything else still fails.
+    if (!a.wake) return startCheck(root, { branch: a.branch, setup: true, anchor: true }).ok ? 0 : 1;
     if (!wakeCheck(root, { branch: a.branch, approvals: a.approvals }).ok) return 1;
     // A refresh that cannot run (the state push failed, no ROOT for BOB's prompt) never stops a
     // session whose approvals hold: it says so and the session acts by the prompt it has.

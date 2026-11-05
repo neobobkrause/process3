@@ -9,7 +9,8 @@ import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
-import { LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
+import { LEASE, LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, procAlive, procOf, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
+import { spawn } from 'node:child_process';
 import { loadConfig } from '../lib/util.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -275,8 +276,59 @@ test('merge train: a second train in the same session is refused while the first
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
   const g = github(root, ids);
   takeLease(root, loadConfig(root), S, 'tok-first', { take: true });
-  assert.throws(() => run(root, g), /held by session_merger1 \(another train in this session\)/);
+  assert.throws(() => run(root, g), /held by session_merger1 \(another train in this session, process \d+, still running\)/);
   assert.deepEqual(g.calls.merged, []);
+});
+
+// Coordinator, 5 Nov 07:18-07:27: a killed train's own session waited out its lease (9 min).
+test('merge train: a train of the same session retakes the lease of its own train that no longer runs; a live one is still refused', async () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const g = github(root, ids);
+  const cfg = loadConfig(root);
+  const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' });
+  await new Promise((r) => child.once('spawn', r));
+  const proc = procOf(child.pid);
+  assert.ok(proc?.boot && proc.started, 'this machine shows its processes');
+  takeLease(root, cfg, S, 'tok-killed', { take: true, proc });
+  assert.throws(() => run(root, g), new RegExp(`held by session_merger1 \\(another train in this session, process ${child.pid}, still running\\)`));
+  assert.deepEqual(g.calls.merged, []);
+  // Another session's live lease is never judged by its process.
+  assert.equal(procAlive({ ...proc, started: 'x' }), false, 'a reused pid is another process');
+  assert.equal(procAlive({ ...proc, boot: 'another-machine' }), false, 'another boot: that machine is gone');
+  assert.equal(procAlive({ pid: child.pid }), null, 'a lease naming no process: unknown');
+  child.kill('SIGKILL');
+  await new Promise((r) => child.once('exit', r));
+  assert.equal(procAlive(proc), false);
+  const out = [];
+  assert.equal(run(root, g, { log: (l) => out.push(l) }).rows[0].result, 'merged');
+  assert.ok(out.some((l) => /lease held by session_merger1 \(taken over from this session's train that is no longer running\)/.test(l)), out.join('\n'));
+  assert.equal(stateRows(root, MERGER_FILE).filter((x) => x.row === 'takeover' && x.dead?.pid === child.pid).length, 1);
+  // A lease of another session, its process gone, still waits for its time.
+  writeState(root, 'process-state', 'other', (d) => writeFileSync(join(d, LEASE_FILE), JSON.stringify({ session: 'session_other', token: 't', proc, at: new Date().toISOString(), expires: new Date(Date.now() + 6e5).toISOString() })));
+  assert.throws(() => takeLease(root, cfg, S, 'tok-new', { take: true }), /held by session_other until/);
+});
+
+// Coordinator, 5 Nov 07:56:37: the MERGER's lease lapsed while its train was alive, gating
+// mail-door; the train renewed only at its printed lines, and a silent stretch outran the lease.
+test('merge train: the lease is renewed under a silent stretch of work, at the train\'s commands, not only at its lines', (t) => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const g = github(root, ids);
+  const was = LEASE.renew;
+  LEASE.renew = 1 / 60; // one second
+  t.after(() => { LEASE.renew = was; });
+  const lease = () => { git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root }); return JSON.parse(git(['show', 'refs/remotes/origin/process-state:merger/lease.json'], { cwd: root })); };
+  const land = g.io.mergePR;
+  let seen = null;
+  g.io.mergePR = (...a) => {
+    // A stretch printing nothing (the queue's order, a notice's triage), longer than the renewal.
+    const from = Date.now();
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2500);
+    git(['rev-parse', 'HEAD'], { cwd: root }); // the work's own commands
+    seen = { from, at: Date.parse(lease().at) };
+    return land(...a);
+  };
+  assert.equal(run(root, g).rows[0].result, 'merged');
+  assert.ok(seen.at > seen.from, `renewed inside the silent stretch (lease at ${new Date(seen.at).toISOString()}, stretch from ${new Date(seen.from).toISOString()})`);
 });
 
 test('merge train: a green gate whose row is not posted yet waits, and is not refused', () => {

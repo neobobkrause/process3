@@ -8,19 +8,19 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
-import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
+import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
-import { leadInputs, openedAt } from './lead.mjs';
+import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { holdLines, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 // A pull request quiet this long is idle: the sweep's "silent for two hours" (Foundations).
 export const IDLE_HOURS = 2;
@@ -33,18 +33,93 @@ export const SILENT_HOURS = 2;
 // Idle, with no push for targets.replace_minutes: idle. No match: the two-hour rule stands.
 // Only the fields list_sessions returns are read (measured 4 Nov 17:20, after a fixture of invented
 // names passed while the tool counted 320 archived sessions live): id, title, session_status
-// (SESSION_STATUS_ARCHIVED, _IDLE, _RUNNING, _PENDING), status_bucket, updated_at,
+// (SESSION_STATUS_ARCHIVED, _IDLE, _RUNNING, _PENDING), status_bucket, created_at, updated_at,
 // parent_session_id, post_turn_summary.status_category. The list: bare, under data, or as the
 // tool returns it raw, {"ccr":{"data":[...]}}.
-export function readSessions(file) {
+export function readSessions(file, { root, offline = false } = {}) {
   let j;
   try { j = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`--sessions ${file}: not a readable JSON file (${e.message}); save your list_sessions result there`); }
   const list = [j, j?.data, j?.ccr?.data].find(Array.isArray);
   if (!list) fail(`--sessions ${file}: no list of sessions in it (a JSON list, or one under "data" or "ccr.data")`);
+  const out = list.filter((x) => x && typeof x === 'object');
   // One page of a longer list (copy, 5 Nov 04:36: list_sessions' first page held 6 of 16 job
-  // sessions, so 14 slots read empty with 4 free): every unarchived job session holds a slot.
-  if ([j, j?.ccr].some((x) => x?.has_more === true)) fail(`--sessions ${file}: list_sessions has more pages (has_more): call it with limit 100, and again with after_id <last_id> while has_more, and save every page's sessions as one list; every unarchived job session holds a slot`);
-  return list.filter((x) => x && typeof x === 'object');
+  // sessions, so 14 slots read empty with 4 free): every unarchived job session holds a slot,
+  // every product's and a merged job's not yet archived too. Paging the whole account cost ~5 min
+  // a wake (copy, 5 Nov: 1,843 sessions), so a partial list stands when, newest first, it reaches
+  // past the oldest job session live at the last whole read (LIVE_OLDEST: a session is never
+  // unarchived, and a newer one is on the page) and past each open job's recorded sessions
+  // (sessionCover); a read that stands records the oldest live one again. Else it is refused.
+  const partial = [j, j?.ccr].some((x) => x?.has_more === true);
+  const more = `call it with limit 100, and again with after_id <last_id> while has_more, and save every page's sessions as one list; every unarchived job session holds a slot`;
+  if (partial && !root) fail(`--sessions ${file}: list_sessions has more pages (has_more): ${more}`);
+  if (!root) return out;
+  const cfg = loadConfig(root);
+  // Unread (no origin, no state branch): a whole list stands as ever; a partial one is refused below.
+  let was = null;
+  try { if (!offline) fetchState(root, cfg.state_branch); was = JSON.parse(readState(root, cfg.state_branch, LIVE_OLDEST) || 'null'); } catch { was = null; }
+  const made = out.map((x) => Date.parse(x.created_at || ''));
+  const reach = made.some((t) => !Number.isFinite(t)) ? Infinity : Math.min(...made); // a session with no time: the page reaches back nowhere
+  if (partial) {
+    // Newest first by creation is what makes a page's end a bound: a page in another order is no bound.
+    if (made.some((t, i) => i > 0 && t > made[i - 1])) fail(`--sessions ${file}: list_sessions has more pages (has_more), and this page is not newest first by created_at, so how far back it reaches says nothing: ${more}`);
+    if (!Number.isFinite(Date.parse(was?.oldest || ''))) fail(`--sessions ${file}: list_sessions has more pages (has_more), and no whole read is recorded to say how far back a live job session can be: ${more} (once; later pages need reach back only past the oldest live job session)`);
+    if (!(reach <= Date.parse(was.oldest))) fail(`--sessions ${file}: list_sessions has more pages (has_more), and a job session live at the last whole read (created ${was.oldest}) could be on them: ${more}, or until a page reaches past ${was.oldest}`);
+    const c = sessionCover(root, out, { offline });
+    if (c.missing.length) fail(`--sessions ${file}: list_sessions has more pages (has_more), and a recorded job session could be on them (${c.missing.map((m) => `job ${m.id}: ${m.count} session${m.count === 1 ? '' : 's'} started since ${m.first}`).slice(0, 5).join('; ')}${c.missing.length > 5 ? `; ${c.missing.length - 5} more` : ''}): ${more}, or until a page reaches past ${c.missing.map((m) => m.first).sort()[0]}`);
+  }
+  // Every live job session is on this list now: the oldest one's creation is recorded; with none,
+  // the newest session's on the list (a session made after the list was saved is newer: not now).
+  const live = out.filter((x) => !isArchived(x) && /^job \S+( \(restart\))?$/.test(String(x.title || '').trim())).map((x) => Date.parse(x.created_at || ''));
+  if (!offline && Number.isFinite(reach) && out.length && live.every(Number.isFinite)) {
+    const oldest = new Date(live.length ? Math.min(...live) : Math.max(...made)).toISOString();
+    if (oldest !== was?.oldest) { try { writeState(root, cfg.state_branch, 'sessions: the oldest live job session', (wt) => { mkdirSync(join(wt, dirname(LIVE_OLDEST)), { recursive: true }); writeFileSync(join(wt, LIVE_OLDEST), JSON.stringify({ oldest, at: new Date().toISOString(), live: live.length }) + '\n'); }); } catch { /* recorded at the next whole read */ } }
+  }
+  return out;
+}
+// The creation time of the oldest job session (any product) live at the last read that held them all.
+export const LIVE_OLDEST = 'metrics/live-sessions.json';
+// The job sessions the record knows: for each job branch on origin (job/<id>, or a --fresh-branch
+// start's job/<id>-<n>), its start rows the tranche has not merged (an open run; a merged job has
+// none) and the state branch's restart rows since the first, its time and how many (each started one session). A partial
+// list covers a job when its oldest session was created at or before that first start (newest
+// first, so every later session is in it), or it lists that job's sessions as many times.
+export const STARTS = (r) => r.row === 'attempt' && r.event === 'start';
+export function recordedStarts(root, { offline = false } = {}) {
+  const cfg = loadConfig(root);
+  const tip = `refs/remotes/origin/${cfg.tranche}`;
+  const at = git(['rev-parse', '-q', '--verify', tip], { cwd: root, allowFail: true }).code === 0 ? tip : 'HEAD';
+  const ids = new Set(Object.keys(readLedgerTexts(root, at)).map((f) => f.slice(LEDGER_DIR.length + 1, -5)));
+  let heads = null;
+  if (!offline) {
+    const ls = git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true });
+    if (ls.code !== 0) fail('list_sessions has more pages (has_more) and origin\'s job branches could not be read to check it covers every recorded job session: save every page');
+    const pairs = ls.stdout.split('\n').map((l) => l.trim().split('\t')).filter(([, r]) => r);
+    heads = pairs.map(([, r]) => r.slice(11));
+    const moved = pairs.filter(([sha, r]) => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${r.slice(11)}`], { cwd: root, allowFail: true }).stdout.trim() !== sha);
+    if (moved.length) git(['fetch', '-q', ...depth(root), 'origin', ...moved.map(([, r]) => `+${r}:refs/remotes/origin/${r.slice(11)}`)], { cwd: root, allowFail: true });
+  } else heads = git(['for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin/job/'], { cwd: root }).split('\n').filter(Boolean);
+  // A --restart's session is recorded on the state branch (lead.mjs RESTARTS_FILE), not the job's branch.
+  if (!offline) fetchState(root, cfg.state_branch);
+  const restarts = jsonl(readState(root, cfg.state_branch, RESTARTS_FILE) || '');
+  const out = [];
+  for (const id of ids) {
+    const jb = jobBranchAt(root, id, heads, ids);
+    if (!heads.includes(jb)) continue;
+    const merged = new Set(rowsAt(root, at, id).map((r) => JSON.stringify(r)));
+    const run = rowsAt(root, `refs/remotes/origin/${jb}`, id).filter((r) => STARTS(r) && !merged.has(JSON.stringify(r)));
+    if (!run.length) continue;
+    const first = run.map((r) => r.at).sort()[0];
+    const again = restarts.filter((r) => r.module === id && String(r.at) >= first);
+    out.push({ id, first, count: run.length + again.length });
+  }
+  return out;
+}
+export function sessionCover(root, list, { offline = false, starts = recordedStarts(root, { offline }) } = {}) {
+  const made = list.map((x) => Date.parse(x.created_at || ''));
+  const oldest = made.some((t) => !Number.isFinite(t)) ? Infinity : Math.min(...made); // a session with no time: the page reaches back nowhere
+  const titled = (id) => list.filter((x) => new RegExp(`^job ${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\(restart\\))?$`).test(String(x.title || '').trim())).length;
+  const missing = starts.filter((s) => !(oldest <= Date.parse(s.first)) && titled(s.id) < s.count);
+  return { starts, missing };
 }
 export const sessionId = (x) => x.id || '?';
 const sessionTime = (x) => Date.parse(x.updated_at || '') || 0;
@@ -126,7 +201,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   // Starts owed, the first line (hold.mjs): a marker, never a refusal.
   try { if (offline || fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* the holds line says the state branch is unread */ }
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
-  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
+  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline });
   live = sessionsCount(listed, live, log);
   const replaceMs = Number(cfg.targets?.replace_minutes ?? 30) * 6e4;
   if (!(replaceMs > 0)) fail(`targets.replace_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.replace_minutes)}`);

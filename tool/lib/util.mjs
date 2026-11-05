@@ -28,7 +28,20 @@ export class Fail extends Error {}
 export const fail = (msg) => { throw new Fail(msg); };
 
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
+// A heartbeat (coordinator, 5 Nov 07:56: the MERGER's lease lapsed while its train was alive
+// and gating mail-door, so ROOT's sweep replaced it): the train renews its lease only when it
+// prints a line or turns its loop, and its long silent stretches (the queue's order and provider
+// holds, a merge's notice and triage, waits whose lines are not printed) printed nothing for
+// 15 minutes. A beat set here runs before each command this process starts (git, gh), never
+// inside itself or a quiet section (a state-branch write), so whatever runs, the train renews.
+let beat = null;
+let still = 0;
+export function heartbeat(fn) { const was = beat; beat = fn; return () => { beat = was; }; }
+export function quietly(fn) { still++; try { return fn(); } finally { still--; } }
+const pulse = () => { if (beat && !still) quietly(beat); };
+
 export function run(cmd, args = [], opts = {}) {
+  pulse();
   const t0 = Date.now();
   const env = { ...process.env, ...(opts.env || {}) };
   for (const k of opts.unset || []) delete env[k];
@@ -48,8 +61,36 @@ export function run(cmd, args = [], opts = {}) {
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
-  if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}`);
+  if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
+}
+// A git lock left in a clone (copy, 5 Nov: BOB's review worker deepened, notice triage and a job
+// start ran git at once in one shallow clone: "shallow file has changed", a stale shallow.lock,
+// no job started). Said plainly: whether a git process still runs in this clone, and if none,
+// that the lock is stale and which file to remove. procs: the git processes' working directories.
+export function lockNote(stderr, cwd, { procs = gitCwds } = {}) {
+  const lock = /Unable to create '([^']+\.lock)': File exists/.exec(String(stderr || ''))?.[1];
+  const raced = /shallow file has changed since we read it/.test(String(stderr || ''));
+  if (!lock && !raced) return '';
+  let top = null;
+  try { top = realpathSync(execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()); } catch { top = null; }
+  const seen = top ? procs() : null;
+  const live = seen ? seen.filter((d) => d === top || d.startsWith(`${top}/`)).length : null;
+  const one = 'one git user per clone at a time: review and triage workers run git in clones of their own';
+  if (!lock) return `. Another git command changed this clone's shallow file while this one ran (${one}); run this again once it ends`;
+  if (live) return `. ${live} other git process${live === 1 ? '' : 'es'} still run${live === 1 ? 's' : ''} in this clone and hold${live === 1 ? 's' : ''} ${lock} (${one}); run this again once ${live === 1 ? 'it ends' : 'they end'}`;
+  if (live === 0) return `. No git process runs in this clone, so ${lock} is stale, left by a git command that was killed: remove it (rm '${lock}') and run this again (${one})`;
+  return `. ${lock} is held by another git command in this clone or left by a killed one (${one}); if none runs, remove it and run this again`;
+}
+// The working directories of the git processes running now (Linux /proc; null where unread).
+function gitCwds() {
+  const out = [];
+  let pids = [];
+  try { pids = readdirSync('/proc').filter((n) => /^\d+$/.test(n) && Number(n) !== process.pid); } catch { return null; }
+  for (const pid of pids) {
+    try { if (readFileSync(`/proc/${pid}/comm`, 'utf8').trim() === 'git') out.push(realpathSync(`/proc/${pid}/cwd`)); } catch { /* gone, or not ours */ }
+  }
+  return out;
 }
 
 // Whether a path exists at a commit, read from the tree alone: in a partial clone this fetches
