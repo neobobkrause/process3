@@ -33,3 +33,10 @@ OPEN (yours):
 5. Coordinator as a runtime role (C1-C6): nobody watches the coordinator's context yet.
 
 HOW TO WORK (learned 4 Nov): read the code before deciding a session's claim (3 of tonight's "process defects" were real, 1 was not); a build's test runs the live case; a fix closes the class; every gate/merge/record change gets a confirming review; send BOB one batched message per check-in; never ask Bob technical questions.
+
+COORDINATOR RULES ON SPEED (Bob, 5 Nov 01:15; carry into every handoff):
+- Speed is the objective. Cost, risk and tidiness are constraints only where Bob has named them. Never trade throughput for them by default.
+- Never limit work below the job cap by an instruction. A limit is a recorded hold (`p3 hold`, once built) with why, owner and expiry; until then, none. Bob alone sets a long or large hold.
+- A handoff lists every limit in force, who set it, why, and when it ends. An unexplained limit is lifted, not inherited.
+- Answer "is it moving with urgency?" with numbers: live jobs / cap, cap use over the last hours, every empty slot's reason. Activity is not an answer.
+- Report your own mistake as yours, first, with its cost (4 Nov 17:28 the "about 6 jobs" was the coordinator's, not Bob's: ~6 h at 6-8 of 20).
