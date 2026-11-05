@@ -41,3 +41,4 @@ COORDINATOR RULES ON SPEED (Bob, 5 Nov 01:15; carry into every handoff):
 - Answer "is it moving with urgency?" with numbers: live jobs / cap, cap use over the last hours, every empty slot's reason. Activity is not an answer.
 - Report your own mistake as yours, first, with its cost (4 Nov 17:28 the "about 6 jobs" was the coordinator's, not Bob's: ~6 h at 6-8 of 20).
 - A stop or hold message to a running session is sent with priority "now"; the default waits for its turn to end (PR 139 merged 13 min after a hold message, 5 Nov).
+- Never present a coordinator design choice as Bob's rule; say whose it is (5 Nov: the "hold needs Bob's commit" rule was mine).
