@@ -438,6 +438,7 @@ test('a COMPLETE job with fix commits after it completes attempt 2: checks, suit
   assert.deepEqual(rows.map((x) => [x.event, x.attempt]), [['start', 1], ['complete', 1], ['start', 2], ['complete', 2]]);
   assert.equal(rows[2].at, fixAt, 'attempt 2 starts at its first commit');
   assert.deepEqual(rows[2].again, { after: first, pr: 9 });
+  assert.equal(rows[2].branch, 'job/alpha', 'the --again start row names the branch it works on (copy PR 454)');
   assert.equal(rows[3].receipt.attempt, 2);
   // Only its records (the entry is unchanged when both completes fall in the same second).
   const names = git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }).split('\n');

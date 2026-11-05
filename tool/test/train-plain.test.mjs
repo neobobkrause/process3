@@ -275,7 +275,7 @@ test('a moved base is tried again with a backoff, not refused', () => {
 const MIN = 60000;
 const ago = (m) => new Date(Date.now() - m * MIN).toISOString();
 const onPlain = (root, file, ...xs) => writeState(root, 'process-state', 'test: rows', (wt) => { mkdirSync(join(wt, 'merger'), { recursive: true }); mkdirSync(join(wt, 'metrics'), { recursive: true }); for (const x of xs) appendFileSync(join(wt, file), JSON.stringify(x) + '\n'); });
-const queueRow = (id, head, o = {}) => ({ at: ago(200), row: 'queue', id, pr: 1, head, as: 'bob', no_review: 'x', rounds: 0, take_by: ago(-60), ...o });
+const queueRow = (id, head, o = {}) => ({ at: ago(200), row: 'queue', id, pr: 1, head, as: 'bob', no_review: 'x', rounds: 0, take_by: ago(-60), renews: true, ...o });
 const takenRow = (id) => ({ at: ago(150), row: 'plain', session: S, queue: id, pr: 1, result: 'taken' });
 
 test('a taken plain row whose caller has not renewed it within one job gate\'s wait is withdrawn by the train and never landed; a renewed one lands', () => {
@@ -328,4 +328,18 @@ test('a caller waiting on the train renews its row', () => {
   assert.equal(r.merged, true);
   const q = rows(root, PLAIN_FILE);
   assert.ok(q.filter((x) => x.row === 'renew' && x.id === q[0].id).length >= 2, 'a renew row at each read before the land');
+});
+
+test('review: an untaken row whose renewing caller stopped is withdrawn too; a row from a caller that never renews (an older tool) ends as before, at its take_by', () => {
+  const { root, ids, plains, queued } = setup({}, { 'bob/found': { 'notes/found.md': 'x' } });
+  const g = github(root, ids, plains);
+  onPlain(root, PLAIN_FILE, queueRow('dead', queued['bob/found'], { at: ago(100) }));
+  runTrain(root, g);
+  assert.deepEqual(g.calls.merged, []);
+  assert.ok(rows(root, TRAIN_FILE).some((x) => x.queue === 'dead' && x.result === 'withdrawn'));
+  // An older caller's row (no renews mark), queued 100 min ago and taken, its take_by not passed: it lands.
+  onPlain(root, PLAIN_FILE, queueRow('old', queued['bob/found'], { at: ago(100), renews: undefined }));
+  onPlain(root, TRAIN_FILE, takenRow('old'));
+  runTrain(root, g);
+  assert.deepEqual(g.calls.merged, [1]);
 });

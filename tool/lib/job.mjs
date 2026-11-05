@@ -454,7 +454,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(branch !== `job/${id}` ? { branch } : {}), ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -586,7 +586,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     const owed = noticesFor(root, cfg, id, push);
     const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, attempt, reading, takeIn: take, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch: job, take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     git(['add', '--', ...paths], { cwd: root });
     git(['commit', '-q', '-m', `job start ${id} (attempt ${attempt}): take in ${source}${take.pr ? ` (#${take.pr})` : ''}, ${commits.length} commit(s)`], { cwd: root });
     committed = true;
@@ -1037,7 +1037,7 @@ export function jobComplete(root, id, opts = {}) {
     ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}),
   };
   try {
-    if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
+    if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), branch, again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
     appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, ...(sid ? { session: sid } : {}), receipt, ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
     if (cost !== null) {

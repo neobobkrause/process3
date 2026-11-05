@@ -33,7 +33,11 @@ test('jobBranch, branchModule and startBranch: job/<id>, or the highest job/<id>
   assert.equal(branchModule('job/alpha-3', ids), 'alpha-3', 'a module of that name keeps its branch');
   assert.equal(branchModule('job/alpha', ids), 'alpha');
   assert.equal(branchModule('main', ids), null);
-  assert.equal(startBranch([{ row: 'attempt', event: 'start', branch: 'job/alpha-2' }, { row: 'attempt', event: 'start' }], 'alpha'), 'job/alpha');
+  assert.equal(startBranch([{ row: 'attempt', event: 'start', branch: 'job/alpha-2' }, { row: 'attempt', event: 'start', branch: 'job/alpha' }], 'alpha'), 'job/alpha');
+  // Copy PR 454: attempt 4 moved to job/ai-accounts-2 (--fresh-branch); attempt 5's --again row, written before
+  // every start row named its branch, named none: the newest row that names one gives the branch.
+  assert.equal(startBranch([{ row: 'attempt', event: 'start', attempt: 4, branch: 'job/alpha-2', fresh: { from: 'job/alpha' } }, { row: 'attempt', event: 'start', attempt: 5, again: { pr: 454 } }], 'alpha'), 'job/alpha-2');
+  assert.equal(startBranch([{ row: 'attempt', event: 'start' }], 'alpha'), 'job/alpha');
   assert.equal(startBranch([{ row: 'attempt', event: 'start' }, { row: 'attempt', event: 'start', branch: 'job/alpha-2' }], 'alpha'), 'job/alpha-2');
 });
 
@@ -78,7 +82,7 @@ test('the gate finds the job by its fresh branch, and refuses a branch its lates
   const run = (head, branch) => gate(root, { base, head, branch, slug: 'o/r', io, log: quiet, draft: true });
   const named = commit(root, { 'process/metrics/alpha.jsonl': row('job/alpha-2') });
   assert.deepEqual(run(named, 'job/alpha-2').findings.filter((f) => f.check === 'ledger'), []);
-  const other = commit(root, { 'process/metrics/alpha.jsonl': row('job/alpha-2') + row(null) });
+  const other = commit(root, { 'process/metrics/alpha.jsonl': row('job/alpha-2') + row('job/alpha') });
   assert.match(run(other, 'job/alpha-2').findings.find((f) => f.check === 'ledger')?.message || '', /not job alpha's branch: its latest start row names job\/alpha/);
 });
 

@@ -15,7 +15,7 @@ import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, impor
 import { readModules } from './notice.mjs';
 import { releaseModules } from './status.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
-import { P3, READY_START, wakeLine } from './job.mjs';
+import { P3, READY_START, toolPin, wakeLine } from './job.mjs';
 import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, reviewMeasures, reviewRounds } from './merge.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
@@ -352,7 +352,8 @@ function fetchHeads(root, js) {
 // The hold's git reads (export change by head, import by user head and provider), kept in the clone
 // by tranche tip and config, so a restarted train at the same tip reads none of them again.
 const ORDER_CACHE = 'p3-train-order.json';
-const cacheKey = (cfg, tip) => `${tip}:${createHash('sha256').update(JSON.stringify(cfg)).digest('hex').slice(0, 16)}`;
+// The tool's own commit is in the key: a fixed reader never reuses an older one's answers.
+const cacheKey = (cfg, tip) => `${tip}:${toolPin()}:${createHash('sha256').update(JSON.stringify(cfg)).digest('hex').slice(0, 16)}`;
 const cachePath = (root) => git(['rev-parse', '--absolute-git-dir'], { cwd: root }) + '/' + ORDER_CACHE;
 function loadOrderCache(root, cfg, tip, c) {
   try {
@@ -363,6 +364,7 @@ function loadOrderCache(root, cfg, tip, c) {
   } catch { /* none, or unread: read again */ }
 }
 function saveOrderCache(root, cfg, tip, c) {
+  if (isShallow(root)) return; // a cut history can read wrong without failing: never kept
   try { writeFileSync(cachePath(root), JSON.stringify({ key: cacheKey(cfg, tip), exp: Object.fromEntries(c.exp), imp: Object.fromEntries(c.imp) })); } catch { /* a cache only */ }
 }
 
@@ -491,7 +493,8 @@ const takeBy = (minutes, wait = GATE_WAIT_MINUTES) => new Date(Date.now() + (min
 // of PR 151) and ends, withdrawn, so it never holds the train again.
 export const PLAIN_RENEW = 5; // minutes
 export const plainSeen = (rows, id) => Math.max(...rows.filter((r) => r.id === id && (r.row === 'queue' || r.row === 'renew')).map((r) => Date.parse(r.at)).filter(Number.isFinite), -Infinity);
-const callerGone = (rows, id, t = Date.now()) => plainSeen(rows, id) + GATE_WAIT_MINUTES * MIN < t;
+// Only a row whose caller renews (renews: true) can lose it: an older caller never renews, and its row ends as before.
+const callerGone = (rows, id, t = Date.now()) => rows.some((r) => r.row === 'queue' && r.id === id && r.renews) && plainSeen(rows, id) + GATE_WAIT_MINUTES * MIN < t;
 
 // merge <pr> --plain, the caller's side. Without a live lease, or for any pull request not into the
 // tranche, it is mergePlain as before. pause: the wait between reads (a test runs the train in it).
@@ -508,7 +511,7 @@ export function plainViaTrain(root, n, opts = {}) {
   const rounds = reviewRounds(opts); // a review not given is refused here, before anything is queued
   const id = randomBytes(6).toString('hex');
   const by = (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
-  const q = { at: now(), row: 'queue', id, pr: Number(n), head: pr.head.sha, ref: pr.head.ref, by, reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision || null, as: opts.as ?? 'bob', take_by: takeBy(minutes, opts.queueMinutes) };
+  const q = { at: now(), row: 'queue', id, pr: Number(n), head: pr.head.sha, ref: pr.head.ref, by, reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision || null, as: opts.as ?? 'bob', take_by: takeBy(minutes, opts.queueMinutes), renews: true };
   writeState(root, cfg.state_branch, `merge train: PR ${n} queued (plain)`, (wt) => append(wt, PLAIN_FILE, q));
   log(`the merge train (${lease.session}) holds the tranche: PR ${n} is queued for it at ${q.head.slice(0, 10)}, before any job pull request; waiting for its land (up to ${minutes} min once the train takes it, and up to one job's gate wait more until then)`);
   const pause = opts.pause || (() => sleep(every));
@@ -576,10 +579,10 @@ function plainReady(root, ctx) {
   ctx.withdrawn = gone;
   const taken = new Set(trains.filter((r) => r.row === 'plain' && r.result === 'taken').map((r) => r.queue));
   // A row whose caller is gone (killed: no withdrawal) ends at its take_by before it is taken, and
-  // once taken when its caller has not renewed it within one job gate's wait (ctx.plainExpired).
+  // and, taken or not, when its caller renews and has not within one job gate's wait (ctx.plainExpired).
   const late = (r) => !taken.has(r.id) && Date.parse(r.take_by) < Date.now();
   const open = rows.filter((r) => r.row === 'queue' && !ended.has(r.id) && !gone.has(r.id) && !late(r));
-  ctx.plainExpired = open.filter((r) => taken.has(r.id) && callerGone(rows, r.id));
+  ctx.plainExpired = open.filter((r) => callerGone(rows, r.id)); // taken or not: a renewing caller that stopped is gone
   // Its tries, and the wait before the next, are on its retry rows: a restarted train keeps them.
   const retries = (id) => trains.filter((x) => x.row === 'plain' && x.queue === id && x.result === 'retry');
   for (const r of open) { const t = retries(r.id); r.tries = t.length; r.retry_at = t.at(-1)?.retry_at || null; }
