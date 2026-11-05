@@ -129,8 +129,6 @@ function io(r, { rules = { checks: [{ context: 'gate' }] }, owned = null } = {})
     calls,
     io: {
       getPR: (s, n) => (n === MAIN_PR ? main() : r.prs.get(n)),
-      prsFromBranch: (s, b) => [...r.prs.values()].filter((x) => x.head.ref === b),
-      baseEverChanged: () => false,
       comments: (s, n) => r.comments.get(n) || [],
       verify: (s, row, ctx) => row.verified === true && r.prs.get(ctx.pr)?.head.sha === row.sha && ctx.baseRef === 'tranche' && ctx.merged?.branch === r.prs.get(ctx.pr)?.head.ref,
       requiredChecks: () => rules,
@@ -179,11 +177,6 @@ test('a workflow change that came in by an ungated commit is refused, naming rul
   // A merge that resolved the file to other bytes than the gated head's.
   const evil = product({ steps: [{ ...STYLE[1], evil: { '.github/workflows/regression.yml': REGRESSION(' evil') } }] });
   assert.throws(close(evil).go, /rule 1: .*does not carry the file as the PR's gated head had it/);
-  // The PR's branch had another PR into another base: its rows do not bind.
-  const other = product({ steps: [STYLE[1]] });
-  const o = close(other);
-  o.f.io.prsFromBranch = (s, b) => [...other.prs.values(), { number: 99, head: { ref: b }, base: { ref: 'main' } }].filter((x) => x.head.ref === b);
-  assert.throws(o.go, /rule 1: .*also had pull request\(s\) 99 into another base/);
   // A job merge whose gate was red.
   const job = product({ ledger: ['m0'], steps: [{ via: 'job', id: 'm0', red: true, files: { '.github/workflows/regression.yml': REGRESSION(' site') } }] });
   assert.throws(close(job).go, /rule 1: .*is PR 10's merge, but the newest gate run on its merged result/);

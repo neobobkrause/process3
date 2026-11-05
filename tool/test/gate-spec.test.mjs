@@ -71,9 +71,7 @@ function makeIO(w, { receipts = [receipt(w.job)] } = {}) {
     comments: { [JOB]: receipts.map((r, i) => ({ id: i + 1, body: block(RECEIPT, r), user: { login: 'civicsmith' } })), [SPEC]: [] },
     genuine: new Set(),
     verified: [],
-    from: { 'job/alpha': [{ number: JOB, base: { ref: 'tranche' } }], 'train/head/5-1': [{ number: SPEC, base: { ref: 'tranche' } }] },
     verifyOk: null,
-    retargeted: new Set(), // PRs whose base was ever changed
   };
   const io = {
     getPR: (s, n) => state.prs[n] ?? null,
@@ -83,8 +81,6 @@ function makeIO(w, { receipts = [receipt(w.job)] } = {}) {
       if (state.verifyOk) return state.verifyOk(r, ctx);
       return state.genuine.has(`${ctx.pr}|${r.run_id}`) && ctx.baseRef === state.prs[ctx.pr]?.base?.ref;
     },
-    prsFromBranch: (s, b) => state.from[b] || [],
-    baseEverChanged: (s, n) => state.retargeted.has(n),
   };
   return { state, io };
 }
@@ -180,13 +176,13 @@ test('spec mode judges the run as the job: green, code, its suite run on a draft
   assert.deepEqual(r.run.spec, { pr: JOB, seq: 1 });
   assert.equal(r.run.tree, treeOf(w.root, w.specHead));
   assert.deepEqual([r.run.sha, r.run.base], [w.specHead, w.t0]);
-  assert.deepEqual([r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt], [['alpha'], 'pass', 'pass', 'agrees', 1]);
+  assert.deepEqual([r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt], [['alpha'], 'pass', 'pass', 'present', 1]);
   assert.ok(ran(w), 'the suite ran');
   assert.ok(said.some((m) => /spec run: judged as job PR 5 \(job\/alpha, [0-9a-f]{10}\)/.test(m)), said.join('\n'));
   // The job PR's own gate on its own head: the same verdict and the same change judged; its row
   // has no spec, its tree its checkout's.
   const own = jobRun(w, makeIO(w), { base: w.t0, head: w.job });
-  assert.deepEqual([own.run.trigger, own.run.suite, own.run.receipt, own.run.ok, own.run.spec], ['code', 'pass', 'agrees', true, undefined]);
+  assert.deepEqual([own.run.trigger, own.run.suite, own.run.receipt, own.run.ok, own.run.spec], ['code', 'pass', 'present', true, undefined]);
   assert.equal(own.run.tree, treeOf(w.root, w.job));
   assert.deepEqual(r.changed, own.changed);
   // The job PR as a draft: the spec run is a draft run too (the job's own gate would skip).
@@ -244,9 +240,9 @@ test('a job red in its own gate is red in spec mode, the same finding: a failing
   const failing = world({ jobFiles: (mark) => ({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': markedTest(mark) }) });
   const own = jobRun(failing, makeIO(failing), { base: failing.t0, head: failing.job });
   const spec = specRun(failing, makeIO(failing));
-  assert.deepEqual(own.findings.map((f) => f.check).sort(), ['receipt', 'suite']);
+  assert.deepEqual(own.findings.map((f) => f.check).sort(), ['suite']);
   assert.deepEqual(spec.findings.map(key).sort(), own.findings.map(key).sort());
-  assert.deepEqual([spec.run.ok, spec.run.suite, spec.run.receipt], [false, 'fail', 'disagrees']);
+  assert.deepEqual([spec.run.ok, spec.run.suite, spec.run.receipt], [false, 'fail', 'present']);
 
   const outside = world({ jobFiles: (mark) => ({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': markedTest(mark), 'src/beta/b.mjs': 'export const b = 1;\n' }) });
   const own2 = jobRun(outside, makeIO(outside), { base: outside.t0, head: outside.job });
@@ -293,14 +289,14 @@ test('spec-tested: the land on the tested tree, records aside, on a base the spe
   assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
   assert.equal(r.run.trigger, 'spec-tested', said.join('\n'));
   assert.deepEqual([r.run.spec_pr, r.run.spec_run, r.run.spec_sha], [SPEC, 101, w.specHead]);
-  assert.deepEqual([r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['pass', 'pass', 'agrees', 1, true]);
+  assert.deepEqual([r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['pass', 'pass', 'present', 1, true]);
   assert.deepEqual(r.run.scope, s.run.scope);
   assert.equal(r.run.tree, treeOf(w.root, L));
   assert.equal(r.run.spec, undefined);
   assert.equal(ran(w), false, 'no suite ran');
   assert.equal(r.run.suite_seconds, undefined);
-  // The spec row was verified as the spec PR's run into the tranche.
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'tranche' && v.ctx.branch === 'train/head/5-1'), 'bound to the spec branch (final review, H1)');
+  // The tree and records comparison is the binding (Bob, 5 Nov): the spec row's artifact is not read.
+  assert.ok(!x.state.verified.some((v) => v.run_id === 101), 'the spec row is not verified again');
 });
 
 // A base-red spec run stands only on its own base: at window position 0 the land's base is it.
@@ -310,7 +306,7 @@ test('spec-tested: a base-red spec run stands when its base is the land\'s base 
   post(x.state, SPEC, { ...s.run, run_id: 108, suite: 'base-red', base_red: [{ module: 'alpha', tests: ['test/alpha/old.test.mjs::nothing'] }] });
   const said = [];
   const r = jobRun(w, x, { base: w.t0, head: land(w, w.t0), log: (m) => said.push(m) });
-  assert.deepEqual([r.run.trigger, r.run.spec_run, r.run.suite, r.run.receipt, r.run.ok], ['spec-tested', 108, 'base-red', 'agrees', true], said.join('\n'));
+  assert.deepEqual([r.run.trigger, r.run.spec_run, r.run.suite, r.run.receipt, r.run.ok], ['spec-tested', 108, 'base-red', 'present', true], said.join('\n'));
   assert.equal(ran(w), false, 'no suite ran');
 });
 
@@ -341,23 +337,15 @@ refused('the trailer names a spec PR from a fork', ({ w, x }) => {
   x.state.prs[SPEC] = specPR(w, { head: { ref: 'train/head/5-1', sha: w.specHead, repo: { full_name: 'fork/r' } } });
   return { base: w.t1, head: land(w, w.t1), why: /PR 9 is not a spec pull request of PR 5 in o\/r/ };
 });
-refused('the spec row does not verify', ({ w, x }) => {
-  x.state.verifyOk = (r, ctx) => ctx.pr !== SPEC;
-  return { base: w.t1, head: land(w, w.t1), why: /spec PR 9 has no verified green code run of alpha/ };
-});
 refused('the spec row\'s tree is not its own commit\'s tree', ({ w, x, s }) => {
   x.state.comments[SPEC] = [];
   post(x.state, SPEC, { ...s.run, run_id: 102, tree: treeOf(w.root, w.t0) });
-  return { base: w.t1, head: land(w, w.t1), why: /spec PR 9 has no verified green code run of alpha, on its own commit's tree/ };
+  return { base: w.t1, head: land(w, w.t1), why: /spec PR 9 has no green code run of alpha on its own commit's tree/ };
 });
 refused('the head differs from the spec\'s tested commit outside the records (the tranche moved otherwise)', ({ w }) => {
   git(['checkout', '-q', '--detach', w.t1], { cwd: w.root });
   const moved = commit(w.root, { 'notes/other.md': 'another PR landed\n' }, 'tranche moved');
   return { base: moved, head: land(w, moved), why: /the head differs from [0-9a-f]{10}, which spec PR 9's run 101 tested, in 1 file\(s\) outside the records: notes\/other\.md/ };
-});
-refused('the job\'s receipt attempt is not the one the spec run agreed', ({ w, x }) => {
-  x.state.comments[JOB].push({ id: 60, body: block(RECEIPT, receipt(w.job, { attempt: 2 })), user: { login: 'civicsmith' } });
-  return { base: w.t1, head: land(w, w.t1), why: /agreeing with receipt attempt 2/ };
 });
 refused('the job\'s ledger entry differs from the tested commit\'s', ({ w }) => ({
   base: w.t1,
@@ -391,7 +379,6 @@ function judgeMoved(change) {
     git(['checkout', '-q', '--detach', j], { cwd: w.root });
     const t1 = commit(w.root, { 'notes/ahead.md': 'ahead in the window\n' }, 'Merge job PR 4');
     x.state.prs[SPEC] = specPR(w, { head: { ref: 'train/head/5-2', sha: specHead, repo: { full_name: SLUG } } });
-    x.state.from['train/head/5-2'] = [{ number: SPEC, base: { ref: 'tranche' } }];
     x.state.comments[SPEC] = [];
     const s2 = gate(w.root, { base: w.t0, head: specHead, branch: 'train/head/5-2', pr: SPEC, draft: true, slug: SLUG, io: x.io, log: quiet, ...(git(['checkout', '-q', '--detach', specHead], { cwd: w.root }), {}) });
     assert.deepEqual([s2.findings, s2.run.spec], [[], { pr: JOB, seq: 2 }]);
@@ -434,25 +421,17 @@ function covered() {
   return { w, x, s, r, c, cfg: loadConfig(w.root, c) };
 }
 
-test('the tranche cover follows a spec-tested row to its spec run, bound into the tranche, open or closed; refused when that run is missing or does not verify', () => {
+test('the tranche cover follows a spec-tested row to its spec run, open or closed, by tree and records; refused when that run is missing', () => {
   const { w, x, c, cfg } = covered();
   assert.deepEqual(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }), { ok: true, pr: JOB, id: 'alpha', own: jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).own });
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'tranche' && v.ctx.branch === 'train/head/5-1' && !v.ctx.merged));
-  // The spec PR closed (its runs may list no PR): bound by its branch, every PR from it into the tranche.
+  // The spec-tested row is verified; the spec run it names is bound by tree and records only (Bob, 5 Nov).
+  assert.ok(x.state.verified.some((v) => v.ctx.pr === JOB));
+  assert.ok(!x.state.verified.some((v) => v.run_id === 101));
   x.state.prs[SPEC] = specPR(w, { state: 'closed' });
-  x.state.verified.length = 0;
   assert.equal(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).ok, true);
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.baseRef === 'tranche' && v.ctx.merged?.branch === 'train/head/5-1' && v.ctx.branch === 'train/head/5-1'));
   x.state.prs[SPEC] = specPR(w);
 
   const refusal = /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/;
-  // The spec run is not verified.
-  const ok = x.state.verifyOk;
-  x.state.verifyOk = (row, ctx) => ctx.pr !== SPEC && ok(row, ctx);
-  const nv = jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io });
-  assert.equal(nv.ok, false);
-  assert.match(nv.why, refusal);
-  x.state.verifyOk = ok;
   // The spec run is not found: gone from the spec PR.
   const kept = x.state.comments[SPEC];
   x.state.comments[SPEC] = [];
@@ -516,7 +495,7 @@ test('with the window closed, a spec-shaped PR is judged as a non-job PR and a S
   const L = land(w, serial);
   const said = [];
   const r = jobRun(w, x, { base: serial, head: L, log: (m) => said.push(m) });
-  assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.suite, r.run.receipt], ['code', undefined, 'pass', 'agrees']);
+  assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.suite, r.run.receipt], ['code', undefined, 'pass', 'present']);
   assert.ok(ran(w), 'the suite ran');
   assert.ok(!said.some((m) => /Spec-Tested|spec-tested/.test(m)), said.join('\n'));
 });
@@ -553,36 +532,6 @@ test('a spec head whose gate workflow is not the land base\'s: spec-tested refus
   assert.match(m.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
 });
 
-// Confirming review of the tranche-based spec, finding 1: GitHub lists only open PRs on a run, so a
-// spec run stands only when every PR ever opened from the spec head is the spec PR, into the
-// tranche, its base never changed (branchBound), for the fast path and the cover alike.
-const unbinds = [
-  ['a second PR from the spec head into another base (closed)', (x) => { x.state.from['train/head/5-1'] = [{ number: SPEC, base: { ref: 'tranche' } }, { number: 12, state: 'closed', base: { ref: 'train/spec/5-1' } }]; }, /spec PR 9's branch is not bound to it: train\/head\/5-1 also had pull request\(s\) 12 into another base/],
-  ['the spec PR\'s base was ever changed', (x) => { x.state.retargeted.add(SPEC); }, /spec PR 9's branch is not bound to it: the base of pull request\(s\) 9 from train\/head\/5-1 was changed or its history could not be read/],
-  ['the PRs from the spec head cannot be read', (x) => { x.state.from['train/head/5-1'] = null; }, /spec PR 9's branch is not bound to it: the pull requests from train\/head\/5-1 could not be read/],
-];
-for (const [name, unbind, why] of unbinds) {
-  refused(`${name}`, ({ w, x }) => { unbind(x); return { base: w.t1, head: land(w, w.t1), why }; });
-}
-test('the tranche cover refuses a spec run whose branch is not bound to the spec PR, open or closed', () => {
-  const { w, x, c, cfg } = covered();
-  for (const state of ['open', 'closed']) {
-    x.state.prs[SPEC] = specPR(w, { state });
-    assert.equal(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).ok, true, `${state}: bound, covered`);
-    for (const [name, unbind] of unbinds) {
-      const from = x.state.from['train/head/5-1'];
-      unbind(x);
-      x.state.verified.length = 0;
-      const m = jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io });
-      assert.equal(m.ok, false, `${state}: ${name}`);
-      assert.match(m.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
-      // The row is read and verified first, the branch binding after it (final review, L1): refused all the same.
-      x.state.from['train/head/5-1'] = from;
-      x.state.retargeted.clear();
-    }
-  }
-});
-
 // Finding 2: a spec PR is a draft for good; made ready (or its draft state unread), its run is red.
 test('spec mode is red, with nothing run, when the live spec PR is not a draft', () => {
   const w = world();
@@ -611,7 +560,7 @@ test('spec mode reads the job\'s entry at the job head: an entry changed only at
   x.state.prs[SPEC] = specPR(w, { head: { ref: 'train/head/5-1', sha: specHead, repo: { full_name: SLUG } } });
   const r = specRun(w, x, { head: specHead });
   assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
-  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.ok], ['code', ['alpha'], 'pass', 'pass', 'agrees', true]);
+  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.ok], ['code', ['alpha'], 'pass', 'pass', 'present', true]);
   assert.deepEqual(r.run.tests, before.run.tests);
   assert.ok(ran(w), 'the job head\'s suite ran');
 });

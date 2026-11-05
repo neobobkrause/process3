@@ -220,9 +220,9 @@ const commands = {
     return 0;
   },
 
-  // hold <module:<id>|layer:<n>|slots:<n>> --why "<reason>" --by <session> --until <ISO time|<n>m|<n>h>; hold --end <id> --by <session>:
-  // the only way to hold startable work below the job cap (Bob, 5 Nov), a row on the state branch; at most 2 h, renewed by a new hold with its reason.
-  hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
+  // hold <module:<id>|layer:<n>|slots:<n>> --why "<reason>" --by <session> [--prs <n>[,<n>...]] [--until <ISO time|<n>m|<n>h>]; hold --end <id> --by <session>:
+  // the only way to hold startable work below the job cap (Bob, 5 Nov), a row on the state branch; it lasts until its named PRs land or its --until time.
+  hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, prs: a.prs, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
 
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
