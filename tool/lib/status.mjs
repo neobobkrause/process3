@@ -12,7 +12,7 @@ import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undeli
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { openAsks } from './lane.mjs';
+import { lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
@@ -195,9 +195,10 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
     const id = sessionId(x);
     const title = String(x.title || '').trim();
     const job = title.match(/^job (\S+)( \(restart\))?$/)?.[1];
-    const kind = roleIds.has(id) ? 'roles' : job ? 'jobs' : /^build\b/i.test(title) ? 'builds' : 'other';
-    kinds[kind]++;
-    if (kind === 'roles') continue;
+    // A lane's session (lane start, title `lane <name>`) is kept while idle, never a leftover (lane.mjs).
+    const kind = roleIds.has(id) ? 'roles' : job ? 'jobs' : /^lane \S+$/.test(title) ? 'lanes' : /^build\b/i.test(title) ? 'builds' : 'other';
+    kinds[kind] = (kinds[kind] || 0) + 1;
+    if (kind === 'roles' || kind === 'lanes') continue;
     const r = job && rows.find((y) => y.id === job);
     // Merged, or deferred (BLOCKED, its pull request closed); a module status does not list is open.
     const open = job && !(r && (jobDone(r) || (r.tranche === 'BLOCKED' && r.blocked && !r.pr && !/^WORKING/.test(String(r.branch || '')))));
@@ -210,7 +211,7 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
     if (done || (orphan && !asking && !open)) acts.push({ act: 'archive', id, title });
     else if (orphan && asking) acts.push({ act: 'tell', id, title, owner: (job ? roles.bob?.session : coordinator) || 'Bob by push notification', question: '(read its last message with list_events)' });
   }
-  const line = `sessions: ${Object.values(kinds).reduce((a, b) => a + b, 0)} live (roles ${kinds.roles}, jobs ${kinds.jobs}, builds ${kinds.builds}, other ${kinds.other}); leftovers ${acts.length}`;
+  const line = `sessions: ${Object.values(kinds).reduce((a, b) => a + b, 0)} live (roles ${kinds.roles}, jobs ${kinds.jobs}${kinds.lanes ? `, lanes ${kinds.lanes}` : ''}, builds ${kinds.builds}, other ${kinds.other}); leftovers ${acts.length}`;
   return { kinds, acts, line };
 }
 
@@ -231,6 +232,9 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   // Every hold first, after a paused plan (Bob, 5 Nov): a limit on starts is a recorded row, never words.
   let holds = [];
   try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
+  // One session per lane (lane.mjs): the seats the state branch records.
+  let seats = new Map();
+  try { seats = readSeats(root, cfg); } catch { seats = new Map(); }
   if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the account's job sessions list_sessions shows, not ${JSON.stringify(live)}`);
   if (role === 'bob') { const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line); }
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
@@ -404,11 +408,15 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     if (out.parked.length) { live = Number(live) - out.parked.length; log(parkedLine(out.parked)); }
     out.live = live;
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
+    markLaneHeld(cfg, seats, out.next);
+    out.seats = seats;
+    out.lane_defects = laneDefects(cfg, seats, { rows, listed });
+    for (const d of out.lane_defects) log(d);
     out.flow = flow(cfg, rows, out.next, live, listed, holds, { onOrigin: onOriginOf(out.heads) });
     log(out.flow.line);
     return out;
   }
-  return { rows, sessions, prs, holds, heads: idsOn(originHeads) };
+  return { rows, sessions, prs, holds, seats, heads: idsOn(originHeads) };
 }
 // The modules whose job/<id> origin has (null when origin's heads were not read), and the test
 // job start --ready's selection takes (ready.mjs startable onOrigin).
@@ -1026,4 +1034,28 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
   for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --live <n>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
+}
+
+// The lanes with more than one live session (status, sweep): the recorded seat, the lane module's
+// open job (rows: status's ledger rows), and, with list_sessions, the sessions not archived titled
+// `lane <name>` or `job <module>`; each a defect line.
+const laneJobOpen = (r) => !!r && !jobDone(r) && (/^(OPEN|WORKING|BLOCKED)/.test(String(r.branch || '')) || String(r.pr || '').startsWith('#'));
+export function laneDefects(cfg, seats, { rows = [], listed = null } = {}) {
+  const out = [];
+  for (const l of Array.isArray(cfg.lanes) ? lanes(cfg) : []) {
+    const holders = new Set();
+    const s = seats?.get(l.name);
+    if (s) holders.add(s.session || `lane ${l.name} (pending)`);
+    if (l.module && laneJobOpen(rows.find((r) => r.id === l.module))) holders.add(`job ${l.module}`);
+    for (const x of (listed || []).filter((y) => !isArchived(y))) {
+      const t = String(x.title || '').trim();
+      if (t === `lane ${l.name}` || (l.module && new RegExp(`^job ${l.module.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\(restart\\))?$`).test(t))) {
+        if (t.startsWith('job ')) holders.delete(`job ${l.module}`);
+        if (s && !s.session && t === `lane ${l.name}`) holders.delete(`lane ${l.name} (pending)`);
+        holders.add(sessionId(x));
+      }
+    }
+    if (holders.size > 1) out.push(`defect: lane ${l.name} has ${holders.size} live sessions (${[...holders].join(', ')}): one session per lane at a time; end or archive all but one (${l.module ? `job ${l.module}'s is the lane's` : `lane end ${l.name}`})`);
+  }
+  return out;
 }
