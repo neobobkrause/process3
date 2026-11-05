@@ -161,6 +161,7 @@ test('merge train: a tranche that moves during the re-gate is never landed stale
       moved = true;
       const wt = mkdtempSync(join(tmpdir(), 'p3-other-'));
       git(['clone', '-q', '--branch', 'tranche', git(['remote', 'get-url', 'origin'], { cwd: root }), wt], { cwd: root });
+      for (const [k, v] of [['user.email', 'other@example.com'], ['user.name', 'Other'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: wt });
       commit(wt, { 'late.txt': 'another merge landed' });
       git(['push', '-q', 'origin', 'tranche'], { cwd: wt });
     }
@@ -290,6 +291,7 @@ test('merge train: changed approvals on the tranche stop the train before it lan
       changed = true;
       const wt = mkdtempSync(join(tmpdir(), 'p3-other-'));
       git(['clone', '-q', '--branch', 'tranche', git(['remote', 'get-url', 'origin'], { cwd: root }), wt], { cwd: root });
+      for (const [k, v] of [['user.email', 'other@example.com'], ['user.name', 'Other'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: wt });
       commit(wt, { 'CLAUDE.md': '## Standing approvals from Bob\n\nwithdrawn\n' });
       git(['push', '-q', 'origin', 'tranche'], { cwd: wt });
     }
