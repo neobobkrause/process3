@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { makeRepo, setJobCap } from './helpers.mjs';
 import { HOLDS_FILE, hold, holdHours, holdLines, holdsOf } from '../lib/hold.mjs';
-import { flowFigures } from '../lib/metrics.mjs';
+import { flowFigures, unmetAtRef } from '../lib/metrics.mjs';
 import { startReady } from '../lib/ready.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { readState, writeState } from '../lib/state.mjs';
@@ -70,8 +70,10 @@ test('hold: a longer hold is a visible chain of renewals, each with its reason; 
     { at: at(2), row: 'hold', id: 'hold-2', scope: 'slots:4', why: 'gate queue full', by: S, until: at(4), renews: 'hold-1' },
     { at: at(3), row: 'end', id: 'hold-2', by: S },
     { at: at(5), row: 'hold', id: 'hold-3', scope: 'module:a', why: 'split', by: 'session_x1', until: at(7) },
+    // A renewal set before the hold it renews ends: the overlap counts once (5.5 to 6, not twice).
+    { at: at(5.5), row: 'hold', id: 'hold-4', scope: 'module:a', why: 'split', by: 'session_x1', until: at(7.5), renews: 'hold-3' },
   ];
-  assert.deepEqual(holdHours(rows, at(1), at(6)), [{ by: S, why: 'gate queue full', holds: 2, hours: 2 }, { by: 'session_x1', why: 'split', holds: 1, hours: 1 }]);
+  assert.deepEqual(holdHours(rows, at(1), at(6)), [{ by: S, why: 'gate queue full', holds: 2, hours: 2 }, { by: 'session_x1', why: 'split', holds: 2, hours: 1 }]);
 });
 
 test('holds: an expired hold holds nothing and is printed as expired', () => {
@@ -152,6 +154,19 @@ test('sweep: IDLE CAPACITY wakes BOB with the start and tells the coordinator th
   assert.equal(readState(root, SB, HOLDS_FILE), null);
 });
 
+test('flow: velocity reads the tranche\'s first-parent commits, never a job branch\'s own commit merged later', () => {
+  const root = makeRepo({ 'README.md': 'x', 'build/requirements/a.md': '- **R1** *(not yet met: x)* one\n- **R2** *(not yet met: x)* two\n' });
+  const env = (d) => ({ env: { GIT_COMMITTER_DATE: d, GIT_AUTHOR_DATE: d }, cwd: root });
+  git(['commit', '-q', '--amend', '--no-edit'], env('2026-11-04T09:00:00Z'));
+  git(['checkout', '-q', '-b', 'job/a'], { cwd: root });
+  writeFileSync(join(root, 'build/requirements/a.md'), '- **R1** one\n- **R2** two\n');
+  git(['commit', '-q', '-am', 'meet R1 R2'], env('2026-11-04T10:00:00Z'));
+  git(['checkout', '-q', 'main'], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'merge', 'job/a'], env('2026-11-04T12:00:00Z'));
+  const u = unmetAtRef(root, { requirements_dir: 'build/requirements' }, 'main');
+  assert.deepEqual([u('2026-11-04T11:00:00Z'), u('2026-11-04T12:30:00Z'), u('2026-11-04T08:00:00Z')], [2, 0, null]);
+});
+
 test('flow: cap use beside velocity, efficiency and quality, whole and by concurrency bucket', () => {
   const at = (h) => new Date(Date.parse('2026-11-04T00:00:00Z') + h * 36e5).toISOString();
   const sweeps = [
@@ -174,9 +189,10 @@ test('flow: cap use beside velocity, efficiency and quality, whole and by concur
   assert.deepEqual([f.cap_use, f.velocity_per_h, f.merges_per_job_session_h, f.hours], [0.53, 4, 0.07, 4]);
   assert.deepEqual([f.gate_runs_per_pr, f.syncs_per_pr, f.false_done_share, f.reopened_marks, f.reverts, f.idle_alarms], [1.33, 2, 0.5, 3, 1, 2]);
   assert.match(f.cancels_per_pr, /^unmeasured/);
+  // Every figure with a time, by bucket: 6-10 holds hours 1 to 4, 16-20 hour 0 to 1.
   assert.deepEqual(f.buckets, [
-    { live: '6-10', hours: 3, cap_use: 0.37, velocity_per_h: 2, merges_per_job_session_h: 0.09 },
-    { live: '16-20', hours: 1, cap_use: 1, velocity_per_h: 10, merges_per_job_session_h: 0.05 },
+    { live: '6-10', hours: 3, cap_use: 0.37, velocity_per_h: 2, merges_per_job_session_h: 0.09, gate_runs_per_pr: 1.5, false_done_share: 0.5, reopened_marks: 3 },
+    { live: '16-20', hours: 1, cap_use: 1, velocity_per_h: 10, merges_per_job_session_h: 0.05, gate_runs_per_pr: 1, false_done_share: 'unmeasured', reopened_marks: 0 },
   ]);
   assert.equal(flowFigures({ from: at(0), to: at(4) }).cap_use, 'unmeasured');
   assert.equal(flowFigures({ sweeps, from: at(0), to: at(4) }).velocity_per_h, 'unmeasured');

@@ -69,7 +69,7 @@ export function hold(root, scope, { why, by, until, end, log = console.log } = {
   const rel = String(until ?? '').match(/^(\d+)([mh])$/);
   const at = rel ? t + Number(rel[1]) * (rel[2] === 'h' ? 36e5 : 6e4) : Date.parse(String(until));
   if (!(at > t)) fail(`--until <a future time (ISO) or <n>m or <n>h>, not ${JSON.stringify(until)}`);
-  if (at - t > HOLD_MAX_H * 36e5 + 6e4) fail(`refused: a hold expires within ${HOLD_MAX_H} hours; to hold longer, set a new hold with its reason when this one nears its end`);
+  if (at - t > HOLD_MAX_H * 36e5) fail(`refused: a hold expires within ${HOLD_MAX_H} hours; to hold longer, set a new hold with its reason when this one nears its end`);
   // A hold on a scope still held, or held until the last hour, renews it: the chain stays visible.
   const prev = holds.filter((h) => h.scope === m[0] && !h.ended && h.left > -36e5).at(-1);
   const row = { row: 'hold', scope: m[0], why: why.trim(), by, until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z'), ...(prev ? { renews: prev.id } : {}) };
@@ -84,18 +84,24 @@ export function hold(root, scope, { why, by, until, end, log = console.log } = {
 }
 
 // Hold-hours in [from, to] by setter and reason (report tranche, beside cap use): each hold from its
-// row to its end, its expiry or `to`, whichever is first; the most first.
+// row to its end, its expiry or `to`, whichever is first, overlapping renewals counted once; the most first.
 export function holdHours(rows, from, to) {
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
   const by = new Map();
   for (const h of holdsOf(rows, b)) {
-    const d = Math.min(b, Date.parse(h.until), Date.parse(h.ended?.at) || Infinity) - Math.max(a, Date.parse(h.at));
-    if (!(d > 0)) continue;
-    const k = `${h.by}\0${h.why}`;
-    const x = by.get(k) || { by: h.by, why: h.why, holds: 0, hours: 0 };
-    by.set(k, { ...x, holds: x.holds + 1, hours: x.hours + d / 36e5 });
+    const span = [Math.max(a, Date.parse(h.at)), Math.min(b, Date.parse(h.until), Date.parse(h.ended?.at) || Infinity)];
+    if (!(span[1] > span[0])) continue;
+    const k = `${h.by}\0${h.why}\0${h.scope}`;
+    by.set(k, { by: h.by, why: h.why, spans: [...(by.get(k)?.spans || []), span] });
   }
-  return [...by.values()].map((x) => ({ ...x, hours: Math.round(x.hours * 10) / 10 })).sort((x, y) => y.hours - x.hours);
+  const union = (xs) => xs.sort((p, q) => p[0] - q[0]).reduce((o, [s0, e0]) => { const l = o.at(-1); if (l && s0 <= l[1]) l[1] = Math.max(l[1], e0); else o.push([s0, e0]); return o; }, []);
+  const out = new Map();
+  for (const x of by.values()) {
+    const k = `${x.by}\0${x.why}`;
+    const y = out.get(k) || { by: x.by, why: x.why, holds: 0, hours: 0 };
+    out.set(k, { ...y, holds: y.holds + x.spans.length, hours: y.hours + union(x.spans).reduce((t, [s0, e0]) => t + (e0 - s0) / 36e5, 0) });
+  }
+  return [...out.values()].map((x) => ({ ...x, hours: Math.round(x.hours * 10) / 10 })).sort((x, y) => y.hours - x.hours);
 }
 
 const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); appendFileSync(join(dir, HOLDS_FILE), JSON.stringify(row) + '\n'); };
