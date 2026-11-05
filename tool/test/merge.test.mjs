@@ -310,6 +310,8 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   // printed (confirming review of PR 59: a literal <role> was refused by send).
   assert.equal(moved.wake, `node .process/tool/p3.mjs send bob "pin moved to ${p.pin}: run your wake steps (start check --wake prints a changed prompt), then status" --from pin`);
   assert.equal(logs.at(-1), `next act: wake BOB with \`${moved.wake}\`, delivered with send_message to the address it prints`);
+  // What the merge train's queued caller prints the same wake from (train.mjs plainViaTrain).
+  assert.equal(moved.what, `pin moved to ${p.pin}: run your wake steps (start check --wake prints a changed prompt), then status`);
   // BOB merging (the default) is awake: no wake.
   const own = pinMove(p.pin, shim);
   const ownLogs = [];

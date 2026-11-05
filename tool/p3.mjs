@@ -14,8 +14,8 @@ import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
-import { merge, mergePlain } from './lib/merge.mjs';
-import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, releaseSessionLease, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
+import { merge } from './lib/merge.mjs';
+import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, plainViaTrain, releaseSessionLease, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
@@ -266,11 +266,12 @@ const commands = {
   // merge <pr> (--reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n>] | --no-review "<why>") [--decision "<why>"] [--minutes 95] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
   // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
+  //   Into the tranche while a merge train holds its lease, it is queued for the train (ahead of every job) and waits for its land (train.mjs plainViaTrain).
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
-    if (a.plain) return mergePlain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
+    if (a.plain) return plainViaTrain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
     return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
   },
 
