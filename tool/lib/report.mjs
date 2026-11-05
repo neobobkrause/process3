@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
-import { FLOW_RULE as flowRule, countCommits, flowFigures, idleByDay, unmetAtRef, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
+import { FLOW_RULE as flowRule, QUICK_BLOCK_MIN, countCommits, flowFigures, quickBlocks, idleByDay, unmetAtRef, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { HOLDS_FILE, holdHours } from './hold.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
@@ -325,13 +325,14 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
 
   // Flow (audit of PR 139): cap use, a diagnostic, beside velocity, efficiency and quality, whole and by
   // concurrency bucket; and the hours each setter's holds held, by reason.
-  const fl = sweeps === null ? null : flowFigures({ sweeps, rows: here || rows, unmetAt: unmetAtRef(root, cfg, tip), gates: (pr) => gateRuns(read.comments(pr) || []), syncs: countCommits(root, tip, opened, end, '^Bring job/'), reverts: countCommits(root, tip, opened, end, '^Revert'), from: opened, to: end });
+  const fl = sweeps === null ? null : flowFigures({ sweeps, rows: here || rows, unmetAt: unmetAtRef(root, cfg, tip), gates: (pr) => gateRuns(read.comments(pr) || []), syncs: countCommits(root, tip, opened, end, '^Bring job/'), reverts: countCommits(root, tip, opened, end, '^Revert'), quick: quickBlocks(root, jobRefs, { from: opened, to: end }), from: opened, to: end });
   const pc = (x) => (typeof x === 'number' ? `${Math.round(x * 100)}%` : U);
   const hh = stateJsonl(HOLDS_FILE);
   L.push('## Flow', '', `Since ${opened ? 'the opening' : 'the first sweep row (the opening not read)'}, from the sweep rows (\`metrics report\` \`flow\`): ${flowRule}`, '');
+  const qb = fl && typeof fl.started_then_blocked === 'object' ? fl.started_then_blocked : null;
   if (!fl) L.push(`${U} (the state branch's sweep rows not read).`, '');
   else {
-    L.push(`- cap use: ${pc(fl.cap_use)} over ${fl.hours} h; IDLE CAPACITY alarms (idle stretches) ${fl.idle_alarms}`, `- velocity: ${fl.velocity_per_h} marks per hour`, `- efficiency: ${fl.merges_per_job_session_h} merges per job session-hour; per merged PR, gate runs ${fl.gate_runs_per_pr}, syncs ${fl.syncs_per_pr}, cancels ${fl.cancels_per_pr}`, `- quality: false-done share ${pc(fl.false_done_share)}; reopened marks ${fl.reopened_marks}; reverts ${fl.reverts}`, '');
+    L.push(`- cap use: ${pc(fl.cap_use)} over ${fl.hours} h; IDLE CAPACITY alarms (idle stretches) ${fl.idle_alarms}`, `- velocity: ${fl.velocity_per_h} marks per hour`, `- efficiency: ${fl.merges_per_job_session_h} merges per job session-hour; per merged PR, gate runs ${fl.gate_runs_per_pr}, syncs ${fl.syncs_per_pr}, cancels ${fl.cancels_per_pr}`, `- quality: false-done share ${pc(fl.false_done_share)}; reopened marks ${fl.reopened_marks}; reverts ${fl.reverts}`, `- started then blocked within ${qb?.minutes ?? QUICK_BLOCK_MIN} min: ${qb ? `${qb.blocked} of ${qb.starts} starts (${pc(qb.share)})${qb.by_module.length ? `; by module: ${qb.by_module.map((x) => `${x.module} ${x.blocked} of ${x.starts}`).join(', ')}` : ''}${qb.unread?.length ? `; unmeasured, branches not read: ${qb.unread.join(', ')}` : ''}` : U}`, '');
     if (fl.buckets.length) L.push(...table(['live', 'hours', 'cap use', 'marks per hour', 'merges per job session-hour', 'gate runs per PR', 'false-done', 'reopened marks'], fl.buckets.map((q) => [q.live, q.hours, pc(q.cap_use), q.velocity_per_h, q.merges_per_job_session_h, q.gate_runs_per_pr, pc(q.false_done_share), q.reopened_marks])), '');
   }
   const held = hh === null ? null : holdHours(hh, opened, end);

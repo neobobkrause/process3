@@ -170,7 +170,7 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
   const r = startReady(root, { live: 1, sessions: file, remote: new Set(), log: (m) => out.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.deepEqual(r.waiting, ['b']);
   assert.ok(out.includes('--live 1 ignored: --sessions counts 4 job sessions'));
-  assert.match(out.join('\n'), /the cap holds 1 back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: session_m \(job m, merged\); session_k \(job k, COMPLETE, PR #7 ready\)/);
+  assert.match(out.join('\n'), /the cap holds 1 back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again with --archived <id> for each \(or a list_sessions saved after\): session_m \(job m, merged\); session_k \(job k, COMPLETE, PR #7 ready\)/);
   // Without --sessions: the jobs whose sessions to look for.
   const out2 = [];
   startReady(root, { live: 4, remote: new Set(), log: (m) => out2.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });

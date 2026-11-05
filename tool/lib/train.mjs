@@ -26,6 +26,7 @@ export const TRAIN_FILE = 'metrics/train.jsonl'; // one row per merge the train 
 export const NOTES_FILE = 'metrics/train-notes.jsonl'; // a pull request's review and cost, per head
 export const MERGER_FILE = 'metrics/merger.jsonl'; // lease takeovers, the merger's context
 export const LEASE_FILE = 'merger/lease.json';
+export const TRAIN_USAGE = 'merge train --session <id> [--once] | merge train note <pr> ... | merge train beat --session <id> --context <pct> | merge train report';
 export const LEASE = { renew: 5, expire: 15 }; // minutes
 export const BASELINES = [
   { name: 'green -> merged, the simulation of 4-5 Nov (measure/merge-train-sim)', median: 8.7, p90: 33.7 },
@@ -251,8 +252,10 @@ export function train(root, opts = {}) {
   const { once = false, log = console.log, idleEvery = 15000 } = opts;
   const cfg = loadConfig(root);
   const slug = opts.slug || repoSlug(root);
-  const session = opts.session || (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
-  if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail('merge train --session <your session id>: the lease is held by a session');
+  // The lease is taken only on an explicit --session (BOB ran it bare to read its usage, 5 Nov 03:21,
+  // and the container's own id started a train): never the environment's.
+  const session = opts.session;
+  if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
   const io = { getPR, comments, checkRun, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };

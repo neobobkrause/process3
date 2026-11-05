@@ -394,6 +394,7 @@ export function fetchJobs(root, mods = null, main = 'main', ids = new Set()) {
   for (const m of mods) if (!have.includes(m)) map.set(m, null);
   if (have.length && fetch(have)) for (const m of have) map.set(m, there.has(at(m)) ? `refs/remotes/origin/${at(m)}` : null);
   else for (const m of have) if (fetch([m])) map.set(m, there.has(at(m)) ? `refs/remotes/origin/${at(m)}` : null); // unfetched: left out, unmeasured
+  map.unread = have.filter((m) => !map.has(m)); // unfetched, named so a figure can say it left them out
   map.branches = (m) => all(m).map((h) => `refs/remotes/origin/${h}`);
   return map;
 }

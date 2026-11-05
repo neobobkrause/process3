@@ -15,7 +15,7 @@ import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metrics
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { MERGER_FILE, TRAIN_FILE, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
+import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
@@ -74,7 +74,7 @@ const commands = {
     return 0;
   },
 
-  // job start --ready --live <n> [--coordinator <session>] [--model <m>]: BOB starts every startable job status lists, up to the job cap (jobCap in lib/util.mjs) less n, n the account's job sessions (or counted from --sessions <file>).
+  // job start --ready --live <n> [--coordinator <session>] [--model <m>] [--sessions <file, saved within 10 min> [--archived <id>]...]: BOB starts every startable job status lists, up to the job cap (jobCap in lib/util.mjs) less n, n the account's job sessions (or counted from --sessions <file>).
   // job start <id> --live <n> | --sessions <file> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
@@ -95,7 +95,7 @@ const commands = {
     // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
     if (a.ready) {
       if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap'], a['fresh-branch']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap, --fresh-branch');
-      return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions }).ok ? 0 : 1;
+      return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions, archived: list(a.archived).filter((x) => x !== true) }).ok ? 0 : 1;
     }
     // --fresh-branch goes with --reopen (a COMPLETE module) or --restart (an OPEN one), or alone.
     if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
@@ -291,7 +291,7 @@ const commands = {
       console.log(JSON.stringify(s, null, 2));
       return 0;
     }
-    if (sub !== undefined) fail('merge train [--once] --session <id> | merge train note <pr> ... | merge train beat ... | merge train report');
+    if (sub !== undefined) fail(`usage: ${TRAIN_USAGE}`);
     train(root, { once: !!a.once, session: a.session, ...(a.minutes ? { minutes: Number(a.minutes) } : {}) });
     return 0;
   },
