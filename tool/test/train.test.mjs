@@ -41,7 +41,7 @@ function setup(jobs, base = {}) {
   return { root, ids };
 }
 
-function github(root, ids, { pending = false, own = () => null } = {}) {
+function github(root, ids, { pending = false, own = () => null, unread = () => false } = {}) {
   const sh = (args) => git(args, { cwd: root, allowFail: true });
   const tipOf = (ref) => sh(['ls-remote', 'origin', `refs/heads/${ref}`]).stdout.split('\t')[0];
   const receipts = new Map(ids.map((id) => [id, tipOf(`job/${id}`)]));
@@ -64,6 +64,8 @@ function github(root, ids, { pending = false, own = () => null } = {}) {
       ];
     },
     verify: () => true,
+    // Every gate run on a commit (the provider hold's read): null when unreadable, as github.mjs.
+    checkRuns: (slug, sha, name) => { if (unread(sha)) return null; const g = io.checkRun(slug, sha, name); return g ? [g] : []; },
     checkRun: (slug, sha) => {
       calls.gates.push(sha);
       // The first read of a merged result is in progress (the train prepares the next then).
@@ -411,4 +413,16 @@ test('merge train: when the tranche moves, the hold is read again on the new tip
   train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: (l) => lines.push(l), idleEvery: 1, rounds: 2, pipeline: false });
   assert.ok(lines.some((l) => /^PR 1 \(beta\) held/.test(l)), 'held on the first tip');
   assert.deepEqual(g.calls.merged, [1], 'on the new tip beta imports nothing alpha owns: not held');
+});
+
+// Review round 2 (5 Nov): an unreadable gate read on the provider holds nothing, and says so once.
+test('merge train: a provider whose gate is unreadable holds nothing, and the train says so once', () => {
+  const { root, ids } = setup(usesJobs, usesBase);
+  const alpha = () => git(['rev-parse', 'job/alpha'], { cwd: root }).trim();
+  const g = github(root, ids, { unread: (sha) => sha === alpha() });
+  g.state.get(2).draft = true;
+  const lines = [];
+  train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: (l) => lines.push(l), once: true });
+  assert.deepEqual(g.calls.merged, [1], 'the user lands');
+  assert.equal(lines.filter((l) => /^PR 1 \(beta\) is not held for provider alpha \(PR 2\): .*gate .*unread/.test(l)).length, 1, lines.join('\n'));
 });

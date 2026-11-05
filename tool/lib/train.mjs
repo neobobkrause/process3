@@ -10,7 +10,7 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, comments, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { checkRun, checkRuns, comments, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { releaseModules } from './status.mjs';
@@ -191,7 +191,17 @@ function order(root, ctx, cands, jobs) {
   // (d) a provider red on its head; (b) and (c) from git, on heads fetched once.
   const reds = new Map();
   // A provider that cannot land on its head (marked in ready) counts as red: it holds nothing.
-  const red = (p) => { if (p.stuck) return true; if (!reds.has(p.head)) { const g = io.checkRun(slug, p.head, 'gate'); reds.set(p.head, g?.status === 'completed' && g.conclusion !== 'success'); } return reds.get(p.head); };
+  // An unreadable gate read throws (providerHolds: no hold, said once); no run yet, or one running, holds.
+  const red = (p) => {
+    if (p.stuck) return true;
+    if (!reds.has(p.head)) {
+      const rs = io.checkRuns(slug, p.head, 'gate');
+      if (!Array.isArray(rs)) throw new Error(`its gate on ${p.head.slice(0, 10)} is unread`);
+      const g = rs[0];
+      reds.set(p.head, g?.status === 'completed' && g.conclusion !== 'success');
+    }
+    return reds.get(p.head);
+  };
   const have = (j) => {
     if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code === 0) return;
     git(['fetch', '-q', 'origin', `+refs/heads/${j.ref}:refs/remotes/origin/${j.ref}`], { cwd: root, allowFail: true });
@@ -338,7 +348,7 @@ export function train(root, opts = {}) {
   const session = opts.session;
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
-  const io = { getPR, comments, checkRun, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
