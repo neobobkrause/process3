@@ -70,11 +70,54 @@ test('reconcile: a pending launch is created when a session titled "job <id>" is
   assert.deepEqual(r.still.map((x) => x.id), ['b']);
 });
 
+test('reconcile: a session with no created_at is never the launch\'s; a restart\'s session (BOB\'s) clears it', () => {
+  const pending = [{ id: 'a', at: ago(5) }, { id: 'b', at: ago(5), printed_at: ago(30) }, { id: 'c', at: ago(5) }];
+  const listed = [
+    { id: 'session_a0', title: 'job a', updated_at: ago(1) },
+    { id: 'session_b1', title: 'job b', created_at: ago(20) }, // after its first print, before the reprint
+    { id: 'session_c2', title: 'job c (restart)', created_at: ago(2) },
+  ];
+  const r = reconcile(pending, listed);
+  assert.deepEqual(r.created.map((x) => [x.id, x.session]), [['b', 'session_b1'], ['c', 'session_c2']]);
+  assert.deepEqual(r.still.map((x) => x.id), ['a']);
+});
+
+test('the starter: an auto done during the wait for list_sessions stands; the pass records no second created row for it', (t) => {
+  setJobCap(t, 20);
+  const root = withOrigin();
+  writeState(root, SB, 'auto', (dir) => {
+    mkdirSync(join(dir, 'flow'), { recursive: true });
+    writeFileSync(join(dir, AUTO_FILE), JSON.stringify({ session: M, at: ago(AUTO.every + 1), pass: 1, pending: [{ id: 'a', at: ago(AUTO.every + 2), pass: 1, owed_since: ago(15), launch: { title: 'job a' } }] }));
+  });
+  const { opts } = fakes([], () => ({ started: [], archive: [], failed: [], waiting: [] }));
+  const listed = [{ id: 'session_a1', title: 'job a', created_at: ago(1) }];
+  const out = [];
+  // The MERGER records a's session while the pass waits; the pass's list shows it too.
+  autoLoop(root, { ...opts, waitFor: (f) => { autoDone(root, 1, ['a=session_a1'], { log: quiet }); writeFileSync(f, JSON.stringify(listed)); return true; }, log: (l) => out.push(l) });
+  const rows = jsonl(readState(root, SB, STARTS_FILE));
+  assert.equal(rows.filter((x) => x.row === 'created').length, 1);
+  assert.deepEqual(readAuto(root, SB).pending, []);
+  assert.doesNotMatch(out.join('\n'), /create_session for job a/);
+});
+
+test('the starter: quiet on purpose (a paused plan) it beats, so status still reads it running', (t) => {
+  setJobCap(t, 20);
+  const root = withOrigin({ 'process/config.json': { tranche: 'tranche', coordinator: 'session_coord1', plan: 'pause' } });
+  writeState(root, SB, 'owed', (dir) => owe(dir, 'merge 1'));
+  const out = [];
+  autoLoop(root, { ...fakes([], () => assert.fail('no pass while paused')).opts, log: (l) => out.push(l) });
+  assert.match(out.join('\n'), /plan pause: the starter starts nothing/);
+  const a = readAuto(root, SB);
+  assert.equal(a.session, M);
+  assert.equal(a.quiet, 'plan pause');
+  assert.match(starterLines(a, [], null)[0], /^starter: running \(session_merger1, no pass yet; quiet: plan pause\)/);
+});
+
 test('actsBlock: archives first, then each launch, then the done line; no judgment asked', () => {
   const L = actsBlock({ pass: 4, why: 'starts owed since x', archive: [{ session: 'session_m', job: 'm' }], launches: [{ id: 'a', launch: { title: 'job a' } }], again: [{ id: 'z', at: 'T', launch: { title: 'job z' } }], doneCmd: 'p3 auto done' });
   assert.match(L[0], /^AUTO-START pass 4 \(starts owed since x\): make these calls now, in order, each its own call; none needs a judgment$/);
   assert.equal(L[1], '1. archive_session session_m (job m: merged; its idle session holds a slot)');
-  assert.match(L[2], /^2\. create_session for job z \(printed at T and no session titled "job z" is listed since: make it now\):$/);
+  assert.match(L[2], /^2\. create_session for job z \(printed at T, and no session titled "job z" was in the list just saved: make it now\):$/);
   assert.match(L[4], /^3\. create_session for job a:$/);
   assert.equal(L.at(-1), 'then: p3 auto done 4 --created z=<its new session id> --created a=<its new session id>');
 });
@@ -91,7 +134,7 @@ test('the starter: starts owed make a pass that asks for list_sessions, runs --r
   const r = autoLoop(root, { ...opts, log: (l) => out.push(l) });
   assert.equal(r.exit, 0);
   const text = out.join('\n');
-  assert.match(text, new RegExp(`AUTO SESSIONS ${opts.sessionsFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: starts owed since ${since}\\. Call list_sessions now`));
+  assert.match(text, new RegExp(`AUTO SESSIONS ${opts.sessionsFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: starts owed since ${since}\\. Now call list_sessions with limit 100 once and save its result to .* exactly as returned, has_more included; this pass waits 10 min for it, and the calls of an earlier AUTO-START block come first`));
   // --ready's own pass, in auto mode, with the owed time and the saved list.
   assert.equal(calls.length, 1);
   assert.equal(calls[0].auto, true);
@@ -192,11 +235,17 @@ test('auto start: only the addressed MERGER; its clone prepared and the loop run
   const runs = [];
   const preps = [];
   const out = [];
-  const code = autoStart(root, { session: M, address: { merger: { session: M } }, prep: (r, dir) => preps.push(dir), run: (bin, args) => { runs.push(args.slice(1)); return { status: codes.shift() }; }, log: (l) => out.push(l) });
+  const code = autoStart(root, { session: M, approvals: H, address: { merger: { session: M } }, prep: (r, dir) => preps.push(dir), run: (bin, args) => { runs.push(args.slice(1)); return { status: codes.shift() }; }, proc: { pid: 1 }, alive: () => false, log: (l) => out.push(l) });
   assert.equal(code, EXIT.approvals);
   assert.equal(preps.length, 2);
   assert.match(preps[0], /-starter$/);
-  assert.deepEqual(runs[0], ['auto', 'start', '--session', M, '--here']);
+  assert.deepEqual(runs[0], ['auto', 'start', '--session', M, '--here', '--approvals', H]);
+  // A second starter from the same clone while the first runs: refused; the lock goes with the first.
+  const lock = join(root, '.git', 'p3-starter.lock');
+  writeFileSync(lock, JSON.stringify({ pid: 99, boot: 'b', started: '1' }));
+  assert.throws(() => autoStart(root, { session: M, address: { merger: { session: M } }, prep: () => {}, run: () => assert.fail('no second'), alive: () => true }), /a starter already runs from this clone \(pid 99\): never a second/);
+  const gone = autoStart(root, { session: M, address: { merger: { session: M } }, prep: () => {}, run: () => ({ status: 0 }), proc: { pid: 1 }, alive: () => false, log: quiet });
+  assert.equal(gone, 0);
   assert.match(out.join('\n'), /the starter runs again at the new pin\nthe starter stopped: the approvals changed; tell ROOT, word for word/);
 });
 
@@ -225,6 +274,15 @@ test('job start --ready in auto mode: the idle sessions of merged jobs, as many 
   assert.deepEqual(r.started.map((x) => x.id), ['a', 'b', 'c']);
   assert.match(out.join('\n'), /2 idle sessions of merged jobs archived first, freeing their slots: session_m \(job m\), session_n \(job n\)/);
   assert.doesNotMatch(out.join('\n'), /next acts: create_session/);
+  // The cap still holding work back: never advice to archive COMPLETE jobs' sessions in the starter's narrative.
+  const out2 = [];
+  const tight = tmpFile();
+  writeFileSync(tight, JSON.stringify([...listed, { id: 'session_z', title: 'job z', session_status: 'SESSION_STATUS_RUNNING' }, { id: 'session_y', title: 'job y', session_status: 'SESSION_STATUS_RUNNING' }]));
+  const r2 = startReady(root, { auto: true, sessions: tight, remote: new Set(), log: (l) => out2.push(l), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
+  assert.deepEqual(r2.archive.map((x) => x.session), ['session_m', 'session_n']);
+  assert.deepEqual(r2.waiting, ['b', 'c']);
+  assert.match(out2.join('\n'), /the cap holds 2 back after the archives above; no idle session of a merged job is left to archive/);
+  assert.doesNotMatch(out2.join('\n'), /session_k/);
   // Not in auto mode: nothing archived, the cap holds two back as before.
   const plain = startReady(root, { sessions: file, remote: new Set(), log: quiet, read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.deepEqual(plain.archive, []);
@@ -235,7 +293,8 @@ test('starts owed: a hold ended owes them; the prompts give the MERGER the start
   assert.equal(owes('hold', { _: [], end: 'hold-3' }), 'hold ended hold-3');
   assert.equal(owes('hold', { _: ['slots:2'] }), null);
   const mp = mergerPrompt({ slug: 'o/p', rootId: 'session_root1', approvals: H });
-  assert.match(mp, /4a\. Also run `node \.process\/tool\/p3\.mjs auto start --session <your session id>` in the background/);
+  assert.match(mp, new RegExp(`4a\\. Also run \`node \\.process/tool/p3\\.mjs auto start --session <your session id> --approvals ${H}\` in the background`));
+  assert.match(mp, /stop the train and the starter, send ROOT one message/);
   assert.match(mp, /on an `AUTO-START` block, make its calls in order/);
   assert.match(mp, /Never subscribe to a job's pull request yourself/);
   assert.match(mp, /never a second of either/);

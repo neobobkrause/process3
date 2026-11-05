@@ -109,12 +109,12 @@ const commands = {
     return 0;
   },
 
-  // auto start --session <the MERGER's id>: the starter (auto.mjs), run by the MERGER in the
+  // auto start --session <the MERGER's id> --approvals <its prompt's hash>: the starter (auto.mjs), run by the MERGER in the
   // background beside its train; --here is its loop, in the starter's own clone (the launcher's).
   // auto done <pass> --created <module>=<session id>...: the sessions the MERGER created from a pass.
   'auto start': (a, root) => {
-    if (a.here) { const r = autoLoop(root, { session: a.session }); return r.exit; }
-    return autoStart(root, { session: a.session });
+    if (a.here) { const r = autoLoop(root, { session: a.session, ...(typeof a.approvals === 'string' ? { approvals: a.approvals } : {}) }); return r.exit; }
+    return autoStart(root, { session: a.session, approvals: a.approvals });
   },
   'auto done': (a, root) => (autoDone(root, one(a, 'pass'), list(a.created).filter((x) => x !== true)), 0),
 

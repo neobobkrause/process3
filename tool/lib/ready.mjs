@@ -196,7 +196,9 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   const now = go.slice(0, Math.max(0, c.cap - held - n));
   const wait = go.slice(now.length);
   log(`ready: ${go.length} startable (${c.line}); starting ${now.length}${wait.length ? `, ${wait.length} wait for the cap: ${wait.map((x) => x.id).join(', ')}` : ''}`);
-  if (wait.length) {
+  // The starter archives what it may itself (above); the rest is BOB's to judge, never its.
+  if (wait.length && auto) log(`the cap holds ${wait.length} back${archive.length ? ' after the archives above' : ''}; no idle session of a merged job is left to archive`);
+  else if (wait.length) {
     // The cap holds jobs back: the idle sessions of COMPLETE or merged jobs BOB can archive.
     const a = archivable(out.rows, listed);
     if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again with --archived <id> for each (or a list_sessions saved after): ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);

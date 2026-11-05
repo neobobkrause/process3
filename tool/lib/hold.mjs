@@ -152,4 +152,4 @@ export const STARTS_FILE = 'metrics/starts.jsonl';
 // created this long is printed again; a starter with no pass this long is not running.
 export const AUTO = { every: 10, gap: 3, sessionsWait: 10, reprint: 10, live: 25 };
 export function readAuto(root, sb) { try { return JSON.parse(readState(root, sb, AUTO_FILE) || 'null'); } catch { return null; } }
-export const starterLive = (a, t = Date.now()) => !!a?.session && t - (Date.parse(a.at) || 0) < AUTO.live * 6e4;
+export const starterLive = (a, t = Date.now()) => !!a?.session && t - Math.max(Date.parse(a.at) || 0, Date.parse(a.beat) || 0) < AUTO.live * 6e4;
