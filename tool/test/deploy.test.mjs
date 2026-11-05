@@ -5,11 +5,11 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, readReport, redact, walkSummary } from '../lib/deploy.mjs';
+import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, readReport, redact, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
 import { layerClose } from '../lib/layer.mjs';
 import { status } from '../lib/status.mjs';
 import { trancheClose } from '../lib/tranche.mjs';
-import { DEFAULTS, git } from '../lib/util.mjs';
+import { DEFAULTS, git, loadConfig, run } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
 
 const quiet = () => {};
@@ -96,6 +96,7 @@ test('deploy dev at a round close: dry run, deploy, walk, one row; secrets never
   assert.match(text, /walked; \*\*\*/);
   assert.doesNotMatch(JSON.stringify(rows(bare)), /s3cr3t-value/);
   assert.deepEqual(rows(bare), [r.row]);
+  assert.equal(r.row.internal_walk, undefined, 'no internal_walk configured: none runs, none recorded');
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /is deployed and walked clean \(p3dev-l1\); the next round's close makes the next one/);
   // A dirty tree; then a checkout that is not the tranche tip.
   writeFileSync(join(root, 'build/requirements/a.md'), 'changed\n');
@@ -369,4 +370,87 @@ test('rounds: every layer closed is the first round\'s close; the walk\'s findin
   assert.match(see(root).text, /deploy and walk at the round close: .* \(the completion round closed since \w+ was deployed\)/);
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, true);
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
+});
+
+// The internal walk (Bob, 4 Nov; K4111, K4162, K4781): journey-check's local arm, its report the
+// live report's shape; 7 steps, one failure of kind step; it sees no Cloudflare secret.
+const LOCAL = node(`const fs = require('fs'); fs.mkdirSync('out/local', { recursive: true });
+  const steps = [1, 2, 3, 4, 5, 6, 7].map((i) => ({ journey: 'j', label: 's' + i, ok: i !== 4 }));
+  fs.writeFileSync('out/local/report.json', JSON.stringify({ arm: 'local', steps, failures: [{ journey: 'j', step: 's4', kind: 'step', detail: 'cf ' + (process.env.CLOUDFLARE_API_TOKEN || 'none') + ' gh ' + (process.env.GH_TOKEN || 'none') }] }));
+  fs.writeFileSync('out/local/report.txt', steps.map((x) => (x.ok ? 'ok ' : 'FAIL ') + x.label).join('\\n'));
+  process.exit(1)`);
+const IW = { run: LOCAL, reports: ['out/local/report.json', 'out/local/report.txt'] };
+
+test('internal walk config: optional; run an argv or argvs, timeout_minutes default 30, reports file paths', () => {
+  assert.equal(deployConfig(cfgWith(DEP)).internal_walk, null);
+  assert.deepEqual(deployConfig(cfgWith({ ...DEP, internal_walk: IW })).internal_walk, { run: [LOCAL], timeout_minutes: 30, reports: IW.reports });
+  assert.throws(() => deployConfig(cfgWith({ ...DEP, internal_walk: { ...IW, gate: true } })), /internal_walk must be an object/);
+  assert.throws(() => deployConfig(cfgWith({ ...DEP, internal_walk: { reports: [] } })), /internal_walk.run must be an argv/);
+  assert.throws(() => deployConfig(cfgWith({ ...DEP, internal_walk: { ...IW, timeout_minutes: 0 } })), /whole minutes/);
+  assert.throws(() => deployConfig(cfgWith({ ...DEP, internal_walk: { ...IW, reports: ['../x'] } })), /internal_walk.reports must be a list/);
+});
+
+test('deploy dev with an internal walk: it runs first, without the tokens or Cloudflare secrets; one failure does not stop the deploy; the row carries it; its findings count for tranche close', () => {
+  const dep = { ...DEP, internal_walk: IW };
+  const { root, bare } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', environment: ['P3_DEPLOY_SECRET'] }, 'out/.gitignore': '*\n' });
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  const seen = [];
+  const exec = (c, a, o) => { seen.push(o.unset); return run(c, a, o); };
+  const env = { CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN, GH_TOKEN: process.env.GH_TOKEN };
+  process.env.CLOUDFLARE_API_TOKEN = 'cf-secret'; process.env.GH_TOKEN = 'gh-secret';
+  const out = [];
+  let r;
+  try { r = deployDev(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) }); } finally { for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  const text = out.join('\n');
+  assert.equal(r.ok, true, text);
+  assert.deepEqual(r.row.results.map((x) => x.stage), ['internal_walk', 'dry_run', 'dry_run', 'deploy', 'walk'], 'before the dry run and the deploy');
+  const iw = r.row.internal_walk;
+  assert.equal(iw.steps, 7);
+  assert.equal(iw.steps_ok, 6);
+  assert.equal(iw.failures, 1);
+  assert.deepEqual(iw.by_kind, { step: 1 });
+  assert.equal(iw.ok, false);
+  assert.equal(iw.exit, 1);
+  assert.equal(typeof iw.seconds, 'number');
+  assert.equal(iw.reports.length, 2);
+  assert.match(iw.reports[0].stored, /^deploys\/p3dev-l1\/[^/]+\/internal\/report\.json$/);
+  const stored = JSON.parse(git(['show', `process-state:${iw.reports[0].stored}`], { cwd: bare }));
+  assert.equal(stored.failures[0].detail, 'cf none gh none', 'no Cloudflare secret and no GitHub token in its environment');
+  assert.ok(seen[0].includes('P3_DEPLOY_SECRET') && seen[0].includes('CLOUDFLARE_API_TOKEN'), 'the config\'s environment names unset too');
+  assert.deepEqual(rows(bare), [r.row]);
+  const run10 = `p3dev-l1 ${r.row.commit.slice(0, 10)}`;
+  assert.match(text, new RegExp(`--from "internal walk ${run10}"`));
+  // Its finding is owed a record, as a live walk's is; a found mark naming it records it.
+  const cfg = loadConfig(root);
+  assert.deepEqual([walkFindings(root, cfg, 'origin/tranche').failing, walkFindings(root, cfg, 'origin/tranche').recorded], [1, 0]);
+  commit(root, { 'build/requirements/d.md': `${unmet}- **F1** *(not yet met: internal walk ${run10})* step s4\n` });
+  assert.equal(walkFindings(root, cfg, 'HEAD').recorded, 1);
+});
+
+test('deploy dev: an internal walk that times out is recorded as such, and the deploy still runs', () => {
+  const dep = { ...DEP, internal_walk: { ...IW, timeout_minutes: 1 } };
+  const { root } = withOrigin(product(dep));
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  const exec = (c, a, o) => (a.some((x) => x.includes("arm: 'local'")) ? { code: 1, stdout: '', stderr: 'killed', seconds: 60, timedOut: true } : run(c, a, o));
+  const r = deployDev(root, { io: { ...io, exec }, repo, log: quiet });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.row.results.map((x) => x.stage), ['internal_walk', 'dry_run', 'dry_run', 'deploy', 'walk']);
+  assert.equal(r.row.results[0].timed_out, true);
+  assert.equal(r.row.internal_walk.timed_out, true);
+  assert.equal(r.row.internal_walk.ok, false);
+  assert.deepEqual(r.row.internal_walk.reports.map((x) => x.stored), ['not written by this walk', 'not written by this walk']);
+});
+
+test('walk internal: the internal walk alone, any time; its reports under walks/internal/ on the state branch, no deploy row', () => {
+  const dep = { ...DEP, internal_walk: IW };
+  const { root, bare } = withOrigin({ ...product(dep), 'out/.gitignore': '*\n' });
+  assert.throws(() => walkInternal(makeRepo({ 'process/config.json': { deploy: DEP } }), { log: quiet }), /internal_walk is not set/);
+  const out = [];
+  const r = walkInternal(root, { log: (m) => out.push(m) });
+  assert.equal(r.ok, false);
+  assert.equal(r.internal_walk.failures, 1);
+  assert.match(r.internal_walk.reports[1].stored, /^walks\/internal\/\w{10}-[^/]+\/report\.txt$/);
+  assert.match(git(['show', `process-state:${r.internal_walk.reports[1].stored}`], { cwd: bare }), /FAIL s4/);
+  assert.equal(git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare, allowFail: true }).code, 128, 'no deploy row');
+  assert.match(out.join('\n'), /--from "internal walk \w{10}"/);
 });

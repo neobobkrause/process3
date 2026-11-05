@@ -15,7 +15,7 @@ import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs'
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { readyCount, startReady } from './lib/ready.mjs';
-import { deployDev } from './lib/deploy.mjs';
+import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
@@ -309,6 +309,8 @@ const commands = {
   // deploy dev [--slug <s>]: BOB's development deployment and walk at a round close (development
   // only, the product's own Cloudflare account): dry run behind the guard line, deploy, walk, one row.
   'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
+  // walk internal: the product's internal walk (deploy.internal_walk) alone, any time, no deploy; its reports on the state branch.
+  'walk internal': (a, root) => (walkInternal(root).ok ? 0 : 1),
   // release run checks|assemble [--out <results.json>] [--log-dir <dir>]: the shim's read-only jobs
   // (process-dev-release.yml); --log-dir keeps each step's whole output where the job uploads it.
   'release run': (a, root) => {
