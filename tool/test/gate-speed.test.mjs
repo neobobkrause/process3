@@ -3,11 +3,11 @@
 // that read it, each with the verdicts it had before.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gate as gateRun, gateComment, requirementsOnly, revertCheck } from '../lib/gate.mjs';
-import { baseRed, startBase } from '../lib/basered.mjs';
+import { baseRed, changedInTree, startBase } from '../lib/basered.mjs';
 import { readResults, runSuite } from '../lib/suite.mjs';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
@@ -92,7 +92,11 @@ test('the revert check: when a failing test of the run is tolerated, the failing
   const tests = ['test/alpha/red.test.mjs', 'test/alpha/real.test.mjs', 'test/alpha/inert.test.mjs'];
   const tolerated = ['test/alpha/red.test.mjs::plane > has ai-catalogue'];
   const r = revertCheck(s.root, e, s.base, ['src/alpha/index.mjs'], tests, { timeout: 60000, tolerated });
-  assert.deepEqual(r, { inert: ['test/alpha/inert.test.mjs'], loadOnly: [], alone: 2 });
+  // The tolerated test is declared in a changed file: every file runs alone at once, no run together.
+  assert.deepEqual(r, { inert: ['test/alpha/inert.test.mjs'], loadOnly: [], alone: 3 });
+  // Tolerated in a file not among them: the run together decides, as alone would.
+  const away = revertCheck(s.root, e, s.base, ['src/alpha/index.mjs'], ['test/alpha/real.test.mjs', 'test/alpha/inert.test.mjs'], { timeout: 60000, tolerated });
+  assert.deepEqual(away, { inert: ['test/alpha/inert.test.mjs'], loadOnly: [], alone: 0 });
   // Only the tolerated test fails in red.test.mjs: inert, as run alone.
   const t = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/red.test.mjs': `${redTest}// touched\n`, 'test/alpha/real.test.mjs': realTest });
   const q = revertCheck(t.root, e, t.base, ['src/alpha/index.mjs'], ['test/alpha/red.test.mjs', 'test/alpha/real.test.mjs'], { timeout: 60000, tolerated });
@@ -185,6 +189,37 @@ test('base-red: the prepared tree serves one call; the next, and one whose prepa
   assert.match(r.why, /^(the base's tree could not be prepared|new failing test file)/);
   bad.drop();
   assert.deepEqual(mine(), []);
+});
+
+test('base-red: a base file changed in the tree prepared beside the head is caught, and the tree prepared again', () => {
+  const s = setup({ 'test/alpha/red.test.mjs': redTest, 'bin/run.sh': '#!/bin/sh\n' }, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
+  git(['update-index', '--chmod=+x', 'bin/run.sh'], { cwd: s.root });
+  const e = JSON.parse(readFileSync(join(s.root, 'process/ledger/alpha.json'), 'utf8'));
+  const cfg = loadConfig(s.root);
+  const failing = [{ file: 'test/alpha/red.test.mjs', name: 'plane > has ai-catalogue' }];
+  const p = startBase(s.root, { base: s.base, cfg, timeout: 60000 });
+  // Ready, then written into by code of the PR: the failing test made to fail there.
+  for (const t0 = Date.now(); !existsSync(join(p.dir, 'exit')) && Date.now() - t0 < 30000;) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+  assert.equal(changedInTree(s.root, s.base, p.wt), null);
+  writeFileSync(join(p.wt, 'src/alpha/index.mjs'), 'export const x = 9;\n');
+  assert.equal(changedInTree(s.root, s.base, p.wt), 'src/alpha/index.mjs');
+  const lines = [];
+  assert.equal(baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: p, log: (l) => lines.push(l) }).ok, true);
+  assert.ok(lines.some((l) => /src\/alpha\/index\.mjs in the base's tree prepared beside the head is not the base's: the tree is prepared here/.test(l)), lines.join('\n'));
+  assert.equal(existsSync(p.dir), false);
+});
+
+test('base-red: dropping a preparation kills its whole process group, verdict or not', () => {
+  const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
+  // A build that leaves a descendant behind, as an install's lifecycle script may.
+  const rows = [{ paths: ['gen/x.txt'], regenerate: ['sh', '-c', 'sleep 30 >/dev/null 2>&1 & exit 0'], verify: ['true'] }];
+  const p = startBase(s.root, { base: s.base, cfg: loadConfig(s.root), rows, timeout: 60000 });
+  assert.equal(p.wait(30000).ok, true);
+  const pgid = Number(readFileSync(`/proc/${process.pid}/stat`, 'utf8').split(' ')[4]);
+  const members = () => readdirSync('/proc').filter((n) => /^\d+$/.test(n)).filter((n) => { try { const f = readFileSync(`/proc/${n}/stat`, 'utf8').replace(/^.*\) /s, '').split(' '); return f[0] !== 'Z' && Number(f[2]) !== pgid && readFileSync(`/proc/${n}/cmdline`, 'utf8').startsWith('sleep\u000030'); } catch { return false; } });
+  assert.ok(members().length >= 1, 'the descendant outlives the verdict');
+  p.drop();
+  assert.deepEqual(members(), []);
 });
 
 test('base-red: a preparation whose process is gone without a verdict is not waited for', () => {

@@ -19,7 +19,8 @@
 // process the PR's tests left running, or loose objects rewritten in place; and, for a sibling two
 // test files import, one test failing in one importer here and in the other at the base (the id
 // does not name the importer, the count matches; confirming review of PR 133).
-import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,12 +43,13 @@ const gitRaw = (root, args, input) => {
 
 // The commit's tree written to dir from its blobs: no checkout, so no smudge filter, attribute
 // or hook applies. Submodules are left out, as a worktree would leave them unpopulated.
+const blobs = (root, sha) => gitRaw(root, ['ls-tree', '-r', '-z', '--full-tree', sha]).toString('utf8').split('\0').filter(Boolean).map((l) => {
+  const [meta, path] = [l.slice(0, l.indexOf('\t')), l.slice(l.indexOf('\t') + 1)];
+  const [mode, type, oid] = meta.split(' ');
+  return { mode, type, oid, path };
+}).filter((x) => x.type === 'blob');
 export function writeTree(root, sha, dir) {
-  const items = gitRaw(root, ['ls-tree', '-r', '-z', '--full-tree', sha]).toString('utf8').split('\0').filter(Boolean).map((l) => {
-    const [meta, path] = [l.slice(0, l.indexOf('\t')), l.slice(l.indexOf('\t') + 1)];
-    const [mode, type, oid] = meta.split(' ');
-    return { mode, type, oid, path };
-  }).filter((x) => x.type === 'blob');
+  const items = blobs(root, sha);
   if (!items.length) return;
   const out = gitRaw(root, ['cat-file', '--batch'], items.map((x) => x.oid).join('\n') + '\n');
   let at = 0;
@@ -63,6 +65,23 @@ export function writeTree(root, sha, dir) {
     writeFileSync(p, body);
     if (x.mode === '100755') chmodSync(p, 0o755);
   }
+}
+
+// The first of the base's files in dir that is not the base's blob (its bytes, its link or its
+// executable bit), or null: the tree prepared beside the head is checked before the base runs in
+// it (confirming review of build gate-speed: the head's code runs while it exists). Git's own hash
+// (sha1 of "blob <size>\0" and the bytes, or of the link's target), so no filter or attribute applies.
+export function changedInTree(root, sha, dir) {
+  const oid = (body) => createHash('sha1').update(`blob ${body.length}\0`).update(body).digest('hex');
+  for (const x of blobs(root, sha)) {
+    const p = join(dir, x.path);
+    try {
+      const st = lstatSync(p);
+      if (x.mode === '120000') { if (!st.isSymbolicLink() || oid(Buffer.from(readlinkSync(p))) !== x.oid) return x.path; continue; }
+      if (!st.isFile() || oid(readFileSync(p)) !== x.oid || ((st.mode & 0o100) !== 0) !== (x.mode === '100755')) return x.path;
+    } catch { return x.path; }
+  }
+  return null;
 }
 
 // The test files that reach f, a module a failing test's id names: f itself when it is one, else
@@ -130,8 +149,12 @@ export function prepareTree(root, base, wt, { lockfiles = [], rows = [], timeout
 // call's, then dropped; a later call (another module, or the smoke list after the suite's)
 // prepares its own, as before. When the process ends without a verdict (it crashed or was killed)
 // or its install or build failed, baseRed prepares the tree inline, with its own budget. drop(): the process stopped, the tree removed; also at exit.
-// Residual, as for a process the PR's tests leave running: the head's install, build and tests run
-// while the base's tree exists, and code of the PR could write into it.
+// The head's install, build and tests run while the base's tree exists, so before the base runs
+// in it, its files are checked against the base's blobs (changedInTree); one that differs, and a
+// refused preparation, are prepared again inline. Residual, as for a process the PR's tests leave
+// running and now without one: code of the PR can still write into the tree's node_modules or
+// built files, or the verdict files, which are not checked; the tranche into main, which tolerates
+// nothing, is the backstop for a base-red the PR made.
 export const PREP = join(dirname(fileURLToPath(import.meta.url)), 'base-prep.mjs');
 const nap = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} }) {
@@ -161,7 +184,14 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
     try { process.kill(child.pid, 0); } catch (e) { return e.code === 'EPERM'; }
     try { return readFileSync(`/proc/${child.pid}/stat`, 'utf8').replace(/^.*\) /s, '')[0] !== 'Z'; } catch { return true; }
   };
-  const stop = () => { if (!done && child?.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } } done = true; };
+  // The whole group, verdict or not: an install's or a build's descendants outlive a timeout's kill.
+  const group = () => { try { process.kill(-child.pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+  const stop = () => {
+    done = true;
+    if (!child?.pid) return;
+    try { process.kill(-child.pid, 'SIGKILL'); } catch { return; }
+    for (const until = Date.now() + 5000; group() && Date.now() < until;) nap(50);
+  };
   // Before the scratch directories' own exit hook removes the tree the install still writes to.
   process.prependOnceListener('exit', stop);
   log(`base-red: the base ${base.slice(0, 10)}'s tree is prepared beside the head's install`);
@@ -176,14 +206,19 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
       if (!ended && !alive()) { done = true; log('base-red: the background preparation is gone without a verdict: the tree is prepared here'); return null; }
       const text = (() => { try { return readFileSync(logFile, 'utf8'); } catch { return ''; } })();
       for (const l of text.split('\n').filter(Boolean).slice(-40)) log(l);
-      if (!ended) { stop(); return { ok: false, why: `the base's tree was not ready within ${Math.round((Date.now() - started) / 1000)} s` }; }
+      if (!ended) { stop(); return { ok: false, timedOut: true, why: `the base's tree was not ready within ${Math.round((Date.now() - started) / 1000)} s` }; }
       done = true;
       try { const r = JSON.parse(readFileSync(out, 'utf8')); log(`base-red: the base's tree was prepared in the background (${Math.round((statSync(out).mtimeMs - started) / 1000)} s after the gate started it)`); return r; } catch {
         log(`base-red: the background preparation ended without a verdict (exit ${String(readFileSync(exitFile, 'utf8')).trim()}): the tree is prepared here`);
         return null;
       }
     },
-    drop() { stop(); process.removeListener('exit', stop); drop(); },
+    drop() {
+      stop();
+      process.removeListener('exit', stop);
+      // A process not yet gone may still add a file while the tree is removed: once more, then leave it to the sweep.
+      try { drop(); } catch { nap(500); try { drop(); } catch { /* the next withTemp sweeps it */ } }
+    },
     // The process group killed as the OOM killer would, the exit status unwritten (tests).
     kill() { if (child?.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } } },
   };
@@ -209,12 +244,14 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
     prepared.used = true;
     try {
       const p = prepared.wait(left());
-      if (p?.ok) return compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log });
+      const altered = p?.ok ? changedInTree(root, base, prepared.wt) : null;
+      if (p?.ok && !altered) return compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log });
+      if (altered) log(`base-red: ${altered} in the base's tree prepared beside the head is not the base's: the tree is prepared here`);
       // Prepared beside the head, at a lower priority, on a deadline from the gate's start: a
       // failed install or build there may be the head's load or time, not the base's. Prepared
       // again here with base-red's own budget (review of build gate-speed).
-      if (p && !/^the base's tree was not ready within/.test(p.why)) log(`base-red: the background preparation refused (${p.why}): the tree is prepared here`);
-      else if (p) return no(p.why);
+      if (p?.timedOut) return no(p.why);
+      if (p && !p.ok) log(`base-red: the background preparation refused (${p.why}): the tree is prepared here`);
     } catch (e) {
       return no(`the base's tree could not be prepared: ${String(e.message).slice(0, 300)}`);
     } finally { prepared.drop(); }

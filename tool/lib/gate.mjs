@@ -6,7 +6,7 @@ import { basename, dirname, join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
-import { install, normPath, reportsEvents, runSuite, suffixOf, testTreeFiles } from './suite.mjs';
+import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
@@ -168,10 +168,12 @@ export function gate(root, opts) {
     // Base-red's tree (basered.mjs startBase): its install and build beside the head's, ready if
     // the suite fails. Not for the tranche into main, which tolerates nothing, nor with a stand-in
     // exec (the tests'), which a process of its own cannot use.
-    // A change only to a module's requirements file runs only the tests that read it.
-    const onlyOf = new Map(scope.map((e) => [e, branch !== cfg.tranche ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log }) : null]));
-    const runsTests = scope.some((e) => onlyOf.get(e) === null || onlyOf.get(e).length);
-    const prepared = runsTests && branch !== cfg.tranche && !exec && opts.prepareBase !== false
+    // A change only to a module's requirements file runs only the tests that read it: read here
+    // to know whether a suite runs at all, and again once the generated files are built.
+    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
+    // Only a suite whose failures can be read per test can be base-red.
+    const mayBaseRed = scope.some((e) => reportsEvents(e.suite.command) && (onlyAt(e) === null || onlyAt(e).length));
+    const prepared = mayBaseRed && branch !== cfg.tranche && !exec && opts.prepareBase !== false
       ? startBase(root, { base: revertBase, cfg, rows: gen.rows, timeout, log }) : null;
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
@@ -190,7 +192,7 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      const only = onlyOf.get(e);
+      const only = onlyAt(e, log);
       if (only && !only.length) { (runRow.requirements_only ||= []).push({ module: e.id, files: [] }); results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
       if (only) (runRow.requirements_only ||= []).push({ module: e.id, files: only });
       const s = withEvents((events) => runSuite(root, e, only || undefined, { timeout, events }));
@@ -697,7 +699,8 @@ const withEvents = (fn) => withTemp('p3-failing-', (d) => fn(join(d, 'failing.js
 // run is a tolerated one (a file's failures alone are among the run's, so none is tolerated,
 // and a file that failed reports a failure: a test, or itself as a whole); its load failure is
 // the reporter's load line. Run alone, as before, each file this cannot decide: when a failing
-// test of the run is tolerated (a failure is not tied to the file that ran it), when the run has
+// test of the run is tolerated (a failure is not tied to the file that ran it; when a tolerated test
+// is declared in a changed file or a module it may import, there is no run together), when the run has
 // no verdict for the file (a timeout, a crash) or none at all (a command that is not the node
 // test runner, or names its own reporter). Residual: files that pass or fail only for running
 // beside each other, as the suite runs them too.
@@ -712,7 +715,11 @@ export function revertCheck(root, entry, base, code, tests, { timeout, tolerated
       if (exists(root, base, f)) git(['checkout', base, '--', f], { cwd: root });
       else rmSync(join(root, f), { force: true, recursive: true });
     }
-    const r = tests.length > 1 && reportsEvents(entry.suite.command) ? withEvents((events) => runSuite(root, entry, tests, { timeout, events })) : null;
+    // A tolerated test declared in one of these files, or in a module they import (not a test file
+    // of the suite), would send the failing files alone after the run: then they go alone at once.
+    const suite = holds ? new Set(testFiles(root, entry)) : null;
+    const tolHere = holds && tolerated.some((id) => { const f = id.slice(0, id.indexOf('::')); return tests.includes(f) || !suite.has(f); });
+    const r = tests.length > 1 && !tolHere && reportsEvents(entry.suite.command) ? withEvents((events) => runSuite(root, entry, tests, { timeout, events })) : null;
     const together = r?.ran && r.failing ? r : null;
     const anyTolerated = !!together && together.failing.some((x) => tol.has(testId(x)));
     for (const t of tests) {
