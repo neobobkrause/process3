@@ -2,14 +2,14 @@
 // cannot call Claude's session or task tools: sweep reads the record and prints what ROOT must do,
 // in the Foundations' order, and writes the heartbeat; watch reads the heartbeat's age and ROOT's
 // address and prints the watcher's decision. The session makes every call.
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { P3, READY_START, bobWake } from './job.mjs';
+import { P3, READY_START, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
-import { readAddress, wakeSteps } from './roles.mjs';
+import { readAddress, senderOf, wakeSteps } from './roles.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { OWED_ALARM_MIN, heldBy, layersAt, owe, readOwed, slotsHeld } from './hold.mjs';
+import { OWED_ALARM_MIN, bobAct, heldBy, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { startable } from './ready.mjs';
 import { SILENT_HOURS, blockedJobs, capLine, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
@@ -92,37 +92,70 @@ export function idleCapacity({ live, cap, holds, work, startable: count, layers,
 }
 
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
-// command any role runs evaluates idle capacity when the last sweep row is CHECK_MIN old, on the
-// live count the last sweep or job start --ready measured within LIVE_MIN (none: no judgment, the
-// cap is the account's), records it as a 'check' row beside the sweep's, and on an alarm prints the
-// wakes of BOB and the coordinator. The hourly sweep stays the backstop.
+// command any role runs, before its act, evaluates idle capacity when the last sweep row is
+// CHECK_MIN old (read from the local ref first: no fetch while it is fresh), on the live count the
+// last sweep or job start --ready measured within LIVE_MIN (none: no judgment, the cap being the
+// account's), and records a 'check' row beside the sweep's, once per CHECK_MIN whatever sessions
+// race (re-read in the worktree). Only the run whose row lands prints: on an alarm the wake of BOB
+// (BOB itself: its act) and the line for the coordinator. Not in GitHub Actions, which cannot write
+// the state branch. The hourly sweep stays the backstop.
 export const CHECK_MIN = 5;
 export const LIVE_MIN = 65;
+const lastRow = (text) => jsonl(text).at(-1);
+const fresh = (row, t) => t - (Date.parse(row?.at) || 0) < CHECK_MIN * 6e4;
+// The row an idle continues from: the last that judged on a measured count (sweep or check).
+export const judged = (rows) => [...rows].reverse().find((r) => ['sweep', 'check'].includes(r.row) && Number.isInteger(r.live));
 export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = status, log = console.log } = {}) {
   const sb = cfg.state_branch;
-  if (cfg.plan === 'pause' || cfg.plan === 'stop' || !fetchState(root, sb)) return null;
+  if (cfg.plan === 'pause' || cfg.plan === 'stop') return null;
+  if (fresh(lastRow(readState(root, sb, SWEEP_ROWS_FILE)), t) || !fetchState(root, sb)) return null;
   const rows = jsonl(readState(root, sb, SWEEP_ROWS_FILE));
-  if (t - (Date.parse(rows.at(-1)?.at) || 0) < CHECK_MIN * 6e4) return null;
+  if (fresh(rows.at(-1), t)) return null;
   const m = [...rows].reverse().find((r) => ['sweep', 'ready'].includes(r.row) && Number.isInteger(r.live));
   const live = m && t - Date.parse(m.at) < LIVE_MIN * 6e4 ? m.live : null;
-  const ls = git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true });
-  const heads = new Set(ls.stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
-  const out = read(root, { role: 'bob', offline: true, ...(ls.code === 0 ? { heads } : {}), log: () => {} });
-  if (out.open?.state !== 'open') return null;
-  const f = flow(cfg, out.rows, out.next, live ?? undefined);
-  const holds = out.holds || [];
-  const ic = live === null ? null : idleCapacity({ live, cap: jobCap(cfg).cap, holds, work: out.next, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: rows.at(-1), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
+  let ic = null;
+  let f = { startable: null };
+  if (live !== null) {
+    const ls = git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true });
+    const heads = new Set(ls.stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
+    const out = read(root, { role: 'bob', offline: true, ...(ls.code === 0 ? { heads } : {}), log: () => {} });
+    if (out.open?.state === 'open') {
+      f = flow(cfg, out.rows, out.next, live);
+      const holds = out.holds || [];
+      ic = idleCapacity({ live, cap: jobCap(cfg).cap, holds, work: out.next, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
+    }
+  }
   const { reasons = [], ...rec } = ic || {};
-  const row = { at: now(), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: f.startable, ...(ic ? { idle_capacity: rec } : {}) };
-  try { writeState(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, (dir) => { mkdirSync(join(dir, 'metrics'), { recursive: true }); appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify(row) + '\n'); }); } catch (e) { if (!(e instanceof Fail)) throw e; }
+  const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: f.startable, ...(ic ? { idle_capacity: rec } : {}) };
+  let landed = false;
+  try {
+    writeState(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, (dir) => {
+      const p = join(dir, SWEEP_ROWS_FILE);
+      landed = !fresh(lastRow(existsSync(p) ? readFileSync(p, 'utf8') : ''), t);
+      if (!landed) return;
+      mkdirSync(join(dir, 'metrics'), { recursive: true });
+      appendFileSync(p, JSON.stringify(row) + '\n');
+    });
+  } catch (e) { if (!(e instanceof Fail)) throw e; landed = false; }
+  if (!landed) return null;
   if (ic?.dead) log(`dead ends (a Process3 defect), to the coordinator: ${ic.dead.join('; ')}`);
   if (ic?.alarm) {
     const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min${ic.owed_since ? ` (starts owed since ${ic.owed_since})` : ''}; ${reasons.join('; ')}`;
     log(line);
-    log(from === 'bob' ? `next act: ${READY_START}` : `next act: wake BOB with \`${bobWake(`${line}: run ${READY_START}`, from)}\``);
+    log(wakeLine(`${line}: run ${READY_START}`, from) || `next act: ${READY_START}`);
     log(`and tell the coordinator: ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'no coordinator in process/config.json: tell Bob by push notification'} with "${line}"`);
   }
   return row;
+}
+
+// p3.mjs main, before every command in a product: starts owed first for BOB's acts (status prints
+// its own), then the idle check, the wake naming the act's sender (a job's job-<id>).
+export const JOB_ACTS = ['job complete', 'block', 'test', 'job sync'];
+export function beforeAct(root, cfg, name, a, { env = process.env, log = console.log } = {}) {
+  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
+  if (env.GITHUB_ACTIONS) return null;
+  const from = JOB_ACTS.includes(name) && a._[0] ? jobSender(String(a._[0])) : (() => { try { return senderOf(root, a.as); } catch { return 'bob'; } })();
+  try { return idleCheck(root, cfg, { by: name, from, log }); } catch (e) { log(`idle check not run: ${e.message}`); return null; }
 }
 
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {
@@ -193,7 +226,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
           // it could have begun, the tranche's tip or a job session's archive.
           const freed = Math.max(ct(root, [tranche]), ...(listed || []).filter((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim())).map((x) => Date.parse(x.updated_at) || 0));
-          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: jsonl(readState(root, sb, SWEEP_ROWS_FILE)).at(-1), freed, owed: readOwed(root, sb), t });
+          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, owed: readOwed(root, sb), t });
           if (ic) {
             const { reasons, ...rec } = ic;
             liveRow.idle_capacity = rec;

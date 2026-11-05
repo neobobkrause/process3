@@ -83,7 +83,7 @@ export function readyCount(root, { read = status } = {}) {
 
 export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
-  const begun = stamp(); // the acts owed up to now are this run's to pay
+  const begun = new Date(Date.now() - 1000).toISOString(); // the acts owed before this run (whole seconds: one second back) are its to pay
   const listed = sessions === undefined ? null : readSessions(sessions);
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
   const n = listed ? sessionsCount(listed, live, log) : Number(live);
@@ -147,7 +147,7 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
       // A resumed start whose pull request was already open may have its session running.
       if (r?.resumed && r.pr && !r.created) {
         for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);
-        failed.push({ id: j.id, why: 'a resumed start with its pull request open: check sessions; job start <id> prints its launch' });
+        failed.push({ id: j.id, why: 'a resumed start with its pull request open: check sessions; job start <id> --live <n> prints its launch' });
         log(`not started: ${j.id}: its pull request was already open; a session may be running. Check your sessions; \`${P3} job start ${j.id} --live <n>\` prints its launch when none is`);
         continue;
       }
@@ -163,7 +163,7 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
   // (those it counted and those it started) for the idle checks between sweeps (sweep.mjs).
   try {
     writeState(root, cfg.state_branch, `job start --ready: ${started.length} started`, (dir) => {
-      paid(dir, begun);
+      if (!failed.length) paid(dir, begun); // a failed start leaves its starts owed
       mkdirSync(join(dir, 'metrics'), { recursive: true });
       appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, job_cap: c.cap, started: started.map((x) => x.id) }) + '\n');
     });

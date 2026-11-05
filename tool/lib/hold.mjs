@@ -108,8 +108,8 @@ export function owes(name, a) {
   if (['merge', 'job complete', 'block', 'layer close'].includes(name)) return `${name} ${a._[0] ?? ''}`.trim();
   return name === 'notice triage' && a.record !== undefined ? `triage recorded ${a._[0] ?? ''}`.trim() : null;
 }
-export const bobAct = (name, a) => (name === 'job start' ? !a.ready : name === 'send' ? a.from === 'bob' : name === 'notice triage' ? a.record !== undefined
-  : ['merge', 'layer close', 'notice withdraw', 'tranche close', 'lane ask', 'handoff', 'pin move', 'release dev', 'deploy dev', 'walk internal'].includes(name));
+export const bobAct = (name, a) => (name === 'job start' ? !a.ready : name === 'send' ? a.from === 'bob'
+  : ['merge', 'layer close', 'notice triage', 'notice withdraw', 'tranche open', 'tranche close', 'lane ask', 'handoff', 'hold', 'found', 'pin move', 'release dev', 'deploy dev', 'walk internal'].includes(name));
 export function readOwed(root, sb) { try { return JSON.parse(readState(root, sb, OWED_FILE) || 'null'); } catch { return null; } }
 export const startsOwedLine = (o) => `starts owed since ${o.since} (${o.acts.map((x) => x.act).slice(-3).join('; ')}): run job start --ready`;
 // In a state worktree: owe(act) keeps the first act's time; paid(begun) drops the acts up to begun.

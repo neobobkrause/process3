@@ -13,7 +13,7 @@ import { OWED_FILE, bobAct, hold, owe, owes, paid, readOwed } from '../lib/hold.
 import { capCheck, startable } from '../lib/ready.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
 import { flow, status } from '../lib/status.mjs';
-import { CHECK_MIN, SWEEP_ROWS_FILE, idleCapacity, idleCheck } from '../lib/sweep.mjs';
+import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCapacity, idleCheck } from '../lib/sweep.mjs';
 import { main } from '../p3.mjs';
 import { git } from '../lib/util.mjs';
 
@@ -82,7 +82,7 @@ test('starts owed: a marker the owing acts write and job start --ready pays up t
   assert.equal(owes('notice triage', { _: ['p:1'], record: 'f' }), 'triage recorded p:1');
   assert.equal(owes('status', { _: [] }), null);
   assert.deepEqual(['merge', 'handoff', 'layer close'].map((n) => bobAct(n, { _: [] })), [true, true, true]);
-  assert.deepEqual([bobAct('job start', { ready: true }), bobAct('send', { from: 'job-a' }), bobAct('hold', {})], [false, false, false]);
+  assert.deepEqual([bobAct('job start', { ready: true }), bobAct('send', { from: 'job-a' }), bobAct('status', {}), bobAct('job complete', {})], [false, false, false, false]);
   const dir = mkdtempSync(join(tmpdir(), 'p3-owed-'));
   owe(dir, 'merge 1');
   const begun = new Date(Date.now() + 1000).toISOString();
@@ -102,8 +102,8 @@ test('starts owed: a marker the owing acts write and job start --ready pays up t
   console.error = (m) => said.push(String(m));
   let code;
   try { process.chdir(root); code = await main(['merge']); } finally { process.chdir(cwd); console.log = l; console.error = e; }
-  assert.equal(code, 1, 'merge with no number fails as before');
-  assert.match(said[0], /^starts owed since/);
+  assert.equal(code, 1, 'merge with no number fails as before: never refused');
+  assert.match(said.join('\n'), /p3 merge: name the pull request number/);
   assert.ok(readOwed(root, SB), 'a failed act owes nothing and clears nothing');
 });
 
@@ -197,4 +197,24 @@ test('fault injection: an unanswered BLOCKED job shows as a session waiting on i
   assert.match(blocked.line, /waiting 1: q block\), startable 0, blocked 1 \(oldest 40 min\)/);
   const ruled = flow({ targets: { decision_minutes: 30 } }, [{ id: 'q', tranche: 'OPEN', branch: 'WORKING' }], [], 1, [{ ...s, session_status: 'SESSION_STATUS_RUNNING' }]);
   assert.match(ruled.line, /working 1, waiting 0\), startable 0, blocked 0/);
+});
+
+test('before each command: starts owed printed first for BOB\'s acts; the idle check\'s wake names the job that ran it; nothing in GitHub Actions', (t) => {
+  setJobCap(t, 4);
+  const root = product();
+  const c = { coordinator: 'session_coord1', state_branch: SB, tranche: 'tranche', plan: 'run', requirements_dir: 'build/requirements', layers_file: 'build/layers.md', targets: {} };
+  addRow(root, { at: ago(10), row: 'ready', live: 1, job_cap: 4, started: [] });
+  writeState(root, SB, 'owed', (d) => { mkdirSync(join(d, 'flow'), { recursive: true }); writeFileSync(join(d, OWED_FILE), JSON.stringify({ since: ago(16), acts: [{ at: ago(16), act: 'merge 9' }] })); });
+  assert.equal(beforeAct(root, c, 'job complete', { _: ['a'] }, { env: { GITHUB_ACTIONS: 'true' }, log: quiet }), null);
+  const out = [];
+  beforeAct(root, c, 'merge', { _: ['5'] }, { env: { GITHUB_ACTIONS: 'true' }, log: (l) => out.push(l) });
+  assert.match(out[0], /^starts owed since/);
+  const said = [];
+  const row = beforeAct(root, c, 'job complete', { _: ['a'] }, { env: {}, log: (l) => said.push(l) });
+  assert.equal(row.idle_capacity.alarm, true);
+  assert.match(said.join('\n'), /next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "IDLE CAPACITY.*" --from job-a`/);
+  // Another session within CHECK_MIN: no second row, no second wake.
+  const again = [];
+  assert.equal(beforeAct(root, c, 'block', { _: ['b'] }, { env: {}, log: (l) => again.push(l) }), null);
+  assert.deepEqual(again, []);
 });

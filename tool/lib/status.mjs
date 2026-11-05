@@ -211,7 +211,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       if (row.branch) row.pr = 'unknown (GitHub not read)';
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
-      row.flag = 'an unfinished start (pushed, no pull request): run job start again and it resumes';
+      row.flag = `an unfinished start (pushed, no pull request): run job start ${e.id} --live <n> again and it resumes`;
     } else if (row.ahead > 0 && !row.blocked) {
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
@@ -315,11 +315,12 @@ export function flow(cfg, rows, next, live, listed = null) {
   // running or waiting (idle), and what a waiting one waits on where status knows it.
   const wait = [];
   let working = 0;
-  for (const r of listed ? rows.filter(jobOpen) : []) {
+  for (const r of listed ? rows : []) {
     const js = jobSession(listed, r.id);
     if (!js || isArchived(js)) continue;
     if (!isIdle(js)) { working++; continue; }
-    wait.push(`${r.id} ${r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
+    // A done job's idle session holds a slot until archived.
+    wait.push(`${r.id} ${!jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
   }
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
   return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}` };

@@ -18,7 +18,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { bobAct, hold, owe, owes, readOwed, startsOwedLine } from './lib/hold.mjs';
+import { hold, owe, owes } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -31,7 +31,7 @@ import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
-import { SWEEP_ROWS_FILE, idleCheck, sweep, sweepTask, watch } from './lib/sweep.mjs';
+import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
 import { CONFIG_FILE, Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
@@ -468,7 +468,7 @@ export async function main(argv) {
     root = repoRoot();
     // Starts owed and the idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
-    if (cfg && bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) console.log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
+    if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const code = (await fn(a, root)) ?? 0;
     const act = cfg && code === 0 ? owes(name, a) : null;
     if (act) { try { writeState(root, cfg.state_branch, `starts owed: ${act}`, (dir) => owe(dir, act)); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); } }
@@ -480,9 +480,6 @@ export async function main(argv) {
       return 1;
     }
     throw e;
-  } finally {
-    // Idle capacity between sweeps (sweep.mjs idleCheck), whichever role runs whichever command.
-    if (cfg && !process.env.NODE_TEST_CONTEXT) { try { idleCheck(root, cfg, { by: name, from: senderOf(root, a.as) }); } catch (e) { console.error(`idle check not run: ${e.message}`); } }
   }
 }
 
