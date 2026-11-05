@@ -16,7 +16,7 @@ BOB'S WORDS ON 5 NOV (binding, newest last):
 
 STATE AT HANDOFF (about 04:00):
 - process3 tranche: PRs 136-142 merged tonight (internal walk; ready-fixes; idle capacity + holds; flow control; flow report; merge train). Copy pin b8d5176 (copy PR 384).
-- MERGER live: session_01RAN5ep7bdABTc1Cuxosa4J (ROOT, 04:36); watch its first merges and the trial stop rules.
+- MERGER live: session_01RAN5ep7bdABTc1Cuxosa4J (ROOT, 04:36; clone unshallowed by hand 04:44). First train merge PR 416 at 04:44:42Z: the trial day runs to 6 Nov ~04:45; report to Bob then with the figures. Watch the stop rules.
 - Copy: layers 1-5 closed; layer 6 open. ~11/20 live, 9 queued for BOB's next start pass. BOB alternates: start pass with merges paused, then merge everything green, because job start --ready loses starts when the tranche moves (start-fixes item 1). merge_train config PR 388 is HELD as draft until start-fixes is on the copy.
 - Internal walk config on the copy: PR 381 (journey-check local arm, 45 min, out/local); walk_reports already set.
 - Release path open: plane 175 (g55 R88 memory; if branch fails while base passes on a re-run, BOB brings it to you), control-plane 290 and journey-check 314 (gates kept being cancelled by tranche moves). Known gaps for the first dev release notes: AI runs dispatch needs agent-worker F3 + plane F1 (found PR 368, agent-worker 364); ratification not calling docket R33; exploring runs K5821; runtime-limits M-R7 and contradiction live-model runs need the round's deploy.
