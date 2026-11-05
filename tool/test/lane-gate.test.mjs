@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { gate as gateRun, gateComment, trancheCover } from '../lib/gate.mjs';
 import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { git, isRecordOrLane, laneDirs, laneOfPath, laneOnly, loadConfig } from '../lib/util.mjs';
-import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo } from './helpers.mjs';
 
 const gate = (root, o) => { const r = gateRun(root, o); if (o.pr) o.io.addComment(o.slug, o.pr, gateComment(r.run)); return r; };
 const quiet = () => {};
@@ -32,7 +32,6 @@ function fakeIO(receipt) {
     comments: () => state.comments, getPR: () => ({ user: { login: 'civicsmith' } }),
     addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r)); return {}; },
     verify: (s, r) => state.genuine.has(key(r)),
-    ...honestBranch([7], 'tranche', 'job/alpha'),
   } };
 }
 const onBranch = (s, branch, files) => { git(['checkout', '-q', '-b', branch], { cwd: s.root }); return commit(s.root, files); };

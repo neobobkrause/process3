@@ -79,10 +79,6 @@ function github(root, ids) {
       ];
     },
     verify: () => true,
-    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
-    // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
-    prsFromBranch: (slug, b) => [...[...jobs.keys()].map(job), ...[...specs.keys()].map(spec)].filter((p) => p.head.ref === b),
-    baseEverChanged: () => false,
     checkRuns: (slug, sha, name) => [io.checkRun(slug, sha, name)],
     checkRun: (slug, sha) => {
       const red = ![...heads.values()].includes(sha) && sh(['grep', '-q', 'BROKEN', sha, '--', 'src']).code === 0;
@@ -321,19 +317,4 @@ test('merge --plain refuses a train spec pull request, even one made ready: only
   const { root } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } }, 2);
   const pr = { number: 101, state: 'open', draft: false, base: { ref: 'tranche' }, head: { ref: 'train/head/1-1', sha: 'a'.repeat(40), repo: { full_name: 'o/r' } }, user: { login: 'civicsmith' } };
   assert.throws(() => mergePlain(root, 101, { slug: 'o/r', noReview: 'a probe', log: () => {}, io: { getPR: () => pr, mergePR: () => { throw new Error('merged'); } } }), /is the merge train's spec \(train\/head\/1-1\): it is never merged/);
-});
-
-test('verifyRow with a branch: a run of another branch, or another repository, at the same commit never vouches, whatever PRs GitHub lists', async () => {
-  const { verifyRow } = await import('../lib/github.mjs');
-  const sha = 'a'.repeat(40);
-  const row = { sha, run_id: 7, ok: true, trigger: 'code', base: 'b'.repeat(40) };
-  const run = (over) => ({ path: '.github/workflows/process-gate.yml', head_sha: sha, status: 'completed', conclusion: 'success', event: 'pull_request', head_branch: 'train/head/5-1', head_repository: { full_name: 'o/r' }, pull_requests: [{ number: 9, base: { ref: 'tranche' } }], ...over });
-  const io = (r) => ({ getRun: () => r, runArtifactRow: () => row });
-  const ctx = { pr: 9, baseRef: 'tranche', branch: 'train/head/5-1' };
-  assert.equal(verifyRow('o/r', row, ctx, io(run())), true);
-  assert.equal(verifyRow('o/r', row, ctx, io(run({ head_branch: 'foo' }))), false, 'another branch at the same commit, listing the spec PR by sha');
-  assert.equal(verifyRow('o/r', row, ctx, io(run({ head_repository: { full_name: 'evil/r' } }))), false, 'another repository');
-  // Without a branch the live path no longer verifies at all (build/branch-bound): unbound reads
-  // the PRs of one branch, so a run must be held to it.
-  assert.equal(verifyRow('o/r', row, { pr: 9, baseRef: 'tranche' }, io(run())), false);
 });

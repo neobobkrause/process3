@@ -7,9 +7,9 @@
 // branch". This command deletes only while the approvals block (process/config.json approvals:
 // its file and heading) on the run's branch (the default branch, or the tranche for a run
 // dispatched there), as origin holds it, carries MARKER, the fixed
-// phrase "the process's scheduled branch cleanup workflow", within Bob's whole sentence (APPROVAL),
-// exactly; whitespace runs and curly apostrophes are read as one space and a straight apostrophe,
-// nothing else is forgiven (not case). Either anywhere else in the file is no approval. A delete
+// phrase "the process's scheduled branch cleanup workflow", anywhere in the block; whitespace runs
+// and curly apostrophes are read as one space and a straight apostrophe, nothing else is forgiven
+// (not case). The phrase anywhere else in the file is no approval. A delete
 // runs only in the product's own shim, on the default branch or dispatched on the tranche
 // (notTheShim); --dry-run anywhere. Without it the run prints a notice, deletes nothing and writes
 // nothing. --dry-run reads and prints all the same, approved or not, and writes nothing.
@@ -40,7 +40,7 @@ import { writeState } from './state.mjs';
 import { DEFAULTS, exists, fail, fetchRetry, gh, git, isShallow, loadConfig, now } from './util.mjs';
 
 // Bob's sentence for the approvals block, as the coordinator relayed it (5 Nov 18:20). The gate
-// matches MARKER, a fixed phrase of it; the keep rules below are the sentence's.
+// matches MARKER, a fixed phrase of it; the keep rules below are the sentence's, and are the limit.
 export const APPROVAL = 'One exception to the paragraph above: the process\'s scheduled branch cleanup workflow, running in those GitHub repositories, may delete branches whose commits are all in the tranche, and the merge train\'s train/head/* branches whose pull request is closed; never main, the tranche or the state branch, a branch with an open pull request, or one with a commit in the last 2 hours.';
 export const MARKER = 'the process\'s scheduled branch cleanup workflow';
 export const RECENT_HOURS = 2;
@@ -50,16 +50,10 @@ export const DELETE_BATCH = 100;
 const PUSH_TRIES = 3;
 
 const norm = (t) => String(t).replace(/[‘’ʼ]/g, '\'').replace(/\s+/g, ' ').trim();
-// Whether an approvals block carries Bob's whole sentence, which holds the marker phrase (cold
-// review of PR 167: the phrase alone also matched "I withdraw ... the process's scheduled branch
-// cleanup workflow", or a narrower grant). Changed in any word, it is no approval.
-// Bob's sentence must stand as a paragraph of its own (second review: a withdrawal that quoted
-// the whole sentence, or the sentence in an HTML comment or a code fence, also matched a
-// substring test). HTML comments and fenced code are dropped first.
+// Whether an approvals block carries the marker phrase (Bob, 5 Nov: a substring match; the keep
+// rules below are the real limit, whatever the sentence around it says).
 export function approves(block) {
-  if (!block) return false;
-  const text = String(block).replace(/<!--[\s\S]*?(-->|$)/g, '\n\n').replace(/^(```|~~~)[^\n]*\n[\s\S]*?(^\1[^\n]*$|(?![\s\S]))/gm, '\n\n');
-  return text.split(/\n\s*\n/).map(norm).some((para) => para === norm(APPROVAL) && para.includes(norm(MARKER)));
+  return !!block && norm(block).includes(norm(MARKER));
 }
 
 // Only the product's own shim deletes (cold review of PR 167: a session's local run, or a dispatch

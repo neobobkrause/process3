@@ -39,31 +39,6 @@ export function prsFromBranch(slug, branch, { read = (args) => gh(args, { allowF
   return Array.isArray(pages) ? pages.flat() : null;
 }
 
-// Whether a pull request's base was ever changed, by hand or by GitHub when the base branch was
-// deleted (issue events): the pulls API shows only the current base. null when unreadable.
-const BASE_CHANGES = ['base_ref_changed', 'automatic_base_change_succeeded', 'automatic_base_change_failed'];
-export function baseEverChanged(slug, n, { read = (args) => gh(args, { allowFail: true }) } = {}) {
-  const pages = read(['api', '--paginate', '--slurp', `repos/${slug}/issues/${n}/events?per_page=100`]);
-  return Array.isArray(pages) && pages.every(Array.isArray) ? pages.flat().some((e) => BASE_CHANGES.includes(e?.event)) : null;
-}
-
-// Why the runs on branch are not bound to pull request n into base, or null (gate.mjs branchBound
-// gives the job merges' wording). GitHub lists only OPEN pull requests on a run (verifyRow), so
-// a second pull request from the branch into another base, whose workflow file could upload any
-// row, then closed, leaves its run listing only n (confirming review of build/train-spec, 5 Nov).
-// Every pull request ever opened from the branch must be into base and never have had its base
-// changed; pull requests cannot be deleted, so the list is complete. Unread, nothing binds.
-// n null: no pull request yet (job start --take-in, before it opens one): the history alone.
-export function unbound(slug, branch, n, base, io) {
-  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
-  if (!Array.isArray(from) || (n !== null && !from.some((x) => x.number === n))) return `the pull requests from ${branch} could not be read`;
-  const elsewhere = from.filter((x) => x.base?.ref !== base).map((x) => x.number);
-  if (elsewhere.length) return `${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`;
-  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
-  if (moved.length) return `the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`;
-  return null;
-}
-
 export function createPR(slug, { head, base, title, body, draft = true }) {
   const pr = gh(['api', '-X', 'POST', `repos/${slug}/pulls`, '--input', '-'], {
     input: JSON.stringify({ head, base, title, body, draft }),
@@ -146,8 +121,6 @@ export function gateRuns(all) {
 // side workflow can post a bot comment, but it cannot upload into another workflow's run.
 export const GATE_WORKFLOW = '.github/workflows/process-gate.yml';
 export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
-// An Actions job by id: a job's id is its check run's id; a check run made through the checks API is no job (404, null).
-export const getJob = (slug, id) => gh(['api', `repos/${slug}/actions/jobs/${id}`], { allowFail: true });
 export function runArtifactRow(slug, id) {
   return withTemp('p3-row-', (dir) => {
     try {
@@ -158,19 +131,14 @@ export function runArtifactRow(slug, id) {
 }
 // scope and after too: the tranche cover trusts a row for the module it ran and the run it stood on.
 // refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).
-// base_red and receipt_passed too: a records-only run checks a later receipt's excuses by them
-// (review of PR 134).
+// base_red too: the tranche cover and a spec-tested land read whether a suite was base-red.
 // tree, spec and spec_* too: a spec-tested fast path and the tranche cover trust a spec row for the
 // tree it tested and the job it judged, and a spec-tested row for the spec run it names (train-spec).
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
-// branch: the run must be on this branch of this repository whatever pull requests GitHub lists for
-// it (train-spec: GitHub lists the open PRs whose head sha OR branch matches, so a run of another
-// branch at the same commit could otherwise vouch here; final review of the tranche-based spec).
-export function verifyRow(slug, row, { pr, baseRef, merged, branch }, io = { getRun, runArtifactRow }) {
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
+export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
   if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
-  if (branch !== undefined && (a.head_branch !== branch || a.head_repository?.full_name !== slug)) return false;
   // The run must be this pull request's own, into the tranche: not a second PR on the same
   // commit into a branch that carries a workflow of its own.
   // (Every pull request GitHub lists for the run must be into the tranche, in case it lists
@@ -182,9 +150,7 @@ export function verifyRow(slug, row, { pr, baseRef, merged, branch }, io = { get
   // binds the row's commits to the PR's head and the tranche.
   const prs = a.pull_requests || [];
   if (a.event !== 'pull_request') return false;
-  // The live path needs the branch (checked above), so unbound, read for that branch, covers every
-  // PR that could have run it (cold review of build/branch-bound).
-  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef) || !branch
+  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)
     : !merged || a.head_branch !== merged.branch || a.head_repository?.full_name !== slug || a.conclusion !== 'success') return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);

@@ -7,7 +7,7 @@ import { status } from '../lib/status.mjs';
 import { checkLedger, readEntry } from '../lib/ledger.mjs';
 import { appendRow, flowFigures, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, honestBranch, makeRepo, write } from './helpers.mjs';
+import { commit, entry, makeRepo, write } from './helpers.mjs';
 
 const quiet = () => {};
 // The setup check reads GitHub; these products stand for one whose setup is complete.
@@ -374,130 +374,17 @@ test('a second amendment keeps the first one\'s claims, in either order (review 
   }
 });
 
-// build/receipt-regate (copy, 5 Nov, PRs 462-492): an amended receipt on a ready pull request
-// started no gate run, so the red gate stood until a person re-ran it. A body edit re-runs it.
+// An amended receipt changes no claim the gate reads (Bob, 5 Nov: the revert check is advisory),
+// so a ready pull request is not gated again for it.
 const RED = { status: 'completed', conclusion: 'failure', started_at: '2026-11-05T00:00:00Z' };
-const markers = (body) => (body.match(/<!-- p3:regate /g) || []).length;
-test('an amended revert exemption on a red gate edits the body once, and job complete says so', () => {
+test('an amended revert exemption on a ready pull request posts the receipt and edits nothing', () => {
   const { root, f } = completed();
   f.state.gate = RED;
-  const said = [];
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: (x) => said.push(x) });
-  assert.equal(f.state.comments.length, 2);
-  assert.equal(f.state.edits.length, 1, 'one body edit: the edited event re-runs the gate');
-  assert.match(f.state.body, /^the job\n\n<!-- p3:regate 101 --> Gate re-run for the amended receipt c1\.$/, 'the job\'s body kept, the marker names the receipt');
-  assert.ok(said.some((x) => /gate re-run triggered on [0-9a-f]{10} for the amended receipt \(the gate was failure\): watch https:\/\/github\.com\/.+\/pull\/9\/checks/.test(x)), said.join('\n'));
-  // A second job complete after the marker posts nothing and edits nothing.
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: quiet });
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.equal(f.state.comments.length, 2);
-  assert.equal(f.state.edits.length, 1);
-  // A changed exemption is a new receipt: the marker line is replaced, not added.
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'a better reason', log: quiet });
-  assert.equal(f.state.edits.length, 2);
-  assert.equal(markers(f.state.body), 1);
-  assert.match(f.state.body, /<!-- p3:regate 102 -->/);
-});
-
-test('no gate run on the head yet, or one started before the receipt, is re-run too', () => {
-  for (const gate of [false, { status: 'in_progress', started_at: '2000-01-01T00:00:00Z' }, { status: 'completed', conclusion: 'cancelled', started_at: '2000-01-01T00:00:00Z' }]) {
-    const { root, f } = completed();
-    f.state.gate = gate;
-    jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-    assert.equal(f.state.edits.length, 1, JSON.stringify(gate));
-  }
-});
-
-test('a green head, or a gate run started after the receipt, gets no edit', () => {
-  // A completed red run that started after the receipt read it: re-running it judges the same.
-  for (const gate of [{ status: 'completed', conclusion: 'success' }, { status: 'in_progress', started_at: '2999-01-01T00:00:00Z' }, { status: 'queued', started_at: null }, { status: 'completed', conclusion: 'failure', started_at: '2999-01-01T00:00:00Z' }]) {
-    const { root, f } = completed();
-    f.state.gate = gate;
-    jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-    assert.equal(f.state.comments.length, 2, 'the amended receipt is still posted');
-    assert.equal(f.state.edits.length, 0, JSON.stringify(gate));
-  }
-});
-
-test('a --not-verified-only amendment gets no edit, even after an exemption and on a red gate', () => {
-  const { root, f } = completed();
-  f.state.gate = RED;
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
   assert.equal(f.state.comments.length, 2);
   assert.equal(f.state.edits.length, 0);
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.edits.length, 1);
-  // The exemption stands unchanged: one more not-verified line is not material.
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the live site 2'], log: quiet });
-  assert.equal(f.state.comments.length, 4);
-  assert.equal(f.state.edits.length, 1);
 });
 
-test('a failed body edit stops job complete; the rerun posts nothing and edits once', () => {
-  const { root, f } = completed();
-  f.state.gate = RED;
-  f.state.failEdit = true;
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet }), /body edit that re-runs the gate failed \(edit refused\); run job complete again/);
-  assert.equal(f.state.comments.length, 2);
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.comments.length, 2, 'the amended receipt was already posted');
-  assert.equal(f.state.edits.length, 1);
-  assert.match(f.state.body, /<!-- p3:regate 101 -->/);
-});
-
-// Cold review of build/receipt-regate.
-test('an exemption whose edit failed is re-gated by a later --not-verified-only rerun', () => {
-  const { root, f } = completed();
-  f.state.gate = RED;
-  f.state.failEdit = true;
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet }), /run job complete again/);
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
-  assert.equal(f.state.comments.length, 3);
-  assert.equal(f.state.edits.length, 1, 'the newest receipt still carries the exemption no gate judged');
-  assert.match(f.state.body, /<!-- p3:regate 102 -->/);
-});
-
-test('unreadable gate runs stop job complete; nothing is edited', () => {
-  const { root, f } = completed();
-  f.state.gate = undefined;
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet }), /gate runs on [0-9a-f]{10} could not be read, so the gate was not re-run; run job complete again/);
-  assert.equal(f.state.edits.length, 0);
-  f.state.gate = RED;
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.equal(f.state.edits.length, 1);
-});
-
-test('the marker line is replaced where it stands, a null body is read as empty, a quoted marker is not a marker', () => {
-  const { root, f } = completed();
-  f.state.gate = RED;
-  f.state.body = null;
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.body, '<!-- p3:regate 101 --> Gate re-run for the amended receipt c1.');
-  f.state.body = `top\n> quoted <!-- p3:regate 7 --> x\n${f.state.body}\nbottom $& $1`;
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why 2', log: quiet });
-  assert.equal(f.state.body, 'top\n> quoted <!-- p3:regate 7 --> x\n<!-- p3:regate 102 --> Gate re-run for the amended receipt c2.\nbottom $& $1');
-});
-
-// Confirming review of build/receipt-regate.
-test('a run started after the exemption\'s first receipt is not re-run for a later --not-verified-only receipt', () => {
-  const { root, f } = completed();
-  f.state.gate = { status: 'in_progress', started_at: '2999-01-01T00:00:00Z' };
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.edits.length, 0, 'the run started after the receipt reads it');
-  f.state.gate = { status: 'in_progress', started_at: new Date(Date.parse(f.state.comments[1].created_at) + 5).toISOString() };
-  f.state.at = '2999-06-01T00:00:00Z';
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
-  assert.equal(f.state.comments.length, 3);
-  assert.equal(f.state.edits.length, 0, 'that run judged the exemption the newest receipt carries');
-});
-
-test('a red run that started in the receipt\'s own second is re-run', () => {
-  const { root, f } = completed();
-  f.state.at = '2026-11-05T12:00:00Z';
-  f.state.gate = { status: 'completed', conclusion: 'failure', started_at: '2026-11-05T12:00:00Z' };
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.edits.length, 1);
-});
 
 test('an amendment on a draft pull request is marked ready, not edited', () => {
   const { root, f } = completed();
@@ -693,22 +580,20 @@ test('a COMPLETE job whose pull request merged is refused, and named --reopen', 
   assert.equal(readRows(root, 'alpha').length, 2);
 });
 
-test('merge passes on a green gate run that checked attempt 2, and refuses one that checked attempt 1', () => {
+test('merge passes on a green gate run that read attempt 2, and refuses one that read attempt 1', () => {
   const { root, f } = redAndFixed();
   jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'agrees', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
+  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'present', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
   const mk = (gate) => ({
     getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
     comments: () => [...f.state.comments, gate],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: () => true,
-    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
-    ...honestBranch([3, 7, 9, 60, 301]),
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });
-  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /checked receipt attempt 2/);
+  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /read receipt attempt 2; its newest run read attempt 1/);
   const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.equal(r.merged, true);
 });
@@ -1419,7 +1304,7 @@ test('metrics report: BOB\'s idle time per day, and the overhead share per job a
   assert.deepEqual(overhead([{ module: 'x', row: 'attempt', event: 'start' }]).jobs, []);
 });
 
-test('job start over requirements_cap prints the split owed and starts only with --over-cap (REQ-6)', () => {
+test('job start over requirements_cap prints the split owed and starts, the figure in its start row, with --over-cap or without (REQ-6)', () => {
   const root = makeRepo({
     'process/ledger/alpha.json': entry('alpha'),
     'process/config.json': { requirements_cap: 20 },
@@ -1427,15 +1312,21 @@ test('job start over requirements_cap prints the split owed and starts only with
     'test/alpha/a.test.mjs': passing,
   });
   git(['branch', 'tranche'], { cwd: root });
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /split or consolidate before its job: req\/alpha.md 26 over 20; nothing was started.*--over-cap/);
-  assert.equal(git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root }), 'main');
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: true, log: quiet }), /--over-cap needs why/);
   const out = [];
   const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: 'one reading still', log: (m) => out.push(m) });
   assert.match(out.join('\n'), /req\/alpha.md 26 over 20; starting over the cap: one reading still/);
   assert.match(start, /Requirement file `req\/alpha.md`: 26 bytes against the cap of 20, over it\./);
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  assert.equal(readRows(root, 'alpha')[0].over_cap, 'one reading still');
+  assert.deepEqual([readRows(root, 'alpha')[0].over_cap, readRows(root, 'alpha')[0].cap], ['one reading still', 'split or consolidate before its job: req/alpha.md 26 over 20']);
+  // Without --over-cap it starts all the same (Bob, 5 Nov: 32 of 32 refusals overridden); the figure is kept.
+  const bare = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'process/config.json': { requirements_cap: 20 }, 'req/alpha.md': '# alpha\n\nR1 does a thing.\n', 'test/alpha/a.test.mjs': passing });
+  git(['branch', 'tranche'], { cwd: bare });
+  const said = [];
+  jobStart(bare, 'alpha', { coordinator: 's', push: false, log: (m) => said.push(m) });
+  assert.match(said.join('\n'), /req\/alpha.md 26 over 20; starting over the cap$/m);
+  git(['checkout', '-q', 'job/alpha'], { cwd: bare });
+  assert.deepEqual([readRows(bare, 'alpha')[0].over_cap, readRows(bare, 'alpha')[0].cap], [null, 'split or consolidate before its job: req/alpha.md 26 over 20']);
 });
 
 test('job start under the cap shows the requirement file against it', () => {
@@ -1452,8 +1343,9 @@ test('job start: a cap on unmet marks, or a cap written as a string, is the same
     'test/alpha/a.test.mjs': passing,
   });
   git(['branch', 'tranche'], { cwd: root });
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /req\/alpha.md 2 unmet marks over 1; nothing was started/);
-  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, overCap: 'two marks, one reading', log: quiet });
+  const out = [];
+  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: (m) => out.push(m) });
+  assert.match(out.join('\n'), /req\/alpha.md 2 unmet marks over 1; starting over the cap/);
   assert.match(start, /Requirement file `req\/alpha.md`: \d+ bytes against the cap of 70000, over it\./);
 });
 

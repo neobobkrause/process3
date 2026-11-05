@@ -12,7 +12,7 @@ import { readRows } from '../lib/metrics.mjs';
 import { reviewBrief } from '../lib/review.mjs';
 import { assertCounts, globRe, matchPath, reviewTriggers, triggerSummary } from '../lib/triggers.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const TEST_BASE = "import assert from 'node:assert/strict';\ntest('a', () => {\n  assert.equal(f(), 45);\n  assert.ok(g());\n});\n";
@@ -54,8 +54,6 @@ function io(head) {
       ],
       checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
-      gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
-      ...honestBranch([1, 2, 3, 4, 5, 6, 7, 8]),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };

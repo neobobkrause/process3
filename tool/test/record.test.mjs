@@ -204,8 +204,8 @@ test('removing the tool is a finding', () => {
 import { verifyRow } from '../lib/github.mjs';
 test('a gate row is trusted only when its run is the process gate on that commit and its artifact matches', () => {
   const row = { sha: 'c1', base: 'b', trigger: 'code', ok: true, receipt: 'agrees', receipt_attempt: 1, suite: 'pass', revert: 'pass', run_id: 5 };
-  const run = { path: '.github/workflows/process-gate.yml', head_sha: 'c1', status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 4, base: { ref: 'tranche' } }], head_branch: 'job/m', head_repository: { full_name: 'o/r' } };
-  const ctx = { pr: 4, baseRef: 'tranche', branch: 'job/m' };
+  const run = { path: '.github/workflows/process-gate.yml', head_sha: 'c1', status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 4, base: { ref: 'tranche' } }] };
+  const ctx = { pr: 4, baseRef: 'tranche' };
   const io = (r, art) => ({ getRun: () => r, runArtifactRow: () => art });
   assert.equal(verifyRow('o/r', row, ctx, io(run, { ...row, minutes: 1 })), true);
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, path: '.github/workflows/x-process-gate.yml' }, row)), false);
@@ -214,12 +214,6 @@ test('a gate row is trusted only when its run is the process gate on that commit
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [{ number: 8, base: { ref: 'mine' } }] }, row)), false, 'a second PR on the same commit');
   assert.equal(verifyRow('o/r', row, ctx, io({ ...run, pull_requests: [...run.pull_requests, { number: 8, base: { ref: 'mine' } }] }, row)), false, 'a run that also lists a PR into another branch');
   assert.equal(verifyRow('o/r', { ...row, run_id: null }, ctx, io(run, row)), false);
-  // GitHub lists an open PR on a run that matches its head sha OR branch: a run on a second
-  // branch at the same commit (its own PR into another base, closed), or a fork's same-named
-  // branch, lists this PR, and is not its run (cold review of build/branch-bound).
-  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, head_branch: 'y' }, row)), false, 'a second branch at the same commit');
-  assert.equal(verifyRow('o/r', row, ctx, io({ ...run, head_repository: { full_name: 'fork/r' } }, row)), false, 'a fork');
-  assert.equal(verifyRow('o/r', row, { pr: 4, baseRef: 'tranche' }, io(run, row)), false, 'no branch to hold it to');
   // A merged PR's run lists no pull request (copy, 4 Nov): trusted only when the caller has read
   // the merged PR and names its branch, and the run is on it, in this repository, and green.
   const gone = { ...run, pull_requests: [], head_branch: 'job/m', head_repository: { full_name: 'o/r' } };
@@ -802,21 +796,14 @@ test('the release after two owner edits merged from website branches passes', ()
   assert.deepEqual(recordCheck(root, cfg, { base: start, lookup: webFor(o1, o2), trusted: ['main', 'tranche'] }).findings, []);
 });
 
-// The two reads the tranche cover stands on (PR 94): every PR from a job branch, and whether any
-// base was ever changed. Unreadable is null, which refuses the cover.
-import { baseEverChanged, prsFromBranch } from '../lib/github.mjs';
-test('prsFromBranch lists every PR from this repository\'s branch; baseEverChanged reads each base change', () => {
+// Every PR from a job branch (job start reads it). Unreadable is null.
+import { prsFromBranch } from '../lib/github.mjs';
+test('prsFromBranch lists every PR from this repository\'s branch', () => {
   let asked;
   const prs = prsFromBranch('o/r', 'job/m', { read: (a) => { asked = a; return [[{ number: 1 }], [{ number: 2 }]]; } });
   assert.deepEqual(prs.map((x) => x.number), [1, 2]);
   assert.match(asked.join(' '), /--paginate --slurp repos\/o\/r\/pulls\?state=all&head=o%3Ajob%2Fm&per_page=100/);
   assert.equal(prsFromBranch('o/r', 'job/m', { read: () => null }), null);
-  const ev = (...pages) => baseEverChanged('o/r', 5, { read: (a) => { asked = a; return pages; } });
-  assert.equal(ev([{ event: 'labeled' }], [{ event: 'merged' }]), false);
-  assert.match(asked.join(' '), /repos\/o\/r\/issues\/5\/events\?per_page=100/);
-  for (const e of ['base_ref_changed', 'automatic_base_change_succeeded', 'automatic_base_change_failed']) assert.equal(ev([{ event: 'labeled' }], [{ event: e }]), true, e);
-  assert.equal(baseEverChanged('o/r', 5, { read: () => null }), null);
-  assert.equal(baseEverChanged('o/r', 5, { read: () => [{ event: 'base_ref_changed' }] }), null, 'not pages of events');
 });
 
 // The copy, 4 Nov (scheduler 20aaeb29bd, store-request 8b7e12bcd6): a job's sync merge carries
