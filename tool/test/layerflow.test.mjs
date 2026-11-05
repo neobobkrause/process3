@@ -486,3 +486,74 @@ test('trial measures: a reschedule that changed its user\'s result is counted, a
   assert.equal(m.minutes_lost_to_halts, 5);
   assert.equal(m.gate_runs, 2);
 });
+
+test('the gate: a ready job PR into a layer branch runs its suite even when it changes only records; into the tranche it keeps the record path', async () => {
+  const { gate } = await import('../lib/gate.mjs');
+  const { RECEIPT } = await import('../lib/github.mjs');
+  const root = makeRepo({
+    'process/config.json': { merge_strategy: 'layer' },
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+    'src/alpha/index.mjs': 'export const x = 1;\n',
+    'test/alpha/old.test.mjs': "import test from 'node:test'; test('nothing', () => {});\n",
+  });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
+  const head = commit(root, { 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":2}\n' }, 'records only');
+  const receipt = { kind: 'receipt', module: 'alpha', attempt: 2, sha: head, commands: [], exempt: {} };
+  const io = (baseRef) => ({ comments: () => [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }], getPR: () => ({ user: { login: 'civicsmith' }, draft: false, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
+  const into = (baseRef) => gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(baseRef), log: quiet }).run;
+  const lay = into('layer/1');
+  assert.deepEqual([lay.trigger, lay.suite], ['code', 'pass']);
+  const tr = into('tranche');
+  assert.deepEqual([tr.trigger, tr.suite], ['record', 'skipped']);
+});
+
+test('the gate\'s layer trigger: a user of the layer that never re-ran after its provider\'s interface change is a finding; a head whose newest run is red covers nothing', async () => {
+  const { root, bare } = await opened();
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y + 1; }\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  let mergedAs = null;
+  const io0 = landIO(bare, prs);
+  await layerLand(root, 1, { io: { ...io0, merge: (s, k, sha, t) => { const r = io0.merge(s, k, sha, t); mergedAs = r.sha; return r; } }, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const rows = (list) => ({ comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: list }, 'gate') }] });
+  const green = { sha: ha, ok: true, trigger: 'code', suite: 'pass', scope: ['a'] };
+  const io = { getPR: () => ({ ...prs[1], merged: true, merge_commit_sha: mergedAs }), verify: () => true };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, ...rows([green]) } });
+  assert.deepEqual(r.covered.map((x) => x.id), ['a']);
+  assert.ok(r.findings.some((f) => /^b's work \(no land on the layer\) did not hold the interface change of a/.test(f.message)), 'b, unchanged, never re-ran against a');
+  const red = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, ...rows([green, { ...green, ok: false, suite: 'fail' }]) } });
+  assert.ok(red.findings.some((f) => /a changed with no land/.test(f.message)), 'the newest run, red, is what counts');
+});
+
+test('land: a merge GitHub made whose land was never recorded is recorded on a second run, reschedules included', async () => {
+  const { root, bare } = await opened();
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return [x, y]; }\n' });
+  const m = ghMerge(bare, 'layer/1', ha, 'Merge layer PR 8');
+  const io = landIO(bare, { 8: prOf(8, 'a', ha, { state: 'closed', merged: true, merge_commit_sha: m.sha }) });
+  const r = await layerLand(root, 8, { io: { ...io, merge: () => assert.fail('no second merge') }, log: quiet });
+  assert.equal(r.land.merge, m.sha);
+  assert.deepEqual(r.land.users_rescheduled, ['b']);
+  await assert.rejects(layerLand(root, 8, { io, log: quiet }), /merged and its land is recorded/);
+});
+
+test('layer open mid-tranche: a layer the train closed is not opened again, an earlier open layer refuses, and a module\'s job PR still open into the tranche refuses', async () => {
+  const { root } = product();
+  // Layer 1 closed by the train's layer close.
+  const { writeState } = await import('../lib/state.mjs');
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  writeState(root, SB, 'layer 1 closed', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), JSON.stringify({ row: 'closed', layer: 1 }) + '\n'); return {}; });
+  await assert.rejects(async () => layerOpen(root, 1, { io: openIO, log: quiet }), /layer 1 is closed already/);
+  await assert.rejects(async () => layerOpen(root, 2, { io: { ...openIO, openPRs: () => [{ number: 4, head: { ref: 'job/d' } }] }, log: quiet }), /job PRs open into tranche: #4 \(job\/d\)/);
+  assert.equal(layerOpen(root, 2, { io: openIO, log: quiet }).ok, true);
+  const lines = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
+  assert.match(lines[0], /layer 2 open on layer\/2/);
+  // In a product where layer 1 is neither closed nor done, layer 2 does not open.
+  const p2 = product();
+  await assert.rejects(async () => layerOpen(p2.root, 2, { io: openIO, log: quiet }), /layer 1 is not closed/);
+});

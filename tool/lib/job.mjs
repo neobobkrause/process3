@@ -1219,7 +1219,8 @@ function restoreGenerated(root, ran, log) {
 
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
 export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
-  const cfg = jobCfg(root, loadConfig(root), id, { push: false });
+  // origin's layer branch, as the session's clone has it (no local layer/<n>): cold review 5.
+  const cfg = jobCfg(root, loadConfig(root), id);
   pinCheck(root, id, { toolRoot, tranche: trancheRef(root, cfg), what: `\`${P3} test ${id}\`` });
   const entry = readEntry(root, id);
   const inst = installModule(root, cfg, entry, { exec, log });

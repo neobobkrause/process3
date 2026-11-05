@@ -248,7 +248,11 @@ export function gate(root, opts) {
     runRow.lane = lanePR;
     for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
   }
-  const recordOnly = changed.every((f) => isRecordPath(cfg, f)) || !!lanePR;
+  // A ready job PR into a layer branch (layerflow.mjs) runs its suite even when it changes only
+  // records: a rescheduled user re-publishes with no code change, and its run on the new layer tip,
+  // against its provider's new version, is the evidence the layer's merge reads (cold review 1).
+  const layerJob = !!job && !spec && layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null;
+  const recordOnly = !(layerJob && !draft) && (changed.every((f) => isRecordPath(cfg, f)) || !!lanePR);
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0

@@ -28,8 +28,8 @@ import { dirname, join } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
 import { checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, openPRs } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
+import { generatedRows, isGenerated } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds } from './ledger.mjs';
-import { metricsFile } from './metrics.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
@@ -112,7 +112,7 @@ export function interfaceChange(root, cfg, id, before, after) {
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
     const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
-    const hit = ids.length ? tests.filter((f) => { const t = `${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`; return ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w])`).test(t)); }) : [];
+    const hit = ids.length ? tests.filter((f) => { const t = `${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`; return ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t)); }) : [];
     if (hit.length) out.provides_tests = hit.sort();
   }
   out.triggers = [...(out.exports ? ['exports'] : []), ...(out.provides ? ['provides-text'] : []), ...(out.provides_tests ? ['provides-test'] : []), ...(out.unread ? ['exports-unread'] : [])];
@@ -232,13 +232,32 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   return { n, ref, mods: L.mods, layers, rows, entries, prs, states };
 }
 
+// Whether a layer is behind us when the flow starts mid-tranche (the copy switches after layer 6,
+// closed by the train: cold review 3): closed (layers/closed.jsonl, layer close's or layer merge's
+// row), merged by the flow, or with nothing left in it (every module COMPLETE or BLOCKED at the
+// tranche tip, no unmet requirement mark), as status's layerState counts an implicit close.
+export const closedLayers = (root, sb) => new Set((readState(root, sb, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return r.row === 'closed' ? [r.layer] : []; } catch { return []; } }));
+function layerBehind(root, cfg, L, closed, ref) {
+  if (closed.has(L.n) || flowRows(root, cfg.state_branch, L.n).merged) return true;
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  return L.mods.every((id) => {
+    const e = entryAt(root, ref, id);
+    if (!e || !['COMPLETE', 'BLOCKED'].includes(e.status?.state)) return false;
+    return !unmetIds(textAt(root, ref, e.requirements || `${dir}/${id}.md`) || '').filter((x) => !isFound(x)).length;
+  });
+}
+
 // The lines status --role bob prints in the layer flow: the open layer's modules by state and the
 // jobs BOB starts (Bob, 5 Nov: BOB starts jobs; no other session creates one), or the layer to open.
 export function layerLines(root, cfg, { slug, io = {} } = {}) {
-  const layers = layersAt(root, cfg, `refs/remotes/origin/${cfg.tranche}`);
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const layers = layersAt(root, cfg, tr);
+  const closed = closedLayers(root, cfg.state_branch);
   const L = [];
-  for (const { n } of layers) {
+  for (const layer of layers) {
+    const { n } = layer;
     const r = flowRows(root, cfg.state_branch, n);
+    if (!r.open && layerBehind(root, cfg, layer, closed, tr)) continue;
     if (r.merged) continue;
     if (!r.open) { L.push(`layer flow: layer ${n} is next and not open: \`${P3} layer open ${n}\``); return L; }
     fetchBranch(root, layerBranch(n), { allowFail: true });
@@ -266,11 +285,21 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
   if (!layers.some((L) => L.n === n)) fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}`);
-  // One layer at a time: every earlier layer that was opened this way has merged.
+  // One layer at a time: every earlier layer closed, merged, or with nothing left in it; this one
+  // not closed already; and no job of its modules still open into the tranche (the train's).
+  const closed = closedLayers(root, cfg.state_branch);
+  if (closed.has(n)) fail(`layer ${n} is closed already (${CLOSED_FILE}); open the next one`);
   for (const L of layers.filter((x) => x.n < n)) {
     const r = flowRows(root, cfg.state_branch, L.n);
     if (r.open && !r.merged) fail(`layer ${L.n} is open on ${layerBranch(L.n)} and has not merged; layer ${n} opens after it (${P3} layer merge ${L.n})`);
+    if (!layerBehind(root, cfg, L, closed, tr)) fail(`layer ${L.n} is not closed: close it first (the train's layer close, or ${P3} layer open ${L.n})`);
   }
+  const into = (io.openPRs || openPRs)(slug, cfg.tranche);
+  if (into === null) fail(`GitHub unreadable: the open pull requests into ${cfg.tranche} are not known; nothing was opened`);
+  const mine = new Set(layers.find((L) => L.n === n).mods);
+  const ids = ledgerIds(root, tr);
+  const held = into.filter((p) => mine.has(branchModule(p.head?.ref, ids)));
+  if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (or close) under the train before the layer opens`);
   const rows = flowRows(root, cfg.state_branch, n);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);
   const b = layerBranch(n);
@@ -328,8 +357,16 @@ export function outsideFiles(root, entry, base, head) {
 export function spawnComplete(root, id, args = []) {
   const tool = join(new URL('.', import.meta.url).pathname, '..', 'p3.mjs');
   const c = spawn(process.execPath, [tool, 'job', 'complete', id, ...args], { cwd: root, stdio: 'inherit', detached: true, env: { ...process.env, NODE_TEST_CONTEXT: '' } });
-  const done = new Promise((res) => { c.on('exit', (code, sig) => res({ code: code ?? (sig ? 143 : 1) })); c.on('error', () => res({ code: 1 })); });
-  return { done, kill: () => { try { process.kill(-c.pid, 'SIGTERM'); } catch { try { c.kill('SIGTERM'); } catch { /* gone */ } } } };
+  const kill = () => { try { process.kill(-c.pid, 'SIGTERM'); } catch { try { c.kill('SIGTERM'); } catch { /* gone */ } } };
+  // Its own process group, so a halt stops the suite's children too; and stopped with publish, so
+  // an interrupted publish never leaves a job complete pushing beside the next one (cold review 6).
+  const stop = () => kill();
+  const sig = () => { kill(); process.exit(130); };
+  process.once('exit', stop);
+  process.once('SIGINT', sig);
+  process.once('SIGTERM', sig);
+  const done = new Promise((res) => { c.on('exit', (code, s2) => { process.off('exit', stop); process.off('SIGINT', sig); process.off('SIGTERM', sig); res({ code: code ?? (s2 ? 143 : 1) }); }); c.on('error', () => res({ code: 1 })); });
+  return { done, kill };
 }
 
 // The reschedules that make a run on `testedOn` void: those for the module whose provider's land
@@ -380,8 +417,10 @@ export async function layerPublish(root, id, { push = true, every = 30000, round
     const runName = `${safeName(id)}-${Date.parse(started)}-${round}-${randomUUID().slice(0, 8)}`;
     const base = { row: 'run', layer: n, module: id, round, started, ended, minutes: minutes(started, ended), tested_on: testedOn, ...(session ? { session } : {}) };
     if (halted) {
-      // A killed run may leave the entry and metrics half written: put back, so the next round is clean.
-      git(['checkout', 'HEAD', '--', entryFile(id), metricsFile(id)], { cwd: root, allowFail: true });
+      // A killed run may leave the entry and metrics half written, and generated files built (its
+      // own restore never ran): the tree was clean when the round began (job sync refuses a dirty
+      // one), so every tracked file is put back to HEAD for the next round (cold review 6).
+      git(['checkout', '-q', 'HEAD', '--', '.'], { cwd: root, allowFail: true });
       const keys = halted.map((r) => r.key);
       writeRows(root, sb, `layer ${n}: ${id}'s run halted by a reschedule`, [[flowFile(n, 'run', runName), { ...base, result: 'halted', exit: code, by: keys, minutes_lost: minutes(started, ended), at: ended }]]);
       log(`halted: ${halted.map((r) => `${r.provider} changed its interface (land ${short(r.provider_land)})`).join('; ')}; this run never counts; ${round < rounds ? 'starting again on the new layer tip' : 'no rounds left'}`);
@@ -412,8 +451,11 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const pr = x.getPR(slug, n0) || fail(`pull request ${n0} not found`);
   const n = layerOfBranch(pr.base?.ref);
   if (n === null) fail(`pull request ${n0} is into ${pr.base?.ref}, not a layer branch: the train's merge lands it`);
-  if (pr.state !== 'open') fail(`pull request ${n0} is ${pr.merged ? 'merged' : pr.state}`);
-  if (pr.draft) fail(`pull request ${n0} is a draft: the job publishes it (${P3} layer publish <id>)`);
+  // A land GitHub merged but never recorded (its state write failed after the merge: cold review 7)
+  // is recorded on a second run, from the merge commit: its reschedules are never lost.
+  const recover = pr.merged === true && !!pr.merge_commit_sha;
+  if (pr.state !== 'open' && !recover) fail(`pull request ${n0} is ${pr.merged ? 'merged' : pr.state}`);
+  if (pr.draft && !recover) fail(`pull request ${n0} is a draft: the job publishes it (${P3} layer publish <id>)`);
   if (pr.head?.repo?.full_name && pr.head.repo.full_name !== slug) fail(`pull request ${n0} is not from a branch of ${slug}`);
   fetchLayer(root, cfg, n);
   const lref = layerRef(n);
@@ -425,11 +467,20 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   fetchBranch(root, pr.head.ref, { allowFail: true });
   const head = pr.head.sha;
   if (!hasCommit(root, head)) fail(`this clone does not hold ${short(head)}, the head of pull request ${n0}`);
+  let before;
+  let after;
+  if (recover) {
+    if (rows.lands.some((l) => l.pr === n0)) fail(`pull request ${n0} is merged and its land is recorded`);
+    after = pr.merge_commit_sha;
+    if (!hasCommit(root, after)) fail(`this clone does not hold ${short(after)}, pull request ${n0}'s merge`);
+    before = git(['rev-parse', `${after}^1`], { cwd: root });
+    log(`pull request ${n0} merged at ${short(after)} with no land recorded: recording it now`);
+  } else {
   // The gate on the PR's tip, green: the publish's CI evidence (JOB-12's revert check included).
   const g = x.checkRun(slug, head, 'gate');
   if (g?.status !== 'completed' || g.conclusion !== 'success') fail(`the gate on ${short(head)} is ${g ? `${g.status}${g.conclusion ? ` ${g.conclusion}` : ''}` : 'not run'}: a publish lands only on a green gate on its tip`);
   const e = entryAt(root, head, id) || fail(`no ledger entry for ${id} at ${short(head)}`);
-  const before = rev(root, lref);
+  before = rev(root, lref);
   const out = outsideFiles(root, e, git(['merge-base', before, head], { cwd: root }), head);
   if (out.length) fail(`refused: pull request ${n0} changes files outside ${id} (ARC-2): ${out.slice(0, 10).join(', ')}`);
   // A run that started before a provider's newest interface change never counts (Bob, 5 Nov).
@@ -438,7 +489,8 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const r = await x.merge(slug, n0, head, landTitle(n0));
   if (!r?.merged && !r?.sha) fail(`GitHub did not merge pull request ${n0}: ${JSON.stringify(r).slice(0, 200)}`);
   fetchBranch(root, layerBranch(n));
-  const after = r.sha && hasCommit(root, r.sha) ? r.sha : rev(root, lref);
+  after = r.sha && hasCommit(root, r.sha) ? r.sha : rev(root, lref);
+  }
   const ic = interfaceChange(root, cfg, id, before, after);
   const users = usersOf(root, cfg, id, after);
   const layers = layersAt(root, cfg, after);
@@ -545,7 +597,9 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const findings = [];
   const covered = [];
   const inMod = (e, f) => ownPaths(e).some((p) => underPath(f, p));
-  const need = changed.filter((f) => !isRecordOrLane(cfg, f, entries));
+  // Generated paths are the layer checks' at the merge (regenerated there), not a module's land's.
+  const gen = generatedRows(cfg).rows;
+  const need = changed.filter((f) => !isRecordOrLane(cfg, f, entries) && !isGenerated(gen, f));
   const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
   const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
   const landOf = new Map(); // commit -> { pr, id, head } | { why }
@@ -561,8 +615,11 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== branch || !id || pr.head.sha !== p[1]) return no(`is not GitHub's merge of job PR ${k} into ${branch}`);
     const runs = gateRuns(io.comments(slug, k));
     const ctx = { pr: k, baseRef: branch, merged: { branch: pr.head.ref } };
-    const ok = runs.filter((r) => r.sha === p[1]).reverse().find((r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && io.verify(slug, r, ctx));
-    if (!ok) return no(`is PR ${k}'s land, but no verified green gate run of ${id}'s suite stands on its head ${short(p[1])}`);
+    // The newest run on the head, as jobMerge reads it: green, verified, the module's whole suite
+    // (not a run narrowed to the tests that read a requirements file).
+    const row = runs.filter((r) => r.sha === p[1]).pop();
+    const whole = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
+    if (!whole(row) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land, but the newest gate run on its head ${short(p[1])} is ${row ? 'not a verified green run of the whole suite' : 'missing'}`);
     const v = { pr: k, id, head: p[1], parent: p[0] };
     landOf.set(c, v);
     return v;
@@ -572,22 +629,26 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const named = new Map((readModules(root, cfg, head) || []).filter((m) => m?.id).map((m) => [m.id, m.uses || []]));
   const usesOf = (e) => named.get(e.id) || e.uses || [];
   const lands = chain.map((c) => ({ c, v: judge(c) })).filter((x) => x.v.id);
+  // Every module of the layer, and any other whose files changed: a user with no file of its own
+  // changed still owes a green run against each provider's interface change (cold review 1).
+  const n = Number(String(branch).match(/(\d+)$/)?.[1]);
+  const inLayer = new Set(layersAt(root, cfg, head).find((L) => L.n === n)?.mods || []);
   for (const e of entries) {
     const fs = need.filter((f) => inMod(e, f));
-    if (!fs.length) continue;
-    const last = lands.find((x) => x.v.id === e.id); // newest first
-    const stray = fs.filter((f) => !last || (chain.slice(0, chain.indexOf(last.c)).some((c) => diffNames(root, parents(c)[0], c).includes(f))));
-    if (!last) { for (const f of fs) findings.push({ check: 'layer', file: f, line: 1, message: `${e.id} changed with no land of its publish on ${branch}` }); continue; }
+    if (!fs.length && !inLayer.has(e.id)) continue;
+    const last = lands.find((x) => x.v.id === e.id) || null; // newest first
+    if (fs.length && !last) { for (const f of fs) findings.push({ check: 'layer', file: f, line: 1, message: `${e.id} changed with no land of its publish on ${branch}` }); continue; }
+    const stray = last ? fs.filter((f) => chain.slice(0, chain.indexOf(last.c)).some((c) => diffNames(root, parents(c)[0], c).includes(f))) : [];
     if (stray.length) { for (const f of stray) findings.push({ check: 'layer', file: f, line: 1, message: `${f} changed on ${branch} after ${e.id}'s last land (PR ${last.v.pr}) by a commit that is not its land` }); continue; }
-    // Each provider in the layer: its interface-changing lands are held by this module's head.
+    // Each provider in the layer: its interface-changing lands are held by this module's last green head.
     const late = [];
     for (const p of usesOf(e).filter((u) => byId.has(u) && u !== e.id)) {
-      for (const pl of lands.filter((x) => x.v.id === p && !isAnc(root, x.c, last.v.head))) {
+      for (const pl of lands.filter((x) => x.v.id === p && !(last && isAnc(root, x.c, last.v.head)))) {
         if (interfaceChange(root, cfg, p, pl.v.parent, pl.c).changed) late.push(`${p} (PR ${pl.v.pr}, ${short(pl.c)})`);
       }
     }
-    if (late.length) findings.push({ check: 'layer', file: entryFile(e.id), line: 1, message: `${e.id}'s last green run (PR ${last.v.pr}, ${short(last.v.head)}) did not hold the interface change of ${late.join(', ')}: it never counts; ${e.id} re-runs and publishes again` });
-    else covered.push({ id: e.id, pr: last.v.pr, merge: last.c });
+    if (late.length) findings.push({ check: 'layer', file: entryFile(e.id), line: 1, message: `${e.id}'s ${last ? `last green run (PR ${last.v.pr}, ${short(last.v.head)})` : 'work (no land on the layer)'} did not hold the interface change of ${late.join(', ')}: it never counts; ${e.id} re-runs and publishes again` });
+    else if (last) covered.push({ id: e.id, pr: last.v.pr, merge: last.c });
   }
   const own = new Set(entries.flatMap((e) => need.filter((f) => inMod(e, f))));
   for (const f of need.filter((x) => !own.has(x))) findings.push({ check: 'layer', file: f, line: 1, message: `${f} is in no module: a plain change goes to ${cfg.tranche} between layers, not onto ${branch}` });
