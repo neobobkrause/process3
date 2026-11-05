@@ -50,6 +50,10 @@ export const diskFreeMb = (dir) => { const f = statfsSync(dir); return Math.floo
 export const RETRIES_TO_BOB = 5;
 export const TRAIN_NO_REVIEW = 'merge train: no review recorded, and no review trigger fired';
 const MIN = 60000;
+// The time of each step of a pass (ready, order), kept on ctx.steps and said at the pass's end.
+const timed = (ctx, name, f) => { const t = Date.now(); try { return f(); } finally { (ctx.steps ||= []).push([name, Date.now() - t]); } };
+// The first pass, and any pass this slow, says its steps (a cold start's 10 min, 5 Nov, said nothing).
+export const STEPS_SAID_MS = 5000;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const mins = (a, b) => Math.round((b - a) / MIN * 10) / 10;
 const append = (wt, path, row) => { mkdirSync(dirname(join(wt, path)), { recursive: true }); appendFileSync(join(wt, path), JSON.stringify(row) + '\n'); };
@@ -191,9 +195,9 @@ export function leaseHeld(root, cfg, session, token, approvals) {
 // The job pull requests green on their head and not held for a provider, in order.mjs's order. Read-only.
 function ready(root, ctx, skip = new Set()) {
   const { cfg, slug, io } = ctx;
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
+  timed(ctx, 'tranche fetch', () => git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root }));
   const ids = ledgerIds(root, `origin/${cfg.tranche}`);
-  const open = io.openPRs(slug, cfg.tranche);
+  const open = timed(ctx, 'open pull requests', () => io.openPRs(slug, cfg.tranche));
   if (!open) fail(`could not read the pull requests into ${cfg.tranche}`);
   const out = [];
   const jobs = []; // every open job pull request into the tranche: drafts and gates running hold users too
@@ -210,9 +214,9 @@ function ready(root, ctx, skip = new Set()) {
   // by one, they were most of a cold start's wait for its first pick).
   const green = (g) => g?.status === 'completed' && g.conclusion === 'success';
   const many = (shas, name) => { const u = [...new Set(shas)]; const m = new Map(); io.checkRunMany(slug, u.map((x) => [x, name])).forEach((x, i) => m.set(u[i], x)); return m; };
-  const gates = many(look.map(([p]) => p.head.sha).filter((x) => !ctx.gates.has(x)), 'gate');
+  const gates = timed(ctx, 'gate reads', () => many(look.map(([p]) => p.head.sha).filter((x) => !ctx.gates.has(x)), 'gate'));
   const gateOf = (sha) => ctx.gates.get(sha) || gates.get(sha) || null;
-  const posts = many(look.map(([p]) => p.head.sha).filter((x) => green(gateOf(x)) && !gateOf(x).post), 'post');
+  const posts = timed(ctx, 'post reads', () => many(look.map(([p]) => p.head.sha).filter((x) => green(gateOf(x)) && !gateOf(x).post), 'post'));
   for (const [p, job] of look) {
     const g = gateOf(p.head.sha);
     if (!green(g)) { ctx.gates.delete(p.head.sha); if (g?.status === 'completed') job.stuck = `its gate ended ${g.conclusion}`; continue; }
@@ -245,14 +249,14 @@ function order(root, ctx, cands, jobs) {
     c.tip = tip;
     c.exp.clear(); c.imp.clear(); // both read the tranche: its ledger entries, its modules, the merge-base
     loadOrderCache(root, cfg, tip, c); // what an earlier train in this clone read at this tip
-    try { c.modules = readModules(root, cfg, at); } catch (e) { c.modules = null; say(`the modules file is unread at ${tip.slice(0, 10)} (${e.message}): nothing is held for a provider`); }
+    try { c.modules = timed(ctx, 'modules', () => readModules(root, cfg, at)); } catch (e) { c.modules = null; say(`the modules file is unread at ${tip.slice(0, 10)} (${e.message}): nothing is held for a provider`); }
     c.release = null;
   }
   const openIds = new Set(jobs.map((j) => j.id));
   const key = [...openIds].sort().join(',');
   if (!c.release || c.release.key !== key) {
     let set = new Set();
-    try { set = releaseModules(root, cfg, at, openIds); } catch (e) { say(`the release path is unread at ${tip.slice(0, 10)} (${e.message}): no pull request is ordered by it`); }
+    try { set = timed(ctx, 'release path', () => releaseModules(root, cfg, at, openIds)); } catch (e) { say(`the release path is unread at ${tip.slice(0, 10)} (${e.message}): no pull request is ordered by it`); }
     c.release = { key, set };
   }
   // (d) a provider red on its head; (b) and (c) from git, on heads fetched once.
@@ -281,14 +285,14 @@ function order(root, ctx, cands, jobs) {
   let holds = new Map();
   if (c.modules) {
     // Every head the hold may read and this clone lacks, in one fetch (one by one, each was a round trip).
-    fetchHeads(root, holdHeads(cands, jobs, graph.usesOf));
+    timed(ctx, 'heads fetch', () => fetchHeads(root, holdHeads(cands, jobs, graph.usesOf)));
     // The gate reads of every provider an edge holds on, at once: a first pass finds them (its git
     // reads are cached for the second), the second is the hold as before.
     const want = new Set();
-    providerHolds(cands, jobs, { ...graph, red: (p) => { if (!p.stuck && !reds.has(p.head)) want.add(p.head); return false; }, exportsChanged, importsFrom, note: () => {} });
+    timed(ctx, 'hold reads (exports, imports)', () => providerHolds(cands, jobs, { ...graph, red: (p) => { if (!p.stuck && !reds.has(p.head)) want.add(p.head); return false; }, exportsChanged, importsFrom, note: () => {} }));
     const ws = [...want];
-    io.checkRunsMany(slug, ws.map((x) => [x, 'gate'])).forEach((rs, i) => { if (Array.isArray(rs)) reds.set(ws[i], rs[0]?.status === 'completed' && rs[0].conclusion !== 'success'); });
-    holds = providerHolds(cands, jobs, { ...graph, red, exportsChanged, importsFrom, note: say });
+    timed(ctx, 'provider gate reads', () => io.checkRunsMany(slug, ws.map((x) => [x, 'gate'])).forEach((rs, i) => { if (Array.isArray(rs)) reds.set(ws[i], rs[0]?.status === 'completed' && rs[0].conclusion !== 'success'); }));
+    holds = timed(ctx, 'holds', () => providerHolds(cands, jobs, { ...graph, red, exportsChanged, importsFrom, note: say }));
   }
   if (c.exp.size + c.imp.size !== size) saveOrderCache(root, cfg, tip, c);
   const now = Date.now();
@@ -306,7 +310,7 @@ function order(root, ctx, cands, jobs) {
   }
   // Each module's full-gate minutes, from the gate rows on its pull requests (read once per head).
   const unread = cands.filter((u) => !c.runs.has(`${u.n}@${u.head}`));
-  const read = io.commentsMany(slug, unread.map((u) => u.n));
+  const read = timed(ctx, 'gate minutes', () => io.commentsMany(slug, unread.map((u) => u.n)));
   for (const [i, u] of unread.entries()) {
     let runs = [];
     try { if (read[i] === null) continue; runs = gateRuns(read[i] || []); } catch { continue; }
@@ -745,18 +749,26 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
   const { cfg, log, session } = ctx;
   let idleFrom = Date.now();
   let hour = Math.floor(Date.now() / 36e5);
+  let passes = 0;
   for (;;) {
     ctx.renew();
-    if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE));
+    const t0 = Date.now();
+    ctx.steps = [];
+    timed(ctx, 'state', () => { if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE)); });
     // BOB as addressed now (a handover moves it): only its review notes count.
     let bob = null;
     try { bob = readAddress(root, { fetch: false }).bob?.session || null; } catch { bob = null; }
     if (bob !== ctx.bob) log(bob ? `review notes count from BOB ${bob}` : 'no BOB addressed: no review note counts');
     ctx.bob = bob;
     // A queued plain pull request goes before every job (its caller waits): oldest first.
-    const plain = plainReady(root, ctx);
+    const plain = timed(ctx, 'plain', () => plainReady(root, ctx));
     expirePlain(root, ctx);
     const list = plain.length ? [] : ready(root, ctx);
+    const ms = Date.now() - t0;
+    if (passes++ === 0 || ms >= STEPS_SAID_MS) {
+      for (const [name, t] of ctx.steps) log(`train step ${name}: ${t} ms`);
+      log(`train pass: ${ms} ms to the pick (${list.length} ready${plain.length ? `, ${plain.length} plain` : ''})`);
+    }
     const first = list.find((c) => c.n === ctx.prepared?.n) || list[0];
     ctx.onQueue?.(list);
     if (plain.length) {
