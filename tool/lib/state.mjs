@@ -50,7 +50,7 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 // handover confirm also appends metrics/handover.jsonl), job start --restart (metrics/restart.jsonl),
 // sweep (heartbeat, and metrics/sweep.jsonl appended), lane ask (lanes/asks.jsonl, appended), notice
 // recording, withdraw and triage (one file per row, added only when absent), layer close
-// (layers/closed.jsonl), release record (releases/dev.jsonl), deploy dev (deploys/dev.jsonl) and
+// (layers/closed.jsonl), release record (releases/dev.jsonl), deploy dev (deploys/dev.jsonl), branches prune (branches/prune.jsonl, appended) and
 // tranche open and close (metrics/tranche-open.jsonl, tranches/closed.jsonl, appended). A failure inside `change` pushes nothing.
 // The whole write (fetch, change, commit, push, read-back) holds the clone's state lock (util.mjs
 // withStateLock): a `change` makes no network call, so nothing but the state fetch and push is
