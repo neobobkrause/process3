@@ -155,7 +155,7 @@ export function shares(mods, { bytes, modules }) {
 
 export function briefText({ n, changed, mods, tranche, sha, share = null }) {
   return [
-    `Read-only triage of provider notice ${n.key}${share ? `, share ${share.k} of ${share.of}` : ''}. Change nothing, run nothing that writes, and send nothing but your answer.`,
+    `Read-only triage of provider notice ${n.key}${share ? `, share ${share.k} of ${share.of}` : ''}. Change nothing, run nothing that writes, and send nothing but your answer. Read with git only in a clone of your own (\`git clone --no-hardlinks <the checkout you were given> <a scratch directory>/c\`), never in the checkout you were given: one git user per clone at a time.`,
     '',
     ...(changed.ids.length ? [`Provider \`${n.provider}\` changed these requirements in PR ${n.pr} (${changed.file}):`,
       ...changed.ids.flatMap((c) => [`- ${c.id}`, `  before: ${c.before}`, `  after:  ${c.after}`])]

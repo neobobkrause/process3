@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { makeRepo, setJobCap } from './helpers.mjs';
+import { commit, entry, makeRepo, setJobCap } from './helpers.mjs';
 import { HOLDS_FILE, hold, holdHours, holdLines, holdsOf } from '../lib/hold.mjs';
 import { flowFigures, unmetAtRef } from '../lib/metrics.mjs';
 import { startReady } from '../lib/ready.mjs';
@@ -175,9 +175,19 @@ test('sweep --sessions: every unarchived job session holds a slot, idle complete
   writeState(root, SB, 'older', (d) => writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: ago(40), row: 'sweep', live: 3, job_cap: 20, idle_capacity: { kind: 'empty', since: ago(40) } }) + '\n'));
   const few = sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet });
   assert.ok(few.found.some((x) => /^IDLE CAPACITY: 3 job sessions live \(working \d+, waiting \d+\) of the cap 20, /.test(x)), few.found.join('\n'));
-  // The first page of a longer list: refused, with the way to read the rest.
+  // The first page of a longer list: it stands while the record knows no session it could miss
+  // (restart speed, 5 Nov), and is refused, with the way to read the rest, once a recorded open
+  // job's session could be on the next page.
   writeFileSync(file, JSON.stringify({ data: list.slice(0, 6), has_more: true, last_id: 'session_j5' }));
-  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /list_sessions has more pages \(has_more\): call it with limit 100, and again with after_id <last_id> while has_more/);
+  assert.doesNotThrow(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }));
+  commit(root, { 'process/ledger/m6.json': entry('m6') }, 'entry m6');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/m6'], { cwd: root });
+  commit(root, { 'process/metrics/m6.jsonl': JSON.stringify({ at: ago(30), module: 'm6', row: 'attempt', event: 'start', attempt: 1 }) + '\n' }, 'start m6');
+  git(['push', '-q', 'origin', 'job/m6'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /list_sessions has more pages \(has_more\), and a recorded job session could be on them \(job m6: 1 session started since .*call it with limit 100, and again with after_id <last_id> while has_more/);
 });
 
 test('flow: velocity reads the tranche\'s first-parent commits, never a job branch\'s own commit merged later', () => {

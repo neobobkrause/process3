@@ -183,7 +183,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   const owed = [];
   // --sessions <file>: list_sessions saved; the job count is read from it when --live is not given.
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
-  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
+  const listed = sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline });
   live = sessionsCount(listed, live, log);
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null };
   let archived = false; // no BOB, or a paused plan: not read

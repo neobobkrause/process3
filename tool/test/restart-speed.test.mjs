@@ -1,0 +1,107 @@
+// Restart speed (coordinator, 5 Nov): the five defects that slowed the copy's restart.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { commit, entry, makeRepo } from './helpers.mjs';
+import { readSessions, recordedStarts } from '../lib/status.mjs';
+import { git, lockNote } from '../lib/util.mjs';
+import { briefText as reviewBrief } from '../lib/review.mjs';
+import { briefText as triageBrief } from '../lib/triage.mjs';
+
+const quiet = () => {};
+const iso = (h) => new Date(Date.parse('2026-11-05T00:00:00Z') + h * 36e5).toISOString();
+const startRow = (id, h, o = {}) => JSON.stringify({ at: iso(h), module: id, row: 'attempt', event: 'start', role: 'job', attempt: 1, ...o }) + '\n';
+
+export function withOrigin(files = {}) {
+  const root = makeRepo({ 'README.md': 'x', 'process/config.json': { tranche: 'tranche', coordinator: 'session_coord1' }, ...files });
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  return root;
+}
+// A job branch on origin cut from the tranche with these metrics lines; merged: the tranche takes it.
+export function jobBranch(root, id, lines, { merged = false, name = `job/${id}` } = {}) {
+  git(['checkout', '-q', '-B', name, 'tranche'], { cwd: root });
+  commit(root, { [`process/metrics/${id}.jsonl`]: lines }, `start ${id}`);
+  git(['push', '-q', 'origin', name], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  if (merged) { git(['merge', '-q', '--no-ff', '-m', `merge ${id}`, name], { cwd: root }); git(['push', '-q', 'origin', 'tranche'], { cwd: root }); }
+  git(['fetch', '-q', 'origin'], { cwd: root });
+}
+
+test('item 1: one page of list_sessions stands when it holds every session the record knows; refused only when one could be missing', () => {
+  const root = withOrigin({ 'process/ledger/a.json': entry('a'), 'process/ledger/b.json': entry('b'), 'process/ledger/c.json': entry('c') });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  jobBranch(root, 'b', startRow('b', 1), { merged: true }); // merged: its sessions are not the record's open ones
+  jobBranch(root, 'a', startRow('a', 3) + JSON.stringify({ at: iso(5), module: 'a', row: 'restart', why: 'stopped' }) + '\n');
+  assert.deepEqual(recordedStarts(root, { offline: true }), [{ id: 'a', first: iso(3), count: 2 }]);
+  const dir = mkdtempSync(join(tmpdir(), 'p3-sessions-'));
+  const file = join(dir, 's.json');
+  const page = (data) => { writeFileSync(file, JSON.stringify({ ccr: { data, has_more: true, last_id: data.at(-1)?.id } })); return file; };
+  const s = (id, title, h, st = 'SESSION_STATUS_IDLE') => ({ id, title, session_status: st, created_at: iso(h), updated_at: iso(h) });
+  // Newest first, reaching back to 04:00 only: a's first session (started 03:00) could be on the next page.
+  const short = [s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1)];
+  assert.throws(() => readSessions(page(short), { root, offline: true }), /has_more\), and a recorded job session could be on them \(job a: 2 sessions started since 2026-11-05T03:00:00\.000Z\).*or until a page reaches past 2026-11-05T03:00:00\.000Z/);
+  // Both of a's sessions listed: covered.
+  assert.equal(readSessions(page([...short, s('s7', 'job a', 3.1, 'SESSION_STATUS_ARCHIVED')]), { root, offline: true }).length, 3);
+  // Reaching past a's first start (its first session archived and paged out): covered.
+  assert.equal(readSessions(page([...short, s('s6', 'other', 2)]), { root, offline: true }).length, 3);
+  // A session with no creation time reaches back nowhere; and without the record, a page is refused as before.
+  assert.throws(() => readSessions(page([...short, { id: 's5', title: 'x' }]), { root, offline: true }), /could be on them/);
+  assert.throws(() => readSessions(page([...short, s('s6', 'other', 2)])), /list_sessions has more pages \(has_more\): call it with limit 100/);
+  // A full list is read as it always was.
+  writeFileSync(file, JSON.stringify({ data: short, has_more: false }));
+  assert.equal(readSessions(file, { root, offline: true }).length, 2);
+});
+
+test('item 3: a role\'s start check re-anchors as job start does: a tranche merge between create_session and the check moves HEAD to the tip; changed approvals still fail', () => {
+  const P3 = join(dirname(fileURLToPath(import.meta.url)), '..', 'p3.mjs');
+  const APPROVALS = '## Standing approvals from Bob\n\nSessions may push.\n';
+  const root = withOrigin({ 'CLAUDE.md': APPROVALS });
+  git(['checkout', '-q', '--detach', 'tranche'], { cwd: root });
+  const other = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'c');
+  git(['clone', '-q', '-b', 'tranche', git(['remote', 'get-url', 'origin'], { cwd: root }), other], { cwd: tmpdir() });
+  for (const [k, v] of [['user.email', 'o@example.com'], ['user.name', 'O'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: other });
+  const move = (files) => { commit(other, files, 'a train merge'); git(['push', '-q', 'origin', 'tranche'], { cwd: other }); };
+  const check = () => spawnSync(process.execPath, [P3, 'start', 'check'], { cwd: root, encoding: 'utf8' });
+  move({ 'src/x.txt': 'merged while the role started' });
+  const r = check();
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /moved to the tip of tranche/);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), git(['rev-parse', 'refs/remotes/origin/tranche'], { cwd: root }));
+  // The approvals changed on the tip: never moved, the check fails.
+  move({ 'CLAUDE.md': APPROVALS.replace('may push', 'may push anywhere') });
+  const head = git(['rev-parse', 'HEAD'], { cwd: root });
+  const changed = check();
+  assert.equal(changed.status, 1);
+  assert.match(changed.stdout, /DIFFERENT from the tip/);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
+});
+
+test('item 5: one git user per clone: BOB\'s rulebook and the review and triage briefs say it; a lock left in a clone is said plainly, stale or held', () => {
+  const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  assert.match(readFileSync(join(repo, 'rulebooks', 'bob.md'), 'utf8'), /One git user per clone at a time: each review or triage worker clones its own, never your checkout/);
+  const review = reviewBrief({ pr: { number: 1, title: 't', base: { ref: 'tranche' }, head: { ref: 'job/a', sha: 'f'.repeat(40) } }, files: [], job: null, owner: 'o', approvalsFile: 'CLAUDE.md' });
+  assert.match(review, /Run git only in a clone of your own .*never in the checkout you were given: one git user per clone at a time/);
+  const triage = triageBrief({ n: { key: 'k', provider: 'p', pr: 1 }, changed: { ids: [], file: 'f' }, mods: [], tranche: 'tranche', sha: 'a'.repeat(40) });
+  assert.match(triage, /Read with git only in a clone of your own .*one git user per clone at a time/);
+  // A real lock in a clone, git refusing on it.
+  const root = makeRepo({ 'a.txt': 'a' });
+  const lock = join(realpathSync(root), '.git', 'index.lock');
+  writeFileSync(lock, '');
+  writeFileSync(join(root, 'a.txt'), 'b');
+  assert.throws(() => git(['add', 'a.txt'], { cwd: root }), (e) => e.message.includes(`No git process runs in this clone, so ${lock} is stale, left by a git command that was killed: remove it (rm '${lock}') and run this again (one git user per clone at a time`));
+  const stderr = `fatal: Unable to create '${lock}': File exists.`;
+  assert.match(lockNote(stderr, root, { procs: () => [realpathSync(root)] }), /1 other git process still runs in this clone and holds .*index\.lock .*run this again once it ends/);
+  assert.match(lockNote(stderr, root, { procs: () => null }), /is held by another git command in this clone or left by a killed one/);
+  assert.match(lockNote('fatal: shallow file has changed since we read it', root), /Another git command changed this clone's shallow file while this one ran/);
+  assert.equal(lockNote('fatal: something else', root), '');
+});

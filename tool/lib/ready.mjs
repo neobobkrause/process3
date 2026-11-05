@@ -123,7 +123,7 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   try { saved = sessions === undefined ? null : statSync(sessions).mtimeMs; } catch { readSessions(sessions); }
   if (saved !== null && Date.now() - saved > SESSIONS_FRESH_MIN * 6e4) fail(`--sessions ${sessions} was saved over ${SESSIONS_FRESH_MIN} min ago: save list_sessions again now, then run this`);
   const gone = new Set([].concat(archived ?? []).filter((x) => typeof x === 'string'));
-  const listed = sessions === undefined ? null : readSessions(sessions).map((x) => (gone.has(sessionId(x)) ? { ...x, session_status: 'archived' } : x));
+  const listed = sessions === undefined ? null : readSessions(sessions, { root }).map((x) => (gone.has(sessionId(x)) ? { ...x, session_status: 'archived' } : x));
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
   const n = listed ? sessionsCount(listed, live, log) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the account\'s job sessions list_sessions shows (titled job <id>, every product; roles, builds and others not counted), or --sessions <file>, so the cap holds');
@@ -228,7 +228,7 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
 // checks it, the account's job sessions against the cap less the slots recorded holds keep.
 export function capCheck(root, { live, sessions } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
-  const listed = sessions === undefined ? null : readSessions(sessions);
+  const listed = sessions === undefined ? null : readSessions(sessions, { root });
   const n = listed ? sessionsCount(listed, live, () => {}) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start <id> --live <n> (or --sessions <file>): the account\'s job sessions, so the job cap holds as it does for job start --ready');
   const cfg = loadConfig(root);
