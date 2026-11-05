@@ -10,13 +10,15 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, createPR, editPR, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
 import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, bobWake, toolPin } from './job.mjs';
 import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
+import * as mergeLib from './merge.mjs';
+import { admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specBase, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
@@ -34,6 +36,7 @@ export const NOTES_FILE = 'metrics/train-notes.jsonl'; // a pull request's revie
 export const MERGER_FILE = 'metrics/merger.jsonl'; // lease takeovers, the merger's context
 export const LEASE_FILE = 'merger/lease.json';
 export const PLAIN_FILE = 'merger/plain.jsonl'; // plain pull requests queued for the train, and their withdrawals
+export const WINDOW_FILE = 'metrics/train-window.jsonl'; // the window's spec builds, closes, lands and fallbacks (window.mjs)
 export const TRAIN_USAGE = 'merge train --session <id> [--once] | merge train note <pr> ... | merge train beat --session <id> --context <pct> | merge train release --session <id> | merge train report';
 export const LEASE = { renew: 5, expire: 15 }; // minutes
 export const BASELINES = [
@@ -78,8 +81,10 @@ function flushPending(root, ctx) {
   for (const p of ctx.pending.splice(0)) {
     // A write reported failed may have landed (a 5xx push whose read-back failed too): a row already
     // there, the same row (its time, PR and result), is not written again (review of build train-robust).
-    const same = (r) => r.at === p.row.at && r.pr === p.row.pr && r.result === p.row.result && r.row === p.row.row;
-    try { writeState(root, ctx.cfg.state_branch, p.msg, (wt) => { const f = join(wt, TRAIN_FILE); if (!jsonl(existsSync(f) ? readFileSync(f, 'utf8') : '').some(same)) append(wt, TRAIN_FILE, { ...p.row, late: now() }); }); ctx.log(`the train's row for PR ${p.row.pr} (${p.row.result}) is written, late`); } catch (e) {
+    // A window row (p.file) waits here too, kept the same way.
+    const same = (r) => r.at === p.row.at && r.pr === p.row.pr && r.result === p.row.result && r.row === p.row.row && r.event === p.row.event;
+    const file = p.file || TRAIN_FILE;
+    try { writeState(root, ctx.cfg.state_branch, p.msg, (wt) => { const f = join(wt, file); if (!jsonl(existsSync(f) ? readFileSync(f, 'utf8') : '').some(same)) append(wt, file, { ...p.row, late: now() }); }); ctx.log(`the train's row for PR ${p.row.pr} (${p.row.result ?? p.row.event}) is written, late`); } catch (e) {
       if (!(e instanceof Fail) || e instanceof Stop) throw e;
       left.push(p);
     }
@@ -482,18 +487,22 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   const tick = (l) => {
     log(l);
     ctx.renew();
-    if (ctx.pipeline && ctx.prepared === null && /^waiting for (the )?gate/.test(l)) prepare(root, ctx, c.n);
+    if (ctx.pipeline && !(ctx.k > 1) && ctx.prepared === null && /^waiting for (the )?gate/.test(l)) prepare(root, ctx, c.n); // the window gates the next ones already
   };
   const free = ctx.diskFree(root);
   if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
-  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, named: !!c.named, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free };
+  const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, named: !!c.named, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free, spec_fast: null };
   let r = null;
   try {
-    r = merge(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, transient: ctx.transient, log: tick, onGate: (tip) => hold(root, ctx, c, tip), ...(c.held ? { noPush: true } : {}), beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
+    // A window's head lands on the spec it gated (merge.mjs: the trailer and the fast path only when
+    // the land's tree is the tree the spec gate tested, records aside; else the full re-gate).
+    r = (ctx.merge || merge)(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, transient: ctx.transient, log: tick, onGate: (tip) => hold(root, ctx, c, tip), ...(c.held ? { noPush: true } : {}), ...(c.spec ? { spec: c.spec } : {}), beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
     row.result = 'merged';
     row.merged_at = now();
     row.green_to_merged = mins(Date.parse(c.green_at), Date.now());
     row.queue_at_end = ctx.prepared?.depth ?? null;
+    // The report's count of spec-tested lands against fallbacks (condition 4); null: not a window land.
+    if (c.spec) { row.spec_pr = c.spec.pr; row.spec_fast = r?.spec?.fast === true; if (!row.spec_fast) row.spec_why = r?.spec?.why || 'merge gave no spec answer'; }
   } catch (e) {
     if (!(e instanceof Fail) || e instanceof Stop) throw e; // a lost lease, changed approvals: never land past it
     row.result = lasting(e.message) ? 'refused' : 'retry';
@@ -521,6 +530,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     const cause = r?.merged ? 'landed' : row.result === 'refused' ? `refused: ${row.why}` : row.to_bob ? `handed to BOB after ${RETRIES_TO_BOB} tries: ${row.why}` : HOLD_ENDS.test(row.why || '') ? row.why : null;
     if (cause) unhold(root, ctx, ctx.inflight, cause);
   }
+  if (c.spec) specDone(root, ctx, c, r, row);
   // BOB's acts after a merge (the triage the notice owes, the ready jobs' start), sent, not taken.
   if (r?.merged) {
     const acts = firstActs(r.triage).map((l) => l.replace(/^(first|then): /, '')).join('; then ');
@@ -574,7 +584,9 @@ function heldPass(root, ctx, h, { idle }) {
   if (anc === 1) { unhold(root, ctx, h, 'tranche moved'); return false; }
   if (anc !== 0) { ctx.log(`PR ${h.pr}'s held tip ${String(h.tip).slice(0, 10)} is not readable in this clone this pass: the hold stands; read again next pass`); return true; }
   if ((ctx.backoff.get(`${h.pr}@${h.tip}`)?.until || 0) > Date.now()) return true; // tried again after its wait; nothing else meanwhile
-  mergeOne(root, ctx, { n: h.pr, id: h.module || branchModule(pr.head.ref, ledgerIds(root, `origin/${cfg.tranche}`)), head: h.tip, ref: pr.head.ref, run: null, green_at: null, held: true }, { queue: 0, idle });
+  // The window's head, landing under its hold, still lands on its spec (and its rows say so).
+  const w0 = ctx.window?.[0]?.n === h.pr ? ctx.window[0] : null;
+  mergeOne(root, ctx, { n: h.pr, id: h.module || branchModule(pr.head.ref, ledgerIds(root, `origin/${cfg.tranche}`)), head: h.tip, ref: pr.head.ref, run: null, green_at: null, held: true, ...(w0 ? { spec: { pr: w0.spec_pr, sha: w0.result } } : {}) }, { queue: 0, idle });
   return true;
 }
 
@@ -767,7 +779,7 @@ function plainOne(root, ctx, q, { queue, idle }) {
   const tick = (l) => {
     log(l);
     ctx.renew();
-    if (ctx.pipeline && ctx.prepared === null && /^waiting for (the )?gate/.test(l)) prepare(root, ctx, q.pr);
+    if (ctx.pipeline && !(ctx.k > 1) && ctx.prepared === null && /^waiting for (the )?gate/.test(l)) prepare(root, ctx, q.pr);
   };
   const free = ctx.diskFree(root);
   if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${q.pr}. Delete what is not needed (old clones, caches), then run the train again`);
@@ -836,7 +848,7 @@ export function train(root, opts = {}) {
   const session = opts.session;
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
-  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, createPR, editPR, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   // The batched reads: GitHub's at once, or, where a caller gives its own single read, that one in turn.
   const given = opts.io || {};
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
@@ -844,6 +856,8 @@ export function train(root, opts = {}) {
   if (!given.commentsMany) io.commentsMany = given.comments ? (s, ns) => ns.map((n) => { try { return io.comments(s, n) || []; } catch { return null; } }) : commentsMany;
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], inflight: null, transient: opts.transient, bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
+  // The window (window.mjs), only past 1: merge and the merged-result build are given by a test.
+  Object.assign(ctx, { k: cfg.merge_train_window || 1, merge: opts.merge || merge, build: opts.build || buildResult, window: [], windowRows: [], causes: new Map(), seqs: new Map(), buildFailed: new Set() });
   ctx.onQueue = opts.onQueue; // a test reads the queue each round
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
   const { takeover, dead } = takeLease(root, cfg, session, ctx.token, { take: true });
@@ -865,6 +879,7 @@ export function train(root, opts = {}) {
     }
     git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root });
     ctx.approvals = approvalsHash(root, `refs/remotes/origin/${cfg.tranche}`);
+    if (ctx.k > 1) restoreWindow(root, ctx);
     return loop(root, ctx, { once, idleEvery, rounds: opts.rounds });
   } catch (e) {
     ctx.lost = e instanceof Stop && /lease/.test(e.message);
@@ -912,24 +927,29 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
     // A queued plain pull request goes before every job (its caller waits): oldest first.
     const plain = timed(ctx, 'plain', () => plainReady(root, ctx));
     expirePlain(root, ctx);
-    const list = plain.length ? [] : ready(root, ctx);
+    // Past a window of 1, the window's pass picks (windowPass): ready() runs inside it.
+    const win = ctx.k > 1;
+    const list = plain.length || win ? [] : ready(root, ctx);
     const ms = Date.now() - t0;
     if (passes++ === 0 || ms >= STEPS_SAID_MS) {
       for (const [name, t] of ctx.steps) log(`train step ${name}: ${t} ms`);
       log(`train pass: ${ms} ms to the pick (${list.length} ready${plain.length ? `, ${plain.length} plain` : ''})`);
     }
     const first = list.find((c) => c.n === ctx.prepared?.n) || list[0];
-    ctx.onQueue?.(list);
+    if (!win) ctx.onQueue?.(list);
+    let landed = false;
     if (plain.length) {
       plainOne(root, ctx, plain[0], { queue: plain.length, idle: mins(idleFrom, Date.now()) });
       idleFrom = Date.now();
+    } else if (win) {
+      if ((landed = windowPass(root, ctx, { idle: mins(idleFrom, Date.now()) }))) idleFrom = Date.now();
     } else if (first) {
       mergeOne(root, ctx, first, { queue: list.length, idle: mins(idleFrom, Date.now()) });
       idleFrom = Date.now();
     } else ctx.prepared = null;
     if (once || --rounds <= 0) return { rows: ctx.rows }; // rounds: a bounded run, for tests
     if (Math.floor(Date.now() / 36e5) !== hour) { hour = Math.floor(Date.now() / 36e5); log(`hourly: record your context: ${P3} merge train beat --session ${session} --context <percent>`); }
-    if (!first && !plain.length) sleep(idleEvery);
+    if (!first && !plain.length && !landed) sleep(idleEvery);
   }
 }
 

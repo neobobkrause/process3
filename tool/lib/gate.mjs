@@ -66,17 +66,19 @@ export function gateConfig(root, { base, head, branch, slug, io = ghIO }) {
 // The gate never posts: its token can only read, and job post writes the comment from the run's
 // artifact (setup audit, 2 Nov).
 export function gate(root, opts) {
-  const { base, head, branch, pr, draft: eventDraft = false, started = Date.now(), io = ghIO, exec, log = console.log } = opts;
+  const { base, head, branch: eventBranch, pr, draft: eventDraft = false, started = Date.now(), io = ghIO, exec, log = console.log } = opts;
   const slug = opts.slug || repoSlug(root);
-  const { cfg, findings, bootstrap } = gateConfig(root, { base, head, branch, slug, io }); // the trusted side
+  // A spec head is never the tranche, so the bootstrap reads the event's branch either way.
+  const { cfg, findings, bootstrap } = gateConfig(root, { base, head, branch: eventBranch, slug, io }); // the trusted side
   if (bootstrap) log(`the base has no Process3: the gate runs with the head's ${RUN_KEYS.join(', ')}, its anchored keys held`);
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const mb = git(['merge-base', head, base], { cwd: root });
   const changed = diffNames(root, mb, head);
   let gatePassed = null; // the ids the gate's own suite run saw pass (the receipt check)
-  const runRow = { sha: head, base, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
-  const all = pr ? io.comments(slug, pr) : [];
-  const prior = gateRuns(all);
+  // tree: what this run tests, the checkout (GitHub's merge of the head into the base) as it is
+  // before anything runs. A spec-tested fast path stands on a row only for the tree it names.
+  const tree = git(['rev-parse', 'HEAD^{tree}'], { cwd: root });
+  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   // The pull request as it is now. Its draft state is read live, not from the event (the gate
   // race, measured on the copy 4 Nov, PRs 55, 61, 62, 63): job complete pushes, then marks
   // ready, so one head gets a synchronize run whose payload says draft and a ready_for_review
@@ -84,16 +86,43 @@ export function gate(root, opts) {
   // was kept it skipped the suite and the receipt, and a re-run replays the same payload. Read
   // live, whichever run is kept judges the pull request as it is. A failed read stops the run.
   const live = pr ? io.getPR(slug, pr) : null;
-  const draft = typeof live?.draft === 'boolean' ? live.draft : eventDraft;
-  if (draft !== eventDraft) {
+  const entries = entriesAt(root, head);
+  // Spec mode (train-spec C'): a draft PR from train/head/<n>-<seq> into train/spec/<n>-<seq>
+  // (base ref read from the live PR, so the workflow passes nothing new) tests job PR n's change
+  // merged onto the window ahead of it. It is judged exactly as job PR n's own gate would judge
+  // it: n's branch, draft state and receipt (by n's opener), and no record fast path, since its
+  // prior runs are another tree's. Only an open job PR into the tranche, from a job branch of this
+  // repository, whose head is in the spec head, is judged so; anything else is red, and nothing
+  // more runs (a spec that is not the job's change has nothing to test).
+  const spec = specRefs(live?.base?.ref, eventBranch);
+  let branch = eventBranch;
+  let jpr = null;
+  let specWhy = null;
+  if (spec) {
+    runRow.spec = { pr: spec.pr, seq: spec.seq };
+    jpr = io.getPR(slug, spec.pr);
+    const ref = jpr?.head?.ref;
+    specWhy = !jpr ? 'could not be read'
+      : jpr.state !== 'open' ? `is ${jpr.merged ? 'merged' : jpr.state || 'not open'}`
+        : jpr.base?.ref !== cfg.tranche ? `is into ${jpr.base?.ref}, not the tranche ${cfg.tranche}`
+          : jpr.head?.repo?.full_name !== slug ? `is not from a branch of ${slug}`
+            : !branchModule(ref, new Set(entries.map((e) => e.id))) ? `is from ${ref}, not a job branch`
+              : !isAnc(root, jpr.head?.sha, head) ? `has head ${String(jpr.head?.sha).slice(0, 10)}, which is not in the spec head ${String(head).slice(0, 10)}` : null;
+    if (specWhy) findings.push(F('spec', '(spec)', `spec run for job PR ${spec.pr} (${eventBranch}): job PR ${spec.pr} ${specWhy}, so this is not that job's change to test`));
+    else { branch = ref; log(`spec run: judged as job PR ${spec.pr} (${ref}) merged onto ${live.base.ref}`); }
+  }
+  const draft = spec ? specWhy !== null || jpr.draft !== false : typeof live?.draft === 'boolean' ? live.draft : eventDraft;
+  if (!spec && draft !== eventDraft) {
     // Kept in the row too, so a run the race touched is visible without its log (review 1 of PR 74).
     runRow.event_draft = eventDraft;
     log(`the pull request is ${draft ? 'a draft' : 'ready'} now; the event said ${eventDraft ? 'draft' : 'ready'}: the gate judges it as it is now`);
   }
-  // The receipt is read only from the pull request's opener (review of PR 13).
-  const receipt = pr ? latestReceipt(all, opts.opener ?? live?.user?.login) : null;
+  const all = !pr ? [] : spec ? (specWhy ? [] : io.comments(slug, spec.pr)) : io.comments(slug, pr);
+  const prior = spec ? [] : gateRuns(all);
+  // The receipt is read only from the pull request's opener (review of PR 13); in spec mode, the
+  // job PR's.
+  const receipt = pr ? latestReceipt(all, opts.opener ?? (spec ? jpr?.user?.login : live?.user?.login)) : null;
 
-  const entries = entriesAt(root, head);
   const job = branchModule(branch, new Set(entries.map((e) => e.id)));
   const entry = job ? entries.find((e) => e.id === job) || null : null;
   if (job && !entry) findings.push(F('ledger', entryFile(job), `branch ${branch} has no ledger entry`));
@@ -147,8 +176,24 @@ export function gate(root, opts) {
     ? measuredBy(root, cfg, jobReceipt, lastGreen) : null;
   const receiptRun = !!jobReceipt && (recordOnly || sinceGreen) && !stands?.ok;
 
-  if (recordOnly && !jobReceipt) runRow.trigger = 'record';
+  // The land of a spec-tested job (merge, train-spec C'): its head is the merged result built on
+  // the real tranche, whose tree is the one a green spec run tested, records aside. Asked for by
+  // the head's Spec-Tested trailer, judged here (specTested); anything short of that runs as it
+  // would have without it.
+  const fast = !spec && jobReceipt && !(sinceGreen && !receiptRun) ? specTested(root, cfg, { slug, io, pr, base, head, tree, receipt: jobReceipt, job }) : null;
+  if (fast && !fast.ok) log(`Spec-Tested is not taken: ${fast.why}; the gate runs as it would without it`);
+
+  if (!spec && recordOnly && !jobReceipt) runRow.trigger = 'record';
   else if (draft) runRow.trigger = 'draft';
+  else if (fast?.ok) {
+    // The spec run's suite, revert and receipt stand for this tree; ownership, ledger and
+    // imports above were judged on this pull request as usual.
+    const r = fast.row;
+    runRow.trigger = 'spec-tested';
+    for (const k of ['suite', 'scope', 'tests', 'base_red', 'revert', 'inert', 'load_only', 'smoke', 'receipt', 'receipt_attempt', 'receipt_passed']) if (r[k] !== undefined) runRow[k] = r[k];
+    Object.assign(runRow, { spec_pr: fast.n, spec_run: r.run_id, spec_sha: r.sha });
+    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside: no suite runs`);
+  }
   else if (sinceGreen && !receiptRun) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
     runRow.trigger = 'code';
@@ -283,9 +328,13 @@ export function gate(root, opts) {
       const red = measured?.ok ? lastGreen.base_red : runRow.base_red;
       // The excused tests the gate's run saw pass (copy plane PR 175: three failed in the job's
       // container and passed on the runner); kept in the row for a records-only run after it.
+      // spec-tested: the spec run's suite, base-red and kept passes (carried into this row) are
+      // what this receipt is checked against, as a measured run's are.
+      const carried = runRow.trigger === 'spec-tested';
       const passed = measured?.ok ? (Array.isArray(lastGreen.receipt_passed) ? lastGreen.receipt_passed : [])
-        : [...new Set(claimedRed(claimed))].filter((t) => gatePassed?.has(t));
-      if (!measured?.ok && passed.length) runRow.receipt_passed = passed;
+        : carried ? (Array.isArray(runRow.receipt_passed) ? runRow.receipt_passed : [])
+          : [...new Set(claimedRed(claimed))].filter((t) => gatePassed?.has(t));
+      if (!measured?.ok && !carried && passed.length) runRow.receipt_passed = passed;
       runRow.receipt = !onBranch ? 'wrong commit'
         : measured && !measured.ok ? 'unmeasured'
           : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red, passed) ? 'agrees' : 'disagrees';
@@ -299,6 +348,57 @@ export function gate(root, opts) {
   runRow.ok = findings.length === 0;
   runRow.minutes = Math.round(((Date.now() - started) / MINUTE) * 100) / 100;
   return { run: runRow, findings, changed };
+}
+
+// The spec pair (train-spec C'): base train/spec/<n>-<seq>, head train/head/<n>-<seq>, the same
+// job PR n and build seq on both, in canonical decimal. { pr, seq }, or null.
+export const SPEC_REF = /^train\/(spec|head)\/(\d+)-(\d+)$/;
+export function specRefs(baseRef, headRef) {
+  const b = SPEC_REF.exec(typeof baseRef === 'string' ? baseRef : '');
+  const h = SPEC_REF.exec(typeof headRef === 'string' ? headRef : '');
+  if (!b || !h || b[1] !== 'spec' || h[1] !== 'head' || b[2] !== h[2] || b[3] !== h[3]) return null;
+  const pr = Number(b[2]);
+  const seq = Number(b[3]);
+  return pr > 0 && Number.isSafeInteger(pr) && Number.isSafeInteger(seq) && String(pr) === b[2] && String(seq) === b[3] ? { pr, seq } : null;
+}
+const treeOf = (root, sha) => git(['rev-parse', `${sha}^{tree}`], { cwd: root, allowFail: true }).stdout?.trim() || null;
+const committed = (root, sha) => /^[0-9a-f]{40}$/.test(String(sha)) && git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+const blobAt = (root, ref, f) => { const r = git(['rev-parse', `${ref}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; };
+
+// The spec-tested fast path: the head's commit message carries the trailer Spec-Tested: <s>, and
+// spec PR s (a spec pair for this job PR, from this repository) holds a run that tested exactly
+// this tree. The run is s's newest row that is green, ran the code path as this job (spec.pr),
+// agreed with this job's current receipt attempt, names the tree of its own commit (its spec base
+// was the head's ancestor, so GitHub's merge was that commit's tree), and verifies as s's run
+// into its spec base. This head differs from that commit only in record paths, with the same
+// ledger entry and base config, and this run's checkout is this head's tree (the tranche is the
+// head's ancestor: what lands is these bytes). Any doubt is a full run (coordinator's ruling,
+// 5 Nov). { ok, n, row }, { ok: false, why }, or null when no trailer asks for it.
+export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt, job }) {
+  const no = (why) => ({ ok: false, why });
+  const t = git(['log', '-1', '--format=%(trailers:key=Spec-Tested,valueonly)', head], { cwd: root }).split('\n').map((x) => x.trim()).filter(Boolean);
+  if (!t.length) return null;
+  if (t.length !== 1 || !/^[1-9]\d*$/.test(t[0])) return no(`the head's Spec-Tested trailer is not one pull request number (${printable(t.join(', '), 60)})`);
+  const n = Number(t[0]);
+  if (tree !== treeOf(root, head)) return no(`this run's checkout is not ${String(head).slice(0, 10)}'s tree: the tranche is not its ancestor`);
+  const sp = io.getPR(slug, n);
+  const refs = specRefs(sp?.base?.ref, sp?.head?.ref);
+  if (!refs || refs.pr !== pr || sp.head?.repo?.full_name !== slug) return no(`PR ${n} is not a spec pull request of PR ${pr} in ${slug}`);
+  const ctx = { pr: n, baseRef: sp.base.ref };
+  const row = gateRuns(io.comments(slug, n) || [])
+    .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
+    .reverse().find((r) => committed(root, r.sha) && typeof r.tree === 'string' && r.tree === treeOf(root, r.sha) && io.verify(slug, r, ctx));
+  if (!row) return no(`spec PR ${n} has no verified green code run of ${job}, on its own commit's tree, agreeing with receipt attempt ${receipt.attempt}`);
+  const at = String(row.sha).slice(0, 10);
+  const off = diffNames(root, row.sha, head).filter((f) => !isRecordPath(cfg, f));
+  if (off.length) return no(`the head differs from ${at}, which spec PR ${n}'s run ${row.run_id} tested, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
+  // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
+  if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
+  if (blobAt(root, row.base, CONFIG_FILE) !== blobAt(root, base, CONFIG_FILE)) return no(`the base's ${CONFIG_FILE} differs from the spec run's`);
+  if (row.revert === 'exempt' && !receipt.exempt?.revert) return no(`spec PR ${n}'s run passed its revert check by an exemption this receipt does not claim`);
+  const kept = Array.isArray(row.receipt_passed) ? row.receipt_passed : [];
+  if (!receiptAgrees(receipt.commands?.find((c) => c.suite), row.suite, row.base_red, kept)) return no(`the receipt does not agree with spec PR ${n}'s run ${row.run_id}`);
+  return { ok: true, n, row };
 }
 
 // The receipt against the gate's suite. A base-red suite (basered.mjs) agrees with a receipt
@@ -467,11 +567,31 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   if (!row || !row.ok || !bound(row)) return no(`is PR ${n}'s merge, but the newest gate run on its merged result ${p2.slice(0, 10)} is ${row ? (row.ok ? 'not bound to the PR or not verified' : 'red') : 'missing'}`);
   const tested = row.trigger === 'record-since-green'
     ? runs.filter((r) => r.sha === row.after).reverse().find((r) => suiteRan(r) && bound(r))
-    : suiteRan(row) ? row : null;
+    : row.trigger === 'spec-tested' ? specRan(root, cfg, { slug, io, n, row, head: p2, suiteRan })
+      : suiteRan(row) ? row : null;
   if (!tested) return no(`is PR ${n}'s merge, but no verified green run of the ${id} suite stands behind its merged result`);
   const e = git(['show', `${p1}:${entryFile(id)}`], { cwd: root, allowFail: true });
   if (e.code !== 0) return no(`is PR ${n}'s merge, but the tranche had no ledger entry for ${id}`);
   return { ok: true, pr: n, id, own: ownPaths(JSON.parse(e.stdout)) };
+}
+
+// The spec run a spec-tested row names (row.spec_pr, spec_run, spec_sha; held in the row's own
+// artifact, verifyRow): a spec pair for job PR n, from this repository, whose run of that id on
+// that commit judged job PR n, ran its suite green, tested that commit's own tree, differs from
+// the merged result only in records, and verifies as the spec PR's run into its spec base. Once
+// the spec PR is closed GitHub may list no pull request on its runs, as on a merged one's
+// (verifyRow): the run is then bound by its branch, as a merged job PR's is, when every PR from
+// the spec head was into that spec base, never retargeted (branchBound). null when not shown.
+function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
+  const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;
+  const refs = specRefs(sp?.base?.ref, sp?.head?.ref);
+  if (!refs || refs.pr !== n || sp.head?.repo?.full_name !== slug) return null;
+  const ctx = sp.state === 'open' || branchBound(slug, sp.head.ref, row.spec_pr, sp.base.ref, io) ? { pr: row.spec_pr, baseRef: sp.base.ref }
+    : { pr: row.spec_pr, baseRef: sp.base.ref, merged: { branch: sp.head.ref } };
+  const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
+  if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
+    || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || !io.verify(slug, r, ctx)) return null;
+  return r;
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after
@@ -481,7 +601,7 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const ROW = {
   sha: (v) => HEX40.test(v),
   run_id: (v) => Number.isSafeInteger(v) && v > 0,
-  trigger: (v) => ['record', 'draft', 'record-since-green', 'code'].includes(v),
+  trigger: (v) => ['record', 'draft', 'record-since-green', 'code', 'spec-tested'].includes(v),
   findings: (v) => Number.isSafeInteger(v) && v >= 0,
   ok: (v) => typeof v === 'boolean',
   minutes: (v) => Number.isFinite(v) && v >= 0,
