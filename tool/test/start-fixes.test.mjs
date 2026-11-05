@@ -11,6 +11,7 @@ import { batchSetup, startReady } from '../lib/ready.mjs';
 import { found } from '../lib/found.mjs';
 import { startCheck } from '../lib/start.mjs';
 import { flowFigures, quickBlocks } from '../lib/metrics.mjs';
+import { nextWork } from '../lib/status.mjs';
 import { LEASE_FILE, train } from '../lib/train.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { Fail, fail, git, loadConfig } from '../lib/util.mjs';
@@ -124,10 +125,11 @@ test('flow: started then blocked within 15 min, its count and share by module, f
   c('job start a (attempt 1)', 0); c('block a: its provider p is not merged', 6); c('job start a (attempt 2)', 60); c('block a: still waiting', 90);
   git(['checkout', '-q', '-b', 'job/b', 'main'], { cwd: root });
   c('job start b (attempt 1)', 0); c('work', 5); c('block b: a question', 20);
-  const refs = new Map([['a', 'job/a'], ['b', 'job/b'], ['z', null]]);
-  refs.branches = (m) => (m === 'z' ? [] : [`refs/heads/job/${m}`]);
+  const refs = new Map([['a', 'job/a'], ['b', 'job/b'], ['y', 'job/y']]);
+  refs.branches = (m) => [`refs/heads/job/${m}`];
+  refs.unread = ['z']; // fetchJobs: a module whose fetch failed
   const q = quickBlocks(root, refs, { from: at(-1), to: at(120) });
-  assert.deepEqual(q, { minutes: 15, starts: 3, blocked: 1, share: 0.33, by_module: [{ module: 'a', starts: 2, blocked: 1 }], unread: ['z'] });
+  assert.deepEqual(q, { minutes: 15, starts: 3, blocked: 1, share: 0.33, by_module: [{ module: 'a', starts: 2, blocked: 1 }], unread: ['z', 'y'] });
   assert.equal(quickBlocks(root, refs, { from: at(30), to: at(120) }).blocked, 0, 'only starts in the window');
   assert.equal(quickBlocks(root, undefined, {}), null);
   assert.deepEqual(flowFigures({ quick: q, from: at(0), to: at(1) }).started_then_blocked, q);
@@ -148,4 +150,36 @@ test('job start --ready: the live count is read fresh at the pass\'s start; a st
   const old = (Date.now() - 11 * 60000) / 1000;
   utimesSync(file, old, old);
   assert.throws(() => go({}), /saved over 10 min ago: save list_sessions again now/);
+  assert.throws(() => go({ sessions: undefined, live: 9, archived: ['session_j0'] }), /--archived <id> goes with --sessions <file>/);
+  assert.throws(() => go({ sessions: `${file}.missing` }), /not a readable JSON file/);
+});
+
+test('next work: an open-layer module waits while a provider in the layer map has its job open or busy (copy, 5 Nov: agent-steps reopened while agent-model and agent-harness were open)', () => {
+  const R = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* r\n`).join('');
+  const root = makeRepo({
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 6 | ai | base, model, harness, steps, other |\n',
+    'build/modules.json': { modules: [{ id: 'base', uses: [] }, { id: 'model', uses: ['base'] }, { id: 'harness', uses: [] }, { id: 'steps', uses: ['model', 'harness', 'base'] }, { id: 'other', uses: ['base'] }] },
+    'build/requirements/base.md': '- **R1** met\n', 'build/requirements/model.md': '- **R1** met\n', 'build/requirements/harness.md': '- **R1** met\n',
+    'build/requirements/steps.md': R(2), 'build/requirements/other.md': R(1),
+  });
+  const cfg = { ...loadConfig(root), modules_file: 'build/modules.json', requirements_cap: 1e6 };
+  const fresh = { tranche: 'OPEN', pr: undefined, unstarted: true };
+  const row = (id, o) => ({ id, req: `build/requirements/${id}.md`, tranche: 'COMPLETE', pr: 'merged', ...o });
+  const files = (rows) => { const out = []; return [nextWork(root, cfg, rows, null, { log: (l) => out.push(l) }).map((x) => x.file), out.join('\n')]; };
+  // model reopened (its PR open), harness COMPLETE with a commit on its branch and GitHub unread (offline).
+  const [held, said] = files([row('base'), row('model', { pr: '#395 draft', ahead: 2 }), row('harness', { pr: 'unknown (GitHub not read)', ahead: 1 }), row('steps', fresh), row('other', fresh)]);
+  assert.deepEqual(held, ['build/requirements/other.md']);
+  assert.match(said, /waits for its providers: build\/requirements\/steps\.md uses model, harness, not done/);
+  // The pr unknown and the branch unread: not done either.
+  const u = files([row('base'), row('model'), row('harness', { pr: 'unknown (GitHub not read)' }), row('steps', fresh), row('other', fresh)]);
+  assert.deepEqual(u[0], ['build/requirements/other.md'], u[1]);
+  // An entry BOB wrote outside the open layer waits on its providers' open jobs too (not on their marks).
+  commit(root, { 'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 6 | ai | base, model, harness, other |\n| 7 | later | steps |\n' });
+  const [later, why] = files([row('base'), row('model', { pr: '#395 draft', ahead: 2 }), row('harness'), row('steps', fresh), row('other', fresh)]);
+  assert.deepEqual(later, ['build/requirements/other.md']);
+  assert.match(why, /waits for its providers: build\/requirements\/steps\.md \(entered\) uses model, their jobs open/);
+  assert.ok(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0].includes('build/requirements/steps.md'));
+  commit(root, { 'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 6 | ai | base, model, harness, steps, other |\n' });
+  // Both merged: steps is work.
+  assert.deepEqual(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0], ['build/requirements/other.md', 'build/requirements/steps.md']);
 });

@@ -118,7 +118,10 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   // The live count read once, fresh, at the pass's start (copy, 5 Nov 03:40: 12 counted from an
   // earlier read, 9 live): a --sessions file saved over SESSIONS_FRESH_MIN ago is refused, and the
   // sessions archived since it was saved (--archived <id>) count as archived.
-  if (sessions !== undefined && Date.now() - statSync(sessions).mtimeMs > SESSIONS_FRESH_MIN * 6e4) fail(`--sessions ${sessions} was saved over ${SESSIONS_FRESH_MIN} min ago: save list_sessions again now, then run this`);
+  if (archived !== undefined && [].concat(archived).length && sessions === undefined) fail('--archived <id> goes with --sessions <file>: with --live <n>, count n after archiving');
+  let saved = null;
+  try { saved = sessions === undefined ? null : statSync(sessions).mtimeMs; } catch { readSessions(sessions); }
+  if (saved !== null && Date.now() - saved > SESSIONS_FRESH_MIN * 6e4) fail(`--sessions ${sessions} was saved over ${SESSIONS_FRESH_MIN} min ago: save list_sessions again now, then run this`);
   const gone = new Set([].concat(archived ?? []).filter((x) => typeof x === 'string'));
   const listed = sessions === undefined ? null : readSessions(sessions).map((x) => (gone.has(sessionId(x)) ? { ...x, session_status: 'archived' } : x));
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.

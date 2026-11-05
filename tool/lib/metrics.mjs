@@ -228,9 +228,8 @@ export function quickBlocks(root, jobRefs, { from, to = now() } = {}) {
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
   let starts = 0;
   const by = [];
-  const unread = new Set();
-  for (const [m, at] of jobRefs) {
-    if (!at) unread.add(m);
+  const unread = new Set(jobRefs.unread || []);
+  for (const [m] of jobRefs) {
     const ev = new Map();
     for (const ref of jobRefs.branches?.(m) || []) {
       const r = git(['-c', 'grep.patternType=basic', 'log', '--format=%H%x09%cI%x09%s', `--grep=^job start ${m} (attempt `, `--grep=^block ${m}: `, ref], { cwd: root, allowFail: true });
