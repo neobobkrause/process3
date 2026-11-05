@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { BOT, GATE, GATE_WORKFLOW, RECEIPT, block, verifyRow } from '../lib/github.mjs';
-import { merge } from '../lib/merge.mjs';
+import { gateRunWhy, merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, honestBranch, makeRepo, write } from './helpers.mjs';
@@ -38,6 +38,7 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
       ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
+      gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
       ...honestBranch([3, 4, 5, 6, 7], 'tranche', 'job/alpha'),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
@@ -95,6 +96,72 @@ test('merge with the real verifyRow: a run on the job branch counts; one at the 
     const go = () => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} });
     if (ok) assert.equal(go().merged, true);
     else { assert.throws(go, /no green process-gate run on .* checked receipt attempt 1 and agreed with it/); assert.equal(f.calls.merged, null); }
+  }
+});
+
+// Issue 3 of the cold review of build/branch-bound: a check run named "gate" is any workflow's job
+// of that name on the commit. The merged result's counts only as the process gate's own job, on the
+// job branch, in this repository, for this pull request into the tranche. The check is read as an
+// Actions job by its own id (cold review of build/gate-check-bind): a check made through the checks
+// API, in the honest run's suite and naming its URL, is no job.
+const TIP = 'f'.repeat(40);
+const gateFixture = () => {
+  const check = { id: 55, app: { slug: 'github-actions' }, status: 'completed', conclusion: 'success', details_url: 'https://github.com/o/r/actions/runs/77/job/55', check_suite: { id: 900 } };
+  const job = { id: 55, run_id: 77, name: 'gate', head_sha: TIP, status: 'completed', conclusion: 'success' };
+  const run = { id: 77, check_suite_id: 900, path: GATE_WORKFLOW, head_sha: TIP, head_branch: 'job/alpha', head_repository: { full_name: 'o/r' }, event: 'pull_request', pull_requests: [{ number: 3, base: { ref: 'tranche' } }], status: 'in_progress' };
+  return { check, job, run };
+};
+test('gateRunWhy binds a "gate" check, read as an Actions job by its own id, to the process gate\'s run on the job branch for this PR, and names what differs', () => {
+  const { check, job, run } = gateFixture();
+  const ctx = { sha: TIP, branch: 'job/alpha', n: 3, base: 'tranche' };
+  const why = (c, j, r) => gateRunWhy('o/r', c, ctx, { getJob: (s, id) => (id === 55 ? j : null), getRun: (s, id) => (id === 77 ? r : null), wait: [] });
+  assert.equal(why(check, job, run), null, 'its run still in progress (its post job) binds: no wait for it');
+  // A check made through the checks API in the honest run's suite, naming its URL: no job by its id.
+  assert.match(why({ ...check, id: 56 }, job, run), /check 56 is no Actions job/);
+  assert.match(why({ ...check, app: { slug: 'other-app' } }, job, run), /is other-app's, not GitHub Actions'/);
+  assert.match(why({ ...check, app: undefined }, job, run), /is no app's/);
+  assert.match(why({ ...check, id: undefined }, job, run), /has no id/);
+  assert.match(why(check, { ...job, name: 'build' }, run), /is job "build"/);
+  assert.match(why(check, { ...job, conclusion: 'failure' }, run), /completed\/failure, not a green gate job/, 'the job\'s own conclusion, not the check\'s');
+  assert.match(why(check, { ...job, head_sha: 'e'.repeat(40) }, run), /on eeeeeeeeee/);
+  assert.match(why(check, { ...job, run_id: 78 }, run), /run 78 could not be read/, 'the run is the job\'s, never the URL\'s');
+  assert.match(why(check, job, { ...run, head_branch: 'y' }), /a job of run 77, not the process gate's on job\/alpha for pull request 3: it ran on o\/r:y/);
+  assert.match(why(check, job, { ...run, head_repository: { full_name: 'fork/r' } }), /it ran on fork\/r:job\/alpha/);
+  assert.match(why(check, job, { ...run, path: '.github/workflows/x.yml' }), /the workflow is \.github\/workflows\/x\.yml/);
+  assert.match(why(check, job, { ...run, head_sha: 'e'.repeat(40) }), /the commit is eeeeeeeeee/);
+  assert.match(why(check, job, { ...run, event: 'push' }), /its event is push/);
+  assert.match(why(check, job, { ...run, pull_requests: [{ number: 3, base: { ref: 'tranche' } }, { number: 9, base: { ref: 'x' } }] }), /its pull requests are 3 into tranche, 9 into x/);
+  assert.match(why(check, job, { ...run, pull_requests: [] }), /its pull requests are none/);
+  assert.match(why({ ...check, check_suite: { id: 901 } }, job, run), /the check is not that run's/);
+  assert.match(why({ ...check, check_suite: undefined }, job, run), /the check is not that run's/);
+  // A failed read is tried again before it refuses (the waits' transient rule, train-inflight).
+  let k = 0;
+  const flaky = { getJob: () => { if (++k < 3) throw new Error('HTTP 503'); return job; }, getRun: () => run, wait: [0, 0], pause: () => {} };
+  assert.equal(gateRunWhy('o/r', check, ctx, flaky), null);
+  assert.equal(k, 3);
+  k = 0;
+  assert.match(gateRunWhy('o/r', check, ctx, { ...flaky, wait: [0] }), /is no Actions job \(or could not be read\)/);
+});
+
+test('merge (its default binding) refuses a merged result whose green "gate" is another branch\'s run, or a check made in the honest run\'s suite, and merges on the process gate\'s own job', () => {
+  for (const kind of ['other branch', 'made check', 'honest']) {
+    const { root, head } = setup();
+    const f = io(head);
+    delete f.io.gateBound; // merge's own default, over io.getJob and io.getRun
+    const { check, job, run } = gateFixture();
+    const tip = () => git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+    f.io.checkRun = () => ({ ...check, ...(kind === 'made check' ? { id: 56 } : {}) });
+    f.io.getJob = (s, id) => (id === 55 ? { ...job, head_sha: tip() } : null);
+    f.io.getRun = (s, id) => (id === 77 ? { ...run, head_sha: tip(), ...(kind === 'other branch' ? { head_branch: 'y' } : {}) } : null);
+    const said = [];
+    const go = () => merge(root, 3, { slug: 'o/r', io: f.io, gateWait: [0], reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => said.push(m) });
+    if (kind === 'honest') {
+      assert.equal(go().merged, true);
+      assert.ok(said.some((m) => /the gate on the merged result is the process gate's run on job\/alpha \(read in \d+\.\d s\)/.test(m)), said.join('\n'));
+    } else {
+      assert.throws(go, kind === 'other branch' ? /not bound to pull request 3: .* it ran on o\/r:y; nothing was merged/ : /not bound to pull request 3: its "gate" check 56 is no Actions job/);
+      assert.equal(f.calls.merged, null, 'GitHub is never asked to merge');
+    }
   }
 });
 

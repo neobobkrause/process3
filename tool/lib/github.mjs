@@ -146,6 +146,8 @@ export function gateRuns(all) {
 // side workflow can post a bot comment, but it cannot upload into another workflow's run.
 export const GATE_WORKFLOW = '.github/workflows/process-gate.yml';
 export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
+// An Actions job by id: a job's id is its check run's id; a check run made through the checks API is no job (404, null).
+export const getJob = (slug, id) => gh(['api', `repos/${slug}/actions/jobs/${id}`], { allowFail: true });
 export function runArtifactRow(slug, id) {
   return withTemp('p3-row-', (dir) => {
     try {

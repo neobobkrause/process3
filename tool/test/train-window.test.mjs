@@ -79,6 +79,7 @@ function github(root, ids) {
       ];
     },
     verify: () => true,
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
     // Every PR from the branch, each into the tranche, none retargeted (github.mjs unbound).
     prsFromBranch: (slug, b) => [...[...jobs.keys()].map(job), ...[...specs.keys()].map(spec)].filter((p) => p.head.ref === b),
     baseEverChanged: () => false,
