@@ -265,10 +265,24 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     // The MERGER (train.mjs): its heartbeat is its lease, renewed every LEASE.renew minutes; one
     // expired means the train is not running, and ROOT replaces the merger. With merge_train in
     // the config, ROOT starts one when none is addressed. One recorded less than LEASE.expire ago may not have started its train yet.
-    const lease = (() => { try { return JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { return null; } })();
-    if (!addr.merger) { if (cfg.merge_train === true) { found.push('no MERGER addressed'); todo.push(`start the MERGER: ${P3} start merger, create_session with the call it prints, then ${P3} start record merger <its id>`); } } else if ((!(Date.parse(lease?.expires) > t) || lease.session !== addr.merger.session) && !(t - Date.parse(addr.merger.at) <= LEASE.expire * 6e4)) {
-      found.push(`MERGER ${addr.merger.session} silent: ${lease ? `its lease ${lease.session === addr.merger.session ? `expired ${lease.expires}` : `is ${lease.session}'s`}` : 'no lease'}`);
-      todo.push(`replace the MERGER: archive_session ${addr.merger.session}, then ${P3} start merger --replace ${addr.merger.session}, create_session with the call it prints, then ${P3} start record merger <its id>`);
+    const readLease = () => { try { return JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { return null; } };
+    let lease = readLease();
+    const lapsed = (l, now) => (!(Date.parse(l?.expires) > now) || l.session !== addr.merger.session) && !(now - Date.parse(addr.merger.at) <= LEASE.expire * 6e4);
+    if (!addr.merger) { if (cfg.merge_train === true) { found.push('no MERGER addressed'); todo.push(`start the MERGER: ${P3} start merger, create_session with the call it prints, then ${P3} start record merger <its id>`); } } else if (lapsed(lease, t)) {
+      // Read again just before the act (copy, 5 Nov 07:56: a live train gating mail-door was
+      // archived on a lapse it renewed past minutes later): the lease fresh from origin, and the
+      // MERGER session's own last update, when list_sessions is given; either within the lease's
+      // period means it runs, and it is reported, not replaced.
+      if (!offline) { try { fetchState(root, sb, { fresh: true }); lease = readLease(); } catch { /* the earlier read stands */ } }
+      const now2 = Date.now();
+      const me = (listed || []).find((x) => x.id === addr.merger.session);
+      const busy = me && !isArchived(me) && now2 - (Date.parse(me.updated_at || '') || 0) <= LEASE.expire * 6e4;
+      if (!lapsed(lease, now2)) found.push(`MERGER ${addr.merger.session}: its lease, read again, is live to ${lease.expires}; not replaced`);
+      else if (busy) found.push(`MERGER ${addr.merger.session}: its lease ${lease ? `expired ${lease.expires}` : 'is gone'}, but its session was active at ${me.updated_at}, within the lease's ${LEASE.expire} min: not replaced; tell the coordinator if the next sweep finds the same`);
+      else {
+        found.push(`MERGER ${addr.merger.session} silent: ${lease ? `its lease ${lease.session === addr.merger.session ? `expired ${lease.expires}` : `is ${lease.session}'s`}` : 'no lease'}`);
+        todo.push(`replace the MERGER: archive_session ${addr.merger.session}, then ${P3} start merger --replace ${addr.merger.session}, create_session with the call it prints, then ${P3} start record merger <its id>`);
+      }
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
     // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.

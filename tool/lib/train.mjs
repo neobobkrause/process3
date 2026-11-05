@@ -410,7 +410,7 @@ export function train(root, opts = {}) {
   ctx.renew = () => { if (Date.now() - ctx.renewed >= LEASE.renew * MIN) { takeLease(root, cfg, session, ctx.token); ctx.renewed = Date.now(); } };
   // Renewed under every command the train runs, not only at its lines (util.mjs heartbeat). A lost
   // lease stops the train there; a renewal that could not be pushed is tried at the next command.
-  const off = heartbeat(() => { try { ctx.renew(); } catch (e) { if (e instanceof Stop || !(e instanceof Fail)) throw e; } });
+  const off = heartbeat(() => { try { ctx.renew(); } catch (e) { if (e instanceof Stop || !(e instanceof Fail)) throw e; ctx.renewed = Date.now() - Math.max(0, LEASE.renew * MIN - 30000); } }); // a failed push: tried again in 30 s
   // Heads refused by an earlier train wait as this one's would (a restart re-sends nothing).
   try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); } catch { /* unread: tried again */ }
   log(`merge train: lease held by ${session}${dead ? ' (taken over from this session\'s train that is no longer running)' : takeover ? ' (taken over from an expired lease)' : ''}`);

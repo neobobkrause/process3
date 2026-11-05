@@ -406,3 +406,33 @@ test('sweep: with merge_train, no MERGER is started; one whose lease lapsed is r
   writeState(root, 'process-state', 'merger', (d) => writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: new Date(Date.now() + 6e5).toISOString() })));
   assert.ok(!run(root).todo.some((t) => /MERGER/.test(t)), 'a live lease is its heartbeat');
 });
+
+// Copy, 5 Nov 07:56:37: ROOT's sweep archived a live MERGER on a lapse its train renewed past.
+test('sweep: before replacing the MERGER it reads the lease again from origin, and leaves one whose session was active within the lease period', () => {
+  const root = withOrigin({ 'process/config.json': { tranche: 'tranche', merge_train: true } });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const M = 'session_merger1';
+  writeState(root, 'process-state', 'merger', (d) => {
+    mkdirSync(join(d, 'addresses'), { recursive: true });
+    writeFileSync(join(d, 'addresses/merger.json'), JSON.stringify({ session: M, at: OLD }));
+    mkdirSync(join(d, 'merger'), { recursive: true });
+    writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: OLD }));
+  });
+  // The session's own last update, within the lease period: reported, not replaced.
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  writeFileSync(file, JSON.stringify({ data: [{ id: M, title: 'MERGER', session_status: 'SESSION_STATUS_RUNNING', created_at: OLD, updated_at: new Date(Date.now() - 6e4).toISOString() }], has_more: false }));
+  const busy = run(root, { sessions: file });
+  assert.ok(!busy.todo.some((t) => /replace the MERGER/.test(t)), busy.todo.join('\n'));
+  assert.ok(busy.found.some((f) => /^MERGER session_merger1: its lease expired .*, but its session was active at .*, within the lease's 15 min: not replaced/.test(f)), busy.found.join('\n'));
+  // The train renews on origin after this clone last read the state branch: read again, not replaced.
+  const other = join(mkdtempSync(join(tmpdir(), 'p3-other-')), 'c');
+  git(['clone', '-q', '-b', 'process-state', git(['remote', 'get-url', 'origin'], { cwd: root }), other], { cwd: tmpdir() });
+  for (const [k, v] of [['user.email', 'o@example.com'], ['user.name', 'O'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: other });
+  commit(other, { 'merger/lease.json': JSON.stringify({ session: M, token: 't', expires: new Date(Date.now() + 6e5).toISOString() }) }, 'renew');
+  git(['push', '-q', 'origin', 'process-state'], { cwd: other });
+  const io = { openPRs: () => [], checkRun: () => null, checkRuns: () => [], compare: () => null, prFiles: () => [], comments: () => [], pins: () => [] };
+  const fresh = run(root, { offline: false, io });
+  assert.ok(!fresh.todo.some((t) => /replace the MERGER/.test(t)), fresh.todo.join('\n'));
+  assert.ok(fresh.found.some((f) => /^MERGER session_merger1: its lease, read again, is live to /.test(f)), fresh.found.join('\n'));
+});
