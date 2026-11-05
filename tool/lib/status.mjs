@@ -18,7 +18,7 @@ import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { holdLines, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
-import { OPEN_BY, UNMET, depth, exists, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
+import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -590,25 +590,30 @@ const noticeWork = (owed, id) => !!owed[id]?.some((n) => n.triage || n.rerun);
 // A provider done: in the layer map, no open job, no found marks, no notice work, and no unmet marks
 // or only those deferred when its layer was recorded closed, unless it is BLOCKED (coordinator, 5
 // Nov: deferred marks do not hold the layer, so they do not hold its users forever either).
-const busy = (r) => !!r && (r.ahead > 0 || !!r.flag || (r.ahead == null && /^unknown/.test(r.pr || '')));
-const doneIn = (ls, owed) => {
+// A provider's job busy beyond what its entry says (its open pull request is m.open): flagged (an
+// unfinished start, commits and no pull request), or offline, GitHub unread, with commits its
+// branch holds that the tranche lacks or none counted (a shallow clone's --depth 1 tranche counts
+// a merged branch ahead, so there the row cannot say). A BLOCKED one, deferred or not, holds nothing.
+const busy = (r, shallow = false) => !!r && !r.blocked && r.flag !== 'BLOCKED' && (!!r.flag || (/^unknown/.test(r.pr || '') && !shallow && !(r.ahead === 0)));
+const doneIn = (ls, owed, shallow = false) => {
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, closed: L.recorded }])));
   // Not done either: a provider whose branch holds commits the tranche lacks (reopened, its pull
   // request open whatever the row's pr says, stale or unknown offline), or flagged.
-  return (id) => { const m = where.get(id); return !!m && !m.open && !busy(m.row) && !m.found.length && !noticeWork(owed, id) && (!m.marks.length || (m.closed && !m.blocked)); };
+  return (id) => { const m = where.get(id); return !!m && !m.open && !busy(m.row, shallow) && !m.found.length && !noticeWork(owed, id) && (!m.marks.length || (m.closed && !m.blocked)); };
 };
 // The open layer's modules, and entries BOB wrote and no job started, wait for their providers
 // too, with open_by "uses" (copy, 5 Nov: agent-steps, layer 6, was reopened at 01:13 while
 // agent-model and agent-harness, its uses in the same layer, were open): each of mods ({ id, file })
-// with a provider in the layer map whose job is open or busy, or, with marks, has unmet requirement
-// marks in a layer not closed (an entered module starts past those: copy, 4 Nov). Found marks and
-// notice work hold nothing.
-export function waitsOnUses(root, cfg, ls, ref, mods, { marks = true } = {}) {
+// with a provider in the layer map not yet COMPLETE (it starts itself) or whose job is open or busy.
+// Unmet marks, found marks, notice work and a BLOCKED provider hold nothing, so no layer stalls on a
+// provider only a close defers.
+export function waitsOnUses(root, cfg, ls, ref, mods) {
   const modules = openBy(cfg) === 'uses' && ls ? readModules(root, cfg, ref) : null;
   const out = new Map();
   if (!modules) return out;
-  const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, closed: L.closed }])));
-  const holds = (p) => { const m = where.get(p); return !!m && (m.open || busy(m.row) || (marks && m.marks.length > 0 && !m.closed)); };
+  const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
+  const shallow = isShallow(root);
+  const holds = (p) => { const m = where.get(p); return !!m && !m.blocked && (m.open || busy(m.row, shallow)); };
   for (const m of mods) {
     const u = modules.find((x) => x?.id === m.id)?.uses;
     const not = Array.isArray(u) ? u.filter((p) => p !== m.id && holds(p)) : [];
@@ -621,7 +626,7 @@ export function readyByUses(root, cfg, ls, ref, owed = {}) {
   if (!modules) return { ready: [], gaps: [] };
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
-  const done = doneIn(ls, owed);
+  const done = doneIn(ls, owed, isShallow(root));
   const ready = [];
   const gaps = [];
   for (const L of ls.layers.filter((x) => x.n >= ls.cur.n && !x.closed)) {
@@ -648,7 +653,7 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
   const modules = by === 'uses' ? readModules(root, cfg, ref) || [] : [];
   const uses = new Map(modules.filter((m) => m?.id && Array.isArray(m.uses)).map((m) => [m.id, m.uses]));
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, { ...m, layer: L.n }])));
-  const done = doneIn(ls, owed);
+  const done = doneIn(ls, owed, isShallow(root));
   const reached = (n) => !ls.cur || n <= ls.cur.n;
   const read = (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
   const ready = [];
@@ -749,8 +754,8 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   // open layer 4 and providers with unmet marks, were listed nowhere and started 23 min later).
   const inLayer0 = new Set((ls?.cur?.mods || []).map((m) => m.file)); // the open layer's: held by its own rule above
   const enteredRows = rows.filter((r) => r.unstarted && r.tranche === 'OPEN').map((r) => ({ id: r.id, file: r.req || `${dir}/${r.id}.md` }));
-  const enteredHeld = waitsOnUses(root, cfg, ls, ref, enteredRows.filter((r) => !inLayer0.has(r.file)), { marks: false });
-  for (const [f, ps] of enteredHeld) log(`waits for its providers: ${f} (entered) uses ${ps.join(', ')}, their jobs open`);
+  const enteredHeld = waitsOnUses(root, cfg, ls, ref, enteredRows.filter((r) => !inLayer0.has(r.file)));
+  for (const [f, ps] of enteredHeld) log(`waits for its providers: ${f} (entered) uses ${ps.join(', ')}, not done`);
   const entered = new Set(enteredRows.map((r) => r.file).filter((f) => !enteredHeld.has(f) && !(inLayer0.has(f) && !files.includes(f))));
   const all = [...new Set([...files, ...byFile.keys(), ...foundBy, ...entered])].filter((f) => !taken.has(f) && !entryTaken(f)).map((file) => {
     const text = textOf(file);

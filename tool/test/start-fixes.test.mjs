@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commit, entry, makeRepo, setJobCap } from './helpers.mjs';
+import { commit, entry, makeRepo, setJobCap, write } from './helpers.mjs';
 import { batchSetup, startReady } from '../lib/ready.mjs';
 import { found } from '../lib/found.mjs';
 import { startCheck } from '../lib/start.mjs';
@@ -177,9 +177,14 @@ test('next work: an open-layer module waits while a provider in the layer map ha
   commit(root, { 'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 6 | ai | base, model, harness, other |\n| 7 | later | steps |\n' });
   const [later, why] = files([row('base'), row('model', { pr: '#395 draft', ahead: 2 }), row('harness'), row('steps', fresh), row('other', fresh)]);
   assert.deepEqual(later, ['build/requirements/other.md']);
-  assert.match(why, /waits for its providers: build\/requirements\/steps\.md \(entered\) uses model, their jobs open/);
+  assert.match(why, /waits for its providers: build\/requirements\/steps\.md \(entered\) uses model, not done/);
   assert.ok(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0].includes('build/requirements/steps.md'));
   commit(root, { 'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 6 | ai | base, model, harness, steps, other |\n' });
+  // Never a stall (confirming review): a BLOCKED provider, or one COMPLETE with marks left after its job, holds nothing.
+  assert.ok(files([row('base'), row('model', { tranche: 'BLOCKED', blocked: 'a question', flag: 'BLOCKED' }), row('harness'), row('steps', fresh), row('other', fresh)])[0].includes('build/requirements/steps.md'));
+  write(root, { 'build/requirements/model.md': '- **R1** *(not yet met: x)* left after its job\n' });
+  assert.ok(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0].includes('build/requirements/steps.md'));
+  write(root, { 'build/requirements/model.md': '- **R1** met\n' });
   // Both merged: steps is work.
   assert.deepEqual(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0], ['build/requirements/other.md', 'build/requirements/steps.md']);
 });
