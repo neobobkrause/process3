@@ -38,8 +38,9 @@ export function builtOn(root, tested, is) {
 // tranche did at `was` (the spec's base, a tranche tip behind `is`) or at a tip since on its first-
 // parent line (the tranche moved them on), or the tranche never changed while `tested` did (a
 // change ahead of it in the window that never landed); and `off`, the rest. Entries compare mode
-// and object. `dropped`: the second kind, never a file own(f) (the job's own module: no position
-// ahead changes it). commits: the move's, first parent.
+// and object. `dropped`: the second kind, only whole steps of the window's chain in `tested` ahead
+// of the job (chainSteps: exactly a leaving position's change, cold review), never a file own(f)
+// (the job's own module: no position ahead changes it). commits: the move's, first parent.
 export function offSpec(root, { tested, head, was, is, skip, own = () => false }) {
   const differ = diffNames(root, tested, head).filter((f) => !skip(f));
   const after = differ.length && was && is && git(['merge-base', '--is-ancestor', was, is], { cwd: root, allowFail: true }).code === 0;
@@ -52,9 +53,33 @@ export function offSpec(root, { tested, head, was, is, skip, own = () => false }
     return entryOf(root, was, f) === i && !own(f) ? 'drop' : null;
   };
   const kinds = after ? new Map(differ.map((f) => [f, kind(f)])) : new Map();
+  // A drop stands only as the whole change of a step ahead in the chain; any other is off.
+  const drops = differ.filter((f) => kinds.get(f) === 'drop');
+  if (drops.length) {
+    const steps = chainSteps(root, tested, was)?.slice(1) || [];
+    const whole = new Set(steps.map((x) => diffNames(root, x.from, x.to).filter((f) => !skip(f))).filter((fs) => fs.every((f) => drops.includes(f))).flat());
+    for (const f of drops) if (!whole.has(f)) kinds.set(f, null);
+  }
   const moved = differ.filter((f) => kinds.get(f));
   const commits = moved.some((f) => kinds.get(f) === 'move') ? line.slice(1) : [];
   return { off: differ.filter((f) => !kinds.get(f)), moved, dropped: moved.filter((f) => kinds.get(f) === 'drop'), commits };
+}
+// The window's chain in a spec head, from `tested` back to `was` (the tranche tip it was built
+// on): each step { from: R(i-1), to: R(i) }, the job's first. A job's step is its merge-row commit
+// over the merge of R(i-1) into its head (merge.mjs buildMerged); a plain one's the merge itself
+// (train.mjs buildPlain): R(i-1) is the merge's second parent. null for any other shape.
+function chainSteps(root, tested, was) {
+  const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+  const steps = [];
+  for (let c = tested; c !== was;) {
+    if (steps.length > 64) return null;
+    const p = parents(c);
+    const m = p.length === 2 ? p : p.length === 1 ? parents(p[0]) : [];
+    if (m.length !== 2 || !isAnc(root, was, m[1])) return null;
+    steps.push({ from: m[1], to: c });
+    c = m[1];
+  }
+  return steps;
 }
 // Whether a file is in job `id`'s module (its entry's paths and tests).
 export const ownOf = (entries, id) => { const e = entries.find((x) => x.id === id); return (f) => !!e && [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)); };
@@ -254,7 +279,7 @@ export function gate(root, opts) {
     runRow.trigger = 'spec-tested';
     for (const k of ['suite', 'scope', 'tests', 'base_red', 'revert', 'inert', 'load_only']) if (r[k] !== undefined) runRow[k] = r[k];
     Object.assign(runRow, { spec_pr: fast.n, spec_run: r.run_id, spec_sha: r.sha });
-    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside${fast.move ? `, with the disjoint tranche move ${String(fast.move.from).slice(0, 10)}..${String(base).slice(0, 10)} (${fast.move.files.length} file(s))` : ''}: no suite runs`);
+    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside${fast.move ? `, with ${fast.move.files.length - fast.move.dropped.length} file(s) of the disjoint tranche move ${String(fast.move.from).slice(0, 10)}..${String(base).slice(0, 10)} and ${fast.move.dropped.length} of a change ahead that left the window (${fast.move.dropped.slice(0, 5).join(', ') || 'none'})` : ''}: no suite runs`);
   }
   else if (sinceGreen) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
