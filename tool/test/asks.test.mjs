@@ -52,6 +52,14 @@ test('askFindings: the handoffs\' Bob lists and mixed word headings are refused;
   assert.deepEqual(askFindings(good.join('\n')), []);
   // Under the heading, a list line that is not his quoted words is refused.
   assert.equal(askFindings('BOB (verbatim):\n- he wants a merge train').length, 1);
+  // Review 1: a line under the heading without "- " (a --note), and paraphrase between two quotes.
+  assert.equal(askFindings('BOB (verbatim):\nhe wants the train kept').length, 1);
+  assert.equal(askFindings('- 14:50: "keep it" and he wants the train gone "ok"').length, 0, 'not under the heading: an ordinary line');
+  assert.equal(askFindings('BOB (verbatim), 14:50: "keep it" and he wants the train gone "ok"').length, 1);
+  assert.deepEqual(askFindings('BOB (verbatim), 14:50: "keep it" ... "ok"\nBOB (verbatim):\n"a"\nCoordinator\'s: so the train stays.\nSTATE:\n- x'), []);
+  // Review 1: status's own line for an item on the list passes; a report line "for Bob" and a heading for the BOB role pass.
+  assert.deepEqual(askFindings('- m1: BLOCKED; blocked 45 min; ruling owed by Bob: (c) which audience the export serves\nReport for Bob: merged PR 157, train green\nNOTES FOR BOB'), []);
+  assert.equal(askFindings('- m1: BLOCKED; ruling owed by Bob: merge design').length, 1);
   assert.match(askFindings("- Still Bob's: words queue")[0].why, /^decide it: not Bob's \(coordinator rule 1\)/);
 });
 
@@ -62,6 +70,10 @@ test('handoff --check: each finding as file:line, exit 1; a clean file exit 0', 
   assert.match(out[0], /^h\.md:2: decide it: not Bob's \(coordinator rule 1\)/);
   assert.equal(handoffCheck(['ok.md'], { read: (f) => files[f], log: () => {} }), 0);
   assert.throws(() => handoffCheck([]), /needs a file/);
+  // Review 1: every named file is read (the command passes --check's value and the rest).
+  const seen = [];
+  handoffCheck(['ok.md', 'h.md'], { read: (f) => { seen.push(f); return files[f]; }, log: () => {} });
+  assert.deepEqual(seen, ['ok.md', 'h.md']);
 });
 
 test('BOB\'s handoff refuses a note routing an item to Bob off the list, before it writes anything', () => {

@@ -20,25 +20,28 @@ const LIST_TEXT = Object.entries(BOB_LIST).map(([k, v]) => `(${k}) ${v}`).join('
 // The class an item names, with a reason after it, or null.
 export function bobClass(text) {
   const s = String(text || '');
-  const m = s.match(/^\(([a-d])\)\s*(\S.*)?$/s) || s.match(/\brule 1 \(([a-d])\)\s*:?\s*(\S.*)?$/s);
+  // Also "Bob: (c) ...", as status prints a ruling owed by Bob (review 1).
+  const m = s.match(/^\(([a-d])\)\s*(\S.*)?$/s) || s.match(/\brule 1 \(([a-d])\)\s*:?\s*(\S.*)?$/s) || s.match(/\bBob: \(([a-d])\)\s*(\S.*)?$/s);
   return m && m[2] && m[2].trim() ? m[1] : null;
 }
 export const listHelp = () => `${NOT_BOBS}: Bob's only with a reason opening (a), (b), (c) or (d): ${LIST_TEXT}`;
 
 // A line that routes an item to Bob (person, "Bob"; the session role is "BOB"), as the
 // handoffs of 4-5 Nov wrote them; the upper-case headings are those handoffs' own.
-const ROUTES = /(?<!\b(?:[Nn]ever|[Nn]ot|[Nn]o|don't) )\b(?:[Ff]or Bob\b|[Ss]till Bob's|STILL BOB'S|FOR BOB\b|BOB ASKED|[Aa]sk(?:ed|ing)? Bob\b|[Ww]ait(?:s|ing)? (?:on|for) Bob\b|[Aa]waits? Bob\b|[Uu]ntil Bob\b|[Oo]wed by Bob\b|(?:[Rr]evisit|[Cc]heck|[Cc]onfirm|[Rr]aise) (?:it )?with Bob\b|Bob's (?:queue|call|list|item|question|to (?:decide|answer|rule|read|review)))/;
-export const routesToBob = (line) => ROUTES.test(String(line));
+const ROUTES = /(?<!\b(?:[Nn]ever|[Nn]ot|[Nn]o|don't) )\b(?:(?:study|question|decision|item|items|ruleset|list|answer) for Bob\b|[Ss]till Bob's|STILL BOB'S|BOB ASKED|[Aa]sk(?:ed|ing)? Bob\b|[Ww]ait(?:s|ing)? (?:on|for) Bob\b|[Aa]waits? Bob\b|[Uu]ntil Bob\b|[Oo]wed by Bob\b|(?:[Rr]evisit|[Cc]heck|[Cc]onfirm|[Rr]aise) (?:it )?with Bob\b|Bob's (?:queue|call|list|item|question|to (?:decide|answer|rule|read|review)))/;
+// "FOR BOB" only as a line's heading; a report line "for Bob" is what the rules ask (review 1).
+const ROUTES_HEAD = /^(?:[-*] )?FOR BOB\b/;
+export const routesToBob = (line) => ROUTES.test(String(line)) || ROUTES_HEAD.test(String(line).trim());
 // "BOB'S WORDS" and "BOB'S DECISIONS" headings (a line opening so) mixed his words with paraphrase (cause 3).
 const MIXED = /^(?:[-*] )?(?:BOB'S (?:WORDS?|DECISIONS?)|Bob's (?:words?|decisions?))\b/;
 const VERBATIM = /^(?:[-*] )?BOB \(verbatim\)/i;
-// A verbatim line: an optional time, then only his words in quotation marks.
+// A verbatim line: an optional time, then only his words in quotation marks, parts joined by " ... ".
 // A month or "UTC" may name the time; any other word before the quote is a paraphrase.
-const QUOTED = /^(?:[-*] )?(?:[\d\s:,~.()-]|about|UTC|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b)*["“][^]*["”]\.?$/;
+const QUOTED = /^(?:[-*] )?(?:[\d\s:,~.()-]|about|UTC|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b)*["“][^"“”]*["”](?: \.\.\. ["“][^"“”]*["”])*\.?$/;
 const quoted = (line) => QUOTED.test(line.replace(VERBATIM, ''));
 
 // Findings for a handoff or findings text (coordinator rule 2 and rule 1): each { line, n, why }.
-// Under a "BOB (verbatim)" heading, each list line that follows is his words in quotes.
+// Under a "BOB (verbatim)" heading, each line that follows, to a blank line or the next heading, is his words in quotes.
 export function askFindings(text) {
   const out = [];
   let under = false;
@@ -52,7 +55,9 @@ export function askFindings(text) {
       if (!quoted(line)) out.push({ n: i + 1, line, why: 'a BOB (verbatim) line holds only his words in quotation marks; a paraphrase or consequence is a separate line marked as the coordinator\'s (coordinator rule 2)' });
       return;
     }
-    if (under && /^[-*] /.test(line)) {
+    // Under the heading, every line to the next blank one is his quoted words; an upper-case
+    // heading or a line marked as the coordinator's ends it (review 1: notes have no "- ").
+    if (under && !/^(?:[A-Z0-9 '()&/-]+:?|Coordinator(?:'s)?\b.*)$/.test(line)) {
       if (!quoted(line)) out.push({ n: i + 1, line, why: 'under BOB (verbatim), only his words in quotation marks (coordinator rule 2)' });
       return;
     }

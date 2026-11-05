@@ -59,7 +59,7 @@ const commands = {
   // handoff --check <file>...: a coordinator's handoff or findings file, read against coordinator
   // rules 1 and 2 (Bob's words verbatim; nothing routed to Bob off the closed list); writes nothing.
   handoff: (a, root) => {
-    if (a.check !== undefined) return handoffCheck(list(a.check).filter((x) => x !== true));
+    if (a.check !== undefined) return handoffCheck([...list(a.check), ...a._].filter((x) => x !== true));
     const lines = [];
     const s = status(root, { role: 'bob', context: a.context, log: (l) => lines.push(l) });
     handoff(root, loadConfig(root).state_branch, { role: 'bob', tranche: s.tranche, lines, notes: list(a.note).filter((x) => x !== true) });
