@@ -185,3 +185,54 @@ updates, none lost); release cache key complete; no deadlock in the re-entrant p
 findings: markInTrain ignored a flagged row (fixed, tested); a lock left by another host is never
 broken (kept: the ruling has an unknown holder waited on and reported, and the report names the
 file to remove).
+
+## 8. A transient GitHub error under an in-flight gate (copy PR 290, 5 Nov 12:48-13:15): options
+
+Cause, as read in tool/lib. merge() (merge.mjs) pushes the merged result to the job branch and
+waits on its gate in waitForGate, which reads the pull request (`pr()`, io.getPR) and the gate
+(`read`, io.checkRun) each round. Neither read is guarded: one GitHub 503 (or a timeout, or a rate
+limit) is a Fail out of merge(). mergeOne (train.mjs) classes it with `lasting()`: not lasting, so
+a `retry` row and ctx.backoff for `<pr>@<head as listed>`; the merge is over. At the next pass
+ready() lists 290 at its new head (the merged result), whose gate is still running, so it is not
+green and is skipped; and loop() takes queued plain rows before any job (`plain.length ?
+plainOne : mergeOne`), so 505 and 506 landed, the tranche moved, and 290's merged result went
+stale (its green gate would now gate a stale result: merge() would bring the tranche in again and
+gate afresh). waitForChecks (mergePlain's wait) has the same unguarded reads.
+
+What else can move the tranche under an in-flight gate. Within the train: only plain rows and the
+next job, and the loop is serial, so only after merge() returned or threw. Outside it: `merge
+--plain` with no live lease (the train killed or stopped mid-gate: its lease lapses or is
+released), BOB's `merge <pr>` of a job by hand, and anything on GitHub itself (its UI). A train
+restart mid-gate has the same hole as the 503: the new train does not know a gate was in flight.
+
+Option 8A: transient reads inside the waits are retried. waitForGate and waitForChecks catch a
+Fail from their pull-request or check read that is transient (HTTP 5xx, 429 / rate limit,
+timeout, connection reset, the proxy's gateway errors: one TRANSIENT pattern beside util.mjs
+SERVER_ERROR) and read again with a growing wait (15 s, 30 s, 60 s, then every 2 min), counted
+against the same deadline; only the deadline, a lasting error or the gate's own end ends the wait.
+- Cost: about 25 lines, 40 of tests (a fake read that throws 503 twice mid-gate: the same gate
+  lands, nothing else does).
+- Fails when: GitHub is down past the gate's whole wait (the merge fails as today, and 8B holds
+  the tranche); a non-transient error during the wait (a real refusal) still ends it.
+
+Option 8B: an in-flight hold that outlives the merge call. When merge() has pushed a merged result
+(or found one), the train records `inflight` {pr, tip, at} on the state branch (TRAIN_FILE, one
+row) before it waits, and an end row when the gate ends (landed, red, PR closed or its head moved
+by anything else, or the gate past its cap). While an inflight row is open, each pass goes back
+into merge() for that PR first, which waits on the running gate at that tip (merge() already does
+this for a head holding its own merge row: jobChecks' rowTip wait), before any plain row or other
+job; plain rows wait (their callers keep renewing; their take_by counts from the take, so nothing
+expires for the wait). A restarted train reads the open row and does the same.
+- Cost: about 60 lines, 70 of tests (a 503 that still escapes, and a train restart mid-gate: in
+  both, 505 waits and 290 lands on the same merged result).
+- Fails when: the train is stopped for good mid-gate (nothing lands, as wanted; the row ends when
+  the next train finds the gate ended); a merge from outside the train (no-lease `merge --plain`,
+  BOB by hand, GitHub's UI) is not held by a train row. A small addition closes the first two:
+  mergePlain and merge() into the tranche refuse while another PR's inflight row is open and its
+  gate still running (about 10 lines; the refusal names the PR and the gate run).
+
+Recommendation: 8A + 8B, with the small addition. 8A removes the cause seen (the 503 never ends the
+wait); 8B makes "nothing lands under an in-flight gate" hold across any other failure and a
+restart, which 8A alone cannot; the addition covers the tool's own merges outside the train.
+GitHub's UI stays outside the tool, and merge()'s land check ("moved past the merged result the
+gate checked") still catches it as today.
