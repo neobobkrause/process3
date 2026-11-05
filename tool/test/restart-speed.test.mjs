@@ -6,8 +6,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo, onState } from './helpers.mjs';
 import { readSessions, recordedStarts } from '../lib/status.mjs';
+import { jobStart } from '../lib/job.mjs';
+import { startCheck } from '../lib/start.mjs';
 import { git, lockNote } from '../lib/util.mjs';
 import { briefText as reviewBrief } from '../lib/review.mjs';
 import { briefText as triageBrief } from '../lib/triage.mjs';
@@ -41,7 +43,9 @@ test('item 1: one page of list_sessions stands when it holds every session the r
   const root = withOrigin({ 'process/ledger/a.json': entry('a'), 'process/ledger/b.json': entry('b'), 'process/ledger/c.json': entry('c') });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   jobBranch(root, 'b', startRow('b', 1), { merged: true }); // merged: its sessions are not the record's open ones
-  jobBranch(root, 'a', startRow('a', 3) + JSON.stringify({ at: iso(5), module: 'a', row: 'restart', why: 'stopped' }) + '\n');
+  jobBranch(root, 'a', startRow('a', 3));
+  // A --restart's row is on the state branch; one before a's open run is not its.
+  onState(root, { 'metrics/restart.jsonl': [JSON.stringify({ at: iso(5), module: 'a', row: 'restart', why: 'stopped' }), JSON.stringify({ at: iso(2), module: 'a', row: 'restart' }), JSON.stringify({ at: iso(6), module: 'b', row: 'restart' })].join('\n') + '\n' });
   assert.deepEqual(recordedStarts(root, { offline: true }), [{ id: 'a', first: iso(3), count: 2 }]);
   const dir = mkdtempSync(join(tmpdir(), 'p3-sessions-'));
   const file = join(dir, 's.json');
@@ -104,4 +108,53 @@ test('item 5: one git user per clone: BOB\'s rulebook and the review and triage 
   assert.match(lockNote(stderr, root, { procs: () => null }), /is held by another git command in this clone or left by a killed one/);
   assert.match(lockNote('fatal: shallow file has changed since we read it', root), /Another git command changed this clone's shallow file while this one ran/);
   assert.equal(lockNote('fatal: something else', root), '');
+});
+
+test('item 4: a reopened module whose pull request the train landed after the start\'s anchor is cut from the tip holding that merge, in a full and a shallow clone; no hand choice', () => {
+  const APPROVALS = '# P\n\n## Standing approvals from Bob\n\nSessions may push.\n';
+  for (const shallow of [false, true]) {
+    const full = makeRepo({ 'CLAUDE.md': APPROVALS, 'process/ledger/a.json': entry('a', { requirements: 'r/a.md' }), 'r/a.md': '- **R1** *(not yet met: x)* a\n' });
+    git(['branch', 'tranche'], { cwd: full });
+    const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+    git(['init', '-q', '--bare', bare], { cwd: full });
+    git(['remote', 'add', 'origin', bare], { cwd: full });
+    git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: full });
+    // The train's clone: a's first attempt merged, then a second one on job/a, its PR green.
+    const other = full;
+    git(['checkout', '-q', '-b', 'job/a', 'tranche'], { cwd: other });
+    commit(other, { 'process/ledger/a.json': entry('a', { requirements: 'r/a.md', status: { state: 'COMPLETE' } }), 'process/metrics/a.jsonl': startRow('a', 1) }, 'attempt 1');
+    git(['checkout', '-q', 'tranche'], { cwd: other });
+    git(['merge', '-q', '--no-ff', '-m', 'merge a 1', 'job/a'], { cwd: other });
+    git(['checkout', '-q', 'job/a'], { cwd: other });
+    git(['merge', '-q', '--no-ff', '-m', 'Bring job/a up to tranche', 'tranche'], { cwd: other });
+    commit(other, { 'src/a/x.mjs': 'attempt 2' }, 'attempt 2 and the train\'s merged result');
+    git(['push', '-q', 'origin', 'tranche', 'job/a'], { cwd: other });
+    git(['checkout', '-q', 'tranche'], { cwd: other });
+    // BOB's clone at the tranche tip, before the land.
+    const bob = join(mkdtempSync(join(tmpdir(), 'p3-bob-')), 'c');
+    git(['clone', '-q', ...(shallow ? ['--depth', '1'] : []), '-b', 'tranche', `file://${bare}`, bob], { cwd: tmpdir() });
+    for (const [k, v] of [['user.email', 'b@example.com'], ['user.name', 'B'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: bob });
+    git(['checkout', '-q', '--detach'], { cwd: bob });
+    // GitHub's compare, read now from origin: base a name (its tip now) or a sha.
+    const compare = (slug, b, h) => {
+      git(['fetch', '-q', 'origin'], { cwd: other });
+      const ref = (x) => (/^[0-9a-f]{40}$/.test(x) ? x : `origin/${x}`);
+      return { ahead_by: Number(git(['rev-list', '--count', `${ref(b)}..${ref(h)}`], { cwd: other })) };
+    };
+    // The train lands a's second attempt right after this start's anchor (inside its setup check).
+    let landed = false;
+    const setup = (r, o) => {
+      const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet });
+      if (!landed) { landed = true; git(['merge', '-q', '--no-ff', '-m', 'merge a 2 (the train)', 'job/a'], { cwd: other }); git(['push', '-q', 'origin', 'tranche'], { cwd: other }); }
+      return c.ok ? { ok: true, missing: [], results: [{ id: 'session-branch', state: 'set' }] } : { ok: false, missing: ['session-branch'], results: [] };
+    };
+    const out = [];
+    let r;
+    try { r = jobStart(bob, 'a', { coordinator: 'session_bob', reopen: 'answer the provider notice', setup, compare, find: () => null, prs: () => [], open: () => ({ number: 9, html_url: 'u' }), log: (l) => out.push(l) }); } catch (e) { throw new Error(`${shallow ? 'shallow' : 'full'}: ${e.message}\n${git(['log', '--oneline', '--graph', '-8', 'HEAD', 'origin/job/a', 'origin/tranche'], { cwd: bob })}\n${git(['log', '--oneline', '--graph', '-8', 'job/a', 'tranche'], { cwd: other })}`); }
+    assert.ok(r.launch, shallow ? 'shallow' : 'full');
+    const tip = git(['rev-parse', 'origin/tranche'], { cwd: other });
+    git(['fetch', '-q', 'origin'], { cwd: other });
+    assert.equal(git(['rev-parse', 'origin/job/a^'], { cwd: other }), tip, 'cut from the tip holding the land, pushed as a fast-forward');
+    assert.ok(out.some((l) => /job\/a merged into tranche after this start's anchor [0-9a-f]{10}: anchoring again at the tip/.test(l)), out.join('\n'));
+  }
 });

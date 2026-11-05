@@ -210,6 +210,20 @@ export function subscribeFor(slug, pr) {
 // HEAD when the setup check left it at the fetched tip (start.mjs anchor), else null.
 const anchoredTip = (root, cfg) => { const h = git(['rev-parse', 'HEAD'], { cwd: root }); return git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }).stdout.trim() === h ? h : null; };
 
+// A push of a branch already on origin is a fast-forward only where this clone can see origin's
+// tip below HEAD. In a shallow clone the tranche tip the start is cut from has no parents here,
+// so git refused the push as not a fast-forward (copy, 5 Nov, plane, BOB's depth-1 clone): the
+// tranche is deepened, doubling, then whole, until it can; one that cannot is pushed as it is.
+function provable(root, branch, tranche) {
+  if (!remoteTip(root, branch) || !isShallow(root)) return;
+  const on = () => git(['merge-base', '--is-ancestor', `refs/remotes/origin/${branch}`, 'HEAD'], { cwd: root, allowFail: true }).code === 0;
+  const ref = `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`;
+  for (let n = 32; !on() && isShallow(root); n *= 2) {
+    const r = git(['fetch', '-q', ...(n > 4096 ? ['--unshallow'] : [`--deepen=${n}`]), 'origin', ref], { cwd: root, allowFail: true });
+    if (r.code !== 0 || n > 4096) break;
+  }
+}
+
 // The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
 function setupOrStop(root, cfg, slug, setup, log) {
   // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
@@ -262,23 +276,46 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
   if (fresh === true || (fresh !== undefined && !String(fresh).trim())) fail('--fresh-branch needs why the job\'s branch cannot go on');
   const slug = push ? repoSlug(root) : 'local/local';
-  if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
-  const cfg = loadConfig(root); // the anchored checkout's
-  const lead = jobCoordinator(root, cfg, coordinator, push);
-  model ||= cfg.roles?.job?.model;
   // The tip the setup check anchored to and checked (approvals, pin) is the one the job is cut
   // from; a tip fetched after it was never checked (confirming review of the anchor).
-  const at = push ? anchoredTip(root, cfg) : null;
   // The anchored tip's plan, and what the caller read the start from (job start --ready: the
   // module's facts), judged at the tip the job is cut from (confirming review of the anchor).
-  if (push && (cfg.plan === 'pause' || cfg.plan === 'stop')) fail(`plan ${cfg.plan} at the tip of ${cfg.tranche}: take no new step; nothing was started`);
-  const moved = still?.(at || `origin/${cfg.tranche}`);
-  if (moved) fail(moved);
-  if (push && !at) fetchRef(root, cfg.tranche);
-  const from = at || (push ? `origin/${cfg.tranche}` : cfg.tranche);
-  const ids = ledgerIds(root, from);
+  const anchor = () => {
+    if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
+    const c = loadConfig(root); // the anchored checkout's
+    const a = push ? anchoredTip(root, c) : null;
+    if (push && (c.plan === 'pause' || c.plan === 'stop')) fail(`plan ${c.plan} at the tip of ${c.tranche}: take no new step; nothing was started`);
+    const m = still?.(a || `origin/${c.tranche}`);
+    if (m) fail(m);
+    if (push && !a) fetchRef(root, c.tranche);
+    return { cfg: c, at: a, from: a || (push ? `origin/${c.tranche}` : c.tranche) };
+  };
+  let { cfg, at, from } = anchor();
+  const lead = jobCoordinator(root, cfg, coordinator, push);
+  model ||= cfg.roles?.job?.model;
+  let ids = ledgerIds(root, from);
   const heads = push ? originJobs(root) : localJobs(root);
   let branch = branchOf(root, id, heads, ids, push);
+  // Commits are counted against the tip the job is cut from, by its sha, GitHub's count too (a
+  // shallow clone; aheadBy): counted against the tranche's name, GitHub reads the tip now.
+  let base = push ? git(['rev-parse', from], { cwd: root }) : cfg.tranche;
+  // A branch behind the anchor only by its own merge, landed after it (copy, 5 Nov, plane: the
+  // train landed its pull request, a notice reopened it, and job/plane's push was rejected, not a
+  // fast-forward): anchor again, once, so the count and the cut read one tip.
+  if (push && remoteTip(root, branch)) {
+    fetchRef(root, branch);
+    const vs = (b, l) => aheadBy(root, { slug, base: b, head: branch, local: [l, `origin/${branch}`], read: cmp });
+    if (vs(base, from) > 0) {
+      fetchRef(root, cfg.tranche);
+      if (vs(cfg.tranche, `origin/${cfg.tranche}`) === 0) {
+        log(`${branch} merged into ${cfg.tranche} after this start's anchor ${base.slice(0, 10)}: anchoring again at the tip`);
+        ({ cfg, at, from } = anchor());
+        ids = ledgerIds(root, from);
+        base = git(['rev-parse', from], { cwd: root });
+        if (vs(base, from) > 0) fail(`${branch} is behind the tip this start anchored to only by a merge that landed after it, twice; nothing was started; run it again`);
+      }
+    }
+  }
   // --reopen on an abandoned attempt (BOB on the copy, 5 Nov: case-checker's job/case-checker-2,
   // COMPLETE with 6 commits, its PR 301 closed unmerged): a fresh branch, the reopen text its
   // task; the start row names the abandoned branch and its last closed pull request.
@@ -287,7 +324,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     fetchRef(root, branch);
     // In a shallow clone only GitHub's count holds: a local count past the cut could take an
     // unfinished start for an abandoned one and cut a second branch (review of PR 145).
-    const c = isShallow(root) ? cmp(slug, cfg.tranche, branch) : null;
+    const c = isShallow(root) ? cmp(slug, base, branch) : null;
     if (isShallow(root) && !Number.isInteger(c?.ahead_by)) fail(`this clone is shallow and GitHub did not compare ${branch} with ${cfg.tranche}; nothing was started; run it again`);
     const n = c ? c.ahead_by : aheadBy(root, { slug: null, base: cfg.tranche, head: branch, local: [from, `origin/${branch}`] });
     const state = (() => { try { return JSON.parse(git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root })).status?.state; } catch { return null; } })();
@@ -312,7 +349,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     if (push) fetchRef(root, branch);
     const starts = rowsAt(root, push ? `origin/${branch}` : branch, id).filter((r) => r.row === 'attempt' && r.event === 'start');
     // A fresh start whose push landed and whose pull request did not open resumes; it is not cut again.
-    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} --live <n> without --fresh-branch and it resumes`);
+    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} --live <n> without --fresh-branch and it resumes`);
     const prior = Math.max(starts.length, ...starts.map((r) => Number(r.attempt) || 0));
     fresh0 = { from: branch, why: String(fresh).trim(), prior, abandoned };
     branch = `job/${id}-${n}`;
@@ -320,13 +357,13 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const owed = noticesFor(root, cfg, id, push);
   // A COMPLETE module with an unanswered notice is reopened to answer it; not when its branch
   // holds an unfinished start, which resumes with its own task.
-  const unfinished = () => push && remoteTip(root, branch) && (fetchRef(root, branch), aheadBy(root, { slug, base: cfg.tranche, head: branch, local: [from, `origin/${branch}`], read: cmp }) !== 0);
+  const unfinished = () => push && remoteTip(root, branch) && (fetchRef(root, branch), aheadBy(root, { slug, base, head: branch, local: [from, `origin/${branch}`], read: cmp }) !== 0);
   if (!reopen && owed.length && /"state":\s*"COMPLETE"/.test(git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true }).stdout) && !unfinished()) reopen = `answer ${owed.length === 1 ? 'the provider notice' : 'the provider notices'} ${owed.map((x) => x.key).join(', ')}`;
 
   // A reopen restarts a branch whose last attempt merged (its tip is in the tranche). Anything
   // else on the remote branch is either an unfinished start, resumed below, or refused there.
   // Ahead counts come from GitHub in a shallow clone, where the local history is cut (aheadBy).
-  const ahead = (head, local) => aheadBy(root, { slug: push ? slug : null, base: cfg.tranche, head, local: [from, local], read: cmp });
+  const ahead = (head, local) => aheadBy(root, { slug: push ? slug : null, base, head, local: [from, local], read: cmp });
   const merged = !fresh0 && push && reopen && remoteTip(root, branch) && (fetchRef(root, branch), true)
     && ahead(branch, `origin/${branch}`) === 0;
   if (merged) {
@@ -418,6 +455,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     log(`start the job session with create_session:\n${JSON.stringify(launch, null, 2)}`);
     result = { start, launch, attempt, pr: null };
     if (push) {
+      provable(root, branch, cfg.tranche);
       git(['push', '-q', '-u', 'origin', branch], { cwd: root });
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });

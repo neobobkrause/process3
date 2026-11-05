@@ -98,20 +98,46 @@ const reviewOf = ({ review: r, cost: c }) => ({
 // live lease; an expired one is taken over (a row says so); renewed every LEASE.renew minutes;
 // a renewal that finds another session's lease stops the train.
 // The lease names the session and this process (a token), so a second train in the same session is refused too.
-export function takeLease(root, cfg, session, token, { take = false } = {}) {
+// It names the process as well (proc: pid, machine boot id, start time): a train killed without
+// ending (coordinator, 5 Nov 07:18: 9 min lost) is retaken at once by a train of its own session
+// on the same machine once that process is gone (no such pid, another start time, another boot);
+// a live one is always refused, and an unread process waits for the lease time as before.
+export function takeLease(root, cfg, session, token, { take = false, proc = procOf(process.pid), alive = procAlive } = {}) {
   return writeState(root, cfg.state_branch, `merger lease: ${session}`, (wt) => {
     const p = join(wt, LEASE_FILE);
     let cur = null;
     if (existsSync(p)) { try { cur = JSON.parse(readFileSync(p, 'utf8')); } catch { cur = null; } }
     const t = Date.now();
     const mine = cur?.session === session && cur?.token === token;
-    if (!mine && cur && Date.parse(cur.expires) > t) (take ? fail : stop)(`the merge train's lease is held by ${cur.session}${cur.session === session ? ' (another train in this session)' : ''} until ${cur.expires}: one train runs`);
+    const live = cur && Date.parse(cur.expires) > t;
+    const dead = take && live && !mine && cur.session === session && alive(cur.proc) === false;
+    if (!mine && live && !dead) (take ? fail : stop)(`the merge train's lease is held by ${cur.session}${cur.session === session ? ` (another train in this session${cur.proc?.pid ? `, process ${cur.proc.pid}, still running` : ''})` : ''} until ${cur.expires}: one train runs`);
     if (!take && !mine) stop(`the merger lost its lease (${cur ? `${cur.session} holds it` : 'none on the state branch'}): the train stops`);
     mkdirSync(dirname(p), { recursive: true });
-    writeFileSync(p, JSON.stringify({ session, token, at: now(), expires: new Date(t + LEASE.expire * MIN).toISOString().replace(/\.\d+Z$/, 'Z'), since: mine ? cur.since : now() }, null, 2) + '\n');
-    if (take && cur && !mine) append(wt, MERGER_FILE, { at: now(), row: 'takeover', session, from: cur.session, expired: cur.expires });
-    return { takeover: !!(take && cur && !mine) };
+    writeFileSync(p, JSON.stringify({ session, token, ...(proc ? { proc } : {}), at: now(), expires: new Date(t + LEASE.expire * MIN).toISOString().replace(/\.\d+Z$/, 'Z'), since: mine ? cur.since : now() }, null, 2) + '\n');
+    if (take && cur && !mine) append(wt, MERGER_FILE, { at: now(), row: 'takeover', session, from: cur.session, expired: cur.expires, ...(dead ? { dead: cur.proc } : {}) });
+    return { takeover: !!(take && cur && !mine), dead };
   });
+}
+// A process as /proc shows it: its pid, the machine's boot id, and its start time (clock ticks
+// since boot, field 22 of stat), so a pid reused by another process reads as another. null: unread.
+const BOOT = '/proc/sys/kernel/random/boot_id';
+export function procOf(pid) {
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const started = stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19];
+    return { pid, boot: readFileSync(BOOT, 'utf8').trim(), started };
+  } catch { return null; }
+}
+// Whether the process a lease names still runs here: true, false (gone), or null (unknown: no
+// process named, or this machine's /proc unread).
+export function procAlive(p) {
+  if (!p?.pid || !p.boot || !p.started) return null;
+  let boot;
+  try { boot = readFileSync(BOOT, 'utf8').trim(); } catch { return null; }
+  if (boot !== p.boot) return false; // a session runs one machine at a time: that one is gone
+  const now = procOf(p.pid);
+  return !!now && now.started === p.started;
 }
 // A train that ends gives its lease back (a killed one's lapses within LEASE.expire minutes).
 export function releaseLease(root, cfg, session, token) {
@@ -352,12 +378,12 @@ export function train(root, opts = {}) {
   const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
-  const { takeover } = takeLease(root, cfg, session, ctx.token, { take: true });
+  const { takeover, dead } = takeLease(root, cfg, session, ctx.token, { take: true });
   ctx.renewed = Date.now();
   ctx.renew = () => { if (Date.now() - ctx.renewed >= LEASE.renew * MIN) { takeLease(root, cfg, session, ctx.token); ctx.renewed = Date.now(); } };
   // Heads refused by an earlier train wait as this one's would (a restart re-sends nothing).
   try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); } catch { /* unread: tried again */ }
-  log(`merge train: lease held by ${session}${takeover ? ' (taken over from an expired lease)' : ''}`);
+  log(`merge train: lease held by ${session}${dead ? ' (taken over from this session\'s train that is no longer running)' : takeover ? ' (taken over from an expired lease)' : ''}`);
   try {
     // A shallow clone cuts the history the provider hold reads (git merge-base of the tranche and a
     // provider's head fails, and the hold reads "not held" for every provider: 5 Nov 07:04, the

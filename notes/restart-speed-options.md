@@ -42,3 +42,10 @@ costs one more anchor instead of a hand choice.
 Question for the coordinator: if plane's branch held a merged result that never landed (the
 killed train's push, its pull request closed), say so; A already starts that case on a fresh
 branch by itself when it is a reopen.
+
+## Built (after the 10 minutes, no answer)
+
+Item 2 as A. Item 4 as A, and a second cause the test found: in a depth-1 clone the tranche tip
+the start is cut from has no parents, so git itself cannot see origin's job/<id> below the new
+commit and refuses the push as not a fast-forward even when it is one. Before the push, the
+tranche is deepened (doubling, then whole) until origin's tip is provably below HEAD.

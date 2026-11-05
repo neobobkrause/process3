@@ -14,7 +14,7 @@ import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
-import { leadInputs, openedAt } from './lead.mjs';
+import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { holdLines, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
@@ -56,11 +56,11 @@ export function readSessions(file, { root, offline = false } = {}) {
   return out;
 }
 // The job sessions the record knows: for each job branch on origin (job/<id>, or a --fresh-branch
-// start's job/<id>-<n>), its start and restart rows the tranche has not merged (an open run; a
-// merged job has none), the first one's time and how many (each started one session). A partial
+// start's job/<id>-<n>), its start rows the tranche has not merged (an open run; a merged job has
+// none) and the state branch's restart rows since the first, its time and how many (each started one session). A partial
 // list covers a job when its oldest session was created at or before that first start (newest
 // first, so every later session is in it), or it lists that job's sessions as many times.
-export const STARTS = (r) => (r.row === 'attempt' && r.event === 'start') || r.row === 'restart';
+export const STARTS = (r) => r.row === 'attempt' && r.event === 'start';
 export function recordedStarts(root, { offline = false } = {}) {
   const cfg = loadConfig(root);
   const tip = `refs/remotes/origin/${cfg.tranche}`;
@@ -75,13 +75,19 @@ export function recordedStarts(root, { offline = false } = {}) {
     const moved = pairs.filter(([sha, r]) => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${r.slice(11)}`], { cwd: root, allowFail: true }).stdout.trim() !== sha);
     if (moved.length) git(['fetch', '-q', ...depth(root), 'origin', ...moved.map(([, r]) => `+${r}:refs/remotes/origin/${r.slice(11)}`)], { cwd: root, allowFail: true });
   } else heads = git(['for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin/job/'], { cwd: root }).split('\n').filter(Boolean);
+  // A --restart's session is recorded on the state branch (lead.mjs RESTARTS_FILE), not the job's branch.
+  if (!offline) fetchState(root, cfg.state_branch);
+  const restarts = jsonl(readState(root, cfg.state_branch, RESTARTS_FILE) || '');
   const out = [];
   for (const id of ids) {
     const jb = jobBranchAt(root, id, heads, ids);
     if (!heads.includes(jb)) continue;
     const merged = new Set(rowsAt(root, at, id).map((r) => JSON.stringify(r)));
     const run = rowsAt(root, `refs/remotes/origin/${jb}`, id).filter((r) => STARTS(r) && !merged.has(JSON.stringify(r)));
-    if (run.length) out.push({ id, first: run.map((r) => r.at).sort()[0], count: run.length });
+    if (!run.length) continue;
+    const first = run.map((r) => r.at).sort()[0];
+    const again = restarts.filter((r) => r.module === id && String(r.at) >= first);
+    out.push({ id, first, count: run.length + again.length });
   }
   return out;
 }
