@@ -107,6 +107,32 @@ export function gh(args, opts = {}) {
   try { return JSON.parse(s); } catch { return s; }
 }
 
+// Several gh calls at once (merge train cold start, 5 Nov: 53 serial reads before the first
+// pick): run side by side, at most `concurrency` at a time, in one child node process, and
+// returned in order, each as gh() returns it (null when it failed and allowFail is set).
+const MANY = `const { execFile } = require('node:child_process');
+const jobs = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+const out = new Array(jobs.list.length);
+let next = 0;
+const one = () => { const i = next++; if (i >= jobs.list.length) return Promise.resolve();
+  return new Promise((ok) => execFile('gh', jobs.list[i], { maxBuffer: 256 * 1024 * 1024, encoding: 'utf8' }, (e, stdout, stderr) => { out[i] = { code: e ? (typeof e.code === 'number' ? e.code : 1) : 0, stdout: stdout || '', stderr: stderr || '' }; ok(); })).then(one); };
+Promise.all(Array.from({ length: Math.min(jobs.concurrency, jobs.list.length) }, one)).then(() => process.stdout.write(JSON.stringify(out)));`;
+export const GH_CONCURRENCY = 16;
+export function ghMany(list, { allowFail = true, concurrency = GH_CONCURRENCY } = {}) {
+  if (!list.length) return [];
+  if (list.length === 1) return [gh(list[0], { allowFail })];
+  const r = run(process.execPath, ['-e', MANY], { input: JSON.stringify({ list, concurrency }) });
+  let res = null;
+  try { res = JSON.parse(r.stdout); } catch { res = null; }
+  if (r.code !== 0 || !Array.isArray(res)) return list.map((a) => gh(a, { allowFail })); // the batch itself failed: one by one, as before
+  return res.map((x, i) => {
+    if (x.code !== 0) { if (!allowFail) fail(`gh ${list[i].slice(0, 3).join(' ')} failed: ${(x.stderr || x.stdout).trim()}`); return null; }
+    const s = x.stdout.trim();
+    if (!s) return null;
+    try { return JSON.parse(s); } catch { return s; }
+  });
+}
+
 // A shallow clone (clone_depth on create_session): its history is cut, so a full fetch of a
 // branch pulls that branch's whole history (90 s measured 3 Nov), and a local merge base or
 // count of commits between two branches can be wrong. Fetches there take --depth 1.

@@ -454,7 +454,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), ...(branch !== `job/${id}` ? { branch } : {}), ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -586,7 +586,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     const owed = noticesFor(root, cfg, id, push);
     const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, attempt, reading, takeIn: take, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now() });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch: job, take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     git(['add', '--', ...paths], { cwd: root });
     git(['commit', '-q', '-m', `job start ${id} (attempt ${attempt}): take in ${source}${take.pr ? ` (#${take.pr})` : ''}, ${commits.length} commit(s)`], { cwd: root });
     committed = true;
@@ -715,7 +715,8 @@ function struckTests(root, entry, base, given) {
   const at = (ref, f = entry.requirements) => git(['show', `${ref}:${f}`], { cwd: root, allowFail: true }).stdout;
   const [was, now] = [at(base), at('HEAD')];
   const left = new Set(markedIds(now));
-  const files = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t).requirements; } catch { return null; } }).filter((f) => f && f !== entry.requirements);
+  const entries = (ref) => Object.values(readLedgerTexts(root, ref)).map((t) => { try { return JSON.parse(t); } catch { return null; } }).filter((e) => e?.requirements && e.requirements !== entry.requirements);
+  const files = (ref) => entries(ref).map((e) => e.requirements);
   const body = (t) => new Map(String(t).split('\n').map((l) => [l.match(/\*\*([RF][\w.-]+)\*\*/)?.[1], l.replace(/\*\(not yet met.*?\)\*/g, '').replace(/^[\s*+\d.-]*/, '').replace(/\s+/g, ' ').trim()]).filter(([id]) => id));
   const gone = markedIds(was).filter((r) => !left.has(r));
   const other = new Set(gone.length ? files('HEAD') : []);
@@ -726,7 +727,21 @@ function struckTests(root, entry, base, given) {
     return markedIds(h).filter((r) => !b.has(r) && lines.get(r) === mine.get(r));
   }));
   const retired = new Set(retiredIds(was, now, gone));
-  const struck = gone.filter((r) => !moved.has(r) && !retired.has(r));
+  // Moved out by a split (coordinator, 5 Nov: jurisdictions R109 and four more, copied to
+  // jurisdictions-b and -c, each line "was jurisdictions R<n>"): an id whose line is no longer in
+  // the module's file at the attempt's head, and that another module's file names as moved from it
+  // (or holds unchanged), owes no test; the receipt names it moved, and where to. A line deleted
+  // with no such destination still owes its test (review: else a job could drop what it cannot meet).
+  const here = body(now);
+  const esc = (x) => String(x).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const heads = gone.some((r) => !here.has(r)) ? entries('HEAD').map((e) => ({ id: e.id, text: at('HEAD', e.requirements) })) : [];
+  const into = (r) => {
+    const re = new RegExp(`(?<![\\w.-])was ${esc(entry.id)} ${esc(r)}(?![\\w.-])`);
+    return heads.filter((e) => re.test(e.text) || (moved.has(r) && body(e.text).get(r) === mine.get(r))).map((e) => e.id);
+  };
+  const movedOut = gone.filter((r) => !here.has(r) && !retired.has(r)).map((r) => ({ req: r, to: into(r) })).filter((m) => m.to.length);
+  const out = movedOut.map((m) => m.req);
+  const struck = gone.filter((r) => !moved.has(r) && !retired.has(r) && !out.includes(r));
   const named = new Map();
   for (const g of given) {
     if (/^notice:/.test(String(g))) continue; // accepted and ignored, for jobs started when the START asked for it
@@ -744,7 +759,7 @@ function struckTests(root, entry, base, given) {
     if (!text.stdout.includes(t.name)) fail(`--test ${label}: ${t.file} does not contain "${t.name}"`);
     return t;
   };
-  return struck.map((r) => holds(r, named.get(r)));
+  return { tests: struck.map((r) => holds(r, named.get(r))), moved: movedOut };
 }
 
 // The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
@@ -975,7 +990,7 @@ export function jobComplete(root, id, opts = {}) {
     again = { after: at, pr: pr?.number ?? null, from: row.at && first < row.at ? row.at : first };
   } else if (!['WORKING', 'BLOCKED'].includes(entry.status.state)) fail(`${id} is ${entry.status.state}; job complete needs WORKING`);
   const lastStart = readRows(root, id).filter((r) => r.event === 'start').pop();
-  const tests = struckTests(root, entry, base, opts.tests || []);
+  const { tests, moved } = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
   const ledger = checkLedger(root, { base, branch });
@@ -1032,12 +1047,12 @@ export function jobComplete(root, id, opts = {}) {
   // The receipt is saved in the COMPLETE commit, so a rerun after a failed push can post it.
   const receipt = {
     kind: 'receipt', module: id, attempt, base, branch, tool: toolPin(), at: now(),
-    commands, tests, not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
+    commands, tests, ...(moved.length ? { moved } : {}), not_verified: notv, exempt: exemptRevert ? { revert: exemptRevert } : {},
     ...(again ? { after: again.after } : {}),
     ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}),
   };
   try {
-    if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
+    if (again) appendRow(root, id, { at: again.from, row: 'attempt', event: 'start', role: 'job', attempt, tool: toolPin(), branch, again: { after: again.after, pr: again.pr }, ...(lastStart?.reopen ? { reopen: lastStart.reopen } : {}), ...(lastStart?.notices ? { notices: lastStart.notices } : {}) });
     writeStatus(root, id, { state: 'COMPLETE', at: now() });
     appendRow(root, id, { row: 'attempt', event: 'complete', role: 'job', attempt, pr: pr?.number ?? null, ...(sid ? { session: sid } : {}), receipt, ...(rec.size_waived.length ? { size_waived: rec.size_waived } : {}) });
     if (cost !== null) {

@@ -49,9 +49,11 @@ const listOpen = (slug) => {
   return Array.isArray(pages) ? pages.flat() : null;
 };
 export const PIN_IO = { list: listOpen, comment: addComment, close: (slug, n) => editPR(slug, n, { state: 'closed' }) };
-export function openPinMoves(slug, { list = PIN_IO.list } = {}) {
+export const UNLISTED = (slug) => `could not list ${slug}'s open pull requests, so whether a pin move is open is unknown`;
+// null: unread, when `unread` allows it (pin move); pin check, the guard, always refuses then.
+export function openPinMoves(slug, { list = PIN_IO.list } = {}, { unread = false } = {}) {
   const prs = list(slug);
-  if (!Array.isArray(prs)) fail(`could not list ${slug}'s open pull requests, so whether a pin move is open is unknown`);
+  if (!Array.isArray(prs)) { if (unread) return null; fail(UNLISTED(slug)); }
   return prs.filter((p) => PIN_HEAD.test(p.head?.ref || ''));
 }
 const named = (open) => open.map((p) => `PR ${p.number} (${p.head.ref})`).join(', ');
@@ -77,8 +79,11 @@ export function pinMove(root, slug, { pin, rest = [], tranche = 'tranche', repor
   if (!/^[0-9a-f]{40}$/.test(String(pin))) fail(`pin move needs --pin <a process3 commit, 40 hex>${pin === undefined ? '' : `, not ${JSON.stringify(pin)}`}`);
   // The merge tool's own test (merge.mjs pinChange), before --supersedes closes anything; a tag's id is not a commit's.
   if (!processRepo(processRoot).released(pin) || git(['cat-file', '-t', pin], { cwd: processRoot, allowFail: true }).stdout?.trim() !== 'commit') fail(`--pin ${pin} is not a commit on process3's tranche or main`);
-  const open = openPinMoves(slug, io);
-  if (supersedes !== undefined) {
+  // From a session that cannot list the product's pull requests (a process3-only one, 5 Nov), the
+  // call is printed all the same: the printed session runs pin check, which refuses then, before it pushes.
+  const open = openPinMoves(slug, io, { unread: supersedes === undefined });
+  if (open === null) log(`note: ${UNLISTED(slug)} from here; the pin-move session's own \`${P3} pin check ${slug}\` (step 8, before it pushes) guards it`);
+  else if (supersedes !== undefined) {
     const n = Number(supersedes);
     if (typeof supersedes === 'boolean' || Array.isArray(supersedes) || !Number.isInteger(n) || n < 1) fail(`--supersedes <the open pin move's pull request number>, once; not ${JSON.stringify(supersedes)}`);
     const old = open.find((p) => p.number === n);

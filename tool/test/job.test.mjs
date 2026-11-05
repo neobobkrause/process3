@@ -438,6 +438,7 @@ test('a COMPLETE job with fix commits after it completes attempt 2: checks, suit
   assert.deepEqual(rows.map((x) => [x.event, x.attempt]), [['start', 1], ['complete', 1], ['start', 2], ['complete', 2]]);
   assert.equal(rows[2].at, fixAt, 'attempt 2 starts at its first commit');
   assert.deepEqual(rows[2].again, { after: first, pr: 9 });
+  assert.equal(rows[2].branch, 'job/alpha', 'the --again start row names the branch it works on (copy PR 454)');
   assert.equal(rows[3].receipt.attempt, 2);
   // Only its records (the entry is unchanged when both completes fall in the same second).
   const names = git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }).split('\n');
@@ -1177,6 +1178,32 @@ test('job complete asks no test for a mark moved to another requirement file or 
   const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R4=test/alpha/x.test.mjs::R1 x at the interface']);
   assert.equal(r.ok, true);
   assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R4']);
+});
+
+// Coordinator, 5 Nov: a split copied jurisdictions R109 and four more to jurisdictions-b and -c,
+// each line "was jurisdictions R<n>" under a new id; job complete still asked tests for them.
+test('job complete asks no test for a requirement moved out of the module\'s file to another module\'s; the receipt lists it moved; a line deleted with nowhere to go still owes its test', () => {
+  const root = product();
+  commit(root, { 'process/ledger/alpha-b.json': entry('alpha-b', { requirements: 'req/alpha-b.md' }), 'req/alpha-b.md': '# alpha-b\n', 'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R5** *(not yet met: y)* does y.\n- **R6** *(not yet met: z)* does z.\n' });
+  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
+  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, {
+    'req/alpha-b.md': '# alpha-b\n\n- **R1** *(not yet met: y)* does y. (was alpha R5)\n',
+    'req/alpha.md': '# alpha\n\n- **R1** does x.\n',
+    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
+    'src/alpha/x.mjs': 'export const x = 1;\n',
+  });
+  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
+  // R6's line was deleted and no file names it moved: it still owes a test; R5 does not.
+  assert.throws(() => run([]), /struck R1, R6 with no --test/, 'R5 is not asked for');
+  // "was alpha R5" names R5 only: not R5.1 or R50, and not a module whose id alpha prefixes.
+  commit(root, { 'req/alpha-b.md': '# alpha-b\n\n- **R1** *(not yet met: y)* does y. (was alpha R5)\n- **R2** *(not yet met: q)* q. (was alpha R6.1)\n- **R3** *(not yet met: q)* q. (was alphabet R6)\n' });
+  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 x at the interface']), /struck R6 with no --test/);
+  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R6=test/alpha/x.test.mjs::R1 x at the interface']);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R6']);
+  assert.deepEqual(r.receipt.moved, [{ req: 'R5', to: ['alpha-b'] }]);
 });
 
 test('metrics report: BOB\'s idle time per day, and the overhead share per job and per layer', () => {

@@ -44,7 +44,15 @@ export const entryFile = (id) => `${LEDGER_DIR}/${id}.json`;
 // so the latest start row is on the highest-numbered job/<id>-<n> on origin whose own latest
 // start row names it (named(h); metrics.mjs jobBranchAt reads it), else job/<id>. A <id>-<n> that
 // is itself a module (ids: the ledger's; none read, no <id>-<n> counts) is that module's.
-export const startBranch = (rows, id) => rows.filter((r) => r.row === 'attempt' && r.event === 'start').pop()?.branch || `job/${id}`;
+// The branch the attempt works on: the newest start row's (every start row names it since 5 Nov).
+// Before then a row on job/<id> named none, and an --again row named none either, on whatever
+// branch it continued: an --again row without a branch is passed over for the one before it (copy
+// PR 454: attempt 4 had moved to job/<id>-2 by --fresh-branch, and the gate fell back to job/<id>).
+export function startBranch(rows, id) {
+  const starts = rows.filter((r) => r.row === 'attempt' && r.event === 'start');
+  for (let i = starts.length - 1; i >= 0; i--) if (starts[i].branch || !starts[i].again) return starts[i].branch || `job/${id}`;
+  return `job/${id}`;
+}
 const FRESH = /^(.+)-([1-9]\d*)$/;
 export function jobBranch(id, heads, ids = new Set(), named = () => true) {
   const fresh = [...(heads || [])].map((h) => [h, ids.size && String(h).startsWith('job/') && !ids.has(h.slice(4)) ? FRESH.exec(h.slice(4)) : null])

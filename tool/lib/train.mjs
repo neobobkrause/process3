@@ -10,17 +10,17 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, checkRuns, comments, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { releaseModules } from './status.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
-import { P3, READY_START, wakeLine } from './job.mjs';
+import { P3, READY_START, toolPin, wakeLine } from './job.mjs';
 import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, reviewMeasures, reviewRounds } from './merge.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
 import { approvalsHash } from './start.mjs';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Fail, fail, git, heartbeat, isShallow, loadConfig, now, repoSlug } from './util.mjs';
 import { readAddress } from './roles.mjs';
 
@@ -197,17 +197,27 @@ function ready(root, ctx, skip = new Set()) {
   if (!open) fail(`could not read the pull requests into ${cfg.tranche}`);
   const out = [];
   const jobs = []; // every open job pull request into the tranche: drafts and gates running hold users too
+  const look = [];
   for (const p of open) {
     if (p.base?.ref !== cfg.tranche || !branchModule(p.head?.ref, ids)) continue;
     if (p.base?.repo?.default_branch && p.base.repo.default_branch === cfg.tranche) continue; // never the default branch
     jobs.push({ n: p.number, id: branchModule(p.head.ref, ids), head: p.head.sha, ref: p.head.ref, draft: !!p.draft });
     if (skip.has(p.number) || p.draft) continue;
-    // A green gate is read once per head and run (the loop reads every 15 s); any other state is read again.
-    const job = jobs.at(-1);
-    const g = ctx.gates.get(p.head.sha) || io.checkRun(slug, p.head.sha, 'gate');
-    if (!(g?.status === 'completed' && g.conclusion === 'success')) { ctx.gates.delete(p.head.sha); if (g?.status === 'completed') job.stuck = `its gate ended ${g.conclusion}`; continue; }
+    look.push([p, jobs.at(-1)]);
+  }
+  // A green gate is read once per head and run (the loop reads every 15 s); any other state is read
+  // again. Every gate not cached is read at once, then every green one's post job (5 Nov: read one
+  // by one, they were most of a cold start's wait for its first pick).
+  const green = (g) => g?.status === 'completed' && g.conclusion === 'success';
+  const many = (shas, name) => { const u = [...new Set(shas)]; const m = new Map(); io.checkRunMany(slug, u.map((x) => [x, name])).forEach((x, i) => m.set(u[i], x)); return m; };
+  const gates = many(look.map(([p]) => p.head.sha).filter((x) => !ctx.gates.has(x)), 'gate');
+  const gateOf = (sha) => ctx.gates.get(sha) || gates.get(sha) || null;
+  const posts = many(look.map(([p]) => p.head.sha).filter((x) => green(gateOf(x)) && !gateOf(x).post), 'post');
+  for (const [p, job] of look) {
+    const g = gateOf(p.head.sha);
+    if (!green(g)) { ctx.gates.delete(p.head.sha); if (g?.status === 'completed') job.stuck = `its gate ended ${g.conclusion}`; continue; }
     // Its row is posted by the gate workflow's post job, after the gate: merge needs it.
-    const post = g.post || io.checkRun(slug, p.head.sha, 'post');
+    const post = g.post || posts.get(p.head.sha) || null;
     // The post job of this gate run: it starts only once the gate has ended.
     if (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at))) continue;
     ctx.gates.set(p.head.sha, { ...g, post });
@@ -216,7 +226,8 @@ function ready(root, ctx, skip = new Set()) {
     // A head refused (and handed to BOB) waits for a new head or gate run, or a review note made since.
     const at = ctx.refused.get(`${p.number}@${p.head.sha}@${run}`);
     if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at)) { job.stuck = 'the train refused it on this head'; continue; }
-    out.push({ n: p.number, head: p.head.sha, run, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
+    // ref: a user's head is fetched by it too (5 Nov: a cold clone fetched only providers' heads, so no user was held).
+    out.push({ n: p.number, head: p.head.sha, ref: p.head.ref, run, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
   }
   return order(root, ctx, out, jobs);
 }
@@ -233,6 +244,7 @@ function order(root, ctx, cands, jobs) {
   if (c.tip !== tip) {
     c.tip = tip;
     c.exp.clear(); c.imp.clear(); // both read the tranche: its ledger entries, its modules, the merge-base
+    loadOrderCache(root, cfg, tip, c); // what an earlier train in this clone read at this tip
     try { c.modules = readModules(root, cfg, at); } catch (e) { c.modules = null; say(`the modules file is unread at ${tip.slice(0, 10)} (${e.message}): nothing is held for a provider`); }
     c.release = null;
   }
@@ -262,10 +274,23 @@ function order(root, ctx, cands, jobs) {
     git(['fetch', '-q', 'origin', `+refs/heads/${j.ref}:refs/remotes/origin/${j.ref}`], { cwd: root, allowFail: true });
     if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code !== 0) throw new Error(`${j.ref} at ${j.head.slice(0, 10)} is not fetched`);
   };
+  const size = c.exp.size + c.imp.size;
   const exportsChanged = (p) => { if (!c.exp.has(p.head)) { have(p); c.exp.set(p.head, exportsChangedAt(root, cfg, at, p)); } return c.exp.get(p.head); };
   const importsFrom = (u, p) => { const k = `${u.head}>${p.id}`; if (!c.imp.has(k)) { have(u); c.imp.set(k, importsFromAt(root, cfg, at, c.modules, u, p)); } return c.imp.get(k); };
   const graph = usesGraph(c.modules);
-  const holds = c.modules ? providerHolds(cands, jobs, { ...graph, red, exportsChanged, importsFrom, note: say }) : new Map();
+  let holds = new Map();
+  if (c.modules) {
+    // Every head the hold may read and this clone lacks, in one fetch (one by one, each was a round trip).
+    fetchHeads(root, holdHeads(cands, jobs, graph.usesOf));
+    // The gate reads of every provider an edge holds on, at once: a first pass finds them (its git
+    // reads are cached for the second), the second is the hold as before.
+    const want = new Set();
+    providerHolds(cands, jobs, { ...graph, red: (p) => { if (!p.stuck && !reds.has(p.head)) want.add(p.head); return false; }, exportsChanged, importsFrom, note: () => {} });
+    const ws = [...want];
+    io.checkRunsMany(slug, ws.map((x) => [x, 'gate'])).forEach((rs, i) => { if (Array.isArray(rs)) reds.set(ws[i], rs[0]?.status === 'completed' && rs[0].conclusion !== 'success'); });
+    holds = providerHolds(cands, jobs, { ...graph, red, exportsChanged, importsFrom, note: say });
+  }
+  if (c.exp.size + c.imp.size !== size) saveOrderCache(root, cfg, tip, c);
   const now = Date.now();
   ctx.held = [];
   for (const u of cands) {
@@ -280,10 +305,11 @@ function order(root, ctx, cands, jobs) {
     } else if (was) { ctx.log(`PR ${u.n} (${u.id}) is no longer held: its providers merged, went red, or no longer change what it imports`); c.seen.delete(u.n); }
   }
   // Each module's full-gate minutes, from the gate rows on its pull requests (read once per head).
-  for (const u of cands) {
-    if (c.runs.has(`${u.n}@${u.head}`)) continue;
+  const unread = cands.filter((u) => !c.runs.has(`${u.n}@${u.head}`));
+  const read = io.commentsMany(slug, unread.map((u) => u.n));
+  for (const [i, u] of unread.entries()) {
     let runs = [];
-    try { runs = gateRuns(io.comments(slug, u.n) || []); } catch { continue; }
+    try { if (read[i] === null) continue; runs = gateRuns(read[i] || []); } catch { continue; }
     c.runs.add(`${u.n}@${u.head}`);
     const m = c.mins.get(u.id) || new Map();
     for (const r of runs) for (const x of fullGateMinutes([r])) m.set(`${r.sha}@${r.at ?? r.run_id ?? ''}`, x);
@@ -298,6 +324,48 @@ function order(root, ctx, cands, jobs) {
   const agedFrom = agedFromOf(c.heldAt);
   const known = med([...c.mins.values()].map((m) => med([...m.values()])));
   return orderQueue(free, { now, agedFrom, known }).map((u) => ({ ...u, aged: now - agedFrom(u) > AGE_MIN * MIN }));
+}
+
+// The heads the provider hold can read: each candidate with an open provider in its `uses`, and
+// those providers' open pull requests.
+function holdHeads(cands, jobs, usesOf) {
+  const byId = new Map();
+  for (const j of jobs) byId.set(j.id, [...(byId.get(j.id) || []), j]);
+  const out = new Map();
+  for (const u of cands) {
+    const ps = (usesOf.get(u.id) || []).flatMap((id) => byId.get(id) || []).filter((p) => p.n !== u.n);
+    if (!ps.length) continue;
+    out.set(u.head, u);
+    for (const p of ps) out.set(p.head, p);
+  }
+  return [...out.values()];
+}
+// The heads this clone lacks, fetched in one call; any it could not fetch is left to have(), one by one.
+function fetchHeads(root, js) {
+  const list = js.filter((j) => j.ref && /^[0-9a-f]{40}$/.test(String(j.head)));
+  if (!list.length) return;
+  const r = git(['cat-file', '--batch-check'], { cwd: root, allowFail: true, input: list.map((j) => `${j.head}^{commit}`).join('\n') + '\n' });
+  const lines = r.stdout.split('\n');
+  const miss = [...new Set(list.filter((j, i) => r.code !== 0 || /missing|ambiguous/.test(lines[i] || 'missing')).map((j) => j.ref))];
+  if (miss.length) git(['fetch', '-q', 'origin', ...miss.map((ref) => `+refs/heads/${ref}:refs/remotes/origin/${ref}`)], { cwd: root, allowFail: true });
+}
+// The hold's git reads (export change by head, import by user head and provider), kept in the clone
+// by tranche tip and config, so a restarted train at the same tip reads none of them again.
+const ORDER_CACHE = 'p3-train-order.json';
+// The tool's own commit is in the key: a fixed reader never reuses an older one's answers.
+const cacheKey = (cfg, tip) => `${tip}:${toolPin()}:${createHash('sha256').update(JSON.stringify(cfg)).digest('hex').slice(0, 16)}`;
+const cachePath = (root) => git(['rev-parse', '--absolute-git-dir'], { cwd: root }) + '/' + ORDER_CACHE;
+function loadOrderCache(root, cfg, tip, c) {
+  try {
+    const x = JSON.parse(readFileSync(cachePath(root), 'utf8'));
+    if (x?.key !== cacheKey(cfg, tip)) return;
+    for (const [k, v] of Object.entries(x.exp || {})) if (typeof v === 'boolean') c.exp.set(k, v);
+    for (const [k, v] of Object.entries(x.imp || {})) if (typeof v === 'boolean') c.imp.set(k, v);
+  } catch { /* none, or unread: read again */ }
+}
+function saveOrderCache(root, cfg, tip, c) {
+  if (isShallow(root)) return; // a cut history can read wrong without failing: never kept
+  try { writeFileSync(cachePath(root), JSON.stringify({ key: cacheKey(cfg, tip), exp: Object.fromEntries(c.exp), imp: Object.fromEntries(c.imp) })); } catch { /* a cache only */ }
 }
 
 // Prepares the next pull request while PR `cur`'s re-gate runs: merge's own checks, and a
@@ -420,6 +488,13 @@ export const plainBranch = (cfg, slug, pr) => {
 // Before the train takes it, a queued row waits at most one job's whole gate wait (a job merge in
 // flight is never cut short) beyond the caller's --minutes; the --minutes count from the take.
 const takeBy = (minutes, wait = GATE_WAIT_MINUTES) => new Date(Date.now() + (minutes + wait) * MIN).toISOString();
+// A waiting caller renews its row every PLAIN_RENEW minutes (a renew row); a taken row whose caller
+// has not renewed it within one job gate's wait has lost its caller (killed, no withdrawal: review
+// of PR 151) and ends, withdrawn, so it never holds the train again.
+export const PLAIN_RENEW = 5; // minutes
+export const plainSeen = (rows, id) => Math.max(...rows.filter((r) => r.id === id && (r.row === 'queue' || r.row === 'renew')).map((r) => Date.parse(r.at)).filter(Number.isFinite), -Infinity);
+// Only a row whose caller renews (renews: true) can lose it: an older caller never renews, and its row ends as before.
+const callerGone = (rows, id, t = Date.now()) => rows.some((r) => r.row === 'queue' && r.id === id && r.renews) && plainSeen(rows, id) + GATE_WAIT_MINUTES * MIN < t;
 
 // merge <pr> --plain, the caller's side. Without a live lease, or for any pull request not into the
 // tranche, it is mergePlain as before. pause: the wait between reads (a test runs the train in it).
@@ -436,7 +511,7 @@ export function plainViaTrain(root, n, opts = {}) {
   const rounds = reviewRounds(opts); // a review not given is refused here, before anything is queued
   const id = randomBytes(6).toString('hex');
   const by = (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
-  const q = { at: now(), row: 'queue', id, pr: Number(n), head: pr.head.sha, ref: pr.head.ref, by, reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision || null, as: opts.as ?? 'bob', take_by: takeBy(minutes, opts.queueMinutes) };
+  const q = { at: now(), row: 'queue', id, pr: Number(n), head: pr.head.sha, ref: pr.head.ref, by, reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision || null, as: opts.as ?? 'bob', take_by: takeBy(minutes, opts.queueMinutes), renews: true };
   writeState(root, cfg.state_branch, `merge train: PR ${n} queued (plain)`, (wt) => append(wt, PLAIN_FILE, q));
   log(`the merge train (${lease.session}) holds the tranche: PR ${n} is queued for it at ${q.head.slice(0, 10)}, before any job pull request; waiting for its land (up to ${minutes} min once the train takes it, and up to one job's gate wait more until then)`);
   const pause = opts.pause || (() => sleep(every));
@@ -454,9 +529,15 @@ export function plainViaTrain(root, n, opts = {}) {
   let said = null;
   let rows = [];
   let withdrawn = false;
+  let renewed = Date.now();
+  const renewEvery = (opts.renewMinutes ?? PLAIN_RENEW) * MIN;
   try {
     for (;;) {
       pause();
+      if (Date.now() - renewed >= renewEvery) {
+        // A renewal not pushed is tried again at the next read; the row lives a gate wait past the last one.
+        try { writeState(root, cfg.state_branch, `merge train: PR ${n} renewed (plain)`, (wt) => append(wt, PLAIN_FILE, { at: now(), row: 'renew', id, pr: Number(n) })); renewed = Date.now(); } catch (e) { if (!(e instanceof Fail)) throw e; }
+      }
       rows = read();
       const end = ended(rows);
       if (end?.result === 'merged') return report(end);
@@ -492,14 +573,30 @@ export function plainViaTrain(root, n, opts = {}) {
 // lands: its land checks it again, beforeLand). Read-only.
 function plainReady(root, ctx) {
   const rows = jsonl(readState(root, ctx.cfg.state_branch, PLAIN_FILE));
-  const ended = plainEnds(jsonl(readState(root, ctx.cfg.state_branch, TRAIN_FILE)));
+  const trains = jsonl(readState(root, ctx.cfg.state_branch, TRAIN_FILE));
+  const ended = plainEnds(trains);
   const gone = new Set(rows.filter((r) => r.row === 'withdraw').map((r) => r.id));
   ctx.withdrawn = gone;
-  const taken = new Set(jsonl(readState(root, ctx.cfg.state_branch, TRAIN_FILE)).filter((r) => r.row === 'plain' && r.result === 'taken').map((r) => r.queue));
-  // A row whose caller is gone (killed: no withdrawal) ends at its take_by, unless already taken.
+  const taken = new Set(trains.filter((r) => r.row === 'plain' && r.result === 'taken').map((r) => r.queue));
+  // A row whose caller is gone (killed: no withdrawal) ends at its take_by before it is taken, and
+  // and, taken or not, when its caller renews and has not within one job gate's wait (ctx.plainExpired).
   const late = (r) => !taken.has(r.id) && Date.parse(r.take_by) < Date.now();
-  return rows.filter((r) => r.row === 'queue' && !ended.has(r.id) && !gone.has(r.id) && !late(r) && !((ctx.plainBackoff.get(r.id)?.until || 0) > Date.now()))
+  const open = rows.filter((r) => r.row === 'queue' && !ended.has(r.id) && !gone.has(r.id) && !late(r));
+  ctx.plainExpired = open.filter((r) => callerGone(rows, r.id)); // taken or not: a renewing caller that stopped is gone
+  // Its tries, and the wait before the next, are on its retry rows: a restarted train keeps them.
+  const retries = (id) => trains.filter((x) => x.row === 'plain' && x.queue === id && x.result === 'retry');
+  for (const r of open) { const t = retries(r.id); r.tries = t.length; r.retry_at = t.at(-1)?.retry_at || null; }
+  return open.filter((r) => !ctx.plainExpired.includes(r) && !(r.retry_at && Date.parse(r.retry_at) > Date.now()))
     .sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+// A taken row whose caller is gone, ended once with its own row (the caller, if it ever reads, is told).
+function expirePlain(root, ctx) {
+  for (const q of ctx.plainExpired || []) {
+    const why = `its caller did not renew it within ${GATE_WAIT_MINUTES} min (one job gate's wait): withdrawn, nothing was landed`;
+    writeState(root, ctx.cfg.state_branch, `merge train: PR ${q.pr} withdrawn (plain, caller gone)`, (wt) => append(wt, TRAIN_FILE, { at: now(), row: 'plain', session: ctx.session, queue: q.id, pr: q.pr, head: q.head, result: 'withdrawn', why, tries: q.tries || 0 }));
+    ctx.log(`PR ${q.pr} (plain) ${why}`);
+  }
+  ctx.plainExpired = [];
 }
 
 // The head the train lands: the queued head, or it with the tranche merged in (cleanly, by the
@@ -561,19 +658,24 @@ function plainOne(root, ctx, q, { queue, idle }) {
     if (p.merged) { Object.assign(row, { result: 'merged', sha: p.merge_commit_sha, merged_at: now(), elsewhere: true }); }
     else {
       const head = syncPlain(root, ctx, q);
-      const withdrawn = () => { fetchState(root, cfg.state_branch, { fresh: true }); if (jsonl(readState(root, cfg.state_branch, PLAIN_FILE)).some((r) => r.row === 'withdraw' && r.id === q.id)) fail(`pull request ${q.pr} was withdrawn from the queue by its caller; nothing was landed`); };
+      const withdrawn = () => {
+        fetchState(root, cfg.state_branch, { fresh: true });
+        const pr = jsonl(readState(root, cfg.state_branch, PLAIN_FILE));
+        if (pr.some((r) => r.row === 'withdraw' && r.id === q.id)) fail(`pull request ${q.pr} was withdrawn from the queue by its caller; nothing was landed`);
+        if (callerGone(pr, q.id)) fail(`pull request ${q.pr} was withdrawn from the queue: its caller did not renew it within ${GATE_WAIT_MINUTES} min; nothing was landed`);
+      };
       const r = mergePlain(root, q.pr, { reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.rounds, decision: q.decision || undefined, as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
       Object.assign(row, { result: 'merged', sha: r.sha, landed: head, merged_at: now(), checks: r.checks, wake: r.wake || null, what: r.what || null });
     }
   } catch (e) {
     if (!(e instanceof Fail) || e instanceof Stop) throw e;
     const why = e.message.split('\n')[0].slice(0, 300);
-    const b = { tries: (ctx.plainBackoff.get(q.id)?.tries || 0) + 1 };
+    const b = { tries: (q.tries || 0) + 1 }; // the retry rows' count, kept across restarts
     if (/withdrawn from the queue/.test(why)) row.result = 'withdrawn';
     else if (PLAIN_AGAIN.test(why) && b.tries < RETRIES_TO_BOB) {
       row.result = 'retry';
       b.until = Date.now() + Math.min(8, 2 ** (b.tries - 1)) * MIN;
-      ctx.plainBackoff.set(q.id, b);
+      row.retry_at = new Date(b.until).toISOString();
       log(`PR ${q.pr} (plain) is tried again in ${Math.round((b.until - Date.now()) / MIN)} min: ${why}`);
     } else {
       row.result = 'refused';
@@ -582,6 +684,7 @@ function plainOne(root, ctx, q, { queue, idle }) {
       try { send(root, cfg.state_branch, { from: 'merger', to: 'bob', text, log }); } catch (x) { if (!(x instanceof Fail)) throw x; log(`the message to BOB was not recorded (${x.message}); tell BOB: ${text}`); }
     }
     row.why = why;
+    row.tries = b.tries;
   }
   row.minutes = mins(started, Date.now());
   writeState(root, cfg.state_branch, `merge train: PR ${q.pr} ${row.result} (plain)`, (wt) => append(wt, TRAIN_FILE, row));
@@ -601,8 +704,14 @@ export function train(root, opts = {}) {
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
   const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainBackoff: new Map(), plainTaken: new Set(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
+  // The batched reads: GitHub's at once, or, where a caller gives its own single read, that one in turn.
+  const given = opts.io || {};
+  if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
+  if (!given.checkRunsMany) io.checkRunsMany = given.checkRuns ? (s, pairs) => pairs.map(([sha, name]) => io.checkRuns(s, sha, name)) : checkRunsMany;
+  if (!given.commentsMany) io.commentsMany = given.comments ? (s, ns) => ns.map((n) => { try { return io.comments(s, n) || []; } catch { return null; } }) : commentsMany;
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
+  ctx.onQueue = opts.onQueue; // a test reads the queue each round
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
   const { takeover, dead } = takeLease(root, cfg, session, ctx.token, { take: true });
   ctx.renewed = Date.now();
@@ -646,8 +755,10 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
     ctx.bob = bob;
     // A queued plain pull request goes before every job (its caller waits): oldest first.
     const plain = plainReady(root, ctx);
+    expirePlain(root, ctx);
     const list = plain.length ? [] : ready(root, ctx);
     const first = list.find((c) => c.n === ctx.prepared?.n) || list[0];
+    ctx.onQueue?.(list);
     if (plain.length) {
       plainOne(root, ctx, plain[0], { queue: plain.length, idle: mins(idleFrom, Date.now()) });
       idleFrom = Date.now();
