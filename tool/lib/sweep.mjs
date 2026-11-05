@@ -302,8 +302,6 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
         // An open attempt read without its pull request (offline): named in the train from GitHub (item 4).
         if (!offline) markInTrain(root, cfg, work, rows, { io: io || {} });
-        // Stuck in the train: BOB's act whatever the idle (copy PR 364 sat 13.5 h, nothing owed).
-        for (const x of work) if (x.train_stuck) owed.push(x.train_stuck);
         next = !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const onOrigin = onOriginOf(originHeads);

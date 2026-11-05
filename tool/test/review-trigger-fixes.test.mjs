@@ -1,6 +1,5 @@
 // The review-trigger day-1 study on the copy (4 Nov 19:35 to 5 Nov 19:00; 80 job merges, 7 triggered):
-// (1) a security trigger fired on a one-line comment (PR 364); (2) every merge row read review_usd
-// "unmeasured"; (3) PR 364's head moved after its review and it sat 13.5 h with nothing said;
+// (2) every merge row read review_usd "unmeasured"; (3) PR 364's head moved after its review and it sat 13.5 h with nothing said;
 // (4) PR 173's row, prepared under an older pin, carried no triggers key.
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
@@ -9,7 +8,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge, reviewCostOf } from '../lib/merge.mjs';
-import { jsCode, reviewTriggers, triggerSummary } from '../lib/triggers.mjs';
+import { triggerSummary } from '../lib/triggers.mjs';
 import { carriedNote, sameChange } from '../lib/train.mjs';
 import { stuckLine, trainStuck } from '../lib/stuck.mjs';
 import { idleCapacity, markInTrain } from '../lib/sweep.mjs';
@@ -73,57 +72,7 @@ const originRows = (root) => {
   const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
   return git(['show', `${tip}:process/metrics/alpha.jsonl`], { cwd: root }).split('\n').filter(Boolean).map((l) => JSON.parse(l));
 };
-const trig = (root) => reviewTriggers(root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: CFG });
 const reviewed = { reviewed: 'fresh reviewer: no findings', rounds: 1, reviewMinutes: '9', findings: '0', actedOn: '0' };
-
-test('(1) a security file changed only in comments or whitespace does not fire (copy PR 364); a hunk with code in it still fires', () => {
-  // PR 364: one line comment changed.
-  const one = setup((r) => commit(r, { 'agent-worker/src/signin.mjs': SIGNIN.replace('// seconds', '// seconds, one hour') }));
-  const t1 = trig(one.root);
-  assert.deepEqual([t1.fired, t1.security, t1.comments_only], [[], [], ['agent-worker/src/signin.mjs']]);
-  // Block comments, a new comment line, re-indenting and blank lines: still no code.
-  const block_ = setup((r) => commit(r, { 'agent-worker/src/signin.mjs': SIGNIN.replace('/* the session is short-lived */', '/*\n   * the session is short-lived:\n   * one hour\n   */').replace('  return', '\n    // why: the cap\n      return') }));
-  assert.deepEqual(trig(block_.root).fired, []);
-  // A hunk that mixes a comment and code fires, and carries its hunk to the review brief.
-  const mixed = setup((r) => commit(r, { 'agent-worker/src/signin.mjs': SIGNIN.replace('  const ttl = 3600; // seconds', '  const ttl = 36000; // seconds, ten hours') }));
-  const t2 = trig(mixed.root);
-  assert.deepEqual([t2.fired, t2.security, t2.comments_only], [['security'], ['agent-worker/src/signin.mjs'], undefined]);
-  assert.match(t2.hunks, /^\+  const ttl = 36000; \/\/ seconds, ten hours$/m);
-  // Code commented out is a code change; a string that looks like a comment is code.
-  const out = setup((r) => commit(r, { 'agent-worker/src/signin.mjs': SIGNIN.replace('  const ttl = 3600;', '  // const ttl = 3600;\n  const ttl = 1;') }));
-  assert.deepEqual(trig(out.root).fired, ['security']);
-  const str = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a", "b", "// c"];\n' }));
-  assert.deepEqual(trig(str.root).fired, ['security']);
-  // Joining two lines is a code change in JS (automatic semicolons).
-  const join_ = setup((r) => commit(r, { 'agent-worker/src/signin.mjs': SIGNIN.replace('  return { user, ttl };', '  return {\n user, ttl };') }));
-  assert.deepEqual(trig(join_.root).fired, ['security']);
-  // Another language is not read: a '#' line in a text file fires as before.
-  const txt = setup((r) => commit(r, { 'src/alpha/rules.txt': 'allow a\n# allow b, never\n' }));
-  assert.deepEqual(trig(txt.root).fired, ['security']);
-  // Mixed files: the comment-only one is left out, the other fires alone.
-  const both = setup((r) => commit(r, { 'agent-worker/src/signin.mjs': SIGNIN.replace('// seconds', '// s'), 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }));
-  const t3 = trig(both.root);
-  assert.deepEqual([t3.fired, t3.security, t3.comments_only], [['security'], ['src/alpha/acts.mjs'], ['agent-worker/src/signin.mjs']]);
-  assert.doesNotMatch(t3.hunks, /signin/);
-  // And merge takes --no-review for the comment-only change.
-  assert.equal(merge(one.root, 364, { slug: 'o/r', io: io(one.head), noReview: 'a comment', log: quiet }).merged, true);
-  assert.deepEqual(originRows(one.root).filter((r) => r.row === 'merge')[0].triggers, []);
-});
-
-test('(1) the comment stripper: strings, templates and regular expressions kept; anything it cannot read safely is null (fires)', () => {
-  assert.equal(jsCode('a(); // x\nb();'), 'a();\nb();');
-  assert.equal(jsCode('a();\n/* x\n y */b();'), 'a();\nb();');
-  assert.equal(jsCode('f(1, /* inline */ 2)'), 'f(1, 2)');
-  assert.equal(jsCode('x = "//no"; y = \'/*no*/\''), 'x = "//no"; y = \'/*no*/\'');
-  assert.equal(jsCode('x = `a ${ {b: 1}.b } // kept`; // gone'), 'x = `a ${ {b: 1}.b } // kept`;');
-  assert.equal(jsCode('x = `${`in${1}`}`; // q'), 'x = `${`in${1}`}`;');
-  assert.equal(jsCode('x = /\\/\\*/.test(s);'), 'x = /\\/\\*/.test(s);', 'no comment opener: kept as is');
-  assert.equal(jsCode('x = a / b; // c'), null, 'a comment after a bare slash could be inside a regular expression');
-  assert.equal(jsCode('x = /a\\/\\//; y = 1;'), null);
-  assert.equal(jsCode('s = "unclosed'), null);
-  assert.equal(jsCode('/* unclosed'), null);
-  assert.equal(jsCode('x = `open'), null);
-});
 
 test('(2) the review cost is read onto the merge row from the --role review rows since the attempt started, a named session, or the session record', () => {
   const s = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }));
@@ -190,7 +139,7 @@ test('(3) a review carries to a moved head when the job\'s change is the same; o
   assert.equal(carriedNote(s.root, cfg, own, 364, synced, bob).review.reviewed, 'second review');
 });
 
-test('(3) a head refused in the train and not reviewed since is stuck: status\'s line, the idle alarm\'s reason and the sweep\'s owed act name it', () => {
+test('(3) a head refused in the train and not reviewed since is stuck: status\'s line and the idle alarm\'s reason name it', () => {
   const t = Date.parse('2026-11-05T19:00:00Z');
   const rows = [
     { at: '2026-11-05T05:20:00Z', row: 'merge', pr: 364, head: 'd3af394aaaa', result: 'refused', why: 'pull request 364 fires the review trigger security (security paths changed: agent-worker/src/signin.mjs): --no-review is refused' },

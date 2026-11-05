@@ -9,11 +9,6 @@
 // security: a change to a path the product lists in review_triggers.security_paths (its config,
 //   read at the tranche; globs: ** any depth, * within one name, ? one character; a path without
 //   them names a file or a directory). The product names its own files; none by default.
-//   A file of a language read here (JS: .js, .mjs, .cjs) changed only in comments or whitespace
-//   does not fire (review-trigger day-1 study, 5 Nov: copy PR 364 fired on a one-line comment in
-//   agent-worker/src/signin.mjs): its code, comments stripped and each line's whitespace
-//   collapsed, is the same at the base and the head. A change with any code in it, a file added
-//   or deleted, any other language, or a file the stripper cannot read safely still fires.
 // test (sharpened by the coordinator, 4 Nov 19:16, from the first 6 hand reviews): a test file of the
 //   module (under its entry's tests, with its suite's suffix) deleted; or, in one that existed at
 //   the base, a skip added (SKIP: test|it|describe.skip|todo|only( added), or a hunk that removes an
@@ -51,65 +46,6 @@ export function securityPaths(cfg) {
   return { paths: v, set: true };
 }
 
-// JS code with its comments taken out, each line trimmed with inner whitespace runs collapsed and
-// blank lines dropped; null when it cannot be read safely (an unclosed comment, string or
-// template; a comment opener on a line after a bare '/', which could be a regular expression's
-// body). Line breaks are kept: in JS a line break can change the code (automatic semicolons), so
-// a comment that held one leaves one, and joining or splitting lines is a code change.
-export const COMMENT_LANGS = /\.(?:js|mjs|cjs)$/;
-export function jsCode(text) {
-  const s = String(text);
-  let out = '';
-  let i = 0;
-  let slash = false; // a bare '/' earlier on this line: a regular expression may be open
-  const stack = []; // template literal nesting: 'tpl' inside a template's text, a number inside ${...}
-  while (i < s.length) {
-    const c = s[i];
-    const top = stack.at(-1);
-    if (top === 'tpl') {
-      if (c === '\\') { out += s.slice(i, i + 2); i += 2; continue; }
-      if (c === '`') { stack.pop(); out += c; i++; continue; }
-      if (c === '$' && s[i + 1] === '{') { stack.push(0); out += '${'; i += 2; continue; }
-      out += c; i++; continue;
-    }
-    if (c === '\n') { slash = false; out += c; i++; continue; }
-    if (c === '/' && (s[i + 1] === '/' || s[i + 1] === '*')) {
-      if (slash) return null;
-      if (s[i + 1] === '/') { const e = s.indexOf('\n', i); i = e < 0 ? s.length : e; continue; }
-      const e = s.indexOf('*/', i + 2);
-      if (e < 0) return null;
-      out += s.slice(i, e).includes('\n') ? '\n' : ' ';
-      i = e + 2; continue;
-    }
-    if (c === '/') { slash = true; out += c; i++; continue; }
-    if (c === '"' || c === "'") {
-      let j = i + 1;
-      while (j < s.length && s[j] !== c && s[j] !== '\n') j += s[j] === '\\' ? 2 : 1;
-      if (s[j] !== c) return null;
-      out += s.slice(i, j + 1); i = j + 1; continue;
-    }
-    if (c === '`') { stack.push('tpl'); out += c; i++; continue; }
-    if (typeof top === 'number') {
-      if (c === '{') stack[stack.length - 1]++;
-      else if (c === '}') { if (top === 0) { stack.pop(); out += c; i++; continue; } stack[stack.length - 1]--; }
-    }
-    out += c; i++;
-  }
-  if (stack.length) return null;
-  return out.split('\n').map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean).join('\n');
-}
-// Whether a security file changed from base to head in comments or whitespace only (see security above).
-export function commentsOnly(root, base, head, f) {
-  if (!COMMENT_LANGS.test(f)) return false;
-  const show = (ref) => git(['show', `${ref}:${f}`], { cwd: root, allowFail: true });
-  const a = show(base);
-  const b = show(head);
-  if (a.code !== 0 || b.code !== 0) return false;
-  const x = jsCode(a.stdout);
-  const y = jsCode(b.stdout);
-  return x !== null && y !== null && x === y;
-}
-
 const isTest = (entry, f) => (entry?.tests || []).some((t) => underPath(f, String(t).replace(/^\.\//, ''))) && f.endsWith(entry?.suite?.test_suffix || '.test.mjs');
 const isComment = (l) => /^\s*(?:\/\/|\/?\*)/.test(l);
 
@@ -143,9 +79,7 @@ export function reviewTriggers(root, { base, head, entry, cfg }) {
   const z = git(['diff', '--no-renames', '--name-status', '-z', base, head], { cwd: root }).split('\0');
   const status = [];
   for (let i = 0; i + 1 < z.length; i += 2) if (z[i]) status.push({ s: z[i][0], f: z[i + 1] });
-  const touched = status.filter((x) => sec.paths.some((g) => matchPath(x.f, g)));
-  const quiet = touched.filter((x) => x.s === 'M' && commentsOnly(root, base, head, x.f)).map((x) => x.f);
-  const security = touched.map((x) => x.f).filter((f) => !quiet.includes(f));
+  const security = status.filter((x) => sec.paths.some((g) => matchPath(x.f, g))).map((x) => x.f);
   const deleted = status.filter((x) => x.s === 'D' && isTest(entry, x.f)).map((x) => x.f);
   const loosened = [];
   const diffs = {};
@@ -166,7 +100,7 @@ export function reviewTriggers(root, { base, head, entry, cfg }) {
   for (const l of loosened) parts.push(diffs[l.file]);
   const all = parts.join('\n').split('\n');
   const hunks = all.length > HUNK_LINES ? [...all.slice(0, HUNK_LINES), `... ${all.length - HUNK_LINES} more lines: git diff ${String(base).slice(0, 10)} ${head} -- ${[...security, ...deleted, ...loosened.map((l) => l.file)].join(' ')}`].join('\n') : all.join('\n');
-  return { fired, security, deleted, loosened, why, hunks, ...(quiet.length ? { comments_only: quiet } : {}), ...(sec.bad ? { bad: sec.bad } : {}), security_set: sec.set };
+  return { fired, security, deleted, loosened, why, hunks, ...(sec.bad ? { bad: sec.bad } : {}), security_set: sec.set };
 }
 
 const num = (x) => typeof x === 'number' && Number.isFinite(x);
