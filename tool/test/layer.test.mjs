@@ -40,7 +40,7 @@ test('layer ready to close with marks left: no next work in it, BOB\'s act is la
   assert.equal(r.layer.cur.n, 1);
   assert.equal(r.layer.ready, true);
   assert.deepEqual(r.next, []);
-  assert.match(out.join('\n'), /^layer 1 ready to close: node \.process\/tool\/p3\.mjs layer close 1$/m);
+  assert.match(out.join('\n'), /^layer 1 ready to close: node \.process\/tool\/p3\.mjs job start --ready --live <n> closes it, then starts the next layer's jobs \(or node \.process\/tool\/p3\.mjs layer close 1\)$/m);
   assert.doesNotMatch(out.join('\n'), /next work/);
 });
 

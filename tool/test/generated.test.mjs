@@ -95,7 +95,7 @@ test('deploy dev and release run build the uncommitted generated files before th
   const GUARD = 'p3dev guard: passed';
   const node = (code) => ['node', '-e', code];
   const deploy = { slug_prefix: 'p3dev-', dry_run: node(`console.log(${JSON.stringify(GUARD)})`), deploy: node("if (!require('fs').existsSync('gen/big.txt')) process.exit(5)"), walk: node('0'), guard_line: GUARD };
-  const { root, bare } = withOrigin(product({ deploy }));
+  const { root, bare } = withOrigin(product({ deploy, plan: 'close' }));
   assert.equal(layerClose(root, '1', { io, log: quiet }).ok, true);
   git(['clean', '-qfd', 'gen'], { cwd: root });
   const out = [];
@@ -103,7 +103,7 @@ test('deploy dev and release run build the uncommitted generated files before th
   assert.equal(r.ok, true, out.join('\n'));
   assert.deepEqual(r.row.results.map((x) => [x.stage, x.exit]), [['build', 0], ['dry_run', 0], ['deploy', 0], ['walk', 0]]);
   assert.ok(JSON.parse(git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare })).ok);
-  assert.match(out.join('\n'), /findings of the walk, if any, enter by the route for work found elsewhere: `node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "walk p3dev-l1"`/);
+  assert.match(out.join('\n'), /findings of the walk, if any, enter by the route for work found elsewhere: `node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "walk p3dev-l1 \w{10}"`/);
   // The release's checks job, on its own checkout, builds them too.
   const rel = makeRepo(product({ release: { checks: [node("if (!require('fs').existsSync('gen/big.txt')) process.exit(6)")], assemble: node('0'), out: 'rel' } }));
   const c = releaseRun(rel, 'checks', { log: quiet });
@@ -140,7 +140,7 @@ test('deploy dev installs the lock files before it builds the generated files (c
     mkdirSync(join(o.cwd, 'node_modules/esbuild'), { recursive: true });
     return { code: 0, stdout: '', stderr: '', seconds: 0 };
   };
-  const { root } = withOrigin(product({ deploy, generated: rows, lockfiles: ['dep/package-lock.json'] }, { 'dep/package.json': '{"name":"dep"}', 'dep/package-lock.json': lock }));
+  const { root } = withOrigin(product({ deploy, plan: 'close', generated: rows, lockfiles: ['dep/package-lock.json'] }, { 'dep/package.json': '{"name":"dep"}', 'dep/package-lock.json': lock }));
   assert.equal(layerClose(root, '1', { io, exec, log: quiet }).ok, true);
   git(['clean', '-qfdx', 'gen', 'dep'], { cwd: root });
   calls.length = 0;

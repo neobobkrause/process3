@@ -96,7 +96,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
   if (built.length) log(`generated, built and verified, not committed (deploy dev and release run build them): ${built.join(', ')}`);
   if (changed.length) log(`regenerated files differ from the tranche (${changed.join(', ')}): not committed here; commit them by BOB's plain pull request`);
   nextWork(root, cfg, s.rows, tranche, { log, notices: owedNotices(root, cfg, s.rows, () => {}), state: layerState(root, cfg, s.rows, tranche, { closed: [...closed, row] }) });
-  // The close gives BOB its next layer's work and the deploy and walk: the wake is the last line.
+  // The close gives BOB its next layer's work (no deploy: that belongs to the round close): the wake is the last line.
   const wake = wakeLine(`layer ${n} closed: ${READY_START}, then status`, as);
   log(wake || READY_NEXT);
   return { ok: true, row, wake };

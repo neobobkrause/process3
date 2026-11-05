@@ -3,14 +3,14 @@
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
-import { P3, readingSet } from './job.mjs';
+import { P3, READY_START, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { deployOwed } from './deploy.mjs';
+import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
@@ -261,9 +261,21 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     out.open = openState(root, cfg);
     if (out.open.state !== 'open') log(openLine(out.open));
     out.notices = owedNotices(root, cfg, rows, log);
-    // After a layer close, the deploy and walk (deploy dev), until a deploy row for that layer exists.
-    out.deploy = cfg.deploy && !halt ? deployOwed(root, cfg, closed, { slug: offline ? null : slug, read: io.compare }) : null;
-    if (out.deploy !== null) log(`deploy and walk: ${P3} deploy dev (layer ${out.deploy} closed, not yet deployed)`);
+    // The deploy and walk at a round close only, never between layers (Bob, 4 Nov); it never
+    // holds job starts: next work is listed beside it. Its unrecorded findings hold tranche close.
+    out.deploy = null;
+    // Not before the tranche open has passed (a tranche merged into main reads every row stale).
+    if (cfg.deploy && !halt && out.open.state === 'open') {
+      const at = { ref: ref || 'HEAD', tip: git(['rev-parse', ref || 'HEAD'], { cwd: root }) };
+      const w = walkFindings(root, cfg, at.ref, { slug: offline ? null : slug, read: io.compare });
+      // The plan as the tranche holds it, as deploy dev and tranche close read it.
+      let plan = cfg.plan;
+      try { if (ref) plan = loadConfig(root, ref).plan; } catch { plan = cfg.plan; }
+      out.deploy = deployOwed(roundClose(root, cfg, { ls: out.layer, plan, closed, ref: at.ref, w }), w, at.tip);
+      if (out.deploy !== null) log(`deploy and walk at the round close: ${P3} deploy dev (${out.deploy}); job starts do not wait for it`);
+      const hold = walkHold(w);
+      if (hold) log(`tranche close waits: ${hold}`);
+    }
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
     return out;
   }
@@ -404,7 +416,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
     .sort((a, b) => a.n - b.n);
   // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
   // main lacks (origin/main unread counts as here). A layer that had such work closes only by
-  // `layer close`, its checks, close row and deploy and walk; one with none closes implicitly.
+  // `layer close`, its checks and close row; one with none closes implicitly.
   const blob = (at, f) => {
     if (at) { const r = git(['rev-parse', '-q', '--verify', `${at}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; }
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
@@ -616,7 +628,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
     }
-    if (ls.ready) log(`layer ${layer} ready to close: ${P3} layer close ${layer}`);
+    if (ls.ready) log(`layer ${layer} ready to close: ${READY_START} closes it, then starts the next layer's jobs (or ${P3} layer close ${layer})`);
     if (ls.pending) {
       log(`layer ${layer} ready to close once BOB closes these unmerged (never deleting the branch):`);
       for (const m of ls.owed) log(`- close PR #${m.pr} unmerged: ${m.blocked}`);
