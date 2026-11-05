@@ -2,7 +2,7 @@
 // 20 for about 6 hours and nothing in Process3 saw it; cap use about 48% over a day).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { makeRepo, setJobCap } from './helpers.mjs';
@@ -152,6 +152,32 @@ test('sweep: IDLE CAPACITY wakes BOB with the start and tells the coordinator th
   assert.ok(r.todo.some((x) => /^IDLE CAPACITY to the coordinator: send_message to session_coord1 with "IDLE CAPACITY: /.test(x)));
   assert.ok(r.todo.some((x) => /^wake BOB with one message: .*IDLE CAPACITY, 18 slots empty, 0 startable: run node \S+ job start --ready/.test(x)));
   assert.equal(readState(root, SB, HOLDS_FILE), null);
+});
+
+test('sweep --sessions: every unarchived job session holds a slot, idle complete-awaiting-merge ones too, the split beside it; one page of a longer list is refused (copy, 5 Nov 04:36: 6 counted of 16)', (t) => {
+  setJobCap(t, 20);
+  const root = withOrigin();
+  recordStart(root, 'root', 'session_root1', { log: quiet });
+  recordStart(root, 'bob', 'session_bob1', { log: quiet });
+  writeState(root, SB, 'older', (d) => mkdirSync(join(d, 'metrics'), { recursive: true }) || writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: ago(40), row: 'sweep', live: 2, job_cap: 20, idle_capacity: { kind: 'empty', since: ago(40) } }) + '\n'));
+  const dir = mkdtempSync(join(tmpdir(), 'p3-sessions-'));
+  const s = (i, st, o = {}) => ({ id: `session_j${i}`, title: `job m${i}`, session_status: st, updated_at: ago(5), ...o });
+  // 7 working, 5 complete awaiting the MERGER (idle, review_ready), 4 waiting or blocked (idle), 3 archived, 2 roles.
+  const list = [...Array.from({ length: 7 }, (_, i) => s(i, 'running')), ...Array.from({ length: 5 }, (_, i) => s(10 + i, 'idle', { status_bucket: 'review_ready' })), ...Array.from({ length: 4 }, (_, i) => s(20 + i, 'idle')), ...Array.from({ length: 3 }, (_, i) => s(30 + i, 'archived')), { id: 'session_root1', title: 'ROOT', session_status: 'running' }, { id: 'session_bob1', title: 'BOB', session_status: 'idle' }];
+  const file = join(dir, 's.json');
+  writeFileSync(file, JSON.stringify({ data: list, has_more: false }));
+  const rows = () => readState(root, SB, SWEEP_ROWS_FILE).trim().split('\n').map((l) => JSON.parse(l));
+  const r = sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet });
+  assert.equal(rows().at(-1).live, 16, 'every unarchived job session');
+  assert.ok(!r.found.some((x) => /IDLE CAPACITY/.test(x)), '16 of 20 and nothing startable: no empty-slot alarm');
+  // Fewer live: the alarm names the split beside the count.
+  writeFileSync(file, JSON.stringify({ data: list.slice(0, 3), has_more: false }));
+  writeState(root, SB, 'older', (d) => writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: ago(40), row: 'sweep', live: 3, job_cap: 20, idle_capacity: { kind: 'empty', since: ago(40) } }) + '\n'));
+  const few = sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet });
+  assert.ok(few.found.some((x) => /^IDLE CAPACITY: 3 job sessions live \(working \d+, waiting \d+\) of the cap 20, /.test(x)), few.found.join('\n'));
+  // The first page of a longer list: refused, with the way to read the rest.
+  writeFileSync(file, JSON.stringify({ data: list.slice(0, 6), has_more: true, last_id: 'session_j5' }));
+  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /list_sessions has more pages \(has_more\): call it with limit 100, and again with after_id <last_id> while has_more/);
 });
 
 test('flow: velocity reads the tranche\'s first-parent commits, never a job branch\'s own commit merged later', () => {

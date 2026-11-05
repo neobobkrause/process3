@@ -41,6 +41,9 @@ export function readSessions(file) {
   try { j = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { fail(`--sessions ${file}: not a readable JSON file (${e.message}); save your list_sessions result there`); }
   const list = [j, j?.data, j?.ccr?.data].find(Array.isArray);
   if (!list) fail(`--sessions ${file}: no list of sessions in it (a JSON list, or one under "data" or "ccr.data")`);
+  // One page of a longer list (copy, 5 Nov 04:36: list_sessions' first page held 6 of 16 job
+  // sessions, so 14 slots read empty with 4 free): every unarchived job session holds a slot.
+  if ([j, j?.ccr].some((x) => x?.has_more === true)) fail(`--sessions ${file}: list_sessions has more pages (has_more): call it with limit 100, and again with after_id <last_id> while has_more, and save every page's sessions as one list; every unarchived job session holds a slot`);
   return list.filter((x) => x && typeof x === 'object');
 }
 export const sessionId = (x) => x.id || '?';
