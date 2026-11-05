@@ -32,6 +32,7 @@ import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, pro
 import { fetchState, handoff, jsonl, outcome, readState, send, writeState } from './lib/state.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
+import { triageAdd, triageClose, triageList } from './lib/register.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
@@ -200,6 +201,20 @@ const commands = {
     laneEnd(root, a._[0], { session: a.session, why: a.why });
     return 0;
   },
+
+  // triage add | close | list: the triage register (register.mjs), in process3 the process's, in a
+  // product its triage lane's; add and close commit it on the current branch, to land by pull request.
+  'triage add': (a, root) => {
+    if (a._.length) fail('triage add takes no positional arguments: --kind, --problem, --evidence, and the kind\'s fields');
+    triageAdd(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, a);
+    return 0;
+  },
+  'triage close': (a, root) => {
+    if (a._.length !== 1) fail('triage close <id> --how "<how the end condition was met>"');
+    triageClose(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, a._[0], { how: a.how });
+    return 0;
+  },
+  'triage list': (a, root) => { triageList(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, { all: !!a.all }); return 0; },
 
   // tranche close: refused unless every layer is closed and the completion file's items are done or
   // deferred (PLN-4), or the plan says close; BOB's acts.

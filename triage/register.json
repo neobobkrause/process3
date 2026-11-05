@@ -1,0 +1,18 @@
+{
+  "open": [
+    {
+      "id": "P1",
+      "kind": "short-term",
+      "problem": "Process3 fixes and product job pull requests contend for the copy's merge train; while merges are slow, a product job merge can hold back a process3 fix that would speed every merge.",
+      "evidence": "Bob, 5 Nov: \"To the extent that there's contention, should the priority be on evolving process3 fixes above merging product jobs?\"",
+      "interim": "process3 fixes that raise merge throughput or unblock jobs go ahead of product job pull requests. Their pin move takes the copy train's next place, batched into one pin move per batch; other process3 fixes ride the next batch.",
+      "decided_by": "the coordinator",
+      "decided_at": "2026-11-05",
+      "end_condition": "on the copy, for 2 consecutive hours, no window position is discarded or re-gated except for a file conflict or a real test failure, and green-to-merged is under 10 minutes at the median.",
+      "affects": ["bob", "merger", "coordinator"],
+      "owner": "the process-triage lane",
+      "state": "interim in force",
+      "opened_at": "2026-11-05"
+    }
+  ]
+}

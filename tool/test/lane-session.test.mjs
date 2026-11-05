@@ -179,7 +179,7 @@ test('a lane module\'s START says the job is the lane\'s one session', () => {
 test('lane config: a folder the gate would not count is refused; a paused plan starts no lane session; lane start takes no job start option', async () => {
   const { lanes } = await import('../lib/lane.mjs');
   for (const dir of ['.', 'process/ux', '../x', '.github/x']) assert.throws(() => lanes({ lanes: [{ name: 'ux', dir }] }), /cannot be a lane folder/, dir);
-  assert.deepEqual(lanes({ lanes: [{ name: 'ux', dir: './design/ux/' }] }), [{ name: 'ux', dir: 'design/ux', module: null }]);
+  assert.deepEqual(lanes({ lanes: [{ name: 'ux', dir: './design/ux/' }] }), [{ name: 'ux', dir: 'design/ux', module: null, kind: 'design', repo: 'product' }]);
   const { root } = withOrigin({ 'process/config.json': { plan: 'pause', lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
   assert.throws(() => laneStart(root, 'ux', { slug: 'o/p', log: quiet }), /plan pause: take no new step; no lane session was started/);
   const { main } = await import('../p3.mjs');
