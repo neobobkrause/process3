@@ -36,17 +36,18 @@ jobs:
           n=$(nproc)
           for v in 22 26; do
             bin=NODE$v
-            ( start=$(date +%s); rc=0; "${!bin}" --test --test-concurrency="$n" 'tool/test/*.test.mjs' > "$RUNNER_TEMP/node$v.log" 2>&1 || rc=$?; echo "$rc $(( $(date +%s) - start ))" > "$RUNNER_TEMP/node$v.rc" ) &
+            # Its own node first on PATH, so what the tests spawn as `node` is this version too; its
+            # lines streamed with a prefix as they come, so a run cut by the cap still shows them.
+            ( start=$(date +%s); export PATH="$(dirname "${!bin}"):$PATH"
+              node --test --test-concurrency="$n" 'tool/test/*.test.mjs' 2>&1 | sed -u "s/^/[node$v] /" | tee "$RUNNER_TEMP/node$v.log"
+              rc=${PIPESTATUS[0]}; echo "$rc $(( $(date +%s) - start ))" > "$RUNNER_TEMP/node$v.rc" ) &
           done
           wait
           fail=0
           for v in 22 26; do
             bin=NODE$v
             rc=1; secs=0; [ -f "$RUNNER_TEMP/node$v.rc" ] && read -r rc secs < "$RUNNER_TEMP/node$v.rc"
-            echo "::group::Node $v ($("${!bin}" --version)): exit $rc in $secs s"
-            cat "$RUNNER_TEMP/node$v.log"
-            echo "::endgroup::"
-            { grep -E '^(ℹ|#) (tests|pass|fail) ' "$RUNNER_TEMP/node$v.log" || true; } | tr '\n' ' '; echo "(Node $v, $secs s)"
+            { grep -E "^\[node$v\] (ℹ|#) (tests|pass|fail) " "$RUNNER_TEMP/node$v.log" || true; } | tr '\n' ' '; echo "(Node $v, $("${!bin}" --version), exit $rc, $secs s)"
             [ "$rc" = 0 ] || { echo "::error::tool tests failed on Node $v (exit $rc)"; fail=1; }
           done
           exit "$fail"
