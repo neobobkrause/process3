@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { APPROVAL, PRUNE_FILE, approves, prune } from '../lib/branches.mjs';
+import { APPROVAL, MARKER, PRUNE_FILE, approves, prune } from '../lib/branches.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -69,23 +69,26 @@ const runIt = (p, opts = {}) => {
   return { ...r, lines };
 };
 
-test('approves: Bob\'s sentence word for word; whitespace and curly apostrophes forgiven, nothing else', () => {
+test('approves: the marker phrase exactly; whitespace and curly apostrophes forgiven, nothing else', () => {
+  assert.equal(MARKER, 'the process\'s scheduled branch cleanup workflow');
+  assert.ok(APPROVAL.includes(MARKER));
   assert.equal(approves(APPROVED), true);
+  assert.equal(approves(`x ${MARKER} y`), true);
   assert.equal(approves(APPROVAL.replaceAll('\'', '’').replace(/ /g, '\n  ')), true);
-  assert.equal(approves(APPROVAL.replace('2 hours', '4 hours')), false);
-  assert.equal(approves(APPROVAL.replace('never main, ', '')), false);
-  assert.equal(approves(APPROVAL.slice(0, 80)), false);
+  assert.equal(approves(APPROVAL.replace('scheduled branch cleanup', 'branch cleanup')), false);
+  assert.equal(approves(APPROVAL.replace('process\'s', 'processes')), false);
+  assert.equal(approves(MARKER.toUpperCase()), false);
   assert.equal(approves(''), false);
 });
 
 test('without the approval sentence in the approvals block: a notice, nothing deleted, nothing written', () => {
-  for (const claude of [approvalsWith(), `${approvalsWith()}\n## Elsewhere\n\n${APPROVAL}\n`, approvalsWith(`\n\n${APPROVAL.replace('tranche,', 'tranche')}`)]) {
+  for (const claude of [approvalsWith(), `${approvalsWith()}\n## Elsewhere\n\n${APPROVAL}\n`, approvalsWith(`\n\n${APPROVAL.replace('scheduled branch', 'scheduled  branch-')}`)]) {
     const p = product({ claude });
     branch(p, 'job/old-1');
     const r = runIt(p);
     assert.equal(r.ok, true);
     assert.equal(r.approved, false);
-    assert.match(r.lines.join('\n'), /::notice::branches prune: the approvals block \(CLAUDE\.md, "## Standing approvals from Bob"\) on main at [0-9a-f]{10} does not carry the branch cleanup approval; nothing was deleted/);
+    assert.match(r.lines.join('\n'), /::notice::branches prune: the approvals block \(CLAUDE\.md, "## Standing approvals from Bob"\) on main at [0-9a-f]{10} does not carry the branch cleanup approval \("the process's scheduled branch cleanup workflow"\); nothing was deleted/);
     assert.deepEqual(heads(p), ['job/old-1', 'main', 'tranche']);
     assert.deepEqual(rows(p), []);
   }

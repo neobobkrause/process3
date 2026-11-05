@@ -5,10 +5,10 @@
 //
 // The approval gate (fails closed). The standing approvals say sessions "may never ... delete a
 // branch". This command deletes only while the approvals block (process/config.json approvals:
-// its file and heading) on the default branch's tip, as origin holds it, carries APPROVAL, Bob's
-// sentence, word for word; whitespace runs and curly apostrophes are read as one space and a
-// straight apostrophe, nothing else is forgiven. A sentence anywhere else in the file, or changed
-// in any word, is no approval. Without it the run prints a notice, deletes nothing and writes
+// its file and heading) on the default branch's tip, as origin holds it, carries MARKER, the fixed
+// phrase "the process's scheduled branch cleanup workflow" of Bob's sentence (APPROVAL), exactly;
+// whitespace runs and curly apostrophes are read as one space and a straight apostrophe, nothing
+// else is forgiven (not case). The phrase anywhere else in the file is no approval. Without it the run prints a notice, deletes nothing and writes
 // nothing. --dry-run reads and prints all the same, approved or not, and writes nothing.
 //
 // What it deletes, each judged on a fresh fetch of every origin branch:
@@ -36,7 +36,10 @@ import { approvalsBlock } from './record.mjs';
 import { writeState } from './state.mjs';
 import { DEFAULTS, exists, fail, fetchRetry, gh, git, isShallow, loadConfig, now } from './util.mjs';
 
-export const APPROVAL = 'A scheduled cleanup workflow in the process\'s GitHub repositories may delete branches whose commits are all in the tranche, and the merge train\'s train/head/* branches whose pull request is closed, but never main, tranche or process-state, a branch with an open pull request, or one with a commit in the last 2 hours.';
+// Bob's sentence for the approvals block, as the coordinator relayed it (5 Nov 18:20). The gate
+// matches MARKER, a fixed phrase of it; the keep rules below are the sentence's.
+export const APPROVAL = 'One exception to the paragraph above: the process\'s scheduled branch cleanup workflow, running in those GitHub repositories, may delete branches whose commits are all in the tranche, and the merge train\'s train/head/* branches whose pull request is closed; never main, the tranche or the state branch, a branch with an open pull request, or one with a commit in the last 2 hours.';
+export const MARKER = 'the process\'s scheduled branch cleanup workflow';
 export const RECENT_HOURS = 2;
 export const TRAIN_HEAD = 'train/head/';
 export const PRUNE_FILE = 'branches/prune.jsonl';
@@ -44,8 +47,8 @@ export const DELETE_BATCH = 100;
 const PUSH_TRIES = 3;
 
 const norm = (t) => String(t).replace(/[‘’ʼ]/g, '\'').replace(/\s+/g, ' ').trim();
-// Whether an approvals block carries Bob's sentence.
-export const approves = (block) => !!block && norm(block).includes(norm(APPROVAL));
+// Whether an approvals block carries the marker phrase (case as written).
+export const approves = (block) => !!block && norm(block).includes(norm(MARKER));
 
 const remote = (b) => `refs/remotes/origin/${b}`;
 const isServerError = (s) => /(?:error|HTTP(?:\/[\d.]+)?(?: code)?)[: ]+5\d\d\b|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out|unexpected disconnect|RPC failed/i.test(s);
@@ -84,7 +87,7 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   const block = exists(root, base, file) ? approvalsBlock(git(['show', `${base}:${file}`], { cwd: root }), heading) : '';
   const approved = approves(block);
   if (!approved) {
-    const why = `the approvals block (${file}, "${heading}") on ${def} at ${baseSha.slice(0, 10)} does not carry the branch cleanup approval; nothing ${dryRun ? 'would be' : 'was'} deleted`;
+    const why = `the approvals block (${file}, "${heading}") on ${def} at ${baseSha.slice(0, 10)} does not carry the branch cleanup approval ("${MARKER}"); nothing ${dryRun ? 'would be' : 'was'} deleted`;
     if (!dryRun) { log(`::notice::branches prune: ${why}`); return { ok: true, approved: false, dryRun, deleted: [], failed: [], kept: {}, candidates: [] }; }
     log(`branches prune (dry run): ${why}; the branches the rules would delete once approved follow`);
   }

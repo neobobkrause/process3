@@ -4,7 +4,8 @@
 # commits are all in the tranche and closed train/head/* branches, never main, the tranche, the
 # state branch, a branch with an open pull request or one with a commit in the last 2 hours.
 # It deletes nothing until the approvals block in CLAUDE.md on the default branch carries Bob's
-# sentence word for word (tool/lib/branches.mjs APPROVAL); until then each run prints a notice and
+# marker phrase "the process's scheduled branch cleanup workflow" (tool/lib/branches.mjs MARKER, a
+# phrase of Bob's sentence APPROVAL); until then each run prints a notice and
 # writes nothing. Dispatched with dry_run, it prints what it would delete and writes nothing.
 # A schedule runs only the default branch's copy of this file; the tool refuses to delete from a
 # run on any other ref. No product code runs here: the checkout is read by the pin's tool only, so
