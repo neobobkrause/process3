@@ -1007,13 +1007,14 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
 
 // The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed. Commits only
 // the entry, and can run again to finish a push that failed.
-export function jobBlock(root, id, { reason, push = true, log = console.log } = {}) {
+export function jobBlock(root, id, { reason, owner, push = true, log = console.log } = {}) {
   if (!reason || reason === true) fail('block needs --reason "<why>"');
+  if (owner !== undefined && owner !== 'bob' && owner !== 'coordinator') fail('--owner bob (a requirement question: what the product must do) or coordinator (anything else)');
   const branch = onBranch(root, id);
   const e = readEntry(root, id);
   if (e.status.state === 'COMPLETE') fail(`${id} is COMPLETE; it cannot be blocked`);
-  if (!(e.status.state === 'BLOCKED' && e.status.reason === reason)) {
-    writeStatus(root, id, { state: 'BLOCKED', reason, at: now() });
+  if (!(e.status.state === 'BLOCKED' && e.status.reason === reason && e.status.owner === owner)) {
+    writeStatus(root, id, { state: 'BLOCKED', reason, at: now(), ...(owner ? { owner } : {}) });
     try { commitFiles(root, [entryFile(id)], `block ${id}: ${reason}`); } catch (err) { restore(root, [entryFile(id)]); throw err; }
   }
   if (push) {

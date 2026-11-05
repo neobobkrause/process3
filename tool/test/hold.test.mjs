@@ -6,8 +6,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { makeRepo, setJobCap } from './helpers.mjs';
-import { HOLDS_FILE, hold, holdLines, holdsOf } from '../lib/hold.mjs';
-import { capUse } from '../lib/metrics.mjs';
+import { HOLDS_FILE, hold, holdHours, holdLines, holdsOf } from '../lib/hold.mjs';
+import { flowFigures } from '../lib/metrics.mjs';
 import { startReady } from '../lib/ready.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { readState, writeState } from '../lib/state.mjs';
@@ -47,32 +47,31 @@ test('hold: a row on the state branch, printed first by status with who, why and
   hold(root, undefined, { end: 'hold-1', by: S, log: quiet });
   assert.throws(() => hold(root, undefined, { end: 'hold-1', by: S, log: quiet }), /holds nothing already \(ended\)/);
   assert.match(lines(root)[0], /^holds: 1 live/);
-  // Over two hours, or more than a quarter of the cap (a layer counts its modules): Bob's alone.
-  for (const [scope, until] of [['slots:2', '3h'], ['slots:6', '30m'], ['layer:2', '30m']]) {
-    assert.throws(() => hold(root, scope, { why: 'x', by: S, until, log: quiet }), /refused: a hold .* only Bob can set: his own commit through GitHub's website/);
-  }
-  assert.throws(() => hold(root, 'slots:1', { why: 'x', by: 'bob', until: '10m', log: quiet }), /--by bob only with --word/);
+  // Every hold expires within two hours, whoever sets it and however wide; no Bob path.
+  assert.throws(() => hold(root, 'slots:2', { why: 'x', by: S, until: '3h', log: quiet }), /refused: a hold expires within 2 hours; to hold longer, set a new hold with its reason/);
+  assert.throws(() => hold(root, 'slots:1', { why: 'x', by: 'bob', until: '10m', log: quiet }), /--by <your session id/);
+  assert.equal(hold(root, 'layer:2', { why: 'wide is fine', by: S, until: '2h', log: quiet }).id, 'hold-3');
   assert.throws(() => hold(root, 'room:1', { why: 'x', by: S, until: '10m' }), /module:<id>, layer:<n> or slots:<n>/);
   assert.throws(() => hold(root, 'slots:1', { why: 'x', by: S, until: ago(1) }), /a future time/);
   assert.throws(() => hold(root, 'slots:1', { why: 'x', by: 'me', until: '10m' }), /--by <your session id/);
 });
 
-test('hold: Bob\'s word is his own verified website commit whose message names the hold; his hold only expires', (t) => {
+test('hold: a longer hold is a visible chain of renewals, each with its reason; report tranche counts hold-hours by setter and reason', (t) => {
   setJobCap(t, 20);
   const root = withOrigin();
-  const date = new Date(Date.now() + 6e4).toISOString(); // the word given just now
-  const web = (message, login = 'neobobkrause') => () => ({ author: { login }, committer: { login: 'web-flow' }, commit: { message, committer: { date }, verification: { verified: true } } });
-  const set = (scope, until, message, word = 'abc', login) => hold(root, scope, { why: 'budget', by: 'bob', until, word, io: { lookup: web(message, login) }, log: quiet });
-  assert.throws(() => set('slots:10', '4h', 'hold slots:10 4h', 'abc', 'someone'), /abc is not \(author someone/);
-  assert.throws(() => set('slots:10', '4h', 'hold slots:9 4h'), /message does not name it/);
-  assert.throws(() => set('slots:6', '4h', 'hold slots:60 4h'), /message does not name it/); // the exact scope, not a prefix
-  assert.throws(() => set('slots:10', '4h', 'hold slots:10'), /message does not name it/); // a time is part of his word
-  assert.throws(() => set('slots:10', '5h', 'hold slots:10 4h.'), /--until is past the 4h his word gives/);
-  const r = set('slots:10', '4h', 'hold slots:10 4h for the budget review', 'abc1234567890');
-  assert.throws(() => set('slots:10', '1h', 'hold slots:10 4h for the budget review', 'abc1234567890'), /abc1234567890 already set a hold/);
-  assert.equal(r.word, 'abc1234567890');
-  assert.match(lines(root)[1], /^- hold-1 slots:10, by bob \(Bob's word abc1234567\)/);
-  assert.throws(() => hold(root, undefined, { end: 'hold-1', by: S }), /Bob's hold; only Bob ends it/);
+  hold(root, 'slots:4', { why: 'gate queue full', by: S, until: '2h', log: quiet });
+  const r = hold(root, 'slots:4', { why: 'gate queue still full', by: S, until: '2h', log: quiet });
+  assert.equal(r.renews, 'hold-1');
+  assert.match(lines(root)[2], /^- hold-2 slots:4, by session_coord1, renewing hold-1, (119|120) min to expiry: gate queue still full$/);
+  assert.equal(hold(root, 'module:a', { why: 'x', by: S, until: '10m', log: quiet }).renews, undefined);
+  const at = (h) => new Date(Date.parse('2026-11-04T00:00:00Z') + h * 36e5).toISOString();
+  const rows = [
+    { at: at(0), row: 'hold', id: 'hold-1', scope: 'slots:4', why: 'gate queue full', by: S, until: at(2) },
+    { at: at(2), row: 'hold', id: 'hold-2', scope: 'slots:4', why: 'gate queue full', by: S, until: at(4), renews: 'hold-1' },
+    { at: at(3), row: 'end', id: 'hold-2', by: S },
+    { at: at(5), row: 'hold', id: 'hold-3', scope: 'module:a', why: 'split', by: 'session_x1', until: at(7) },
+  ];
+  assert.deepEqual(holdHours(rows, at(1), at(6)), [{ by: S, why: 'gate queue full', holds: 2, hours: 2 }, { by: 'session_x1', why: 'split', holds: 1, hours: 1 }]);
 });
 
 test('holds: an expired hold holds nothing and is printed as expired', () => {
@@ -153,16 +152,32 @@ test('sweep: IDLE CAPACITY wakes BOB with the start and tells the coordinator th
   assert.equal(readState(root, SB, HOLDS_FILE), null);
 });
 
-test('cap use: job session-hours over cap session-hours in the window, beside 85%, with the alarms', () => {
+test('flow: cap use beside velocity, efficiency and quality, whole and by concurrency bucket', () => {
   const at = (h) => new Date(Date.parse('2026-11-04T00:00:00Z') + h * 36e5).toISOString();
-  const rows = [
+  const sweeps = [
     { row: 'sweep', at: at(-1), live: 20, job_cap: 20 }, // before the window: holds from its start
     { row: 'sweep', at: at(1), live: 6, job_cap: 20, idle_capacity: { alarm: true, min: 50 } },
     { row: 'sweep', at: at(3), live: 10, live_cap: 20, idle_capacity: { alarm: true, min: 170 } },
     { row: 'sweep', at: at(4), job_cap: 20 }, // unmeasured live: skipped
   ];
-  const u = capUse(rows, at(0), at(4));
-  // 20x1 + 6x2 + 10x1 = 42 of 80.
-  assert.deepEqual([u.job_session_h, u.cap_session_h, u.use, u.target, u.idle_alarms, u.idle_longest_min], [42, 80, 0.525, 0.85, 2, 170]);
-  assert.equal(capUse([], at(0)).use, 'unmeasured');
+  // Unmet marks at each hour: 30 at 0, 20 at 1, 18 at 3, 14 at 4 (a split adding met marks changes none).
+  const unmet = { 0: 30, 1: 20, 3: 18, 4: 14 };
+  const unmetAt = (iso) => unmet[(Date.parse(iso) - Date.parse(at(0))) / 36e5] ?? null;
+  const rows = [
+    { row: 'merge', pr: 1, at: at(0.5) }, { row: 'merge', pr: 1, at: at(0.6) }, { row: 'merge', pr: 2, at: at(2) }, { row: 'merge', pr: 3, at: at(3.5) },
+    { row: 'attempt', event: 'complete', attempt: 1, pr: 2, at: at(1.5) }, { row: 'attempt', event: 'complete', attempt: 1, pr: 3, at: at(3.2) },
+    { row: 'attempt', event: 'start', reopen: 'meet the unmet requirement marks R1, R4 and the found marks F2', at: at(2.5) },
+  ];
+  const gates = (pr) => (pr === 2 ? [{ receipt_attempt: 1, suite: 'fail' }, { receipt_attempt: 1, suite: 'pass' }] : [{ receipt_attempt: 1, suite: 'pass' }]);
+  const f = flowFigures({ sweeps, rows, unmetAt, gates, syncs: 6, reverts: 1, from: at(0), to: at(4) });
+  // 20x1 + 6x2 + 10x1 = 42 of 80 job session-hours; 16 marks net over 4 h; 3 merges over 42 h.
+  assert.deepEqual([f.cap_use, f.velocity_per_h, f.merges_per_job_session_h, f.hours], [0.53, 4, 0.07, 4]);
+  assert.deepEqual([f.gate_runs_per_pr, f.syncs_per_pr, f.false_done_share, f.reopened_marks, f.reverts, f.idle_alarms], [1.33, 2, 0.5, 3, 1, 2]);
+  assert.match(f.cancels_per_pr, /^unmeasured/);
+  assert.deepEqual(f.buckets, [
+    { live: '6-10', hours: 3, cap_use: 0.37, velocity_per_h: 2, merges_per_job_session_h: 0.09 },
+    { live: '16-20', hours: 1, cap_use: 1, velocity_per_h: 10, merges_per_job_session_h: 0.05 },
+  ]);
+  assert.equal(flowFigures({ from: at(0), to: at(4) }).cap_use, 'unmeasured');
+  assert.equal(flowFigures({ sweeps, from: at(0), to: at(4) }).velocity_per_h, 'unmeasured');
 });

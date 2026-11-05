@@ -7,8 +7,9 @@ import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
-import { USE_TARGET, capUse, idleByDay, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
+import { FLOW_RULE as flowRule, countCommits, flowFigures, idleByDay, unmetAtRef, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
+import { HOLDS_FILE, holdHours } from './hold.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
 import { triggerSummary } from './triggers.mjs';
 import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
@@ -321,8 +322,20 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push('## BOB idle occurrences', '', 'Per UTC day, the sweeps that found acts listed for BOB and the longest BOB had been quiet at one (`metrics report` `bob_idle_by_day`).', '');
   L.push(...(Array.isArray(idle) ? table(['day', 'occurrences', 'longest quiet (h)', 'unmeasured sweeps'], idle.map((d) => [d.day, d.occurrences, d.longest_quiet_h, d.unmeasured_sweeps])) : [U]), '');
 
-  const cu = sweeps === null ? null : capUse(sweeps, opened, end);
-  L.push('## Cap use', '', `Job session-hours over cap session-hours since ${opened ? 'the opening' : 'the first sweep row (the opening not read)'}, from the sweep rows (\`metrics report\` \`cap_use\`): ${!cu || cu.use === 'unmeasured' ? U : `${Math.round(cu.use * 100)}% (${cu.job_session_h} of ${cu.cap_session_h} h)`}, target ${Math.round(USE_TARGET * 100)}%${cu && cu.use < USE_TARGET ? ' (under)' : ''}; IDLE CAPACITY alarms ${cu ? `${cu.idle_alarms}, longest ${cu.idle_longest_min} min` : U}.`, '');
+  // Flow (audit of PR 139): cap use, a diagnostic, beside velocity, efficiency and quality, whole and by
+  // concurrency bucket; and the hours each setter's holds held, by reason.
+  const fl = sweeps === null ? null : flowFigures({ sweeps, rows: here || rows, unmetAt: unmetAtRef(root, cfg, tip), gates: (pr) => gateRuns(read.comments(pr) || []), syncs: countCommits(root, tip, opened, end, '^Bring job/'), reverts: countCommits(root, tip, opened, end, '^Revert'), from: opened, to: end });
+  const pc = (x) => (typeof x === 'number' ? `${Math.round(x * 100)}%` : U);
+  const hh = stateJsonl(HOLDS_FILE);
+  L.push('## Flow', '', `Since ${opened ? 'the opening' : 'the first sweep row (the opening not read)'}, from the sweep rows (\`metrics report\` \`flow\`): ${flowRule}`, '');
+  if (!fl) L.push(`${U} (the state branch's sweep rows not read).`, '');
+  else {
+    L.push(`- cap use: ${pc(fl.cap_use)} over ${fl.hours} h; IDLE CAPACITY alarms (sweeps) ${fl.idle_alarms}`, `- velocity: ${fl.velocity_per_h} marks per hour`, `- efficiency: ${fl.merges_per_job_session_h} merges per job session-hour; per merged PR, gate runs ${fl.gate_runs_per_pr}, syncs ${fl.syncs_per_pr}, cancels ${fl.cancels_per_pr}`, `- quality: false-done share ${pc(fl.false_done_share)}; reopened marks ${fl.reopened_marks}; reverts ${fl.reverts}`, '');
+    if (fl.buckets.length) L.push(...table(['live', 'hours', 'cap use', 'marks per hour', 'merges per job session-hour'], fl.buckets.map((q) => [q.live, q.hours, pc(q.cap_use), q.velocity_per_h, q.merges_per_job_session_h])), '');
+  }
+  const held = hh === null ? null : holdHours(hh, opened, end);
+  L.push(`Hold-hours by setter and reason${held === null ? `: ${U}` : held.length ? ':' : ': none.'}`, '');
+  if (held?.length) L.push(...table(['set by', 'reason', 'holds', 'hours'], held.map((x) => [x.by, x.why, x.holds, x.hours])), '');
 
   // Lead times
   // A close whose commit cannot be placed is passed undecided: its figure reads unmeasured.

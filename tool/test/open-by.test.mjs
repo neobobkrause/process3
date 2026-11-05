@@ -196,9 +196,12 @@ test('status: the flow line, and each BLOCKED job with its age, oldest first, it
   // Startable is what job start --ready would start: an open attempt, or a file with no entry, is not.
   assert.equal(flow({}, [], [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN', attempt_open: true }, { file: 'r/b.md', count: 1 }], 0).startable, 0);
   // Deferred (a reason, its pull request closed, on a reopened COMPLETE module too) awaits no ruling;
-  // a reason naming a requirement id is Bob's.
+  // Bob's only for a requirement question (rule 9; audit of PR 139): the owner job block named, else a
+  // reason that opens with "requirement" or asks what the product must do; an id alone is the coordinator's.
   const old = ago(60);
-  assert.deepEqual(blockedJobs({}, [{ id: 'd', tranche: 'COMPLETE', flag: 'BLOCKED', blocked: 'x', pr: 'merged', since: old }, { id: 'e', tranche: 'BLOCKED', blocked: 'R4 contradicts R7', pr: '#9 draft', since: old }]).map((b) => [b.id, b.by]), [['e', 'Bob']]);
+  const b = (id, blocked, owner) => ({ id, tranche: 'BLOCKED', blocked, pr: '#9 draft', since: old, ...(owner ? { owner } : {}) });
+  assert.deepEqual(blockedJobs({}, [{ id: 'd', tranche: 'COMPLETE', flag: 'BLOCKED', blocked: 'x', pr: 'merged', since: old }, b('e', 'R4 fails its test fixture'), b('f', 'R4 contradicts R7', 'bob'), b('g', 'requirement R2: which fees apply?'), b('h', 'requirement wording aside, the build breaks', 'coordinator'), b('i', 'what the product must do on a refund is unwritten')])
+    .map((x) => [x.id, x.by]), [['e', 'the coordinator'], ['f', 'Bob'], ['g', 'Bob'], ['h', 'the coordinator'], ['i', 'Bob']]);
 });
 
 // Coordinator, 5 Nov, review of PR 137 item 5: job start --ready, through status itself, reopens a

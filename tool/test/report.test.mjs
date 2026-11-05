@@ -54,7 +54,8 @@ test('report tranche: every section from the record, and unmeasured where the re
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
   const base = git(['rev-parse', 'origin/main'], { cwd: root });
   const state = {
-    'metrics/sweep.jsonl': jl({ at: at(5), row: 'sweep', bob_acts: true, bob_quiet_h: 1.5 }, { at: at(6), row: 'sweep' }),
+    'metrics/sweep.jsonl': jl({ at: at(5), row: 'sweep', bob_acts: true, bob_quiet_h: 1.5, live: 4, job_cap: 20 }, { at: at(6), row: 'sweep', live: 8, job_cap: 20 }),
+    'holds/holds.jsonl': jl({ at: at(5), row: 'hold', id: 'hold-1', scope: 'slots:2', why: 'gate queue full', by: 's_bob', until: at(6) }),
     'addresses/bob.json': JSON.stringify({ session: 's_bob' }),
     'metrics/tranche-open.jsonl': grants,
     'layers/closed.jsonl': jl(
@@ -68,6 +69,12 @@ test('report tranche: every section from the record, and unmeasured where the re
     io: { state: (p) => state[p] ?? null, merged: () => [{ number: 10, merged_at: '2026-11-01T07:30:00Z' }, { number: 11, merged_at: '2026-11-01T09:30:00Z' }, { number: 12, merged_at: '2999-01-02T00:00:00Z' }], comments: () => [gateComment([{ suite: 'pass' }, { suite: 'pass' }])] },
   });
   assert.match(md, /^# Tranche report: tranche/);
+  // Flow (audit of PR 139): cap use beside velocity, efficiency and quality, no target; holds by setter.
+  assert.match(md, /## Flow\n\nSince the opening[^\n]*a diagnostic, no target/);
+  assert.match(md, /- cap use: \d+% over [\d.]+ h; IDLE CAPACITY alarms \(sweeps\) 0\n- velocity: (?:[-\d.]+|unmeasured) marks per hour\n- efficiency: [^\n]*per merged PR, gate runs [^\n]*\n- quality: false-done share/);
+  assert.match(md, /\| live \| hours \| cap use \| marks per hour \| merges per job session-hour \|[\s\S]*\| 1-5 \| 1 \| 20% \|/);
+  assert.match(md, /\| s_bob \| gate queue full \| 1 \| 1 \|/);
+  assert.doesNotMatch(md, /target 85%/);
   assert.match(md, /still open; measured to now/);
   assert.match(md, /- elapsed: [\d.]+ h/);
   assert.match(md, /- opened: 2026-11-01T00:30:00\.000Z \(the first ok grant row/, 'one source: the grant row lead times reads');

@@ -179,7 +179,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     const tipAge = () => Date.now() - (Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 || Date.now());
     const row = { id: e.id, tranche: e.status?.state, req: e.requirements, ...(jb !== `job/${e.id}` ? { ref: jb } : {}) };
     // BLOCKED with a recorded reason, on the tranche or its branch: the layer can close past it.
-    if (e.status?.state === 'BLOCKED') Object.assign(row, { since: e.status.at }, e.status.reason ? { blocked: e.status.reason } : {});
+    if (e.status?.state === 'BLOCKED') Object.assign(row, { since: e.status.at, owner: e.status.owner }, e.status.reason ? { blocked: e.status.reason } : {});
     if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, allowFail: true }).code === 0) {
       const t = git(['show', `${branch}:${LEDGER_DIR}/${e.id}.json`], { cwd: root, allowFail: true });
       let s = {};
@@ -196,7 +196,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit for SILENT_HOURS (copy, 4 Nov: flagged 7 min after its start).
       if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1 && tipAge() > SILENT_HOURS * 36e5) row.flag = 'WORKING, nothing pushed';
       if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
-      if (!merged && s.state) { row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined; row.since = s.state === 'BLOCKED' ? s.at : undefined; }
+      if (!merged && s.state) { row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined; row.since = s.state === 'BLOCKED' ? s.at : undefined; row.owner = s.state === 'BLOCKED' ? s.owner : undefined; }
     }
     const pr = prs?.find((p) => p.head?.ref === jb);
     if (pr) {
@@ -301,7 +301,10 @@ export function blockedJobs(cfg, rows, t = Date.now()) {
   const target = decisionMinutes(cfg);
   return rows.filter((r) => (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') && !(r.blocked && !/^(#|unknown)/.test(r.pr || ''))).map((r) => {
     const min = Date.parse(r.since || '') ? Math.floor((t - Date.parse(r.since)) / 6e4) : null;
-    const by = min > target ? (/requirement|\bR\d+\b/i.test(r.blocked || '') ? 'Bob' : `the coordinator${cfg.coordinator ? ` (${cfg.coordinator})` : ''}`) : null;
+    // Bob's only for a requirement question by rule 9's test, what the product must do (audit of PR
+    // 139): the owner `job block --owner` named, else a reason that opens with "requirement" or asks it.
+    const bob = r.owner ? r.owner === 'bob' : /^requirement\b|what the product must do/i.test(r.blocked || '');
+    const by = min > target ? (bob ? 'Bob' : `the coordinator${cfg.coordinator ? ` (${cfg.coordinator})` : ''}`) : null;
     return { id: r.id, min, by, text: `; blocked ${min === null ? 'since unknown' : `${min} min`}${by ? `; ruling owed by ${by}: ${r.blocked || 'no reason recorded'}` : ''}` };
   }).sort((a, b) => (b.min ?? -1) - (a.min ?? -1));
 }

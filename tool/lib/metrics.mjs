@@ -147,17 +147,72 @@ export function idleByDay(sweepRows) {
 }
 
 // Cap use (Bob, 5 Nov: about 48% over a day, unseen): job session-hours over cap session-hours from
-// `from` to `to`, each sweep row's live and job_cap held until the next row; beside USE_TARGET,
-// with the sweeps that alarmed IDLE CAPACITY in the window (each a wake) and the longest idle.
-export const USE_TARGET = 0.85;
+// `from` to `to`, each sweep row's live and job_cap held until the next row (at most 2 h). A diagnostic, not a
+// target (audit of PR 139); with the sweeps that alarmed IDLE CAPACITY (each a wake) and the longest idle.
+const SPAN_H = 2;
+const spans = (sweepRows, a, b) => {
+  const rows = sweepRows.filter((r) => r.row === 'sweep' && Date.parse(r.at) && Number.isInteger(r.live) && rowCap(r) > 0).sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
+  // A row holds until the next, at most SPAN_H hours: a sweep that stopped counts no hours after.
+  return rows.map((r, i) => ({ r, s: Math.max(a, Date.parse(r.at)), e: Math.min(b, Date.parse(rows[i + 1]?.at) || b, Date.parse(r.at) + SPAN_H * 36e5) })).filter((x) => x.e > x.s);
+};
 export function capUse(sweepRows, from, to = now()) {
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
-  const rows = sweepRows.filter((r) => r.row === 'sweep' && Date.parse(r.at) && Number.isInteger(r.live) && rowCap(r) > 0).sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
   let job = 0, slots = 0;
-  rows.forEach((r, i) => { const d = Math.min(b, Date.parse(rows[i + 1]?.at) || b) - Math.max(a, Date.parse(r.at)); if (d > 0) { job += r.live * d; slots += rowCap(r) * d; } });
+  for (const { r, s: x, e } of spans(sweepRows, a, b)) { job += r.live * (e - x); slots += rowCap(r) * (e - x); }
   const alarms = sweepRows.filter((r) => r.idle_capacity?.alarm && Date.parse(r.at) >= a && Date.parse(r.at) <= b);
-  return { from: from || 'the first sweep row', to, job_session_h: Math.round(job / 36e4) / 10, cap_session_h: Math.round(slots / 36e4) / 10, use: slots ? Math.round(job / slots * 1000) / 1000 : 'unmeasured', target: USE_TARGET, idle_alarms: alarms.length, idle_longest_min: alarms.length ? Math.max(...alarms.map((r) => r.idle_capacity.min)) : 0 };
+  return { from: from || 'the first sweep row', to, job_session_h: Math.round(job / 36e4) / 10, cap_session_h: Math.round(slots / 36e4) / 10, use: slots ? Math.round(job / slots * 1000) / 1000 : 'unmeasured', idle_alarms: alarms.length, idle_longest_min: alarms.length ? Math.max(...alarms.map((r) => r.idle_capacity.min)) : 0 };
 }
+
+// The flow figures (audit of PR 139: cap use beside velocity, efficiency and quality, so a knee shows).
+export const FLOW_RULE = 'cap use, job session-hours over cap session-hours (a diagnostic, no target); velocity, unmet R and F marks closed per calendar hour net of marks added unmet (the fall in the unmet count at the tranche; a mark added already met, as a split adds it, never counts); efficiency, merges per job session-hour, and gate runs, cancels and job syncs per merged PR; quality, the false-done share (complete claims a gate run of the receipt refuted), the marks reopen starts named, and reverts. Per concurrency bucket; each sweep row\'s live count held until the next row, at most 2 hours.';
+export const BUCKETS = [[1, 5], [6, 10], [11, 15], [16, 20], [21, Infinity]];
+const r2 = (x) => Math.round(x * 100) / 100;
+export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gates = () => null, syncs = null, reverts = null, from, to = now() }) {
+  const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
+  const inW = (r) => Date.parse(r.at) >= a && Date.parse(r.at) <= b;
+  const merges = [...new Map(rows.filter((r) => r.row === 'merge' && inW(r)).map((r) => [String(r.pr), r])).values()];
+  const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete' && inW(r));
+  const fall = (x, y) => { const [u, v] = [unmetAt(new Date(x).toISOString()), unmetAt(new Date(y).toISOString())]; return Number.isInteger(u) && Number.isInteger(v) ? u - v : null; };
+  const add = (o, k, v) => { o[k] = v === null || o[k] === null ? null : (o[k] || 0) + v; };
+  const sum = { h: 0, job: 0, slots: 0, merges: 0 };
+  const byB = BUCKETS.map(([lo, hi]) => ({ live: hi === Infinity ? `${lo}+` : `${lo}-${hi}`, lo, hi, h: 0, job: 0, slots: 0, merges: 0 }));
+  for (const { r, s: x, e } of spans(sweeps, a, b)) {
+    const k = byB.find((q) => r.live >= q.lo && r.live <= q.hi);
+    const m = merges.filter((y) => Date.parse(y.at) >= x && Date.parse(y.at) < e).length;
+    const f = fall(x, e);
+    for (const o of [sum, k].filter(Boolean)) { o.h += (e - x) / 36e5; o.job += r.live * (e - x) / 36e5; o.slots += rowCap(r) * (e - x) / 36e5; o.merges += m; add(o, 'fall', f); }
+  }
+  const fig = (o) => ({ hours: r2(o.h), cap_use: o.slots ? r2(o.job / o.slots) : 'unmeasured', velocity_per_h: o.h && Number.isInteger(o.fall) ? r2(o.fall / o.h) : 'unmeasured', merges_per_job_session_h: o.job ? r2(o.merges / o.job) : 'unmeasured' });
+  const g = merges.map((m) => { try { return gates(m.pr); } catch { return null; } });
+  const per = (n) => (merges.length && Number.isFinite(n) ? r2(n / merges.length) : 'unmeasured');
+  let refuted = 0;
+  for (const c of completes) { const runs = c.pr ? (() => { try { return gates(c.pr) || []; } catch { return []; } })() : []; if (runs.some((x) => x.receipt_attempt === c.attempt && (x.suite === 'fail' || x.revert === 'fail'))) refuted++; }
+  return {
+    ...fig(sum),
+    gate_runs_per_pr: g.every(Array.isArray) ? per(g.reduce((t, x) => t + x.length, 0)) : 'unmeasured', cancels_per_pr: 'unmeasured (gate rows record no cancelled run)', syncs_per_pr: syncs === null ? 'unmeasured' : per(syncs),
+    false_done_share: completes.length ? r2(refuted / completes.length) : 'unmeasured',
+    reopened_marks: rows.filter((r) => r.row === 'attempt' && r.event === 'start' && r.reopen && inW(r)).reduce((t, r) => t + (String(r.reopen).match(/\b[RF][\w.-]*\d\b/g) || []).length, 0),
+    reverts: reverts ?? 'unmeasured',
+    idle_alarms: capUse(sweeps, from, to).idle_alarms,
+    buckets: byB.filter((q) => q.h > 0).map((q) => ({ live: q.live, ...fig(q) })),
+  };
+}
+// unmetAt for flowFigures: the unmet marks under the requirements and found directories at ref's last
+// commit before the time (one git grep per commit); null where the history cannot say.
+export function unmetAtRef(root, cfg, ref) {
+  const memo = new Map();
+  return (iso) => {
+    const c = git(['rev-list', '-1', `--before=${iso}`, ref], { cwd: root, allowFail: true }).stdout.trim();
+    if (!c) return null;
+    if (!memo.has(c)) {
+      const r = git(['grep', '-c', '-F', '*(not yet met', c, '--', cfg.requirements_dir, 'process/found'], { cwd: root, allowFail: true });
+      memo.set(c, r.code === 0 ? r.stdout.split('\n').filter(Boolean).reduce((t, l) => t + Number(l.split(':').pop()), 0) : r.code === 1 ? 0 : null);
+    }
+    return memo.get(c);
+  };
+}
+// The commits on ref in [from, to] that job sync made ("Bring job/<id> up to") and that revert ("Revert").
+export const countCommits = (root, ref, from, to, grep) => { const r = git(['log', '--format=%H', `--grep=${grep}`, ...(from ? [`--since=${from}`] : []), `--until=${to}`, ref], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.split('\n').filter(Boolean).length : null; };
 
 // ROOT's context per sweep (P2-G10), from the sweep rows: the addressed ROOT's (the last row's
 // session) sweeps that carry root_context, and a linear estimate of the sweeps left before
@@ -348,7 +403,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     refusals_by_session: refusalCounts(rows),
     declines: measured.flatMap((r) => r.declines || []),
     bob_idle_by_day: idleByDay(sweepRows),
-    cap_use: capUse(sweepRows, opened),
+    flow: flowFigures({ sweeps: sweepRows, rows, unmetAt: unmetAtRef(root, cfg, branch), gates: (pr) => gateRuns(read.comments(slug, pr) || []), syncs: countCommits(root, branch, opened, now(), '^Bring job/'), reverts: countCommits(root, branch, opened, now(), '^Revert'), from: opened }),
     root_context: rootContext(sweepRows, refreshAt),
     wakes: wakes(rows),
     overhead: overhead(rows, layerOf(layers), { opened, jobRows: lead.jobRows || [] }),

@@ -3,15 +3,14 @@
 // state branch, never words: `p3 hold <scope> --why --by --until`, ended by `p3 hold --end <id>` or
 // its expiry. Scope: module:<id>, layer:<n> or slots:<n>. job start --ready starts to the cap less
 // the live slot holds and starts no held module; status prints every hold first; the sweep alarms
-// on idle capacity whatever holds there are. A hold over HOLD_MAX_H hours, or on more than a
-// quarter of the cap, is Bob's alone: his word is his own commit through GitHub's website (the
-// record the merge tool trusts for anchored keys, webCommitByOwner) whose message names the hold.
+// on idle capacity whatever holds there are. Every hold expires within HOLD_MAX_H hours and is
+// renewed only by a new row with its reason, so a long hold is a visible chain; no hold needs Bob
+// (coordinator's correction, 5 Nov). report tranche lists hold-hours by setter and reason.
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { layerOf } from './metrics.mjs';
-import { webCommitByOwner } from './record.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
-import { exists, fail, git, jobCap, loadConfig, now } from './util.mjs';
+import { exists, fail, git, loadConfig, now } from './util.mjs';
 
 export const HOLDS_FILE = 'holds/holds.jsonl';
 export const HOLD_MAX_H = 2;
@@ -40,7 +39,7 @@ export function holdLines(holds) {
   const expired = holds.filter((h) => !h.live && !h.ended && -h.left < SHOWN_EXPIRED_H * 36e5);
   if (!live.length && !expired.length) return ['holds: none'];
   return [`holds: ${live.length} live${expired.length ? `, ${expired.length} expired` : ''} (only a recorded hold holds startable work below the cap)`,
-    ...live.map((h) => `- ${h.id} ${h.scope}, by ${h.by}${h.word ? ` (Bob's word ${h.word.slice(0, 10)})` : ''}, ${min(h.left)} min to expiry: ${h.why}`),
+    ...live.map((h) => `- ${h.id} ${h.scope}, by ${h.by}${h.renews ? `, renewing ${h.renews}` : ''}, ${min(h.left)} min to expiry: ${h.why}`),
     ...expired.map((h) => `- ${h.id} ${h.scope}, by ${h.by}: expired ${min(-h.left)} min ago, holds nothing: ${h.why}`)];
 }
 
@@ -49,17 +48,17 @@ export const slotsHeld = (holds) => holds.filter((h) => h.live && h.kind === 'sl
 export const heldBy = (holds, id, layers) => holds.find((h) => h.live && ((h.kind === 'module' && h.value === id) || (h.kind === 'layer' && layers.get(id) === Number(h.value)))) || null;
 export const layersAt = (root, cfg, ref = `origin/${cfg.tranche}`) => layerOf(exists(root, ref, cfg.layers_file) ? git(['show', `${ref}:${cfg.layers_file}`], { cwd: root }) : null);
 
-// p3 hold <scope> --why "..." --by <session|bob> --until <ISO time | <n>m | <n>h> [--word <sha>]; p3 hold --end <id> --by <session>.
-export function hold(root, scope, { why, by, until, word, end, io = {}, log = console.log } = {}) {
+// p3 hold <scope> --why "..." --by <session> --until <ISO time | <n>m | <n>h>; p3 hold --end <id> --by <session>.
+export function hold(root, scope, { why, by, until, end, log = console.log } = {}) {
   const cfg = loadConfig(root);
   const sb = cfg.state_branch;
-  if (typeof by !== 'string' || !/^(session_[A-Za-z0-9]+|bob)$/.test(by)) fail('--by <your session id (session_...)>, or bob with --word <sha>');
+  if (typeof by !== 'string' || !/^session_[A-Za-z0-9]+$/.test(by)) fail('--by <your session id (session_...)>');
   const t = Date.now();
+  const holds = readHolds(root, sb, { t });
   if (end !== undefined) {
-    const h = readHolds(root, sb, { t }).find((x) => x.id === end);
+    const h = holds.find((x) => x.id === end);
     if (!h) fail(`no hold ${JSON.stringify(end)} on ${sb}:${HOLDS_FILE}`);
     if (!h.live) fail(`${h.id} holds nothing already (${h.ended ? 'ended' : 'expired'})`);
-    if (h.word) fail(`${h.id} is Bob's hold; only Bob ends it, and it expires at ${h.until}`);
     writeState(root, sb, `hold: end ${h.id}`, (dir) => { put(dir, { at: now(), row: 'end', id: h.id, by }); return {}; });
     log(`${h.id} ended: ${h.scope} holds nothing now; job start --ready starts what it held`);
     return { ended: h.id };
@@ -70,29 +69,33 @@ export function hold(root, scope, { why, by, until, word, end, io = {}, log = co
   const rel = String(until ?? '').match(/^(\d+)([mh])$/);
   const at = rel ? t + Number(rel[1]) * (rel[2] === 'h' ? 36e5 : 6e4) : Date.parse(String(until));
   if (!(at > t)) fail(`--until <a future time (ISO) or <n>m or <n>h>, not ${JSON.stringify(until)}`);
-  const cap = jobCap(cfg).cap;
-  const weight = m[1] === 'slots' ? Number(m[2]) : m[1] === 'module' ? 1 : [...layersAt(root, cfg).values()].filter((n) => n === Number(m[2])).length;
-  const big = [at - t > HOLD_MAX_H * 36e5 && `longer than ${HOLD_MAX_H} hours`, weight > cap / 4 && `on ${weight} slots, more than a quarter of the cap ${cap}`].filter(Boolean);
-  if (big.length) {
-    const only = `refused: a hold ${big.join(' and ')} only Bob can set: his own commit through GitHub's website whose message says "hold ${m[0]} <n>h" (or <n>m), used once, then --by bob --word <its sha> with --until no later than that from his commit`;
-    if (by !== 'bob' || typeof word !== 'string') fail(only);
-    const w = webCommitByOwner(root, word, cfg.approvals.owner, io.lookup);
-    if (!w.ok) fail(`${only}; ${word} is not (${w.why})`);
-    // Bound to this scope exactly, a time from his commit, and one hold (review of PR 139).
-    const d = String(w.message || '').match(new RegExp(`(?:^|\\s)hold ${m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} (\\d+)([mh])(?:\\s|[.,;]|$)`));
-    if (!d) fail(`${only}; ${word}'s message does not name it`);
-    if (!(at <= Date.parse(w.date) + Number(d[1]) * (d[2] === 'h' ? 36e5 : 6e4))) fail(`${only}; --until is past the ${d[1]}${d[2]} his word gives from ${w.date}`);
-    if (readHolds(root, sb, { t }).some((h) => h.word === word)) fail(`${only}; ${word} already set a hold`);
-  } else if (by === 'bob') fail('--by bob only with --word <sha> for a hold only Bob can set; otherwise --by <your session id>');
-  const row = { row: 'hold', scope: m[0], why: why.trim(), by, until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z'), ...(big.length ? { word } : {}) };
+  if (at - t > HOLD_MAX_H * 36e5 + 6e4) fail(`refused: a hold expires within ${HOLD_MAX_H} hours; to hold longer, set a new hold with its reason when this one nears its end`);
+  // A hold on a scope still held, or held until the last hour, renews it: the chain stays visible.
+  const prev = holds.filter((h) => h.scope === m[0] && !h.ended && h.left > -36e5).at(-1);
+  const row = { row: 'hold', scope: m[0], why: why.trim(), by, until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z'), ...(prev ? { renews: prev.id } : {}) };
   const { id } = writeState(root, sb, `hold: ${m[0]}`, (dir) => {
     const f = join(dir, HOLDS_FILE);
     const n = existsSync(f) ? jsonl(readFileSync(f, 'utf8')).filter((r) => r.row === 'hold').length + 1 : 1;
     put(dir, { at: now(), id: `hold-${n}`, ...row });
     return { id: `hold-${n}` };
   });
-  log(`${id}: ${m[0]} held until ${row.until} (${min(at - t)} min), by ${by}: ${row.why}. status prints it first; \`p3 hold --end ${id} --by <session>\` ends it`);
+  log(`${id}: ${m[0]} held until ${row.until} (${min(at - t)} min)${prev ? `, renewing ${prev.id}` : ''}, by ${by}: ${row.why}. status prints it first; \`p3 hold --end ${id} --by <session>\` ends it`);
   return { id, ...row };
+}
+
+// Hold-hours in [from, to] by setter and reason (report tranche, beside cap use): each hold from its
+// row to its end, its expiry or `to`, whichever is first; the most first.
+export function holdHours(rows, from, to) {
+  const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
+  const by = new Map();
+  for (const h of holdsOf(rows, b)) {
+    const d = Math.min(b, Date.parse(h.until), Date.parse(h.ended?.at) || Infinity) - Math.max(a, Date.parse(h.at));
+    if (!(d > 0)) continue;
+    const k = `${h.by}\0${h.why}`;
+    const x = by.get(k) || { by: h.by, why: h.why, holds: 0, hours: 0 };
+    by.set(k, { ...x, holds: x.holds + 1, hours: x.hours + d / 36e5 });
+  }
+  return [...by.values()].map((x) => ({ ...x, hours: Math.round(x.hours * 10) / 10 })).sort((x, y) => y.hours - x.hours);
 }
 
 const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); appendFileSync(join(dir, HOLDS_FILE), JSON.stringify(row) + '\n'); };
