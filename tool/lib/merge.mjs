@@ -18,7 +18,7 @@ import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, gh, git, isRecordPath, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, gh, git, isRecordOrLane, isRecordPath, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -326,7 +326,9 @@ function specMark(wt, cfg, { pr: sp, sha }, { tip, was, log = console.log }) {
   const slow = (why) => { log(`spec PR ${sp}: ${why}; the gate on the merged result runs in full`); return { fast: false, why }; };
   if (!sha || !/^[0-9a-f]{7,64}$/i.test(String(sha)) || git(['cat-file', '-e', `${sha}^{commit}`], { cwd: wt, allowFail: true }).code !== 0) return slow(`the spec's tested commit ${String(sha).slice(0, 10)} is not readable here`);
   if (tip === was && !marked(tip)) return slow('nothing pushed');
-  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordPath(cfg, f));
+  // Lane folders count as records, as in the gate's record-since-green (lane.mjs; Bob, 5 Nov).
+  const entries = entriesAt(wt, tip);
+  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordOrLane(cfg, f, entries));
   if (differ.length) return slow(`the merged result ${tip.slice(0, 10)} differs from the tree spec PR ${sp} tested (${sha.slice(0, 10)}) outside the records: ${differ.slice(0, 5).join(', ')}${differ.length > 5 ? ` and ${differ.length - 5} more` : ''}`);
   if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside`); return { fast: true, pr: sp }; }
   const shape = (c) => git(['rev-list', '--no-walk', '--format=%T %P', c], { cwd: wt }).split('\n').pop();

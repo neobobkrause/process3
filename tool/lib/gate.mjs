@@ -429,7 +429,9 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   const unbound = branchBound(slug, sp.head.ref, n, cfg.tranche, io);
   if (unbound) return no(`spec PR ${n}'s branch is not bound to it: ${unbound.replace(/^is PR \d+'s merge, but /, '')}`);
   const at = String(row.sha).slice(0, 10);
-  const off = diffNames(root, row.sha, head).filter((f) => !isRecordPath(cfg, f));
+  // Lane folders count as records here, as in record-since-green (lane.mjs; Bob, 5 Nov).
+  const lanes = entriesAt(root, head);
+  const off = diffNames(root, row.sha, head).filter((f) => !isRecordOrLane(cfg, f, lanes));
   if (off.length) return no(`the head differs from ${at}, which spec PR ${n}'s run ${row.run_id} tested, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
   // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
   if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
@@ -634,7 +636,7 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
   const ctx = sp.state === 'open' ? { pr: row.spec_pr, baseRef: cfg.tranche, branch: sp.head.ref } : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref }, branch: sp.head.ref };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
+    || !diffNames(root, r.sha, head).every((f) => isRecordOrLane(cfg, f, entriesAt(root, head))) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
   // Read after the row (final review, L1).
   if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
   return r;
