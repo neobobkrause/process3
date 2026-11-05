@@ -3,7 +3,7 @@
 // 05:33 (45 open job PRs, a blanket `uses` hold held 41) where the train must not stall.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fullGateMinutes, holdLine, orderQueue, providerHolds, usesGraph } from '../lib/order.mjs';
+import { agedFromOf, fullGateMinutes, holdLine, orderQueue, providerHolds, usesGraph } from '../lib/order.mjs';
 
 const T0 = Date.parse('2026-11-05T06:00:00Z');
 const at = (minAgo) => new Date(T0 - minAgo * 60000).toISOString();
@@ -142,4 +142,26 @@ test('release path for open jobs: release_path, the open layer, found work; not 
   git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: root });
   const rel = releaseModules(root, loadConfig(root), 'HEAD', new Set(['open1', 'open2', 'debt1', 'later1', 'later2', 'found1']));
   assert.deepEqual([...rel].sort(), ['found1', 'later2', 'open1', 'open2']);
+});
+
+// Review round 1 (5 Nov): the fixes, each with the test that failed before it.
+test('order: an unknown gate counts as the median over every module known, given by the train, not over this queue', () => {
+  const q = [{ n: 1, green_at: at(1), gate_min: 2 }, { n: 2, green_at: at(2), gate_min: 4 }, { n: 3, green_at: at(3), gate_min: null }];
+  // Over the queue the median is 3 (PR 3 between 1 and 2); over every module known it is 30.
+  assert.deepEqual(ns(orderQueue(q, { now: T0, known: 30 })), [1, 2, 3]);
+});
+
+test('order: a pull request whose green time is unread is never aged ahead of the rest', () => {
+  const q = [{ n: 1, green_at: at(5), gate_min: 1 }, { n: 2, green_at: null, gate_min: 9 }, { n: 3, green_at: 'not a time', gate_min: 8 }];
+  assert.deepEqual(ns(orderQueue(q, { now: T0, agedFrom: agedFromOf(new Map()) })), [1, 3, 2]);
+  // Held time still counts against age, and a PR held once is aged from that hold.
+  const held = new Map([[1, T0 - 10 * 60000]]);
+  assert.equal(agedFromOf(held)({ n: 1, green_at: at(90) }), T0 - 10 * 60000);
+});
+
+test('provider hold: every open pull request of a provider module counts, not only the last listed', () => {
+  const { usesOf, reaches } = usesGraph([{ id: 'alpha', uses: [] }, { id: 'beta', uses: ['alpha'] }]);
+  const jobs = [{ n: 2, id: 'alpha', head: 'h2' }, { n: 3, id: 'alpha', head: 'h3' }, { n: 1, id: 'beta', head: 'h1' }];
+  const h = providerHolds([{ n: 1, id: 'beta', head: 'h1' }], jobs, { usesOf, reaches, red: () => false, exportsChanged: (p) => p.n === 2, importsFrom: () => true });
+  assert.deepEqual(h.get(1), [{ provider: 'alpha', pr: 2, draft: false }]);
 });

@@ -11,7 +11,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { checkRun, comments, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
-import { AGE_MIN, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
+import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { releaseModules } from './status.mjs';
 import { branchModule, ledgerIds } from './ledger.mjs';
@@ -148,18 +148,19 @@ function ready(root, ctx, skip = new Set()) {
     jobs.push({ n: p.number, id: branchModule(p.head.ref, ids), head: p.head.sha, ref: p.head.ref, draft: !!p.draft });
     if (skip.has(p.number) || p.draft) continue;
     // A green gate is read once per head and run (the loop reads every 15 s); any other state is read again.
+    const job = jobs.at(-1);
     const g = ctx.gates.get(p.head.sha) || io.checkRun(slug, p.head.sha, 'gate');
-    if (!(g?.status === 'completed' && g.conclusion === 'success')) { ctx.gates.delete(p.head.sha); continue; }
+    if (!(g?.status === 'completed' && g.conclusion === 'success')) { ctx.gates.delete(p.head.sha); if (g?.status === 'completed') job.stuck = `its gate ended ${g.conclusion}`; continue; }
     // Its row is posted by the gate workflow's post job, after the gate: merge needs it.
     const post = g.post || io.checkRun(slug, p.head.sha, 'post');
     // The post job of this gate run: it starts only once the gate has ended.
     if (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at))) continue;
     ctx.gates.set(p.head.sha, { ...g, post });
     const run = g.id ?? g.completed_at;
-    if ((ctx.backoff.get(`${p.number}@${p.head.sha}`)?.until || 0) > Date.now()) continue;
+    if ((ctx.backoff.get(`${p.number}@${p.head.sha}`)?.until || 0) > Date.now()) { job.stuck = 'the train is backing off it'; continue; }
     // A head refused (and handed to BOB) waits for a new head or gate run, or a review note made since.
     const at = ctx.refused.get(`${p.number}@${p.head.sha}@${run}`);
-    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at)) continue;
+    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at)) { job.stuck = 'the train refused it on this head'; continue; }
     out.push({ n: p.number, head: p.head.sha, run, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
   }
   return order(root, ctx, out, jobs);
@@ -176,6 +177,7 @@ function order(root, ctx, cands, jobs) {
   const say = (l) => { if (!c.said.has(l)) { c.said.add(l); ctx.log(l); } };
   if (c.tip !== tip) {
     c.tip = tip;
+    c.exp.clear(); c.imp.clear(); // both read the tranche: its ledger entries, its modules, the merge-base
     try { c.modules = readModules(root, cfg, at); } catch (e) { c.modules = null; say(`the modules file is unread at ${tip.slice(0, 10)} (${e.message}): nothing is held for a provider`); }
     c.release = null;
   }
@@ -188,7 +190,8 @@ function order(root, ctx, cands, jobs) {
   }
   // (d) a provider red on its head; (b) and (c) from git, on heads fetched once.
   const reds = new Map();
-  const red = (p) => { if (!reds.has(p.head)) { const g = io.checkRun(slug, p.head, 'gate'); reds.set(p.head, g?.status === 'completed' && ['failure', 'timed_out'].includes(g.conclusion)); } return reds.get(p.head); };
+  // A provider that cannot land on its head (marked in ready) counts as red: it holds nothing.
+  const red = (p) => { if (p.stuck) return true; if (!reds.has(p.head)) { const g = io.checkRun(slug, p.head, 'gate'); reds.set(p.head, g?.status === 'completed' && g.conclusion !== 'success'); } return reds.get(p.head); };
   const have = (j) => {
     if (git(['cat-file', '-e', `${j.head}^{commit}`], { cwd: root, allowFail: true }).code === 0) return;
     git(['fetch', '-q', 'origin', `+refs/heads/${j.ref}:refs/remotes/origin/${j.ref}`], { cwd: root, allowFail: true });
@@ -227,8 +230,9 @@ function order(root, ctx, cands, jobs) {
     holds: ctx.held.filter((h) => h.providers.some((p) => p.pr === u.n)).length,
     gate_min: med([...(c.mins.get(u.id)?.values() || [])]),
   }));
-  const agedFrom = (u) => Math.max(Date.parse(u.green_at) || 0, c.heldAt.get(u.n) || 0);
-  return orderQueue(free, { now, agedFrom }).map((u) => ({ ...u, aged: now - agedFrom(u) > AGE_MIN * MIN }));
+  const agedFrom = agedFromOf(c.heldAt);
+  const known = med([...c.mins.values()].map((m) => med([...m.values()])));
+  return orderQueue(free, { now, agedFrom, known }).map((u) => ({ ...u, aged: now - agedFrom(u) > AGE_MIN * MIN }));
 }
 
 // Prepares the next pull request while PR `cur`'s re-gate runs: merge's own checks, and a

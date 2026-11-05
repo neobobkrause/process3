@@ -14,7 +14,8 @@
 // (exports.mjs exportChanges, the provider-notice test); (c) U's changed code files import from P
 // (ARC-1's resolution, checks.mjs ownerOf); and (d) P is not red: a provider whose gate is red on
 // its head holds nothing, so a red provider never holds its users for good (a user is green on its
-// own and lands as its gate tested it). A draft provider holds. Anything unread (a branch not
+// own and lands as its gate tested it); nor does one that cannot land on its head (its gate ended
+// other than green, or the train refused it or is backing off it: train.mjs). A draft provider holds. Anything unread (a branch not
 // fetched, a surface unreadable) holds nothing and says so: the train never stalls on a read.
 // BOB's draft mark stays the manual hold.
 import { posix } from 'node:path';
@@ -40,13 +41,13 @@ export function usesGraph(modules) {
 // and gates running included. The checks are given: red(P), exportsChanged(P), importsFrom(U, P),
 // each true, false, or throwing (unread: no hold, noted).
 export function providerHolds(cands, jobs, { usesOf, reaches, red, exportsChanged, importsFrom, note = () => {} }) {
-  const byId = new Map(jobs.map((j) => [j.id, j]));
+  const byId = new Map();
+  for (const j of jobs) byId.set(j.id, [...(byId.get(j.id) || []), j]);
   const out = new Map();
   for (const u of cands) {
     const why = [];
-    for (const pid of usesOf.get(u.id) || []) {
-      const p = byId.get(pid);
-      if (!p || pid === u.id || p.n === u.n || reaches(pid, u.id)) continue;
+    for (const pid of usesOf.get(u.id) || []) for (const p of byId.get(pid) || []) {
+      if (pid === u.id || p.n === u.n || reaches(pid, u.id)) continue;
       try {
         // The git reads first (cached by head), GitHub's gate read only for an edge that holds.
         if (!exportsChanged(p)) continue;
@@ -61,12 +62,16 @@ export function providerHolds(cands, jobs, { usesOf, reaches, red, exportsChange
 }
 export const holdLine = (u, why) => `PR ${u.n} (${u.id}) held: it imports ${why.map((w) => `${w.provider}, whose open PR ${w.pr}${w.draft ? ' (draft)' : ''} changes its exports`).join('; ')}; it goes once ${why.length === 1 ? 'that provider merges' : 'those providers merge'}`;
 
-// The queue's order. c: { n, id, green_at, release, holds (users it holds), gate_min }; aged
-// from max(green_at, the last time it was held): a held pull request's wait does not age it.
-export function orderQueue(cands, { now = Date.now(), ageMin = AGE_MIN, agedFrom = (c) => Date.parse(c.green_at) } = {}) {
-  const known = median(cands.map((c) => c.gate_min));
+// Aged from max(green_at, the last time it was held: heldAt, by number): a held pull request's
+// wait does not age it. An unread green time is NaN: never aged.
+export const agedFromOf = (heldAt) => (u) => { const g = Date.parse(u.green_at); return Number.isFinite(g) ? Math.max(g, heldAt.get(u.n) || 0) : NaN; };
+
+// The queue's order. c: { n, id, green_at, release, holds (users it holds), gate_min }. known: the
+// expected gate for an unknown one, the median over every module known (the train gives it);
+// without it, the median over this queue.
+export function orderQueue(cands, { now = Date.now(), ageMin = AGE_MIN, agedFrom = (c) => Date.parse(c.green_at), known = median(cands.map((c) => c.gate_min)) } = {}) {
   const exp = (c) => (Number.isFinite(c.gate_min) ? c.gate_min : known ?? 0);
-  const aged = (c) => now - agedFrom(c) > ageMin * 60000;
+  const aged = (c) => { const t = agedFrom(c); return Number.isFinite(t) && now - t > ageMin * 60000; };
   const g = (c) => String(c.green_at);
   return [...cands].sort((a, b) => {
     const A = aged(a); const B = aged(b);

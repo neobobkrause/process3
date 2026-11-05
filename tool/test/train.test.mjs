@@ -371,3 +371,44 @@ test('merge train: a provider whose PR does not change its exports, or that its 
   run(apart.root, g2);
   assert.deepEqual(g2.calls.merged, [1]);
 });
+
+// Review round 1 (5 Nov): a provider that cannot land on its head holds nothing, and the hold is
+// read again when the tranche moves.
+test('merge train: a provider whose gate was cancelled, or that the train refused, holds nothing', () => {
+  const { root, ids } = setup(usesJobs, usesBase);
+  const alpha = () => git(['rev-parse', 'job/alpha'], { cwd: root }).trim();
+  const g = github(root, ids, { own: (sha) => (sha === alpha() ? { id: 9, status: 'completed', conclusion: 'cancelled', completed_at: new Date().toISOString() } : null) });
+  run(root, g);
+  assert.deepEqual(g.calls.merged, [1], 'the user lands; its provider is not landing on this head');
+  // A provider the train refused (a file outside its module) waits for a new head: its user goes.
+  const two = setup({ ...usesJobs, alpha: { ...usesJobs.alpha, 'src/beta/x.mjs': 'not mine' } }, usesBase);
+  const g2 = github(two.root, two.ids);
+  const r = run(two.root, g2);
+  assert.deepEqual(r.rows.map((x) => [x.pr, x.result]), [[2, 'refused']]);
+  run(two.root, g2);
+  assert.deepEqual(g2.calls.merged, [1], 'the user is not held behind a refused provider');
+});
+
+test('merge train: when the tranche moves, the hold is read again on the new tip', () => {
+  const { root, ids } = setup(usesJobs, usesBase);
+  const g = github(root, ids);
+  g.state.get(2).draft = true;
+  const open = g.io.openPRs;
+  let calls = 0;
+  g.io.openPRs = (...a) => {
+    const out = open(...a);
+    if (++calls === 1) {
+      // After the first read: the tranche moves src/alpha/ out of alpha (alpha now owns src/alphax/).
+      const wt = mkdtempSync(join(tmpdir(), 'p3-other-'));
+      git(['clone', '-q', '--branch', 'tranche', git(['remote', 'get-url', 'origin'], { cwd: root }), wt], { cwd: root });
+      for (const [k, v] of [['user.email', 'other@example.com'], ['user.name', 'Other'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: wt });
+      commit(wt, { 'build/modules.json': JSON.stringify({ modules: [{ id: 'alpha', paths: ['src/alphax/'], tests: ['test/alpha/'], uses: [] }, { id: 'beta', paths: ['src/beta/'], tests: ['test/beta/'], uses: ['alpha'] }] }, null, 2) + '\n' });
+      git(['push', '-q', 'origin', 'tranche'], { cwd: wt });
+    }
+    return out;
+  };
+  const lines = [];
+  train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, log: (l) => lines.push(l), idleEvery: 1, rounds: 2, pipeline: false });
+  assert.ok(lines.some((l) => /^PR 1 \(beta\) held/.test(l)), 'held on the first tip');
+  assert.deepEqual(g.calls.merged, [1], 'on the new tip beta imports nothing alpha owns: not held');
+});
