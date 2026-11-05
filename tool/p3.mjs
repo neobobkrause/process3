@@ -79,7 +79,7 @@ const commands = {
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --take-in, on work made before Process3, every file of it inside the module's paths;
-  // --reopen, a new attempt on a COMPLETE module whose last attempt merged; --restart, a replacement session for an open job;
+  // --reopen, a new attempt on a COMPLETE module whose last attempt merged, or on the next job/<id>-<n> when the last attempt was abandoned (commits, no open pull request); --restart, a replacement session for an open job, a COMPLETE one with its pull request open included;
   // --fresh-branch "<why>", a new attempt on job/<id>-<n> cut from the tranche tip, when the job's branch cannot merge (the old branch is kept);
   //   alone, with --reopen "<what>" for a COMPLETE module, or with --restart "<why>" for an OPEN one; the start row records both.
   // No job starts (a reopen included) until the tranche open's grants check has passed; a restart
