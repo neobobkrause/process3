@@ -702,3 +702,10 @@
 - Actions: plain queuing paused; process3 176 merged 20:50 (dd6e7b0), pin move session_018Bhcecb86ZZWZ7tEsgeFCa goes first; build/window-keep-disjoint now covers disjoint tranche moves, carried base-red tolerance, and disjoint positions behind a leaving PR.
 - Bob 20:4x: no pile of rulings; triage lanes per repo hold problems with their end conditions (build/triage-lanes, session_018BhcecKDNykF777pCQj2k7). Process3 180: rulebooks cite the coordinator by name, Bob only for his own words.
 - Roles alive: ROOT, BOB, MERGER (restarted 20:34 on window 8), watcher.
+
+## 21:52 hourly flow (5 Nov)
+- Live jobs: about 4 of 20 (screens-public restart, ai-accounts restart, control-plane restart idle, ux-design). Empty slots: no startable work; the queue waits in the train, which is back to window 1 on Bob's order (pin 596, 21:21).
+- Copy lands 20:52-21:52: 7 jobs through window-8 build 3 (469, 478, 467, 473, 431, 420, 441; 20:56-21:18, about 3.5-4 min apart, all spec-tested) plus plain 596. Then serial from 21:22.
+- process3: 176, 177, 180 pinned (596). 179 merged 21:36 one commit before its review fix. I merged before the second cold review reported, and the fix (182, 21:47) closed a real hole: the gate accepted dropping any off-module change. Copy pin 600 was held and re-pinned to 7ea32cc; it carries no hole.
+- Bob: audit 1 done (https://claude.ai/artifact/RGdq9TSXkNAyJW6yJ8SPvN); audit 2 running against the Foundations and the Ledger map. Paused: 178 (ci headroom), 181 (triage lanes, superseded, do not merge). 158 is an older open draft. Assistant sign-in waits on Bob (a requirements conflict: T53 retires /signin).
+- Lesson: wait for an announced review before merging, not only for ci.
