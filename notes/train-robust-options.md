@@ -179,3 +179,9 @@ released lock (now broken under a `.break` file; a lock naming this process that
 is stale); a state failure at the top of a pass stopped the train (now the next pass); the sweep
 never marked in-train modules (markInTrain there too); the sweep's over-cap line counted parked
 sessions (overCapOwed); a late row could be written twice (deduplicated).
+
+Round 2 (confirming): (a) to (e) confirmed fixed (the lock race run with 6 processes, 180 counted
+updates, none lost); release cache key complete; no deadlock in the re-entrant path. Two low
+findings: markInTrain ignored a flagged row (fixed, tested); a lock left by another host is never
+broken (kept: the ruling has an unknown holder waited on and reported, and the report names the
+file to remove).

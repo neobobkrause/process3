@@ -131,6 +131,7 @@ export function markInTrain(root, cfg, next, rows, { io = {} } = {}) {
     const prs = read.openPRs(slug, cfg.tranche) || [];
     for (const x of open) {
       const r = (rows || []).find((y) => y.id === x.module);
+      if (r?.flag) continue; // a flagged attempt needs an act: not the train's (as status.mjs inTrain)
       const pr = prs.find((p) => p.head?.ref === refOf(r || { id: x.module }) && !p.draft && p.base?.ref === cfg.tranche);
       if (!pr) continue;
       const run = read.checkRun(slug, pr.head.sha, 'gate');

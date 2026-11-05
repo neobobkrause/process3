@@ -79,6 +79,8 @@ test('item 4: a module whose attempt is a ready pull request with a green gate i
   const next = NEXT.map((x) => ({ ...x }));
   assert.equal(markInTrain(null, { tranche: 'tranche' }, next, OFFLINE, { io: gh() }), 1);
   assert.deepEqual(next.map((x) => x.in_train), [443, undefined, undefined]);
+  const flagged = NEXT.map((x) => ({ ...x }));
+  assert.equal(markInTrain(null, { tranche: 'tranche' }, flagged, OFFLINE.map((r) => ({ ...r, flag: 'BLOCKED' })), { io: gh() }), 0, 'a flagged attempt is not the train\'s');
   const s = startable(next);
   assert.deepEqual(s.go.map((x) => x.id), ['b']);
   assert.deepEqual(s.skip.map((x) => [x.id, x.why]), [['a', 'in the train (PR 443)'], ['c', 'its attempt is open: status says what it needs']]);
