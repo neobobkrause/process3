@@ -506,7 +506,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
       b.until = Date.now() + Math.min(8, 2 ** (b.tries - 1)) * MIN;
       ctx.backoff.set(k, b);
       ctx.gates.delete(c.head);
-      if (b.tries >= RETRIES_TO_BOB) refuse(root, ctx, c, `${row.why} (${b.tries} tries)`); else log(`PR ${c.n} is tried again in ${Math.round((b.until - Date.now()) / MIN)} min: ${row.why}`);
+      if (b.tries >= RETRIES_TO_BOB) { refuse(root, ctx, c, `${row.why} (${b.tries} tries)`); row.to_bob = true; } else log(`PR ${c.n} is tried again in ${Math.round((b.until - Date.now()) / MIN)} min: ${row.why}`);
     }
   }
   row.minutes = mins(started, Date.now());
@@ -518,7 +518,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   row.push_tries = tries;
   // The hold ends with its cause once the gate's merge is over; a merge to try again keeps it.
   if (ctx.inflight?.pr === c.n) {
-    const cause = r?.merged ? 'landed' : row.result === 'refused' ? `refused: ${row.why}` : HOLD_ENDS.test(row.why || '') ? row.why : null;
+    const cause = r?.merged ? 'landed' : row.result === 'refused' ? `refused: ${row.why}` : row.to_bob ? `handed to BOB after ${RETRIES_TO_BOB} tries: ${row.why}` : HOLD_ENDS.test(row.why || '') ? row.why : null;
     if (cause) unhold(root, ctx, ctx.inflight, cause);
   }
   // BOB's acts after a merge (the triage the notice owes, the ready jobs' start), sent, not taken.

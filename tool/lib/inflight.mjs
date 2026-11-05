@@ -63,6 +63,11 @@ export function refuseUnderHold(root, cfg, n, { slug, io }) {
   let h = null;
   try { if (fetchState(root, cfg.state_branch, { fresh: true })) h = openHold(readHolds(root, cfg.state_branch)); } catch { return; }
   if (!h || h.pr === Number(n)) return;
+  // The held PR landed, closed or moved off its tip outside the train (BOB by hand, GitHub's UI):
+  // nothing is held (confirming review of build train-inflight); unread, it is held.
+  let held = null;
+  try { held = io.getPR(slug, h.pr); } catch { held = null; }
+  if (held && (held.merged || held.state !== 'open' || held.head?.sha !== h.tip)) return;
   let run = null;
   try { run = io.checkRun(slug, h.tip, 'gate'); } catch { run = null; }
   // Only a gate that ended red or cancelled frees the tranche: a green one is the train's to land

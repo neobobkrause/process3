@@ -266,3 +266,9 @@ and "connection refused". Kept: the hold's until (105 min with the 90-minute cap
 late-starting gate's run does; that only frees merges outside the train (the train stays serial),
 and the ruling bounds a hold by the gate's cap. Kept: the first return to a held PR is not backed
 off (the loop's idle pause stands between passes; backing it off only delays the held gate).
+
+Item 8 review round 2 (confirming): (a) to (e) confirmed fixed; both kept items judged acceptable.
+Two low findings, fixed: a held PR that landed outside the train (no end row) kept merges outside
+it refused until until (refuseUnderHold now reads the held PR: merged, closed or off its tip holds
+nothing; tested); a held PR handed to BOB after its retries kept the hold (now ended "handed to BOB
+after 5 tries: ...").

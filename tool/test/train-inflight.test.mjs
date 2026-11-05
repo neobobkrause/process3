@@ -189,6 +189,19 @@ test('outside the train, merge into the tranche is refused while another PR\'s m
   assert.equal(merge(root, 2, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet }).merged, true, 'a red held gate frees the tranche');
 });
 
+test('confirming review: a held PR that landed outside the train (no end row) holds nothing for merges outside it', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
+  const g = github(root, ids);
+  g.ctl.gateReads = 50;
+  failOnceWhileGating(g, 'could not read pull request 1 (an unexpected answer)');
+  run(root, g, { rounds: 1 });
+  g.ctl.gateReads = 0;
+  g.ctl.failPR = null;
+  assert.equal(merge(root, 1, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet }).merged, true, 'the held PR itself, by hand');
+  assert.ok(openHold(rows(root, INFLIGHT_FILE)), 'its hold is still unended');
+  assert.equal(merge(root, 2, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet }).merged, true, 'nothing held once it landed');
+});
+
 test('review: a held gate that ends red, a held PR made a draft or retargeted, each ends the hold with its cause; the next job lands', () => {
   for (const kind of ['red', 'draft', 'retarget']) {
     const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
