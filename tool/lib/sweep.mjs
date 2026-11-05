@@ -8,9 +8,9 @@ import { P3, READY_START, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
 import { LEASE, LEASE_FILE } from './train.mjs';
-import { fetchState, jsonl, messages, messagesFile, readState, writeState } from './state.mjs';
+import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { OWED_ALARM_MIN, bobAct, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
+import { OWED_ALARM_MIN, bobAct, layersAt, owe, readAuto, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { readySelection } from './ready.mjs';
 import { SILENT_HOURS, onOriginOf, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
@@ -150,6 +150,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   const sb = cfg.state_branch;
   if (cfg.plan === 'pause' || cfg.plan === 'stop') return null;
   if (fresh(lastRow(readState(root, sb, SWEEP_ROWS_FILE)), t) || !fetchState(root, sb)) return null;
+  cfg = withCoordinator(root, cfg);
   const rows = jsonl(readState(root, sb, SWEEP_ROWS_FILE));
   if (fresh(rows.at(-1), t)) return null;
   const m = [...rows].reverse().find((r) => ['sweep', 'ready'].includes(r.row) && Number.isInteger(r.live));
@@ -206,8 +207,8 @@ export function senderFor(root, name, a) {
   try { return senderOf(root, a.as); } catch { return 'bob'; }
 }
 export function beforeAct(root, cfg, name, a, { env = process.env, io, log = console.log, err = console.error } = {}) {
-  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
-  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch' || (name === 'job start' && a.ready)) return null;
+  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o, readAuto(root, cfg.state_branch))); } } catch { /* a marker, never a refusal */ } }
+  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch' || name === 'auto start' || name === 'auto done' || (name === 'job start' && a.ready)) return null;
   try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
@@ -225,9 +226,10 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   // ROOT's context (P2-G10): the share of its window ROOT's own session record shows (get_session on itself).
   const pct = context === undefined ? 'unmeasured' : Number(String(context).replace(/%$/, ''));
   if (context === true || (pct !== 'unmeasured' && !(Number.isFinite(pct) && pct >= 0 && pct <= 100))) fail(`--context <percent of the window your session record shows>, 0 to 100, not ${JSON.stringify(context)}`);
-  const cfg = loadConfig(root);
+  let cfg = loadConfig(root);
   const sb = cfg.state_branch;
   if (!offline) fetchState(root, sb);
+  cfg = withCoordinator(root, cfg);
   const addr = readAddress(root, { fetch: false });
   if (addr.root?.session !== session) {
     log(`step 0: the ROOT address is ${addr.root?.session || 'none'}, not this session: end the turn and do nothing else.`);

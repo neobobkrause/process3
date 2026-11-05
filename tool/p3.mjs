@@ -19,14 +19,15 @@ import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, plainViaTrain, releaseSessionLeas
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { hold, owe, owes } from './lib/hold.mjs';
+import { hold, owe, owes, readAuto, starterLive } from './lib/hold.mjs';
+import { autoDone, autoLoop, autoStart } from './lib/auto.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
-import { checkRole, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
+import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send, writeState } from './lib/state.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
@@ -96,6 +97,7 @@ const commands = {
     // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
     if (a.ready) {
       if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap'], a['fresh-branch']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap, --fresh-branch');
+      try { const sb = loadConfig(root).state_branch; if (fetchState(root, sb)) { const au = readAuto(root, sb); if (starterLive(au)) console.log(`note: the MERGER's starter runs (${au.session}, last pass ${au.at}) and makes these starts itself; a start it already made is refused here as on origin`); } } catch { /* a note only */ }
       return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions, archived: list(a.archived).filter((x) => x !== true) }).ok ? 0 : 1;
     }
     // --fresh-branch goes with --reopen (a COMPLETE module) or --restart (an OPEN one), or alone.
@@ -106,6 +108,15 @@ const commands = {
     jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'] });
     return 0;
   },
+
+  // auto start --session <the MERGER's id> --approvals <its prompt's hash>: the starter (auto.mjs), run by the MERGER in the
+  // background beside its train; --here is its loop, in the starter's own clone (the launcher's).
+  // auto done <pass> --created <module>=<session id>...: the sessions the MERGER created from a pass.
+  'auto start': (a, root) => {
+    if (a.here) { const r = autoLoop(root, { session: a.session, ...(typeof a.approvals === 'string' ? { approvals: a.approvals } : {}) }); return r.exit; }
+    return autoStart(root, { session: a.session, approvals: a.approvals });
+  },
+  'auto done': (a, root) => (autoDone(root, one(a, 'pass'), list(a.created).filter((x) => x !== true)), 0),
 
   // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
@@ -412,10 +423,11 @@ const commands = {
   // start root | start bob | start watcher | start merger: the role's starting prompt (and create_session call).
   // start merger --replace <the addressed merger's id>: its replacement, by ROOT, once the old one is archived.
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
-  // start record <root|bob|watcher|merger> <session id>: the address, written after the session was created.
+  // start coordinator --replace <its id> --branch <b> --handoff <path>: by ROOT, at the coordinator's ask.
+  // start record <root|bob|watcher|merger|coordinator> <session id>: the address, written after the session was created.
   start: (a, root) => {
     if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
-    startRole(root, a._[0], { replace: a.replace });
+    startRole(root, a._[0], { replace: a.replace, branch: a.branch, handoff: a.handoff });
     return 0;
   },
 
@@ -448,9 +460,17 @@ const commands = {
   // daily or at once on an escalation.
   watch: (a, root) => { watch(root, { session: a.session, full: !!a.full, escalated: a.escalated }); return 0; },
 
-  // address <root|bob|watcher>: the address as the state branch holds it now.
+  // address <root|bob|watcher|merger|coordinator>: the address as the state branch holds it now;
+  // the coordinator's, else `coordinator` in process/config.json.
   address: (a, root) => {
-    const role = checkRole(String(one(a, 'role (root, bob or watcher)')).toLowerCase());
+    const asked = String(one(a, 'role (root, bob, watcher, merger or coordinator)')).toLowerCase();
+    if (asked === 'coordinator') {
+      const addr = readAddress(root);
+      const c = coordinatorOf(tipConfig(root), addr) || fail('no coordinator is addressed and process/config.json on the tranche names none');
+      console.log(addr.coordinator?.session === c ? `${c} (since ${addr.coordinator.at})` : `${c} (from process/config.json on the tranche)`);
+      return 0;
+    }
+    const role = checkRole(asked);
     const e = readAddress(root)[role];
     if (!e) fail(`no ${role} is addressed`);
     console.log(`${e.session} (since ${e.at})`);
