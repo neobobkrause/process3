@@ -6,7 +6,7 @@
 // on idle capacity whatever holds there are. A hold over HOLD_MAX_H hours, or on more than a
 // quarter of the cap, is Bob's alone: his word is his own commit through GitHub's website (the
 // record the merge tool trusts for anchored keys, webCommitByOwner) whose message names the hold.
-import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { layerOf } from './metrics.mjs';
 import { webCommitByOwner } from './record.mjs';
@@ -96,3 +96,35 @@ export function hold(root, scope, { why, by, until, word, end, io = {}, log = co
 }
 
 const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); appendFileSync(join(dir, HOLDS_FILE), JSON.stringify(row) + '\n'); };
+
+// Starts owed (coordinator, 5 Nov: a marker, never a refusal): every act that can make work
+// startable or free a slot writes flow/owed.json (p3.mjs after the act: a merge, job complete,
+// block, layer close, a triage recorded; the sweep for a job session archived). status and every
+// act of BOB's print startsOwedLine first, exit unchanged; job start --ready clears the acts owed
+// up to its own start. Owed OWED_ALARM_MIN or more counts as idle capacity (sweep.mjs).
+export const OWED_FILE = 'flow/owed.json';
+export const OWED_ALARM_MIN = 15;
+export function owes(name, a) {
+  if (['merge', 'job complete', 'block', 'layer close'].includes(name)) return `${name} ${a._[0] ?? ''}`.trim();
+  return name === 'notice triage' && a.record !== undefined ? `triage recorded ${a._[0] ?? ''}`.trim() : null;
+}
+export const bobAct = (name, a) => (name === 'job start' ? !a.ready : name === 'send' ? a.from === 'bob'
+  : ['merge', 'layer close', 'notice triage', 'notice withdraw', 'tranche open', 'tranche close', 'lane ask', 'handoff', 'hold', 'found', 'pin move', 'release dev', 'deploy dev', 'walk internal'].includes(name));
+export function readOwed(root, sb) { try { return JSON.parse(readState(root, sb, OWED_FILE) || 'null'); } catch { return null; } }
+export const startsOwedLine = (o) => `starts owed since ${o.since} (${o.acts.map((x) => x.act).slice(-3).join('; ')}): run job start --ready`;
+// In a state worktree: owe(act) keeps the first act's time; paid(begun) drops the acts up to begun.
+export function owe(dir, act) {
+  const f = join(dir, OWED_FILE);
+  let o = null;
+  try { o = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { o = null; }
+  mkdirSync(join(dir, 'flow'), { recursive: true });
+  writeFileSync(f, JSON.stringify({ since: o?.since || now(), acts: [...(o?.acts || []).slice(-9), { at: now(), act }] }) + '\n');
+}
+export function paid(dir, begun) {
+  const f = join(dir, OWED_FILE);
+  let o = null;
+  try { o = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { o = null; }
+  const later = (o?.acts || []).filter((x) => Date.parse(x.at) > Date.parse(begun));
+  if (later.length) writeFileSync(f, JSON.stringify({ since: later[0].at, acts: later }) + '\n');
+  else rmSync(f, { force: true });
+}

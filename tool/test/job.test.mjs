@@ -546,7 +546,7 @@ test('a COMPLETE job whose pull request merged is refused, and named --reopen', 
   const { root, f } = completed();
   commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   f.gh.findPR = () => null;
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --reopen/);
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --live <n> --reopen/);
   assert.equal(readRows(root, 'alpha').length, 2);
 });
 

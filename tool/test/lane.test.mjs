@@ -111,7 +111,7 @@ test('completion round: status lists open items once every layer is closed; tran
   const s = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   const text = out.join('\n');
   assert.match(text, /next work, the completion round \(build\/plan\/round\.md, 2 open/);
-  assert.match(text, /- C-1 · a: node \.process\/tool\/p3\.mjs job start a · its last fix/);
+  assert.match(text, /- C-1 · a: node \.process\/tool\/p3\.mjs job start a --live <n> · its last fix/);
   assert.match(text, /- C-2 · whole product: BOB's act · the release walk/);
   assert.doesNotMatch(text, /C-3/);
   assert.deepEqual(s.next.map((x) => x.item), ['C-1', 'C-2']);
