@@ -709,3 +709,11 @@
 - process3: 176, 177, 180 pinned (596). 179 merged 21:36 one commit before its review fix. I merged before the second cold review reported, and the fix (182, 21:47) closed a real hole: the gate accepted dropping any off-module change. Copy pin 600 was held and re-pinned to 7ea32cc; it carries no hole.
 - Bob: audit 1 done (https://claude.ai/artifact/RGdq9TSXkNAyJW6yJ8SPvN); audit 2 running against the Foundations and the Ledger map. Paused: 178 (ci headroom), 181 (triage lanes, superseded, do not merge). 158 is an older open draft. Assistant sign-in waits on Bob (a requirements conflict: T53 retires /signin).
 - Lesson: wait for an announced review before merging, not only for ci.
+
+## 22:51 hourly flow (5 Nov)
+- Copy lands 21:51-22:51, window 1: 7 job PRs (477, 496, 488, 490, 492, 471, 487), about 7/h, 5-15 min apart. Plain: none (600 refused as a draft, held on Bob's audit-2 choice).
+- Live jobs: 2 of 20; 0 startable for 49 min (MERGER's 22:41 alarm). Every remaining module waits on providers in the train; at window 1 the train is the whole rate.
+- MERGER replaced 22:05 (old one 73% context, $97.99, mostly auto-subscribed spec-PR notices); the new one, session_018BhcefmntMFwp8MDNkzCNL, unsubscribes from train PRs.
+- Ledger-sync defect, 3rd occurrence (screens-public): coordinator one-off, the job sets its own WORKING with a reason; BOB stops editing live jobs' ledger entries; the process3 fix goes with the audit options.
+- control-plane's job complete was killed at 30 min by the background-command limit (its suite takes 31 min); rerun with a 2 h limit.
+- Audit 2 updated after Bob's Keep and Drop export: JOB-12 was a Keep that 177 reversed under Bob's name; GAT-6 skipping is Bob's call. Awaiting Bob's choices.
