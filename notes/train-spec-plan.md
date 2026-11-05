@@ -147,3 +147,16 @@ The parts and the contracts between them:
   per build; a prune needs Bob.
 - **Pin:** the gate and job post run at the base's pin, so on the copy the spec path works only
   once the copy's `.process` pin carries this code; before that, a window over 1 must stay off.
+
+## Open: the spec run's judge is chosen by an unprotected branch (confirming review, finding A)
+
+A spec run executes the pin (`.process`) and gate workflow of its spec base, a `train/spec/*`
+branch any writer can create or move. Its row is written by that code, so every field the fast path
+and the cover read (`base`, `tree`, `ok`, `trigger`, `spec`, `receipt`) can be forged by whoever
+pushes a spec pair; `verifyRow` ties the row to the run's head sha, its workflow path and its base
+ref name, never to the base sha the run used. Before this build the gate trusted only runs into the
+tranche, whose pin and workflow are protected. Until the run's real base sha is bound independently
+of its row (proposed: every push to the spec base ref, read from GitHub's repository activity API,
+is its single creation at `row.base`; the spec PR's base never changed; `row.base` an ancestor of
+`row.sha`), or Bob's ruleset protects `train/**` refs, `merge_train_window` stays at 1. With 1, the
+gate takes neither spec mode nor the fast path, and the train builds no spec.

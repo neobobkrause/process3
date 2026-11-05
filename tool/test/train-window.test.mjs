@@ -41,6 +41,7 @@ function setup(jobs, k) {
 // own head (its gate passed). Every ref update is logged, to show none was a rewrite.
 function github(root, ids) {
   const sh = (args) => git(args, { cwd: root, allowFail: true });
+  const runOf = (sha) => 1000 + parseInt(sha.slice(0, 6), 16);
   const tipOf = (ref) => sh(['ls-remote', 'origin', `refs/heads/${ref}`]).stdout.split('\t')[0];
   const heads = new Map(ids.map((id) => [id, tipOf(`job/${id}`)]));
   const jobs = new Map(ids.map((id, i) => [i + 1, { id, open: true, merged: false }]));
@@ -67,7 +68,7 @@ function github(root, ids) {
       if (specs.has(Number(n))) {
         const sha = specs.get(Number(n)).sha;
         const g = io.checkRun(slug, sha);
-        return [{ id: 3, body: block(GATE, { runs: [{ sha, ok: g.conclusion === 'success', trigger: calls.unjudged ? 'draft' : 'code', run_id: g.id }] }), user: { login: BOT } }];
+        return [{ id: 3, body: block(GATE, { runs: [{ sha, ok: g.conclusion === 'success', trigger: calls.unjudged ? 'draft' : 'code', run_id: runOf(sha) }] }), user: { login: BOT } }];
       }
       const s = jobs.get(Number(n));
       const head = tipOf(`job/${s.id}`);
@@ -81,7 +82,8 @@ function github(root, ids) {
     checkRun: (slug, sha) => {
       const red = ![...heads.values()].includes(sha) && sh(['grep', '-q', 'BROKEN', sha, '--', 'src']).code === 0;
       const t = new Date(Date.now() - 60000).toISOString();
-      return { id: 1, status: 'completed', conclusion: red ? 'failure' : 'success', html_url: `https://ci/${sha.slice(0, 7)}`, started_at: t, completed_at: t };
+      // A check run's id is not its Actions run's id: the run id is in its links, as on GitHub.
+      return { id: 1, status: 'completed', conclusion: red ? 'failure' : 'success', html_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, details_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, started_at: t, completed_at: t };
     },
     // hold: the spec gates stay in progress (a job's own gate is still read green).
     checkRunMany: (slug, pairs) => pairs.map(([sha, name]) => (calls.hold && [...specs.values()].some((x) => x.sha === sha) ? { status: 'in_progress' } : name === 'post' ? { status: 'completed', started_at: new Date().toISOString() } : io.checkRun(slug, sha, name))),
@@ -267,12 +269,12 @@ test('a spec gate that ends red without judging the job, again and again, is ref
   const { root, ids } = setup({ beta: { 'src/beta/a.mjs': 'BROKEN' } }, 2);
   const g = github(root, ids);
   g.calls.unjudged = true;
-  run(root, g, 8);
+  run(root, g, 10);
   const builds = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'build' && r.pr === 1);
-  assert.equal(builds.length, SPEC_REBUILDS);
+  assert.equal(builds.length, SPEC_REBUILDS + 1, 'built once, rebuilt SPEC_REBUILDS times');
   const refused = stateRows(root, TRAIN_FILE).filter((r) => r.pr === 1 && r.result === 'refused');
   assert.equal(refused.length, 1);
-  assert.match(refused[0].why, new RegExp(`gate on the merged result is failure with no judgment of the job \\(its run did not judge the job \\(draft\\), ${SPEC_REBUILDS} times\\)`));
+  assert.match(refused[0].why, new RegExp(`gate on the merged result is failure with no judgment of the job \\(its run did not judge the job \\(draft\\), after ${SPEC_REBUILDS} rebuilds\\)`));
 });
 
 test('a spec pull request whose close fails is closed at the next pass, and its row written then', () => {

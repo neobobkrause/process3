@@ -597,7 +597,7 @@ function heldPass(root, ctx, h, { idle }) {
 // tree the spec gate tested, records aside; anything else is the full re-gate. Nothing is ever
 // force-pushed or deleted: spec branches are new refs, spec pull requests are closed, not deleted.
 const s10 = (x) => String(x ?? '').slice(0, 10);
-// A spec gate red that did not judge the job (no row, a crash, a timeout) is rebuilt this many times for one head, then refused.
+// A spec gate red that did not judge the job (no row, a crash, a timeout) is rebuilt this many times for one head; the next is refused, at the head of the window.
 export const SPEC_REBUILDS = 3;
 // The window's rows, written at the end of a pass in one state write (kept and tried again on failure).
 function windowRow(ctx, ev) {
@@ -718,7 +718,7 @@ function windowPass(root, ctx, { idle }) {
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
   let w = ctx.window;
   try {
-    if (ctx.unclosed?.length) closeSpecs(ctx, ctx.unclosed.splice(0).map(({ event, ...p }) => p));
+    if (ctx.unclosed?.length) for (const { event, ...p } of ctx.unclosed.splice(0)) closeSpecs(ctx, [p], event);
     const moved = onTrancheMoved(w, tip);
     if (moved.close.length) { closeSpecs(ctx, moved.close); w = moved.keep; }
     // The jobs' heads, from ready()'s one read of the open pull requests.
@@ -738,7 +738,10 @@ function windowPass(root, ctx, { idle }) {
         const s = specState(g);
         if (s === 'red' && g.conclusion === 'cancelled') { p.state = 'cancelled'; p.url = g.html_url; return; }
         const post = posts[j];
-        p.run_id = g?.id ?? null;
+        // The Actions run of this check run (its row's run_id), from the check run's own links; a
+        // check run's id is not the run's (confirming review).
+        const m = /\/actions\/runs\/(\d+)/.exec(`${g?.details_url || ''} ${g?.html_url || ''}`);
+        p.run_id = m ? Number(m[1]) : null;
         // Green or red, the run's row must be posted: the fast path reads a green one, and a red is
         // the job's only when its row shows the job was judged (below).
         if (s !== 'gating' && (post?.status !== 'completed' || (post.started_at && g.completed_at && Date.parse(post.started_at) < Date.parse(g.completed_at)))) return;
@@ -757,7 +760,7 @@ function windowPass(root, ctx, { idle }) {
       let judged = null;
       try {
         // The row of this check run, verified as the spec PR's own (cold review: never another run's).
-        const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && (p.run_id == null || x.run_id === p.run_id)).pop();
+        const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && p.run_id != null && x.run_id === p.run_id).pop();
         const o = io.getPR(slug, p.n);
         const same = o?.state === 'open' && !o.draft && o.base?.ref === cfg.tranche && (o.head?.sha === p.head || o.head?.sha === p.pushed);
         judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: specBase(p.n, p.seq) }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
@@ -766,14 +769,14 @@ function windowPass(root, ctx, { idle }) {
       // refused as the serial train refuses a gate that ends so (cold review: a gate that times out
       // every time would cycle for ever).
       const k = `${p.n}@${p.head}`;
-      if (judged !== true && (ctx.rebuilt.get(k) || 0) + 1 < SPEC_REBUILDS) {
+      if (judged !== true && (ctx.rebuilt.get(k) || 0) < SPEC_REBUILDS) {
         ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
         const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`);
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
-      } else if (judged !== true) p.notJudged = `${judged}, ${SPEC_REBUILDS} times`;
-      else if (red > 0) {
+      } else if (judged !== true) p.notJudged = `${judged}, after ${SPEC_REBUILDS} rebuilds`;
+      if (red >= 0 && red > 0) {
         // Red behind others that have not landed (cold review: a green spec is not a land): never
         // refused on a base that may not come to be; it is judged again at the head of the window.
         ctx.solo.add(k);
