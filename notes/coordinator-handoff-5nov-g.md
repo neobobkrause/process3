@@ -1,0 +1,27 @@
+Process3 coordinator handoff, 5 Nov (g), ~16:00 UTC, from session_018BhcegkGtAhUqZ59UwPUUK (process3 only attached). STATE AND OPEN ACTS ONLY. This page carries no rules and no restatement of Bob's words: the principles live in the Foundations, the Build Plan and the rulebooks; read them, and read Bob's own messages in his conversation, not summaries of them. Earlier handoffs (5nov to 5nov-f) carry "Bob's" lists that were found wrong today (14 of 21 were mechanisms): do not inherit any item from them as Bob's.
+
+WHAT GOES TO BOB: only an act his approvals in CLAUDE.md reserve to him or forbid to sessions, his keys or accounts, or a missing product requirement. Everything else: decide, act, report after. Builders act on their own judgement; do not make them wait for rulings.
+
+START
+1. Record your id as `coordinator` in process/config.json on the copy's and the probe's tranche by short sessions (copy PR 500 / probe PR 226 are the pattern). Keep the old coordinator alive until the copy's id lands (today the gap left the roles unable to take orders).
+2. Move my tasks to yourself: hourly flow trig_012fisRQBm9A35nRJVHJxzDF (:51), review-trigger check trig_01GvniRGXY2LtU6QWjFQzgHL (5 Nov 19:00), merge-train report trig_01LZ76CqYUXnZ81uCFJu6V5J (6 Nov 04:50), survival reads trig_016VcmuCPzaz6U2ka9kuL124 (16 Nov), trig_019UEdG8AYSp73GJKc8GyM31 (18 Nov).
+3. Adopt my open children (below), tell ROOT, BOB and the MERGER your id, archive me.
+
+IN FLIGHT AT 16:00
+- Bob changed the copy's CLAUDE.md line 11 at 15:47 (commit 7c7e7c9a, his account via the website): design lanes under BOB own their lane folders, ux-substrate included, and decide design and wording there. New approvals hash 5a9c30944212f0622890ca6d8ef1fedf7163e271d28616a5217416c185dbe07c; every role and task prompt pinned the old one (ae592a58...).
+- Role restart on the new hash: short session session_018BhcedcGLMByPh5BtRnCqH runs `start root` and starts a new ROOT; that ROOT then hands BOB over (handover begin/confirm), replaces the MERGER (start merger --replace session_018BhcedwsJZrL1WAAcugNk7) and the watcher (start watcher --replace session_018BhceeMjF6AwKvAHJwkQ1L, its task trig_01AvKAsQ3dLkB3pryqQ6C3Ji), creates its own sweep task, and archives old ROOT session_018BhcefwaVtx4V7dYW63amA. Old sweep task trig_01Hvg2iQ6kzaZUvoF3LJNYww is disabled (delete it once the new one exists).
+- Train STOPPED 15:50 (approvals stop rule) while gating PR 445 (screens-wizards); last land 444 at 15:43:37. Restart on the new MERGER. Then pin move to process3 b58cade or newer (carries PR 159, release dev only at a round close) plus build/idle-count when merged: one pin move, one restart.
+- BOB's plain PRs 515 (ux-design lane entry and words inventory) and 516 (journey-check F10, the 63 internal-walk failures as found marks) wait for the train.
+- build/idle-count session_018BhcecdVynqPPYCSD4ikPq: the IDLE CAPACITY line counts from an offline read (26 vs --ready's correct 2); fix to share --ready's selection; plus --ready losing starts when the tranche moves during its ~5 min compute. Merge when ready (one cold review), then pin.
+
+STATE
+- Copy pin process3 74c3679 (PR 510). process3 tranche b58cade (PRs 153, 155, 156, 157, 159 today).
+- Live job sessions ~4-6 of 20 at 15:52 (journey-check 511, answer-envelope 514, screens-ai 518, notice jobs from interface-assets:443 for installer, interface-shell, site). --ready is right; ignore the IDLE line's number until idle-count lands.
+- Train lands 14:51-15:51: 290, 427, 386, 443, 444 (5 job PRs). Queue ~45. Serial train stays (Bob stopped the parallel-gate build; WIP parked on build/train-spec 493d872). E1 (slow-suite concurrency) measured and dropped: not faster on 4 vCPU and flaky.
+- Release path: 290 and 314 merged. Releases happen only at a round's close; on the copy the current round is every layer, so the first dev release follows layers 6-11 closing, a deploy dev, the live walk and its findings. Layer 6 open: 441, 485, 444 (landed 15:43), 457, 346, 497, 364, 411 in the train; agent-runner 394 restarts after 364; contradiction 380 deferred to the round's deploy at layer close; citation 379 restarts when registers 496 lands, else deferred.
+- Holds (BOB's, recorded): op-declarations, scheduler, agent-model (to ~15:57, renewing), acquisition-archives, member-upload (to 15:14, renewing). ai-use R13 waits on six drafted words keys: the UX design lane may now settle them.
+- Internal walk at ef4ed6fa: 236/236 steps ok, 63 'state' failures -> found marks in 516.
+
+STOPPED BY BOB, NOT TO RESUME WITHOUT HIM: build/train-spec (parallel gates); build/owner-asks (rulebook; WIP 5c57979, draft PR 158). Bob wants a long-term design first for how sessions keep principles across refreshes without drift (telegraph): a short design note, discussed with him before anything is built. Evidence: notes/coordinator-findings-3-4nov.md from 14:40 on (handoff chains, the rule-9 test's stretchable categories, 'BOB'S WORD' lines mixing his words with ours, one approvals edit forcing every role to restart).
+
+OWED (process3, small, mine): release-path step not cached across a moved tranche (~17 s a pass); a prepared PR should yield to a release-path PR; status/ready report modules with no ledger entry (in 156); scheduler vs question-explorer #tick `off` list (BOB checking).
