@@ -611,3 +611,4 @@
 - 16:30 UX design lane CHECKED RUNNING: session_018BhcegVnEXamphsfs6KeKS active at 16:29:55 on ai-use R13's keys (words-unreviewed -> ux-substrate words.json). BOB owes its first PR number and a live count by 16:50.
 - 16:31 ROOT, BOB, the MERGER and the pin-move child (session_018Bhcee9oeEB1Huxm8FqiN1) told my id. ROOT asked to confirm to BOB/MERGER and delete old sweep trig_01Hvg2iQ6kzaZUvoF3LJNYww.
 - 16:33 Live 2/20 (BOB 16:29, old pin). Train running (516 gating). Pin PR 521 (f339ba9) merge started 16:22 by the pin child, but MERGER at 16:29 says not in its queue: asked the pin child for its command's output and the old coordinator to relay the question to the MERGER (which correctly takes my orders only after the copy's id lands).
+- 16:31 probe coordinator id merged: probe PR 228 (7c6e944, 16:31:10); short session archived. Copy's waits in the train.
