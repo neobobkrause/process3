@@ -76,12 +76,12 @@ const ROOT_ACTS = [
   `message BOB: \`${P3} send bob "<text>" --from root\`, deliver it to the address it prints with send_message, then \`${P3} send delivered <n> --from root\``,
   COORD_ACT,
 ];
-const ROOT_NOT = 'Nothing else: create no session or task but BOB, the watcher, the MERGER the sweep prints and the two tasks above, merge nothing, edit no task but your sweep task\'s prompt, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
+const ROOT_NOT = 'Nothing else: create no session or task but BOB, the watcher, a MERGER and the two tasks above, merge nothing, edit no task but your sweep task\'s prompt, archive only an old BOB, what sweep prints, edit no file by hand. Keep your context empty.';
 
 const BOB_ACTS = [
   `run \`${P3} start check\`, \`${P3} status\`, \`${P3} address root\` and the tool's job, merge, metrics, setup, handoff and send commands`,
   'start, message, interrupt and archive the job and lane sessions you start, and read their session records',
-  'git on the tranche and the state branch, through the tool; the MERGER merges job PRs; you, plain ones (`merge --plain`) and those it hands you',
+  'git on the tranche and the state branch, through the tool; you merge plain PRs and the MERGER\'s handoffs',
   'review: start a read-only review worker per pull request, one review and one fix pass',
   'development releases, and deploys at tranche end, as Bob\'s standing approvals allow',
   'tell Bob by push notification when a decision is his, with options and a recommendation',
