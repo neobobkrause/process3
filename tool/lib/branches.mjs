@@ -6,9 +6,10 @@
 // The approval gate (fails closed). The standing approvals say sessions "may never ... delete a
 // branch". This command deletes only while the approvals block (process/config.json approvals:
 // its file and heading) on the default branch's tip, as origin holds it, carries MARKER, the fixed
-// phrase "the process's scheduled branch cleanup workflow" of Bob's sentence (APPROVAL), exactly;
-// whitespace runs and curly apostrophes are read as one space and a straight apostrophe, nothing
-// else is forgiven (not case). The phrase anywhere else in the file is no approval. Without it the run prints a notice, deletes nothing and writes
+// phrase "the process's scheduled branch cleanup workflow", within Bob's whole sentence (APPROVAL),
+// exactly; whitespace runs and curly apostrophes are read as one space and a straight apostrophe,
+// nothing else is forgiven (not case). Either anywhere else in the file is no approval. A delete
+// runs only in the product's own shim on the default branch (notTheShim); --dry-run anywhere. Without it the run prints a notice, deletes nothing and writes
 // nothing. --dry-run reads and prints all the same, approved or not, and writes nothing.
 //
 // What it deletes, each judged on a fresh fetch of every origin branch:
@@ -47,8 +48,22 @@ export const DELETE_BATCH = 100;
 const PUSH_TRIES = 3;
 
 const norm = (t) => String(t).replace(/[‘’ʼ]/g, '\'').replace(/\s+/g, ' ').trim();
-// Whether an approvals block carries the marker phrase (case as written).
-export const approves = (block) => !!block && norm(block).includes(norm(MARKER));
+// Whether an approvals block carries Bob's whole sentence, which holds the marker phrase (cold
+// review of PR 167: the phrase alone also matched "I withdraw ... the process's scheduled branch
+// cleanup workflow", or a narrower grant). Changed in any word, it is no approval.
+export const approves = (block) => !!block && norm(block).includes(norm(MARKER)) && norm(block).includes(norm(APPROVAL));
+
+// Only the product's own shim, scheduled or dispatched on the default branch, deletes (cold review
+// of PR 167: a session's local run, or a dispatch on a branch whose pin it chose, must not). Read
+// from the runner's environment; null when it is such a run, else why not.
+export const SHIM_FILE = '.github/workflows/process-branch-prune.yml';
+export function notTheShim(env, def) {
+  if (env.GITHUB_ACTIONS !== 'true') return 'it is not a GitHub Actions run';
+  if (!['schedule', 'workflow_dispatch'].includes(env.GITHUB_EVENT_NAME)) return `its event is ${env.GITHUB_EVENT_NAME || 'unset'}, not schedule or workflow_dispatch`;
+  if (env.GITHUB_REF !== `refs/heads/${def}`) return `it runs on ${env.GITHUB_REF || 'no ref'}, not refs/heads/${def}`;
+  if (!String(env.GITHUB_WORKFLOW_REF || '').endsWith(`/${SHIM_FILE}@refs/heads/${def}`)) return `its workflow is ${env.GITHUB_WORKFLOW_REF || 'unset'}, not ${SHIM_FILE} on ${def}`;
+  return null;
+}
 
 const remote = (b) => `refs/remotes/origin/${b}`;
 const isServerError = (s) => /(?:error|HTTP(?:\/[\d.]+)?(?: code)?)[: ]+5\d\d\b|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out|unexpected disconnect|RPC failed/i.test(s);
@@ -59,6 +74,7 @@ export function githubIO(read = (args) => gh(args, { allowFail: true })) {
   return {
     defaultBranch: (slug) => read(['api', `repos/${slug}`])?.default_branch || null,
     pulls: (slug) => pages(`repos/${slug}/pulls?state=all&per_page=100`),
+    openPulls: (slug) => pages(`repos/${slug}/pulls?state=open&per_page=100`),
     activity: (slug) => pages(`repos/${slug}/activity?time_period=day&per_page=100`),
   };
 }
@@ -66,13 +82,17 @@ export function githubIO(read = (args) => gh(args, { allowFail: true })) {
 // One push of deletes, each with its lease; git's own result. push: for the tests.
 const gitPush = (root, args) => git(['push', '--porcelain', ...args], { cwd: root, allowFail: true });
 
-export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), push = gitPush, clock = Date.now, log = console.log } = {}) {
+export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), push = gitPush, clock = Date.now, env = process.env, log = console.log } = {}) {
   if (!slug) fail('branches prune needs the repository (owner/name)');
   const def = io.defaultBranch(slug);
   if (!def) fail(`could not read ${slug}'s default branch from GitHub; nothing was deleted`);
   // Scheduled runs are on the default branch; a dispatch on another ref runs that ref's copy of
   // the shim, so the tool itself refuses to delete from one.
-  if (ref && ref !== `refs/heads/${def}` && !dryRun) fail(`branches prune deletes only from a run on ${def}, not ${ref}; nothing was deleted`);
+  if (!dryRun) {
+    if (ref !== `refs/heads/${def}`) fail(`branches prune deletes only from a run on ${def}, not ${ref === undefined ? 'a run with no --ref' : ref}; nothing was deleted (--dry-run lists)`);
+    const why = notTheShim(env, def);
+    if (why) fail(`branches prune deletes only in the product's ${SHIM_FILE} on ${def}, and ${why}; nothing was deleted (--dry-run lists)`);
+  }
 
   if (isShallow(root)) fail('branches prune needs a full clone (fetch-depth 0): a shallow one counts commits wrongly; nothing was deleted');
   const f = fetchRetry(['fetch', '-q', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { cwd: root });
@@ -110,8 +130,9 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
     if (!own.has(p.head.ref)) own.set(p.head.ref, []);
     own.get(p.head.ref).push(p);
   }
+  // An entry whose time cannot be read counts as recent (fails closed).
   const recentRefs = new Set(activity
-    .filter((e) => /^refs\/heads\//.test(String(e?.ref)) && Date.parse(e.timestamp) >= cutoff)
+    .filter((e) => /^refs\/heads\//.test(String(e?.ref)) && !(Date.parse(e.timestamp) < cutoff))
     .map((e) => e.ref.slice('refs/heads/'.length)));
 
   const listed = git(['for-each-ref', '--format=%(refname)%00%(objectname)%00%(committerdate:unix)%00%(authordate:unix)', 'refs/remotes/origin/'], { cwd: root });
@@ -125,7 +146,9 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   for (const b of branches) {
     if (protectedNames.has(b.name)) { kept.protected.push(b.name); continue; }
     if (openRefs.has(b.name)) { kept['open-pr'].push(b.name); continue; }
-    if (b.newest >= cutoff || recentRefs.has(b.name)) { kept.recent.push(b.name); continue; }
+    // A branch at the tranche's tip may have been cut a minute ago with no commit of its own; the
+    // activity log is its only other witness, so it is kept as recent too.
+    if (b.newest >= cutoff || recentRefs.has(b.name) || b.sha === trancheSha) { kept.recent.push(b.name); continue; }
     const n = git(['rev-list', '--count', `${remote(tranche)}..${remote(b.name)}`], { cwd: root, allowFail: true });
     if (n.code !== 0) fail(`could not count ${b.name}'s commits against ${tranche}: ${n.stderr.trim()}; nothing was deleted`);
     if (Number(n.stdout) === 0) { candidates.push({ name: b.name, sha: b.sha, why: 'in-tranche' }); continue; }
@@ -146,8 +169,14 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   if (dryRun) return { ok: true, approved, dryRun, deleted: [], failed: [], kept: counts, candidates };
 
   // The deletes, each leased to the tip judged above, in batches; a server error retries the batch.
+  // The open pull requests are read again before each batch: one opened since the judgement (its
+  // head or base a candidate) keeps that branch; an unreadable read deletes no more.
   for (let i = 0; i < candidates.length; i += DELETE_BATCH) {
-    const batch = candidates.slice(i, i + DELETE_BATCH);
+    const open = io.openPulls(slug);
+    if (!open) { log('the open pull requests could not be read again; no further branch is deleted'); break; }
+    const nowOpen = new Set(open.flatMap((p) => [p.head?.ref, p.base?.ref]).filter(Boolean));
+    const batch = candidates.slice(i, i + DELETE_BATCH).filter((c) => !nowOpen.has(c.name));
+    if (!batch.length) continue;
     const args = [...batch.map((c) => `--force-with-lease=refs/heads/${c.name}:${c.sha}`), 'origin', ...batch.map((c) => `:refs/heads/${c.name}`)];
     for (let t = 1; t <= PUSH_TRIES; t++) {
       const r = push(root, args);

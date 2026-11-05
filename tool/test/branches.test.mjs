@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { APPROVAL, MARKER, PRUNE_FILE, approves, prune } from '../lib/branches.mjs';
+import { APPROVAL, MARKER, PRUNE_FILE, approves, githubIO, prune } from '../lib/branches.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -40,12 +40,18 @@ function commitAt(root, files, msg, env) {
 }
 
 // A branch on origin: at the tranche tip (ahead 0), or with one commit of its own, old or just made.
-function branch(p, name, { ahead = false, recent = false } = {}) {
+function branch(p, name, { ahead = false, recent = false, atTip = false } = {}) {
   git(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche'], { cwd: p.work });
   git(['checkout', '-q', '--detach', 'refs/remotes/origin/tranche'], { cwd: p.work });
   if (ahead) commitAt(p.work, { [`f/${name}.txt`]: name }, name, recent ? {} : old);
   const sha = git(['rev-parse', 'HEAD'], { cwd: p.work });
   git(['push', '-q', 'origin', `HEAD:refs/heads/${name}`], { cwd: p.work });
+  // The tranche moves on (an old commit), so a branch cut at its tip is now behind it, not at it.
+  if (!ahead && !atTip) {
+    git(['checkout', '-q', '--detach', sha], { cwd: p.work });
+    commitAt(p.work, { [`t/${name}.txt`]: name }, `tranche after ${name}`, old);
+    git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: p.work });
+  }
   return sha;
 }
 function clone(p) {
@@ -61,19 +67,22 @@ const rows = (p) => {
   return r.code === 0 ? r.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
 };
 const pr = (number, ref, state, { base = 'tranche', repo = SLUG } = {}) => ({ number, state, head: { ref, repo: { full_name: repo } }, base: { ref: base } });
-const fake = ({ pulls = [], activity = [], def = 'main' } = {}) => ({ defaultBranch: () => def, pulls: () => pulls, activity: () => activity });
+const fake = ({ pulls = [], activity = [], def = 'main', openPulls } = {}) => ({ defaultBranch: () => def, pulls: () => pulls, activity: () => activity, openPulls: openPulls || (() => pulls.filter((x) => x.state === 'open')) });
+// The runner's environment of the product's shim, scheduled on the default branch.
+const shimEnv = (def = 'main') => ({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_NAME: 'schedule', GITHUB_REF: `refs/heads/${def}`, GITHUB_WORKFLOW_REF: `${SLUG}/.github/workflows/process-branch-prune.yml@refs/heads/${def}` });
 const quiet = () => {};
 const runIt = (p, opts = {}) => {
   const lines = [];
-  const r = prune(clone(p), { slug: SLUG, io: fake(opts), log: (l) => lines.push(l), ...opts.extra });
+  const def = opts.def || 'main';
+  const r = prune(clone(p), { slug: SLUG, io: fake(opts), log: (l) => lines.push(l), ref: `refs/heads/${def}`, env: shimEnv(def), ...opts.extra });
   return { ...r, lines };
 };
 
-test('approves: the marker phrase exactly; whitespace and curly apostrophes forgiven, nothing else', () => {
+test('approves: Bob\'s whole sentence, marker phrase included; whitespace and curly apostrophes forgiven, nothing else', () => {
   assert.equal(MARKER, 'the process\'s scheduled branch cleanup workflow');
   assert.ok(APPROVAL.includes(MARKER));
   assert.equal(approves(APPROVED), true);
-  assert.equal(approves(`x ${MARKER} y`), true);
+  assert.equal(approves(`x ${MARKER} y`), false); // the phrase alone is not the sentence
   assert.equal(approves(APPROVAL.replaceAll('\'', '’').replace(/ /g, '\n  ')), true);
   assert.equal(approves(APPROVAL.replace('scheduled branch cleanup', 'branch cleanup')), false);
   assert.equal(approves(APPROVAL.replace('process\'s', 'processes')), false);
@@ -172,13 +181,13 @@ test('refused, nothing deleted: a run on another ref, a shallow clone, or any Gi
   const p = product();
   branch(p, 'job/old-1');
   assert.throws(() => runIt(p, { extra: { ref: 'refs/heads/job/old-1' } }), (e) => e instanceof Fail && /deletes only from a run on main, not refs\/heads\/job\/old-1/.test(e.message));
-  const unread = (over) => assert.throws(() => prune(clone(p), { slug: SLUG, io: { ...fake(), ...over }, log: quiet }), (e) => e instanceof Fail && /nothing was deleted/.test(e.message));
+  const unread = (over) => assert.throws(() => prune(clone(p), { slug: SLUG, io: { ...fake(), ...over }, ref: 'refs/heads/main', env: shimEnv(), log: quiet }), (e) => e instanceof Fail && /nothing was deleted/.test(e.message));
   unread({ defaultBranch: () => null });
   unread({ pulls: () => null });
   unread({ activity: () => null });
   const shallow = mkdtempSync(join(tmpdir(), 'p3-shallow-'));
   git(['clone', '-q', '--depth', '1', `file://${p.origin}`, shallow]);
-  assert.throws(() => prune(shallow, { slug: SLUG, io: fake(), log: quiet }), (e) => e instanceof Fail && /needs a full clone/.test(e.message));
+  assert.throws(() => prune(shallow, { slug: SLUG, io: fake(), ref: 'refs/heads/main', env: shimEnv(), log: quiet }), (e) => e instanceof Fail && /needs a full clone/.test(e.message));
   // No tranche on origin.
   const q = product({ config: { tranche: 'tranche-2' } });
   assert.throws(() => runIt(q), (e) => e instanceof Fail && /origin has no tranche-2/.test(e.message));
@@ -223,5 +232,69 @@ test('the shim: daily and on dispatch, contents: write and pull-requests: read o
   assert.ok(uses.length >= 2);
   for (const u of uses) assert.match(u, /@[0-9a-f]{40}$/, u);
   assert.doesNotMatch(shim, /pull_request_target/);
+  assert.match(shim, /^ {4}if: github\.ref == format\('refs\/heads\/\{0\}', github\.event\.repository\.default_branch\)$/m);
+  assert.match(shim, /pin=\$\(git rev-parse -q --verify "\$base:\.process"\)/);
+  assert.doesNotMatch(shim, /HEAD:/);
   assert.match(shim, /p3\.mjs" branches prune --ref "\$GITHUB_REF" --run "\$GITHUB_RUN_ID" \$DRY_RUN$/m);
 });
+
+test('deletes only in the product\'s shim on the default branch: a local run, another event or another workflow is refused', () => {
+  const p = product();
+  branch(p, 'job/old-1');
+  const refused = (extra, re) => assert.throws(() => runIt(p, { extra }), (e) => e instanceof Fail && re.test(e.message) && /nothing was deleted/.test(e.message));
+  refused({ ref: undefined }, /not a run with no --ref/);
+  refused({ env: {} }, /it is not a GitHub Actions run/);
+  refused({ env: { ...shimEnv(), GITHUB_EVENT_NAME: 'push' } }, /its event is push/);
+  refused({ env: { ...shimEnv(), GITHUB_REF: 'refs/heads/job/old-1' } }, /it runs on refs\/heads\/job\/old-1/);
+  refused({ env: { ...shimEnv(), GITHUB_WORKFLOW_REF: `${SLUG}/.github/workflows/other.yml@refs/heads/main` } }, /its workflow is/);
+  assert.ok(heads(p).includes('job/old-1'));
+  // A dry run lists from anywhere.
+  assert.deepEqual(runIt(p, { extra: { ref: undefined, env: {}, dryRun: true } }).candidates.map((c) => c.name), ['job/old-1']);
+});
+
+test('the marker phrase alone is no approval: a withdrawal or narrower grant naming it deletes nothing', () => {
+  for (const extra of [`\n\nI withdraw the approval for ${MARKER}.`, `\n\nOne exception: ${MARKER} may delete closed train heads only.`]) {
+    const p = product({ claude: approvalsWith(extra) });
+    branch(p, 'job/old-1');
+    assert.equal(runIt(p).approved, false);
+    assert.ok(heads(p).includes('job/old-1'));
+  }
+});
+
+test('kept as recent: a branch at the tranche tip, and one whose activity entry has no readable time', () => {
+  const p = product();
+  branch(p, 'job/odd-time');
+  branch(p, 'job/just-cut', { atTip: true });
+  const r = runIt(p, { activity: [{ ref: 'refs/heads/job/odd-time', timestamp: 'not a time', activity_type: 'push' }] });
+  assert.deepEqual(r.deleted, []);
+  assert.equal(r.kept.recent, 2);
+});
+
+test('a pull request opened after the judgement keeps its branch; an unreadable re-read deletes nothing more', () => {
+  const p = product();
+  branch(p, 'job/old-1');
+  branch(p, 'job/old-2');
+  const r = runIt(p, { openPulls: () => [pr(5, 'x', 'open', { base: 'job/old-2' })] });
+  assert.deepEqual(r.deleted.map((d) => d.name), ['job/old-1']);
+  assert.deepEqual(r.failed, ['job/old-2']);
+  const q = product();
+  branch(q, 'job/old-1');
+  const n = runIt(q, { openPulls: () => null });
+  assert.deepEqual(n.deleted, []);
+  assert.ok(heads(q).includes('job/old-1'));
+});
+
+test('githubIO: the paginated reads flattened, and null for a failed or odd read', () => {
+  const calls = [];
+  const io = githubIO((args) => { calls.push(args.join(' ')); return args.includes('--slurp') ? [[{ n: 1 }], [{ n: 2 }]] : { default_branch: 'main' }; });
+  assert.equal(io.defaultBranch(SLUG), 'main');
+  assert.deepEqual(io.pulls(SLUG), [{ n: 1 }, { n: 2 }]);
+  assert.deepEqual(io.openPulls(SLUG), [{ n: 1 }, { n: 2 }]);
+  assert.deepEqual(io.activity(SLUG), [{ n: 1 }, { n: 2 }]);
+  assert.deepEqual(calls, ['api repos/o/r', 'api --paginate --slurp repos/o/r/pulls?state=all&per_page=100', 'api --paginate --slurp repos/o/r/pulls?state=open&per_page=100', 'api --paginate --slurp repos/o/r/activity?time_period=day&per_page=100']);
+  const bad = githubIO(() => null);
+  assert.equal(bad.defaultBranch(SLUG), null);
+  assert.equal(bad.pulls(SLUG), null);
+  assert.equal(githubIO(() => [{ not: 'pages' }]).activity(SLUG), null);
+});
+
