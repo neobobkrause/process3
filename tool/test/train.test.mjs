@@ -3,6 +3,7 @@
 // refuses a base that moved, as GitHub does.
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { deepenToBase } from '../lib/merge.mjs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -151,11 +152,24 @@ test('merge train: in a shallow clone it fetches the tranche\'s history past mai
   assert.ok(fetches.some((l) => /--shallow-exclude=main origin \+refs\/heads\/tranche:/.test(l)));
   assert.ok(!fetches.some((l) => /--unshallow|--depth[= ]\d/.test(l)), fetches.join('\n'));
   assert.deepEqual(g.calls.merged, [1]);
-  // Every commit the tranche has past main is here; each job head's merge base reads locally.
+  // Every commit the tranche has past main is here; alpha, cut from main, was deepened to its base by the compare.
   assert.equal(Number(git(['rev-list', '--count', 'origin/tranche', '^origin/main'], { cwd: root })), count('tranche', 'main'));
-  for (const id of ids) assert.equal(git(['merge-base', 'origin/tranche', `origin/job/${id}`], { cwd: root, allowFail: true }).code, 0, id);
-  // alpha, cut from main, was deepened to its base by the compare; beta's base was in the history past main.
-  assert.ok(asked.includes('job/alpha') && !asked.includes('job/beta'), asked.join(','));
+  assert.ok(asked.includes('job/alpha'), asked.join(','));
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/alpha'], { cwd: root, allowFail: true }).code, 0);
+  // beta merged the tranche into a line cut from main. Whether its merge base reads locally after
+  // --shallow-exclude depends on git (2.43 keeps the merge's tranche-side parent; 2.56, as GitHub
+  // serves, cuts the merge: report.mjs deepen), and the hold reads none here; mended as the hold
+  // would, it reads, and nothing is unshallowed. Cut here as 2.56 cuts it, so both gits run the mend.
+  const shallowFile = join(root, git(['rev-parse', '--git-path', 'shallow'], { cwd: root }));
+  const betaTip = git(['rev-parse', 'origin/job/beta'], { cwd: root });
+  const cutNow = (() => { try { return readFileSync(shallowFile, 'utf8'); } catch { return ''; } })(); // a deepening may have reached this small repository's root
+  if (!cutNow.includes(betaTip)) writeFileSync(shallowFile, cutNow + betaTip + '\n');
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/beta'], { cwd: root, allowFail: true }).code, 1, 'beta cut at its merge');
+  writeFileSync(trace, '');
+  process.env.GIT_TRACE = trace;
+  try { deepenToBase(root, 'o/r', 'tranche', 'job/beta', g.io.compare); } finally { delete process.env.GIT_TRACE; }
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/beta'], { cwd: root }), git(['merge-base', 'tranche', 'job/beta'], { cwd: bare }));
+  assert.ok(!readFileSync(trace, 'utf8').split('\n').some((l) => /built-in: git fetch.*(--unshallow|--depth[= ]\d)/.test(l)));
   // A full clone is left as it is and says nothing about it.
   const more = [];
   run(src, github(src, ids), { log: (l) => more.push(l) });
