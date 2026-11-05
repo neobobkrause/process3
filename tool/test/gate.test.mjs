@@ -44,6 +44,7 @@ function fakeIO(receipt) {
       },
       // Stands for verifyRow: only rows the gate itself posted are backed by a run's artifact.
       verify: (s, r) => state.genuine.has(key(r)),
+      gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
       ...honestBranch([5, 247], 'tranche', 'job/alpha'),
     },
   };
@@ -163,6 +164,7 @@ test('a records-only job pull request with a receipt gets a code run whose recei
     comments: () => io.state.comments,
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: io.io.verify,
+    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
     ...honestBranch([5, 247], 'tranche', 'job/alpha'),
     mergePR: (slug, n, sha) => { merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
   } });

@@ -231,8 +231,9 @@ export const DEFAULTS = {
   clone: { clone_depth: 1 },
   // start check (SHM-5): the product's setup script, argv, run once per container; none by default.
   setup_script: null,
-  // Lanes (SES-14): each a name and the product's directory of its design knowledge. The UX lane
-  // is always there; the product names its directory. completion_file (PLN-4): none by default.
+  // Lanes (SES-14): each a name and the product's directory of its design knowledge, and
+  // optionally its ledger "module", whose job is then the lane's one session (lane.mjs). The UX
+  // lane is always there; the product names its directory. completion_file (PLN-4): none by default.
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
@@ -390,6 +391,42 @@ export const rowCap = (r) => r.job_cap ?? r.live_cap;
 export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('/') ? p : `${p}/`);
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r));
+
+// Lanes' folders (lane.mjs; Bob, 5 Nov: "lanes' file changes need not be tested the way jobs do").
+// A lane's folder is its config "dir"; one at the root, or holding the process's own files, the
+// workflows or the session settings, is no lane folder here, so nothing outside a lane rides it.
+const NOT_LANE = ['process', '.process', '.github', '.claude', 'CLAUDE.md'];
+export function laneDirs(cfg) {
+  const ls = Array.isArray(cfg?.lanes) ? cfg.lanes : [];
+  return ls.filter((l) => l && typeof l.name === 'string' && l.name.trim() && typeof l.dir === 'string')
+    .map((l) => ({ name: l.name.trim(), dir: l.dir.trim().replace(/^\.\//, '').replace(/\/+$/, ''), module: typeof l.module === 'string' ? l.module.trim() : null }))
+    .filter((l) => l.dir && l.dir !== '.' && !l.dir.startsWith('/') && !l.dir.split('/').includes('..') && !NOT_LANE.some((n) => underPath(l.dir, n)));
+}
+// The lane whose folder holds f, or null; a file a ledger module other than the lane's own owns
+// (its paths or tests: entries, the ledger's) is that module's, judged as today.
+// Never a lane path: any module's tests; a file of the job being gated (self), so a job's own
+// code is always tested; CLAUDE.md, .claude/, .github/ or .process/ anywhere in the folder.
+const GOVERNS = /(^|\/)(CLAUDE\.md$|\.claude\/|\.github\/|\.process\/)/;
+export function laneOfPath(cfg, f, entries = [], { self = null } = {}) {
+  const l = laneDirs(cfg).find((x) => underPath(f, x.dir));
+  if (!l || GOVERNS.test(f)) return null;
+  const owns = (e, ps) => (ps || []).some((p) => underPath(f, p));
+  const other = entries.some((e) => owns(e, e.tests) || ((e.id !== l.module || e.id === self) && owns(e, e.paths)));
+  return other ? null : l.name;
+}
+export const isRecordOrLane = (cfg, f, entries = [], opts = {}) => isRecordPath(cfg, f) || !!laneOfPath(cfg, f, entries, opts);
+// The one lane a change is all inside, records aside, or null: no file of a lane's folder, a file
+// outside every lane's folder, or files of two lanes' folders.
+export function laneOnly(cfg, files, entries = []) {
+  const names = new Set();
+  for (const f of files) {
+    if (isRecordPath(cfg, f)) continue;
+    const n = laneOfPath(cfg, f, entries);
+    if (!n) return null;
+    names.add(n);
+  }
+  return names.size === 1 ? [...names][0] : null;
+}
 
 // --key value, --key=value (for a value that starts with --) and --flag; repeated keys become arrays; the rest are positional.
 export function parseArgs(argv) {

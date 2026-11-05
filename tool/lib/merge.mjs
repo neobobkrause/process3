@@ -3,7 +3,7 @@
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
 import { basename, join } from 'node:path';
-import { baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
+import { GATE_WORKFLOW, baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getJob, getPR, getRun, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { diffNames, entriesAt, ownPaths } from './gate.mjs';
@@ -18,7 +18,7 @@ import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordPath, isShallow, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordOrLane, isRecordPath, isShallow, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -157,7 +157,8 @@ export function reviewMeasures({ reviewed, reviewMinutes, reviewCostUsd, finding
 
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
-  const io = { getPR, comments, checkRun, mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, getRun, getJob, mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
+  io.gateBound ||= (sl, c, x) => gateRunWhy(sl, c, x, { getJob: io.getJob, getRun: io.getRun, ...(opts.gateWait ? { wait: opts.gateWait } : {}) });
   const rounds = reviewRounds(opts);
   const measures = reviewMeasures(opts);
   // The job's cost, read by BOB from get_session on the job's session, idle by now (measured 4 Nov,
@@ -191,7 +192,7 @@ export function merge(root, n, opts = {}) {
     });
     // A speculated land (train window, C'): L is pushed marked for the gate's spec-tested path only
     // when it is the tree the spec gate tested, records aside; else the gate on L runs in full.
-    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, log }) : null;
+    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, job: id, log }) : null;
     if (spec?.tip) tip = spec.tip;
     // The train's return to a held merged result pushes nothing new (the coordinator's ruling: its
     // head holds this PR's merge row on the current tip); anything to push ends the hold instead.
@@ -206,6 +207,13 @@ export function merge(root, n, opts = {}) {
     // Again once the merged result's gate is green: a PR opened from the branch since the first
     // read could have run its own base's "gate" on the merged result.
     if (tip !== pr.head.sha) boundOrFail(slug, branch, n, cfg.tranche, io);
+    // Bound on every land, the held return and a rerun on the merge-row tip too (whose gate is
+    // `first`, read by name): after the branch, so a retargeted PR is refused first (confirming
+    // review of build/gate-check-bind).
+    const t0 = Date.now();
+    const why = io.gateBound(slug, run, { sha: tip, branch, n, base: cfg.tranche });
+    if (why) fail(`the gate on the merged result ${tip.slice(0, 10)} is not bound to pull request ${n}: ${why}; nothing was merged (bring it to Bob)`);
+    log(`the gate on the merged result is the process gate's run on ${branch} (read in ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
     // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
@@ -323,13 +331,15 @@ export const SPEC_TRAILER = 'Spec-Tested';
 // bytes pushed are the bytes built; anything else is today's full re-gate, and says why. A tip
 // that is already the PR's head is never rewritten (nothing new is pushed): it is fast only when
 // an earlier run pushed it with this trailer.
-function specMark(wt, cfg, { pr: sp, sha }, { tip, was, log = console.log }) {
+function specMark(wt, cfg, { pr: sp, sha }, { tip, was, job = null, log = console.log }) {
   const trailer = `${SPEC_TRAILER}: ${sp}`;
   const marked = (c) => git(['log', '-1', '--format=%B', c], { cwd: wt }).split('\n').some((l) => l.trim() === trailer);
   const slow = (why) => { log(`spec PR ${sp}: ${why}; the gate on the merged result runs in full`); return { fast: false, why }; };
   if (!sha || !/^[0-9a-f]{7,64}$/i.test(String(sha)) || git(['cat-file', '-e', `${sha}^{commit}`], { cwd: wt, allowFail: true }).code !== 0) return slow(`the spec's tested commit ${String(sha).slice(0, 10)} is not readable here`);
   if (tip === was && !marked(tip)) return slow('nothing pushed');
-  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordPath(cfg, f));
+  // Lane folders count as records, as in the gate's record-since-green (lane.mjs; Bob, 5 Nov).
+  const entries = entriesAt(wt, tip);
+  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
   if (differ.length) return slow(`the merged result ${tip.slice(0, 10)} differs from the tree spec PR ${sp} tested (${sha.slice(0, 10)}) outside the records: ${differ.slice(0, 5).join(', ')}${differ.length > 5 ? ` and ${differ.length - 5} more` : ''}`);
   if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside`); return { fast: true, pr: sp }; }
   const shape = (c) => git(['rev-list', '--no-walk', '--format=%T %P', c], { cwd: wt }).split('\n').pop();
@@ -377,6 +387,44 @@ export function deepenToBase(root, slug, base, head, read = compare) {
   if (ok()) return;
   const r = git(['fetch', '-q', '--unshallow', 'origin', ...refs], { cwd: root, allowFail: true });
   if (r.code !== 0 || !mb()) fail(`this clone is shallow and the history between ${head} and ${base} could not be read (${r.code !== 0 ? `git fetch --unshallow: ${r.stderr.trim().split('\n').pop()}` : 'no merge base after unshallowing'}); nothing was merged. Run it again, or start this session without clone_depth`);
+}
+
+// A check run named "gate" is any workflow's job of that name on the commit: check runs are keyed
+// by commit, not by branch or workflow, so a run of another branch at the same commit (its PR into
+// a base whose workflow names a job "gate") could stand in for the merged result's (cold review of
+// build/branch-bound, issue 3). The merged result's gate counts only as a job of the process gate's
+// run on the job branch, in this repository, for this pull request into the tranche. The check is
+// read as an Actions job by its own id, never by the run its details_url names: a check run made
+// through the checks API, even in the run's suite and with that run's URL, is no job (cold review
+// of build/gate-check-bind). Its run is the job's run_id. Two reads, no wait for the run's post job;
+// a failed read is tried again (`wait`), then refuses. Returns why not, or null.
+const READ_TRIES = [2000, 4000];
+export function gateRunWhy(slug, check, { sha, branch, n, base }, { getJob: job = getJob, getRun: run = getRun, wait = READ_TRIES, pause = sleep } = {}) {
+  const read = (f, id) => {
+    for (let k = 0; ; k++) {
+      let v;
+      try { v = f(slug, id); } catch { v = null; }
+      if (v || k >= wait.length) return v || null;
+      pause(wait[k]);
+    }
+  };
+  if (!Number.isSafeInteger(check?.id) || check.id <= 0) return 'its "gate" check has no id';
+  if (check.app?.slug !== 'github-actions') return `its "gate" check is ${check.app?.slug || 'no app'}'s, not GitHub Actions'`;
+  const j = read(job, check.id);
+  if (!j) return `its "gate" check ${check.id} is no Actions job (or could not be read)`;
+  if (j.name !== 'gate' || j.head_sha !== sha || j.status !== 'completed' || j.conclusion !== 'success') return `its "gate" check ${check.id} is job ${JSON.stringify(String(j.name).slice(0, 40))} on ${String(j.head_sha).slice(0, 10)}, ${j.status}/${j.conclusion}, not a green gate job on ${sha.slice(0, 10)}`;
+  const a = read(run, j.run_id);
+  if (!a) return `its "gate" job's run ${j.run_id} could not be read`;
+  const prs = a.pull_requests || [];
+  const bad = [
+    check.check_suite?.id == null || check.check_suite.id !== a.check_suite_id ? 'the check is not that run\'s' : null,
+    a.path !== GATE_WORKFLOW ? `the workflow is ${a.path}` : null,
+    a.head_sha !== sha ? `the commit is ${String(a.head_sha).slice(0, 10)}` : null,
+    a.head_branch !== branch || a.head_repository?.full_name !== slug ? `it ran on ${a.head_repository?.full_name}:${a.head_branch}` : null,
+    a.event !== 'pull_request' ? `its event is ${a.event}` : null,
+    !prs.some((p) => p.number === n) || !prs.every((p) => p.base?.ref === base) ? `its pull requests are ${prs.map((p) => `${p.number} into ${p.base?.ref}`).join(', ') || 'none'}` : null,
+  ].filter(Boolean);
+  return bad.length ? `its "gate" check is a job of run ${j.run_id}, not the process gate's on ${branch} for pull request ${n}: ${bad.join('; ')}` : null;
 }
 
 // Refuses, naming the pull requests, when branch's runs are not bound to PR n into base (unbound).
