@@ -694,3 +694,11 @@
 - Ordered: end hold-17 (journey-check, 511 re-enters); resume plain queuing after 470 and 472 land; pin move to process3 b49569f with merge_train_window 8 (session_018BhceeYVPoKDpPSgBYejE9).
 - process3 merged: 175 (70de1c6), 173 (b49569f). 170's ci was cancelled at 10 min, with orphan node processes (a hanging test); sent back to its builder.
 - BOB 20:04: 0 startable; 51 COMPLETE PRs wait in the train. The train is the lever, so the window goes to 8.
+
+## 20:52 hourly flow (5 Nov)
+- Live jobs (BOB 20:40): about 8. Running a job complete only: control-plane, interface-shell, installer. New work: agent-drafts, screens-intake-rounds, agent-worker attempt 7 (PR 569). Still running: ux-design, ai-gate fix pass. Empty slots: no startable work; 51 complete PRs wait in the train (BOB 20:04).
+- Copy lands 19:52-20:52: job 364, 470, 472 (window, spec-tested path); plain 568 (pin c21e228, window 8) and 585. The hour 19:35-20:35 is about 6 lands, the same as serial: no gain yet.
+- Window losses: 470's 13-min full re-gate (base-red tolerance not carried after 364 landed); 20:43 468 red at position 0, dropping all 7 behind (2 already green); 20:47 plain 585 dropping all 7 again. 15 spec gates lost in 5 min.
+- Actions: plain queuing paused; process3 176 merged 20:50 (dd6e7b0), pin move session_018Bhcecb86ZZWZ7tEsgeFCa goes first; build/window-keep-disjoint now covers disjoint tranche moves, carried base-red tolerance, and disjoint positions behind a leaving PR.
+- Bob 20:4x: no pile of rulings; triage lanes per repo hold problems with their end conditions (build/triage-lanes, session_018BhcecKDNykF777pCQj2k7). Process3 180: rulebooks cite the coordinator by name, Bob only for his own words.
+- Roles alive: ROOT, BOB, MERGER (restarted 20:34 on window 8), watcher.
