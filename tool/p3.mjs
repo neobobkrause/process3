@@ -8,13 +8,13 @@ import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneAsk } from './lib/lane.mjs';
-import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
+import { READY_START, jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { readyCount, startReady } from './lib/ready.mjs';
+import { startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
@@ -24,7 +24,8 @@ import { setupCheck } from './lib/setup.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
-import { fetchState, handoff, jsonl, outcome, readState, send } from './lib/state.mjs';
+import { fetchState, handoff, jsonl, outcome, readState, send, writeState } from './lib/state.mjs';
+import { bobAct, capRoom, owe, owedLine, owedOf, owes, sample, sampled } from './lib/flow.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
@@ -67,12 +68,12 @@ const commands = {
     const [first, second] = a._;
     if (first === 'delivered' || first === 'failed') {
       outcome(root, sb, { from: a.from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
-    } else send(root, sb, { from: a.from, to: first, text: second, ...(first === 'bob' ? { ready: () => readyCount(root) } : {}) });
+    } else send(root, sb, { from: a.from, to: first, text: second });
     return 0;
   },
 
   // job start --ready --live <n> [--coordinator <session>] [--model <m>]: BOB starts every startable job status lists, up to the job cap (jobCap in lib/util.mjs) less n, n the account's job sessions (or counted from --sessions <file>).
-  // job start <id> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
+  // job start <id> --live <n> | --sessions <file> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --take-in, on work made before Process3, every file of it inside the module's paths;
@@ -98,6 +99,8 @@ const commands = {
     if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
     if (a['fresh-branch'] !== undefined && a['take-in'] !== undefined) fail('--fresh-branch goes alone, with --reopen or with --restart, not with --take-in');
     if (a.stop !== undefined && a.restart === undefined) fail('--stop archived|idle goes with --restart: how the replaced session stopped');
+    // A new session counts against the cap as job start --ready counts it (a restart replaces one).
+    if (a.restart === undefined) capRoom(root, loadConfig(root), { live: a.live, sessions: a.sessions });
     jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'] });
     return 0;
   },
@@ -455,8 +458,23 @@ export async function main(argv) {
     return name ? 2 : 0;
   }
   a._ = a._.slice(name.split(' ').length);
+  let root = null;
+  let cfg = null;
   try {
-    return (await fn(a, repoRoot())) ?? 0;
+    root = repoRoot();
+    try { cfg = loadConfig(root); } catch { cfg = null; } // no product here (process3 itself): no flow
+    // Starts owed (flow.mjs): BOB's other acts wait for job start --ready (exit 2).
+    if (cfg && bobAct(name, a) && cfg.plan !== 'pause' && cfg.plan !== 'stop') {
+      let o = null;
+      try { if (fetchState(root, cfg.state_branch)) o = owedOf(root, cfg.state_branch); } catch { o = null; }
+      if (o) { console.error(`p3 ${name}: ${owedLine(o)}`); return 2; }
+    }
+    const code = (await fn(a, root)) ?? 0;
+    const act = cfg && code === 0 ? owes(name, a) : null;
+    if (act) {
+      try { writeState(root, cfg.state_branch, `starts owed: ${act}`, (wt) => owe(wt, act)); console.log(`starts owed recorded (${act}): ${READY_START} before BOB's other acts`); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); }
+    }
+    return code;
   } catch (e) {
     if (e instanceof Fail) {
       console.error(`p3 ${name}: ${e.message}`);
@@ -464,6 +482,9 @@ export async function main(argv) {
       return 1;
     }
     throw e;
+  } finally {
+    // A flow sample at most every SAMPLE_MIN minutes, whichever role runs whichever command.
+    if (cfg && sampled(name)) { try { sample(root, cfg, { by: name, slug: repoSlug(root), log: (l) => console.error(l) }); } catch (e) { console.error(`flow sample not taken: ${e.message}`); } }
   }
 }
 

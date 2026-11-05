@@ -14,6 +14,7 @@ import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
+import { flowFirst } from './flow.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
@@ -128,7 +129,10 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
   if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the account's job sessions list_sessions shows, not ${JSON.stringify(live)}`);
-  if (role === 'bob') { const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line); }
+  if (role === 'bob') {
+    try { if (offline ? git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 : fetchState(root, cfg.state_branch)) for (const l of flowFirst(root, cfg.state_branch)) log(l); } catch { /* bobStatus reports the state branch */ }
+    const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line);
+  }
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
   let prs = null;
   let slug = null;
@@ -531,7 +535,7 @@ export function noticeSlots(root, cfg, rows) {
       const rerun = !!unrecorded[u]?.includes(n.key);
       (owed[u] ||= []).push({ ...live, triage, rerun });
       if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${prN || `<job ${u}'s PR>`} (again: its answer was not recorded)` });
-      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u}, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u}` });
+      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u} --live <n>, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u} --live <n>` });
       else { (untriaged[n.key] ||= []).push(u); slots.push({ key: n.key, user: u, kind: 'triage', act: `${P3} notice triage ${n.key}` }); }
     }
   }
@@ -762,6 +766,6 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
   const job = (id) => rows.find((r) => r.id === id && jobOpen(r));
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
-  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target}`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
+  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --live <n>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
 }

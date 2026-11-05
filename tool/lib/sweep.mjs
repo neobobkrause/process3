@@ -9,6 +9,8 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
 import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
+import { SAFETY_FILE, deadEnds, safetyOf, owe, safety, usageReading } from './flow.mjs';
+import { startable } from './ready.mjs';
 import { SILENT_HOURS, blockedJobs, capLine, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
 
@@ -76,7 +78,10 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile);
   live = sessionsCount(listed, live, log);
-  let idle = { bob_acts: 'unmeasured', bob_quiet_h: null }; // no BOB, or a paused plan: not read
+  let idle = { bob_acts: 'unmeasured', bob_quiet_h: null };
+  let dead = [];
+  let archived = false;
+  const usage = usageReading(sessionsFile); // no BOB, or a paused plan: not read
   // The account's job count and the cap go in the sweep row (live, job_cap, and with --sessions the
   // account's sessions, every product and role, so a platform limit would show): lead times names a full cap as a wait's cause.
   let liveRow = {};
@@ -118,6 +123,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         next = !!(ls?.ready || ls?.pending) || work.length > 0;
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live);
+        dead = deadEnds(root, cfg, { rows, next: work, skip: startable(work).skip, ls, ref: tranche });
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min };
       } catch (e) {
         if (!(e instanceof Fail)) throw e;
@@ -139,6 +145,9 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.
     let waits = new Map();
     try { waits = new Map(blockedJobs(cfg, rows).map((b) => [b.id, b])); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`config: ${e.message}`); }
+    // Dead ends (flow.mjs): unmet work nothing will start, a Process3 defect, to the coordinator.
+    if (dead.length) found.push(`dead ends: ${dead.map((d) => d.id).join(', ')}`);
+    for (const d of dead) todo.push(`dead end: send_message to the coordinator${cfg.coordinator ? ` ${cfg.coordinator}` : ''}: ${d.id}: ${d.why} (a Process3 defect)`);
     for (const b of waits.values()) if (b.by && b.by !== 'Bob') todo.push(`ruling owed: send_message to ${b.by}: job ${b.id}${b.text}`);
     for (const r of rows) {
       if (r.flag === 'BLOCKED' || r.tranche === 'BLOCKED') owed.push(`${r.id}: BLOCKED${waits.get(r.id)?.text ?? ''}`);
@@ -156,6 +165,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
       const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen });
       found.push(s.line);
+      // A session archived frees a slot: starts owed (flow.mjs), written with the heartbeat.
+      if (s.acts.some((a) => a.act === 'archive')) archived = true;
       for (const a of s.acts) todo.push(a.act === 'archive' ? `archive ${a.id}: archive_session ${a.id} ("${a.title}", idle, its work done or its parent archived)` : `tell ${a.owner} ${a.id} asks: ${a.question} (send it to ${a.owner}${a.owner.startsWith('session_') ? ' with send_message' : ''}, naming ${a.id} "${a.title}", whose parent is archived)`);
     }
   }
@@ -170,7 +181,10 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, HEARTBEAT_FILE), JSON.stringify(beat) + '\n');
     mkdirSync(join(dir, 'metrics'), { recursive: true });
-    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct, ...liveRow }) + '\n');
+    appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct, ...liveRow, ...(usage ? { usage: usage.status } : {}), ...(dead.length ? { dead_ends: dead.map((d) => d.id) } : {}) }) + '\n');
+    if (archived) owe(dir, 'sweep: sessions to archive');
+    // The usage reading (R10 safety): a status other than allowed holds new starts until one is.
+    if (usage) { mkdirSync(join(dir, 'flow'), { recursive: true }); writeFileSync(join(dir, SAFETY_FILE), JSON.stringify(safety(root, cfg, { usage, prev: safetyOf(root, sb) })) + '\n'); }
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

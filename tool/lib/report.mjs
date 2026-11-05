@@ -299,6 +299,10 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const total = pricedC.reduce((t, r) => t + Math.max(0, Number(r.cost_usd) - priorOf(r)), 0);
   const before = allMeasured.filter((r) => !inT(r));
   L.push(`- total cost since the opening: ${!opened ? U : !counted.length ? `${U} (no measured row since the opening)` : pricedC.length === counted.length ? usd(total) : `${U} (${usd(total)} over ${pricedC.length} priced rows; ${counted.length - pricedC.length} without a cost)`}${opened && before.length ? `; ${before.length} measured rows older than this tranche (${[...new Set(before.map((r) => r.module))].sort().join(', ')}) left out` : ''}`);
+  // Job sessions run on the account's subscription (Bob, 5 Nov, R10): their figures are a share of
+  // the account's usage, not money spent; the USD above is usage priced at list rates.
+  const jobsU = pricedC.filter(jobRole).reduce((t, r) => t + Math.max(0, Number(r.cost_usd)), 0);
+  L.push(`- job sessions' share of the account's usage the record measures: ${opened && total > 0 ? `${Math.round(jobsU / total * 1000) / 10}% (subscription sessions: a share of usage, not USD spend)` : U}`);
   L.push(`- BOB and ROOT cost not attributed to a job: ${o ? usd(o.unattributed_usd) : U}`, '');
 
   // Refusals by role and act: every refusal the record holds, as metrics report lists them
