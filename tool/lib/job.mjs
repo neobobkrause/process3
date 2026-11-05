@@ -1150,6 +1150,18 @@ export const REGATE = 'p3:regate';
 const MARK = new RegExp(`^<!-- ${REGATE} (\\S+) -->.*$`, 'm');
 const regateLine = (key, url) => `<!-- ${REGATE} ${key} --> Gate re-run for the amended receipt ${url}.`;
 const keyOf = (c) => String(c.id ?? c.html_url);
+// The time of the oldest receipt, in the unbroken run of the opener's newest receipts ending at c,
+// whose revert exemption is the one c claims.
+function firstWith(all, c, opener, revert) {
+  const mine = all.filter((x) => (!opener || x.user?.login === opener) && parseBlock(x.body, RECEIPT));
+  if (!mine.some((x) => keyOf(x) === keyOf(c))) mine.push(c);
+  let at = c.created_at;
+  for (const x of mine.slice(0, mine.findIndex((x) => keyOf(x) === keyOf(c))).reverse()) {
+    if (parseBlock(x.body, RECEIPT)?.exempt?.revert !== revert) break;
+    at = x.created_at || at;
+  }
+  return at;
+}
 export function regate(slug, pr, sha, posted, { io, log = console.log, all = [], saved = null }) {
   const c = posted?.comment;
   const r = posted?.data;
@@ -1165,7 +1177,11 @@ export function regate(slug, pr, sha, posted, { io, log = console.log, all = [],
   if (!Array.isArray(runs)) fail(`the amended receipt is posted, but the gate runs on ${sha.slice(0, 10)} could not be read, so the gate was not re-run; run job complete again`);
   const g = runs[0] || null;
   if (g?.status === 'completed' && g.conclusion === 'success') return false;
-  if (g && !(g.started_at && c.created_at && Date.parse(g.started_at) < Date.parse(c.created_at))) return false;
+  // Since the first of the newest receipts that carry this exemption: a run started after it read
+  // it, whatever --not-verified-only receipts came since (confirming review). Same second counts
+  // as before: GitHub's times are whole seconds, and a run then may have read the comments first.
+  const since = firstWith(all, c, pr.user?.login, r.exempt.revert);
+  if (g && !(g.started_at && since && Date.parse(g.started_at) <= Date.parse(since))) return false;
   const line = regateLine(key, c.html_url);
   const next = was ? body.replace(MARK, () => line) : `${body}${body ? '\n\n' : ''}${line}`;
   try { io.editPR(slug, pr.number, { body: next }); } catch (e) {

@@ -226,7 +226,7 @@ function fakeGitHub() {
       findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'civicsmith' } }),
       toDraft: () => { state.drafted++; state.isDraft = true; return { draft: true }; },
       comments: () => state.comments,
-      addComment: (s, n, body) => { const c = { id: 100 + state.comments.length, body, html_url: `c${state.comments.length}`, created_at: new Date(Date.now() + state.comments.length).toISOString(), user: { login: 'civicsmith' } }; state.comments.push(c); return c; },
+      addComment: (s, n, body) => { const c = { id: 100 + state.comments.length, body, html_url: `c${state.comments.length}`, created_at: state.at || new Date(Date.now() + state.comments.length).toISOString(), user: { login: 'civicsmith' } }; state.comments.push(c); return c; },
       getPR: () => ({ number: 9, draft: state.isDraft, body: state.body }),
       editPR: (s, n, f) => { if (state.failEdit) { state.failEdit = false; throw new Error('edit refused'); } state.edits.push(f); state.body = f.body; return { number: 9 }; },
       checkRuns: () => (state.gate === undefined ? null : state.gate ? [state.gate] : []),
@@ -476,6 +476,27 @@ test('the marker line is replaced where it stands, a null body is read as empty,
   f.state.body = `top\n> quoted <!-- p3:regate 7 --> x\n${f.state.body}\nbottom $& $1`;
   jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why 2', log: quiet });
   assert.equal(f.state.body, 'top\n> quoted <!-- p3:regate 7 --> x\n<!-- p3:regate 102 --> Gate re-run for the amended receipt c2.\nbottom $& $1');
+});
+
+// Confirming review of build/receipt-regate.
+test('a run started after the exemption\'s first receipt is not re-run for a later --not-verified-only receipt', () => {
+  const { root, f } = completed();
+  f.state.gate = { status: 'in_progress', started_at: '2999-01-01T00:00:00Z' };
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.edits.length, 0, 'the run started after the receipt reads it');
+  f.state.gate = { status: 'in_progress', started_at: new Date(Date.parse(f.state.comments[1].created_at) + 5).toISOString() };
+  f.state.at = '2999-06-01T00:00:00Z';
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
+  assert.equal(f.state.comments.length, 3);
+  assert.equal(f.state.edits.length, 0, 'that run judged the exemption the newest receipt carries');
+});
+
+test('a red run that started in the receipt\'s own second is re-run', () => {
+  const { root, f } = completed();
+  f.state.at = '2026-11-05T12:00:00Z';
+  f.state.gate = { status: 'completed', conclusion: 'failure', started_at: '2026-11-05T12:00:00Z' };
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.edits.length, 1);
 });
 
 test('an amendment on a draft pull request is marked ready, not edited', () => {
