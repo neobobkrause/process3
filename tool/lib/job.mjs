@@ -208,7 +208,8 @@ export function subscribeFor(slug, pr) {
 
 // The setup check first: nothing starts while a condition is missing (setup audit, 2 Nov).
 function setupOrStop(root, cfg, slug, setup, log) {
-  const s = setup(root, { slug, log });
+  // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
+  const s = setup(root, { slug, log, anchor: true });
   // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
   // words for what to do (re-review of PR 24).
   if (s.missing.includes('session-branch')) {
@@ -239,9 +240,9 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
   if (fresh === true || (fresh !== undefined && !String(fresh).trim())) fail('--fresh-branch needs why the job\'s branch cannot go on');
-  const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
-  if (push) setupOrStop(root, cfg, slug, setup, log);
+  if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
+  const cfg = loadConfig(root); // the anchored checkout's
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
   if (push) fetchRef(root, cfg.tranche);
@@ -399,9 +400,9 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
 function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, find, setup, compare: cmp, gh: io, log }) {
   if (from === true || !String(from ?? '').trim()) fail('--take-in needs the branch or pull request number of the earlier work');
   const x = { getPR, editPR, toDraft, addComment, ...io };
-  const cfg = loadConfig(root);
   const slug = push ? repoSlug(root) : 'local/local';
-  if (push) setupOrStop(root, cfg, slug, setup, log);
+  if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
+  const cfg = loadConfig(root);
   const job = `job/${id}`;
   let source = String(from).trim();
   let pr = null;

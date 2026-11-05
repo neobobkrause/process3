@@ -71,8 +71,25 @@ export function runSetupScript(root, { log = console.log, exec = run } = {}) {
   return { ok: true, ran: true };
 }
 
-export function startCheck(root, { branch, setup = false, log = console.log } = {}) {
-  const { name, head, tip, file, loaded, atTip } = read(root, branch);
+// anchor (job start, coordinator 5 Nov: a pass at a tranche merging every few minutes started
+// nothing): a checkout behind the tip moves to it, detached, just before the comparison, when the
+// approvals it holds are the tip's, its tracked files are clean, the pin is the tip's (the tool
+// running is the tranche's), and HEAD was once the tip: an ancestor of it, or, in a shallow clone
+// whose history is cut, a value of the fetched ref (its log) or the commit the clone began at.
+const logOf = (root, ref) => { try { return readFileSync(resolve(root, git(['rev-parse', '--git-path', `logs/${ref}`], { cwd: root })), 'utf8').split('\n'); } catch { return []; } };
+const wasTip = (root, head, name) => logOf(root, `refs/remotes/origin/${name}`).some((l) => l.split(' ', 2).includes(head))
+  || logOf(root, 'HEAD').some((l) => /\tclone: /.test(l) && l.split(' ', 2)[1] === head);
+const movable = (root, head, tip, name) => !git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })
+  && git(['ls-tree', head, '--', '.process'], { cwd: root }) === git(['ls-tree', tip, '--', '.process'], { cwd: root })
+  && (git(['merge-base', '--is-ancestor', head, tip], { cwd: root, allowFail: true }).code === 0 || wasTip(root, head, name));
+
+export function startCheck(root, { branch, setup = false, anchor = false, log = console.log } = {}) {
+  let { name, head, tip, file, loaded, atTip } = read(root, branch);
+  if (anchor && head !== tip && loaded === atTip && movable(root, head, tip, name)
+    && git(['checkout', '-q', '--detach', tip], { cwd: root, allowFail: true }).code === 0) {
+    log(`HEAD ${head} moved to the tip of ${name}`);
+    head = tip;
+  }
   writeFileSync(loadedFile(root), hash(loaded) + '\n');
   const sameHead = head === tip;
   const sameApprovals = loaded === atTip;
