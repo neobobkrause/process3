@@ -535,3 +535,4 @@
 - 12:22 pin 06ab532 on the copy: PR 499 at 4f18d84, landed by the train. The merge printed no wake of BOB (process-state moved on origin, retries 2-3 of 5, exit 0): DEFECT owed (a land whose state push retries must still print the wake). Told BOB by hand. MERGER restarts onto it under my standing order.
 - 12:23 pin move -> 43a5876 (153 release tier): session_018BhcegsNkx99LYyf1WY2X1 (open pin moves by search: 0; prompt step 12 adds a hand notice if no wake prints).
 - 12:12 process3 PR 155 (receipt-regate, option A): 856/856, cold review 4 findings fixed with tests. Confirming review asked (gate change), then I merge with --rounds 2.
+- 12:24 process3 PR 155 (receipt-regate) merged 105c202 by me: --plain --reviewed --rounds 2 (cold 4 fixed; confirming 2 fixed: exemption time from the first receipt carrying it, same-second counts as before). 858/858. Build archived. Pin session told (now) to retarget to 105c202 if it has not pushed; else 43a5876 stands.
