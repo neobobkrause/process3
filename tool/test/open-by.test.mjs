@@ -2,6 +2,9 @@
 // The fixture is the copy's shape, 4 Nov: layer 2 open, layer 3 modules whose providers are done.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
 import { blockedJobs, flow, layerState, nextWork, status } from '../lib/status.mjs';
 import { setupCheck } from '../lib/setup.mjs';
@@ -199,9 +202,9 @@ test('status: the flow line, and each BLOCKED job with its age, oldest first, it
 });
 
 // Coordinator, 5 Nov, review of PR 137 item 5: job start --ready, through status itself, reopens a
-// COMPLETE entry for its unmet requirement marks once per tranche: when its job merged in this
-// tranche and left the same marks unmet, it is "unmet after its job", for the layer close to defer.
-test('job start --ready reopens a COMPLETE entry for unmet marks an earlier tranche left, never one its job in this tranche left', (t) => {
+// COMPLETE entry for its unmet requirement marks at most once per tranche: merged in this tranche
+// after a reopen for the same marks, it is "unmet after its job", for the layer close to defer.
+test('job start --ready reopens a COMPLETE entry for unmet marks once per tranche, a shallow clone too', (t) => {
   const old = process.env.P3_JOB_CAP;
   process.env.P3_JOB_CAP = '5';
   t.after(() => { if (old === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = old; });
@@ -212,17 +215,33 @@ test('job start --ready reopens a COMPLETE entry for unmet marks an earlier tran
     startReady(root, { live: 0, remote: new Set(), log: (m) => out.push(m), read: (r, o) => status(r, { ...o, offline: true }), start: (_, id, o) => { calls.push([id, o.reopen]); return {}; }, close: () => { throw new Error('no close'); } });
     return { calls, text: out.join('\n') };
   };
-  // Merged in this tranche (main lacks its entry), its R1 and R2 the marks its merge left: not reopened.
+  const q2 = (r) => r.calls.find(([id]) => id === 'q2');
+  // Its job left R1 and R2: reopened once to meet them.
+  assert.deepEqual(q2(run()), ['q2', 'meet the unmet requirement marks R1, R2']);
+  // That reopen merged in this tranche (main lacks its entry) and left them: not reopened again.
+  commit(root, { 'process/metrics/q2.jsonl': `${JSON.stringify({ row: 'attempt', event: 'start', role: 'job', attempt: 2, reopen: 'meet the unmet requirement marks R1, R2' })}\n`, 'process/ledger/q2.json': entry('q2', { requirements: 'build/requirements/q2.md', status: { state: 'COMPLETE', at: 'x' } }) }, 'q2 reopened and merged');
   const here = run();
-  assert.ok(!here.calls.some(([id]) => id === 'q2'));
+  assert.equal(q2(here), undefined);
   assert.match(here.text, /q2.*unmet after its job: R1, R2/);
-  // Merged in an earlier tranche (main holds the entry): reopened to meet them.
+  // The same in a shallow clone (the product's sessions clone --depth 1): read from the tip's rows.
+  const cfg = loadConfig(root);
+  const shallowAfter = () => {
+    const c = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
+    git(['clone', '-q', '--depth', '1', `file://${root}`, c], { cwd: root });
+    git(['update-ref', '-d', 'refs/remotes/origin/main'], { cwd: c }); // its main is root's tip: no tranche merged into it
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: c }), 'true');
+    const mod = layerState(c, cfg, status(c, { offline: true, log: quiet }).rows, 'HEAD', { closed: [] }).layers.flatMap((L) => L.mods).find((m) => m.id === 'q2');
+    return mod.after;
+  };
+  assert.deepEqual(shallowAfter(), ['R1', 'R2']);
+  // Merged in an earlier tranche (main holds the entry): reopened.
   git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: root });
-  assert.deepEqual(run().calls.find(([id]) => id === 'q2'), ['q2', 'meet the unmet requirement marks R1, R2']);
-  // Merged in this tranche, and a mark written after its merge: reopened for them all.
+  assert.deepEqual(q2(run()), ['q2', 'meet the unmet requirement marks R1, R2']);
   git(['update-ref', '-d', 'refs/remotes/origin/main'], { cwd: root });
+  // A mark written after that merge: reopened for them all, in a shallow clone too.
   commit(root, { 'build/requirements/q2.md': unmet(3) }, 'R3 added');
-  assert.deepEqual(run().calls.find(([id]) => id === 'q2'), ['q2', 'meet the unmet requirement marks R1, R2, R3']);
+  assert.deepEqual(q2(run()), ['q2', 'meet the unmet requirement marks R1, R2, R3']);
+  assert.equal(shallowAfter(), undefined);
 });
 
 test('a found-work item outside the open layer\'s work is reopened for its found marks only, never its deferred R marks', () => {

@@ -5,7 +5,7 @@ import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs }
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
-import { REFRESH_AT, jobBranchAt, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
+import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
@@ -449,14 +449,15 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
   };
   const here = (m) => { const f = `${LEDGER_DIR}/${m.row.id}.json`; const b = blob(ref, f); return b === null || b !== blob('refs/remotes/origin/main', f); };
-  // The unmet marks a merge left: its requirement file at the commit that made its entry COMPLETE.
-  const left = (m) => { const c = git(['log', '-1', '--format=%H', ref || 'HEAD', '--', `${LEDGER_DIR}/${m.row.id}.json`], { cwd: root, allowFail: true }).stdout.trim(); const t = c && git(['show', `${c}:${m.file}`], { cwd: root, allowFail: true }); return t?.code === 0 ? unmetIds(t.stdout) : []; };
+  // The R marks its last start reopened it for: its start row on the tranche (no history read, so a
+  // shallow clone reads it too; review of PR 138).
+  const left = (m) => String((ref ? rowsAt(root, ref, m.row.id) : readRows(root, m.row.id)).filter((r) => r.event === 'start').pop()?.reopen || '').match(/^meet the unmet requirement marks (R\d+(?:, R\d+)*)/)?.[1].split(', ') || [];
   for (const L of layers) {
     L.recorded = recorded.has(L.n);
     for (const m of L.mods) m.here = m.merged && here(m);
     L.worked = L.mods.some((m) => m.here);
-    // Merged in this tranche, its marks the ones its job left: unmet after its job, deferred at the
-    // close, never reopened again this tranche (coordinator, 5 Nov: a reopen per start --ready).
+    // Merged in this tranche after a reopen for these marks: unmet after its job, deferred at the
+    // close, never reopened for them again this tranche (coordinator, 5 Nov: a reopen per start --ready).
     for (const m of L.mods) if (m.here && m.marks.length) { const l = left(m); if (m.marks.every((x) => l.includes(x))) m.after = m.marks; }
     L.closed = L.recorded || (!L.worked && L.mods.every((m) => !m.open && !m.marks.length));
   }
