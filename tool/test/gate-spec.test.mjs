@@ -320,7 +320,7 @@ test('spec-tested: the land on the tested tree plus a disjoint tranche move take
   assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
   assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.spec_run, r.run.ok], ['spec-tested', SPEC, 101, true], said.join('\n'));
   assert.equal(ran(w), false, 'no suite ran');
-  assert.ok(said.some((m) => new RegExp(`with the disjoint tranche move ${w.t0.slice(0, 10)}\\.\\.${moved.slice(0, 10)} \\(2 file\\(s\\)\\): no suite runs`).test(m)), said.join('\n'));
+  assert.ok(said.some((m) => new RegExp(`with 2 file\\(s\\) of the disjoint tranche move ${w.t0.slice(0, 10)}\\.\\.${moved.slice(0, 10)} and 0 of a change ahead that left the window \\(none\\): no suite runs`).test(m)), said.join('\n'));
   // The cover of the tranche into main follows the row to the spec run, the move as at the land.
   r.run.run_id = 202;
   post(x.state, JOB, r.run);
@@ -442,6 +442,12 @@ refused('the spec run was base-red on an older tranche tip, and the land ahead o
   return { base: t1, head: land(g.w, t1), why: /in 1 file\(s\) outside the records: notes\/ahead\.md;/ };
 });
 
+// Cold review (78d5ba6, finding 1): the tested tree holds a change that is no step of the window's
+// chain (here a commit on t0, not a step's merge) and never landed: the land on t0 without it is
+// never taken as the tested tree minus a position that left.
+refused('the tested tree holds a change that is no step of the window\'s chain, and the land lacks it', ({ w }) => ({
+  base: w.t0, head: land(w, w.t0), why: /outside the records: notes\/ahead\.md;/,
+}));
 refused('a file the move and the job both changed, held as the move has it (not the job\'s change the spec tested)', ({ w }) => {
   git(['checkout', '-q', '--detach', w.t1], { cwd: w.root });
   const moved = commit(w.root, { 'src/alpha/index.mjs': 'export const x = 3;\n' }, 'tranche moved in the job\'s file');

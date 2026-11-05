@@ -56,11 +56,12 @@ const predict = (root, head, onto) => mergedResult(root, loadConfig(root), {
 const remote = (root) => git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
 const message = (root, c) => git(['log', '-1', '--format=%B', c], { cwd: root }).trimEnd();
 // A commit on top of the tranche, never pushed: the R(i-1) the window put ahead of this job.
+// Shaped as train.mjs buildPlain builds a step: the merge of the tranche into the change's head.
 function ahead(root, tranche, files) {
   git(['checkout', '-q', '--detach', tranche], { cwd: root });
-  const c = commit(root, files, 'ahead in the window');
+  const side = commit(root, files, 'ahead in the window');
   git(['checkout', '-q', 'main'], { cwd: root });
-  return c;
+  return git(['commit-tree', `${side}^{tree}`, '-p', side, '-p', tranche, '-m', 'Bring it up to the tranche (merge train window)'], { cwd: root });
 }
 // The tranche moved on by `files` (pushed): a change ahead that landed otherwise than predicted.
 function landed(root, tranche, files) {
@@ -175,6 +176,14 @@ test('merge with a spec whose change ahead never landed is the tested tree minus
   assert.equal(r.spec.fast, true);
   assert.deepEqual([r.spec.move.files, r.spec.move.dropped, r.spec.move.commits], [['src/beta/b.mjs'], ['src/beta/b.mjs'], []]);
   assert.match(message(root, remote(root)), /Spec-Tested: 907$/);
+  // Not a step of the chain (a commit on the tranche's line, no merge): never taken as dropped.
+  const t = setup();
+  git(['checkout', '-q', '--detach', t.tranche], { cwd: t.root });
+  const loose = commit(t.root, { 'data/flag.json': '{"on":true}\n' }, 'a change the window never built as a step');
+  git(['checkout', '-q', 'main'], { cwd: t.root });
+  const r2 = merge(t.root, 3, { slug: 'o/r', io: io(t.head).io, ...REVIEW, spec: { pr: 908, sha: predict(t.root, t.head, loose).sha }, log: quiet });
+  assert.equal(r2.spec.fast, false);
+  assert.match(r2.spec.why, /outside the records: data\/flag\.json/);
 });
 
 test('merge with a spec run again on its own marked tip pushes nothing and stays fast; another spec\'s is "nothing pushed"', () => {
