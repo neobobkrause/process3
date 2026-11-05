@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
-import { idleByDay, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
+import { USE_TARGET, capUse, idleByDay, layerOf, overhead, refusalList, rowsAt, sessionRoles, stateRoles } from './metrics.mjs';
 import { CLOSED_FILE } from './status.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
 import { triggerSummary } from './triggers.mjs';
@@ -320,6 +320,9 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   const idle = sweeps === null ? U : idleByDay(sweeps);
   L.push('## BOB idle occurrences', '', 'Per UTC day, the sweeps that found acts listed for BOB and the longest BOB had been quiet at one (`metrics report` `bob_idle_by_day`).', '');
   L.push(...(Array.isArray(idle) ? table(['day', 'occurrences', 'longest quiet (h)', 'unmeasured sweeps'], idle.map((d) => [d.day, d.occurrences, d.longest_quiet_h, d.unmeasured_sweeps])) : [U]), '');
+
+  const cu = sweeps === null ? null : capUse(sweeps, opened, end);
+  L.push('## Cap use', '', `Job session-hours over cap session-hours since ${opened ? 'the opening' : 'the first sweep row (the opening not read)'}, from the sweep rows (\`metrics report\` \`cap_use\`): ${!cu || cu.use === 'unmeasured' ? U : `${Math.round(cu.use * 100)}% (${cu.job_session_h} of ${cu.cap_session_h} h)`}, target ${Math.round(USE_TARGET * 100)}%${cu && cu.use < USE_TARGET ? ' (under)' : ''}; IDLE CAPACITY alarms ${cu ? `${cu.idle_alarms}, longest ${cu.idle_longest_min} min` : U}.`, '');
 
   // Lead times
   // A close whose commit cannot be placed is passed undecided: its figure reads unmeasured.

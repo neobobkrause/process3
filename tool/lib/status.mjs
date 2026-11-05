@@ -16,6 +16,7 @@ import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
+import { holdLines, readHolds } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, depth, exists, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -127,6 +128,9 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
+  // Every hold first, after a paused plan (Bob, 5 Nov): a limit on starts is a recorded row, never words.
+  let holds = [];
+  try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
   if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the account's job sessions list_sessions shows, not ${JSON.stringify(live)}`);
   if (role === 'bob') { const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line); }
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
@@ -257,7 +261,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, rows, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, rows, holds, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
     out.layer = layerState(root, cfg, rows, ref, { closed });
@@ -285,7 +289,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     log(out.flow.line);
     return out;
   }
-  return { rows, sessions, prs };
+  return { rows, sessions, prs, holds };
 }
 
 const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) => (t > 0 ? t : fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`));

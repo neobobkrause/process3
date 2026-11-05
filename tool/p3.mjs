@@ -17,6 +17,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
+import { hold } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -180,6 +181,10 @@ const commands = {
     found(root, mod, String(text), { from: a.from, write: !!a.write, offline: !!a.offline });
     return 0;
   },
+
+  // hold <module:<id>|layer:<n>|slots:<n>> --why "<reason>" --by <session> --until <ISO time|<n>m|<n>h> [--word <sha>]; hold --end <id> --by <session>:
+  // the only way to hold startable work below the job cap (Bob, 5 Nov), a row on the state branch; over 2 h or a quarter of the cap, --by bob --word <his website commit naming it>.
+  hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, word: a.word, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
 
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),

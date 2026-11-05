@@ -7,10 +7,12 @@ import { join } from 'node:path';
 import { P3, READY_START } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
-import { fetchState, messages, messagesFile, readState, writeState } from './state.mjs';
+import { fetchState, jsonl, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
+import { heldBy, layersAt, slotsHeld } from './hold.mjs';
+import { startable } from './ready.mjs';
 import { SILENT_HOURS, blockedJobs, capLine, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
-import { Fail, fail, git, loadConfig, now, repoSlug } from './util.mjs';
+import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 // One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
@@ -56,6 +58,28 @@ function overMedian(root, ref, attempts) {
   return out;
 }
 
+// Idle capacity (Bob, 5 Nov: cap use about 48% over a day; a spoken "about 6 at most" held BOB
+// near 6 of 20 for 6 hours and nothing alarmed). Live job sessions under the cap less the slots
+// held with startable work (flow's count, job start --ready's, less the held modules) for IDLE_MIN.work minutes, or no
+// startable work while under half the cap for IDLE_MIN.empty: an alarm, each empty slot with its
+// reason (job start --ready's skip lines, then the holds). null when neither holds.
+export const IDLE_MIN = { work: 15, empty: 30 };
+export function idleCapacity({ live, cap, holds, work, startable: count, layers, prev, freed, t = Date.now() }) {
+  const held = slotsHeld(holds);
+  const { go, skip } = startable(work);
+  const inWork = go.map((j) => ({ j, h: heldBy(holds, j.id, layers) })).filter((y) => y.h);
+  const n = Math.max(0, count - inWork.length);
+  const kind = n > 0 && live < cap - held ? 'work' : n === 0 && live < cap / 2 ? 'empty' : null;
+  if (!kind) return null;
+  const since = Math.min(t, prev?.kind === kind && Date.parse(prev.since) ? Date.parse(prev.since) : freed || t);
+  const min = Math.floor((t - since) / 6e4);
+  const empty = Math.max(0, cap - held - live);
+  const why = [...skip.map((s) => `${s.id || s.file}: ${s.why}`), ...inWork.map((y) => `${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`)].slice(0, empty);
+  const rest = empty - why.length;
+  if (rest > 0) why.push(`${rest} x ${kind === 'work' ? 'startable, not started' : 'no startable work'}`);
+  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind], reasons: why };
+}
+
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {
   checkSession(session);
   // ROOT's context (P2-G10): the share of its window ROOT's own session record shows (get_session on itself).
@@ -95,7 +119,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     found.push(`plan ${plan}`, ...owed);
     owed.length = 0; // heartbeat only
   } else {
-    const { rows, sessions } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
+    const { rows, sessions, holds = [] } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
     const tranche = `origin/${cfg.tranche}`;
     const t = Date.now();
     // Step 2: hand over BOB flagged REFRESH, or woken over two hours ago with no write to the
@@ -119,6 +143,22 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live);
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min };
+        if (liveRow.live !== undefined) {
+          // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
+          // it could have begun, the tranche's tip or a job session's archive.
+          const freed = Math.max(ct(root, [tranche]), ...(listed || []).filter((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim())).map((x) => Date.parse(x.updated_at) || 0));
+          const ic = idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, startable: f.startable, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: jsonl(readState(root, sb, SWEEP_ROWS_FILE)).at(-1)?.idle_capacity, freed, t });
+          if (ic) {
+            const { reasons, ...rec } = ic;
+            liveRow.idle_capacity = rec;
+            if (ic.alarm) {
+              const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${ic.empty} empty slot${ic.empty === 1 ? '' : 's'}: ${reasons.join('; ')}`;
+              found.push(line);
+              owed.push(`IDLE CAPACITY, ${ic.empty} slots empty, ${ic.startable} startable: run ${READY_START} first; only a recorded hold (p3 hold) keeps a slot empty`);
+              todo.push(`IDLE CAPACITY to the coordinator: ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'no coordinator in process/config.json: tell Bob by push notification'} with "${line}"`);
+            }
+          }
+        }
       } catch (e) {
         if (!(e instanceof Fail)) throw e;
         found.push(`config: ${e.message}`);
