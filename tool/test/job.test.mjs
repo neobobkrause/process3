@@ -634,7 +634,6 @@ test('a COMPLETE module with a closed PR on job/<m> starts with --reopen and --f
   git(['checkout', '-q', 'main'], { cwd: root });
   // The pull request is closed: find sees none. Neither flag alone starts it.
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, fresh: 'x', open: f.open, find: f.find, log: quiet }), /COMPLETE, not OPEN/);
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'x', open: f.open, find: f.find, log: quiet }), /not an unfinished start/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, restart: 'x', fresh: 'x', open: f.open, find: f.find, log: quiet }), /COMPLETE, not OPEN; --restart with --fresh-branch is for an OPEN module, and a COMPLETE one takes --reopen/);
   const tranche = git(['ls-remote', 'origin', 'refs/heads/tranche'], { cwd: root }).split('\t')[0];
   const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'strengthen R1', fresh: 'job/alpha holds a commit the record check refuses', open: f.open, find: f.find, log: quiet });
@@ -955,7 +954,7 @@ test('--restart is refused for a COMPLETE module, without a branch or PR, and wi
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request; --restart continues an open one \(an unfinished start resumes/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: true, find: pr, notes: () => [], log: quiet }), /--restart needs why/);
   const m = mergedOnce();
-  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; a new attempt on a merged module is --reopen/);
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; a new attempt on a merged module is job start alpha --live <n> --reopen/);
 });
 
 test('--restart on a BLOCKED job with no open pull request opens its draft again and launches the replacement (copy, 4 Nov: PR 194 by hand)', () => {
@@ -973,6 +972,117 @@ test('--restart on a BLOCKED job with no open pull request opens its draft again
   assert.equal(r.row.pr, 12);
   assert.equal(r.subscribe.pullNumber, 12);
   assert.match(r.start, /pull request https:\/\/x\/pull\/12 as it is/);
+});
+
+// BOB on the copy, 5 Nov: case-checker's job/case-checker-2 held a COMPLETE entry and 6 commits,
+// its PR 301 closed unmerged; --reopen named --restart and --restart named --reopen.
+const noPRs = () => [];
+function abandonedComplete() {
+  const { root, f } = mergedOnce();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'strengthen R1', open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet }); // pushes the COMPLETE tip
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const prs = () => [{ number: 9, state: 'closed', merged_at: '2026-11-04T00:00:00Z' }, { number: 301, state: 'closed', merged_at: null }];
+  return { root, f, find: () => null, prs };
+}
+function abandonedWorking() {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  git(['push', '-q', 'origin', 'job/alpha'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  return { root, f, find: () => null, prs: noPRs };
+}
+const tipOf = (root, b) => git(['ls-remote', 'origin', `refs/heads/${b}`], { cwd: root }).split('\t')[0];
+const lastRow = (root, ref) => JSON.parse(git(['show', `${ref}:process/metrics/alpha.jsonl`], { cwd: root }).trim().split('\n').pop());
+
+test('an abandoned COMPLETE attempt (commits, PR closed unmerged): --restart names --reopen, and --reopen starts the next branch and records the abandoned one', () => {
+  const { root, f, find, prs } = abandonedComplete();
+  const old = tipOf(root, 'job/alpha');
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find, notes: () => [], log: quiet }), /alpha is COMPLETE on job\/alpha; its work never merged and no pull request is open: job start alpha --live <n> --reopen "<what it must do>" starts a fresh attempt on the next branch/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find, prs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); its work never merged.*--reopen/);
+  const tranche = tipOf(root, 'tranche');
+  const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'make the suite green', open: f.open, find, prs, log: quiet });
+  assert.match(r.start, /Your branch is `job\/alpha-2`/);
+  assert.match(r.start, /What it must do: make the suite green/);
+  assert.equal(r.attempt, 3);
+  const tip = tipOf(root, 'job/alpha-2');
+  assert.equal(git(['rev-parse', `${tip}^`], { cwd: root }), tranche, 'cut from the tranche tip');
+  assert.equal(tipOf(root, 'job/alpha'), old, 'the abandoned branch is kept as it was');
+  const row = lastRow(root, tip);
+  assert.deepEqual([row.branch, row.reopen, row.abandoned, row.fresh.from], ['job/alpha-2', 'make the suite green', { branch: 'job/alpha', pr: 301 }, 'job/alpha']);
+  assert.match(row.fresh.why, /job\/alpha was abandoned \(COMPLETE, 3 commits beyond tranche, no open pull request; #301 closed unmerged\)/);
+  // That attempt abandoned in turn: the next free name after it.
+  git(['checkout', '-q', 'job/alpha-2'], { cwd: root });
+  git(['reset', '-q', '--hard', 'origin/job/alpha-2'], { cwd: root });
+  commit(root, { 'src/alpha/index.mjs': 'export const x = 3;\n' });
+  git(['push', '-q', 'origin', 'job/alpha-2'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const r2 = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'again', open: f.open, find, prs: noPRs, log: quiet });
+  assert.match(r2.start, /Your branch is `job\/alpha-3`/);
+  assert.deepEqual(lastRow(root, tipOf(root, 'job/alpha-3')).abandoned, { branch: 'job/alpha-2', pr: null });
+  assert.equal(r2.attempt, 4);
+});
+
+test('an abandoned WORKING attempt (commits, no PR): --restart and a plain start name --reopen, which starts the next branch', () => {
+  const { root, f, find, prs } = abandonedWorking();
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find, notes: () => [], log: quiet }), /job\/alpha has no open pull request; --restart continues an open one \(its work never merged.*--reopen "<what it must do>"/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find, prs, log: quiet }), /not an unfinished start \(WORKING, 2 commits\); its work never merged/);
+  const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'finish R1', open: f.open, find, prs, log: quiet });
+  assert.match(r.start, /Your branch is `job\/alpha-2`/);
+  const row = lastRow(root, tipOf(root, 'job/alpha-2'));
+  assert.deepEqual([row.attempt, row.reopen, row.abandoned], [2, 'finish R1', { branch: 'job/alpha', pr: null }]);
+  assert.equal(JSON.parse(git(['show', `${tipOf(root, 'job/alpha-2')}:process/ledger/alpha.json`], { cwd: root })).status.state, 'WORKING');
+});
+
+// Every refusal of job start and --restart on an existing branch names a route; that route, run
+// from the same state, is not refused (no cycles). A route that needs BOB to close a pull request
+// first is run after the close.
+test('every refusal in job start and --restart names a route that works from that state', () => {
+  const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'civicsmith' } };
+  const states = {
+    'merged COMPLETE': () => { const m = mergedOnce(); return { ...m, find: () => null, prs: noPRs }; },
+    'abandoned COMPLETE': abandonedComplete,
+    'abandoned WORKING': abandonedWorking,
+    'unfinished start': () => { const root = withOrigin(); const f = fakeGitHub(); jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet }); return { root, f, find: () => null, prs: noPRs }; },
+    'BLOCKED, no PR': () => {
+      const s = abandonedWorking();
+      git(['checkout', '-q', 'job/alpha'], { cwd: s.root });
+      git(['reset', '-q', '--hard', 'origin/job/alpha'], { cwd: s.root });
+      jobBlock(s.root, 'alpha', { reason: 'needs a provider fix', push: false, log: quiet });
+      git(['push', '-q', 'origin', 'job/alpha'], { cwd: s.root });
+      git(['checkout', '-q', 'main'], { cwd: s.root });
+      return s;
+    },
+    'WORKING, PR open': () => ({ ...abandonedWorking(), find: () => pr }),
+    'COMPLETE, PR open': () => ({ ...abandonedComplete(), find: () => pr }),
+  };
+  const run = (s, mode, find = s.find) => {
+    const io = { coordinator: 's', setup: ready, open: s.f.open, find, prs: s.prs, notes: () => [], log: quiet };
+    if (mode === 'reopen') return jobStart(s.root, 'alpha', { ...io, reopen: 'redo it' });
+    if (mode === 'restart') return jobStart(s.root, 'alpha', { ...io, restart: 'its session stopped' });
+    return jobStart(s.root, 'alpha', io);
+  };
+  let refusals = 0;
+  for (const [name, make] of Object.entries(states)) {
+    for (const mode of ['plain', 'reopen', 'restart']) {
+      let msg = null;
+      try { run(make(), mode); } catch (e) { msg = e.message; }
+      if (!msg) continue;
+      refusals += 1;
+      const route = /--reopen "</.test(msg) ? 'reopen' : /--restart "</.test(msg) ? 'restart' : /resumes with job start alpha --live <n>/.test(msg) ? 'plain' : null;
+      assert.ok(route, `${name}, ${mode}: the refusal names no route: ${msg}`);
+      const closed = /BOB closes it/.test(msg);
+      if (!closed) assert.notEqual(route, mode, `${name}, ${mode}: the refusal names itself: ${msg}`);
+      const s = make();
+      assert.doesNotThrow(() => run(s, route, closed ? () => null : s.find), `${name}, ${mode} -> ${route}${closed ? ' after the close' : ''}: ${msg}`);
+    }
+  }
+  assert.ok(refusals >= 10, `walked ${refusals} refusals`);
 });
 
 // P7: the receipt names the test for each mark the job struck.
