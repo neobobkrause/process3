@@ -2,7 +2,7 @@ Process3 coordinator handoff, 5 Nov (b), from session_01RAN5ekK8nutcUSV3rTsfxn. 
 
 START, in order:
 1. Record your id as `coordinator` in process/config.json on the copy's and the probe's tranche, each by a short session (copy PR 341 and probe PR 221 are the pattern: merge with `--plain --no-review "one-field coordinator id change"`; tranche only, never main, never force-push).
-2. Move my scheduled tasks to yourself (get_trigger, create the same prompt bound to you, delete mine): trig_01WBadBUrZQcUg1R4FAoyLzg (16 Nov Phase 1 survival read), trig_01DyYeP535c2Re5DnyjZ5SZo (18 Nov Phase 2 survival read), trig_0184DpPd8aFiFWGQ29G2vwP3 (5 Nov 19:00 review-trigger check), trig_014xnuA1o4AqdnUiWWudxgJx (hourly flow check, cron; recreate hourly).
+2. Move my scheduled tasks to yourself (get_trigger, create the same prompt bound to you, delete mine): trig_01WBadBUrZQcUg1R4FAoyLzg (16 Nov Phase 1 survival read), trig_01DyYeP535c2Re5DnyjZ5SZo (18 Nov Phase 2 survival read), trig_0184DpPd8aFiFWGQ29G2vwP3 (5 Nov 19:00 review-trigger check), trig_014xnuA1o4AqdnUiWWudxgJx (hourly flow check, cron; recreate hourly), trig_01PjMXPQHKt4e3pc5T9JVyY3 (6 Nov 04:50 merge-train trial report).
 3. Open children: none (all archived).
 4. Tell BOB (session_01RAN5eomXNvM23EMwtLVBHG) and ROOT (session_01RAN5emK1snYonbEbVPHbAP) your id. Archive me.
 5. Check your context at every check-in; hand over at 60%.
