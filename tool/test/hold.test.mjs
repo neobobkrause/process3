@@ -179,7 +179,8 @@ test('sweep --sessions: every unarchived job session holds a slot, idle complete
   // (restart speed, 5 Nov), and is refused, with the way to read the rest, once a recorded open
   // job's session could be on the next page.
   writeFileSync(file, JSON.stringify({ data: list.slice(0, 6), has_more: true, last_id: 'session_j5' }));
-  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /no whole read is recorded/);
+  // No record and no job the state branch records as live: the page stands (build/starter-fixes).
+  assert.doesNotThrow(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }));
   writeState(root, SB, 'whole read', (d) => writeFileSync(join(d, 'metrics/live-sessions.json'), JSON.stringify({ oldest: ago(60) })));
   assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /a job session live at the last whole read/);
   // One time for the whole page: ago() per session can tick a millisecond, and a page newer at its end is no bound (CI, PR 152).
@@ -194,11 +195,11 @@ test('sweep --sessions: every unarchived job session holds a slot, idle complete
   git(['push', '-q', 'origin', 'job/m6'], { cwd: root });
   git(['checkout', '-q', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
-  // A later whole read, and a page reaching past it but not past m6's start 30 min ago.
-  writeState(root, SB, 'whole read', (d) => writeFileSync(join(d, 'metrics/live-sessions.json'), JSON.stringify({ oldest: ago(20) })));
+  // No record, and a page not reaching past m6's start 30 min ago: m6's session could be on the next page.
+  writeState(root, SB, 'no record', (d) => writeFileSync(join(d, 'metrics/live-sessions.json'), 'null'));
   const at25 = ago(25);
   writeFileSync(file, JSON.stringify({ data: list.slice(0, 6).map((x) => ({ ...x, created_at: at25 })), has_more: true, last_id: 'session_j5' }));
-  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /list_sessions has more pages \(has_more\), and a recorded job session could be on them \(job m6: 1 session started since .*call it with limit 100, and again with after_id <last_id> while has_more/);
+  assert.throws(() => sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet }), /list_sessions has more pages \(has_more\), and a recorded job session could be on them \(job m6: 1 session started since .*call it with limit 100, and again with after_id <last_id> while has_more and the last page reaches back no further than /);
 });
 
 test('flow: velocity reads the tranche\'s first-parent commits, never a job branch\'s own commit merged later', () => {

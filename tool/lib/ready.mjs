@@ -85,7 +85,7 @@ export function archivable(rows, listed) {
   const sessions = [];
   for (const d of done) {
     const js = jobSession(listed, d.id);
-    if (js && !isArchived(js) && isIdle(js)) sessions.push({ session: sessionId(js), job: d.id, why: d.why });
+    if (js && !js.carried && !isArchived(js) && isIdle(js)) sessions.push({ session: sessionId(js), job: d.id, why: d.why });
   }
   return { jobs: done, sessions };
 }

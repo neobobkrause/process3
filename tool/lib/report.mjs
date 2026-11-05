@@ -3,8 +3,6 @@
 // address and closed-layer rows, and the pull requests merged into the tranche. Every figure the
 // record lacks prints "unmeasured", never a guess. Overhead is metrics report's (overhead()).
 import { MERGER_FILE, TRAIN_FILE, trainLines, trainSummary } from './train.mjs';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
 import { ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { ATTEMPTS_RULE, attemptsStarted, fetchJobs, leadCell, leadInputs, leadSummaryCell, leadTimes, openedAt, trancheRows } from './lead.mjs';
@@ -13,7 +11,7 @@ import { CLOSED_FILE } from './status.mjs';
 import { HOLDS_FILE, holdHours } from './hold.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
 import { triggerSummary } from './triggers.mjs';
-import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks } from './util.mjs';
+import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks, shallowCuts } from './util.mjs';
 
 const U = 'unmeasured';
 const usd = (x) => (typeof x === 'number' ? `$${(Math.round(x * 100) / 100).toFixed(2)}` : U);
@@ -69,10 +67,7 @@ function parentOf(root, sha) {
 }
 
 // The commits this shallow clone's history is cut at.
-function cuts(root) {
-  const f = gitOut(root, ['rev-parse', '--git-path', 'shallow']);
-  try { return new Set(readFileSync(resolve(root, f), 'utf8').split('\n').filter(Boolean)); } catch { return new Set(); }
-}
+const cuts = (root) => shallowCuts(root);
 
 // In a shallow clone (every session's), fetch only what the span, marks met and record-only
 // figures read: the tranche's commits main lacks and main before its first one, beside main's

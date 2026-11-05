@@ -191,11 +191,17 @@ test('merge in a depth-1 clone (the MERGER\'s, 5 Nov): both sides deepened to th
     const count = (a, b) => Number(git(['rev-list', '--count', a, `^${b}`], { cwd: root }));
     const compare = withCompare ? () => ({ ahead_by: count('job/alpha', 'tranche'), behind_by: count('tranche', 'job/alpha'), merge_base_commit: { sha: git(['merge-base', 'job/alpha', 'tranche'], { cwd: root }) } }) : () => null;
     const f = io(head);
-    const r = merge(thin, 3, { slug: 'o/r', io: { ...f.io, compare }, reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} });
+    // The fetches git ran: a deepening can reach this small repository's root, so the shallow mark alone says nothing.
+    const trace = join(mkdtempSync(join(tmpdir(), 'p3-trace-')), 't.log');
+    process.env.GIT_TRACE = trace;
+    let r;
+    try { r = merge(thin, 3, { slug: 'o/r', io: { ...f.io, compare }, reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }); } finally { delete process.env.GIT_TRACE; }
     assert.equal(r.merged, true);
     const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: thin }).split('\t')[0];
     assert.equal(f.calls.merged, tip);
-    assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: thin }), withCompare ? 'true' : 'false', withCompare ? 'deepened, not unshallowed' : 'unshallowed once');
+    const fetches = readFileSync(trace, 'utf8').split('\n').filter((l) => /built-in: git fetch/.test(l));
+    assert.equal(fetches.some((l) => /--unshallow/.test(l)), !withCompare, withCompare ? 'deepened, not unshallowed' : 'unshallowed once');
+    assert.ok(!fetches.some((l) => /--depth[= ]\d/.test(l)), 'never a set depth, which would cut a deeper history');
   }
 });
 
@@ -1179,4 +1185,36 @@ test('merge --job-cost-usd takes no session from an earlier attempt: a restart i
   const m = readRows(root, 'alpha').filter((x) => x.event === 'measured').pop();
   assert.deepEqual([m.session, m.session_usd, m.cost_usd], [null, 2, 2]);
   git(['checkout', '-q', 'main'], { cwd: root });
+});
+
+import { deepenToBase } from '../lib/merge.mjs';
+test('deepenToBase never cuts a history fetched deeper (the merge train\'s tranche past main): a head cut from main is mended one commit at a time', () => {
+  // origin: main with 12 commits; the tranche 30 past main; job/x cut from main's tip, job/y from the tranche's 5th.
+  const src = makeRepo({ 'README.md': 'x' });
+  for (let i = 0; i < 11; i += 1) commit(src, { [`m${i}.txt`]: String(i) });
+  git(['checkout', '-q', '-b', 'tranche'], { cwd: src });
+  for (let i = 0; i < 30; i += 1) { commit(src, { [`t${i}.txt`]: String(i) }); if (i === 4) git(['branch', 'job/y'], { cwd: src }); }
+  git(['checkout', '-q', '-b', 'job/x', 'main'], { cwd: src });
+  commit(src, { 'x.txt': 'x' });
+  git(['checkout', '-q', 'job/y'], { cwd: src });
+  commit(src, { 'y.txt': 'y' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['clone', '-q', '--bare', src, bare], { cwd: tmpdir() });
+  const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
+  git(['clone', '-q', '--depth', '1', '--no-single-branch', '-b', 'main', `file://${bare}`, thin], { cwd: tmpdir() });
+  git(['fetch', '-q', '--shallow-exclude=main', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche', '+refs/heads/job/x:refs/remotes/origin/job/x', '+refs/heads/job/y:refs/remotes/origin/job/y'], { cwd: thin });
+  const past = () => Number(git(['rev-list', '--count', 'origin/tranche'], { cwd: thin }));
+  assert.equal(past(), 30);
+  const count = (a, b) => Number(git(['rev-list', '--count', a, `^${b}`], { cwd: bare }));
+  const compare = (slug, base, head) => ({ ahead_by: count(head, base), behind_by: count(base, head), merge_base_commit: { sha: git(['merge-base', base, head], { cwd: bare }) } });
+  // job/y's base is in the history past main: read locally, nothing fetched, nothing cut (--depth=26 would have kept 26 of 30).
+  deepenToBase(thin, 'o/r', 'tranche', 'job/y', compare);
+  assert.equal(past(), 30);
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/y'], { cwd: thin }), compare('', 'tranche', 'job/y').merge_base_commit.sha);
+  // job/x was cut from main's tip, below the tranche's cut: deepened to it, the tranche's history whole, the clone still shallow.
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/x'], { cwd: thin, allowFail: true }).code, 1);
+  deepenToBase(thin, 'o/r', 'tranche', 'job/x', compare);
+  assert.equal(git(['merge-base', 'origin/tranche', 'origin/job/x'], { cwd: thin }), git(['rev-parse', 'main'], { cwd: src }));
+  assert.ok(past() >= 30);
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: thin }), 'true', 'main\'s older history never fetched');
 });

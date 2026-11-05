@@ -117,8 +117,16 @@ test('every create_session call but the MERGER\'s carries clone_depth 1 and no b
   const a = { root: { session: 'session_root1' } };
   for (const role of ['root', 'bob', 'watcher']) assert.deepEqual(slim(startRole(root, role, { slug: 'o/p', address: a, log: quiet }).call), [1, false], role);
   assert.deepEqual(slim(jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }).launch), [1, false], 'job start');
-  // The MERGER reads merge bases: a full clone (coordinator, 5 Nov).
-  assert.deepEqual(slim(startRole(root, 'merger', { slug: 'o/p', address: a, log: quiet }).call), [undefined, false], 'merger');
+  // The MERGER reads merge bases: no clone_depth (coordinator, 5 Nov), in the call returned and in
+  // the one printed (copy, 5 Nov 18:08: the printed call had none; create_session clones shallow
+  // without it all the same, so the train fetches the tranche past main: train.mjs).
+  const printed = [];
+  assert.deepEqual(slim(startRole(root, 'merger', { slug: 'o/p', address: a, log: (...l) => printed.push(l.join(' ')) }).call), [undefined, false], 'merger');
+  const shown = printed.find((l) => l.startsWith('start the MERGER with create_session:\n'));
+  assert.ok(shown, printed.join('\n'));
+  const call = JSON.parse(shown.slice(shown.indexOf('\n') + 1));
+  assert.equal(call.title, 'MERGER');
+  assert.ok(!('clone_depth' in call), 'the printed MERGER call has no clone_depth');
   commit(root, { 'process/config.json': { tranche: 'tranche', clone: null } }, 'no slim clone');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   assert.deepEqual(slim(startRole(root, 'bob', { slug: 'o/p', address: a, log: quiet }).call), [undefined, false]);
