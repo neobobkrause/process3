@@ -45,7 +45,7 @@ function setup(jobs, plains, k) {
 }
 
 // The window's fake GitHub (train-window.test.mjs) with plain pull requests too, and the reads
-// mergePlain makes. calls.hold: the spec gates stay in progress.
+// mergePlain makes. calls.hold: the spec gates stay in progress; calls.held: these spec PRs' only.
 function github(root, ids, plains) {
   const sh = (args) => git(args, { cwd: root, allowFail: true });
   const runOf = (sha) => 1000 + parseInt(sha.slice(0, 6), 16);
@@ -95,7 +95,7 @@ function github(root, ids, plains) {
       const t = new Date(Date.now() - 60000).toISOString();
       return { id: 1, status: 'completed', conclusion: 'success', html_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, details_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, started_at: t, completed_at: t };
     },
-    checkRunMany: (slug, pairs) => pairs.map(([sha, name]) => (calls.hold && [...specs.values()].some((x) => x.sha === sha) ? { status: 'in_progress' } : name === 'post' ? { status: 'completed', started_at: new Date().toISOString() } : io.checkRun(slug, sha, name))),
+    checkRunMany: (slug, pairs) => pairs.map(([sha, name]) => ([...specs.entries()].some(([n, x]) => x.sha === sha && (calls.hold || calls.held?.has(n))) ? { status: 'in_progress' } : name === 'post' ? { status: 'completed', started_at: new Date().toISOString() } : io.checkRun(slug, sha, name))),
     // GitHub's ruleset: a head that does not hold the tranche as it is cannot merge.
     mergePR: (slug, n, sha) => {
       sh(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche']);
@@ -141,7 +141,7 @@ test('a plain PR queued while three job positions gate takes position 3, leaves 
   assert.deepEqual(seen.merged, [], 'nothing jumps the window');
   assert.deepEqual(seen.closed, [], 'positions 0-2 stand');
   assert.equal(seen.created, 3, 'a plain position opens no spec pull request');
-  assert.equal(seen.taken, true, 'taken as admitted: its caller\'s clock runs from there, and its row does not lapse');
+  assert.equal(seen.taken, false, 'taken at its land, at position 0: its caller\'s clock covers its own gate, not the lands ahead');
   // The jobs land on their specs, then the plain PR; no spec is closed by a move of the tranche.
   assert.deepEqual(g.calls.merged, [1, 2, 3, 4], lines.join('\n'));
   const merged = stateRows(root, TRAIN_FILE).filter((r) => r.result === 'merged');
@@ -191,4 +191,26 @@ test('a plain PR that does not land closes the positions behind it, which hold i
   assert.match(close?.cause || '', /PR 2 \(plain\) did not land: refused: .*changes module files/, lines.join('\n'));
   assert.deepEqual(g.calls.merged, [1], lines.join('\n'));
   assert.ok(stateRows(root, WINDOW_FILE).some((r) => r.event === 'land' && r.pr === 1 && r.seq === 2));
+});
+
+test('a plain PR that cannot be built onto the chain lets no job past it: the window drains to it, and on the tip it is refused as before', () => {
+  const { root, ids, plains } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' }, gamma: { 'src/gamma/a.mjs': 'c' } }, { 'bob/clash': { 'src/alpha/a.mjs': 'z' } }, 2);
+  const g = github(root, ids, plains);
+  g.calls.hold = true;
+  const lines = [];
+  // Pass 1: alpha and beta gate. The plain PR is queued in pass 2; at pass 3 alpha's gate ends and
+  // it lands; at pass 4 the plain PR does not build onto beta's result (it clashes with alpha), and
+  // gamma is not admitted past it; at pass 5 beta's gate ends.
+  run(root, g, 12, {
+    2: () => queue(root, g, 4, 'bob/clash'),
+    3: () => { g.calls.hold = false; g.calls.held = new Set([102]); },
+    5: () => { g.calls.held = null; },
+  }, lines);
+  assert.ok(lines.some((l) => /window: PR 4 not built onto \w+ this pass: bob\/clash conflicts with/.test(l)), lines.join('\n'));
+  const plain = stateRows(root, TRAIN_FILE).find((r) => r.row === 'plain' && r.pr === 4 && r.result === 'refused');
+  assert.match(plain?.why || '', /bob\/clash conflicts with tranche/, lines.join('\n'));
+  // gamma never passed it: built once, at position 0 on the tranche, after the plain PR's refusal.
+  const gamma = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'build' && r.pr === 3);
+  assert.deepEqual(gamma.map((r) => r.position), [0], JSON.stringify(gamma));
+  assert.deepEqual(g.calls.merged, [1, 2, 3], lines.join('\n'));
 });

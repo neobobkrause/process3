@@ -700,9 +700,13 @@ function openSpec(root, ctx, p) {
 function admitWindow(root, ctx, w, list, tip) {
   const { cfg } = ctx;
   const ends = () => chainEnd(w, tip);
-  const queue = list.filter((c) => !ctx.buildFailed.has(`${c.n}@${c.head}@${ends()}`));
+  // A plain one not built onto the chain's end stays in the queue: nothing is admitted past it, so
+  // the window drains to it and it is judged on the tip (built there, or refused by plainOne).
+  const failed = (c) => ctx.buildFailed.has(`${c.n}@${c.head}@${ends()}`);
+  const queue = list.filter((c) => c.plain || !failed(c));
   for (const c of admit(w, queue, ctx.k, { causes: ctx.causes })) {
     if (w.length >= ctx.k) break;
+    if (c.plain && failed(c) && !(w.length === 0 && ends() === tip)) break;
     // Red once behind others: only at the head of the window, on the tranche tip itself.
     if (w.length && ctx.solo.has(`${c.n}@${c.head}`)) continue;
     const onto = ends();
@@ -714,7 +718,6 @@ function admitWindow(root, ctx, w, list, tip) {
       // A plain one that cannot be built on the tip lands as plainOne lands it (which refuses or
       // tries it again, as without the window); nothing is admitted behind it.
       if (c.plain && position === 0 && onto === tip) {
-        takePlain(root, ctx, c.q);
         w.push({ ...c, position, base: onto, result: null, spec_pr: null, seq: null, state: 'green', cause: `${c.cause}; not built on the tip (${why}): it lands as a plain merge does` });
         break;
       }
@@ -722,6 +725,7 @@ function admitWindow(root, ctx, w, list, tip) {
       if (position === 0 && onto === tip && lasting(why)) { refuse(root, ctx, c, e.message); record(root, ctx, `merge train: PR ${c.n} refused`, { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, result: 'refused', why: why.slice(0, 300), window: true }); }
       else ctx.log(`window: PR ${c.n} not built onto ${s10(onto)} this pass: ${why}`);
       ctx.buildFailed.add(`${c.n}@${c.head}@${onto}`);
+      if (c.plain) break;
       continue;
     }
     // The cause as admitted, with the position it really takes (a build skipped ahead of it moves it).
@@ -731,7 +735,6 @@ function admitWindow(root, ctx, w, list, tip) {
       // A plain one has no spec pull request (a spec run judges only a job's change): its own
       // gate runs on the head that lands, as without the window (plainOne). Those behind build on
       // its predicted result, and it lands in chain order.
-      takePlain(root, ctx, c.q);
       w.push({ ...p, spec_pr: null, seq: null, state: 'green' });
       ctx.log(`window: PR ${c.n} (plain) at position ${position}: ${s10(p.result)} on ${s10(onto)}; it lands in chain order, on its own gate`);
       continue;
@@ -1124,7 +1127,8 @@ function syncPlain(root, ctx, q) {
   return m;
 }
 // The take of a queued plain pull request, once: its caller's clock runs from it (plainViaTrain),
-// and a taken row no longer ends at its take_by. The window takes it as it admits it.
+// and a taken row no longer ends at its take_by. In the window it is taken at its land, at position
+// 0 (its own gate runs from there), inside plainOne's retries; until then its take_by holds it.
 function takePlain(root, ctx, q) {
   if (ctx.plainTaken.has(q.id)) return;
   writeState(root, ctx.cfg.state_branch, `merge train: PR ${q.pr} taken (plain)`, (wt) => append(wt, TRAIN_FILE, { at: now(), row: 'plain', session: ctx.session, queue: q.id, pr: q.pr, result: 'taken' }));
