@@ -614,9 +614,13 @@ export function waitsOnUses(root, cfg, ls, ref, mods) {
   const where = new Map(ls.layers.flatMap((L) => L.mods.map((m) => [m.id, m])));
   const shallow = isShallow(root);
   const holds = (p) => { const m = where.get(p); return !!m && !m.blocked && (m.open || busy(m.row, shallow)); };
+  // A provider that uses the module back, directly or through others, holds nothing: a uses cycle
+  // would hold both for good (the copy, 5 Nov: agent-drafts and agent-worker, layer 6).
+  const usesOf = new Map(modules.filter((x) => x?.id && Array.isArray(x.uses)).map((x) => [x.id, x.uses]));
+  const reaches = (from, to, seen = new Set()) => from === to || (!seen.has(from) && (seen.add(from), (usesOf.get(from) || []).some((x) => reaches(x, to, seen))));
   for (const m of mods) {
-    const u = modules.find((x) => x?.id === m.id)?.uses;
-    const not = Array.isArray(u) ? u.filter((p) => p !== m.id && holds(p)) : [];
+    const u = usesOf.get(m.id);
+    const not = Array.isArray(u) ? u.filter((p) => p !== m.id && holds(p) && !reaches(p, m.id)) : [];
     if (not.length) out.set(m.file, not);
   }
   return out;

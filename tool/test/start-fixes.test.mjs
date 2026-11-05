@@ -185,6 +185,10 @@ test('next work: an open-layer module waits while a provider in the layer map ha
   write(root, { 'build/requirements/model.md': '- **R1** *(not yet met: x)* left after its job\n' });
   assert.ok(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0].includes('build/requirements/steps.md'));
   write(root, { 'build/requirements/model.md': '- **R1** met\n' });
+  // A uses cycle holds neither (the copy: agent-drafts and agent-worker use each other).
+  commit(root, { 'build/modules.json': { modules: [{ id: 'base', uses: [] }, { id: 'model', uses: ['base'] }, { id: 'harness', uses: ['other'] }, { id: 'steps', uses: ['model', 'harness'] }, { id: 'other', uses: ['harness'] }] } });
+  assert.deepEqual(files([row('base'), row('model'), row('harness', fresh), row('steps', fresh), row('other', fresh)])[0], ['build/requirements/other.md'], 'other, in a cycle with harness, is not held by it; steps still waits on harness');
+  commit(root, { 'build/modules.json': { modules: [{ id: 'base', uses: [] }, { id: 'model', uses: ['base'] }, { id: 'harness', uses: [] }, { id: 'steps', uses: ['model', 'harness', 'base'] }, { id: 'other', uses: ['base'] }] } });
   // Both merged: steps is work.
   assert.deepEqual(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0], ['build/requirements/other.md', 'build/requirements/steps.md']);
 });
