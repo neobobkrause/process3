@@ -217,7 +217,7 @@ function withOrigin() {
 import { join } from 'node:path';
 
 function fakeGitHub() {
-  const state = { comments: [], ready: 0, prs: 0, failReady: true, drafted: 0, isDraft: true };
+  const state = { comments: [], ready: 0, prs: 0, failReady: true, drafted: 0, isDraft: true, body: 'the job', edits: [], gate: false };
   return {
     state,
     open: (slug, p) => { state.prs++; return { number: 9, html_url: 'pr', draft: true, ...p }; },
@@ -226,7 +226,10 @@ function fakeGitHub() {
       findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'civicsmith' } }),
       toDraft: () => { state.drafted++; state.isDraft = true; return { draft: true }; },
       comments: () => state.comments,
-      addComment: (s, n, body) => { state.comments.push({ body, html_url: `c${state.comments.length}`, user: { login: 'civicsmith' } }); return { html_url: 'c' }; },
+      addComment: (s, n, body) => { const c = { id: 100 + state.comments.length, body, html_url: `c${state.comments.length}`, created_at: state.at || new Date(Date.now() + state.comments.length).toISOString(), user: { login: 'civicsmith' } }; state.comments.push(c); return c; },
+      getPR: () => ({ number: 9, draft: state.isDraft, body: state.body }),
+      editPR: (s, n, f) => { if (state.failEdit) { state.failEdit = false; throw new Error('edit refused'); } state.edits.push(f); state.body = f.body; return { number: 9 }; },
+      checkRuns: () => (state.gate === undefined ? null : state.gate ? [state.gate] : []),
       markReady: () => { if (state.failReady) { state.failReady = false; throw new Error('network'); } state.ready++; state.isDraft = false; },
     },
   };
@@ -369,6 +372,141 @@ test('a second amendment keeps the first one\'s claims, in either order (review 
     jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', notVerified: ['the walker'], log: quiet });
     assert.equal(f.state.comments.length, 3);
   }
+});
+
+// build/receipt-regate (copy, 5 Nov, PRs 462-492): an amended receipt on a ready pull request
+// started no gate run, so the red gate stood until a person re-ran it. A body edit re-runs it.
+const RED = { status: 'completed', conclusion: 'failure', started_at: '2026-11-05T00:00:00Z' };
+const markers = (body) => (body.match(/<!-- p3:regate /g) || []).length;
+test('an amended revert exemption on a red gate edits the body once, and job complete says so', () => {
+  const { root, f } = completed();
+  f.state.gate = RED;
+  const said = [];
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: (x) => said.push(x) });
+  assert.equal(f.state.comments.length, 2);
+  assert.equal(f.state.edits.length, 1, 'one body edit: the edited event re-runs the gate');
+  assert.match(f.state.body, /^the job\n\n<!-- p3:regate 101 --> Gate re-run for the amended receipt c1\.$/, 'the job\'s body kept, the marker names the receipt');
+  assert.ok(said.some((x) => /gate re-run triggered on [0-9a-f]{10} for the amended receipt \(the gate was failure\): watch https:\/\/github\.com\/.+\/pull\/9\/checks/.test(x)), said.join('\n'));
+  // A second job complete after the marker posts nothing and edits nothing.
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: quiet });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(f.state.comments.length, 2);
+  assert.equal(f.state.edits.length, 1);
+  // A changed exemption is a new receipt: the marker line is replaced, not added.
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'a better reason', log: quiet });
+  assert.equal(f.state.edits.length, 2);
+  assert.equal(markers(f.state.body), 1);
+  assert.match(f.state.body, /<!-- p3:regate 102 -->/);
+});
+
+test('no gate run on the head yet, or one started before the receipt, is re-run too', () => {
+  for (const gate of [false, { status: 'in_progress', started_at: '2000-01-01T00:00:00Z' }, { status: 'completed', conclusion: 'cancelled', started_at: '2000-01-01T00:00:00Z' }]) {
+    const { root, f } = completed();
+    f.state.gate = gate;
+    jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+    assert.equal(f.state.edits.length, 1, JSON.stringify(gate));
+  }
+});
+
+test('a green head, or a gate run started after the receipt, gets no edit', () => {
+  // A completed red run that started after the receipt read it: re-running it judges the same.
+  for (const gate of [{ status: 'completed', conclusion: 'success' }, { status: 'in_progress', started_at: '2999-01-01T00:00:00Z' }, { status: 'queued', started_at: null }, { status: 'completed', conclusion: 'failure', started_at: '2999-01-01T00:00:00Z' }]) {
+    const { root, f } = completed();
+    f.state.gate = gate;
+    jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+    assert.equal(f.state.comments.length, 2, 'the amended receipt is still posted');
+    assert.equal(f.state.edits.length, 0, JSON.stringify(gate));
+  }
+});
+
+test('a --not-verified-only amendment gets no edit, even after an exemption and on a red gate', () => {
+  const { root, f } = completed();
+  f.state.gate = RED;
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
+  assert.equal(f.state.comments.length, 2);
+  assert.equal(f.state.edits.length, 0);
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.edits.length, 1);
+  // The exemption stands unchanged: one more not-verified line is not material.
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the live site 2'], log: quiet });
+  assert.equal(f.state.comments.length, 4);
+  assert.equal(f.state.edits.length, 1);
+});
+
+test('a failed body edit stops job complete; the rerun posts nothing and edits once', () => {
+  const { root, f } = completed();
+  f.state.gate = RED;
+  f.state.failEdit = true;
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet }), /body edit that re-runs the gate failed \(edit refused\); run job complete again/);
+  assert.equal(f.state.comments.length, 2);
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.comments.length, 2, 'the amended receipt was already posted');
+  assert.equal(f.state.edits.length, 1);
+  assert.match(f.state.body, /<!-- p3:regate 101 -->/);
+});
+
+// Cold review of build/receipt-regate.
+test('an exemption whose edit failed is re-gated by a later --not-verified-only rerun', () => {
+  const { root, f } = completed();
+  f.state.gate = RED;
+  f.state.failEdit = true;
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet }), /run job complete again/);
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
+  assert.equal(f.state.comments.length, 3);
+  assert.equal(f.state.edits.length, 1, 'the newest receipt still carries the exemption no gate judged');
+  assert.match(f.state.body, /<!-- p3:regate 102 -->/);
+});
+
+test('unreadable gate runs stop job complete; nothing is edited', () => {
+  const { root, f } = completed();
+  f.state.gate = undefined;
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet }), /gate runs on [0-9a-f]{10} could not be read, so the gate was not re-run; run job complete again/);
+  assert.equal(f.state.edits.length, 0);
+  f.state.gate = RED;
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(f.state.edits.length, 1);
+});
+
+test('the marker line is replaced where it stands, a null body is read as empty, a quoted marker is not a marker', () => {
+  const { root, f } = completed();
+  f.state.gate = RED;
+  f.state.body = null;
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.body, '<!-- p3:regate 101 --> Gate re-run for the amended receipt c1.');
+  f.state.body = `top\n> quoted <!-- p3:regate 7 --> x\n${f.state.body}\nbottom $& $1`;
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why 2', log: quiet });
+  assert.equal(f.state.body, 'top\n> quoted <!-- p3:regate 7 --> x\n<!-- p3:regate 102 --> Gate re-run for the amended receipt c2.\nbottom $& $1');
+});
+
+// Confirming review of build/receipt-regate.
+test('a run started after the exemption\'s first receipt is not re-run for a later --not-verified-only receipt', () => {
+  const { root, f } = completed();
+  f.state.gate = { status: 'in_progress', started_at: '2999-01-01T00:00:00Z' };
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.edits.length, 0, 'the run started after the receipt reads it');
+  f.state.gate = { status: 'in_progress', started_at: new Date(Date.parse(f.state.comments[1].created_at) + 5).toISOString() };
+  f.state.at = '2999-06-01T00:00:00Z';
+  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
+  assert.equal(f.state.comments.length, 3);
+  assert.equal(f.state.edits.length, 0, 'that run judged the exemption the newest receipt carries');
+});
+
+test('a red run that started in the receipt\'s own second is re-run', () => {
+  const { root, f } = completed();
+  f.state.at = '2026-11-05T12:00:00Z';
+  f.state.gate = { status: 'completed', conclusion: 'failure', started_at: '2026-11-05T12:00:00Z' };
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.edits.length, 1);
+});
+
+test('an amendment on a draft pull request is marked ready, not edited', () => {
+  const { root, f } = completed();
+  f.state.gate = RED;
+  f.state.isDraft = true;
+  const ready = f.state.ready;
+  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  assert.equal(f.state.ready, ready + 1);
+  assert.equal(f.state.edits.length, 0);
 });
 
 test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job may not', () => {

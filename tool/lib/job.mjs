@@ -2,7 +2,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, aheadBy, block, comments, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
+import { RECEIPT, addComment, aheadBy, block, checkRuns, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
 import { checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
 import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
@@ -85,7 +85,7 @@ const DEFAULT_ACTS = (branch) => [
   'read, search and edit files in this repository, within the paths below',
   `run the module's suite and checks below, and the product's build and test commands for it`,
   `git commit, and git push to ${branch} only`,
-  `the tool commands below, which comment on and mark ready your own PR`,
+  `the tool commands below, which comment on, edit and mark ready your own PR`,
 ];
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
@@ -948,7 +948,7 @@ export function jobComplete(root, id, opts = {}) {
   // named cse_, BOB's and get_session session_, so a delta never found the other's row).
   const sid = sessionForm(typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null);
   if (cost !== null && !sid) fail('--cost-usd needs the session it is the cost of: --session <your session id>; the row counts only that session\'s cost since its last row');
-  const io = { findPR, addComment, markReady, comments, toDraft, ...(opts.gh || {}) };
+  const io = { findPR, addComment, markReady, comments, toDraft, getPR, editPR, checkRuns, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
   const cfg = loadConfig(root);
@@ -1104,8 +1104,10 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again${originAhead(root, branch) ? `, after \`${P3} job sync ${id}\`: origin's ${branch} has commits this checkout lacks` : ''}`);
   }
   if (remoteTip(root, branch) !== sha) fail(`the push of ${branch} did not land; run job complete again`);
-  const posted = latestBlock(slug, pr.number, RECEIPT, io.comments(slug, pr.number), { from: pr.user?.login || null });
+  const all = io.comments(slug, pr.number);
+  let posted = latestBlock(slug, pr.number, RECEIPT, all, { from: pr.user?.login || null });
   let url = posted?.comment?.html_url;
+  const saved = receipt; // the complete's own receipt, which its ready run judged
   const amendedReceipt = amend && amendReceipt(receipt, amend, posted?.data);
   const amended = !!amendedReceipt;
   if (amended) receipt = amendedReceipt;
@@ -1117,14 +1119,76 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
     const what = amended ? 'Amended receipt' : 'Receipt';
     const c = io.addComment(slug, pr.number, block(RECEIPT, receipt, `${what} for job \`${id}\`, attempt ${receipt.attempt}, at \`${sha.slice(0, 10)}\`.`));
     url = c.html_url;
+    posted = { comment: { ...c, created_at: c.created_at || now() }, data: receipt };
   }
+  // The ready below starts the gate run that reads the receipt; a pull request already ready
+  // gets none from a comment (copy, 5 Nov, PRs 462-492): regate gives it one.
   if (pr.draft) io.markReady(slug, pr.number);
+  else if (amend) regate(slug, pr, sha, posted, { io, log, all, saved });
   log(`receipt: ${url}`);
   // The job's report: its pull request is ready for BOB's merge once the gate passes.
   // Its session named, for BOB's merge to read the job's cost from (merge --job-cost-usd).
   const sid = readRows(root, id).filter((r) => r.event === 'complete').pop()?.session;
   log(wakeLine(`job ${id} complete, PR #${pr.number} ready${sid ? `, session ${sid}` : ''}`, jobSender(id)));
   return { ok: true, receipt: receipt || posted?.data };
+}
+
+// An amended receipt on a ready pull request (build/receipt-regate, 5 Nov; notes/receipt-
+// regate-options.md, option A): no commit, so no event, and the red gate on the head stood until
+// a person re-ran it. A body edit fires pull_request: edited, and the gate runs again on the same
+// head, with the base as it is now, and reads the new receipt. Only when:
+// (1) the newest receipt claims a revert exemption (the one amended claim the gate reads) other
+//     than the one last re-gated (the receipt the marker names), or, with no marker, than the
+//     complete's own receipt, which its ready run judged: a --not-verified-only amendment is not,
+//     but one posted after a re-gate edit failed still carries the exemption (cold review);
+// (2) the newest gate run on the head is not green and started before the receipt: a run since
+//     has read it, and process-gate cancels a run in progress, so a green or train-held gate is
+//     never touched. Unreadable runs stop, never read as none (cold review);
+// (3) no marker already names this receipt (a rerun edits once).
+// Returns whether it edited.
+export const REGATE = 'p3:regate';
+const MARK = new RegExp(`^<!-- ${REGATE} (\\S+) -->.*$`, 'm');
+const regateLine = (key, url) => `<!-- ${REGATE} ${key} --> Gate re-run for the amended receipt ${url}.`;
+const keyOf = (c) => String(c.id ?? c.html_url);
+// The time of the oldest receipt, in the unbroken run of the opener's newest receipts ending at c,
+// whose revert exemption is the one c claims.
+function firstWith(all, c, opener, revert) {
+  const mine = all.filter((x) => (!opener || x.user?.login === opener) && parseBlock(x.body, RECEIPT));
+  if (!mine.some((x) => keyOf(x) === keyOf(c))) mine.push(c);
+  let at = c.created_at;
+  for (const x of mine.slice(0, mine.findIndex((x) => keyOf(x) === keyOf(c))).reverse()) {
+    if (parseBlock(x.body, RECEIPT)?.exempt?.revert !== revert) break;
+    at = x.created_at || at;
+  }
+  return at;
+}
+export function regate(slug, pr, sha, posted, { io, log = console.log, all = [], saved = null }) {
+  const c = posted?.comment;
+  const r = posted?.data;
+  if (!c || !r?.exempt?.revert || !r.amended) return false;
+  const key = keyOf(c);
+  const body = String(io.getPR(slug, pr.number)?.body ?? '');
+  const was = body.match(MARK)?.[1];
+  if (was === key) return false;
+  const marked = was ? all.find((x) => keyOf(x) === was) : null;
+  const judged = marked ? parseBlock(marked.body, RECEIPT)?.exempt?.revert : saved?.exempt?.revert;
+  if (judged === r.exempt.revert) return false;
+  const runs = io.checkRuns(slug, sha, 'gate');
+  if (!Array.isArray(runs)) fail(`the amended receipt is posted, but the gate runs on ${sha.slice(0, 10)} could not be read, so the gate was not re-run; run job complete again`);
+  const g = runs[0] || null;
+  if (g?.status === 'completed' && g.conclusion === 'success') return false;
+  // Since the first of the newest receipts that carry this exemption: a run started after it read
+  // it, whatever --not-verified-only receipts came since (confirming review). Same second counts
+  // as before: GitHub's times are whole seconds, and a run then may have read the comments first.
+  const since = firstWith(all, c, pr.user?.login, r.exempt.revert);
+  if (g && !(g.started_at && since && Date.parse(g.started_at) <= Date.parse(since))) return false;
+  const line = regateLine(key, c.html_url);
+  const next = was ? body.replace(MARK, () => line) : `${body}${body ? '\n\n' : ''}${line}`;
+  try { io.editPR(slug, pr.number, { body: next }); } catch (e) {
+    fail(`the amended receipt is posted, but the pull request's body edit that re-runs the gate failed (${e.message}); run job complete again`);
+  }
+  log(`gate re-run triggered on ${sha.slice(0, 10)} for the amended receipt (the gate was ${g ? (g.status === 'completed' ? g.conclusion : `${g.status}, started before the receipt`) : 'not run'}): watch https://github.com/${slug}/pull/${pr.number}/checks`);
+  return true;
 }
 
 // The legitimate blocked exit (ENF-7): BLOCKED with a reason, committed and pushed. Commits only
