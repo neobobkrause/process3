@@ -61,7 +61,7 @@ test('a tranche into main with 40 modules, each through a gated job merge, runs 
   assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.uncovered], ['code', [], 'skipped', 0]);
   assert.equal(r.run.through.length, 40);
   assert.deepEqual(r.run.through.map((x) => [x.pr, x.id, x.files]), p.ids.map((id, i) => [i + 1, id, 2]));
-  // Well inside the 45 min cap: the walk and the checks, no suite.
+  // Well inside the gate cap: the walk and the checks, no suite.
   assert.ok(Date.now() - t < 60000);
 });
 
