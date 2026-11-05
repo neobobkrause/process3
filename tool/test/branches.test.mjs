@@ -180,7 +180,7 @@ test('--dry-run: lists what the rules would delete, approved or not, and deletes
 test('refused, nothing deleted: a run on another ref, a shallow clone, or any GitHub read that fails', () => {
   const p = product();
   branch(p, 'job/old-1');
-  assert.throws(() => runIt(p, { extra: { ref: 'refs/heads/job/old-1' } }), (e) => e instanceof Fail && /deletes only from a run on main, not refs\/heads\/job\/old-1/.test(e.message));
+  assert.throws(() => runIt(p, { extra: { ref: 'refs/heads/job/old-1' } }), (e) => e instanceof Fail && /deletes only from a run on main or tranche, not refs\/heads\/job\/old-1/.test(e.message));
   const unread = (over) => assert.throws(() => prune(clone(p), { slug: SLUG, io: { ...fake(), ...over }, ref: 'refs/heads/main', env: shimEnv(), log: quiet }), (e) => e instanceof Fail && /nothing was deleted/.test(e.message));
   unread({ defaultBranch: () => null });
   unread({ pulls: () => null });
@@ -232,7 +232,8 @@ test('the shim: daily and on dispatch, contents: write and pull-requests: read o
   assert.ok(uses.length >= 2);
   for (const u of uses) assert.match(u, /@[0-9a-f]{40}$/, u);
   assert.doesNotMatch(shim, /pull_request_target/);
-  assert.match(shim, /^ {4}if: github\.ref == format\('refs\/heads\/\{0\}', github\.event\.repository\.default_branch\)$/m);
+  // On the default branch, or dispatched on the tranche the default branch's config names; else skipped.
+  assert.match(shim, /if \[ "\$GITHUB_REF" = "refs\/heads\/\$DEFAULT" \]; then on=\$DEFAULT\n\s+elif \[ "\$GITHUB_EVENT_NAME" = workflow_dispatch \] && \[ "\$GITHUB_REF" = "refs\/heads\/\$tranche" \]; then on=\$tranche\n\s+else [^\n]*skip=1/);
   assert.match(shim, /pin=\$\(git rev-parse -q --verify "\$base:\.process"\)/);
   assert.doesNotMatch(shim, /HEAD:/);
   assert.match(shim, /p3\.mjs" branches prune --ref "\$GITHUB_REF" --run "\$GITHUB_RUN_ID" \$DRY_RUN$/m);
@@ -298,3 +299,30 @@ test('githubIO: the paginated reads flattened, and null for a failed or odd read
   assert.equal(githubIO(() => [{ not: 'pages' }]).activity(SLUG), null);
 });
 
+
+test('dispatched on the tranche: the tranche\'s approvals and config judge; a schedule there, another workflow ref or a config naming another tranche is refused', () => {
+  const tEnv = (over = {}) => ({ ...shimEnv(), GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/tranche', GITHUB_WORKFLOW_REF: `${SLUG}/.github/workflows/process-branch-prune.yml@refs/heads/tranche`, ...over });
+  // Bob's sentence on the tranche only (main moves at a round close).
+  const p = product({ claude: approvalsWith() });
+  git(['checkout', '-q', '--detach', 'main'], { cwd: p.work });
+  commitAt(p.work, { 'CLAUDE.md': APPROVED }, 'the sentence on the tranche', old);
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: p.work });
+  branch(p, 'job/old-1');
+  const on = (env) => runIt(p, { extra: { ref: 'refs/heads/tranche', env } });
+  assert.throws(() => on(tEnv({ GITHUB_EVENT_NAME: 'schedule' })), (e) => e instanceof Fail && /dispatched on tranche, and its event is schedule, not workflow_dispatch/.test(e.message));
+  assert.throws(() => on(tEnv({ GITHUB_WORKFLOW_REF: `${SLUG}/.github/workflows/process-branch-prune.yml@refs/heads/main` })), (e) => e instanceof Fail && /its workflow is/.test(e.message));
+  assert.throws(() => on(tEnv({ GITHUB_REF: 'refs/heads/main' })), (e) => e instanceof Fail && /it runs on refs\/heads\/main, not refs\/heads\/tranche/.test(e.message));
+  assert.ok(heads(p).includes('job/old-1'));
+  // The same branch's run on main is not approved: main lacks the sentence.
+  assert.equal(runIt(p).approved, false);
+  const r = on(tEnv());
+  assert.equal(r.approved, true);
+  assert.deepEqual(r.deleted.map((d) => d.name), ['job/old-1']);
+  assert.equal(rows(p)[0].on, 'tranche');
+  // The tranche's config naming another tranche than main's: refused.
+  const q = product();
+  git(['checkout', '-q', '--detach', 'main'], { cwd: q.work });
+  commitAt(q.work, { 'process/config.json': JSON.stringify({ tranche: 'other' }) }, 'renamed', old);
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: q.work });
+  assert.throws(() => runIt(q, { extra: { ref: 'refs/heads/tranche', env: tEnv() } }), (e) => e instanceof Fail && /tranche's config names the tranche other, main's names tranche/.test(e.message));
+});

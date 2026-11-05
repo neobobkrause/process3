@@ -5,11 +5,13 @@
 //
 // The approval gate (fails closed). The standing approvals say sessions "may never ... delete a
 // branch". This command deletes only while the approvals block (process/config.json approvals:
-// its file and heading) on the default branch's tip, as origin holds it, carries MARKER, the fixed
+// its file and heading) on the run's branch (the default branch, or the tranche for a run
+// dispatched there), as origin holds it, carries MARKER, the fixed
 // phrase "the process's scheduled branch cleanup workflow", within Bob's whole sentence (APPROVAL),
 // exactly; whitespace runs and curly apostrophes are read as one space and a straight apostrophe,
 // nothing else is forgiven (not case). Either anywhere else in the file is no approval. A delete
-// runs only in the product's own shim on the default branch (notTheShim); --dry-run anywhere. Without it the run prints a notice, deletes nothing and writes
+// runs only in the product's own shim, on the default branch or dispatched on the tranche
+// (notTheShim); --dry-run anywhere. Without it the run prints a notice, deletes nothing and writes
 // nothing. --dry-run reads and prints all the same, approved or not, and writes nothing.
 //
 // What it deletes, each judged on a fresh fetch of every origin branch:
@@ -53,15 +55,18 @@ const norm = (t) => String(t).replace(/[‘’ʼ]/g, '\'').replace(/\s+/g, ' ').
 // cleanup workflow", or a narrower grant). Changed in any word, it is no approval.
 export const approves = (block) => !!block && norm(block).includes(norm(MARKER)) && norm(block).includes(norm(APPROVAL));
 
-// Only the product's own shim, scheduled or dispatched on the default branch, deletes (cold review
-// of PR 167: a session's local run, or a dispatch on a branch whose pin it chose, must not). Read
-// from the runner's environment; null when it is such a run, else why not.
+// Only the product's own shim deletes (cold review of PR 167: a session's local run, or a dispatch
+// on a branch whose pin it chose, must not): scheduled or dispatched on the default branch, or
+// dispatched on the tranche (coordinator, 5 Nov 18:28: main moves only at a round close, and the
+// tranche's workflow files change only through the gated merge tool). Read from the runner's
+// environment; null when it is such a run on branch `on`, else why not.
 export const SHIM_FILE = '.github/workflows/process-branch-prune.yml';
-export function notTheShim(env, def) {
+export function notTheShim(env, on, { dispatchOnly = false } = {}) {
+  const events = dispatchOnly ? ['workflow_dispatch'] : ['schedule', 'workflow_dispatch'];
   if (env.GITHUB_ACTIONS !== 'true') return 'it is not a GitHub Actions run';
-  if (!['schedule', 'workflow_dispatch'].includes(env.GITHUB_EVENT_NAME)) return `its event is ${env.GITHUB_EVENT_NAME || 'unset'}, not schedule or workflow_dispatch`;
-  if (env.GITHUB_REF !== `refs/heads/${def}`) return `it runs on ${env.GITHUB_REF || 'no ref'}, not refs/heads/${def}`;
-  if (!String(env.GITHUB_WORKFLOW_REF || '').endsWith(`/${SHIM_FILE}@refs/heads/${def}`)) return `its workflow is ${env.GITHUB_WORKFLOW_REF || 'unset'}, not ${SHIM_FILE} on ${def}`;
+  if (!events.includes(env.GITHUB_EVENT_NAME)) return `its event is ${env.GITHUB_EVENT_NAME || 'unset'}, not ${events.join(' or ')}`;
+  if (env.GITHUB_REF !== `refs/heads/${on}`) return `it runs on ${env.GITHUB_REF || 'no ref'}, not refs/heads/${on}`;
+  if (!String(env.GITHUB_WORKFLOW_REF || '').endsWith(`/${SHIM_FILE}@refs/heads/${on}`)) return `its workflow is ${env.GITHUB_WORKFLOW_REF || 'unset'}, not ${SHIM_FILE} on ${on}`;
   return null;
 }
 
@@ -86,34 +91,39 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   if (!slug) fail('branches prune needs the repository (owner/name)');
   const def = io.defaultBranch(slug);
   if (!def) fail(`could not read ${slug}'s default branch from GitHub; nothing was deleted`);
-  // Scheduled runs are on the default branch; a dispatch on another ref runs that ref's copy of
-  // the shim, so the tool itself refuses to delete from one.
-  if (!dryRun) {
-    if (ref !== `refs/heads/${def}`) fail(`branches prune deletes only from a run on ${def}, not ${ref === undefined ? 'a run with no --ref' : ref}; nothing was deleted (--dry-run lists)`);
-    const why = notTheShim(env, def);
-    if (why) fail(`branches prune deletes only in the product's ${SHIM_FILE} on ${def}, and ${why}; nothing was deleted (--dry-run lists)`);
-  }
-
   if (isShallow(root)) fail('branches prune needs a full clone (fetch-depth 0): a shallow one counts commits wrongly; nothing was deleted');
   const f = fetchRetry(['fetch', '-q', '--prune', 'origin', '+refs/heads/*:refs/remotes/origin/*'], { cwd: root });
   if (f.code !== 0) fail(`could not fetch origin's branches: ${f.stderr.trim()}; nothing was deleted`);
-  const base = remote(def);
-  if (git(['rev-parse', '-q', '--verify', base], { cwd: root, allowFail: true }).code !== 0) fail(`origin has no ${def}; nothing was deleted`);
+  if (git(['rev-parse', '-q', '--verify', remote(def)], { cwd: root, allowFail: true }).code !== 0) fail(`origin has no ${def}; nothing was deleted`);
+  // The tranche's name from the default branch's config (anchored there), never from the run's ref.
+  const tranche = loadConfig(root, remote(def)).tranche;
+
+  // The branch the run stands on, which gives the config and the approvals: the default branch,
+  // or the tranche for a run dispatched there. A dry run on any other ref (or none) reads the
+  // default branch; a deleting run anywhere else, or outside the shim, is refused.
+  const on = ref === `refs/heads/${tranche}` ? tranche : def;
+  if (!dryRun) {
+    if (ref !== `refs/heads/${on}`) fail(`branches prune deletes only from a run on ${def} or ${tranche}, not ${ref === undefined ? 'a run with no --ref' : ref}; nothing was deleted (--dry-run lists)`);
+    const why = notTheShim(env, on, { dispatchOnly: on !== def });
+    if (why) fail(`branches prune deletes only in the product's ${SHIM_FILE} ${on === def ? `on ${def}` : `dispatched on ${tranche}`}, and ${why}; nothing was deleted (--dry-run lists)`);
+  }
+  const base = remote(on);
+  if (git(['rev-parse', '-q', '--verify', base], { cwd: root, allowFail: true }).code !== 0) fail(`origin has no ${on}; nothing was deleted`);
   const baseSha = git(['rev-parse', base], { cwd: root });
   const cfg = loadConfig(root, base);
+  if (cfg.tranche !== tranche) fail(`${on}'s config names the tranche ${cfg.tranche}, ${def}'s names ${tranche}; nothing was deleted`);
 
-  // The gate: Bob's sentence in the approvals block on the default branch's tip.
+  // The gate: Bob's sentence in the approvals block on that branch's tip.
   const { file, heading } = cfg.approvals;
   const block = exists(root, base, file) ? approvalsBlock(git(['show', `${base}:${file}`], { cwd: root }), heading) : '';
   const approved = approves(block);
   if (!approved) {
-    const why = `the approvals block (${file}, "${heading}") on ${def} at ${baseSha.slice(0, 10)} does not carry the branch cleanup approval ("${MARKER}"); nothing ${dryRun ? 'would be' : 'was'} deleted`;
+    const why = `the approvals block (${file}, "${heading}") on ${on} at ${baseSha.slice(0, 10)} does not carry the branch cleanup approval ("${MARKER}"); nothing ${dryRun ? 'would be' : 'was'} deleted`;
     if (!dryRun) { log(`::notice::branches prune: ${why}`); return { ok: true, approved: false, dryRun, deleted: [], failed: [], kept: {}, candidates: [] }; }
     log(`branches prune (dry run): ${why}; the branches the rules would delete once approved follow`);
   }
 
-  const tranche = cfg.tranche;
-  if (git(['rev-parse', '-q', '--verify', remote(tranche)], { cwd: root, allowFail: true }).code !== 0) fail(`origin has no ${tranche}, the tranche ${def}'s config names; nothing was deleted`);
+  if (git(['rev-parse', '-q', '--verify', remote(tranche)], { cwd: root, allowFail: true }).code !== 0) fail(`origin has no ${tranche}, the tranche the config names; nothing was deleted`);
   const trancheSha = git(['rev-parse', remote(tranche)], { cwd: root });
 
   const pulls = io.pulls(slug);
@@ -198,7 +208,7 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   log(`branches prune: ${deleted.length} deleted, ${failed.length} not deleted`);
 
   const row = {
-    at: now(), row: 'prune', ...(run ? { run: String(run) } : {}), default_branch: def, at_sha: baseSha, tranche, tranche_sha: trancheSha,
+    at: now(), row: 'prune', ...(run ? { run: String(run) } : {}), default_branch: def, on, at_sha: baseSha, tranche, tranche_sha: trancheSha,
     branches: branches.length, kept: counts, deleted: deleted.map(({ name, sha, why }) => ({ name, sha, why })), failed,
   };
   writeState(root, cfg.state_branch, `branches prune: ${deleted.length} deleted`, (wt) => {
