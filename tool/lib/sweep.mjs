@@ -10,7 +10,7 @@ import { readAddress, senderOf, wakeSteps } from './roles.mjs';
 import { LEASE, LEASE_FILE } from './train.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { OWED_ALARM_MIN, bobAct, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
+import { OWED_ALARM_MIN, bobAct, layersAt, owe, readAuto, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { readySelection } from './ready.mjs';
 import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, laneDefects, onOriginOf, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
@@ -208,8 +208,8 @@ export function senderFor(root, name, a) {
   try { return senderOf(root, a.as); } catch { return 'bob'; }
 }
 export function beforeAct(root, cfg, name, a, { env = process.env, io, log = console.log, err = console.error } = {}) {
-  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
-  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch' || (name === 'job start' && a.ready)) return null;
+  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o, readAuto(root, cfg.state_branch))); } } catch { /* a marker, never a refusal */ } }
+  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch' || name === 'auto start' || name === 'auto done' || (name === 'job start' && a.ready)) return null;
   try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 

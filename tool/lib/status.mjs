@@ -16,7 +16,8 @@ import { lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
-import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
+import { heldBy, holdLines, layersAt, readAuto, readHolds, readOwed, startsOwedLine } from './hold.mjs';
+import { readStarts, starterLines } from './auto.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -219,7 +220,15 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   let cfg = loadConfig(root);
   // Starts owed, the first line (hold.mjs): a marker, never a refusal.
-  try { if (offline || fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* the holds line says the state branch is unread */ }
+  try {
+    if (offline || fetchState(root, cfg.state_branch)) {
+      const o = readOwed(root, cfg.state_branch);
+      // The starter (auto.mjs): running or not, and the minutes from starts owed to started.
+      const au = readAuto(root, cfg.state_branch);
+      if (o) log(startsOwedLine(o, au));
+      if (role === 'bob' && (au || readState(root, cfg.state_branch, addressFile('merger')) !== null)) for (const l of starterLines(au, readStarts(root, cfg.state_branch), o)) log(l);
+    }
+  } catch { /* the holds line says the state branch is unread */ }
   cfg = withCoordinator(root, cfg);
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = givenListed || (sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline }));

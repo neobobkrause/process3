@@ -132,7 +132,7 @@ const factsAt = (root, cfg, j, at = `refs/remotes/origin/${cfg.tranche}`) => {
   return [...[entryFile(j.id), j.file].map((p) => git(['rev-parse', '-q', '--verify', `${at}:${p}`], { cwd: root, allowFail: true }).stdout.trim()), ...START_KEYS.map((k) => JSON.stringify(keyAt(root, at, k)))].join(' ');
 };
 
-export function startReady(root, { live, coordinator, model, sessions, archived, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
+export function startReady(root, { live, coordinator, model, sessions, archived, auto = false, owedSince = null, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const begun = new Date(Date.now() - 1000).toISOString(); // the acts owed before this run (whole seconds: one second back) are its to pay
   // The live count read once, fresh, at the pass's start (copy, 5 Nov 03:40: 12 counted from an
@@ -186,10 +186,21 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   if (c.note) log(c.note);
   const held = slotsHeld(holds);
   if (held) log(`${held} slot${held === 1 ? '' : 's'} held by recorded holds (status lists them)`);
+  // The starter (auto.mjs: no judgment in a start): when the cap holds ready work back, the idle
+  // sessions of merged jobs, as many as it needs, are archived by its calls before its launches,
+  // so a land frees its slot in the same pass. A job COMPLETE and not merged keeps its session.
+  let archive = [];
+  if (auto && listed) {
+    const need = go.length - Math.max(0, c.cap - held - n);
+    if (need > 0) archive = (archivable(out.rows, listed).sessions || []).filter((x) => x.why === 'merged').slice(0, need);
+    if (archive.length) { n -= archive.length; log(`${archive.length} idle session${archive.length === 1 ? '' : 's'} of merged jobs archived first, freeing their slots: ${archive.map((x) => `${x.session} (job ${x.job})`).join(', ')}`); }
+  }
   const now = go.slice(0, Math.max(0, c.cap - held - n));
   const wait = go.slice(now.length);
   log(`ready: ${go.length} startable (${c.line}); starting ${now.length}${wait.length ? `, ${wait.length} wait for the cap: ${wait.map((x) => x.id).join(', ')}` : ''}`);
-  if (wait.length) {
+  // The starter archives what it may itself (above); the rest is BOB's to judge, never its.
+  if (wait.length && auto) log(`the cap holds ${wait.length} back${archive.length ? ' after the archives above' : ''}; no idle session of a merged job is left to archive`);
+  else if (wait.length) {
     // The cap holds jobs back: the idle sessions of COMPLETE or merged jobs BOB can archive.
     const a = archivable(out.rows, listed);
     if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again with --archived <id> for each (or a list_sessions saved after): ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);
@@ -239,12 +250,12 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
       // A start that failed leaves its starts owed; a resumed one whose pull request was open did start.
       if (!failed.some((f) => !/^a resumed start/.test(f.why))) paid(dir, begun);
       mkdirSync(join(dir, 'metrics'), { recursive: true });
-      appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, ...(parked.length ? { parked: parked.length } : {}), job_cap: c.cap, started: started.map((x) => x.id) }) + '\n');
+      appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: stamp(), row: 'ready', live: n + started.length, ...(parked.length ? { parked: parked.length } : {}), job_cap: c.cap, started: started.map((x) => x.id), ...(auto ? { by: 'starter' } : {}), ...(owedSince ? { owed_since: owedSince } : {}) }) + '\n');
     });
   } catch (e) { if (!(e instanceof Fail)) throw e; log(`starts owed not cleared (${e.message}): run this again`); }
-  if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);
+  if (auto) { /* the starter prints its own acts (auto.mjs) */ } else if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);
   else log(`nothing started; ${P3} status --role bob --live ${n} lists BOB's other acts`);
-  return { ok: !failed.length, closed, started, failed, skipped: skip, waiting: wait.map((x) => x.id) };
+  return { ok: !failed.length, closed, started, failed, skipped: skip, waiting: wait.map((x) => x.id), archive };
 }
 
 // job start <id> (not a restart, which replaces a session): the cap checked as job start --ready
