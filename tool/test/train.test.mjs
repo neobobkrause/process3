@@ -117,6 +117,25 @@ test('merge train merges the oldest green job PR through merge: its re-gate, one
   assert.equal(s.baselines.length, 2);
 });
 
+test('merge train: in a shallow clone it unshallows once before the loop, so the provider hold can read merge-base', () => {
+  const { root: src, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const bare = git(['remote', 'get-url', 'origin'], { cwd: src }).trim();
+  const root = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
+  git(['clone', '-q', '--depth', '1', '--no-single-branch', '--branch', 'main', `file://${bare}`, root], { cwd: src });
+  for (const [k, v] of [['user.email', 'noreply@github.com'], ['user.name', 'Test'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: root });
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }).trim(), 'true');
+  const lines = [];
+  const g = github(root, ids);
+  run(root, g, { log: (l) => lines.push(l) });
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: root }).trim(), 'false');
+  assert.ok(lines.some((l) => /shallow; unshallowed once/.test(l)));
+  assert.deepEqual(g.calls.merged, [1]);
+  // A full clone is left as it is and says nothing about it.
+  const more = [];
+  run(src, github(src, ids), { log: (l) => more.push(l) });
+  assert.ok(!more.some((l) => /shallow/.test(l)));
+});
+
 test('merge train: one train runs; an expired lease is taken over, and a row says so', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
   const g = github(root, ids);
