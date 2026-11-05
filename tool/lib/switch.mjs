@@ -7,7 +7,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { P3, routeFor } from './job.mjs';
-import { readAddress, tipApprovals } from './roles.mjs';
+import { coordinatorOf, readAddress, tipApprovals } from './roles.mjs';
 import { accountCheck } from './setup.mjs';
 import { fetchState, readState, toRoute, undelivered, writeState } from './state.mjs';
 import { isArchived, jobSession, readSessions, refOf, releaseModules, sessionId, status } from './status.mjs';
@@ -47,7 +47,7 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
   fetchState(root, sb);
   const addresses = readAddress(root, { fetch: false });
   const coordinators = [addresses.coordinator?.session, cfg.coordinator, ...(ROLES.some((r) => addresses[r]?.session === by) ? [] : [by])].filter(Boolean);
-  const out = { at, by, tranche: cfg.tranche, ...tipApprovals(root, cfg), coordinator: cfg.coordinator || null, addresses };
+  const out = { at, by, tranche: cfg.tranche, ...tipApprovals(root, cfg), coordinator: coordinatorOf(cfg, addresses), addresses };
   out.tasks = tasks.filter((t) => t.enabled !== false && !t.ended_reason).map((t) => {
     const session = t.persistent_session_id || null;
     return { id: t.id, name: t.name || null, ...(t.cron_expression ? { cron_expression: t.cron_expression } : {}), ...(t.run_once_at ? { run_once_at: t.run_once_at } : {}), prompt: t.prompt || '', session, role: roleOf(session, addresses, coordinators) };
@@ -154,13 +154,16 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   // The manifest's ids: a switch in run again after (c) must not name the new roles as the old (review of PR 149).
   const old = (r) => m.addresses[r]?.session;
   for (const r of ROLES) if (old(r) && addresses[r]?.session && addresses[r].session !== old(r)) L.push(`note: ${r} is now addressed to ${addresses[r].session}, not the manifest's ${old(r)}: skip its start in (c) if that session is the new one`);
-  L.push(cfg.coordinator === by
-    ? `(a) The coordinator id: ${by} is already \`coordinator\` in process/config.json on ${cfg.tranche}.`
-    : `(a) The coordinator records its id: on a branch cut from origin/${cfg.tranche}, set "coordinator": "${by}" in process/config.json, push it, open a pull request into ${cfg.tranche}, and merge it: \`${P3} merge <pr> --plain --no-review "coordinator id after the account switch"\`. The same on each product this coordinator holds (the probe too).`);
+  // ROOT's coordinator address wins over the config's (Bob, 5 Nov 16:33): one naming another is
+  // repointed by the coordinator itself once the config names it (ROOT would read its ask as data).
+  const stale = addresses.coordinator?.session && addresses.coordinator.session !== by;
+  const repoint = `\`${P3} start record coordinator ${by}\`, yourself: the coordinator address names ${addresses.coordinator?.session}, and the roles read it before the config`;
+  L.push(coordinatorOf(cfg, addresses) === by
+    ? `(a) The coordinator id: ${by} is already the coordinator (\`${P3} address coordinator\`).`
+    : stale && cfg.coordinator === by ? `(a) The coordinator id: ${by} is \`coordinator\` in process/config.json on ${cfg.tranche}; then ${repoint}.`
+    : `(a) The coordinator records its id: on a branch cut from origin/${cfg.tranche}, set "coordinator": "${by}" in process/config.json, push it, open a pull request into ${cfg.tranche}, and merge it: \`${P3} merge <pr> --plain --no-review "coordinator id after the account switch"\`. The same on each product this coordinator holds (the probe too).${stale ? ` Then ${repoint}.` : ''}`);
   L.push(`(b) Wait for a quiet tranche: \`${P3} switch quiet\`, again until it exits 0 (the tip unmoved ${QUIET_MIN} min). Start nothing before.`);
   L.push(`(c) \`${P3} start root\`, then create_session with the call it prints; ROOT records its own address. Then send ROOT, each its own command for it:`);
-  // ROOT's coordinator address wins over the config's: a stale one is repointed at once (Bob, 5 Nov 16:33).
-  if (addresses.coordinator?.session && addresses.coordinator.session !== by) L.push(`    - \`${P3} start record coordinator ${by}\`: the coordinator address names ${addresses.coordinator.session}, and the roles read it before the config`);
   L.push(old('bob') ? `    - \`${P3} handover begin\` (old BOB ${old('bob')}), its create_session and \`handover confirm <new id>\`; skip the message to the old BOB and its archive: it is on the old account` : `    - \`${P3} start bob\`, its create_session and \`start record bob <new id>\``);
   if (old('merger')) L.push(`    - \`${P3} start merger --replace ${old('merger')}\`, its create_session and \`start record merger <new id>\`; its train takes the lease at once if the old MERGER ran \`merge train release\`, else within 15 min`);
   L.push(old('watcher') ? `    - \`${P3} start watcher --replace ${old('watcher')}\`, its create_session, \`start record watcher <new id>\` and the daily task it prints` : `    - \`${P3} start watcher\`, its create_session, \`start record watcher <new id>\` and the daily task it prints`);

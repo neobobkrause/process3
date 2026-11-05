@@ -26,7 +26,7 @@ import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
-import { checkRole, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals } from './lib/roles.mjs';
+import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { fetchState, handoff, jsonl, outcome, readState, send, writeState } from './lib/state.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
@@ -454,10 +454,9 @@ const commands = {
   address: (a, root) => {
     const asked = String(one(a, 'role (root, bob, watcher, merger or coordinator)')).toLowerCase();
     if (asked === 'coordinator') {
-      const e = readAddress(root).coordinator;
-      const c = e?.session ? null : loadConfig(root).coordinator;
-      if (!e?.session && !c) fail('no coordinator is addressed and process/config.json names none');
-      console.log(e?.session ? `${e.session} (since ${e.at})` : `${c} (from process/config.json)`);
+      const addr = readAddress(root);
+      const c = coordinatorOf(tipConfig(root), addr) || fail('no coordinator is addressed and process/config.json on the tranche names none');
+      console.log(addr.coordinator?.session === c ? `${c} (since ${addr.coordinator.at})` : `${c} (from process/config.json on the tranche)`);
       return 0;
     }
     const role = checkRole(asked);

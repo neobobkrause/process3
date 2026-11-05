@@ -3,11 +3,11 @@
 // one level deeper. Each held rule below has its test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeRepo } from './helpers.mjs';
+import { commit, makeRepo } from './helpers.mjs';
 import { coordinatorOf, coordinatorPrompt, readAddress, recordStart, rootPrompt, startCoordinator, startRole } from '../lib/roles.mjs';
 import { withCoordinator } from '../lib/state.mjs';
 import { restartActs } from '../lib/switch.mjs';
@@ -65,7 +65,7 @@ test('start coordinator refuses a second coordinator: --replace must name the on
   assert.throws(() => start(root, { replace: true }), /needs --replace/);
   assert.throws(() => start(root, { replace: C2 }), /--replace names the coordinator, session_coord1; not session_coord2: one coordinator at a time/);
   // Once ROOT recorded C2, C1 is no longer the one to replace.
-  recordStart(root, 'coordinator', C2, { log: quiet });
+  recordStart(root, 'coordinator', C2, { log: quiet, session: R });
   assert.throws(() => start(root), /--replace names the coordinator, session_coord2; not session_coord1/);
   assert.equal(start(root, { replace: C2 }).call.source_revision, BRANCH);
   // No coordinator anywhere: nothing to refresh.
@@ -90,7 +90,7 @@ test('start record coordinator writes the address; every reader takes it over th
   recordStart(root, 'root', R, { log: quiet });
   const cfg = loadConfig(root);
   assert.equal(coordinatorOf(cfg, readAddress(root)), C1, 'no address yet: the config\'s');
-  recordStart(root, 'coordinator', C2, { log: quiet });
+  recordStart(root, 'coordinator', C2, { log: quiet, session: R });
   const a = readAddress(root);
   assert.equal(a.coordinator.session, C2);
   assert.equal(a.coordinator.prompt, undefined, 'no prompt refresh for the coordinator');
@@ -99,8 +99,38 @@ test('start record coordinator writes the address; every reader takes it over th
   assert.equal(withCoordinator(root, cfg).coordinator, C2);
   assert.equal(cfg.coordinator, C1, 'the config object itself is untouched');
   // A role's id is not a coordinator.
-  assert.throws(() => recordStart(root, 'coordinator', R, { log: quiet }), /is addressed as root/);
-  assert.throws(() => recordStart(root, 'coordinator', 'nope', { log: quiet }), /not a session id/);
+  assert.throws(() => recordStart(root, 'coordinator', R, { log: quiet, session: R }), /is addressed as root/);
+  assert.throws(() => recordStart(root, 'coordinator', 'nope', { log: quiet, session: R }), /not a session id/);
+});
+
+test('start record coordinator is ROOT\'s act, or the coordinator\'s own once the tranche\'s config names it', () => {
+  const root = withOrigin();
+  recordStart(root, 'root', R, { log: quiet });
+  // A job (any other session) cannot make itself the coordinator.
+  assert.throws(() => recordStart(root, 'coordinator', 'session_job1', { log: quiet, session: 'session_job1' }), /start record coordinator is ROOT's act \(session_root1\), or the coordinator's own once process\/config\.json on the tranche names it; not session_job1's/);
+  assert.throws(() => recordStart(root, 'coordinator', C2, { log: quiet, session: C2 }), /ROOT's act/, 'the config names C1, not C2');
+  assert.equal(readAddress(root).coordinator, undefined, 'nothing written');
+  // The config on the tranche names C2 (a gated merge): C2 may record itself.
+  commit(root, { 'process/config.json': { tranche: 'tranche', coordinator: C2 } }, 'coordinator C2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  recordStart(root, 'coordinator', C2, { log: quiet, session: C2 });
+  assert.equal(readAddress(root).coordinator.session, C2);
+  assert.throws(() => recordStart(root, 'coordinator', 'session_coord3', { log: quiet, session: C2 }), /ROOT's act/, 'the coordinator records only itself');
+});
+
+test('an unreadable coordinator address is none: the config\'s, and every other address still reads', () => {
+  const root = withOrigin();
+  recordStart(root, 'root', R, { log: quiet });
+  const other = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'c');
+  git(['clone', '-q', '-b', 'process-state', git(['remote', 'get-url', 'origin'], { cwd: root }), other], { cwd: root });
+  for (const [k, v] of [['user.email', 't@t'], ['user.name', 'T']]) git(['config', k, v], { cwd: other });
+  commit(other, { 'addresses/coordinator.json': '{ not json' }, 'bad');
+  git(['push', '-q', 'origin', 'process-state'], { cwd: other });
+  const a = readAddress(root);
+  assert.equal(a.root.session, R);
+  assert.equal(a.coordinator, undefined);
+  assert.equal(coordinatorOf(loadConfig(root), a), C1);
+  assert.equal(withCoordinator(root, loadConfig(root)).coordinator, C1);
 });
 
 test('p3 address coordinator prints the address, else the config\'s, marked', async () => {
@@ -111,10 +141,14 @@ test('p3 address coordinator prints the address, else the config\'s, marked', as
     try { process.chdir(root); return { code: await main(['address', 'coordinator']), out: out.join('\n') }; } finally { process.chdir(cwd); console.log = l; }
   };
   const root = withOrigin();
+  // The tranche's tip config, not the working tree's (a session on an old checkout).
+  writeFileSync(join(root, 'process/config.json'), JSON.stringify({ tranche: 'tranche', coordinator: 'session_stale' }));
   let r = await run(root);
   assert.equal(r.code, 0);
-  assert.match(r.out, /session_coord1 \(from process\/config\.json\)/);
-  recordStart(root, 'coordinator', C2, { log: quiet });
+  assert.match(r.out, /^session_coord1 \(from process\/config\.json on the tranche\)/m);
+  git(['checkout', '-q', '--', 'process/config.json'], { cwd: root });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'coordinator', C2, { log: quiet, session: R });
   r = await run(root);
   assert.match(r.out, /^session_coord2 \(since \d{4}-/m);
 });
@@ -128,6 +162,8 @@ test('the roles read the coordinator by address; ROOT may start and archive a co
   assert.match(p, /archive only an old BOB or coordinator and what sweep prints/);
   assert.match(p, /send a technical question \(a fix, a restart, a route\) to the coordinator with send_message/);
   const c = coordinatorPrompt({ slug: 'o/copy', processSlug: 'o/process3', rootId: R, old: C1, branch: BRANCH, handoff: NOTE });
+  assert.match(c, /ROOT records you as the coordinator address \(`start record coordinator`\)/);
+  assert.match(c, /On each other product you hold \(the probe\), set your id as `coordinator` in its process\/config\.json by a plain pull request/);
   assert.match(c, /send ROOT one message asking for your refresh: `start coordinator --replace <your id> --branch start\/coordinator-4nov --handoff <its path>`/);
 });
 
@@ -145,11 +181,19 @@ test('the rule lives where the coordinator and ROOT read it: README guidance, th
   assert.ok(rb.split('\n').filter((l) => /^\d+\. /.test(l)).length <= 10);
 });
 
-test('switch in repoints a stale coordinator address to the new account\'s coordinator', () => {
+test('switch in: a stale coordinator address is repointed by the new coordinator itself, once the config names it', () => {
   const m = { addresses: {}, tasks: [], jobs: [], messages: [] };
-  const cfg = { tranche: 'tranche', coordinator: 'session_new' };
-  const stale = restartActs(m, { by: 'session_new', cfg, approvals: 'c'.repeat(64), addresses: { coordinator: { session: C1 } } });
-  assert.ok(stale.some((l) => l.includes('`node .process/tool/p3.mjs start record coordinator session_new`: the coordinator address names session_coord1')));
-  const same = restartActs(m, { by: C1, cfg, approvals: 'c'.repeat(64), addresses: { coordinator: { session: C1 } } });
-  assert.ok(!same.some((l) => l.includes('start record coordinator')));
+  const A = 'c'.repeat(64);
+  const stale = { coordinator: { session: C1 } };
+  const lines = (by, cfg, addresses) => restartActs(m, { by, cfg: { tranche: 'tranche', ...cfg }, approvals: A, addresses });
+  const a = (L) => L.find((l) => l.startsWith('(a)'));
+  // Config not yet the new one: the config PR, then the record, by the coordinator itself (ROOT would read its ask as data).
+  assert.match(a(lines(C2, { coordinator: C1 }, stale)), /set "coordinator": "session_coord2"[^\n]*Then `node \.process\/tool\/p3\.mjs start record coordinator session_coord2`, yourself: the coordinator address names session_coord1/);
+  // Config already names it: only the record.
+  assert.match(a(lines(C2, { coordinator: C2 }, stale)), /^\(a\) The coordinator id: session_coord2 is `coordinator` in process\/config\.json on tranche; then `node \.process\/tool\/p3\.mjs start record coordinator session_coord2`, yourself/);
+  // The address names it: nothing to do, whatever the config says.
+  assert.match(a(lines(C1, { coordinator: 'session_old' }, stale)), /session_coord1 is already the coordinator/);
+  // No address: as before.
+  assert.ok(!lines(C2, { coordinator: C1 }, {}).some((l) => l.includes('start record coordinator')));
+  assert.ok(!lines(C2, { coordinator: C1 }, {}).some((l) => /^\s+- .*start record coordinator/.test(l)), 'nothing sent to ROOT for it');
 });
