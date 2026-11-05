@@ -46,7 +46,7 @@ const stillRunning = (run, t) => run?.status === 'in_progress'
 // A GitHub read that failed for a reason that passes (build train-inflight, option 8A: copy PR
 // 290, 5 Nov 13:15, one HTTP 503 ended a 38-minute gate wait): a 5xx, a rate limit, a timeout or a
 // dropped connection. The waits read again with a growing pause instead of failing.
-export const TRANSIENT = (msg) => SERVER_ERROR.test(String(msg)) || /rate limit|HTTP 429|\b429 Too Many|timed out|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|connection reset|socket hang up|Bad Gateway|Service Unavailable|Gateway Time-?out|unexpected EOF|TLS handshake/i.test(String(msg));
+export const TRANSIENT = (msg) => SERVER_ERROR.test(String(msg)) || /rate limit|HTTP 429|\b429 Too Many|timed out|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|connection reset|socket hang up|Bad Gateway|Service Unavailable|Gateway Time-?out|unexpected EOF|TLS handshake|context deadline exceeded|connection refused/i.test(String(msg));
 export const TRANSIENT_WAIT = { first: 15000, most: 120000 };
 // Runs f; a transient Fail is returned as { err } for the caller's loop to read again, anything
 // else is thrown.

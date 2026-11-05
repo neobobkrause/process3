@@ -56,14 +56,17 @@ export function endHold(root, sb, { pr, tip, cause, session }) {
 }
 
 // Outside the train (merge, merge --plain into the tranche): refused while another pull request's
-// merged result is gating under an open hold. A gate already ended does not refuse (the train ends
-// the hold at its next pass); a state branch or gate that cannot be read refuses nothing.
+// merged result is held, gating or green and not yet landed; a gate ended red or cancelled frees
+// it (the train ends the hold at its next pass), as does the hold's until; a state branch that
+// cannot be read refuses nothing.
 export function refuseUnderHold(root, cfg, n, { slug, io }) {
   let h = null;
   try { if (fetchState(root, cfg.state_branch, { fresh: true })) h = openHold(readHolds(root, cfg.state_branch)); } catch { return; }
   if (!h || h.pr === Number(n)) return;
   let run = null;
   try { run = io.checkRun(slug, h.tip, 'gate'); } catch { run = null; }
-  if (run?.status === 'completed') return;
-  fail(`pull request ${h.pr}'s merged result ${String(h.tip).slice(0, 10)} is gating on ${cfg.tranche} (${run?.html_url || 'its gate run'}), held by the merge train until it ends or ${h.until}: nothing else lands on ${cfg.tranche} meanwhile; nothing was merged; run this again then`);
+  // Only a gate that ended red or cancelled frees the tranche: a green one is the train's to land
+  // (cold review of build train-inflight: a merge here in that stretch made the held result stale).
+  if (run?.status === 'completed' && run.conclusion !== 'success') return;
+  fail(`pull request ${h.pr}'s merged result ${String(h.tip).slice(0, 10)} is ${run?.conclusion === 'success' ? 'green and not yet landed' : 'gating'} on ${cfg.tranche} (${run?.html_url || 'its gate run'}), held by the merge train until it lands or ends, or ${h.until}: nothing else lands on ${cfg.tranche} meanwhile; nothing was merged; run this again then`);
 }

@@ -537,7 +537,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
 // failure to try again (a GitHub error that outlasted the wait's own retries) keeps it.
 const suiteMinutes = (cfg) => (Number(cfg.suite_timeout_minutes) > 0 ? Number(cfg.suite_timeout_minutes) : 0);
 export const HOLD_MINUTES = (cfg) => Math.max(GATE_CAP_MINUTES, suiteMinutes(cfg)) + INFLIGHT_QUEUE_MIN;
-const HOLD_ENDS = /is merged while|is closed while|moved to \S+ while the gate|moved past the merged result|did not finish within|would need a new one|the head the train chose|retargeted/;
+const HOLD_ENDS = /is merged while|is closed while|moved to \S+ while the gate|moved past the merged result|did not finish within|would need a new one|the head the train chose|retargeted|the gate is not green on|is a draft|is into \S+, not/;
 function hold(root, ctx, c, tip) {
   if (ctx.inflight?.pr === c.n && ctx.inflight.tip === tip) return;
   ctx.inflight = { pr: c.n, tip, module: c.id, until: new Date(Date.now() + HOLD_MINUTES(ctx.cfg) * MIN).toISOString() };
@@ -560,8 +560,19 @@ function heldPass(root, ctx, h, { idle }) {
   if (pr.merged) { unhold(root, ctx, h, `merged (${pr.merge_commit_sha || 'elsewhere'})`); return false; }
   if (pr.state !== 'open') { unhold(root, ctx, h, `pull request ${pr.state}`); return false; }
   if (pr.head?.sha !== h.tip) { unhold(root, ctx, h, `head moved to ${String(pr.head?.sha).slice(0, 10)}`); return false; }
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true });
-  if (git(['merge-base', '--is-ancestor', `refs/remotes/origin/${cfg.tranche}`, h.tip], { cwd: root, allowFail: true }).code !== 0) { unhold(root, ctx, h, 'tranche moved'); return false; }
+  // Withdrawn (made a draft) or retargeted: nothing to wait on (cold review of build train-inflight).
+  if (pr.draft) { unhold(root, ctx, h, 'withdrawn: made a draft'); return false; }
+  if (pr.base?.ref !== cfg.tranche) { unhold(root, ctx, h, `retargeted to ${pr.base?.ref}`); return false; }
+  // Its gate ended red (or cancelled): the hold ends with it.
+  let g = null;
+  try { g = io.checkRun(slug, h.tip, 'gate'); } catch { g = null; }
+  if (g?.status === 'completed' && g.conclusion !== 'success') { unhold(root, ctx, h, `gate ${g.conclusion}${g.html_url ? `: ${g.html_url}` : ''}`); return false; }
+  // The tip fetched with the tranche (a restarted train's clone may lack it): only a tip known and
+  // not holding the tranche reads as "tranche moved"; one not readable keeps the hold.
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${pr.head.ref}:refs/remotes/origin/${pr.head.ref}`], { cwd: root, allowFail: true });
+  const anc = git(['merge-base', '--is-ancestor', `refs/remotes/origin/${cfg.tranche}`, h.tip], { cwd: root, allowFail: true }).code;
+  if (anc === 1) { unhold(root, ctx, h, 'tranche moved'); return false; }
+  if (anc !== 0) { ctx.log(`PR ${h.pr}'s held tip ${String(h.tip).slice(0, 10)} is not readable in this clone this pass: the hold stands; read again next pass`); return true; }
   if ((ctx.backoff.get(`${h.pr}@${h.tip}`)?.until || 0) > Date.now()) return true; // tried again after its wait; nothing else meanwhile
   mergeOne(root, ctx, { n: h.pr, id: h.module || branchModule(pr.head.ref, ledgerIds(root, `origin/${cfg.tranche}`)), head: h.tip, ref: pr.head.ref, run: null, green_at: null, held: true }, { queue: 0, idle });
   return true;

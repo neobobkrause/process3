@@ -255,3 +255,14 @@ Ruled: 8A + 8B + the addition, in a PR of its own after PR 156. Conditions, and 
 Code: tool/lib/inflight.mjs (rows, open, start, end, refuseUnderHold), merge.mjs (TRANSIENT,
 guarded reads in waitForGate and waitForChecks, onGate, noPush, refusals in merge and mergePlain
 outside the train), train.mjs (hold, unhold, heldPass, the loop's hold-first pass).
+
+Item 8 review round 1 (cold): fixed, each tested: a held gate ending red kept the hold to its cap
+(now ended "gate <conclusion>"); a held PR made a draft or retargeted kept it (now ended
+"withdrawn: made a draft" / "retargeted to <base>"); a restarted clone lacking the held tip ended
+the hold as "tranche moved" and landed the next job (the tip is now fetched, and an unreadable tip
+keeps the hold); the outside refusal let a merge through once the held gate was green but not yet
+landed (now only a red or cancelled gate frees it); TRANSIENT gained "context deadline exceeded"
+and "connection refused". Kept: the hold's until (105 min with the 90-minute cap) can end before a
+late-starting gate's run does; that only frees merges outside the train (the train stays serial),
+and the ruling bounds a hold by the gate's cap. Kept: the first return to a held PR is not backed
+off (the loop's idle pause stands between passes; backing it off only delays the held gate).

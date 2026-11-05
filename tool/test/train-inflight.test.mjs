@@ -172,16 +172,62 @@ test('a restarted train: an open hold is taken back (the same merged result, not
   }
 });
 
-// The addition
-test('outside the train, merge into the tranche is refused while another PR\'s merged result gates under a hold; once that gate ended it is not', () => {
+// The addition, and the cold review's findings
+test('outside the train, merge into the tranche is refused while another PR\'s merged result is held, gating or green and not yet landed; a red gate frees it', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
   const g = github(root, ids);
   g.ctl.gateReads = 50;
   failOnceWhileGating(g, 'could not read pull request 1 (an unexpected answer)');
   run(root, g, { rounds: 1 });
   assert.throws(() => merge(root, 2, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet }), /pull request 1's merged result \w+ is gating on tranche .*held by the merge train.*nothing was merged/);
+  g.ctl.gateReads = 0; // green, not yet landed by the train: still held
+  assert.throws(() => merge(root, 2, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet }), /is green and not yet landed on tranche/);
   assert.deepEqual(g.calls.merged, []);
-  g.ctl.gateReads = 0; // alpha's gate ended: nothing refused (the train ends the hold at its next pass)
-  const r = merge(root, 2, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet });
-  assert.equal(r.merged, true);
+  const tip = g.tipOf('job/alpha');
+  const check = g.io.checkRun;
+  g.io.checkRun = (slug, sha, name) => (sha === tip ? { id: 9, status: 'completed', conclusion: 'failure', html_url: 'https://ci/red' } : check(slug, sha, name));
+  assert.equal(merge(root, 2, { slug: 'o/r', io: g.io, noReview: 'x', every: 1, wait: 0, log: quiet }).merged, true, 'a red held gate frees the tranche');
+});
+
+test('review: a held gate that ends red, a held PR made a draft or retargeted, each ends the hold with its cause; the next job lands', () => {
+  for (const kind of ['red', 'draft', 'retarget']) {
+    const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
+    const g = github(root, ids);
+    g.ctl.gateReads = 50;
+    failOnceWhileGating(g, 'could not read pull request 1 (an unexpected answer)');
+    run(root, g, { rounds: 1 });
+    const tip = g.tipOf('job/alpha');
+    const check = g.io.checkRun;
+    const get = g.io.getPR;
+    g.ctl.failPR = null;
+    if (kind === 'red') g.io.checkRun = (slug, sha, name) => (sha === tip ? { id: 9, status: 'completed', conclusion: 'failure', html_url: 'https://ci/red' } : check(slug, sha, name));
+    else g.io.getPR = (slug, n) => { const p = get(slug, n); return Number(n) === 1 ? (kind === 'draft' ? { ...p, draft: true } : { ...p, base: { ref: 'elsewhere' } }) : p; };
+    g.ctl.gateReads = 0;
+    run(root, g, { rounds: 2 });
+    const end = rows(root, INFLIGHT_FILE).find((x) => x.row === 'end' && x.pr === 1);
+    assert.match(end.cause, kind === 'red' ? /^gate failure: https:\/\/ci\/red$/ : kind === 'draft' ? /^withdrawn: made a draft$/ : /^retargeted to elsewhere$/, kind);
+    assert.ok(g.calls.merged.includes(2), `${kind}: beta lands once the hold ends`);
+  }
+});
+
+test('review: a restarted train whose clone lacks the held tip fetches it, and does not end the hold as "tranche moved"', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } });
+  const g = github(root, ids);
+  g.ctl.gateReads = 50;
+  failOnceWhileGating(g, 'could not read pull request 1 (an unexpected answer)');
+  run(root, g, { rounds: 1 });
+  const tip = g.tipOf('job/alpha');
+  // A fresh clone of origin with only the tranche and main: alpha's merged result is not in it.
+  const bare = git(['remote', 'get-url', 'origin'], { cwd: root });
+  const fresh = join(mkdtempSync(join(tmpdir(), 'p3-fresh-')), 'c');
+  git(['clone', '-q', '--no-local', '--single-branch', '-b', 'main', bare, fresh], { cwd: root });
+  for (const k of ['user.email', 'user.name']) git(['config', k, git(['config', k], { cwd: root })], { cwd: fresh });
+  git(['fetch', '-q', 'origin', '+refs/heads/tranche:refs/remotes/origin/tranche'], { cwd: fresh });
+  assert.notEqual(git(['cat-file', '-e', `${tip}^{commit}`], { cwd: fresh, allowFail: true }).code, 0, 'the tip is not in the fresh clone');
+  g.ctl.gateReads = 0;
+  run(fresh, g, { rounds: 3 });
+  const ends = rows(fresh, INFLIGHT_FILE).filter((x) => x.row === 'end' && x.pr === 1).map((x) => x.cause);
+  assert.deepEqual(ends, ['landed']);
+  assert.equal(g.calls.landed[0], tip, 'the held merged result, not a new one');
+  assert.equal(g.calls.merged[0], 1, 'nothing landed before it');
 });
