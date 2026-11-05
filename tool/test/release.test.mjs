@@ -42,21 +42,20 @@ test('version and tag naming', () => {
   for (const v of ['', '-x', 'a/b', 'a..b', 'a b', 'x.lock', 'x.', 'a'.repeat(65), 'v$1']) assert.throws(() => checkVersion(v), /the version must be/, v);
 });
 
-test('the round rule (Bob, 5 Nov): a release only at a round close, deployed at the tip, its findings recorded', () => {
-  const tip = 'a'.repeat(40);
+test('the round rule (Bob, 5 Nov): a release only at a round close, deployed and walked, its findings recorded', () => {
   const open = { closed: false, why: 'the first round is open: layer 2 not closed' };
   const shut = { closed: true, round: 'the first round', layer: 2 };
   const none = { last: null, failing: 0, marks: 0, recorded: 0 };
-  const row = (commit, ok = true) => ({ slug: 'p3dev-l2', commit, ok });
-  const between = releaseReady({ rc: open, w: none }, tip);
+  const row = (ok = true) => ({ slug: 'p3dev-l2', commit: 'b'.repeat(40), ok, stopped: ok ? null : 'walk' });
+  const between = releaseReady({ rc: open, w: none });
   assert.equal(between.ok, false);
   assert.match(between.why, /a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
-  assert.match(releaseReady({ rc: shut, w: none }, tip).why, /the first round is closed but aaaaaaaaaa has no deploy row: `node \.process\/tool\/p3\.mjs deploy dev` first/);
-  assert.match(releaseReady({ rc: shut, w: { ...none, last: row('b'.repeat(40)) } }, tip).why, /has no deploy row \(the latest is p3dev-l2 bbbbbbbbbb\)/);
-  const held = releaseReady({ rc: shut, w: { last: row(tip, false), failing: 2, marks: 0, recorded: 0 } }, tip);
+  assert.match(releaseReady({ rc: shut, w: none }).why, /the first round is closed but not yet deployed: `node \.process\/tool\/p3\.mjs deploy dev` first/);
+  const held = releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 1 } });
   assert.equal(held.ok, false);
-  assert.match(held.why, /with 2 finding\(s\), 0 recorded/);
-  assert.deepEqual(releaseReady({ rc: shut, w: { ...none, last: row(tip) } }, tip), { ok: true, why: 'the first round closed, deployed and walked at aaaaaaaaaa (p3dev-l2)' });
+  assert.match(held.why, /with 2 finding\(s\), 1 recorded/);
+  assert.deepEqual(releaseReady({ rc: shut, w: { ...none, last: row() } }), { ok: true, why: 'the first round closed, deployed and walked (p3dev-l2 bbbbbbbbbb)' });
+  assert.match(releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 2 } }).why, /deployed and walked \(p3dev-l2 bbbbbbbbbb, 2 finding\(s\) recorded\)/);
 });
 
 // A product with origin: layer 1 of two, its modules complete, the release block in its config.
@@ -85,11 +84,12 @@ function withOrigin(files) {
 const statusIO = { openPRs: () => [], checkRun: () => null, compare: () => null };
 const io = { status: statusIO, compare: () => null, remoteRefs: () => '' };
 const slug = 'o/p';
+const push = (root, files) => { commit(root, files); git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root }); };
 
 // A deploy row at the tip on origin's state branch, as deploy dev writes it.
-const deployed = (root, commit) => {
-  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root });
-  onState(root, { 'deploys/dev.jsonl': JSON.stringify({ row: 'dev-deploy', tranche: 'tranche', slug: 'p3dev-l2', commit, layer: 2, ok: true, stopped: null }) + '\n' });
+const deployed = (root, commit, over = {}) => {
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root, allowFail: true });
+  onState(root, { 'deploys/dev.jsonl': JSON.stringify({ row: 'dev-deploy', tranche: 'tranche', slug: 'p3dev-l2', commit, layer: 2, ok: true, stopped: null, ...over }) + '\n' });
   git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
 };
 
@@ -100,12 +100,12 @@ test('release dev between layers (Bob, 5 Nov): layer 1 closed, layer 2 open: ref
   assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
 });
 
-test('release dev at a closed round: refused until the round is deployed at the tip, then BOB\'s acts; refused off the tranche tip, on a dirty tree, without a release block, on a taken version', () => {
+test('release dev at a closed round: refused until the round is deployed and walked, then BOB\'s acts; refused off the tranche tip, on a dirty tree, without a release block, on a taken version', () => {
   const { root } = withOrigin(product());
   assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
   assert.equal(layerClose(root, '2', { io: statusIO, log: quiet }).ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
-  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the first round is closed but \w{10} has no deploy row: `node \.process\/tool\/p3\.mjs deploy dev` first/);
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the first round is closed but not yet deployed: `node \.process\/tool\/p3\.mjs deploy dev` first/);
   deployed(root, tip);
   const out = [];
   const r = releaseDev(root, { io, slug, log: (m) => out.push(m) });
@@ -133,6 +133,27 @@ test('release dev at a closed round: refused until the round is deployed at the 
   // No release block.
   const bare2 = withOrigin({ ...product(), 'process/config.json': {} });
   assert.throws(() => releaseDev(bare2.root, { io, slug, log: quiet }), /no "release" block/);
+});
+
+test('release dev after a failed walk: held until its findings are recorded; a known gap lets it go though the tip moved; under plan close the round is closed', () => {
+  const { root } = withOrigin({ ...product(), 'build/round.md': '# Completion round\n' });
+  push(root, { 'process/config.json': { release: REL, completion_file: 'build/round.md' } });
+  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(layerClose(root, '2', { io: statusIO, log: quiet }).ok, true);
+  const t1 = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  deployed(root, t1, { ok: false, stopped: 'walk', walk: { failures: 1 } });
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the latest deploy and walk \(p3dev-l2 \w{10}\) stopped at walk with 1 finding\(s\), 0 recorded/);
+  // Recorded as a known gap: the tip moves past the deploy row, and the release goes on.
+  push(root, { 'build/round.md': `- [ ] C-1 · whole product · layout gap deferred: known gap, p3dev-l2 ${t1.slice(0, 10)}\n` });
+  const r = releaseDev(root, { io, slug, log: quiet });
+  assert.equal(r.ok, true);
+  assert.notEqual(r.commit, t1);
+  // plan close: the last round, closed now, with its deploy row.
+  const { root: r2 } = withOrigin(product());
+  push(r2, { 'process/config.json': { release: REL, plan: 'close' } });
+  assert.throws(() => releaseDev(r2, { io, slug, log: quiet }), /the last round \(plan close\) is closed but not yet deployed/);
+  deployed(r2, git(['rev-parse', 'origin/tranche'], { cwd: r2 }));
+  assert.equal(releaseDev(r2, { io, slug, log: quiet }).ok, true);
 });
 
 test('release dev --record: one row per run on the state branch, with the draft release and the checks; a second record refused', () => {

@@ -339,8 +339,9 @@ const commands = {
   },
 
   // release dev [--version <v>]: BOB's development release (development only; there is no public
-  // release): refused until the current round has closed and is deployed at the tip, and unless the
-  // checkout is the tranche tip and the config has "release"; prints the dispatch on the tranche, the run to watch and the record.
+  // release): refused until the current round has closed and been deployed and walked, its
+  // findings recorded, and unless the checkout is the tranche tip and the config has "release";
+  // prints the dispatch on the tranche, the run to watch and the record.
   // release dev --record <run url>: the run's row (version, commit, run, draft release, checks) on the state branch.
   'release dev': (a, root) => (releaseDev(root, { version: a.version === true ? fail('--version <v>') : a.version, record: a.record === true ? fail('--record <run url>') : a.record }).ok ? 0 : 1),
   // deploy dev [--slug <s>]: BOB's development deployment and walk at a round close (development

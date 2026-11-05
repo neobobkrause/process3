@@ -1,6 +1,6 @@
 // release dev (Build Plan Phase 3, the release row; Bob's word, 3 Nov: development only, there is
 // no public release). BOB cuts a development release from the tranche tip at a round's close only,
-// never between layers (Bob, 5 Nov), once that round is deployed and walked at the tip: the tool
+// never between layers (Bob, 5 Nov), once that round is deployed and walked: the tool
 // prints the dispatch of the product's shim process-dev-release.yml on the tranche (checks and
 // assemble on read-only tokens, then publish, in the environment p3dev-release, which runs no
 // product code: the tag p3dev-<version> and a draft release, never published, never latest).
@@ -69,15 +69,18 @@ export function releaseConfig(cfg) {
 
 // The release's round rule (Bob, 5 Nov): a release only when the current round of the tranche
 // closes, never between layers, as deploy dev reads the round (roundAt). The round's close runs
-// close, internal walk, deploy dev, live walk, findings, then release dev: so the latest deploy row
-// must be at the tip, and its findings recorded (walkHold); recorded findings reopen the round as
-// the completion round, so the release waits for that round's close and its own deploy.
-export function releaseReady({ rc, w }, tip) {
+// close, internal walk, deploy dev, live walk, findings, then release dev: so the round needs its
+// deploy row (deploy dev is refused before a round close, so the latest row is this round's or an
+// earlier round's clean one, as deployOwed reads it) and that run's findings recorded, as tranche
+// close holds them (walkHold). Not the tip: recording a finding moves it (review, 5 Nov). Found
+// marks reopen the round as the completion round; once met they no longer count as recorded, so
+// the release waits for that round's own deploy; known gaps (deferred items) let it go.
+export function releaseReady({ rc, w }) {
   if (!rc.closed) return { ok: false, why: `a release belongs to a round close, never between layers (${rc.why}); it becomes due when the round closes` };
-  if (!w.last || w.last.commit !== tip) return { ok: false, why: `${rc.round} is closed but ${tip.slice(0, 10)} has no deploy row${w.last ? ` (the latest is ${runSource(w.last)})` : ''}: \`${P3} deploy dev\` first, then its walk's findings, then the release` };
+  if (!w.last) return { ok: false, why: `${rc.round} is closed but not yet deployed: \`${P3} deploy dev\` first, then its walk's findings, then the release` };
   const hold = walkHold(w);
   if (hold) return { ok: false, why: hold };
-  return { ok: true, why: `${rc.round} closed, deployed and walked at ${tip.slice(0, 10)} (${w.last.slug})` };
+  return { ok: true, why: `${rc.round} closed, deployed and walked (${runSource(w.last)}${w.failing ? `, ${w.failing} finding(s) recorded` : ''})` };
 }
 
 const runId = (url) => {
@@ -93,8 +96,8 @@ const defaultIO = {
 };
 
 // release dev [--version <v>]: refused until the current round has closed and been deployed and
-// walked at the tip; unless the checkout is the tranche tip with a clean tree and the config has
-// a valid release block; prints BOB's acts.
+// walked, its findings recorded; and refused unless the checkout is the tranche tip with a clean
+// tree and the config has a valid release block. Prints BOB's acts.
 // release dev --record <run url>: one row for the run on the state branch.
 export function releaseDev(root, { version, record, log = console.log, io: given = {}, slug = repoSlug(root) } = {}) {
   const io = { ...defaultIO, ...given };
@@ -111,7 +114,7 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   fetchState(root, cfg.state_branch, { fresh: true });
   const round = roundAt(root, cfg, t, { io, slug });
   if (round.s && round.s.prs === null) fail('GitHub unreadable: open pull requests not known, so the round cannot be judged');
-  const ready = releaseReady(round, tip);
+  const ready = releaseReady(round);
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
   const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
   const taken = io.remoteRefs(root, [`refs/tags/${tagOf(v)}`]).trim();
