@@ -39,6 +39,8 @@ export function startable(next, { onOrigin = () => false } = {}) {
     // One parked in the merge train (its pull request ready, gate green) is the train's, named so (build train-robust, item 4).
     if (x.attempt_open && x.in_train) { skip.push({ file: x.file, id: x.module, why: `in the train (PR ${x.in_train})`, train: x.in_train, ...(x.train_stuck ? { stuck: x.train_stuck } : {}) }); continue; }
     if (x.attempt_open) { skip.push({ file: x.file, id: x.module, why: 'its attempt is open: status says what it needs' }); continue; }
+    // A lane's module while the lane's recorded session is live (lane.mjs): one session per lane.
+    if (x.lane_held) { skip.push({ file: x.file, id: x.module, why: x.lane_held }); continue; }
     // Its job branch on origin unread here (status row.unread): unknown, neither started nor counted.
     if (x.unknown) { skip.push({ file: x.file, id: x.module, why: 'unknown: its job branch could not be read', unknown: true }); continue; }
     if (!x.module) { skip.push({ file: x.file, why: 'no ledger entry: BOB writes it, then job start --ready starts it' }); continue; }

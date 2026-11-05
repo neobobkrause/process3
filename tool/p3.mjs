@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
-import { laneAsk } from './lib/lane.mjs';
+import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
@@ -176,6 +176,28 @@ const commands = {
   'lane ask': (a, root) => {
     if (a._.length !== 2) fail('lane ask <name> "<question>" --context <file>..., the question in quotes');
     laneAsk(root, a._[0], a._[1], { context: a.context, record: a.record, worker: a.worker, cost: a['cost-usd'] });
+    return 0;
+  },
+
+  // lane start <name> [--replace <session>|pending] | --record <session>: the lane's one session
+  // (lane.mjs): its seat written before the create_session call, refused while one is live.
+  // lane end <name> --session <id>|pending --why "<why>": the seat freed.
+  'lane start': (a, root) => {
+    if (a._.length !== 1) fail('lane start <name>');
+    const job = ['reopen', 'restart', 'stop', 'take-in', 'fresh-branch', 'over-cap', 'coordinator'].filter((k) => a[k] !== undefined);
+    if (job.length) fail(`lane start takes no ${job.map((k) => `--${k}`).join(', ')}: those are job start's; a lane's session is its seat (lane start, --replace, lane end)`);
+    laneStart(root, a._[0], { replace: a.replace, record: a.record, model: a.model });
+    return 0;
+  },
+  // lane artifact <name> <link> [--title "<name>"] | --drop: a lane design document's link, recorded for its successor.
+  'lane artifact': (a, root) => {
+    if (a._.length !== 2) fail('lane artifact <name> <link> [--title "<name>"] [--drop]');
+    laneArtifact(root, a._[0], a._[1], { title: a.title, drop: !!a.drop });
+    return 0;
+  },
+  'lane end': (a, root) => {
+    if (a._.length !== 1) fail('lane end <name> --session <id>|pending --why "<why>"');
+    laneEnd(root, a._[0], { session: a.session, why: a.why });
     return 0;
   },
 

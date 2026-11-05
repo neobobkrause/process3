@@ -12,7 +12,8 @@ import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, 
 import { openPinMoves } from './pin.mjs';
 import { OWED_ALARM_MIN, bobAct, layersAt, owe, readAuto, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { readySelection } from './ready.mjs';
-import { SILENT_HOURS, onOriginOf, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { markLaneHeld } from './lane.mjs';
+import { SILENT_HOURS, laneDefects, onOriginOf, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { checkRun, openPRs } from './github.mjs';
 import { readStuck, stuckLine } from './stuck.mjs';
@@ -271,7 +272,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     found.push(`plan ${plan}`, ...owed);
     owed.length = 0; // heartbeat only
   } else {
-    const { rows, sessions, holds = [], heads: originHeads = null } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
+    const { rows, sessions, holds = [], seats = new Map(), heads: originHeads = null } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
     // The cap and the idle alarm count job sessions doing work (build train-robust, item 5): a
     // listed session parked in the train is not counted, and the sweep row records how many.
     const parked = listed ? parkedSessions(listed, rows) : [];
@@ -300,6 +301,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const ls = layerState(root, cfg, rows, tranche);
         if (ls?.ready || ls?.pending) found.push(`layer ${ls.cur.n} ${ls.ready ? 'ready to close' : 'owed a close'}`);
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
+        markLaneHeld(cfg, seats, work);
         // An open attempt read without its pull request (offline): named in the train from GitHub (item 4).
         if (!offline) markInTrain(root, cfg, work, rows, { io: io || {} });
         next = !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
@@ -378,11 +380,13 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       }
     }
     owed.push(...overMedian(root, tranche, attempts));
+    // One session per lane (lane.mjs): a lane with more than one live session is a defect.
+    found.push(...laneDefects(cfg, seats, { rows, listed }));
     // The session list kept clean (Bob, 4 Nov): leftovers archived, orphaned questions passed on.
     if (listed) {
       let pinOpen = null;
       if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
-      const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen });
+      const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen, seats });
       found.push(s.line);
       // A job session archived since the last sweep freed a slot: starts owed (hold.mjs).
       const since = Date.parse(jsonl(readState(root, sb, SWEEP_ROWS_FILE)).filter((r) => r.row === 'sweep').at(-1)?.at) || 0;
