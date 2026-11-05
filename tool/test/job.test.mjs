@@ -1039,6 +1039,19 @@ test('an abandoned WORKING attempt (commits, no PR): --restart and a plain start
   assert.equal(JSON.parse(git(['show', `${tipOf(root, 'job/alpha-2')}:process/ledger/alpha.json`], { cwd: root })).status.state, 'WORKING');
 });
 
+// Copy, 5 Nov (agent-steps PR 392): COMPLETE, its pull request open and red, its session archived.
+test('--restart on a COMPLETE job whose pull request is open gives it a replacement session', () => {
+  const s = abandonedComplete();
+  const pr = { number: 392, html_url: 'https://x/pull/392', user: { login: 'civicsmith' } };
+  const r = jobStart(s.root, 'alpha', { coordinator: 's', restart: 'failed only the revert check; session archived', stop: 'archived', find: () => pr, notes: () => [], log: quiet });
+  assert.equal(r.restarted, true);
+  assert.deepEqual([r.row.state, r.row.pr, r.row.stop], ['COMPLETE', 392, 'archived']);
+  assert.match(r.start, /BOB saw: failed only the revert check; session archived/);
+  assert.equal(r.launch.title, 'job alpha (restart)');
+  // A plain start names --restart for that state.
+  assert.throws(() => jobStart(abandonedComplete().root, 'alpha', { coordinator: 's', setup: ready, open: s.f.open, find: () => pr, prs: noPRs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); a job whose session stopped is restarted with job start alpha --live <n> --restart/);
+});
+
 // Every refusal of job start and --restart on an existing branch names a route; that route, run
 // from the same state, is not refused (no cycles). A route that needs BOB to close a pull request
 // first is run after the close.
@@ -1076,7 +1089,7 @@ test('every refusal in job start and --restart names a route that works from tha
       refusals += 1;
       const route = /--reopen "</.test(msg) ? 'reopen' : /--restart "</.test(msg) ? 'restart' : /resumes with job start alpha --live <n>/.test(msg) ? 'plain' : null;
       assert.ok(route, `${name}, ${mode}: the refusal names no route: ${msg}`);
-      const closed = /BOB closes it/.test(msg);
+      const closed = route === 'reopen' && /BOB closes it/.test(msg);
       if (!closed) assert.notEqual(route, mode, `${name}, ${mode}: the refusal names itself: ${msg}`);
       const s = make();
       assert.doesNotThrow(() => run(s, route, closed ? () => null : s.find), `${name}, ${mode} -> ${route}${closed ? ' after the close' : ''}: ${msg}`);

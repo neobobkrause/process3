@@ -231,7 +231,7 @@ function setupOrStop(root, cfg, slug, setup, log) {
 export function routeFor(id, { state, ahead, open }) {
   const reopen = `job start ${id} --live <n> --reopen "<what it must do>"`;
   if (ahead === 0) return `a new attempt on a merged module is ${reopen}`;
-  if (open) return state === 'COMPLETE' ? `its pull request is open: it merges, or BOB closes it and ${reopen} starts a fresh attempt on the next branch` : `a job whose session stopped is restarted with job start ${id} --live <n> --restart "<why>"`;
+  if (open) return `a job whose session stopped is restarted with job start ${id} --live <n> --restart "<why>"${state === 'COMPLETE' ? ' (its pull request open, red or waiting for its merge; or BOB closes it and --reopen starts a fresh attempt on the next branch)' : ''}`;
   if (state === 'BLOCKED') return `job start ${id} --live <n> --restart "<why>" opens its draft again for a replacement session`;
   if (state === 'WORKING' && ahead === 1) return `an unfinished start resumes with job start ${id} --live <n>`;
   return `its work never merged and no pull request is open: ${reopen} starts a fresh attempt on the next branch, and this one is kept`;
@@ -598,8 +598,10 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
   let pr = find(slug, branch);
   const n = aheadBy(root, { slug, base: cfg.tranche, head: branch, local: [`origin/${cfg.tranche}`, `origin/${branch}`], read: cmp });
   const route = () => routeFor(id, { state, ahead: n, open: !!pr });
-  if (state === 'COMPLETE') fail(`${id} is COMPLETE${n === 0 ? '' : ` on ${branch}`}; ${route()}`);
-  if (!['WORKING', 'BLOCKED'].includes(state)) fail(`${id} is ${state}; --restart is for a WORKING or BLOCKED job`);
+  // A COMPLETE job whose pull request is open and not merged (red, its session archived: copy,
+  // 5 Nov, agent-steps PR 392) gets a replacement session, which pushes fixes and completes again.
+  if (state === 'COMPLETE' && !(pr && n > 0)) fail(`${id} is COMPLETE${n === 0 ? '' : ` on ${branch}`}; ${route()}`);
+  if (!['WORKING', 'BLOCKED', 'COMPLETE'].includes(state)) fail(`${id} is ${state}; --restart is for a WORKING, BLOCKED or COMPLETE-with-open-pull-request job`);
   // A BLOCKED job whose pull request is not open (closed, or never opened) gets its draft opened
   // again here (copy, 4 Nov: BOB opened PR 194 by hand to get past this refusal). A WORKING job
   // with no pull request is an unfinished start, which job start resumes, or an abandoned
