@@ -315,6 +315,11 @@ const readers = {
   },
 };
 export const READERS = Object.keys(readers);
+// The `account` condition alone (switch in's preflight): the reader setup check uses, with its value.
+export function accountCheck(slug, { api: read = api, conditions = loadConditions() } = {}) {
+  let repo;
+  return readers.account(conditions.find((c) => c.id === 'account'), { slug, api: read, repo: () => (repo === undefined ? (repo = read(`repos/${slug}`)) : repo) });
+}
 
 // The approvals file's log at a ref's tip, from GitHub's list of commits by path, as git log's
 // "%H %ct %ce %P" lines: a shallow clone's own log stops at its cut. Unreadable is a throw, which

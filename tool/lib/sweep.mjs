@@ -161,7 +161,7 @@ export function senderFor(root, name, a) {
 }
 export function beforeAct(root, cfg, name, a, { env = process.env, log = console.log, err = console.error } = {}) {
   if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
-  if (env.GITHUB_ACTIONS || name === 'sweep' || (name === 'job start' && a.ready)) return null;
+  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch' || (name === 'job start' && a.ready)) return null;
   try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
