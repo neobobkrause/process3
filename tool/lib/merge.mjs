@@ -18,7 +18,7 @@ import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
 import { reviewTriggers } from './triggers.mjs';
-import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, gh, git, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, gh, git, isRecordPath, isShallow, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const MINUTE = 60000;
@@ -185,40 +185,14 @@ export function merge(root, n, opts = {}) {
   return withTemp('p3-merge-', (tmp) => {
     const wt = join(tmp, id);
     git(['worktree', 'add', '-q', '--detach', wt, `origin/${branch}`], { cwd: root });
-    if (git(['merge-base', '--is-ancestor', `origin/${cfg.tranche}`, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
-      const m = git(['merge', '-q', '--no-ff', '--no-edit', `origin/${cfg.tranche}`, '-m', `Bring ${branch} up to ${cfg.tranche}`], { cwd: wt, allowFail: true });
-      if (m.code !== 0) {
-        git(['merge', '--abort'], { cwd: wt, allowFail: true });
-        fail(`${branch} conflicts with ${cfg.tranche}; the job must bring itself up to date: ${P3} job sync ${id}, then job complete ${id} again`);
-      }
-    }
-    // One merge row per pull request since its last receipt: a rerun that finds this PR's row
-    // already on the branch writes none, and pushes only when the tranche moved since.
-    const rows = readRows(wt, id);
-    const hasRow = mergeRowSince(rows, n);
-    let tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-    if (!hasRow) {
-      const done = rows.filter((r) => r.event === 'complete').pop();
-      // The job's cost first, so the merge row stays the branch's last.
-      jobCostRow(wt, id, rows, { cost: jobCost, session: opts.jobSession, attempt: receipt.attempt, log });
-      appendRow(wt, id, {
-        row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
-        triggers: trig.fired, ...measures,
-        minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
-      });
-      git(['add', '--', metricsFile(id)], { cwd: wt });
-      git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
-      tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-    } else {
-      log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
-      // A rerun that brings the cost an earlier run lacked (review of PR 106: it was dropped):
-      // the priced row, committed and gated as the merged result, as a moved tranche is.
-      if (jobCost !== null && jobCostRow(wt, id, rows, { cost: jobCost, session: opts.jobSession, attempt: receipt.attempt, log }) !== null) {
-        git(['add', '--', metricsFile(id)], { cwd: wt });
-        git(['commit', '-q', '-m', `job cost for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
-        tip = git(['rev-parse', 'HEAD'], { cwd: wt });
-      }
-    }
+    let { tip } = buildMerged(wt, cfg, {
+      n, id, branch, onto: `origin/${cfg.tranche}`, ontoName: cfg.tranche, conflictHint: `; the job must bring itself up to date: ${P3} job sync ${id}, then job complete ${id} again`,
+      reviewed, noReview, rounds, measures, triggers: trig.fired, jobCost, jobSession: opts.jobSession, attempt: receipt.attempt, log,
+    });
+    // A speculated land (train window, C'): L is pushed marked for the gate's spec-tested path only
+    // when it is the tree the spec gate tested, records aside; else the gate on L runs in full.
+    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, log }) : null;
+    if (spec?.tip) tip = spec.tip;
     // The train's return to a held merged result pushes nothing new (the coordinator's ruling: its
     // head holds this PR's merge row on the current tip); anything to push ends the hold instead.
     if (opts.noPush && tip !== pr.head.sha) fail(`pull request ${n}'s held merged result ${pr.head.sha.slice(0, 10)} would need a new one (${tip.slice(0, 10)}): not pushed; the hold ends and the train merges it afresh`);
@@ -276,8 +250,93 @@ export function merge(root, n, opts = {}) {
     // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
     // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
-    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT };
+    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT, ...(spec ? { spec: spec.fast ? { fast: true, pr: spec.pr } : { fast: false, why: spec.why } } : {}) };
   }, { root });
+}
+
+// The job's merged result, built in worktree wt (detached at the job's head): onto merged in
+// with --no-ff unless it is an ancestor already, then the merge row (and the job's cost row) as
+// one commit. merge() and mergedResult() both build it here, so the result the train's spec gate
+// tests (R(i)) and the one merge() lands (L) come from one code path and differ only in records
+// (the row's minutes_from_complete, its time) and in whatever onto itself holds.
+// One merge row per pull request since its last receipt: a rerun that finds this PR's row
+// already on the branch writes none, and pushes only when the tranche moved since.
+function buildMerged(wt, cfg, { n, id, branch, onto, ontoName = onto, conflictHint = '', reviewed, noReview, rounds, measures, triggers, jobCost = null, jobSession, attempt, log = console.log }) {
+  if (git(['merge-base', '--is-ancestor', onto, 'HEAD'], { cwd: wt, allowFail: true }).code !== 0) {
+    const m = git(['merge', '-q', '--no-ff', '--no-edit', onto, '-m', `Bring ${branch} up to ${ontoName}`], { cwd: wt, allowFail: true });
+    if (m.code !== 0) {
+      git(['merge', '--abort'], { cwd: wt, allowFail: true });
+      fail(`${branch} conflicts with ${ontoName}${conflictHint}`);
+    }
+  }
+  const rr = rounds && typeof rounds === 'object' ? rounds : { rounds: rounds ?? 0, decision: null };
+  const rows = readRows(wt, id);
+  const hasRow = mergeRowSince(rows, n);
+  let tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+  if (!hasRow) {
+    const done = rows.filter((r) => r.event === 'complete').pop();
+    // The job's cost first, so the merge row stays the branch's last.
+    jobCostRow(wt, id, rows, { cost: jobCost, session: jobSession, attempt, log });
+    appendRow(wt, id, {
+      row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rr.rounds, ...(rr.decision ? { decision: rr.decision } : {}),
+      triggers: triggers || [], ...(measures || {}),
+      minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
+    });
+    git(['add', '--', metricsFile(id)], { cwd: wt });
+    git(['commit', '-q', '-m', `merge row for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
+    tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+  } else {
+    log(`${branch} already holds the merge row for PR ${n}; no second row is written`);
+    // A rerun that brings the cost an earlier run lacked (review of PR 106: it was dropped):
+    // the priced row, committed and gated as the merged result, as a moved tranche is.
+    if (jobCost !== null && jobCostRow(wt, id, rows, { cost: jobCost, session: jobSession, attempt, log }) !== null) {
+      git(['add', '--', metricsFile(id)], { cwd: wt });
+      git(['commit', '-q', '-m', `job cost for ${id} (PR ${n})`, '--', metricsFile(id)], { cwd: wt });
+      tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+    }
+  }
+  return { tip, hasRow };
+}
+
+// The train's predicted merged result R(i) (C', notes/train-spec-plan.md): the job's head merged
+// onto `onto` (R(i-1), or the tranche tip) with its merge row, as merge() builds L. Built in a
+// worktree of its own and never pushed: the commit stays in root's object store, which worktrees
+// share, for the train to push as the spec head. rounds: reviewRounds' result (or a number);
+// measures: reviewMeasures'; triggers: the fired review triggers; attempt: the receipt's.
+export function mergedResult(root, cfg, { n, id, branch, head, onto, ontoName, reviewed, noReview, rounds, measures, triggers, jobCost = null, jobSession, attempt, log = console.log }) {
+  return withTemp('p3-merge-', (tmp) => {
+    const wt = join(tmp, id);
+    git(['worktree', 'add', '-q', '--detach', wt, head], { cwd: root });
+    const { tip } = buildMerged(wt, cfg, { n, id, branch, onto, ontoName: ontoName || String(onto).slice(0, 10), reviewed, noReview, rounds, measures, triggers, jobCost, jobSession, attempt, log });
+    return { sha: tip, tree: git(['rev-parse', `${tip}^{tree}`], { cwd: wt }) };
+  }, { root });
+}
+
+// The trailer the gate's spec-tested fast path reads on the job PR's head (gate.mjs).
+export const SPEC_TRAILER = 'Spec-Tested';
+// Whether L (tip, in worktree wt) may land on spec PR sp's green: only when the files between the
+// spec's tested commit and L are all record paths (the rule record-since-green already applies).
+// Then L's head commit is rewritten with the trailer, same tree and same parents (checked), so the
+// bytes pushed are the bytes built; anything else is today's full re-gate, and says why. A tip
+// that is already the PR's head is never rewritten (nothing new is pushed): it is fast only when
+// an earlier run pushed it with this trailer.
+function specMark(wt, cfg, { pr: sp, sha }, { tip, was, log = console.log }) {
+  const trailer = `${SPEC_TRAILER}: ${sp}`;
+  const marked = (c) => git(['log', '-1', '--format=%B', c], { cwd: wt }).split('\n').some((l) => l.trim() === trailer);
+  const slow = (why) => { log(`spec PR ${sp}: ${why}; the gate on the merged result runs in full`); return { fast: false, why }; };
+  if (!sha || !/^[0-9a-f]{7,64}$/i.test(String(sha)) || git(['cat-file', '-e', `${sha}^{commit}`], { cwd: wt, allowFail: true }).code !== 0) return slow(`the spec's tested commit ${String(sha).slice(0, 10)} is not readable here`);
+  if (tip === was && !marked(tip)) return slow('nothing pushed');
+  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordPath(cfg, f));
+  if (differ.length) return slow(`the merged result ${tip.slice(0, 10)} differs from the tree spec PR ${sp} tested (${sha.slice(0, 10)}) outside the records: ${differ.slice(0, 5).join(', ')}${differ.length > 5 ? ` and ${differ.length - 5} more` : ''}`);
+  if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside`); return { fast: true, pr: sp }; }
+  const shape = (c) => git(['rev-list', '--no-walk', '--format=%T %P', c], { cwd: wt }).split('\n').pop();
+  const before = shape(tip);
+  const msg = git(['log', '-1', '--format=%B', tip], { cwd: wt }).replace(/\s+$/, '');
+  git(['commit', '-q', '--amend', '--allow-empty', '--no-verify', '-m', `${msg}\n\n${trailer}`], { cwd: wt });
+  const out = git(['rev-parse', 'HEAD'], { cwd: wt });
+  if (shape(out) !== before) fail(`marking ${tip.slice(0, 10)} with ${trailer} changed its tree or parents; nothing was pushed`);
+  log(`the merged result is the tree spec PR ${sp} tested, records aside: ${out.slice(0, 10)} carries ${trailer}; its gate takes the spec-tested path`);
+  return { fast: true, pr: sp, tip: out };
 }
 
 // The per-PR checks a job's merge holds before it brings the job in (merge, and each member of
@@ -694,6 +753,8 @@ export function mergePlain(root, n, opts = {}) {
   const head = pr.head.ref;
   if (!pr.head.repo?.full_name || pr.head.repo.full_name !== slug) fail(`pull request ${n} comes from ${pr.head.repo?.full_name || 'a repository that no longer exists'}, not ${slug}`);
   if (isJob(head)) fail(`pull request ${n} is a job's (${head}); merge it without --plain`);
+  // A train spec pull request (train-spec C') is never merged: it is a test of a predicted merged result.
+  if (/^train\/head\//.test(head)) fail(`pull request ${n} is the merge train's spec (${head}): it is never merged; the job's own pull request lands`);
   if (isJob(base)) fail(`pull request ${n} is into ${base}, a job's branch`);
   const main = base === 'main' || base === pr.base.repo?.default_branch;
   // Before anything waits on checks: a conflicted pull request gets none (copy PR 108, 4 Nov).
