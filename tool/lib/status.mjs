@@ -321,12 +321,15 @@ export function flow(cfg, rows, next, live, listed = null) {
   // running or waiting (idle), and what a waiting one waits on where status knows it.
   const wait = [];
   let working = 0;
-  for (const r of listed ? rows : []) {
-    const js = jobSession(listed, r.id);
-    if (!js || isArchived(js)) continue;
+  // Every unarchived job session, as the cap counts them (review of 5cb2fab: the split left out
+  // other products' sessions and older duplicates); what each waiting one waits on where known.
+  for (const js of (listed || []).filter((x) => !isArchived(x))) {
+    const id = String(js.title || '').trim().match(/^job (\S+)( \(restart\))?$/)?.[1];
+    if (!id) continue;
     if (!isIdle(js)) { working++; continue; }
-    // A done job's idle session holds a slot until archived.
-    wait.push(`${r.id} ${!jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
+    const r = rows.find((y) => y.id === id);
+    // A done job's idle session, or an older one beside its latest, holds a slot until archived.
+    wait.push(`${id} ${!r ? 'not this product\'s' : jobSession(listed, id) !== js || !jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
   }
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
   // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).

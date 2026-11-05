@@ -231,7 +231,7 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
+export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, still, push = true, open = createPR, find = findPR, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
   // --restart with --fresh-branch (coordinator, 4 Nov): an OPEN module's new attempt on a fresh
   // branch; the start row records the restart's why with the fresh branch's.
   if (restart !== undefined && fresh !== undefined) {
@@ -251,6 +251,11 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   // The tip the setup check anchored to and checked (approvals, pin) is the one the job is cut
   // from; a tip fetched after it was never checked (confirming review of the anchor).
   const at = push ? anchoredTip(root, cfg) : null;
+  // The anchored tip's plan, and what the caller read the start from (job start --ready: the
+  // module's facts), judged at the tip the job is cut from (confirming review of the anchor).
+  if (push && (cfg.plan === 'pause' || cfg.plan === 'stop')) fail(`plan ${cfg.plan} at the tip of ${cfg.tranche}: take no new step; nothing was started`);
+  const moved = still?.(at || `origin/${cfg.tranche}`);
+  if (moved) fail(moved);
   if (push && !at) fetchRef(root, cfg.tranche);
   const from = at || (push ? `origin/${cfg.tranche}` : cfg.tranche);
   const ids = ledgerIds(root, from);

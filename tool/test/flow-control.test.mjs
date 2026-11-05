@@ -85,6 +85,15 @@ test('flow: with slots free, the requirement files over the cap are named as BOB
   assert.doesNotMatch(full.line, /split/);
 });
 
+test('flow: working and waiting add up to every unarchived job session the cap counts: another product\'s, and an older one beside its latest', () => {
+  const s = (id, title, st, at) => ({ id, title, session_status: st, updated_at: at });
+  const listed = [s('s1', 'job a', 'running', '2026-11-05T04:00:00Z'), s('s2', 'job a (restart)', 'idle', '2026-11-05T04:10:00Z'), s('s3', 'job zz', 'idle', '2026-11-05T04:00:00Z'), s('s4', 'job b', 'idle', '2026-11-05T04:00:00Z'), s('s5', 'job c', 'archived', '2026-11-05T04:00:00Z'), s('s6', 'BOB', 'running', '2026-11-05T04:00:00Z')];
+  const rows = [{ id: 'a', tranche: 'OPEN', branch: 'WORKING' }, { id: 'b', tranche: 'COMPLETE', pr: 'merged' }];
+  const f = flow({}, rows, [], 4, listed);
+  assert.equal(f.working + f.waiting, 4);
+  assert.match(f.line, /\(working 1, waiting 3: a BOB, zz not this product's, b archive\)/);
+});
+
 test('next work tags the release path (layer work, release_path) and debt (every unmet mark a base-red found mark)', () => {
   const root = product({
     'process/config.json': JSON.stringify({ release_path: ['solo'] }),

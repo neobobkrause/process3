@@ -85,6 +85,22 @@ test('merge in a depth-1 clone (the MERGER\'s, 5 Nov): both sides deepened to th
   }
 });
 
+test('merge in a depth-1 clone: a push to the job branch while it deepens is refused, never merged unchecked', () => {
+  const { root, head } = setup();
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'more.txt': 'x' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const bare = git(['remote', 'get-url', 'origin'], { cwd: root });
+  const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
+  git(['clone', '-q', '--depth', '1', '-b', 'tranche', `file://${bare}`, thin], { cwd: tmpdir() });
+  for (const [k, v] of [['user.email', 'm@example.com'], ['user.name', 'M'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: thin });
+  // GitHub's compare answers as the job pushes again.
+  const compare = () => { git(['checkout', '-q', 'job/alpha'], { cwd: root }); commit(root, { 'src/alpha/late.mjs': 'y' }); git(['push', '-q', 'origin', 'job/alpha'], { cwd: root }); return null; };
+  const f = io(head);
+  assert.throws(() => merge(thin, 3, { slug: 'o/r', io: { ...f.io, compare }, reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }), /job\/alpha moved since the gate ran; run merge again/);
+  assert.equal(f.calls.merged, null);
+});
+
 test('merge tries again when GitHub says the base moved, and merges the same tip', () => {
   const { root, head } = setup();
   const f = io(head);

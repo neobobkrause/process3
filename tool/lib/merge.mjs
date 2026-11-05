@@ -285,6 +285,7 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
   if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
   deepenToBase(root, slug, cfg.tranche, branch, io.compare);
+  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
   // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
   // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
   const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
@@ -679,6 +680,7 @@ export function mergePlain(root, n, opts = {}) {
   // The first close: the tranche named by the head's own config (held by pinChange below), with a pin.
   if (boot) bootstrapHead(root, pr.head.sha, { base, head, log });
   deepenToBase(root, slug, base, head, io.compare);
+  if (git(['rev-parse', `origin/${head}`], { cwd: root }) !== pr.head.sha) fail(`${head} moved since GitHub reported ${pr.head.sha.slice(0, 10)}; run merge again`);
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = diffNames(root, mb, pr.head.sha);

@@ -161,6 +161,22 @@ test('the anchor: a job is cut from the tip it checked, never one fetched after;
   }
 });
 
+test('job start --ready: a pause or a module\'s own change landing just before the anchor (inside the setup check) is judged at the tip the job is cut from', (t) => {
+  setJobCap(t, 10);
+  for (const shallow of [false, true]) {
+    const { root, move } = product(['a', 'b', 'c'], { shallow });
+    const next = ['a', 'b', 'c'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
+    // Before the anchor of b's start: b's own requirement file changes; before c's: plan pause.
+    const land = { b: { 'r/b.md': '- **R1** *(not yet met: x)* changed\n' }, c: CFG({ plan: 'pause' }) };
+    let current = null;
+    const setup = (r, o) => { if (land[current]) move(land[current]); const c = startCheck(r, { branch: 'tranche', anchor: o.anchor, log: quiet }); return c.ok ? base() : { ok: false, missing: ['session-branch'], results: [] }; };
+    const out = [];
+    const r = startReady(root, { live: 0, remote: new Set(), read: () => ({ next }), start: (rt, id, o) => { current = id; return jobStart(rt, id, { ...o, coordinator: 's', open: () => ({ number: 1, html_url: 'u' }), find: () => null, log: quiet }); }, setup, log: (l) => out.push(l) });
+    assert.deepEqual(r.started.map((x) => x.id), ["a"], (shallow ? "shallow " : "full ") + JSON.stringify(r.failed));
+    assert.deepEqual(r.failed.map((x) => [x.id, /changed on the tranche|plan pause/.exec(x.why)?.[0]]), [['b', 'changed on the tranche'], ['c', 'plan pause']]);
+  }
+});
+
 test('merge train: run bare it prints its usage and takes no lease, whatever the container\'s session id', (t) => {
   const root = makeRepo({ 'README.md': 'x' });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');

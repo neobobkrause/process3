@@ -108,8 +108,7 @@ export function batchSetup(root, cfg, { setup = setupCheck, check = startCheck }
 // state branch). Any other config change is read by the start itself at the anchored tip.
 const START_KEYS = ['plan', 'tranche', 'state_branch'];
 const FACTS_WHY = "its entry or requirement file, or the product's plan, tranche or state branch, changed on the tranche since this run read it";
-const factsAt = (root, cfg, j) => {
-  const at = `refs/remotes/origin/${cfg.tranche}`;
+const factsAt = (root, cfg, j, at = `refs/remotes/origin/${cfg.tranche}`) => {
   return [...[entryFile(j.id), j.file].map((p) => git(['rev-parse', '-q', '--verify', `${at}:${p}`], { cwd: root, allowFail: true }).stdout.trim()), ...START_KEYS.map((k) => JSON.stringify(keyAt(root, at, k)))].join(' ');
 };
 
@@ -194,7 +193,7 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
     // shows no launch, so BOB delivers only those of jobs that started (review of PR 100).
     const held = [];
     try {
-      const r = start(root, j.id, { coordinator, model, setup, ...(j.reopen ? { reopen: j.reopen } : {}), log: (l) => held.push(l) });
+      const r = start(root, j.id, { coordinator, model, setup, still: (at) => (factsAt(root, cfg, j, at) === facts.get(j.id) ? null : FACTS_WHY), ...(j.reopen ? { reopen: j.reopen } : {}), log: (l) => held.push(l) });
       // A resumed start whose pull request was already open may have its session running.
       if (r?.resumed && r.pr && !r.created) {
         for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);
