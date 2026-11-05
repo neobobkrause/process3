@@ -2,7 +2,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, aheadBy, block, checkRuns, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
+import { RECEIPT, addComment, aheadBy, block, checkRuns, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft, baseEverChanged, unbound } from './github.mjs';
 import { ownPaths } from './gate.mjs';
 import { checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
 import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
@@ -498,7 +498,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
 // the job's new draft pull request, which BOB closes or keeps: the tool closes nothing.
 function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, find, setup, compare: cmp, gh: io, log }) {
   if (from === true || !String(from ?? '').trim()) fail('--take-in needs the branch or pull request number of the earlier work');
-  const x = { getPR, editPR, toDraft, addComment, ...io };
+  const x = { getPR, editPR, toDraft, addComment, prsFromBranch, baseEverChanged, ...io };
   const slug = push ? repoSlug(root) : 'local/local';
   if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
   const cfg = loadConfig(root);
@@ -513,6 +513,13 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     source = pr.head.ref;
   } else if (push) pr = find(slug, source);
   if (source === cfg.tranche || source === 'main' || source === cfg.state_branch) fail(`${source} is not earlier work; take in a work branch`);
+  // A reused pull request is moved to the tranche; one from job/<id> into another base, or one
+  // whose base already changed, leaves the branch's runs bound to no job PR (github.mjs unbound),
+  // so merge would refuse the job for good (cold review of build/branch-bound): refused here.
+  if (push && pr && pr.head.ref === job) {
+    const loose = unbound(slug, job, pr.number, cfg.tranche, x);
+    if (loose) fail(`pull request #${pr.number} cannot become ${id}'s job pull request: ${loose}, so merge could never trust its gate runs. Nothing was written; bring it to Bob`);
+  }
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
   const at = push ? anchoredTip(root, cfg) : null;

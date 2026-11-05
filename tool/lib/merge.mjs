@@ -343,7 +343,7 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   // have uploaded any row (confirming review of build/train-spec, 5 Nov).
   boundOrFail(slug, branch, n, cfg.tranche, io);
   const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
-    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
+    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche, branch }));
   if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unagreed(gateRuns(all), pr.head.sha, receipt.attempt)}`);
 
   // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
@@ -684,7 +684,7 @@ function refreshGate(slug, n, sha, files, { base, head, baseSha, untracked = [],
   if (io.checkRun(slug, sha, 'gate')?.conclusion !== 'success') fail(`pull request ${n} changes generated module files (${files.slice(0, 5).join(', ')}), and the gate on ${sha.slice(0, 10)} is not green`);
   boundOrFail(slug, head, n, base, io);
   const rows = gateRuns(io.comments(slug, n)).filter((r) => r.sha === sha);
-  const ok = rows.filter((r) => r.ok && r.base === baseSha && r.refresh?.result === 'identical' && files.every((f) => r.refresh.files?.includes(f)) && untracked.every((f) => r.refresh.untracked?.includes(f))).find((r) => io.verify(slug, r, { pr: n, baseRef: base }));
+  const ok = rows.filter((r) => r.ok && r.base === baseSha && r.refresh?.result === 'identical' && files.every((f) => r.refresh.files?.includes(f)) && untracked.every((f) => r.refresh.untracked?.includes(f))).find((r) => io.verify(slug, r, { pr: n, baseRef: base, branch: head }));
   if (!ok) {
     const newest = rows.at(-1);
     const last = newest?.refresh;

@@ -249,13 +249,13 @@ test('job gate posts nothing; job post posts the artifact\'s row, and merge\'s v
   assert.equal(rows.length, 1);
   assert.match(c.body, new RegExp(`Gate run on \`${s.head.slice(0, 10)}\`: green, code`));
   // The run is the process gate on the head, completed green, and its artifact is the same file.
-  const actionsRun = { path: GATE_WORKFLOW, head_sha: s.head, status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 5, base: { ref: 'tranche' } }] };
+  const actionsRun = { path: GATE_WORKFLOW, head_sha: s.head, status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 5, base: { ref: 'tranche' } }], head_branch: 'job/alpha', head_repository: { full_name: 'o/r' } };
   const art = JSON.parse(readFileSync(file, 'utf8')).run;
   assert.equal(rows[0].run_id, 4242);
-  assert.equal(verifyRow('o/r', rows[0], { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), true);
+  assert.equal(verifyRow('o/r', rows[0], { pr: 5, baseRef: 'tranche', branch: 'job/alpha' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), true);
   // A copy of the row that widens what a later receipt may excuse is not this run's (review of PR 134).
   for (const k of ['receipt_passed', 'base_red']) {
-    assert.equal(verifyRow('o/r', { ...rows[0], [k]: [{ tests: ['t/a.test.mjs::x'] }] }, { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), false, k);
+    assert.equal(verifyRow('o/r', { ...rows[0], [k]: [{ tests: ['t/a.test.mjs::x'] }] }, { pr: 5, baseRef: 'tranche', branch: 'job/alpha' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), false, k);
   }
 });
 

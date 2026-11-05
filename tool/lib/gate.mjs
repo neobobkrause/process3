@@ -131,7 +131,7 @@ export function gate(root, opts) {
   const greens = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse();
   const loose = greens.length ? unbound(slug, branch, pr, cfg.tranche, io) : null;
   if (loose) log(`no earlier green run stands for the records-only path: ${loose}`);
-  const lastGreen = loose ? undefined : greens.find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
+  const lastGreen = loose ? undefined : greens.find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche, branch }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     && diffNames(root, lastGreen.sha, head).every((f) => isRecordPath(cfg, f));
 
