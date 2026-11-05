@@ -516,3 +516,4 @@
 - 11:45 pin move -> 06ab532: session_018BhcedH89Ji4J97RgC9RKG. Build session archived.
 - 11:45 BOB: plain PR 498 queued (release_path [control-plane, journey-check]; screens-document-beta paths + document.mjs). Holds 5 (acquisition-archives, M-R7), 6 (member-upload). store-jobs cannot run as a job (no paths or tests); its R24 joins store-assembly's reopen after 414. Archived 495, 494, 477, 496. Live 15/20; --ready lists nothing more (the rest waits on lands: 414, 468, 469, 290).
 - 11:52 HOURLY FLOW: per BOB 11:45, 15/20 live, nothing more --ready (waits on lands 414, 468, 469, 290, 498). Context 57%: handoff f written; next coordinator started.
+- 11:50 BOB: 498 merged 11:46 (13b925a, release_path on the copy). Gap: an --exempt-revert receipt-only rerun posts no new head, so the gate does not re-run (462, 471, 488, 490, 492 re-run by hand). Live 14/20. Passed to the new coordinator session_018BhcegkGtAhUqZ59UwPUUK.
