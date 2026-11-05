@@ -105,7 +105,7 @@ test('job complete in a depth-1 clone: the merge base from compare, the branch d
   assert.throws(() => shallowBase(clone, 'o/p', 'tranche', 'job/alpha', () => null), /did not give the merge base/);
 });
 
-test('every create_session call carries clone_depth 1 and no blob limit; "clone": null leaves it out', () => {
+test('every create_session call but the MERGER\'s carries clone_depth 1 and no blob limit; "clone": null leaves it out', () => {
   const root = makeRepo({ 'README.md': 'x', 'process/config.json': { tranche: 'tranche' }, 'process/ledger/alpha.json': entry('alpha') });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -117,6 +117,8 @@ test('every create_session call carries clone_depth 1 and no blob limit; "clone"
   const a = { root: { session: 'session_root1' } };
   for (const role of ['root', 'bob', 'watcher']) assert.deepEqual(slim(startRole(root, role, { slug: 'o/p', address: a, log: quiet }).call), [1, false], role);
   assert.deepEqual(slim(jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }).launch), [1, false], 'job start');
+  // The MERGER reads merge bases: a full clone (coordinator, 5 Nov).
+  assert.deepEqual(slim(startRole(root, 'merger', { slug: 'o/p', address: a, log: quiet }).call), [undefined, false], 'merger');
   commit(root, { 'process/config.json': { tranche: 'tranche', clone: null } }, 'no slim clone');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   assert.deepEqual(slim(startRole(root, 'bob', { slug: 'o/p', address: a, log: quiet }).call), [undefined, false]);

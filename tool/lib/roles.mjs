@@ -99,7 +99,9 @@ export function tipApprovals(root, cfg = loadConfig(root)) {
 // A commit id, not the branch name: measured 3 Nov, a branch name landed on a stale local copy of it in the saved container.
 const launch = (slug, cfg, role, title, prompt, tip) => {
   const model = cfg.roles?.[role]?.model;
-  return { title, source_url: `https://github.com/${slug}`, source_revision: tip, ...(cfg.clone || {}), ...(model ? { model } : {}), prompt };
+  // The MERGER reads merge bases between job branches and the tranche: a full clone (coordinator, 5 Nov: at clone_depth 1 every land failed).
+  const { clone_depth: _, ...full } = cfg.clone || {};
+  return { title, source_url: `https://github.com/${slug}`, source_revision: tip, ...(role === 'merger' ? full : cfg.clone || {}), ...(model ? { model } : {}), prompt };
 };
 
 // The wake check (BOB, ROOT and the watcher, never a job): at every wake, the tranche's tip, the

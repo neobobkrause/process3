@@ -62,6 +62,29 @@ test('merge brings the branch up to the tranche, writes the merge row, and merge
   assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left');
 });
 
+test('merge in a depth-1 clone (the MERGER\'s, 5 Nov): both sides deepened to their merge base by GitHub\'s compare, or unshallowed once without it, then merged end to end', () => {
+  for (const withCompare of [true, false]) {
+    const { root, head } = setup();
+    git(['checkout', '-q', 'tranche'], { cwd: root });
+    for (let i = 0; i < 4; i += 1) commit(root, { [`more${i}.txt`]: String(i) });
+    git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+    const bare = git(['remote', 'get-url', 'origin'], { cwd: root });
+    const thin = join(mkdtempSync(join(tmpdir(), 'p3-thin-')), 'c');
+    git(['clone', '-q', '--depth', '1', '-b', 'tranche', `file://${bare}`, thin], { cwd: tmpdir() });
+    for (const [k, v] of [['user.email', 'm@example.com'], ['user.name', 'M'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: thin });
+    git(['fetch', '-q', '--depth', '1', 'origin', '+refs/heads/job/alpha:refs/remotes/origin/job/alpha'], { cwd: thin });
+    assert.equal(git(['merge-base', 'origin/job/alpha', 'origin/tranche'], { cwd: thin, allowFail: true }).code, 1, 'no merge base in the depth-1 clone as it is');
+    const count = (a, b) => Number(git(['rev-list', '--count', a, `^${b}`], { cwd: root }));
+    const compare = withCompare ? () => ({ ahead_by: count('job/alpha', 'tranche'), behind_by: count('tranche', 'job/alpha'), merge_base_commit: { sha: git(['merge-base', 'job/alpha', 'tranche'], { cwd: root }) } }) : () => null;
+    const f = io(head);
+    const r = merge(thin, 3, { slug: 'o/r', io: { ...f.io, compare }, reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} });
+    assert.equal(r.merged, true);
+    const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: thin }).split('\t')[0];
+    assert.equal(f.calls.merged, tip);
+    assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: thin }), withCompare ? 'true' : 'false', withCompare ? 'deepened, not unshallowed' : 'unshallowed once');
+  }
+});
+
 test('merge tries again when GitHub says the base moved, and merges the same tip', () => {
   const { root, head } = setup();
   const f = io(head);
