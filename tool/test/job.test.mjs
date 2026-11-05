@@ -160,7 +160,11 @@ test('block sets BLOCKED with its reason', () => {
   assert.deepEqual(readEntry(root, 'alpha').status.reason, 'R65 names an error code nobody chose');
   // --owner names who owes its ruling (audit of PR 139); the entry still validates.
   assert.throws(() => jobBlock(root, 'alpha', { reason: 'x', owner: 'ROOT', push: false, log: quiet }), /--owner bob .* or coordinator/);
-  jobBlock(root, 'alpha', { reason: 'R65 names an error code nobody chose', owner: 'bob', push: false, log: quiet });
+  // --owner bob only for an item on coordinator rule 1's closed list, named (a)-(d) with a reason (Bob, 5 Nov 14:50).
+  for (const reason of ['R65 names an error code nobody chose', 'merge design: may the train gate 4 in parallel?', '(c)', '(e) a lane'])
+    assert.throws(() => jobBlock(root, 'alpha', { reason, owner: 'bob', push: false, log: quiet }), /^Error: decide it: not Bob's \(coordinator rule 1\)|decide it: not Bob's \(coordinator rule 1\)/);
+  assert.equal(readEntry(root, 'alpha').status.owner, undefined);
+  jobBlock(root, 'alpha', { reason: '(c) R65 and R12 contradict: which error code must the product show?', owner: 'bob', push: false, log: quiet });
   assert.deepEqual([readEntry(root, 'alpha').status.owner, checkLedger(root).length], ['bob', 0]);
 });
 

@@ -32,6 +32,7 @@ import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
+import { coordinatorPage, handoffCheck } from './lib/asks.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { switchIn, switchOut, switchQuiet } from './lib/switch.mjs';
@@ -55,7 +56,18 @@ const commands = {
 
   // handoff [--context <percent>] [--note "<prose line>"]...: BOB's one-screen handoff, written
   // from status --role bob to the state branch's handoff/bob.md and pushed (SES-3).
+  // handoff --check <file>...: a handoff file read against coordinator rules 1 to 3 (no rules, none
+  // of Bob's words restated, nothing routed to Bob off the closed list); writes nothing.
+  // handoff --role coordinator [--from <id>] [--sessions <list_sessions JSON>] [--tasks <list_triggers JSON>]
+  //   [--act "<in-flight act>"]... [--out <file>]: the coordinator's handoff page, generated (rule 3).
   handoff: (a, root) => {
+    if (a.check !== undefined) return handoffCheck([...list(a.check), ...a._].filter((x) => x !== true));
+    if (a.role === 'coordinator') {
+      const tranche = git(['log', '-1', '--format=%h %s', 'origin/tranche'], { cwd: root, allowFail: true });
+      const page = coordinatorPage({ from: a.from === true ? undefined : a.from, tranche: tranche.code === 0 ? tranche.stdout.trim() : null, sessions: a.sessions, tasks: a.tasks, acts: list(a.act).filter((x) => x !== true) });
+      if (a.out && a.out !== true) writeFileSync(a.out, page); else process.stdout.write(page);
+      return 0;
+    }
     const lines = [];
     const s = status(root, { role: 'bob', context: a.context, log: (l) => lines.push(l) });
     handoff(root, loadConfig(root).state_branch, { role: 'bob', tranche: s.tranche, lines, notes: list(a.note).filter((x) => x !== true) });
@@ -193,7 +205,7 @@ const commands = {
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
 
-  // block <id> --reason "<why>" [--owner bob|coordinator]: who owes its ruling; bob only for a requirement question, what the product must do (rule 9)
+  // block <id> --reason "<why>" [--owner bob|coordinator]: who owes its ruling; bob only with a reason opening (a)-(d), coordinator rule 1's closed list
   block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason, owner: a.owner }).ok ? 0 : 1),
 
   // metrics add <id> --attempt n --session s [--tokens n] [--cost-usd x] [--denials n]

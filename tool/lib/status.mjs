@@ -1,5 +1,6 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
+import { bobClass } from './asks.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
@@ -398,8 +399,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
 const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) => (t > 0 ? t : fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`));
 // The jobs BLOCKED awaiting a ruling (not deferred: a recorded reason and its pull request closed),
 // oldest first, each with its minutes since its block (its entry's status.at; unknown listed last).
-// Past targets.decision_minutes its ruling is owed: Bob's when its reason names a requirement (Build
-// Plan rule 9: the word or an R<id>), else the coordinator's (coordinator, 5 Nov: 44 job-hours BLOCKED in a day on the copy).
+// Past targets.decision_minutes its ruling is owed: Bob's when its reason names its class on the
+// closed list (coordinator rule 1: "(a)".."(d)"), else the coordinator's (coordinator, 5 Nov: 44 job-hours BLOCKED in a day on the copy).
 // A job whose module is under a live hold (hold.mjs, `hold module:<id>`) owes no ruling: the hold
 // is the ruling's record (coordinator, 5 Nov: op-declarations, held to 11:27, relayed as owed every
 // sweep). It is shown held, with the hold's reason and expiry; layers: a layer hold holds it too.
@@ -412,9 +413,9 @@ export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new 
   const target = decisionMinutes(cfg);
   return rows.filter((r) => (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') && !(r.blocked && !/^(#|unknown)/.test(r.pr || ''))).map((r) => {
     const min = Date.parse(r.since || '') ? Math.floor((t - Date.parse(r.since)) / 6e4) : null;
-    // Bob's only for a requirement question by rule 9's test, what the product must do (audit of PR
-    // 139): the owner `job block --owner` named, else a reason that opens with "requirement" or asks it.
-    const bob = r.owner ? r.owner === 'bob' : /^requirement\b|what the product must do/i.test(r.blocked || '');
+    // Bob's only for an item on coordinator rule 1's closed list, its reason opening (a)-(d) (Bob, 5 Nov
+    // 14:50); an owner of bob without one is decided by the coordinator, as an item off the list is.
+    const bob = r.owner !== 'coordinator' && !!bobClass(r.blocked);
     const held = heldBy(holds || [], r.id, layers);
     const by = !held && min > target ? (bob ? 'Bob' : `the coordinator${cfg.coordinator ? ` (${cfg.coordinator})` : ''}`) : null;
     const since = `; blocked ${min === null ? 'since unknown' : `${min} min`}`;

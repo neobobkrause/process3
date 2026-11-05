@@ -60,7 +60,8 @@ test('ROOT and the watcher carry the act to the coordinator session, and their r
     const t = read(role);
     assert.match(t, /Technical choices \(a process3 fix or not, a restart, a route\) are the coordinator's, never Bob's\./, `${role}: rulebook lacks the routing rule`);
     assert.equal(t.split("rule 9's test").length - 1, 1, `${role}: rule 9's test stated other than once`);
-    assert.equal(t.split('his approvals or accounts, or an act only he can take').length - 1, 1, `${role}: the test's words other than once`);
+    // One source (Bob, 5 Nov 14:50): the test points at the coordinator's closed list and restates no category.
+    assert.match(t, /the closed list in `rulebooks\/coordinator\.md` rule 1/, `${role}: the test does not cite coordinator rule 1`);
   }
 });
 

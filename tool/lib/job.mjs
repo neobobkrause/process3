@@ -1,4 +1,5 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
+import { bobClass, listHelp } from './asks.mjs';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,7 +65,7 @@ export const wakeLine = (what, from) => (from === 'bob' ? null : `next act: wake
 
 // TXT-3, TXT-5: each role's rulebook, in the pinned process. The platform loads a skill by its
 // description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
-export const RULEBOOKS = ['bob', 'root', 'watcher', 'merger', 'job', 'worker'];
+export const RULEBOOKS = ['bob', 'root', 'watcher', 'merger', 'job', 'worker', 'coordinator'];
 export const rulebook = (role) => `.process/rulebooks/${role}.md`;
 export const rulebookLine = (role, who = 'your prompt') => `Your rulebook is \`${rulebook(role)}\`: read it once, after \`git submodule update --init .process\` fills the pin; ${who} wins where they differ.`;
 
@@ -1195,7 +1196,9 @@ export function regate(slug, pr, sha, posted, { io, log = console.log, all = [],
 // the entry, and can run again to finish a push that failed.
 export function jobBlock(root, id, { reason, owner, push = true, log = console.log } = {}) {
   if (!reason || reason === true) fail('block needs --reason "<why>"');
-  if (owner !== undefined && owner !== 'bob' && owner !== 'coordinator') fail('--owner bob (a requirement question: what the product must do) or coordinator (anything else)');
+  if (owner !== undefined && owner !== 'bob' && owner !== 'coordinator') fail('--owner bob (only an item on coordinator rule 1\'s closed list) or coordinator (anything else)');
+  // Bob's only for an item on the closed list, named with its reason (coordinator rule 1; Bob, 5 Nov 14:50).
+  if (owner === 'bob' && !bobClass(reason)) fail(listHelp());
   const branch = onBranch(root, id);
   const e = readEntry(root, id);
   if (e.status.state === 'COMPLETE') fail(`${id} is COMPLETE; it cannot be blocked`);

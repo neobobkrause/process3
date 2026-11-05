@@ -1,6 +1,6 @@
 // release dev (Build Plan Phase 3, the release row; Bob's word, 3 Nov: development only, there is
-// no public release). BOB cuts a development release from the tranche tip once its layers are
-// closed: the tool prints the dispatch of the product's shim process-dev-release.yml on the tranche
+// no public release). BOB cuts a development release from the tranche tip at a round close (Bob, 5 Nov:
+// never between layers): the tool prints the dispatch of the product's shim process-dev-release.yml on the tranche
 // (checks and assemble on read-only tokens, then publish, in the environment p3dev-release, which
 // runs no product code: the tag p3dev-<version> and a draft release, never published, never latest).
 // --record then writes one row for the run to the state branch.
@@ -15,7 +15,7 @@ import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, layerState, status } from './status.mjs';
 import { loadRanges, platformRows } from './size.mjs';
-import { collectMasks, redact } from './deploy.mjs';
+import { collectMasks, redact, roundClose, walkFindings } from './deploy.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -67,16 +67,12 @@ export function releaseConfig(cfg) {
   return { checks, assemble, out: out.replace(/\/+$/, ''), full_history: !!r.full_history, sign_secret: s || null, assemble_timeout_minutes: deflt };
 }
 
-// The release's layer rule (PR 48's record): every layer closed, or the open layer closed with
-// nothing of the next layer in the tip yet (no module of it with an open or merged job).
-export function releaseReady(ls) {
-  if (!ls) return { ok: false, why: 'there is no layer map' };
-  if (!ls.cur) return { ok: true, why: 'every layer is closed' };
-  const closedBefore = ls.layers.filter((L) => L.n < ls.cur.n && L.closed);
-  if (!closedBefore.length) return { ok: false, why: `layer ${ls.cur.n} is open and no layer before it is closed` };
-  const busy = ls.cur.mods.filter((m) => m.open || m.merged);
-  if (busy.length) return { ok: false, why: `layer ${ls.cur.n} has work in the tip (${busy.map((m) => `${m.id} ${m.open ? 'open' : 'merged'}`).join(', ')}); close it first` };
-  return { ok: true, why: `layer ${closedBefore.at(-1).n} is closed and layer ${ls.cur.n} has no work in the tip` };
+// The release's round rule (Bob, 5 Nov): a development release belongs to the close of the
+// tranche's current round, never between layers, read as deploy dev reads it (deploy.mjs
+// roundClose; PR 48's earlier rule let a release follow any closed layer). rc: roundClose's result.
+export function releaseReady(rc) {
+  if (!rc) return { ok: false, why: 'there is no layer map' };
+  return rc.closed ? { ok: true, why: `${rc.round} closed` } : { ok: false, why: `a release belongs to a round close, never between layers (${rc.why}); it becomes due when the round closes` };
 }
 
 const runId = (url) => {
@@ -91,7 +87,7 @@ const defaultIO = {
   remoteRefs: (root, refs) => git(['ls-remote', 'origin', ...refs], { cwd: root }),
 };
 
-// release dev [--version <v>]: refused unless the layers allow it, the checkout is the tranche
+// release dev [--version <v>]: refused unless the tranche's current round has closed, the checkout is the tranche
 // tip with a clean tree, and the config has a valid release block; prints BOB's acts.
 // release dev --record <run url>: one row for the run on the state branch.
 export function releaseDev(root, { version, record, log = console.log, io: given = {}, slug = repoSlug(root) } = {}) {
@@ -109,8 +105,13 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   fetchState(root, cfg.state_branch, { fresh: true });
   const s = status(root, { log: () => {}, io: io.status });
   if (s.prs === null) fail('GitHub unreadable: open pull requests not known, so the layers cannot be judged');
-  const ls = layerState(root, cfg, s.rows, t, { closed: closedRows(root, cfg, { slug, ...(io.compare ? { read: io.compare } : {}) }) });
-  const ready = releaseReady(ls);
+  const at = { slug, ...(io.compare ? { read: io.compare } : {}) };
+  const closed = closedRows(root, cfg, at);
+  // The round close, as deploy dev reads it: the plan as the tranche holds it.
+  let plan = null;
+  try { plan = loadConfig(root, t).plan; } catch { plan = null; }
+  const ls = plan === 'close' ? null : layerState(root, cfg, s.rows, t, { closed });
+  const ready = releaseReady(roundClose(root, cfg, { ls, plan, closed, ref: t, w: walkFindings(root, cfg, t, at) }));
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
   const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
   const taken = io.remoteRefs(root, [`refs/tags/${tagOf(v)}`]).trim();

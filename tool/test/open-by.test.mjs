@@ -184,24 +184,24 @@ test('status: the flow line, and each BLOCKED job with its age, oldest first, it
   const blocked = (reason, m) => ({ status: { state: 'BLOCKED', reason, at: ago(m) } });
   const root = repo({ coordinator: 'session_coord' }, {
     'process/ledger/x3.json': entry('x3', { requirements: 'build/requirements/x3.md', ...blocked('the test harness cannot reach the worker', 45) }),
-    'process/ledger/w3.json': entry('w3', { requirements: 'build/requirements/w3.md', ...blocked('requirement R1 contradicts R2', 90) }),
+    'process/ledger/w3.json': entry('w3', { requirements: 'build/requirements/w3.md', ...blocked('(c) requirement R1 contradicts R2', 90) }),
     'process/ledger/v3.json': entry('v3', { requirements: 'build/requirements/v3.md', ...blocked('waiting on a fixture', 5) }),
   });
   const out = [];
   const r = status(root, { role: 'bob', offline: true, live: 3, log: (m) => out.push(m) });
   const t = out.join('\n');
-  assert.match(t, /blocked:\n- w3: [^\n]*; blocked 9\d min; ruling owed by Bob: requirement R1 contradicts R2\n- x3: [^\n]*; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the test harness cannot reach the worker\n- v3: [^\n]*; blocked \d min\n/);
+  assert.match(t, /blocked:\n- w3: [^\n]*; blocked 9\d min; ruling owed by Bob: \(c\) requirement R1 contradicts R2\n- x3: [^\n]*; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the test harness cannot reach the worker\n- v3: [^\n]*; blocked \d min\n/);
   assert.match(t, /^flow: live 3\/20 \(default\), startable \d+, blocked 3 \(oldest 9\d min\)$/m);
   assert.deepEqual([r.flow.startable, r.flow.blocked], [startable(r.next).go.length, 3]);
   // Startable is what job start --ready would start: an open attempt, or a file with no entry, is not.
   assert.equal(flow({}, [], [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN', attempt_open: true }, { file: 'r/b.md', count: 1 }], 0).startable, 0);
   // Deferred (a reason, its pull request closed, on a reopened COMPLETE module too) awaits no ruling;
-  // Bob's only for a requirement question (rule 9; audit of PR 139): the owner job block named, else a
-  // reason that opens with "requirement" or asks what the product must do; an id alone is the coordinator's.
+  // Bob's only for an item on coordinator rule 1's closed list, its reason opening (a)-(d) (Bob, 5 Nov
+  // 14:50): an owner of bob without one, or a reason that only mentions a requirement, is the coordinator's.
   const old = ago(60);
   const b = (id, blocked, owner) => ({ id, tranche: 'BLOCKED', blocked, pr: '#9 draft', since: old, ...(owner ? { owner } : {}) });
-  assert.deepEqual(blockedJobs({}, [{ id: 'd', tranche: 'COMPLETE', flag: 'BLOCKED', blocked: 'x', pr: 'merged', since: old }, b('e', 'R4 fails its test fixture'), b('f', 'R4 contradicts R7', 'bob'), b('g', 'requirement R2: which fees apply?'), b('h', 'requirement wording aside, the build breaks', 'coordinator'), b('i', 'what the product must do on a refund is unwritten')])
-    .map((x) => [x.id, x.by]), [['e', 'the coordinator'], ['f', 'Bob'], ['g', 'Bob'], ['h', 'the coordinator'], ['i', 'Bob']]);
+  assert.deepEqual(blockedJobs({}, [{ id: 'd', tranche: 'COMPLETE', flag: 'BLOCKED', blocked: 'x', pr: 'merged', since: old }, b('e', 'R4 fails its test fixture'), b('f', '(c) R4 contradicts R7: which must the product do?', 'bob'), b('g', 'requirement R2: which fees apply?'), b('h', '(c) requirement wording aside, the build breaks', 'coordinator'), b('i', '(d) the subscription runs out at 20:00'), b('j', 'merge design: may the train gate 4 in parallel?', 'bob')])
+    .map((x) => [x.id, x.by]), [['e', 'the coordinator'], ['f', 'Bob'], ['g', 'the coordinator'], ['h', 'the coordinator'], ['i', 'Bob'], ['j', 'the coordinator']]);
 });
 
 // Coordinator, 5 Nov, review of PR 137 item 5: job start --ready, through status itself, reopens a

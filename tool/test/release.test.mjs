@@ -42,21 +42,17 @@ test('version and tag naming', () => {
   for (const v of ['', '-x', 'a/b', 'a..b', 'a b', 'x.lock', 'x.', 'a'.repeat(65), 'v$1']) assert.throws(() => checkVersion(v), /the version must be/, v);
 });
 
-test('the layer rule: every layer closed, or the open layer closed with nothing of the next in the tip', () => {
-  const L = (n, closed, mods = []) => ({ n, closed, mods: mods.map(([id, open, merged]) => ({ id, open, merged })) });
+// Bob, 5 Nov: releases only at the close of the tranche's current round, never between layers,
+// as deploy dev reads it (roundClose); a closed layer before an open one no longer allows one.
+test('the round rule: a release only when roundClose says the round is closed', () => {
   assert.match(releaseReady(null).why, /no layer map/);
-  assert.deepEqual(releaseReady({ layers: [L(1, true)], cur: null }), { ok: true, why: 'every layer is closed' });
-  const first = L(1, false, [['a', false, true]]);
-  assert.match(releaseReady({ layers: [first], cur: first }).why, /layer 1 is open and no layer before it is closed/);
-  const quiet2 = L(2, false, [['d', false, false]]);
-  assert.equal(releaseReady({ layers: [L(1, true), quiet2], cur: quiet2 }).ok, true);
-  const busy = L(2, false, [['d', true, false], ['e', false, true]]);
-  const r = releaseReady({ layers: [L(1, true), busy], cur: busy });
+  assert.deepEqual(releaseReady({ closed: true, round: 'the first round', layer: 2 }), { ok: true, why: 'the first round closed' });
+  const r = releaseReady({ closed: false, why: 'the first round is open: layer 2 not closed' });
   assert.equal(r.ok, false);
-  assert.match(r.why, /layer 2 has work in the tip \(d open, e merged\); close it first/);
+  assert.match(r.why, /^a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\)/);
 });
 
-// A product with origin: layer 1 of two, its modules complete, the release block in its config.
+// A product with origin: two layers, their modules complete, the release block in its config.
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n- **R99** met\n';
 const PASS = "import test from 'node:test';\ntest('ok', () => {});\n";
 const done = (id) => ({ ...entry(id, { requirements: `build/requirements/${id}.md`, status: { state: 'COMPLETE' } }), tests: [`test/${id}/`] });
@@ -67,6 +63,8 @@ const product = (release = REL) => ({
   'build/requirements/d.md': unmet(1),
   'process/ledger/a.json': done('a'),
   'test/a/x.test.mjs': PASS,
+  'process/ledger/d.json': done('d'),
+  'test/d/x.test.mjs': PASS,
 });
 function withOrigin(files) {
   const root = makeRepo(files);
@@ -81,10 +79,13 @@ const statusIO = { openPRs: () => [], checkRun: () => null, compare: () => null 
 const io = { status: statusIO, compare: () => null, remoteRefs: () => '' };
 const slug = 'o/p';
 
-test('release dev: refused before a layer is closed, off the tranche tip, on a dirty tree, without a release block, on a taken version; then BOB\'s acts', () => {
+test('release dev: refused before the round closes, between layers too, off the tranche tip, on a dirty tree, without a release block, on a taken version; then BOB\'s acts', () => {
   const { root } = withOrigin(product());
-  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: layer 1 is open and no layer before it is closed/);
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layers 1, 2 not closed\)/);
   assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  // Between layers (layer 1 closed, layer 2 quiet): refused, as deploy dev refuses (Bob, 5 Nov).
+  assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /never between layers \(the first round is open: layer 2 not closed\)/);
+  assert.equal(layerClose(root, '2', { io: statusIO, log: quiet }).ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
   const out = [];
   const r = releaseDev(root, { io, slug, log: (m) => out.push(m) });
