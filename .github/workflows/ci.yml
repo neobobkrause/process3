@@ -1,6 +1,6 @@
 # Process3's own required check, "ci", on every pull request: the tool's tests on Node 22 and
-# 26, then the record check (REC-9, REC-10, approvals). The record check runs the BASE's tool
-# against the head, so a change cannot rewrite the check that judges it. Retargeting a pull
+# 26 (at once, in this one job), then the record check (REC-9, REC-10, approvals). The record
+# check runs the BASE's tool against the head, so a change cannot rewrite the check that judges it. Retargeting a pull
 # request (edited) runs it again.
 name: ci
 on:
@@ -19,16 +19,38 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Both versions in this one job, at once (ci headroom, 5 Nov: in turn they took ~7 of the
+      # job's 10 minutes). One job named ci, no matrix: a matrix renames the required check.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: tool tests, Node 22
-        run: node --test 'tool/test/*.test.mjs'
+      - name: Node 22's path
+        run: echo "NODE22=$(command -v node)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 26
-      - name: tool tests, Node 26
-        run: node --test 'tool/test/*.test.mjs'
+      - name: Node 26's path
+        run: echo "NODE26=$(command -v node)" >> "$GITHUB_ENV"
+      - name: tool tests, Node 22 and Node 26 at once
+        run: |
+          n=$(nproc)
+          for v in 22 26; do
+            bin=NODE$v
+            # Its own node first on PATH, so what the tests spawn as `node` is this version too; its
+            # lines streamed with a prefix as they come, so a run cut by the cap still shows them.
+            ( start=$(date +%s); export PATH="$(dirname "${!bin}"):$PATH"
+              node --test --test-concurrency="$n" 'tool/test/*.test.mjs' 2>&1 | sed -u "s/^/[node$v] /" | tee "$RUNNER_TEMP/node$v.log"
+              rc=${PIPESTATUS[0]}; echo "$rc $(( $(date +%s) - start ))" > "$RUNNER_TEMP/node$v.rc" ) &
+          done
+          wait
+          fail=0
+          for v in 22 26; do
+            bin=NODE$v
+            rc=1; secs=0; [ -f "$RUNNER_TEMP/node$v.rc" ] && read -r rc secs < "$RUNNER_TEMP/node$v.rc"
+            { grep -E "^\[node$v\] (ℹ|#) (tests|pass|fail) " "$RUNNER_TEMP/node$v.log" || true; } | tr '\n' ' '; echo "(Node $v, $("${!bin}" --version), exit $rc, $secs s)"
+            [ "$rc" = 0 ] || { echo "::error::tool tests failed on Node $v (exit $rc)"; fail=1; }
+          done
+          exit "$fail"
       - name: record check, by the base's tool
         env:
           GH_TOKEN: ${{ github.token }}
