@@ -410,13 +410,14 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   // Every pull request ever opened from the spec head is this one, into the tranche, never retargeted:
   // GitHub lists only open PRs on a run, so a closed second PR (or a retarget) into a branch with
   // another gate workflow could otherwise vouch for a run here (confirming review, finding 1).
-  const unbound = branchBound(slug, sp.head.ref, n, cfg.tranche, io);
-  if (unbound) return no(`spec PR ${n}'s branch is not bound to it: ${unbound.replace(/^is PR \d+'s merge, but /, '')}`);
-  const ctx = { pr: n, baseRef: cfg.tranche };
+  const ctx = { pr: n, baseRef: cfg.tranche, branch: sp.head.ref };
   const row = gateRuns(io.comments(slug, n) || [])
     .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
     .reverse().find((r) => committed(root, r.sha) && typeof r.tree === 'string' && r.tree === treeOf(root, r.sha) && io.verify(slug, r, ctx));
   if (!row) return no(`spec PR ${n} has no verified green code run of ${job}, on its own commit's tree, agreeing with receipt attempt ${receipt.attempt}`);
+  // Read after the row (final review, L1): any pull request whose run made the row existed by now.
+  const unbound = branchBound(slug, sp.head.ref, n, cfg.tranche, io);
+  if (unbound) return no(`spec PR ${n}'s branch is not bound to it: ${unbound.replace(/^is PR \d+'s merge, but /, '')}`);
   const at = String(row.sha).slice(0, 10);
   const off = diffNames(root, row.sha, head).filter((f) => !isRecordPath(cfg, f));
   if (off.length) return no(`the head differs from ${at}, which spec PR ${n}'s run ${row.run_id} tested, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
@@ -620,11 +621,12 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== n || sp.head?.repo?.full_name !== slug) return null;
   // Bound whether open or closed (confirming review, finding 1): every PR from the spec head is this one, into the tranche.
-  if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
-  const ctx = sp.state === 'open' ? { pr: row.spec_pr, baseRef: cfg.tranche } : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref } };
+  const ctx = sp.state === 'open' ? { pr: row.spec_pr, baseRef: cfg.tranche, branch: sp.head.ref } : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref }, branch: sp.head.ref };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
     || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
+  // Read after the row (final review, L1).
+  if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
   return r;
 }
 

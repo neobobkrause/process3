@@ -144,10 +144,14 @@ export function runArtifactRow(slug, id) {
 // tree, spec and spec_* too: a spec-tested fast path and the tranche cover trust a spec row for the
 // tree it tested and the job it judged, and a spec-tested row for the spec run it names (train-spec).
 const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
-export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
+// branch: the run must be on this branch of this repository whatever pull requests GitHub lists for
+// it (train-spec: GitHub lists the open PRs whose head sha OR branch matches, so a run of another
+// branch at the same commit could otherwise vouch here; final review of the tranche-based spec).
+export function verifyRow(slug, row, { pr, baseRef, merged, branch }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
   if (!a || a.path !== GATE_WORKFLOW || a.head_sha !== row.sha || a.status !== 'completed') return false;
+  if (branch !== undefined && (a.head_branch !== branch || a.head_repository?.full_name !== slug)) return false;
   // The run must be this pull request's own, into the tranche: not a second PR on the same
   // commit into a branch that carries a workflow of its own.
   // (Every pull request GitHub lists for the run must be into the tranche, in case it lists

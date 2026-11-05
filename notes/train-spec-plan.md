@@ -192,3 +192,18 @@ GitHub's merge checkout of R(i) into that tip is R(i)'s tree. What changes with 
   entries and in any file under `process/`. A product test that reads `process/` could pass on R(i)
   and not on L. This is the same rule record-since-green already stands on; a check that no suite
   reads `process/` would close it.
+
+## Final confirming review (0df703d), and what was done
+
+- **H1 (HIGH, fixed):** GitHub lists a run's open PRs by head sha *or* branch, so a run of another
+  branch at the spec head's commit (a writer's `foo` into a branch with another gate workflow,
+  since closed) listed the spec PR and verified. `verifyRow` now takes `branch`: the run must be
+  on that branch of this repository whatever PRs are listed; the fast path and the cover pass the
+  spec head's branch, open or closed.
+- **L1 (fixed):** `branchBound` is read after the row is picked and verified, so any PR whose run
+  made the row existed by that read.
+- **L2 (residual):** a spec PR a writer marks ready keeps its earlier green `gate` check for the
+  seconds until the `ready_for_review` run reports; only a hand merge by a person in that window
+  could use it. Closing it needs a ruleset change (Bob's).
+- The same head-sha listing gap stands under today's job PR paths (record-since-green, merge's
+  row read): said to the coordinator as its own build.

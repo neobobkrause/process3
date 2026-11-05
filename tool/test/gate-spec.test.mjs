@@ -300,7 +300,7 @@ test('spec-tested: the land on the tested tree, records aside, on a base the spe
   assert.equal(ran(w), false, 'no suite ran');
   assert.equal(r.run.suite_seconds, undefined);
   // The spec row was verified as the spec PR's run into the tranche.
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'tranche'));
+  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'tranche' && v.ctx.branch === 'train/head/5-1'), 'bound to the spec branch (final review, H1)');
 });
 
 // A base-red spec run stands only on its own base: at window position 0 the land's base is it.
@@ -437,12 +437,12 @@ function covered() {
 test('the tranche cover follows a spec-tested row to its spec run, bound into the tranche, open or closed; refused when that run is missing or does not verify', () => {
   const { w, x, c, cfg } = covered();
   assert.deepEqual(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }), { ok: true, pr: JOB, id: 'alpha', own: jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).own });
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'tranche' && !v.ctx.merged));
+  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.pr === SPEC && v.ctx.baseRef === 'tranche' && v.ctx.branch === 'train/head/5-1' && !v.ctx.merged));
   // The spec PR closed (its runs may list no PR): bound by its branch, every PR from it into the tranche.
   x.state.prs[SPEC] = specPR(w, { state: 'closed' });
   x.state.verified.length = 0;
   assert.equal(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).ok, true);
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.baseRef === 'tranche' && v.ctx.merged?.branch === 'train/head/5-1'));
+  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.baseRef === 'tranche' && v.ctx.merged?.branch === 'train/head/5-1' && v.ctx.branch === 'train/head/5-1'));
   x.state.prs[SPEC] = specPR(w);
 
   const refusal = /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/;
@@ -576,7 +576,7 @@ test('the tranche cover refuses a spec run whose branch is not bound to the spec
       const m = jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io });
       assert.equal(m.ok, false, `${state}: ${name}`);
       assert.match(m.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
-      assert.ok(!x.state.verified.some((v) => v.ctx.pr === SPEC), `${state}: ${name}: the spec run is not even verified`);
+      // The row is read and verified first, the branch binding after it (final review, L1): refused all the same.
       x.state.from['train/head/5-1'] = from;
       x.state.retargeted.clear();
     }
