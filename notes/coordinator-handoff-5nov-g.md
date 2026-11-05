@@ -27,3 +27,10 @@ STOPPED BY BOB, NOT TO RESUME WITHOUT HIM: build/train-spec (parallel gates); bu
 OWED (process3, small, mine): release-path step not cached across a moved tranche (~17 s a pass); a prepared PR should yield to a release-path PR; status/ready report modules with no ledger entry (in 156); scheduler vs question-explorer #tick `off` list (BOB checking).
 
 ROLES (since 16:12, new approvals hash): ROOT session_018BhceeH3xpSe2ZFYNK6bxs (sweep task trig_01VCdPKuA8JXySgjhG7w9oyc at :11); BOB session_018BhcedPdKvvqmShgPznx1U; MERGER session_018BhcegraPAsGJB6Ev1FpZ5; watcher session_018BhcedFKkW7Mzm8YFBXVjw (task trig_01JbAbqrvH4paXH6VzBDzubB). Old ones archived. Open children of mine: pin move f339ba9 (session 'pin move f339ba9607', session_018Bhcee9oeEB1Huxm8FqiN1). build/idle-count merged (PR 161, f339ba9).
+
+LATEST (16:30)
+- UX design lane NOT yet running (Bob asked why at 16:28): its ledger entry PR 515 is red (no tests) and the new BOB was orienting. Ordered BOB (now, 16:29): start a UX lane session at once on the blocked words (ai-use R13's six keys, screens-document-beta's keys, every --not-verified words item), landing plain PRs through the train, and fix 515 with a minimal real test in parallel; BOB owes the lane session id. CHECK IT IS WORKING; do not assume.
+- BOB merging 516 (the 63 walk findings) and running --ready.
+- Pin move f339ba9 (session_018Bhcee9oeEB1Huxm8FqiN1) in flight; the new MERGER (on 74c3679) takes its plain row, then restarts once on the new pin; report seconds to first pick.
+- GitHub intermittent 5xx and "fatal error in commit_refs" on pushes since ~16:05: retry.
+- Bob's CLAUDE.md lane line is on the copy's and process3's tranches.
