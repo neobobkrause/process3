@@ -1,7 +1,8 @@
 // branches prune (lib/branches.mjs): the approval gate, every keep rule and both delete rules,
 // against a real origin (a bare repository) and a fake GitHub for pull requests and activity.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -28,6 +29,7 @@ function product({ claude = APPROVED, config = { tranche: 'tranche' } } = {}) {
   git(['push', '-q', 'origin', 'HEAD:refs/heads/main', 'HEAD:refs/heads/tranche'], { cwd: work });
   return { work, origin };
 }
+const write2 = (root, p, t) => { mkdirSync(dirname(join(root, p)), { recursive: true }); writeFileSync(join(root, p), t); };
 // A commit with the given dates (old: months ago; {}: now).
 function commitAt(root, files, msg, env) {
   for (const [p, t] of Object.entries(files)) {
@@ -325,4 +327,73 @@ test('dispatched on the tranche: the tranche\'s approvals and config judge; a sc
   commitAt(q.work, { 'process/config.json': JSON.stringify({ tranche: 'other' }) }, 'renamed', old);
   git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: q.work });
   assert.throws(() => runIt(q, { extra: { ref: 'refs/heads/tranche', env: tEnv() } }), (e) => e instanceof Fail && /tranche's config names the tranche other, main's names tranche/.test(e.message));
+});
+
+test('the sentence must stand as its own paragraph: quoted in a withdrawal, in an HTML comment or in a code fence it approves nothing', () => {
+  assert.equal(approves(`${HEADING}\n\n${APPROVAL}\n`), true);
+  assert.equal(approves(`${HEADING}\n\nWithdrawn on 6 Nov, no longer in force: "${APPROVAL}"\n`), false);
+  assert.equal(approves(`${HEADING}\n\n<!-- proposed, not yet given:\n\n${APPROVAL}\n\n-->\n`), false);
+  assert.equal(approves(`${HEADING}\n\n\`\`\`\n${APPROVAL}\n\`\`\`\n`), false);
+  assert.equal(approves(`${HEADING}\n\n${APPROVAL} Until 7 Nov only.\n`), false);
+});
+
+test('a tranche run whose config names another state branch than the default branch\'s is refused', () => {
+  const p = product({ config: { tranche: 'tranche', state_branch: 'st' } });
+  git(['checkout', '-q', '--detach', 'main'], { cwd: p.work });
+  commitAt(p.work, { 'process/config.json': JSON.stringify({ tranche: 'tranche' }) }, 'drops state_branch', old);
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: p.work });
+  branch(p, 'st');
+  const env = { ...shimEnv(), GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/tranche', GITHUB_WORKFLOW_REF: `${SLUG}/.github/workflows/process-branch-prune.yml@refs/heads/tranche` };
+  assert.throws(() => runIt(p, { extra: { ref: 'refs/heads/tranche', env } }), (e) => e instanceof Fail && /names the state branch process-state, main's names st/.test(e.message));
+  assert.ok(heads(p).includes('st'));
+});
+
+test('the shim\'s pin step, run: a schedule on the default branch runs (the default branch read from GitHub, not the event); other refs skip; a bad process_repo stops', () => {
+  const shim = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims', 'process-branch-prune.yml'), 'utf8');
+  assert.doesNotMatch(shim, /github\.event\.repository\.default_branch/);
+  const m = shim.match(/ {6}- name: the process pin\n[\s\S]*? {8}run: \|\n((?: {10}.*\n)+)/);
+  const script = m[1].split('\n').map((l) => l.slice(10)).join('\n');
+  const dir = mkdtempSync(join(tmpdir(), 'p3-shim-'));
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\necho main\n', { mode: 0o755 });
+  writeFileSync(join(dir, 'step.sh'), script);
+  const p = product();
+  const proc = makeRepo();
+  commitAt(proc, { 'tool/p3.mjs': '' }, 'process', old);
+  const procSha = git(['rev-parse', 'HEAD'], { cwd: proc });
+  // main and the tranche pin the process commit, and name a process_repo on github.com that the
+  // fake clone below serves from the local repository.
+  git(['checkout', '-q', '--detach', 'main'], { cwd: p.work });
+  git(['update-index', '--add', '--cacheinfo', `160000,${procSha},.process`], { cwd: p.work });
+  write2(p.work, 'process/config.json', JSON.stringify({ tranche: 'tranche', process_repo: 'https://github.com/o/process3' }));
+  git(['add', 'process/config.json'], { cwd: p.work });
+  git(['commit', '-q', '-m', 'pin'], { cwd: p.work, env: old });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/main', 'HEAD:refs/heads/tranche'], { cwd: p.work });
+  const c = clone(p);
+  const out = join(dir, 'out');
+  const runStep = (event, ref) => {
+    writeFileSync(out, '');
+    return spawnSync('bash', ['-e', join(dir, 'step.sh')], { cwd: c, encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_OUTPUT: out, GITHUB_EVENT_NAME: event, GITHUB_REF: ref, GITHUB_REPOSITORY: SLUG, RUNNER_TEMP: dir, GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'url.' + proc + '.insteadOf', GIT_CONFIG_VALUE_0: 'https://github.com/o/process3' } });
+  };
+  const r = runStep('schedule', 'refs/heads/main');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.match(readFileSync(out, 'utf8'), /^node=22$/m);
+  assert.doesNotMatch(readFileSync(out, 'utf8'), /skip=1/);
+  for (const [event, ref] of [['schedule', 'refs/heads/tranche'], ['workflow_dispatch', 'refs/heads/other']]) {
+    const s = runStep(event, ref);
+    assert.equal(s.status, 0);
+    assert.match(readFileSync(out, 'utf8'), /skip=1/, `${event} ${ref}`);
+  }
+  // A process_repo off github.com stops the run.
+  git(['checkout', '-q', '--detach', 'refs/remotes/origin/main'], { cwd: p.work });
+  write2(p.work, 'process/config.json', JSON.stringify({ tranche: 'tranche', process_repo: '--upload-pack=touch /tmp/x' }));
+  git(['add', 'process/config.json'], { cwd: p.work });
+  git(['commit', '-qm', 'bad repo'], { cwd: p.work, env: old });
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/main'], { cwd: p.work });
+  git(['fetch', '-q', 'origin'], { cwd: c });
+  rmSync(join(dir, 'process3'), { recursive: true, force: true });
+  const bad = runStep('schedule', 'refs/heads/main');
+  assert.notEqual(bad.status, 0, bad.stdout + bad.stderr + readFileSync(out, "utf8"));
+  assert.match(bad.stdout, /process_repo is not a github\.com repository/);
 });

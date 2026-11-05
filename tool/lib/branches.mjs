@@ -53,13 +53,22 @@ const norm = (t) => String(t).replace(/[‘’ʼ]/g, '\'').replace(/\s+/g, ' ').
 // Whether an approvals block carries Bob's whole sentence, which holds the marker phrase (cold
 // review of PR 167: the phrase alone also matched "I withdraw ... the process's scheduled branch
 // cleanup workflow", or a narrower grant). Changed in any word, it is no approval.
-export const approves = (block) => !!block && norm(block).includes(norm(MARKER)) && norm(block).includes(norm(APPROVAL));
+// Bob's sentence must stand as a paragraph of its own (second review: a withdrawal that quoted
+// the whole sentence, or the sentence in an HTML comment or a code fence, also matched a
+// substring test). HTML comments and fenced code are dropped first.
+export function approves(block) {
+  if (!block) return false;
+  const text = String(block).replace(/<!--[\s\S]*?(-->|$)/g, '\n\n').replace(/^(```|~~~)[^\n]*\n[\s\S]*?(^\1[^\n]*$|(?![\s\S]))/gm, '\n\n');
+  return text.split(/\n\s*\n/).map(norm).some((para) => para === norm(APPROVAL) && para.includes(norm(MARKER)));
+}
 
 // Only the product's own shim deletes (cold review of PR 167: a session's local run, or a dispatch
 // on a branch whose pin it chose, must not): scheduled or dispatched on the default branch, or
 // dispatched on the tranche (coordinator, 5 Nov 18:28: main moves only at a round close, and the
 // tranche's workflow files change only through the gated merge tool). Read from the runner's
-// environment; null when it is such a run on branch `on`, else why not.
+// environment; null when it is such a run on branch `on`, else why not. A guard against a
+// mistaken run, not a security boundary: a local shell can set these variables. The boundary is
+// Bob's sentence in the approvals block and the standing rule that sessions never delete branches.
 export const SHIM_FILE = '.github/workflows/process-branch-prune.yml';
 export function notTheShim(env, on, { dispatchOnly = false } = {}) {
   const events = dispatchOnly ? ['workflow_dispatch'] : ['schedule', 'workflow_dispatch'];
@@ -96,7 +105,8 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   if (f.code !== 0) fail(`could not fetch origin's branches: ${f.stderr.trim()}; nothing was deleted`);
   if (git(['rev-parse', '-q', '--verify', remote(def)], { cwd: root, allowFail: true }).code !== 0) fail(`origin has no ${def}; nothing was deleted`);
   // The tranche's name from the default branch's config (anchored there), never from the run's ref.
-  const tranche = loadConfig(root, remote(def)).tranche;
+  const defCfg = loadConfig(root, remote(def));
+  const tranche = defCfg.tranche;
 
   // The branch the run stands on, which gives the config and the approvals: the default branch,
   // or the tranche for a run dispatched there. A dry run on any other ref (or none) reads the
@@ -112,6 +122,8 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   const baseSha = git(['rev-parse', base], { cwd: root });
   const cfg = loadConfig(root, base);
   if (cfg.tranche !== tranche) fail(`${on}'s config names the tranche ${cfg.tranche}, ${def}'s names ${tranche}; nothing was deleted`);
+  // state_branch is not anchored: a tranche run whose config names another state branch is refused.
+  if (cfg.state_branch !== defCfg.state_branch) fail(`${on}'s config names the state branch ${cfg.state_branch}, ${def}'s names ${defCfg.state_branch}; nothing was deleted`);
 
   // The gate: Bob's sentence in the approvals block on that branch's tip.
   const { file, heading } = cfg.approvals;
