@@ -3,7 +3,7 @@
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
 // could switch off in its own copy of the gate workflow: ownership, and a checked receipt.
 import { basename, join } from 'node:path';
-import { GATE_WORKFLOW, baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getPR, getRun, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
+import { GATE_WORKFLOW, baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getJob, getPR, getRun, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, metricsFile, readRows, rowsAt } from './metrics.mjs';
 import { diffNames, entriesAt, ownPaths } from './gate.mjs';
@@ -157,7 +157,8 @@ export function reviewMeasures({ reviewed, reviewMinutes, reviewCostUsd, finding
 
 export function merge(root, n, opts = {}) {
   const { reviewed, noReview, minutes = GATE_WAIT_MINUTES, log = console.log } = opts;
-  const io = { getPR, comments, checkRun, gateBound: (s, c, x) => gateRunWhy(s, c, x, getRun), mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, getRun, getJob, mergePR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(opts.io || {}) };
+  io.gateBound ||= (sl, c, x) => gateRunWhy(sl, c, x, { getJob: io.getJob, getRun: io.getRun, ...(opts.gateWait ? { wait: opts.gateWait } : {}) });
   const rounds = reviewRounds(opts);
   const measures = reviewMeasures(opts);
   // The job's cost, read by BOB from get_session on the job's session, idle by now (measured 4 Nov,
@@ -375,14 +376,28 @@ export function deepenToBase(root, slug, base, head, read = compare) {
 // by commit, not by branch or workflow, so a run of another branch at the same commit (its PR into
 // a base whose workflow names a job "gate") could stand in for the merged result's (cold review of
 // build/branch-bound, issue 3). The merged result's gate counts only as a job of the process gate's
-// run on the job branch, in this repository, for this pull request into the tranche: its check
-// suite is that run's. One read of the run, no wait for the run's post job. Returns why not, or null.
-export function gateRunWhy(slug, check, { sha, branch, n, base }, read = getRun) {
-  const id = String(check?.details_url || check?.html_url || '').match(/\/actions\/runs\/(\d+)\/job\/\d+$/)?.[1];
-  if (!id) return 'its "gate" check names no Actions run';
-  let a;
-  try { a = read(slug, id); } catch { a = null; }
-  if (!a) return `its "gate" check's run ${id} could not be read`;
+// run on the job branch, in this repository, for this pull request into the tranche. The check is
+// read as an Actions job by its own id, never by the run its details_url names: a check run made
+// through the checks API, even in the run's suite and with that run's URL, is no job (cold review
+// of build/gate-check-bind). Its run is the job's run_id. Two reads, no wait for the run's post job;
+// a failed read is tried again (`wait`), then refuses. Returns why not, or null.
+const READ_TRIES = [2000, 4000];
+export function gateRunWhy(slug, check, { sha, branch, n, base }, { getJob: job = getJob, getRun: run = getRun, wait = READ_TRIES, pause = sleep } = {}) {
+  const read = (f, id) => {
+    for (let k = 0; ; k++) {
+      let v;
+      try { v = f(slug, id); } catch { v = null; }
+      if (v || k >= wait.length) return v || null;
+      pause(wait[k]);
+    }
+  };
+  if (!Number.isSafeInteger(check?.id) || check.id <= 0) return 'its "gate" check has no id';
+  if (check.app?.slug !== 'github-actions') return `its "gate" check is ${check.app?.slug || 'no app'}'s, not GitHub Actions'`;
+  const j = read(job, check.id);
+  if (!j) return `its "gate" check ${check.id} is no Actions job (or could not be read)`;
+  if (j.name !== 'gate' || j.head_sha !== sha || j.status !== 'completed' || j.conclusion !== 'success') return `its "gate" check ${check.id} is job ${JSON.stringify(String(j.name).slice(0, 40))} on ${String(j.head_sha).slice(0, 10)}, ${j.status}/${j.conclusion}, not a green gate job on ${sha.slice(0, 10)}`;
+  const a = read(run, j.run_id);
+  if (!a) return `its "gate" job's run ${j.run_id} could not be read`;
   const prs = a.pull_requests || [];
   const bad = [
     check.check_suite?.id == null || check.check_suite.id !== a.check_suite_id ? 'the check is not that run\'s' : null,
@@ -392,7 +407,7 @@ export function gateRunWhy(slug, check, { sha, branch, n, base }, read = getRun)
     a.event !== 'pull_request' ? `its event is ${a.event}` : null,
     !prs.some((p) => p.number === n) || !prs.every((p) => p.base?.ref === base) ? `its pull requests are ${prs.map((p) => `${p.number} into ${p.base?.ref}`).join(', ') || 'none'}` : null,
   ].filter(Boolean);
-  return bad.length ? `its "gate" check is run ${id}'s, not the process gate's on ${branch} for pull request ${n}: ${bad.join('; ')}` : null;
+  return bad.length ? `its "gate" check is a job of run ${j.run_id}, not the process gate's on ${branch} for pull request ${n}: ${bad.join('; ')}` : null;
 }
 
 // Refuses, naming the pull requests, when branch's runs are not bound to PR n into base (unbound).
