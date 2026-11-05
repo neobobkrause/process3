@@ -141,7 +141,9 @@ export function runArtifactRow(slug, id) {
 // refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).
 // base_red and receipt_passed too: a records-only run checks a later receipt's excuses by them
 // (review of PR 134).
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed'];
+// tree, spec and spec_* too: a spec-tested fast path and the tranche cover trust a spec row for the
+// tree it tested and the job it judged, and a spec-tested row for the spec run it names (train-spec).
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed', 'tree', 'spec', 'spec_pr', 'spec_run', 'spec_sha'];
 export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
