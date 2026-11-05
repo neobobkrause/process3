@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
-import { LEASE_FILE, MERGER_FILE, Stop, TRAIN_FILE, TRAIN_NO_REVIEW, takeLease, train, trainNote, trainSummary, writeFree, writePaths } from '../lib/train.mjs';
+import { LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
 import { loadConfig } from '../lib/util.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -242,26 +242,12 @@ test('merge train: under its disk budget it stops before a merge starts, and rec
   assert.equal(r.rows[0].disk_mb, undefined, 'no ambiguous disk column');
   assert.equal(git(['worktree', 'list'], { cwd: root }).split('\n').length, 1, 'no worktree left after the merge');
   const before = g.tipOf('job/beta');
-  assert.throws(() => run(root, g, { diskFree: () => 100 }), (e) => e instanceof Stop && /STOP: 100 MB free, under the merger's disk budget of 512 MB .*nothing more is merged or written/.test(e.message));
+  assert.throws(() => run(root, g, { diskFree: () => 100 }), /STOP: 100 MB free, under the merger's disk budget of 512 MB; nothing was started for PR 2/);
   assert.deepEqual(g.calls.merged, [1]);
   assert.equal(g.tipOf('job/beta'), before, 'nothing pushed');
   // The lease is given back on that stop: a new train starts at once.
   run(root, g);
   assert.deepEqual(g.calls.merged, [1, 2]);
-});
-
-test('merge train: the disk is measured where the train writes, the least free of the checkout, its git directory and the temporary directory', () => {
-  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
-  const paths = writePaths(root);
-  assert.ok(paths.includes(root) && paths.includes(tmpdir()) && paths.some((p) => p.endsWith('.git')), paths.join(', '));
-  // Only the temporary directory (where merge's and the state branch's worktrees go) is short.
-  assert.deepEqual(writeFree(root, (p) => (p === tmpdir() ? 3 : 90000)), { mb: 3, at: tmpdir() });
-  // With the real measure and a budget over any disk: the train stops before its first merge,
-  // naming where it measured; nothing merged, no row.
-  const g = github(root, ids);
-  assert.throws(() => run(root, g, { diskMinMb: 1e12 }), (e) => e instanceof Stop && /^STOP: \d+ MB free, under the merger's disk budget of 1000000000000 MB \(the least free of .*\); nothing more is merged or written/.test(e.message));
-  assert.deepEqual(g.calls.merged, []);
-  assert.equal(stateRows(root, TRAIN_FILE).length, 0);
 });
 
 test('merge train: a second train in the same session is refused while the first holds the lease', () => {

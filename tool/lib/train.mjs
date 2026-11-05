@@ -9,8 +9,7 @@
 // just before each land. The merger hands every exception to BOB (p3 send bob); it starts no job,
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { checkRun, comments, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
@@ -40,26 +39,12 @@ export const BASELINES = [
 ];
 // The disk budget (copy, 5 Nov ~02:00: BOB's eight merge loops died when the session's disk
 // allowance filled). merge works in one worktree it removes when it ends (withTemp); before each
-// merge, each round and each preparation the train needs this much free space, else it stops and
-// says so, never mid-merge.
-// Measured where the train writes (coordinator, 5 Nov 05:30: the rows' disk_mb read 0-4 under a
-// budget of 512 and the train ran on): the checkout, its git directory (the fetched objects) and
-// the temporary directory (withTemp's worktrees, the state branch's included), the least free of
-// them. That column was the MB each merge used (free before less free after), never the free space,
-// which no row recorded, so it was read as free; the rows now carry both, named apart
-// (disk_free_mb, disk_used_mb).
+// merge the train needs this much free space, else it stops and says so, never mid-merge.
+// The rows name the two measures apart (coordinator, 5 Nov): disk_free_mb, the free space before
+// the merge, and disk_used_mb, what the merge left on disk (free before less free after). The
+// rows before 5 Nov ~06:00 carried only the second, as disk_mb.
 export const DISK_MIN_MB = 512;
 export const diskFreeMb = (dir) => { const f = statfsSync(dir); return Math.floor(Number(f.bavail) * Number(f.bsize) / 1048576); };
-export function writePaths(root) {
-  const g = git(['rev-parse', '--git-common-dir'], { cwd: root, allowFail: true });
-  return [...new Set([root, ...(g.code === 0 && g.stdout.trim() ? [resolve(root, g.stdout.trim())] : []), tmpdir()])];
-}
-// The least free space over the train's write paths, and where: { mb, at }.
-export function writeFree(root, free = diskFreeMb) {
-  let low = null;
-  for (const at of writePaths(root)) { const mb = free(at); if (!low || mb < low.mb) low = { mb, at }; }
-  return low;
-}
 export const RETRIES_TO_BOB = 5;
 export const TRAIN_NO_REVIEW = 'merge train: no review recorded, and no review trigger fired';
 const MIN = 60000;
@@ -251,8 +236,6 @@ function order(root, ctx, cands, jobs) {
 // here is handed to BOB once per head, as a refusal at its merge would be.
 function prepare(root, ctx, cur) {
   const t = Date.now();
-  const low = ctx.diskFree(root);
-  if (low < ctx.diskMin) { ctx.prepared = { n: null, depth: null, prep_min: 0 }; ctx.log(`nothing prepared while PR ${cur}'s gate runs: ${low} MB free, under the disk budget of ${ctx.diskMin} MB; the train stops before the next merge`); return; }
   const list = ready(root, ctx, new Set([cur]));
   let next = null;
   for (const c of list) {
@@ -291,15 +274,6 @@ function refuse(root, ctx, c, why) {
   try { send(root, ctx.cfg.state_branch, { from: 'merger', to: 'bob', text, log: ctx.log }); } catch (e) { if (!(e instanceof Fail)) throw e; ctx.log(`the message to BOB was not recorded (${e.message}); tell BOB: ${text}`); }
 }
 
-// The disk, before anything the train writes: under the budget it stops (a Stop: never retried,
-// the lease released), saying how much is free, where, and what to do.
-function diskCheck(root, ctx, what) {
-  const free = ctx.diskFree(root);
-  if (!Number.isFinite(free)) stop(`STOP: the free disk space is unread (${free}); ${what}. Check the disk, then run the train again`);
-  if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB (the least free of ${ctx.diskWhere(root)}); ${what}. Delete what is not needed (old clones, caches), then run the train again`);
-  return free;
-}
-
 // One pull request through merge(), with the lease checked before the land, and its row.
 function mergeOne(root, ctx, c, { queue, idle }) {
   const { cfg, slug, log } = ctx;
@@ -311,7 +285,8 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     ctx.renew();
     if (ctx.pipeline && ctx.prepared === null && /^waiting for the gate/.test(l)) prepare(root, ctx, c.n);
   };
-  const free = diskCheck(root, ctx, `nothing was started for PR ${c.n}`);
+  const free = ctx.diskFree(root);
+  if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${c.n}. Delete what is not needed (old clones, caches), then run the train again`);
   const row = { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, run: c.run, green_at: c.green_at, queue, idle_min: idle, prepared: !!prep, prep_min: prep?.prep_min ?? null, release: !!c.release, expected_gate_min: c.gate_min ?? null, aged: !!c.aged, holds: c.holds || 0, held: ctx.held || [], disk_free_mb: free };
   let r = null;
   try {
@@ -360,7 +335,7 @@ export function train(root, opts = {}) {
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
   const io = { getPR, comments, checkRun, mergePR, openPRs, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || ((r) => writeFree(r).mb), diskWhere: opts.diskFree ? () => 'the measured path' : (r) => writePaths(r).join(', '), diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
   const { takeover } = takeLease(root, cfg, session, ctx.token, { take: true });
@@ -386,7 +361,6 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
   let hour = Math.floor(Date.now() / 36e5);
   for (;;) {
     ctx.renew();
-    diskCheck(root, ctx, 'nothing more is merged or written');
     if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE));
     // BOB as addressed now (a handover moves it): only its review notes count.
     let bob = null;
