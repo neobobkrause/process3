@@ -562,6 +562,13 @@ export function sweepTemp(root, { base = tmpdir(), now = Date.now() } = {}) {
   return gone;
 }
 export function withTemp(prefix, fn, { root } = {}) {
+  const { dir, drop } = holdTemp(prefix, { root });
+  try { return fn(dir); } finally { drop(); }
+}
+// A scratch directory held past one call (the base-red tree prepared beside the head's install,
+// basered.mjs startBase): removed by drop(), or at exit, or by the next withTemp once its owner
+// process is gone, as withTemp's are.
+export function holdTemp(prefix, { root } = {}) {
   if (!TEMP_PREFIXES.includes(prefix)) fail(`withTemp: ${prefix} is not a scratch prefix (TEMP_PREFIXES)`);
   sweepTemp(root);
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -569,5 +576,5 @@ export function withTemp(prefix, fn, { root } = {}) {
   // process.exit inside fn runs no finally: what is still held goes at exit.
   if (!exitHook) { exitHook = true; process.once('exit', () => { for (const [d, r] of temps) dropTemp(d, r); }); }
   temps.set(dir, root);
-  try { return fn(dir); } finally { dropTemp(dir, root); }
+  return { dir, drop: () => { if (temps.has(dir)) dropTemp(dir, root); } };
 }

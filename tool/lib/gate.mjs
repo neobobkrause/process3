@@ -1,13 +1,14 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
-import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, lstatSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
-import { install, runSuite, suffixOf } from './suite.mjs';
-import { baseRed, testId } from './basered.mjs';
+import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
+import { LOAD } from './fail-reporter.mjs';
+import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
@@ -164,6 +165,11 @@ export function gate(root, opts) {
     }
     const scope = entry ? [entry] : entries.filter((e) => touched.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
+    // Base-red's tree (basered.mjs startBase): its install and build beside the head's, ready if
+    // the suite fails. Not for the tranche into main, which tolerates nothing, nor with a stand-in
+    // exec (the tests'), which a process of its own cannot use.
+    const prepared = scope.length && branch !== cfg.tranche && !exec && opts.prepareBase !== false
+      ? startBase(root, { base: revertBase, cfg, rows: gen.rows, timeout, log }) : null;
     // GAT-5: every lock file, installed where it sits.
     const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
     findings.push(...inst);
@@ -181,7 +187,10 @@ export function gate(root, opts) {
     const results = [];
     const tolerated = [];
     for (const e of scope) {
-      const s = withEvents((events) => runSuite(root, e, undefined, { timeout, events }));
+      // A change only to the module's requirements file runs only the tests that read it.
+      const only = branch !== cfg.tranche ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log }) : null;
+      if (only && !only.length) { results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
+      const s = withEvents((events) => runSuite(root, e, only || undefined, { timeout, events }));
       results.push(s);
       if (s.exit !== 0) {
         // Base-red (basered.mjs): the failing tests run again at the tranche tip the PR merges
@@ -189,7 +198,7 @@ export function gate(root, opts) {
         // where every failure tolerated on the way is owed.
         // Its own budget, not what the suite left (copy, 4 Nov: plane's suite takes 19-20 of 20 min).
         const br = branch !== cfg.tranche && !/ETIMEDOUT/.test(s.output)
-          ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout, ...(exec ? { exec } : {}), log })
+          ? baseRed(root, e, { base: revertBase, failing: s.failing, cfg, rows: gen.rows, timeout, ...(exec ? { exec } : {}), log, prepared })
           : null;
         if (br?.ok) {
           s.baseRed = true;
@@ -204,10 +213,11 @@ export function gate(root, opts) {
     if (tolerated.length) runRow.base_red = tolerated;
     gatePassed = new Set(results.flatMap((s) => (s.passing || []).map(testId)));
     if (entry && cfg.smoke) {
-      const sm = smoke(root, cfg, { entry, entries, base: revertBase, rows: gen.rows, exec, log });
+      const sm = smoke(root, cfg, { entry, entries, base: revertBase, rows: gen.rows, exec, log, prepared });
       runRow.smoke = sm.row;
       findings.push(...sm.findings);
     }
+    prepared?.drop();
     if (scope.length) {
       runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
@@ -226,14 +236,22 @@ export function gate(root, opts) {
         if (!exempt) findings.push(F('revert', entry.tests[0], 'the job adds or changes no test; name why in the receipt (--exempt-revert)'));
       } else if (!code.length) {
         runRow.revert = 'no code changed';
+      } else if (exempt) {
+        // The exemption decides the verdict whatever the run finds (inert files are 'exempt', no
+        // finding): not run (build gate-speed). The row says 'exempt', so a later receipt that
+        // drops the exemption is not measured by this run (measuredBy) and the gate runs again.
+        runRow.revert = 'exempt';
+        log(`the receipt exempts the revert check (${printable(exempt)}): not run`);
       } else {
+        const t0 = Date.now();
         const r = revertCheck(root, entry, revertBase, code, tests, { timeout, tolerated: (runRow.base_red || []).flatMap((b) => b.tests) });
-        runRow.revert = r.inert.length ? (exempt ? 'exempt' : 'fail') : 'pass';
+        log(`revert check: ${tests.length} test file(s) in ${Math.round((Date.now() - t0) / 1000)} s, ${r.alone} run alone`);
+        runRow.revert = r.inert.length ? 'fail' : 'pass';
         runRow.inert = r.inert;
         // A test that fails only because a new file is gone cannot load; it is not proof the
         // test checks behaviour. Counted for review, not failed.
         runRow.load_only = r.loadOnly;
-        if (r.inert.length && !exempt) for (const t of r.inert) findings.push(F('revert', t, 'passes with the change reverted: the test does not test the change'));
+        for (const t of r.inert) findings.push(F('revert', t, 'passes with the change reverted: the test does not test the change'));
       }
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
@@ -474,6 +492,77 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   return { ok: true, pr: n, id, own: ownPaths(JSON.parse(e.stdout)) };
 }
 
+// A change only to a module's requirements file (build gate-speed, 5 Nov: copy PR 516 changed
+// journey-check.md alone and ran journey-check's 57-minute suite). A requirements file is Markdown:
+// nothing imports it, so it changes a test's result only by being read as text, and code that
+// reads it names it: by its file name (journey-check.md), or by its directory's (requirements),
+// from which a path to it is built. When the only files a pull request changes, records aside, are
+// this module's requirements file (not for the tranche into main, which runs every suite whole),
+// the suite runs only its test files that reach, by import through the test paths (reachers), a
+// script under its test paths whose code names either: the requirement-id tests. Code is the text
+// but for comments that start a line. The whole suite runs instead when anything else of what the
+// suite runs may read it: a file of the module's own paths (Markdown and the requirements file
+// aside), a file the suite command preloads (--import, --require), or a generator of the
+// generated rows naming either name, or a script anywhere in the repository (records aside) naming
+// the file's own name, since the module's tests run that code too and any of them could read it
+// through it. None reaching it: no test can see the change, and the suite is not run (a pass of
+// none). Returns the root-relative test files to run, [] for none, or null for the whole suite.
+// Only for a Markdown requirements file. Residual: code that reaches the file without naming it or
+// its directory (a walk of the whole tree that reads every file), or a comment-like line inside a
+// multi-line string.
+const LINE_COMMENTS = (text) => {
+  const out = [];
+  let block = false;
+  for (const l of text.split('\n')) {
+    let x = l;
+    if (block) { const k = x.indexOf('*/'); if (k < 0) continue; x = x.slice(k + 2); block = false; }
+    const t = x.trimStart();
+    if (t.startsWith('//')) continue;
+    if (t.startsWith('/*')) { const k = t.indexOf('*/', 2); if (k < 0) { block = true; continue; } x = t.slice(k + 2); }
+    out.push(x);
+  }
+  return out.join('\n');
+};
+export function requirementsOnly(root, cfg, e, { changed, rows = [], log = () => {} }) {
+  if (!e.requirements) return null;
+  const req = normPath(e.requirements);
+  if (!req.endsWith('.md')) return null;
+  const own = changed.filter((f) => !isRecordPath(cfg, f));
+  if (!own.length || !own.every((f) => normPath(f) === req)) return null;
+  const name = basename(req);
+  const dir = dirname(req) === '.' ? null : basename(dirname(req));
+  const read = (f) => { try { const t = readFileSync(join(root, f), 'utf8'); return t.includes('\0') ? '' : t; } catch { return ''; } };
+  const names = (f, text = read(f)) => { const c = SCRIPT.test(f) ? LINE_COMMENTS(text) : text; return c.includes(name) || (dir !== null && c.includes(dir)); };
+  const whole = (why) => { log(`${e.id}: only its requirements file ${req} changed, but ${why}: the whole suite runs`); return null; };
+  const tree = new Set(testTreeFiles(root, e));
+  const code = e.paths.flatMap((p) => listFiles(root, p)).filter((f) => f !== req && !f.endsWith('.md') && !tree.has(f));
+  const hit = code.find((f) => names(f));
+  if (hit) return whole(`${hit}, of the module's own paths, names ${name} or ${dir}`);
+  const cwd = e.suite?.cwd || '.';
+  const cmd = e.suite?.command || [];
+  const pre = cmd.flatMap((a, i) => (['--import', '--require', '-r'].includes(cmd[i - 1]) ? [a] : /^--(import|require)=/.test(a) ? [a.slice(a.indexOf('=') + 1)] : []))
+    .map((a) => normPath(join(cwd, a))).filter((f) => existsSync(join(root, f)));
+  const gens = rows.flatMap((r) => r.regenerate || []).filter((a) => SCRIPT.test(a)).map((a) => normPath(a)).filter((f) => existsSync(join(root, f)));
+  const other = [...pre, ...gens].find((f) => names(f));
+  if (other) return whole(`${other}, which the suite preloads or a generator runs, names ${name} or ${dir}`);
+  const named = git(['grep', '-l', '-z', '-F', '-e', name, '--', '.'], { cwd: root, allowFail: true }).stdout.split('\0').filter(Boolean)
+    .filter((f) => SCRIPT.test(f) && !tree.has(f) && !isRecordPath(cfg, f) && !f.split('/').includes('node_modules') && LINE_COMMENTS(read(f)).includes(name));
+  if (named.length) return whole(`${named.slice(0, 3).join(', ')}, outside its tests, names ${name}`);
+  const readers = [...tree].filter((f) => SCRIPT.test(f) && names(f));
+  const files = [...new Set(readers.flatMap((f) => reachers(root, e, f)))].filter((f) => testFiles(root, e).includes(f)).sort();
+  log(`${e.id}: only its requirements file ${req} changed: ${files.length ? `the suite runs the ${files.length} test file(s) that read it (${readers.join(', ')}${files.join(',') === readers.join(',') ? '' : `, reached from ${files.join(', ')}`})` : `no test reads it (none of its tests names ${name}${dir ? ` or ${dir}` : ''}): the suite is not run`}`);
+  return files;
+}
+// Every file under p, tracked or built, node_modules and .git left out; root-relative.
+const listFiles = (root, p, out = []) => {
+  const at = join(root, p);
+  let st;
+  try { st = lstatSync(at); } catch { return out; }
+  if (st.isFile()) out.push(normPath(p));
+  else if (st.isDirectory()) for (const n of readdirSync(at).sort()) if (n !== 'node_modules' && n !== '.git') listFiles(root, join(p, n), out);
+  return out;
+};
+
 // A gate row, checked before job post writes it into a comment: the file was written after
 // product code ran (review of PR 13). Only the fields job post prints are checked; merge trusts a
 // row only when the run's own artifact holds the same row (verifyRow).
@@ -529,7 +618,7 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
 // of 20 refuted claims). Each file runs by the module whose tests hold it, within `seconds` in
 // all (default 120); a file under the job's own test paths is the suite's. A test red at the base too is reported in the row, not a finding, as the
 // suite's base-red is; the receipt claims only the job's own suite.
-export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () => {} }) {
+export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () => {}, prepared = null }) {
   const { files, seconds = 120 } = cfg.smoke;
   if (!Array.isArray(files) || files.some((f) => typeof f !== 'string') || !(seconds > 0)) {
     return { row: { result: 'fail' }, findings: [F('config', CONFIG_FILE, 'smoke must be {"files": [test files], "seconds": <cap, default 120>}')] };
@@ -556,7 +645,7 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
     // the cap's (copy, 4 Nov: the base build of bundles.mjs timed out in about half the runs
     // within the 120 s smoke cap, which the base install, build and run shared).
     const t0 = Date.now();
-    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, ...(exec ? { exec } : {}), log });
+    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, ...(exec ? { exec } : {}), log, prepared });
     end += Date.now() - t0;
     if (br?.ok) {
       row.base_red.push({ module: e.id, ...br.base_red });
@@ -573,30 +662,50 @@ export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () =>
 
 const withEvents = (fn) => withTemp('p3-failing-', (d) => fn(join(d, 'failing.jsonl')));
 
-const LOAD_ERROR = /ERR_MODULE_NOT_FOUND|Cannot find module|does not provide an export named/;
-
-// Reverts the code files to the base, runs each test file alone, restores each file to HEAD
-// (removing any HEAD does not have). Returns the test files that still pass, and those that
-// failed only because something could not load. Runs in place: CI's checkout is disposable.
+// Reverts the code files to the base, runs the test files, restores each file to HEAD (removing
+// any HEAD does not have). Returns the test files that still pass, and those that failed only
+// because something could not load. Runs in place: CI's checkout is disposable.
 // tolerated: the base-red test ids (basered.mjs). A file that runs one fails at the revert whatever
 // the job's own tests do, so it counts as not inert only when a test other than those fails. Any
 // file may run one, since a test is keyed by the module declaring it, a sibling the file imports
 // (review of PR 133), so every file's failures are read per test when anything is tolerated;
 // when its failures cannot be read per test, it proves nothing and counts as inert (review of
 // PR 101).
+// One run (build gate-speed, 5 Nov: journey-check's revert check ran its files one process each,
+// in turn, 21 min): the files run together in one suite run, as the suite runs them, and each
+// file's verdict is the runner's own for it (fail-reporter.mjs's done line), which is its exit
+// code run alone: passed is inert. A file that failed is not inert when no failing test of the
+// run is a tolerated one (a file's failures alone are among the run's, so none is tolerated,
+// and a file that failed reports a failure: a test, or itself as a whole); its load failure is
+// the reporter's load line. Run alone, as before, each file this cannot decide: when a failing
+// test of the run is tolerated (a failure is not tied to the file that ran it), when the run has
+// no verdict for the file (a timeout, a crash) or none at all (a command that is not the node
+// test runner, or names its own reporter). Residual: files that pass or fail only for running
+// beside each other, as the suite runs them too.
 export function revertCheck(root, entry, base, code, tests, { timeout, tolerated = [] } = {}) {
-  const inert = [];
-  const loadOnly = [];
+  const inert = new Set();
+  const loadOnly = new Set();
+  const holds = tolerated.length > 0;
+  const tol = new Set(tolerated);
+  const alone = [];
   try {
     for (const f of code) {
       if (exists(root, base, f)) git(['checkout', base, '--', f], { cwd: root });
       else rmSync(join(root, f), { force: true, recursive: true });
     }
+    const r = tests.length > 1 && reportsEvents(entry.suite.command) ? withEvents((events) => runSuite(root, entry, tests, { timeout, events })) : null;
+    const together = r?.ran && r.failing ? r : null;
+    const anyTolerated = !!together && together.failing.some((x) => tol.has(testId(x)));
     for (const t of tests) {
-      const holds = tolerated.length > 0;
-      const r = holds ? withEvents((events) => runSuite(root, entry, [t], { timeout, events })) : runSuite(root, entry, [t], { timeout });
-      if (r.exit === 0 || (holds && (!r.failing || r.failing.every((x) => tolerated.includes(testId(x)))))) inert.push(t);
-      else if (LOAD_ERROR.test(r.output)) loadOnly.push(t);
+      const v = together ? together.ran[t] : undefined;
+      if (v === true) inert.add(t);
+      else if (v === false && !anyTolerated) { if (together.load.includes(t)) loadOnly.add(t); }
+      else alone.push(t);
+    }
+    for (const t of alone) {
+      const one = holds ? withEvents((events) => runSuite(root, entry, [t], { timeout, events })) : runSuite(root, entry, [t], { timeout });
+      if (one.exit === 0 || (holds && (!one.failing || one.failing.every((x) => tol.has(testId(x)))))) inert.add(t);
+      else if (LOAD.test(one.output)) loadOnly.add(t);
     }
   } finally {
     for (const f of code) {
@@ -605,5 +714,5 @@ export function revertCheck(root, entry, base, code, tests, { timeout, tolerated
       else rmSync(join(root, f), { force: true, recursive: true });
     }
   }
-  return { inert, loadOnly };
+  return { inert: tests.filter((t) => inert.has(t)), loadOnly: tests.filter((t) => loadOnly.has(t)), alone: alone.length };
 }
