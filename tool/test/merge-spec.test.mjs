@@ -10,7 +10,7 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { SPEC_TRAILER, merge, mergedResult } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const said = (into) => (m) => into.push(m);
@@ -43,6 +43,7 @@ function io(head) {
       ],
       checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
+      ...honestBranch([3], 'tranche', 'job/alpha'),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };

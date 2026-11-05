@@ -7,7 +7,7 @@ import { status } from '../lib/status.mjs';
 import { checkLedger, readEntry } from '../lib/ledger.mjs';
 import { appendRow, flowFigures, idleByDay, layerOf, overhead, readRows, report } from '../lib/metrics.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo, write } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo, write } from './helpers.mjs';
 
 const quiet = () => {};
 // The setup check reads GitHub; these products stand for one whose setup is complete.
@@ -704,6 +704,7 @@ test('merge passes on a green gate run that checked attempt 2, and refuses one t
     comments: () => [...f.state.comments, gate],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: () => true,
+    ...honestBranch([3, 7, 9, 60, 301]),
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });
   assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /checked receipt attempt 2/);

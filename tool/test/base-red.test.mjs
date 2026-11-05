@@ -10,7 +10,7 @@ import { baseRedOwed } from '../lib/report.mjs';
 import { baseRed, reachers } from '../lib/basered.mjs';
 import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
 // The gate never posts; job post writes its row as a comment after the run, as here.
 const gate = (root, o) => { const r = gateRun(root, o); if (o.pr && o.post !== false) o.io.addComment(o.slug, o.pr, gateComment(r.run)); return r; };
 
@@ -40,6 +40,7 @@ function fakeIO(receipt) {
       getPR: () => ({ user: { login: 'civicsmith' } }),
       addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; },
       verify: () => true,
+      ...honestBranch([1, 5, 9, 182, 183]),
     },
   };
 }

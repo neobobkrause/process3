@@ -10,7 +10,7 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, createPR, editPR, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
+import { baseEverChanged, checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, createPR, editPR, gateRuns, getPR, openPRs, prsFromBranch, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
@@ -789,7 +789,7 @@ function windowPass(root, ctx, { idle }) {
         const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && p.run_id != null && x.run_id === p.run_id).pop();
         const o = io.getPR(slug, p.n);
         const same = o?.state === 'open' && !o.draft && o.base?.ref === cfg.tranche && (o.head?.sha === p.head || o.head?.sha === p.pushed);
-        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: cfg.tranche }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
+        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: cfg.tranche, branch: specHead(p.n, p.seq) }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
       } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; judged = `unread: ${e.message.split('\n')[0]}`; }
       // A red that is not the job's is rebuilt, up to SPEC_REBUILDS times for one head; then it is
       // refused as the serial train refuses a gate that ends so (cold review: a gate that times out
@@ -1128,7 +1128,7 @@ export function train(root, opts = {}) {
   const session = opts.session;
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
-  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, createPR, editPR, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, createPR, editPR, prsFromBranch, baseEverChanged, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   // The batched reads: GitHub's at once, or, where a caller gives its own single read, that one in turn.
   const given = opts.io || {};
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;

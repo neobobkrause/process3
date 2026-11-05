@@ -6,7 +6,7 @@ import { BOT, GATE, RECEIPT, block, gateRuns, parseBlock } from '../lib/github.m
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { git } from '../lib/util.mjs';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
 // The gate never posts; job post writes its row as a comment after the run, as here.
 const gate = (root, o) => { const r = gateRun(root, o); if (o.pr && o.post !== false) o.io.addComment(o.slug, o.pr, gateComment(r.run)); return r; };
 
@@ -44,6 +44,7 @@ function fakeIO(receipt) {
       },
       // Stands for verifyRow: only rows the gate itself posted are backed by a run's artifact.
       verify: (s, r) => state.genuine.has(key(r)),
+      ...honestBranch([5, 247], 'tranche', 'job/alpha'),
     },
   };
 }
@@ -111,6 +112,32 @@ test('record-only changes end in seconds: a records PR, and records since the la
   assert.equal(gateRuns(io.state.comments).length, 2);
 });
 
+// Confirming review of build/train-spec, 5 Nov: GitHub lists only open pull requests on a run,
+// so a second PR from the job branch into a base whose workflow uploads a forged green row, then
+// closed, leaves the run listing only the job's PR. The records-only path does not stand on it.
+test('records since a green run whose branch had another PR into another base, or a retargeted one, run the suite, naming it', () => {
+  const c = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
+  const io = fakeIO(receiptFor(c.head));
+  assert.equal(run(c, io).run.trigger, 'code');
+  const head2 = commit(c.root, { 'process/metrics/alpha.jsonl': '{"row":"merge"}\n' });
+  const forged = [
+    [{ prsFromBranch: (s, b) => [{ number: 5, head: { ref: b }, base: { ref: 'tranche' } }, { number: 90, state: 'closed', head: { ref: b }, base: { ref: 'x' } }] }, /job\/alpha also had pull request\(s\) 90 into another base/],
+    [{ baseEverChanged: (s, n) => n === 5 }, /the base of pull request\(s\) 5 from job\/alpha was changed/],
+    [{ prsFromBranch: () => null }, /the pull requests from job\/alpha could not be read/],
+  ];
+  for (const [over, re] of forged) {
+    const said = [];
+    const r = gate(c.root, { base: c.base, head: head2, branch: 'job/alpha', pr: 5, slug: 'o/r', io: { ...io.io, ...over }, log: (m) => said.push(m) });
+    assert.equal(r.run.trigger, 'code', 'no records-only run on an unbound row');
+    assert.equal(r.run.suite, 'pass');
+    assert.ok(said.some((m) => /no earlier green run stands for the records-only path/.test(m) && re.test(m)), said.join('\n'));
+  }
+  // The honest history: a later records-only push stands on the newest green run.
+  const head3 = commit(c.root, { 'process/metrics/alpha.jsonl': '{"row":"merge"}\n{}\n' });
+  const r = gate(c.root, { base: c.base, head: head3, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
+  assert.deepEqual([r.run.trigger, r.run.after], ['record-since-green', head2]);
+});
+
 // Copy PR 247, 4 Nov: attempt 3 changed only process/ledger and process/metrics, its test
 // already on the tranche from attempt 2. Every run on its head was "record", the receipt never
 // checked, and merge refused it. A ready job's receipt with no green code run to stand on gets one.
@@ -136,6 +163,7 @@ test('a records-only job pull request with a receipt gets a code run whose recei
     comments: () => io.state.comments,
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: io.io.verify,
+    ...honestBranch([5, 247], 'tranche', 'job/alpha'),
     mergePR: (slug, n, sha) => { merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
   } });
   assert.equal(m.merged, true);
@@ -221,13 +249,13 @@ test('job gate posts nothing; job post posts the artifact\'s row, and merge\'s v
   assert.equal(rows.length, 1);
   assert.match(c.body, new RegExp(`Gate run on \`${s.head.slice(0, 10)}\`: green, code`));
   // The run is the process gate on the head, completed green, and its artifact is the same file.
-  const actionsRun = { path: GATE_WORKFLOW, head_sha: s.head, status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 5, base: { ref: 'tranche' } }] };
+  const actionsRun = { path: GATE_WORKFLOW, head_sha: s.head, status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 5, base: { ref: 'tranche' } }], head_branch: 'job/alpha', head_repository: { full_name: 'o/r' } };
   const art = JSON.parse(readFileSync(file, 'utf8')).run;
   assert.equal(rows[0].run_id, 4242);
-  assert.equal(verifyRow('o/r', rows[0], { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), true);
+  assert.equal(verifyRow('o/r', rows[0], { pr: 5, baseRef: 'tranche', branch: 'job/alpha' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), true);
   // A copy of the row that widens what a later receipt may excuse is not this run's (review of PR 134).
   for (const k of ['receipt_passed', 'base_red']) {
-    assert.equal(verifyRow('o/r', { ...rows[0], [k]: [{ tests: ['t/a.test.mjs::x'] }] }, { pr: 5, baseRef: 'tranche' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), false, k);
+    assert.equal(verifyRow('o/r', { ...rows[0], [k]: [{ tests: ['t/a.test.mjs::x'] }] }, { pr: 5, baseRef: 'tranche', branch: 'job/alpha' }, { getRun: (slug, id) => (id === 4242 ? actionsRun : null), runArtifactRow: () => art }), false, k);
   }
 });
 

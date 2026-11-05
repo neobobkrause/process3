@@ -3,7 +3,7 @@
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, verifyRow } from './github.mjs';
+import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, unbound, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, runSuite, suffixOf } from './suite.mjs';
@@ -187,8 +187,12 @@ export function gate(root, opts) {
     for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
   }
   const recordOnly = changed.every((f) => isRecordPath(cfg, f)) || !!lanePR;
-  // The fast path stands on an earlier green run only when that run is verified (verifyRow).
-  const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
+  // The fast path stands on an earlier green run only when that run is verified (verifyRow) and
+  // the branch's runs are bound to this pull request (unbound): read only when a row could stand.
+  const greens = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse();
+  const loose = greens.length ? unbound(slug, branch, pr, cfg.tranche, io) : null;
+  if (loose) log(`no earlier green run stands for the records-only path: ${loose}`);
+  const lastGreen = loose ? undefined : greens.find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche, branch }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     // A lane's folder counts as records here: a lane's land between a job's green run and its
     // merge does not send the job back through its suite (Bob, 5 Nov).
@@ -576,14 +580,11 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
 // base's workflow first (confirming review of PR 94). Any base change, or an unread history,
 // refuses. Returns why the branch does not bind, or null. Used by the job merges' cover and by
 // a close's workflow changes (workflows.mjs).
+// The same check binds an open PR's rows too (github.mjs unbound): GitHub lists only open PRs on
+// a run, so a closed second PR's run lists only this one.
 export function branchBound(slug, branch, n, tranche, io) {
-  const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
-  if (!Array.isArray(from) || !from.some((x) => x.number === n)) return `is PR ${n}'s merge, but the pull requests from ${branch} could not be read`;
-  const elsewhere = from.filter((x) => x.base?.ref !== tranche).map((x) => x.number);
-  if (elsewhere.length) return `is PR ${n}'s merge, but ${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`;
-  const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
-  if (moved.length) return `is PR ${n}'s merge, but the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`;
-  return null;
+  const why = unbound(slug, branch, n, tranche, io);
+  return why && `is PR ${n}'s merge, but ${why}`;
 }
 
 export function jobMerge(root, cfg, c, { slug, io }) {
