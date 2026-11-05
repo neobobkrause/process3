@@ -126,3 +126,24 @@ The parts and the contracts between them:
 - **Window** (window.mjs, pure; train.mjs drives it): rows in `metrics/train-window.jsonl` on the
   state branch, `{ at, row: 'spec', session, event, pr, seq, position, spec_pr, base, head, cause }`,
   event one of build, close, land, fallback.
+
+## Built (5 Nov, evening, after Bob's word at ~16:40)
+
+- **Flag:** `merge_train_window` in process/config.json, default 1: the serial train, untouched (the
+  loop takes the window's pass only past 1; a test shows a window of 1 makes no spec ref or PR).
+- **train.mjs** drives window.mjs: `windowPass` (reconcile with the tranche tip and the jobs' heads
+  from ready()'s one read of the open PRs; read the spec gates and their post jobs; a red at i whose
+  ahead are all green is refused to BOB as a red merged result and every spec behind is closed;
+  a cancelled spec gate is closed and rebuilt, not refused; position 0, green, lands through
+  merge() with its spec; then admit and build), `specDone` (land / fallback / refused rows; a
+  fallback land closes those behind, whose chain no longer holds), `restoreWindow` (restart).
+- **Position 0 that is its own merged result** (its head already holds the tranche tip and its
+  merge row): no spec PR, since its spec head would be the job PR's own commit and share its check
+  runs; it lands on its own gate, as the serial train lands it.
+- **Branches:** every spec pair is pushed with `--atomic` as two new refs; a name taken on the
+  remote (ls-remote) or in a row is never used again, so no push is ever a rewrite. Spec PRs are
+  closed, never deleted; branches are never deleted. There is no non-deletion route to clean them
+  (auto-delete on merge is a repository setting, and spec PRs never merge): they accumulate, two
+  per build; a prune needs Bob.
+- **Pin:** the gate and job post run at the base's pin, so on the copy the spec path works only
+  once the copy's `.process` pin carries this code; before that, a window over 1 must stay off.
