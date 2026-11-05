@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { checkRun, checkRuns, compare, comments, gateRuns, getPR, latestReceipt, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, bobMetricsFile, metricsFile, readRows, rowsAt } from './metrics.mjs';
-import { diffNames, entriesAt, ownPaths } from './gate.mjs';
+import { builtOn, diffNames, entriesAt, offSpec, ownOf, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored } from './anchor.mjs';
 import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, toolPin, wakeLine } from './job.mjs';
@@ -241,7 +241,7 @@ export function merge(root, n, opts = {}) {
     });
     // A speculated land (train window, C'): L is pushed marked for the gate's spec-tested path only
     // when it is the tree the spec gate tested, records aside; else the gate on L runs in full.
-    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, job: id, log }) : null;
+    const spec = opts.spec ? specMark(wt, cfg, opts.spec, { tip, was: pr.head.sha, onto: `origin/${cfg.tranche}`, job: id, log }) : null;
     if (spec?.tip) tip = spec.tip;
     // The train's return to a held merged result pushes nothing new (the coordinator's ruling: its
     // head holds this PR's merge row on the current tip); anything to push ends the hold instead.
@@ -303,7 +303,7 @@ export function merge(root, n, opts = {}) {
     // (copy, 4 Nov), which dropped the triage line and the push failure that stopped it.
     // A merge that left no notice to triage has said so above; READY_NEXT stays its last line.
     if (!String(triage?.why || '').startsWith('none to run')) log(triageLast(triage));
-    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT, ...(rejudged ? { rejudged } : {}), ...(spec ? { spec: spec.fast ? { fast: true, pr: spec.pr } : { fast: false, why: spec.why } } : {}) };
+    return { merged: true, sha: r.sha, tip, notices: notes, triage, next: READY_NEXT, ...(rejudged ? { rejudged } : {}), ...(spec ? { spec: spec.fast ? { fast: true, pr: spec.pr, ...(spec.move ? { move: spec.move } : {}) } : { fast: false, why: spec.why } } : {}) };
   }, { root });
 }
 
@@ -396,7 +396,7 @@ export const SPEC_TRAILER = 'Spec-Tested';
 // bytes pushed are the bytes built; anything else is today's full re-gate, and says why. A tip
 // that is already the PR's head is never rewritten (nothing new is pushed): it is fast only when
 // an earlier run pushed it with this trailer.
-function specMark(wt, cfg, { pr: sp, sha }, { tip, was, job = null, log = console.log }) {
+function specMark(wt, cfg, { pr: sp, sha }, { tip, was, onto, job = null, log = console.log }) {
   const trailer = `${SPEC_TRAILER}: ${sp}`;
   const marked = (c) => git(['log', '-1', '--format=%B', c], { cwd: wt }).split('\n').some((l) => l.trim() === trailer);
   const slow = (why) => { log(`spec PR ${sp}: ${why}; the gate on the merged result runs in full`); return { fast: false, why }; };
@@ -404,17 +404,23 @@ function specMark(wt, cfg, { pr: sp, sha }, { tip, was, job = null, log = consol
   if (tip === was && !marked(tip)) return slow('nothing pushed');
   // Lane folders count as records, as in the gate's record-since-green (lane.mjs; Bob, 5 Nov).
   const entries = entriesAt(wt, tip);
-  const differ = diffNames(wt, sha, tip).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
+  // Or the tree it tested plus a tranche move since its base, or minus a change ahead of it that
+  // left the window, sharing no file with it (offSpec; Bob and the coordinator, 5 Nov).
+  const is = git(['rev-parse', onto], { cwd: wt });
+  const from = builtOn(wt, sha, is);
+  const { off: differ, moved, dropped, commits } = offSpec(wt, { tested: sha, head: tip, was: from, is, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }), own: ownOf(entries, job) });
   if (differ.length) return slow(`the merged result ${tip.slice(0, 10)} differs from the tree spec PR ${sp} tested (${sha.slice(0, 10)}) outside the records: ${differ.slice(0, 5).join(', ')}${differ.length > 5 ? ` and ${differ.length - 5} more` : ''}`);
-  if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside`); return { fast: true, pr: sp }; }
+  const move = moved.length ? { from, to: is, files: moved, dropped, commits } : null;
+  const plus = move ? `, with ${moved.length - dropped.length} file(s) of a disjoint tranche move (${commits.length} commit(s)) and ${dropped.length} of a disjoint change ahead that left the window` : '';
+  if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside${plus}`); return { fast: true, pr: sp, move }; }
   const shape = (c) => git(['rev-list', '--no-walk', '--format=%T %P', c], { cwd: wt }).split('\n').pop();
   const before = shape(tip);
   const msg = git(['log', '-1', '--format=%B', tip], { cwd: wt }).replace(/\s+$/, '');
   git(['commit', '-q', '--amend', '--allow-empty', '--no-verify', '-m', `${msg}\n\n${trailer}`], { cwd: wt });
   const out = git(['rev-parse', 'HEAD'], { cwd: wt });
   if (shape(out) !== before) fail(`marking ${tip.slice(0, 10)} with ${trailer} changed its tree or parents; nothing was pushed`);
-  log(`the merged result is the tree spec PR ${sp} tested, records aside: ${out.slice(0, 10)} carries ${trailer}; its gate takes the spec-tested path`);
-  return { fast: true, pr: sp, tip: out };
+  log(`the merged result is the tree spec PR ${sp} tested, records aside${plus}: ${out.slice(0, 10)} carries ${trailer}; its gate takes the spec-tested path`);
+  return { fast: true, pr: sp, tip: out, move };
 }
 
 // The per-PR checks a job's merge holds before it brings the job in (merge, and each member of

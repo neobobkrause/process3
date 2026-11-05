@@ -25,6 +25,41 @@ export const entriesAt = (root, ref) => Object.values(readLedgerTexts(root, ref)
 // No rename detection: a rename lists both the removed and the added path (confirming review
 // of PR 14).
 export const diffNames = (root, a, b, paths = []) => git(['diff', '--no-renames', '--name-only', '-z', a, b, '--', ...paths], { cwd: root }).split('\0').filter(Boolean);
+// The tranche tip a predicted tree was built on: the newest commit on `is`'s first-parent line
+// that is an ancestor of `tested` (null within 200 commits: none).
+export function builtOn(root, tested, is) {
+  const line = git(['rev-list', '--first-parent', '--max-count=200', is], { cwd: root, allowFail: true }).stdout?.split('\n').filter(Boolean) || [];
+  return line.find((c) => git(['merge-base', '--is-ancestor', c, tested], { cwd: root, allowFail: true }).code === 0) || null;
+}
+// A spec-tested tree plus a disjoint tranche move, minus a disjoint position that left the window
+// ahead of it (window keep-disjoint, Bob and the coordinator, 5 Nov): the files where `head`
+// differs from `tested` (the tree a spec run tested), skip() aside (records, lanes), split into
+// `moved`, those `head` holds as `is` (the land's base) does and that either `tested` held as the
+// tranche did at `was` (the spec's base, a tranche tip behind `is`) or at a tip since on its first-
+// parent line (the tranche moved them on), or the tranche never changed while `tested` did (a
+// change ahead of it in the window that never landed); and `off`, the rest. Entries compare mode
+// and object. `dropped`: the second kind, never a file own(f) (the job's own module: no position
+// ahead changes it). commits: the move's, first parent.
+export function offSpec(root, { tested, head, was, is, skip, own = () => false }) {
+  const differ = diffNames(root, tested, head).filter((f) => !skip(f));
+  const after = differ.length && was && is && git(['merge-base', '--is-ancestor', was, is], { cwd: root, allowFail: true }).code === 0;
+  const line = after ? [was, ...git(['rev-list', '--first-parent', `${was}..${is}`], { cwd: root }).split('\n').filter(Boolean)] : [];
+  const kind = (f) => {
+    const i = entryOf(root, is, f);
+    if (entryOf(root, head, f) !== i) return null;
+    const t = entryOf(root, tested, f);
+    if (t !== i && line.some((c) => entryOf(root, c, f) === t)) return 'move';
+    return entryOf(root, was, f) === i && !own(f) ? 'drop' : null;
+  };
+  const kinds = after ? new Map(differ.map((f) => [f, kind(f)])) : new Map();
+  const moved = differ.filter((f) => kinds.get(f));
+  const commits = moved.some((f) => kinds.get(f) === 'move') ? line.slice(1) : [];
+  return { off: differ.filter((f) => !kinds.get(f)), moved, dropped: moved.filter((f) => kinds.get(f) === 'drop'), commits };
+}
+// Whether a file is in job `id`'s module (its entry's paths and tests).
+export const ownOf = (entries, id) => { const e = entries.find((x) => x.id === id); return (f) => !!e && [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)); };
+// A path's tree entry at a commit, mode and object ("" when absent).
+const entryOf = (root, ref, f) => git(['ls-tree', ref, '--', f], { cwd: root, allowFail: true }).stdout?.split('\t')[0] || '';
 export const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
@@ -219,7 +254,7 @@ export function gate(root, opts) {
     runRow.trigger = 'spec-tested';
     for (const k of ['suite', 'scope', 'tests', 'base_red', 'revert', 'inert', 'load_only']) if (r[k] !== undefined) runRow[k] = r[k];
     Object.assign(runRow, { spec_pr: fast.n, spec_run: r.run_id, spec_sha: r.sha });
-    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside: no suite runs`);
+    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside${fast.move ? `, with the disjoint tranche move ${String(fast.move.from).slice(0, 10)}..${String(base).slice(0, 10)} (${fast.move.files.length} file(s))` : ''}: no suite runs`);
   }
   else if (sinceGreen) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
@@ -403,17 +438,18 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, job }) {
   const at = String(row.sha).slice(0, 10);
   // Lane folders count as records here, as in record-since-green (lane.mjs; Bob, 5 Nov).
   const entries = entriesAt(root, head);
-  const off = diffNames(root, row.sha, head).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
+  // Or by a tranche move since the spec run's base, or a change ahead that left the window, sharing no file with it (offSpec).
+  const { off, moved, dropped, commits } = offSpec(root, { tested: row.sha, head, was: row.base, is: base, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }), own: ownOf(entries, job) });
   if (off.length) return no(`the head differs from ${at}, which spec PR ${n}'s run ${row.run_id} tested, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
   // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
   if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
   if (blobAt(root, row.base, CONFIG_FILE) !== blobAt(root, base, CONFIG_FILE)) return no(`the base's ${CONFIG_FILE} differs from the spec run's`);
   // The spec run's base was a tranche tip (its run is bound into the tranche, as a job PR's): it
   // must be this land's base or behind it, with the same judge, and a base-red suite stands only
-  // on this very base (a test failing at an older tip may have been fixed since).
-  const baseOff = baseDiffers(root, row, base);
+  // on this very base or one that differs from it only as baseRedMoved allows.
+  const baseOff = baseDiffers(root, cfg, row, base);
   if (baseOff) return no(`spec PR ${n}'s run was judged on base ${String(row.base).slice(0, 10)}, which ${baseOff}`);
-  return { ok: true, n, row };
+  return { ok: true, n, row, ...(moved.length ? { move: { from: row.base, to: base, files: moved, dropped, commits } } : {}) };
 }
 
 // The tranche into main (PR 89's report, 4 Nov): one gate job running every changed module's
@@ -635,26 +671,43 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   const entries = r ? entriesAt(root, head) : [];
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || !diffNames(root, r.sha, head).every((f) => isRecordOrLane(cfg, f, entries, { self: job })) || baseDiffers(root, r, row.base)) return null;
+    || offSpec(root, { tested: r.sha, head, was: r.base, is: row.base, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }), own: ownOf(entries, job) }).off.length || baseDiffers(root, cfg, r, row.base)) return null;
   return r;
 }
 
 // Why a spec run (row) does not stand for a land on base `is`: its base, a tranche tip, is not
 // `is` or behind it, or the judge differs (the pin, the config, the gate workflow), or its suite
-// was base-red on another base; null when it stands.
+// was base-red on a base this one differs from otherwise than baseRedMoved allows; null when it stands.
 const GATE_FILE = '.github/workflows/process-gate.yml';
 export const JUDGE_FILES = ['.process', CONFIG_FILE, GATE_FILE];
-function baseDiffers(root, row, is) {
+function baseDiffers(root, cfg, row, is) {
   const was = row?.base;
   if (!committed(root, was) || !committed(root, is)) return 'is not readable here';
   if (!isAnc(root, was, is)) return `is not ${String(is).slice(0, 10)}, this land's base, nor behind it`;
   const judge = JUDGE_FILES.filter((f) => blobAt(root, was, f) !== blobAt(root, is, f));
   if (judge.length) return `has another judge than ${String(is).slice(0, 10)}: ${judge.join(', ')}`;
-  if (row.suite === 'base-red' && was !== is) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}`;
+  const moved = row.suite === 'base-red' && was !== is ? baseRedMoved(root, cfg, row, was, is) : [];
+  if (moved.length) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}, which differs from it in ${moved.length} file(s) the spec run neither ran with nor left as they were: ${moved.slice(0, 5).join(', ')}`;
   // GitHub takes a pull_request run's workflow file from its merge, i.e. from the spec head: it must
   // be the land base's too (the spec head is any writer's branch; review of the tranche-based spec).
   if (!committed(root, row.sha) || blobAt(root, row.sha, GATE_FILE) !== blobAt(root, is, GATE_FILE)) return `ran ${GATE_FILE} from its spec head ${String(row.sha).slice(0, 10)}, not ${String(is).slice(0, 10)}'s`;
   return null;
+}
+
+// A base-red spec run's tolerance carries from its base `was` to a land's base `is` (coordinator,
+// 5 Nov; copy: spec 566 for PR 470, base-red on 85f411fd03, refused at its land on 808de5b52a, PR
+// 364's land ahead of it, and its full gate found the same 15 tests red at the base) when each file
+// between them, records aside, is as the spec run ran it, as its predicted base held it (the land
+// ahead of it in the window: the spec head's merge built onto it, `row.sha^1^2`), or as at `was` in
+// the tree it tested (a tranche move disjoint from it). The files that are none of these.
+function baseRedMoved(root, cfg, row, was, is) {
+  const r = git(['rev-parse', '--verify', '-q', `${row.sha}^1^2`], { cwd: root, allowFail: true });
+  const predicted = r.code === 0 && isAnc(root, was, r.stdout.trim()) ? r.stdout.trim() : null;
+  return diffNames(root, was, is).filter((f) => !isRecordPath(cfg, f)).filter((f) => {
+    const t = blobAt(root, row.sha, f);
+    const i = blobAt(root, is, f);
+    return t !== i && t !== blobAt(root, was, f) && !(predicted && blobAt(root, predicted, f) === i);
+  });
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after

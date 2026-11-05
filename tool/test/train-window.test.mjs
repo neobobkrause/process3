@@ -104,7 +104,7 @@ const stateRows = (root, f) => { fetchState(root, 'process-state', { fresh: true
 const refs = (root) => new Map(git(['ls-remote', 'origin', 'refs/heads/train/*'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t').reverse()));
 const run = (root, g, rounds, lines = []) => train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, idleEvery: 1, rounds, log: (l) => lines.push(l) });
 
-test('window of 3: specs on the chain; a red at position 1 is not refused behind PR 1 but judged again at the head, then refused; the one behind rebuilt; lands on their spec; no ref rewritten or deleted', () => {
+test('window of 3: specs on the chain; a red at position 1 is not refused behind PR 1 but judged again at the head, then refused; the one behind kept, then rebuilt without it; lands on their spec; no ref rewritten or deleted', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'BROKEN' }, gamma: { 'src/gamma/a.mjs': 'c' } }, 3);
   const g = github(root, ids);
   const seen = new Map(); // every train/* ref, with the first sha it held
@@ -132,7 +132,7 @@ test('window of 3: specs on the chain; a red at position 1 is not refused behind
   run(root, g, 6, lines);
   watch();
   assert.deepEqual(g.calls.merged, [1, 3], lines.join('\n'));
-  // beta refused (its spec red), gamma's first spec closed (red ahead) and rebuilt as 3-2.
+  // beta refused (its spec red); gamma rebuilt until its tree no longer holds beta (3-3).
   const train = stateRows(root, TRAIN_FILE);
   assert.ok(train.some((r) => r.pr === 2 && r.result === 'refused' && /gate on the merged result is failure/.test(r.why)));
   const merged = train.filter((r) => r.result === 'merged');
@@ -143,7 +143,10 @@ test('window of 3: specs on the chain; a red at position 1 is not refused behind
   assert.ok(win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 2 && r.position === 0));
   assert.equal(train.filter((r) => r.pr === 2 && r.result === 'refused').length, 1, 'refused once, at the head');
   assert.ok(!win.some((r) => r.event === 'build' && r.pr === 2 && r.seq === 3), 'never rebuilt after its refusal');
-  assert.ok(win.some((r) => r.event === 'close' && r.pr === 3 && r.seq === 2 && /red ahead: PR 2/.test(r.cause)), JSON.stringify(win));
+  // gamma shares no file with beta: kept behind it each time beta left, its red (beta's breakage in
+  // its tested tree) never refused but rebuilt without it (coordinator, 5 Nov).
+  assert.ok([1, 2].every((seq) => win.some((r) => r.event === 'close' && r.pr === 3 && r.seq === seq && /red on a tree holding a change ahead that left the window/.test(r.cause))), JSON.stringify(win));
+  assert.ok(!train.some((r) => r.pr === 3 && r.result === 'refused'), 'gamma never refused for beta');
   assert.deepEqual(win.filter((r) => r.event === 'land').map((r) => r.pr), [1, 3]);
   // Every spec pull request is closed by the end; every spec branch is still there.
   assert.deepEqual([...g.specs.values()].filter((s) => s.open), []);
@@ -169,7 +172,7 @@ test('window of 1 (the default) is the serial train: no spec branch, no spec pul
   assert.ok(stateRows(root, TRAIN_FILE).every((r) => r.spec_fast === undefined));
 });
 
-test('a tranche moved by anything but the window closes every spec, and the window rebuilds on the new tip', () => {
+test('a tranche moved by anything but the window, in a file position 0 changes, closes every spec, and the window rebuilds on the new tip', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } }, 2);
   const g = github(root, ids);
   g.calls.hold = true; // nothing lands: only the move acts
@@ -180,7 +183,7 @@ test('a tranche moved by anything but the window closes every spec, and the wind
     if (++passes !== 2) return;
     git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
     git(['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: root });
-    commit(root, { 'hand.txt': 'a plain land' });
+    commit(root, { 'src/alpha/a.mjs': 'a' }); // a file position 0 changes (the same change: no conflict)
     git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
     git(['checkout', '-q', 'main'], { cwd: root });
     tip = g.tipOf('tranche');
@@ -199,7 +202,7 @@ test('a tranche moved by anything but the window closes every spec, and the wind
   assert.deepEqual(g.calls.merged, []);
 });
 
-test('a job whose head moves leaves the window with every spec behind it; those ahead stand', () => {
+test('a job whose head moves leaves the window; those ahead stand, and those behind that share no file with it', () => {
   const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' }, gamma: { 'src/gamma/a.mjs': 'c' } }, 3);
   const g = github(root, ids);
   // Gates never finish here: nothing lands, so only the head move acts.
@@ -212,8 +215,10 @@ test('a job whose head moves leaves the window with every spec behind it; those 
   git(['checkout', '-q', 'main'], { cwd: root });
   run(root, g, 1);
   const closes = stateRows(root, WINDOW_FILE).filter((r) => r.event === 'close');
-  assert.deepEqual(closes.map((r) => [r.pr, r.cause]), [[2, `PR 2 head moved to ${g.tipOf('job/beta').slice(0, 10)}`], [3, `PR 2 head moved to ${g.tipOf('job/beta').slice(0, 10)} (ahead)`]]);
-  assert.deepEqual(g.calls.closed.sort(), [102, 103]);
+  // gamma behind shares no file with beta: it stands (coordinator, 5 Nov); a shared file closes it
+  // too (train-window-disjoint.test.mjs).
+  assert.deepEqual(closes.map((r) => [r.pr, r.cause]), [[2, `PR 2 head moved to ${g.tipOf('job/beta').slice(0, 10)}`]]);
+  assert.deepEqual(g.calls.closed.sort(), [102]);
   assert.ok(!g.calls.closed.includes(101), 'alpha, ahead, stands');
 });
 
@@ -298,7 +303,7 @@ test('a spec pull request whose close fails is closed at the next pass, and its 
     if (++passes !== 2) return;
     git(['fetch', '-q', 'origin', 'tranche'], { cwd: root });
     git(['checkout', '-q', '--detach', 'FETCH_HEAD'], { cwd: root });
-    commit(root, { 'hand.txt': 'x' });
+    commit(root, { 'src/alpha/a.mjs': 'x' }); // a file position 0 changes: every spec closes
     git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
     git(['checkout', '-q', 'main'], { cwd: root });
   };
