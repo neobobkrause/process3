@@ -15,7 +15,7 @@ import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metrics
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
-import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
+import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, releaseSessionLease, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
 import { capCheck, readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
@@ -34,6 +34,7 @@ import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
+import { switchIn, switchOut, switchQuiet } from './lib/switch.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
 import { CONFIG_FILE, Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
@@ -278,11 +279,13 @@ const commands = {
   // merge train note <pr> (--reviewed ... --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> | --no-review "<why>") [--decision "<why>"] [--job-cost-usd <n> [--job-session <id>]]:
   //   the review (and cost) the train merges this PR's current head with.
   // merge train beat --session <id> --context <pct>: the merger's context, hourly.
+  // merge train release --session <id>: a stopped train's lease given back by its own session.
   // merge train report: the trial's measures beside the baselines.
   'merge train': (a, root) => {
     const sub = a._[0];
     if (sub === 'note') return (trainNote(root, Number(one({ _: a._.slice(1) }, 'pull request number')), { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision, reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'], jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }), 0);
     if (sub === 'beat') return (trainBeat(root, { session: a.session, context: a.context }), 0);
+    if (sub === 'release') return (releaseSessionLease(root, loadConfig(root), a.session), 0);
     if (sub === 'report') {
       const sb = loadConfig(root).state_branch;
       const read = (f) => (fetchState(root, sb) ? jsonl(readState(root, sb, f)) : []);
@@ -417,6 +420,22 @@ const commands = {
     if (a._[0] === 'task') { const t = sweepTask(a.session, loadConfig(root).tranche, tipApprovals(root).approvals); console.log(t.prompt); console.log(`create_trigger, bound to this session:\n${JSON.stringify(t.call, null, 2)}`); return 0; }
     sweep(root, { session: a.session, live: a.live, sessions: a.sessions, context: a.context, offline: !!a.offline, attempts: list(a.attempt).filter((x) => x !== true) });
     return 0;
+  },
+
+  // switch out --tasks <list_triggers JSON file> --sessions <list_sessions JSON file> --by <session>:
+  //   on the old Claude account, the manifest (tasks, live jobs, addresses, unanswered messages) to
+  //   the state branch's switch/manifest.json, and the stop acts in order. Writes nothing else.
+  // switch in --sessions <list_sessions JSON file> --by <session> [--approvals <hash>]: the first act
+  //   on the new account: the preflight (GitHub, the account, push, the approvals), refused on any
+  //   failure, then the restart's acts in order. Writes nothing.
+  // switch quiet [--minutes 2]: exit 0 only when the tranche's tip has not moved for that long.
+  // The runbook: rulebooks/account-switch.md.
+  switch: (a, root) => {
+    const sub = a._[0];
+    if (sub === 'out') return (switchOut(root, { tasks: a.tasks, sessions: a.sessions, by: a.by }), 0);
+    if (sub === 'in') return (switchIn(root, { sessions: a.sessions, by: a.by, approvals: a.approvals }), 0);
+    if (sub === 'quiet') return switchQuiet(root, { ...(a.minutes !== undefined ? { minutes: a.minutes } : {}) }).ok ? 0 : 1;
+    fail('switch out --tasks <file> --sessions <file> --by <session> | switch in --sessions <file> --by <session> [--approvals <hash>] | switch quiet [--minutes <n>]');
   },
 
   // watch --session <the watcher's id> [--full | --escalated <minutes>]: the watcher's decision,
