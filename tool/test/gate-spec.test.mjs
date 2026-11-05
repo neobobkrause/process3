@@ -37,9 +37,9 @@ const receipt = (sha, extra = {}) => ({ kind: 'receipt', module: 'alpha', attemp
 // (`aheadFiles`, none at window position 0); the spec head train/head/5-1: t0 + the ahead change +
 // the job merged + its predicted merge row (R(0)), its PR into the tranche itself (base t0); and
 // t1, the tranche once the PR ahead landed (t0 + the same change, its own commit).
-function world({ jobFiles, config, aheadFiles = { 'notes/ahead.md': 'ahead in the window\n' } } = {}) {
+function world({ jobFiles, config, aheadFiles = { 'notes/ahead.md': 'ahead in the window\n' }, baseFiles = {} } = {}) {
   const mark = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'ran');
-  const root = makeRepo(product(config));
+  const root = makeRepo({ ...product(config), ...baseFiles });
   const t0 = rev(root, 'HEAD');
   git(['branch', 'tranche'], { cwd: root });
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
@@ -54,8 +54,9 @@ function world({ jobFiles, config, aheadFiles = { 'notes/ahead.md': 'ahead in th
 function chain(root, from, job, aheadFiles, name = 'train/head/5-1') {
   git(['checkout', '-q', '--detach', from], { cwd: root });
   const ahead = aheadFiles ? commit(root, aheadFiles, 'ahead in the window (predicted)') : from;
-  git(['checkout', '-q', '-B', name], { cwd: root });
-  git(['merge', '-q', '--no-ff', '--no-edit', job], { cwd: root });
+  // As merge.mjs buildMerged builds it: the job's head with the chain merged in (parents: job, ahead).
+  git(['checkout', '-q', '-B', name, job], { cwd: root });
+  git(['merge', '-q', '--no-ff', '--no-edit', ahead], { cwd: root });
   const specHead = commit(root, { 'process/metrics/alpha.jsonl': mergeRow('2026-11-05T10:00:00Z') }, 'predicted merge row');
   return { ahead, specHead };
 }
@@ -452,6 +453,42 @@ refused('the spec run was base-red on an older tranche tip, and the land ahead o
   // The land's tree is refused first (a file neither tested nor the move's); the base-red rule
   // (baseRedMoved) refuses the same base behind it.
   return { base: t1, head: land(g.w, t1), why: /in 1 file\(s\) outside the records: notes\/ahead\.md;/ };
+});
+
+refused('a file the move and the job both changed, held as the move has it (not the job\'s change the spec tested)', ({ w }) => {
+  git(['checkout', '-q', '--detach', w.t1], { cwd: w.root });
+  const moved = commit(w.root, { 'src/alpha/index.mjs': 'export const x = 3;\n' }, 'tranche moved in the job\'s file');
+  // The land keeps the move's side of the file (a merge that took the tranche's version).
+  git(['merge', '-q', '-X', 'ours', '--no-edit', w.job], { cwd: w.root });
+  const L = commit(w.root, { 'process/metrics/alpha.jsonl': mergeRow('2026-11-05T11:00:00Z') }, `merge row for PR ${JOB}\n\nSpec-Tested: ${SPEC}`);
+  return { base: moved, head: L, why: /outside the records: src\/alpha\/index\.mjs;/ };
+});
+refused('a file the move changed, held with another mode than the tranche\'s (an executable bit neither made)', ({ w }) => {
+  const moved = disjoint(w);
+  land(w, moved);
+  git(['update-index', '--chmod=+x', 'notes/other.md'], { cwd: w.root });
+  git(['commit', '-q', '-m', `mode\n\nSpec-Tested: ${SPEC}`], { cwd: w.root });
+  return { base: moved, head: rev(w.root, 'HEAD'), why: /outside the records: notes\/other\.md;/ };
+});
+
+// Two positions change one file (alpha's; the one ahead as a shared path would), each its own lines: B's
+// spec, base-red on t0, holds A's lines and its own; A landed as its spec tested. B's land base is
+// its predicted base in that file, so the tolerance carries (cold review, finding A).
+test('spec-tested: a base-red spec run carries when the position ahead, sharing a file with it, landed as predicted', () => {
+  const shared = (a, g) => `${a}\nb\nc\nd\ne\nf\n${g}\n`;
+  const g = greenSpec({
+    baseFiles: { 'src/alpha/shared.mjs': shared('a', 'g') },
+    aheadFiles: { 'src/alpha/shared.mjs': shared('A', 'g') },
+    jobFiles: (mark) => ({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': markedTest(mark), 'src/alpha/shared.mjs': shared('a', 'G') }),
+  });
+  baseRedSpec(g);
+  const { w, x } = g;
+  const said = [];
+  const L = land(w, w.t1);
+  assert.equal(git(['show', `${L}:src/alpha/shared.mjs`], { cwd: w.root }), shared('A', 'G').trimEnd());
+  const r = jobRun(w, x, { base: w.t1, head: L, log: (m) => said.push(m) });
+  assert.deepEqual([r.run.trigger, r.run.spec_run, r.run.suite, r.run.ok], ['spec-tested', 109, 'base-red', true], said.join('\n'));
+  assert.equal(ran(w), false, 'no suite ran');
 });
 
 // Copy, 5 Nov 20:11: spec 566 for PR 470 at position 1, base-red on 85f411fd03 (15 tests red at

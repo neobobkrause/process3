@@ -21,11 +21,12 @@ const done = JSON.stringify({ row: 'attempt', event: 'complete', at: new Date(Da
 // As in train-plain-window.test.mjs.
 // Jobs (id -> files) are PRs 1..k; plain pull requests (ref -> files), cut from the tranche before
 // it moved on, follow.
-function setup(jobs, plains, k) {
+function setup(jobs, plains, k, base = {}, own = {}) {
   const ids = Object.keys(jobs);
   const root = makeRepo({
+    ...base,
     'process/config.json': JSON.stringify({ merge_train_window: k }),
-    ...Object.fromEntries(ids.map((id) => [`process/ledger/${id}.json`, entry(id)])),
+    ...Object.fromEntries(ids.map((id) => [`process/ledger/${id}.json`, entry(id, own[id] || {})])),
   });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -95,7 +96,11 @@ function github(root, ids, plains) {
     checkRuns: (slug, sha, name) => [io.checkRun(slug, sha, name)],
     checkRun: (slug, sha) => {
       const t = new Date(Date.now() - 60000).toISOString();
-      return { id: 1, status: 'completed', conclusion: 'success', html_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, details_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, started_at: t, completed_at: t };
+      // Each job's suite, as its gate runs it: red when its own module file says BROKEN in the tree.
+      const id = [...specs.values()].find((x) => x.sha === sha)?.head.match(/^train\/head\/(\d+)-/)?.[1];
+      const own = id ? prs.get(Number(id))?.id : null;
+      const broken = own && sh(['show', `${sha}:src/${own}/a.mjs`]).stdout?.includes('BROKEN');
+      return { id: 1, status: 'completed', conclusion: broken ? 'failure' : 'success', html_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, details_url: `https://github.com/o/r/actions/runs/${runOf(sha)}/job/9`, started_at: t, completed_at: t };
     },
     checkRunMany: (slug, pairs) => pairs.map(([sha, name]) => ([...specs.entries()].some(([n, x]) => x.sha === sha && (calls.hold || calls.held?.has(n))) ? { status: 'in_progress' } : name === 'post' ? { status: 'completed', started_at: new Date().toISOString() } : io.checkRun(slug, sha, name))),
     // GitHub's ruleset: a head that does not hold the tranche as it is cannot merge.
@@ -214,4 +219,56 @@ test('a plain position landed over a disjoint move is its predicted result plus 
   const job = stateRows(root, TRAIN_FILE).filter((r) => r.row === 'merge' && r.result === 'merged');
   assert.deepEqual(job.map((r) => [r.pr, r.spec_fast, r.spec_move?.files]), [[1, true, ['.gitignore']]], lines.join('\n'));
   assert.ok(!stateRows(root, WINDOW_FILE).some((r) => r.event === 'close'));
+});
+
+// Copy, 5 Nov 20:43, window 8: PR 468 red at position 0, and all 7 behind it left ("red ahead: PR
+// 468"), 572 and 574 among them, green and sharing no file with it (coordinator).
+test('a red at position 0: those behind sharing no file with it keep their green specs and land on them minus its change; one sharing a file rebuilds', () => {
+  const shared = (a, g) => `${a}\nb\nc\nd\ne\nf\n${g}\n`;
+  const { root, ids } = setup({
+    alpha: { 'src/alpha/a.mjs': 'BROKEN', 'src/shared/s.mjs': shared('A', 'g') },
+    beta: { 'src/beta/a.mjs': 'b', 'src/shared/s.mjs': shared('a', 'G') },
+    gamma: { 'src/gamma/a.mjs': 'c' },
+    delta: { 'src/delta/a.mjs': 'd' },
+  }, {}, 4, { 'src/shared/s.mjs': shared('a', 'g') }, { alpha: { paths: ['src/alpha/', 'src/shared/'] }, beta: { paths: ['src/beta/', 'src/shared/'] } });
+  const g = github(root, ids, []);
+  const lines = [];
+  train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, idleEvery: 1, rounds: 10, log: (l) => lines.push(l) });
+  const win = stateRows(root, WINDOW_FILE);
+  const train_ = stateRows(root, TRAIN_FILE);
+  assert.ok(train_.some((r) => r.pr === 1 && r.result === 'refused'), lines.join('\n'));
+  // beta shares src/shared/s.mjs (a path both modules own) with alpha: closed and rebuilt; gamma and delta stand on their first specs.
+  const closes = win.filter((r) => r.event === 'close' && r.pr !== 1);
+  assert.deepEqual(closes.map((r) => [r.pr, r.seq, r.cause]), [[2, 1, 'red ahead: PR 1']], JSON.stringify(win));
+  assert.deepEqual(win.filter((r) => r.event === 'build').map((r) => `${r.pr}-${r.seq}`), ['1-1', '2-1', '3-1', '4-1', '2-2'], JSON.stringify(win));
+  assert.deepEqual(g.calls.merged, [3, 4, 2], lines.join('\n'));
+  const merged = train_.filter((r) => r.row === 'merge' && r.result === 'merged');
+  assert.deepEqual(merged.map((r) => [r.pr, r.spec_fast]), [[3, true], [4, true], [2, true]], lines.join('\n'));
+  // gamma's land was its tested tree minus alpha's and beta's changes (both left), named on its row.
+  assert.deepEqual(merged[0].spec_move?.dropped?.sort(), ['src/alpha/a.mjs', 'src/beta/a.mjs', 'src/shared/s.mjs'], JSON.stringify(merged[0]));
+  const tip = g.tipOf('tranche');
+  assert.equal(git(['show', `${tip}:src/shared/s.mjs`], { cwd: root }), shared('a', 'G').trimEnd(), 'alpha\'s change never landed');
+  assert.equal(git(['show', `${tip}:src/alpha/a.mjs`], { cwd: root, allowFail: true }).code, 128);
+});
+
+// Cold review, finding 1: the window measures a move from its start (after a land, that land), the
+// land from the spec's base; a move in a file only a landed position changed is a tranche move on
+// both (offSpec reads the tranche's line between them), so beta stays and lands on its spec.
+test('after a land, a move in a file only the landed position changed keeps the one behind, which lands on its spec', () => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' }, beta: { 'src/beta/a.mjs': 'b' } }, {}, 2);
+  const g = github(root, ids, []);
+  g.calls.held = new Set([102]); // beta's spec gates on; alpha lands
+  const lines = [];
+  let tip = null;
+  run(root, g, 8, {
+    3: () => { tip = move(root, g, { 'src/alpha/a.mjs': 'alpha, changed again by a hand merge' }); },
+    4: () => { g.calls.held = null; },
+  }, lines);
+  assert.ok(tip, lines.join('\n'));
+  assert.ok(lines.some((l) => l === `window: the tranche moved to ${tip.slice(0, 10)} in 1 file(s), records aside, none of which the window changes: 1 position(s) stand`), lines.join('\n'));
+  assert.deepEqual(g.calls.merged, [1, 2], lines.join('\n'));
+  const merged = stateRows(root, TRAIN_FILE).filter((r) => r.row === 'merge' && r.result === 'merged');
+  assert.deepEqual(merged.map((r) => [r.pr, r.spec_fast]), [[1, true], [2, true]], lines.join('\n'));
+  assert.deepEqual([merged[1].spec_move?.files, merged[1].spec_move?.dropped], [['src/alpha/a.mjs'], []]);
+  assert.ok(!stateRows(root, WINDOW_FILE).some((r) => r.event === 'close' || r.event === 'fallback'));
 });

@@ -178,19 +178,23 @@ test('a plain PR takes a free position before a ready job; the job behind builds
   assert.ok(!win.some((r) => r.event === 'close'), JSON.stringify(win));
 });
 
-test('a plain PR that does not land closes the positions behind it, which hold its predicted result', () => {
+test('a plain PR that does not land leaves; the job behind, sharing no file with it, stands, and lands by the full re-gate when the plain PR touched its module', () => {
   const { root, ids, plains } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } }, { 'bob/sneak': { 'src/alpha/b.mjs': 'module code' } }, 2);
   const g = github(root, ids, plains);
   queue(root, g, 2, 'bob/sneak');
   const lines = [];
   // Pass 1: the plain PR at 0, alpha at 1 on its result. Pass 2: the plain PR is refused (module
-  // files go through a job), and alpha's spec closes; then alpha is rebuilt on the tranche and lands.
+  // files go through a job); alpha shares no file with it and stands (coordinator, 5 Nov). Its land
+  // is its tested tree minus src/alpha/b.mjs, a file of its own module, which no position ahead
+  // changes: never taken as dropped, so the full re-gate (offSpec's own()).
   run(root, g, 5, {}, lines);
   assert.ok(stateRows(root, TRAIN_FILE).some((r) => r.row === 'plain' && r.pr === 2 && r.result === 'refused'), lines.join('\n'));
-  const close = stateRows(root, WINDOW_FILE).find((r) => r.event === 'close' && r.pr === 1 && r.seq === 1);
-  assert.match(close?.cause || '', /PR 2 \(plain\) did not land: refused: .*changes module files/, lines.join('\n'));
+  const win = stateRows(root, WINDOW_FILE);
+  assert.ok(!win.some((r) => r.event === 'close' && r.pr === 1), JSON.stringify(win));
   assert.deepEqual(g.calls.merged, [1], lines.join('\n'));
-  assert.ok(stateRows(root, WINDOW_FILE).some((r) => r.event === 'land' && r.pr === 1 && r.seq === 2));
+  const fb = win.find((r) => r.event === 'fallback' && r.pr === 1 && r.seq === 1);
+  assert.ok(fb && /outside the records: src\/alpha\/b\.mjs/.test(fb.cause), JSON.stringify(win));
+  assert.equal(git(['show', `${g.tipOf('tranche')}:src/alpha/b.mjs`], { cwd: root, allowFail: true }).code, 128, 'the refused plain PR\'s file never landed');
 });
 
 test('a plain PR that cannot be built onto the chain lets no job past it: the window drains to it, and on the tip it is refused as before', () => {

@@ -64,6 +64,14 @@ function ahead(root, tranche, files) {
   git(['checkout', '-q', 'main'], { cwd: root });
   return c;
 }
+// The tranche moved on by `files` (pushed): a change ahead that landed otherwise than predicted.
+function landed(root, tranche, files) {
+  git(['checkout', '-q', '--detach', tranche], { cwd: root });
+  const c = commit(root, files, 'landed otherwise');
+  git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
+  git(['checkout', '-q', 'main'], { cwd: root });
+  return c;
+}
 
 test('mergedResult builds the job merged onto the given commit with its merge row, in a worktree of its own, and pushes nothing', () => {
   const { root, head, tranche } = setup();
@@ -134,14 +142,16 @@ test('merge with a spec that differs only in a lane\'s folder is still the tree 
   assert.deepEqual(r.spec, { fast: true, pr: 905 });
   const t = setup(lanes);
   const R2 = predict(t.root, t.head, ahead(t.root, t.tranche, { 'design/uxx/w.json': '{}\n' }));
+  landed(t.root, t.tranche, { 'design/uxx/w.json': '{"b":2}\n' });
   const r2 = merge(t.root, 3, { slug: 'o/r', io: io(t.head).io, ...REVIEW, spec: { pr: 906, sha: R2.sha }, log: quiet });
   assert.equal(r2.spec.fast, false);
   assert.match(r2.spec.why, /outside the records: design\/uxx\/w\.json/);
 });
 
-test('merge with a spec whose tree differs outside the records pushes L unmarked, says why, and goes on to the full gate', () => {
+test('merge with a spec whose tree differs outside the records (a change ahead landed otherwise) pushes L unmarked, says why, and goes on to the full gate', () => {
   const { root, head, tranche } = setup();
-  const R = predict(root, head, ahead(root, tranche, { 'src/beta/b.mjs': 'a module ahead that did not land' }));
+  const R = predict(root, head, ahead(root, tranche, { 'src/beta/b.mjs': 'a module ahead, predicted' }));
+  landed(root, tranche, { 'src/beta/b.mjs': 'landed otherwise than predicted' });
   const f = io(head);
   const r = merge(root, 3, { slug: 'o/r', io: f.io, ...REVIEW, spec: { pr: 903, sha: R.sha }, log: quiet });
   assert.equal(r.merged, true);
@@ -156,6 +166,17 @@ test('merge with a spec whose tree differs outside the records pushes L unmarked
   assert.equal(r2.spec.fast, false);
   assert.match(r2.spec.why, /not readable here/);
   assert.doesNotMatch(message(s2.root, remote(s2.root)), /Spec-Tested/);
+});
+
+// A change ahead in the window that left it (red, closed, refused; coordinator, 5 Nov): the land is
+// the tested tree minus that change, which shares no file with the job.
+test('merge with a spec whose change ahead never landed is the tested tree minus it: marked, and the change named as dropped', () => {
+  const { root, head, tranche } = setup();
+  const R = predict(root, head, ahead(root, tranche, { 'src/beta/b.mjs': 'a module ahead that left the window' }));
+  const r = merge(root, 3, { slug: 'o/r', io: io(head).io, ...REVIEW, spec: { pr: 907, sha: R.sha }, log: quiet });
+  assert.equal(r.spec.fast, true);
+  assert.deepEqual([r.spec.move.files, r.spec.move.dropped, r.spec.move.commits], [['src/beta/b.mjs'], ['src/beta/b.mjs'], []]);
+  assert.match(message(root, remote(root)), /Spec-Tested: 907$/);
 });
 
 test('merge with a spec run again on its own marked tip pushes nothing and stays fast; another spec\'s is "nothing pushed"', () => {

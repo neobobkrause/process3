@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { GATE_WORKFLOW, baseEverChanged, checkRun, checkRuns, compare, comments, gateRuns, getJob, getPR, getRun, latestReceipt, prsFromBranch, requiredChecks, unbound, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds } from './ledger.mjs';
 import { appendRow, bobMetricsFile, metricsFile, readRows, rowsAt } from './metrics.mjs';
-import { builtOn, diffNames, entriesAt, offSpec, ownPaths } from './gate.mjs';
+import { builtOn, diffNames, entriesAt, offSpec, ownOf, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored } from './anchor.mjs';
 import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, toolPin, wakeLine } from './job.mjs';
@@ -412,13 +412,14 @@ function specMark(wt, cfg, { pr: sp, sha }, { tip, was, onto, job = null, log = 
   if (tip === was && !marked(tip)) return slow('nothing pushed');
   // Lane folders count as records, as in the gate's record-since-green (lane.mjs; Bob, 5 Nov).
   const entries = entriesAt(wt, tip);
-  // Or the tree it tested plus a tranche move since its base that shares no file with it (Bob, 5 Nov).
+  // Or the tree it tested plus a tranche move since its base, or minus a change ahead of it that
+  // left the window, sharing no file with it (offSpec; Bob and the coordinator, 5 Nov).
   const is = git(['rev-parse', onto], { cwd: wt });
   const from = builtOn(wt, sha, is);
-  const { off: differ, moved, commits } = offSpec(wt, { tested: sha, head: tip, was: from, is, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }) });
+  const { off: differ, moved, dropped, commits } = offSpec(wt, { tested: sha, head: tip, was: from, is, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }), own: ownOf(entries, job) });
   if (differ.length) return slow(`the merged result ${tip.slice(0, 10)} differs from the tree spec PR ${sp} tested (${sha.slice(0, 10)}) outside the records: ${differ.slice(0, 5).join(', ')}${differ.length > 5 ? ` and ${differ.length - 5} more` : ''}`);
-  const move = moved.length ? { from, to: is, files: moved, commits } : null;
-  const plus = move ? `, plus the disjoint tranche move of ${moved.length} file(s) in ${commits.length} commit(s)` : '';
+  const move = moved.length ? { from, to: is, files: moved, dropped, commits } : null;
+  const plus = move ? `, with ${moved.length - dropped.length} file(s) of a disjoint tranche move (${commits.length} commit(s)) and ${dropped.length} of a disjoint change ahead that left the window` : '';
   if (tip === was) { log(`${tip.slice(0, 10)} already carries ${trailer} and is the tree it tested, records aside${plus}`); return { fast: true, pr: sp, move }; }
   const shape = (c) => git(['rev-list', '--no-walk', '--format=%T %P', c], { cwd: wt }).split('\n').pop();
   const before = shape(tip);

@@ -52,20 +52,55 @@ export function firstRed(window) {
   return -1;
 }
 
+// The positions behind those leaving the window (red, closed, refused, moved: `leaving`): each
+// stands when its own change (filesOf: a position's files, records aside; null when not read) shares
+// no file with any that leaves ahead of it, marked `dropped` (its tested tree holds their changes:
+// it lands on its spec minus them, and nothing is admitted behind it until it has); the rest leave
+// too, with cause(p) (coordinator, 5 Nov; copy: 468 red at position 0 of 8 closed 572 and 574,
+// green and sharing no file with it). With no filesOf every one behind leaves, as before.
+function behind(window, from, leaving, filesOf, cause) {
+  const gone = new Set();
+  let unread = false;
+  const leave = (p) => { const f = filesOf(p); if (f) for (const x of f) gone.add(x); else unread = true; };
+  leaving.forEach(leave);
+  const keep = [];
+  const close = [];
+  for (const p of window.slice(from)) {
+    const f = unread ? null : filesOf(p);
+    if (f && ![...f].some((x) => gone.has(x))) keep.push({ ...p, dropped: true });
+    else { close.push({ ...p, cause: cause(p) }); leave(p); }
+  }
+  return { keep, close };
+}
+const none = () => null;
+// What stands ahead of i, then those kept behind it; a kept one that is now first keeps the
+// chain's start (the tranche tip the chain was built on), not its base (the leaver's result).
+const rejoin = (window, i, kept) => (i === 0 && kept.length ? [{ ...kept[0], start: chainStart(window) }, ...kept.slice(1)] : [...window.slice(0, i), ...kept]);
+
 // Red at i: i goes back to its job (refused to BOB, as a red merged result is today); every spec
-// behind holds R(i) and is closed, to be rebuilt on R(i-1); those ahead stand.
-export function onRed(window, i) {
+// behind holds R(i) and is closed, to be rebuilt on R(i-1), unless it shares no file with what
+// leaves (behind); those ahead stand.
+export function onRed(window, i, filesOf = none) {
   const red = window[i];
-  return { refuse: red, close: window.slice(i + 1).map((p) => ({ ...p, cause: `red ahead: PR ${red.n}` })), keep: window.slice(0, i) };
+  const b = behind(window, i + 1, [red], filesOf, () => `red ahead: PR ${red.n}`);
+  return { refuse: red, close: b.close, keep: rejoin(window, i, b.keep) };
+}
+
+// Position i leaves (its cause) and those behind it that share a file with it too (aheadCause);
+// the rest stand (behind). Its close comes first.
+export function onLeave(window, i, cause, aheadCause, filesOf = none) {
+  const b = behind(window, i + 1, [window[i]], filesOf, () => aheadCause);
+  return { close: [{ ...window[i], cause }, ...b.close], keep: rejoin(window, i, b.keep) };
 }
 
 // A job pull request whose head moved (or closed, merged elsewhere, made a draft, retargeted: `why`):
-// its spec no longer tests its head, and every spec behind holds it. It re-enters at the back.
-export function onHeadMoved(window, n, why = 'head moved') {
+// its spec no longer tests its head, and every spec behind holds it, unless it shares no file with
+// what leaves (behind). It re-enters at the back.
+export function onHeadMoved(window, n, why = 'head moved', filesOf = none) {
   const i = window.findIndex((p) => p.n === n);
   if (i < 0) return { close: [], keep: window };
   const cause = `PR ${n} ${why}`;
-  return { close: window.slice(i).map((p) => ({ ...p, cause: p.n === n ? cause : `${cause} (ahead)` })), keep: window.slice(0, i) };
+  return onLeave(window, i, cause, `${cause} (ahead)`, filesOf);
 }
 
 // The tranche moved by anything but the window's own land (a plain pull request, a hand merge):

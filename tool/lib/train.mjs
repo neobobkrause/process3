@@ -21,7 +21,7 @@ import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, attemptStart, deepenToBase, firstA
 import { builtOn, diffNames, entriesAt, offSpec } from './gate.mjs';
 import { rowsAt } from './metrics.mjs';
 import { TRAIN_NOTES, TRAIN_ROWS } from './stuck.mjs';
-import { admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
+import { admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onLeave, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
@@ -763,9 +763,9 @@ function openSpec(root, ctx, p) {
 }
 function admitWindow(root, ctx, w, list, tip) {
   const { cfg } = ctx;
-  // Positions kept over a tranche move are built on a start the tranche has left: one built behind
-  // them would lack the move too, so none is, until they have landed (onTrancheMoved).
-  if (w.some((p) => p.moved)) return;
+  // Positions kept over a tranche move, or past a position that left, are built on a chain the
+  // tranche will not hold: one built behind them would be too, so none is, until they have landed.
+  if (w.some((p) => p.moved || p.dropped)) return;
   const ends = () => chainEnd(w, tip);
   // A plain one not built onto the chain's end stays in the queue: nothing is admitted past it, so
   // the window drains to it and it is judged on the tip (built there, or refused by plainOne).
@@ -826,6 +826,12 @@ function admitWindow(root, ctx, w, list, tip) {
     w.push(p);
   }
 }
+// A position's own change, records aside (its base to its result), for window.mjs's keep rules;
+// null when it has none built or it is not readable here (then it shares every file).
+const ownFiles = (root, ctx) => (p) => {
+  if (!p.base || !p.result) return null;
+  try { return new Set(diffNames(root, p.base, p.result).filter((f) => !isRecordPath(ctx.cfg, f))); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; return null; }
+};
 // How much of the window stands when the tranche moves from the window's start to tip (Bob, 5
 // Nov; copy: two plain lands of generated files and .gitignore lines closed three green specs):
 // the files the move changes, records aside, against each position's own change (its base to its
@@ -877,7 +883,7 @@ function windowPass(root, ctx, { idle, plain = [] }) {
       const p = w[i];
       const o = (ctx.open || []).find((x) => x.number === p.n);
       const why = !o ? 'is closed or merged' : o.head?.sha !== p.head && o.head?.sha !== p.pushed ? `head moved to ${s10(o.head?.sha)}` : o.draft ? 'was made a draft' : o.base?.ref !== cfg.tranche ? `was retargeted to ${o.base?.ref}` : p.plain && !queued.has(p.q.id) ? 'left the plain queue (withdrawn or ended)' : null;
-      if (why) { const r = onHeadMoved(w, p.n, why); closeSpecs(ctx, r.close); w = r.keep; break; }
+      if (why) { const r = onHeadMoved(w, p.n, why, ownFiles(root, ctx)); closeSpecs(ctx, r.close); w = r.keep; break; }
     }
     // The spec gates, and each green one's post job (its row is what the fast path reads).
     const look = w.filter((p) => p.spec_pr && p.state === 'gating');
@@ -908,14 +914,14 @@ function windowPass(root, ctx, { idle, plain = [] }) {
       const k = `${p.n}@${p.head}`;
       if ((ctx.rebuilt.get(k) || 0) < SPEC_REBUILDS) {
         ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
-        const r = onHeadMoved(w, p.n, `spec gate did not report within ${HOLD_MINUTES(cfg)} min`);
+        const r = onHeadMoved(w, p.n, `spec gate did not report within ${HOLD_MINUTES(cfg)} min`, ownFiles(root, ctx));
         closeSpecs(ctx, r.close);
         w = r.keep;
       } else { p.state = 'red'; p.notJudged = `no report within ${HOLD_MINUTES(cfg)} min, after ${SPEC_REBUILDS} rebuilds`; p.timedOut = true; }
       break;
     }
     const gone = w.findIndex((p) => p.state === 'cancelled');
-    if (gone >= 0) { const r = onHeadMoved(w, w[gone].n, `spec gate cancelled (${w[gone].url || 'no run'})`); closeSpecs(ctx, r.close); w = r.keep; }
+    if (gone >= 0) { const r = onHeadMoved(w, w[gone].n, `spec gate cancelled (${w[gone].url || 'no run'})`, ownFiles(root, ctx)); closeSpecs(ctx, r.close); w = r.keep; }
     // A red is the job's only when the spec run judged the job (its row's trigger is code) and the job
     // PR is as admitted now; a spec run that could not judge it (the job PR moved, closed or unread
     // while it ran: a spec finding, no suite) is closed and rebuilt, never refused.
@@ -937,23 +943,31 @@ function windowPass(root, ctx, { idle, plain = [] }) {
       const k = `${p.n}@${p.head}`;
       if (judged !== true && (ctx.rebuilt.get(k) || 0) < SPEC_REBUILDS) {
         ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
-        const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`);
+        const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`, ownFiles(root, ctx));
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
       } else if (judged !== true) p.notJudged ||= `${judged}, after ${SPEC_REBUILDS} rebuilds`;
+      if (red >= 0 && p.dropped) {
+        // Its tested tree holds a change ahead that left the window: a green stands for its land
+        // (offSpec), a red may be that change's, never refused; it is rebuilt without it.
+        const r = onHeadMoved(w, p.n, 'spec gate red on a tree holding a change ahead that left the window: rebuilt without it', ownFiles(root, ctx));
+        closeSpecs(ctx, r.close);
+        w = r.keep;
+        red = -1;
+      }
       if (red >= 0 && red > 0) {
         // Red behind others that have not landed (cold review: a green spec is not a land): never
         // refused on a base that may not come to be; it is judged again at the head of the window.
         ctx.solo.add(k);
-        const r = onHeadMoved(w, p.n, `spec gate red behind PR ${w.slice(0, red).map((x) => x.n).join(', ')}: judged again at the head of the window`);
+        const r = onHeadMoved(w, p.n, `spec gate red behind PR ${w.slice(0, red).map((x) => x.n).join(', ')}: judged again at the head of the window`, ownFiles(root, ctx));
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
       }
     }
     if (red >= 0) {
-      const { refuse: p, close, keep } = onRed(w, red);
+      const { refuse: p, close, keep } = onRed(w, red, ownFiles(root, ctx));
       const why = `the gate on the merged result is failure${p.notJudged ? ` with no judgment of the job (${p.notJudged})` : ''} (spec PR ${p.spec_pr}, ${s10(p.result)} on ${red ? `PR ${w.slice(0, red).map((x) => x.n).join(', ')} ahead` : 'the tranche tip'}): ${p.url || 'no run'}`;
       refuse(root, ctx, p, why);
       list = list.filter((c) => c.n !== p.n); // read before the refusal: not admitted again this pass
@@ -989,8 +1003,9 @@ function specDone(root, ctx, c, r, row) {
     const { keep } = onLand(w, r.sha);
     if (!fast && keep.length) { closeSpecs(ctx, keep.map((x) => ({ ...x, cause: `PR ${p.n} landed by its full re-gate, not on its spec` }))); ctx.window = []; } else ctx.window = keep;
   } else if (row.result === 'refused' || row.to_bob) {
-    closeSpecs(ctx, w.map((x, i) => ({ ...x, cause: i ? `refused ahead: PR ${p.n}` : `refused: ${row.why}` })));
-    ctx.window = [];
+    const { close, keep } = onLeave(w, 0, `refused: ${row.why}`, `refused ahead: PR ${p.n}`, ownFiles(root, ctx));
+    closeSpecs(ctx, close);
+    ctx.window = keep;
   }
   flushWindow(root, ctx);
 }
@@ -1017,7 +1032,12 @@ function plainLand(root, ctx, p, { queue, idle }) {
       if (differ.length) why = `PR ${p.n} (plain) landed as a tree other than its predicted result, outside the records: ${differ.slice(0, 5).join(', ')}`;
     }
   }
-  if (why) { closeSpecs(ctx, rest.map((x) => ({ ...x, cause: why }))); ctx.window = []; }
+  if (why && row.result !== 'merged') {
+    // Not landed: it leaves (plainOne has its row), and those behind sharing a file with it.
+    const { close, keep } = onLeave(w, 0, why, why, ownFiles(root, ctx));
+    closeSpecs(ctx, close.slice(1));
+    ctx.window = keep;
+  } else if (why) { closeSpecs(ctx, rest.map((x) => ({ ...x, cause: why }))); ctx.window = []; }
   else { ctx.window = onLand(w, row.sha).keep; ctx.log(`window: PR ${p.n} (plain) landed at ${s10(row.sha)} as its predicted result, records aside: ${rest.length} position(s) behind stand`); }
   flushWindow(root, ctx);
 }
