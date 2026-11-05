@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -256,4 +256,41 @@ test('pinWake: none for BOB or an unmoved pin; an unreadable merge commit still 
   assert.equal(u.unread, true);
   assert.match(u.what, /the pin may have moved \(merge b{10} could not be read\)/);
   assert.ok(u.wake);
+});
+
+// Cold review of build train-robust.
+test('review: a lock naming this process that it does not hold is left over and taken at once, never waited on', () => {
+  const root = setup({ pin: false });
+  writeFileSync(stateLockPath(root), JSON.stringify({ pid: process.pid, host: hostname(), at: new Date().toISOString(), token: 'orphan' }));
+  const was = STATE_LOCK.wait;
+  STATE_LOCK.wait = 1;
+  try {
+    const t0 = Date.now();
+    assert.equal(withStateLock(root, () => 3), 3);
+    assert.ok(Date.now() - t0 < 900, 'not waited on');
+    assert.equal(existsSync(stateLockPath(root)), false);
+    // A breaker in flight (its .break file) is never raced: the stale lock waits for it.
+    writeFileSync(stateLockPath(root), JSON.stringify({ pid: process.pid, host: hostname(), at: new Date().toISOString(), token: 'orphan' }));
+    writeFileSync(`${stateLockPath(root)}.break`, '1');
+    assert.throws(() => withStateLock(root, () => 4), /the state lock/);
+    rmSync(`${stateLockPath(root)}.break`);
+    assert.equal(withStateLock(root, () => 5), 5);
+  } finally { STATE_LOCK.wait = was; freeLock(root); rmSync(`${stateLockPath(root)}.break`, { force: true }); }
+});
+
+test('review: a state lock held past its wait at the top of a pass waits for the next pass; the train does not stop', () => {
+  const root = setup({ pin: false });
+  const g = github(root);
+  g.io.mergePR = (slug, k, sha) => { const r = g.land(sha); holdLock(root); return r; };
+  queue(root, { as: 'bob' });
+  const was = STATE_LOCK.wait;
+  STATE_LOCK.wait = 1;
+  const lines = [];
+  try {
+    train(root, { session: S, slug: 'o/r', io: g.io, every: 1, wait: 0, idleEvery: 0, rounds: 3, log: (l) => { lines.push(l); if (/state branch is unread this pass/.test(l)) freeLock(root); } });
+  } finally { STATE_LOCK.wait = was; freeLock(root); }
+  assert.ok(lines.some((l) => /the state branch is unread this pass \(the state lock/.test(l)));
+  const ends = rows(root, TRAIN_FILE).filter((x) => x.row === 'plain' && x.result === 'merged');
+  assert.equal(ends.length, 1);
+  assert.ok(ends[0].late);
 });

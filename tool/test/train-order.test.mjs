@@ -184,3 +184,63 @@ test('order: a module named in release_path goes ahead of the derived release se
   ];
   assert.deepEqual(ns(orderQueue(t, { now: T0 })), [8, 9, 7]);
 });
+
+// Build train-robust, item 6 (coordinator, 5 Nov: 13.8 s of a warm pass on the copy, its largest
+// step): the release set cached by the inputs it reads gives the set computed afresh, for every
+// open set and after the tranche moves, and computes only when an input changed.
+test('release path cache: the cached set is the uncached one for every open set; an unchanged tranche computes nothing, a moved one once', async () => {
+  const { makeRepo, entry, commit } = await import('./helpers.mjs');
+  const { releaseModules } = await import('../lib/status.mjs');
+  const { releaseSet } = await import('../lib/train.mjs');
+  const { git, loadConfig } = await import('../lib/util.mjs');
+  const st = (id, s, o = {}) => ({ ...entry(id), requirements: `build/requirements/${id}.md`, status: { state: s, ...o } });
+  const root = makeRepo({
+    'process/config.json': { release_path: ['later2'] },
+    'build/layers.md': '| layer | modules |\n|---|---|\n| 1 | done1 |\n| 2 | open2 |\n| 3 | later1, later2, found1, blk1 |\n',
+    'build/requirements/done1.md': '- **R1** met\n',
+    'build/requirements/open2.md': '- **R1** met\n',
+    'build/requirements/blk1.md': '- **R1** met\n',
+    'build/requirements/later1.md': '- **R1** *(not yet met: x)* text\n',
+    'build/requirements/later2.md': '- **R1** *(not yet met: x)* text\n',
+    'build/requirements/found1.md': '- **F2** *(not yet met: walk p3dev-l1)* http-500\n',
+    ...Object.fromEntries([['done1', 'COMPLETE'], ['open2', 'COMPLETE'], ['later1', 'OPEN'], ['later2', 'OPEN'], ['found1', 'COMPLETE']].map(([id, s]) => [`process/ledger/${id}.json`, st(id, s)])),
+    'process/ledger/blk1.json': st('blk1', 'BLOCKED', { reason: 'needs a ruling' }),
+  });
+  git(['update-ref', 'refs/remotes/origin/main', 'HEAD~0'], { cwd: root });
+  commit(root, { 'notes/x.md': 'after main' });
+  const cfg = loadConfig(root);
+  const ids = ['open2', 'blk1', 'found1', 'done1'];
+  const memo = {};
+  let computed = 0;
+  const compute = (...a) => { computed++; return releaseModules(...a); };
+  const sets = new Set();
+  for (let m = 0; m < 2 ** ids.length; m++) {
+    const open = new Set(ids.filter((_, i) => m & (1 << i)));
+    const fresh = [...releaseModules(root, cfg, 'HEAD', open)].sort();
+    assert.deepEqual([...releaseSet(root, cfg, 'HEAD', open, { memo, compute }).set].sort(), fresh, `open ${[...open].join(',')}`);
+    sets.add(fresh.join(','));
+    // An open job on an OPEN entry (later1) changes no input the set reads: no computation.
+    const k = computed;
+    const more = releaseSet(root, cfg, 'HEAD', new Set([...open, 'later1']), { memo, compute });
+    assert.equal(more.cached, true, `open ${[...open].join(',')} + later1`);
+    assert.equal(computed, k);
+    assert.deepEqual([...more.set].sort(), [...releaseModules(root, cfg, 'HEAD', new Set([...open, 'later1']))].sort());
+  }
+  assert.ok(sets.size > 1, 'the open set changes the answer: the comparison is not vacuous');
+  const open = new Set(['later1']);
+  releaseSet(root, cfg, 'HEAD', open, { memo, compute }); // the last pass read another open set
+  const before = computed;
+  const hit = releaseSet(root, cfg, 'HEAD', open, { memo, compute });
+  assert.equal(hit.cached, true);
+  assert.equal(computed, before, 'an unchanged tranche: nothing computed');
+  // A restarted train at the same tip: from the clone's cache.
+  assert.equal(releaseSet(root, cfg, 'HEAD', open, { memo: {}, compute }).cached, true);
+  assert.equal(computed, before);
+  // The tranche moves (later1 met): computed once, and the same as uncached.
+  commit(root, { 'build/requirements/later1.md': '- **R1** met\n' });
+  const moved = releaseSet(root, cfg, 'HEAD', open, { memo, compute });
+  assert.equal(moved.cached, false);
+  assert.deepEqual([...moved.set].sort(), [...releaseModules(root, cfg, 'HEAD', open)].sort());
+  assert.equal(releaseSet(root, cfg, 'HEAD', open, { memo, compute }).cached, true);
+  assert.equal(computed, before + 1);
+});

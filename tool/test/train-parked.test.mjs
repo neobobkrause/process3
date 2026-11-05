@@ -14,7 +14,7 @@ import { entry, makeRepo, openPassed, setJobCap } from './helpers.mjs';
 import { startReady, startable } from '../lib/ready.mjs';
 import { writeState } from '../lib/state.mjs';
 import { flow, inTrain, parkedSessions } from '../lib/status.mjs';
-import { SWEEP_ROWS_FILE, idleCapacity, idleCheck, markInTrain } from '../lib/sweep.mjs';
+import { SWEEP_ROWS_FILE, idleCapacity, idleCheck, markInTrain, overCapOwed } from '../lib/sweep.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
 const SB = 'process-state';
@@ -115,4 +115,11 @@ test('item 5: the cap and the alarm count job sessions doing work: an idle sessi
   startReady(root, { sessions: file, remote: new Set(), read: () => ({ next, rows: ROWS }), start: (_, id) => { started.push(id); return {}; }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: (l) => lines.push(l) });
   assert.deepEqual(started, ['b']);
   assert.ok(lines.includes('1 job session parked in the train (ready, gate green, idle) not counted against the cap: a PR 443'));
+});
+
+test('review: the sweep\'s over-cap owed line is judged on working sessions: gone when they fit, else naming them', () => {
+  const line = '7 job sessions, over the job cap of 6: archive finished ones before starting more';
+  assert.deepEqual(overCapOwed([line, 'x'], 5, 2, 6), ['x']);
+  assert.deepEqual(overCapOwed([line], 7, 1, 6), ['7 working job sessions (1 more parked in the train), over the job cap of 6: archive finished ones before starting more']);
+  assert.deepEqual(overCapOwed(['x'], 9, 1, 6), ['x']);
 });

@@ -1,6 +1,6 @@
 // Shared helpers: running programs, git, GitHub through gh, config, arguments.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, linkSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -472,6 +472,18 @@ export function stateLockPath(root) {
 }
 const readLock = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
 const dropLock = (p) => { const mine = lockMine.get(p); if (mine !== undefined && readLock(p) === mine) { try { unlinkSync(p); } catch { /* gone */ } } lockMine.delete(p); };
+// Breaks a stale lock under a breaker lock of its own (review of build train-robust: a rename and
+// put-back could restore a live lock its owner had already released): while the stale lock file
+// exists no process can create a new one, so it is removed only if it still reads as the stale
+// lock read. A breaker lock older than STATE_LOCK.unread seconds is itself left over and removed.
+function breakStale(p, text) {
+  const b = `${p}.break`;
+  try { writeFileSync(b, String(process.pid), { flag: 'wx' }); } catch {
+    try { if (Date.now() - statSync(b).mtimeMs > STATE_LOCK.unread * 1000) unlinkSync(b); } catch { /* gone */ }
+    return false;
+  }
+  try { if (readLock(p) === text) unlinkSync(p); return true; } catch { return false; } finally { try { unlinkSync(b); } catch { /* gone */ } }
+}
 export function withStateLock(root, fn, { wait = STATE_LOCK.wait, poll = STATE_LOCK.poll, alive = pidAlive, host = hostname() } = {}) {
   const p = stateLockPath(root);
   const d = lockDepth.get(p) || 0;
@@ -489,17 +501,9 @@ export function withStateLock(root, fn, { wait = STATE_LOCK.wait, poll = STATE_L
     try { age = Date.now() - statSync(p).mtimeMs; } catch { continue; }
     // Stale: its process is gone on this host; or never written whole (a process killed between
     // creating and writing it) and older than STATE_LOCK.unread seconds.
-    const stale = cur ? cur.host === host && alive(cur.pid) === false : age > STATE_LOCK.unread * 1000;
-    if (stale) {
-      // Broken by a rename (atomic), and only if what was renamed is the stale lock read: had
-      // another process taken the lock in between, it is put back where it was.
-      const aside = `${p}.stale-${process.pid}`;
-      try { renameSync(p, aside); } catch { continue; }
-      const got = readLock(aside);
-      if (got !== text) { try { linkSync(aside, p); } catch { /* another took it: it holds */ } }
-      try { unlinkSync(aside); } catch { /* gone */ }
-      continue;
-    }
+    // A lock naming this process that it does not hold is left over (it cannot be waiting on itself).
+    const stale = cur ? cur.host === host && (alive(cur.pid) === false || (cur.pid === process.pid && lockMine.get(p) !== text)) : age > STATE_LOCK.unread * 1000;
+    if (stale && breakStale(p, text)) continue;
     if (Date.now() >= until) fail(`the state lock ${p} is held by ${cur ? `process ${cur.pid} on ${cur.host} since ${cur.at}` : 'a process that has not written it'} (another p3 command in this clone): waited ${wait} s; nothing was read or written; run this again once that command ends, or, if no p3 runs here, remove ${p}`);
     pause(jitter(poll));
   }

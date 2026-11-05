@@ -195,6 +195,15 @@ export function beforeAct(root, cfg, name, a, { env = process.env, log = console
   try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
+// The sweep's over-cap owed line, judged again once the parked sessions are left out: gone when the
+// working sessions fit the cap, else naming the working count. Changes owed in place.
+export function overCapOwed(owed, working, parked, cap) {
+  const k = owed.findIndex((x) => /job sessions, over the job cap of/.test(x));
+  if (k < 0) return owed;
+  if (working <= cap) owed.splice(k, 1);
+  else owed[k] = `${working} working job sessions (${parked} more parked in the train), over the job cap of ${cap}: archive finished ones before starting more`;
+  return owed;
+}
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {
   checkSession(session);
   // ROOT's context (P2-G10): the share of its window ROOT's own session record shows (get_session on itself).
@@ -239,7 +248,12 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     // The cap and the idle alarm count job sessions doing work (build train-robust, item 5): a
     // listed session parked in the train is not counted, and the sweep row records how many.
     const parked = listed ? parkedSessions(listed, rows) : [];
-    if (parked.length && liveRow.live !== undefined) { liveRow = { ...liveRow, live: liveRow.live - parked.length, parked: parked.length }; found.push(parkedLine(parked)); }
+    if (parked.length && liveRow.live !== undefined) {
+      liveRow = { ...liveRow, live: liveRow.live - parked.length, parked: parked.length };
+      found.push(parkedLine(parked));
+      // Over the cap is judged on working sessions too (review of build train-robust).
+      overCapOwed(owed, liveRow.live, parked.length, jobCap(cfg).cap);
+    }
     const tranche = `origin/${cfg.tranche}`;
     const t = Date.now();
     // Step 2: hand over BOB flagged REFRESH, or woken over two hours ago with no write to the
@@ -259,6 +273,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const ls = layerState(root, cfg, rows, tranche);
         if (ls?.ready || ls?.pending) found.push(`layer ${ls.cur.n} ${ls.ready ? 'ready to close' : 'owed a close'}`);
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
+        // An open attempt read without its pull request (offline): named in the train from GitHub (item 4).
+        if (!offline) markInTrain(root, cfg, work, rows, { io: io || {} });
         next = !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live, listed, holds);
