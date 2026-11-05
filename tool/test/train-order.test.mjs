@@ -165,3 +165,22 @@ test('provider hold: every open pull request of a provider module counts, not on
   const h = providerHolds([{ n: 1, id: 'beta', head: 'h1' }], jobs, { usesOf, reaches, red: () => false, exportsChanged: (p) => p.n === 2, importsFrom: () => true });
   assert.deepEqual(h.get(1), [{ provider: 'alpha', pr: 2, draft: false }]);
 });
+
+// Coordinator, 5 Nov 11:20: on the copy the derived release set was 50 modules, so release first
+// ordered almost nothing and control-plane (named in release_path) sat behind them.
+test('order: a module named in release_path goes ahead of the derived release set, aged or holding users or not', () => {
+  const q = [
+    { n: 1, green_at: at(5), gate_min: 1, release: true, holds: 4 },
+    { n: 2, green_at: at(90), gate_min: 2, release: true },
+    { n: 290, green_at: at(10), gate_min: 30, release: true, named: true },
+    { n: 3, green_at: at(80), gate_min: 1 },
+  ];
+  assert.deepEqual(ns(orderQueue(q, { now: T0 })), [290, 2, 3, 1]);
+  // Within the named tier the order is as before: aged first, then holds, then the shorter gate.
+  const t = [
+    { n: 7, green_at: at(5), gate_min: 9, named: true, release: true },
+    { n: 8, green_at: at(60), gate_min: 40, named: true, release: true },
+    { n: 9, green_at: at(1), gate_min: 3, named: true, release: true, holds: 1 },
+  ];
+  assert.deepEqual(ns(orderQueue(t, { now: T0 })), [8, 9, 7]);
+});

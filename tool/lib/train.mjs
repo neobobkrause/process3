@@ -315,8 +315,10 @@ function order(root, ctx, cands, jobs) {
     for (const r of runs) for (const x of fullGateMinutes([r])) m.set(`${r.sha}@${r.at ?? r.run_id ?? ''}`, x);
     c.mins.set(u.id, m);
   }
+  const named = new Set(Array.isArray(cfg.release_path) ? cfg.release_path : []);
   const free = cands.filter((u) => !holds.has(u.n)).map((u) => ({
     ...u,
+    named: named.has(u.id),
     release: c.release.set.has(u.id),
     holds: ctx.held.filter((h) => h.providers.some((p) => p.pr === u.n)).length,
     gate_min: med([...(c.mins.get(u.id)?.values() || [])]),
