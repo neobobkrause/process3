@@ -8,7 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, makeRepo, setJobCap } from './helpers.mjs';
 import { AUTO, AUTO_FILE, STARTS_FILE, owe, owes, readAuto, startsOwedLine } from '../lib/hold.mjs';
-import { EXIT, actsBlock, autoDone, autoLoop, autoStart, due, reconcile, startsMeasure, starterLines } from '../lib/auto.mjs';
+import { EXIT, actsBlock, autoDone, autoLoop, autoStart, due, reconcile, startsMeasure, starterLines, starterOwner } from '../lib/auto.mjs';
+import { LEASE_FILE } from '../lib/train.mjs';
 import { startReady } from '../lib/ready.mjs';
 import { bobPrompt, mergerPrompt } from '../lib/roles.mjs';
 import { jsonl, readState, writeState } from '../lib/state.mjs';
@@ -331,4 +332,53 @@ test('the starter asks list_sessions back only to the bound readSessions needs; 
   assert.match(asks[2], /while has_more, and save \{"data": \[every page's sessions\], "has_more": false\}/, 'two running: every page');
   assert.ok(out.some((l) => /AUTO SESSIONS refused: .*; the next ask pages back to its bound, read again$/.test(l)));
   assert.ok(out.some((l) => /AUTO SESSIONS refused: .*; the next ask is for every page$/.test(l)));
+});
+
+test('starterOwner: the merge lease decides; a released lease hands the starter over at once; the 25-minute lapse only without a live or released lease', () => {
+  const t = Date.now();
+  const iso = (min) => new Date(t + min * 6e4).toISOString();
+  const auto = { session: 'session_old', at: iso(-2) };
+  // No lease: another starter passed 2 min ago, so this one waits; after AUTO.live minutes, it goes.
+  assert.equal(starterOwner({ lease: null, auto, session: M, t }).go, false);
+  assert.match(starterOwner({ lease: null, auto, session: M, t }).why, /no live or released merge lease says whose it is: this one waits for its pass to lapse \(25 min\)/);
+  assert.equal(starterOwner({ lease: null, auto: { session: 'session_old', at: iso(-AUTO.live - 1) }, session: M, t }).go, true);
+  // A live lease: its holder's starter runs, whatever passed last; any other waits.
+  assert.equal(starterOwner({ lease: { session: M, expires: iso(10) }, auto, session: M, t }).go, true);
+  assert.deepEqual(starterOwner({ lease: { session: 'session_old', expires: iso(10) }, auto: null, session: M, t }), { go: false, why: `the merge lease is session_old's, to ${iso(10)}: its starter runs, this one waits` });
+  // Released: handed over at once; the releasing session's own starter stops passing.
+  const released = { session: 'session_old', expires: iso(-1), released: iso(-1) };
+  assert.equal(starterOwner({ lease: released, auto, session: M, t }).go, true);
+  assert.equal(starterOwner({ lease: released, auto, session: 'session_old', t }).go, false);
+  // Lapsed without a release (a silent MERGER whose starter may still run): the lapse rule.
+  assert.equal(starterOwner({ lease: { session: 'session_old', expires: iso(-1) }, auto, session: M, t }).go, false);
+});
+
+test('the starter handover (coordinator, 5 Nov 18:54): the old MERGER released its lease 2 min after its starter\'s last pass; the new MERGER\'s starter passes in its first round, not 25 min on', (t) => {
+  setJobCap(t, 20);
+  const root = withOrigin();
+  writeState(root, SB, 'owed', (dir) => owe(dir, 'merge 41'));
+  const past = (min) => new Date(Date.now() - min * 6e4).toISOString().replace(/\.\d+Z$/, 'Z');
+  const old = 'session_oldmerger1';
+  writeState(root, SB, 'the old starter and its released lease', (dir) => {
+    mkdirSync(join(dir, 'flow'), { recursive: true });
+    mkdirSync(join(dir, 'merger'), { recursive: true });
+    writeFileSync(join(dir, AUTO_FILE), JSON.stringify({ session: old, at: past(4), pass: 7, pending: [] }) + '\n');
+    writeFileSync(join(dir, LEASE_FILE), JSON.stringify({ session: old, token: 'x', at: past(5), expires: past(2), released: past(2), since: past(60) }) + '\n');
+  });
+  let passed = 0;
+  const { opts } = fakes([], () => { passed += 1; return { started: [], archive: [], failed: [], waiting: [] }; });
+  const out = [];
+  autoLoop(root, { ...opts, log: (l) => out.push(l) });
+  assert.equal(passed, 1, out.join('\n'));
+  assert.equal(readAuto(root, SB).session, M);
+  assert.equal(readAuto(root, SB).pass, 8);
+  // Not released (only lapsed), the same old pass holds the new starter back.
+  writeState(root, SB, 'an old starter, its lease lapsed only', (dir) => {
+    writeFileSync(join(dir, AUTO_FILE), JSON.stringify({ session: old, at: past(1), pass: 9, pending: [] }) + '\n');
+    writeFileSync(join(dir, LEASE_FILE), JSON.stringify({ session: old, token: 'x', at: past(20), expires: past(5), since: past(60) }) + '\n');
+  });
+  const out2 = [];
+  const two = fakes([], () => assert.fail('no pass while another starter is live and no lease says whose'));
+  autoLoop(root, { ...two.opts, log: (l) => out2.push(l) });
+  assert.ok(out2.some((l) => /another starter, session_oldmerger1's, passed at .*this one waits for its pass to lapse/.test(l)), out2.join('\n'));
 });

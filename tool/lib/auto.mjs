@@ -27,7 +27,7 @@ import { P3, toolPin } from './job.mjs';
 import { startReady } from './ready.mjs';
 import { readAddress } from './roles.mjs';
 import { approvalsHash } from './start.mjs';
-import { procAlive, procOf } from './train.mjs';
+import { LEASE_FILE, procAlive, procOf } from './train.mjs';
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
 import { readSessions, sessionId, sessionsBound } from './status.mjs';
 import { openState } from './tranche.mjs';
@@ -59,6 +59,23 @@ export function due({ owed, auto, holds = [], t = Date.now(), quietUntil = 0 }) 
   if (expired) return `${expired.id} (${expired.scope}) expired`;
   if (t - last >= AUTO.every * MIN) return last ? `no pass for ${Math.round((t - last) / MIN)} min` : 'the first pass';
   return null;
+}
+
+// Who runs the starter (coordinator, 5 Nov 18:54: a new MERGER's starter waited 25 min after the
+// old one's last pass, its train's lease released and the old MERGER archived). The merge lease
+// decides: its live holder's starter runs and any other waits; a released lease hands the
+// starter over at once (its own session's starter stops passing). With no lease, or one lapsed
+// without a release (a silent MERGER, its starter maybe running still), the starter that passed
+// within AUTO.live minutes keeps it, as before. { go, why }.
+export function starterOwner({ lease, auto, session, t = Date.now() }) {
+  const other = auto?.session && auto.session !== session && starterLive(auto, t);
+  if (lease?.session) {
+    const live = !lease.released && Date.parse(lease.expires) > t;
+    if (live) return lease.session === session ? { go: true, why: 'this session holds the merge lease' } : { go: false, why: `the merge lease is ${lease.session}'s, to ${lease.expires}: its starter runs, this one waits` };
+    if (lease.released) return lease.session === session ? { go: false, why: `this session released the merge lease at ${lease.released}: its starter has handed over` } : { go: true, why: `the merge lease was released at ${lease.released}: the starter is handed over` };
+  }
+  if (other) return { go: false, why: `another starter, ${auto.session}'s, passed at ${auto.at || auto.beat}, and no live or released merge lease says whose it is: this one waits for its pass to lapse (${AUTO.live} min)` };
+  return { go: true, why: 'no other starter live' };
 }
 
 // The pending launches against the sessions listed: those whose job session (titled job <id>, or
@@ -99,8 +116,13 @@ export function autoPass(root, ctx) {
   const auto = readAuto(root, sb);
   let holds = [];
   try { holds = readHolds(root, sb, { offline: true, t }); } catch { holds = []; }
-  // Another starter running (a replaced MERGER's, its pass recent): this one waits.
-  if (auto?.session && auto.session !== session && starterLive(auto, t)) { log(`another starter, ${auto.session}'s, passed at ${auto.at}: this one waits for its pass to lapse (${AUTO.live} min)`); ctx.quietUntil = t + AUTO.gap * MIN; return null; }
+  // One starter at a time: the merge lease's holder's (starterOwner). Another's, the lease
+  // telling nothing, while its pass is recent.
+  let lease = null;
+  try { lease = JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { lease = null; }
+  const own = starterOwner({ lease, auto, session, t });
+  if (!own.go) { if (ctx.waitSaid !== own.why) log(own.why); ctx.waitSaid = own.why; ctx.quietUntil = t + AUTO.gap * MIN; return null; }
+  ctx.waitSaid = null;
   const why = due({ owed, auto, holds, t, quietUntil: ctx.quietUntil });
   if (!why) return null;
   // The tranche's tip: its approvals as at the start, its pin the one running.
@@ -204,7 +226,7 @@ export const waitForFile = (file, asked, { wait = AUTO.sessionsWait * MIN, every
 
 // A starter quiet on purpose (a paused plan, the tranche open not passed, an ask unanswered, no
 // pass due) still says it runs: a beat on flow/auto.json every AUTO.every minutes, its last pass
-// unchanged. Never over another session's starter that is live.
+// unchanged. Never over the starter another session owns (starterOwner).
 function beat(root, ctx, t = Date.now()) {
   if (t - (ctx.beatAt || 0) < AUTO.every * MIN) return;
   ctx.beatAt = t;
@@ -214,7 +236,9 @@ function beat(root, ctx, t = Date.now()) {
       const f = join(wt, AUTO_FILE);
       let cur = null;
       try { cur = JSON.parse(readFileUtf8(f) || 'null'); } catch { cur = null; }
-      if (cur?.session && cur.session !== ctx.session && starterLive(cur, t)) return;
+      let lease = null;
+      try { lease = JSON.parse(readFileUtf8(join(wt, LEASE_FILE)) || 'null'); } catch { lease = null; }
+      if (!starterOwner({ lease, auto: cur, session: ctx.session, t }).go) return;
       mkdirSync(dirname(f), { recursive: true });
       writeFileSync(f, JSON.stringify({ ...(cur || {}), ...(cur?.session === ctx.session ? {} : { pending: cur?.pending || [] }), session: ctx.session, beat: now(), quiet: why }, null, 2) + '\n');
     });
