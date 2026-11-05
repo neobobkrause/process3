@@ -46,7 +46,7 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
   const sb = cfg.state_branch;
   fetchState(root, sb);
   const addresses = readAddress(root, { fetch: false });
-  const coordinators = [cfg.coordinator, ...(ROLES.some((r) => addresses[r]?.session === by) ? [] : [by])].filter(Boolean);
+  const coordinators = [addresses.coordinator?.session, cfg.coordinator, ...(ROLES.some((r) => addresses[r]?.session === by) ? [] : [by])].filter(Boolean);
   const out = { at, by, tranche: cfg.tranche, ...tipApprovals(root, cfg), coordinator: cfg.coordinator || null, addresses };
   out.tasks = tasks.filter((t) => t.enabled !== false && !t.ended_reason).map((t) => {
     const session = t.persistent_session_id || null;
@@ -159,6 +159,8 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
     : `(a) The coordinator records its id: on a branch cut from origin/${cfg.tranche}, set "coordinator": "${by}" in process/config.json, push it, open a pull request into ${cfg.tranche}, and merge it: \`${P3} merge <pr> --plain --no-review "coordinator id after the account switch"\`. The same on each product this coordinator holds (the probe too).`);
   L.push(`(b) Wait for a quiet tranche: \`${P3} switch quiet\`, again until it exits 0 (the tip unmoved ${QUIET_MIN} min). Start nothing before.`);
   L.push(`(c) \`${P3} start root\`, then create_session with the call it prints; ROOT records its own address. Then send ROOT, each its own command for it:`);
+  // ROOT's coordinator address wins over the config's: a stale one is repointed at once (Bob, 5 Nov 16:33).
+  if (addresses.coordinator?.session && addresses.coordinator.session !== by) L.push(`    - \`${P3} start record coordinator ${by}\`: the coordinator address names ${addresses.coordinator.session}, and the roles read it before the config`);
   L.push(old('bob') ? `    - \`${P3} handover begin\` (old BOB ${old('bob')}), its create_session and \`handover confirm <new id>\`; skip the message to the old BOB and its archive: it is on the old account` : `    - \`${P3} start bob\`, its create_session and \`start record bob <new id>\``);
   if (old('merger')) L.push(`    - \`${P3} start merger --replace ${old('merger')}\`, its create_session and \`start record merger <new id>\`; its train takes the lease at once if the old MERGER ran \`merge train release\`, else within 15 min`);
   L.push(old('watcher') ? `    - \`${P3} start watcher --replace ${old('watcher')}\`, its create_session, \`start record watcher <new id>\` and the daily task it prints` : `    - \`${P3} start watcher\`, its create_session, \`start record watcher <new id>\` and the daily task it prints`);

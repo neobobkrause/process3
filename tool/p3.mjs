@@ -412,10 +412,11 @@ const commands = {
   // start root | start bob | start watcher | start merger: the role's starting prompt (and create_session call).
   // start merger --replace <the addressed merger's id>: its replacement, by ROOT, once the old one is archived.
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
-  // start record <root|bob|watcher|merger> <session id>: the address, written after the session was created.
+  // start coordinator --replace <its id> --branch <b> --handoff <path>: by ROOT, at the coordinator's ask.
+  // start record <root|bob|watcher|merger|coordinator> <session id>: the address, written after the session was created.
   start: (a, root) => {
     if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
-    startRole(root, a._[0], { replace: a.replace });
+    startRole(root, a._[0], { replace: a.replace, branch: a.branch, handoff: a.handoff });
     return 0;
   },
 
@@ -448,9 +449,18 @@ const commands = {
   // daily or at once on an escalation.
   watch: (a, root) => { watch(root, { session: a.session, full: !!a.full, escalated: a.escalated }); return 0; },
 
-  // address <root|bob|watcher>: the address as the state branch holds it now.
+  // address <root|bob|watcher|merger|coordinator>: the address as the state branch holds it now;
+  // the coordinator's, else `coordinator` in process/config.json.
   address: (a, root) => {
-    const role = checkRole(String(one(a, 'role (root, bob or watcher)')).toLowerCase());
+    const asked = String(one(a, 'role (root, bob, watcher, merger or coordinator)')).toLowerCase();
+    if (asked === 'coordinator') {
+      const e = readAddress(root).coordinator;
+      const c = e?.session ? null : loadConfig(root).coordinator;
+      if (!e?.session && !c) fail('no coordinator is addressed and process/config.json names none');
+      console.log(e?.session ? `${e.session} (since ${e.at})` : `${c} (from process/config.json)`);
+      return 0;
+    }
+    const role = checkRole(asked);
     const e = readAddress(root)[role];
     if (!e) fail(`no ${role} is addressed`);
     console.log(`${e.session} (since ${e.at})`);

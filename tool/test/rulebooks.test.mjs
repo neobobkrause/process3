@@ -54,7 +54,7 @@ test('ROOT and the watcher carry the act to the coordinator session, and their r
   const prompts = { root: rootPrompt({ slug: 'o/r', approvals: a }), watcher: watcherPrompt({ slug: 'o/r', approvals: a }) };
   for (const [role, p] of Object.entries(prompts)) {
     const acts = section(p, 'Acts you may take');
-    const act = acts.split('\n').find((l) => l.startsWith('- ') && l.includes('send_message') && l.includes('`coordinator` session'));
+    const act = acts.split('\n').find((l) => l.startsWith('- ') && l.includes('send_message') && l.includes('to the coordinator with send_message'));
     assert.ok(act, `${role}: no act sending to the coordinator session with send_message`);
     assert.match(act, /technical question.*never to Bob/, `${role}: the act does not keep technical questions from Bob`);
     const t = read(role);
