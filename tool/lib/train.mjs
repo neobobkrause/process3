@@ -13,12 +13,12 @@ import { dirname, join } from 'node:path';
 import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
-import { releaseModules } from './status.mjs';
-import { branchModule, ledgerIds } from './ledger.mjs';
-import { P3, READY_START, toolPin, wakeLine } from './job.mjs';
-import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, reviewMeasures, reviewRounds } from './merge.mjs';
+import { CLOSED_FILE, releaseModules } from './status.mjs';
+import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
+import { P3, READY_START, bobWake, toolPin } from './job.mjs';
+import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
 import { isJob } from './workflows.mjs';
-import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
+import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { approvalsHash } from './start.mjs';
 import { createHash, randomBytes } from 'node:crypto';
 import { Fail, fail, git, heartbeat, isShallow, loadConfig, now, repoSlug } from './util.mjs';
@@ -57,6 +57,34 @@ export const STEPS_SAID_MS = 5000;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const mins = (a, b) => Math.round((b - a) / MIN * 10) / 10;
 const append = (wt, path, row) => { mkdirSync(dirname(join(wt, path)), { recursive: true }); appendFileSync(join(wt, path), JSON.stringify(row) + '\n'); };
+// A train row written after its merge was tried (build train-robust, option 2B: copy, 5 Nov 12:21,
+// the row of PR 499's land failed to write, the Fail stopped the train, and the land went
+// unrecorded). A row that cannot be written is kept and tried again at the top of every pass;
+// the failure never stops the train. A Stop (a lost lease) still stops it.
+function record(root, ctx, msg, row, onTry) {
+  try {
+    writeState(root, ctx.cfg.state_branch, msg, (wt) => { onTry?.(); append(wt, TRAIN_FILE, row); });
+    return true;
+  } catch (e) {
+    if (!(e instanceof Fail) || e instanceof Stop) throw e;
+    ctx.pending.push({ msg, row });
+    ctx.log(`the train's row for PR ${row.pr} (${row.result}) was not written (${e.message.split('\n')[0]}); it is tried again at the next pass`);
+    return false;
+  }
+}
+function flushPending(root, ctx) {
+  const left = [];
+  for (const p of ctx.pending.splice(0)) {
+    // A write reported failed may have landed (a 5xx push whose read-back failed too): a row already
+    // there, the same row (its time, PR and result), is not written again (review of build train-robust).
+    const same = (r) => r.at === p.row.at && r.pr === p.row.pr && r.result === p.row.result && r.row === p.row.row;
+    try { writeState(root, ctx.cfg.state_branch, p.msg, (wt) => { const f = join(wt, TRAIN_FILE); if (!jsonl(existsSync(f) ? readFileSync(f, 'utf8') : '').some(same)) append(wt, TRAIN_FILE, { ...p.row, late: now() }); }); ctx.log(`the train's row for PR ${p.row.pr} (${p.row.result}) is written, late`); } catch (e) {
+      if (!(e instanceof Fail) || e instanceof Stop) throw e;
+      left.push(p);
+    }
+  }
+  ctx.pending.push(...left);
+}
 const pick = (xs, q) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.ceil(q * s.length) - 1)] : null; };
 const median = (xs) => { const s = xs.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? (s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null; };
 
@@ -253,12 +281,7 @@ function order(root, ctx, cands, jobs) {
     c.release = null;
   }
   const openIds = new Set(jobs.map((j) => j.id));
-  const key = [...openIds].sort().join(',');
-  if (!c.release || c.release.key !== key) {
-    let set = new Set();
-    try { set = timed(ctx, 'release path', () => releaseModules(root, cfg, at, openIds)); } catch (e) { say(`the release path is unread at ${tip.slice(0, 10)} (${e.message}): no pull request is ordered by it`); }
-    c.release = { key, set };
-  }
+  try { c.release = timed(ctx, 'release path', () => releaseSet(root, cfg, at, openIds, { memo: c })); } catch (e) { say(`the release path is unread at ${tip.slice(0, 10)} (${e.message}): no pull request is ordered by it`); c.release = { key: null, set: new Set() }; }
   // (d) a provider red on its head; (b) and (c) from git, on heads fetched once.
   const reds = new Map();
   // A provider that cannot land on its head (marked in ready) counts as red: it holds nothing.
@@ -374,6 +397,38 @@ function saveOrderCache(root, cfg, tip, c) {
   try { writeFileSync(cachePath(root), JSON.stringify({ key: cacheKey(cfg, tip), exp: Object.fromEntries(c.exp), imp: Object.fromEntries(c.imp) })); } catch { /* a cache only */ }
 }
 
+// The release path's modules (status.mjs releaseModules), cached by the inputs it reads (build
+// train-robust, item 6: 13.8 s of a warm pass on the copy, its largest step): the tranche's tree
+// (ledger, layers, requirement and found files, config), the closed-layer rows on the state branch
+// and origin's main (which of them still count), the config and the tool's own commit, and the
+// open jobs whose entries are COMPLETE or BLOCKED on the tranche (for any other entry an open pull
+// request changes nothing: layerState counts its job open already, and reads its PR only for a
+// BLOCKED module, whether it is deferred). In memory and in the clone, so a pass on an unchanged
+// tranche reads three refs, a restarted train at the same tip none of the files, and a moved
+// tranche computes once. compute is for the tests. Returns { key, set, cached }.
+const RELEASE_CACHE = 'p3-train-release.json';
+export function releaseSet(root, cfg, at, openIds, { memo = {}, compute = releaseModules } = {}) {
+  const tree = git(['rev-parse', `${at}^{tree}`], { cwd: root }).trim();
+  if (memo.completeTree !== tree) {
+    memo.complete = new Set(Object.values(readLedgerTexts(root, at)).flatMap((t) => { try { const e = JSON.parse(t); return e?.id && ['COMPLETE', 'BLOCKED'].includes(e.status?.state) ? [e.id] : []; } catch { return []; } }));
+    memo.completeTree = tree;
+  }
+  const closed = readState(root, cfg.state_branch, CLOSED_FILE) || '';
+  const main = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).stdout.trim();
+  const reopened = [...openIds].filter((id) => memo.complete.has(id)).sort();
+  const key = createHash('sha256').update(JSON.stringify([tree, closed, main, toolPin(), cfg, reopened])).digest('hex');
+  if (memo.release?.key === key) return { ...memo.release, cached: true };
+  const file = git(['rev-parse', '--absolute-git-dir'], { cwd: root }) + '/' + RELEASE_CACHE;
+  try {
+    const x = JSON.parse(readFileSync(file, 'utf8'));
+    if (x?.key === key && Array.isArray(x.set)) return (memo.release = { key, set: new Set(x.set), cached: true });
+  } catch { /* none, or unread: computed */ }
+  const set = compute(root, cfg, at, openIds);
+  memo.release = { key, set };
+  if (!isShallow(root)) { try { writeFileSync(file, JSON.stringify({ key, set: [...set] })); } catch { /* a cache only */ } }
+  return { key, set, cached: false };
+}
+
 // Prepares the next pull request while PR `cur`'s re-gate runs: merge's own checks, and a
 // merge-tree onto the result being gated, so it is pushed within seconds of the land. A refusal
 // here is handed to BOB once per head, as a refusal at its merge would be.
@@ -456,7 +511,9 @@ function mergeOne(root, ctx, c, { queue, idle }) {
   row.minutes = mins(started, Date.now());
   row.disk_used_mb = free - ctx.diskFree(root); // what this merge left on disk (the worktree is gone by now); not the free space, disk_free_mb
   let tries = 0;
-  writeState(root, cfg.state_branch, `merge train: PR ${c.n} ${row.result}`, (wt) => { tries++; append(wt, TRAIN_FILE, { ...row, push_tries: tries }); });
+  // push_tries is set on the row only as it is written, so a row kept for a later pass is the same row.
+  const out = { ...row };
+  record(root, ctx, `merge train: PR ${c.n} ${row.result}`, out, () => { tries++; out.push_tries = tries; });
   row.push_tries = tries;
   // BOB's acts after a merge (the triage the notice owes, the ready jobs' start), sent, not taken.
   if (r?.merged) {
@@ -524,14 +581,17 @@ export function plainViaTrain(root, n, opts = {}) {
   const withdraw = (why) => writeState(root, cfg.state_branch, `merge train: PR ${n} withdrawn (plain)`, (wt) => append(wt, PLAIN_FILE, { at: now(), row: 'withdraw', id, pr: Number(n), why }));
   const read = () => { fetchState(root, cfg.state_branch, { fresh: true }); return jsonl(readState(root, cfg.state_branch, TRAIN_FILE)).filter((r) => r.row === 'plain' && r.queue === id); };
   const ended = (rows) => rows.find((r) => ['merged', 'refused', 'withdrawn'].includes(r.result));
-  const report = (end) => {
-    if (end.result === 'merged') {
-      log(`merged pull request ${n} at ${end.sha} (${end.merged_at})`);
-      if (end.what) log(wakeLine(end.what, q.as));
-      return { merged: true, sha: end.sha, checks: end.checks || [], wake: end.wake || null, what: end.what || null, train: true };
-    }
-    return null;
+  // The pin move's wake, printed once per merge commit (state.mjs wakeOnce): from the train's row,
+  // or, where no row carries it (a train that stopped after its land, an older row), from git
+  // (merge.mjs pinWake; build train-robust, option 2A: copy PR 499, 5 Nov 12:21, woke no one).
+  const wakeOf = (sha, end) => (end?.what ? { what: end.what, wake: end.wake || bobWake(end.what, q.as) } : pinWake(root, cfg.tranche, sha, q.as));
+  const landed = (sha, end, line) => {
+    log(line);
+    const w = wakeOf(sha, end);
+    if (w.what) printWake(root, cfg.state_branch, { pr: Number(n), sha, what: w.what, wake: w.wake, as: q.as, by: 'caller', log });
+    return { merged: true, sha, checks: end?.checks || [], wake: w.wake || null, what: w.what || null, train: true };
   };
+  const report = (end) => (end.result === 'merged' ? landed(end.sha, end, `merged pull request ${n} at ${end.sha} (${end.merged_at})`) : null);
   let said = null;
   let rows = [];
   let withdrawn = false;
@@ -563,7 +623,7 @@ export function plainViaTrain(root, n, opts = {}) {
         const fin = ended(rows);
         if (fin?.result === 'merged') return report(fin);
         const p = io.getPR(slug, n);
-        if (p.merged) { log(`merged pull request ${n} at ${p.merge_commit_sha} (by the train)`); return { merged: true, sha: p.merge_commit_sha, checks: [], wake: null, what: null, train: true }; }
+        if (p.merged) return landed(p.merge_commit_sha, null, `merged pull request ${n} at ${p.merge_commit_sha} (by the train)`);
         if (gone) { log(`the merge train no longer holds the tranche; PR ${n} is withdrawn from its queue and merged here`); return direct(); }
         fail(`the merge train did not land pull request ${n} ${taken ? `within ${minutes} min of taking it` : 'before its queue time ran out'}; it is withdrawn from the queue and nothing was merged; run merge again`);
       }
@@ -580,7 +640,7 @@ export function plainViaTrain(root, n, opts = {}) {
 function plainReady(root, ctx) {
   const rows = jsonl(readState(root, ctx.cfg.state_branch, PLAIN_FILE));
   const trains = jsonl(readState(root, ctx.cfg.state_branch, TRAIN_FILE));
-  const ended = plainEnds(trains);
+  const ended = plainEnds([...trains, ...(ctx.pending || []).map((p) => p.row)]);
   const gone = new Set(rows.filter((r) => r.row === 'withdraw').map((r) => r.id));
   ctx.withdrawn = gone;
   const taken = new Set(trains.filter((r) => r.row === 'plain' && r.result === 'taken').map((r) => r.queue));
@@ -643,7 +703,10 @@ function syncPlain(root, ctx, q) {
   return m;
 }
 // What a plain merge is tried again for (GitHub slow or a moved base), else refused and sent to BOB.
-const PLAIN_AGAIN = /moved since GitHub reported|moved while|moved past|changed while its base moved|still running on|has not said whether|could not read|could not be read|was not pushed|does not show|not up to date|base moved/i;
+// A clash on the state branch in this clone (cannot read origin's state branch, a ref-lock
+// failure, the state lock held past its wait) is tried again too (build train-robust, option 1A:
+// copy, 5 Nov 12:36, PR 502 refused for "cannot lock ref" and queued again by hand).
+const PLAIN_AGAIN = /moved since GitHub reported|moved while|moved past|changed while its base moved|still running on|has not said whether|could not read|could not be read|was not pushed|does not show|not up to date|base moved|cannot read origin's|cannot lock ref|unable to update local ref|the state lock|was refused \d+ times/i;
 function plainOne(root, ctx, q, { queue, idle }) {
   const { cfg, slug, log } = ctx;
   const started = Date.now();
@@ -661,7 +724,12 @@ function plainOne(root, ctx, q, { queue, idle }) {
       ctx.plainTaken.add(q.id);
     }
     const p = ctx.io.getPR(slug, q.pr);
-    if (p.merged) { Object.assign(row, { result: 'merged', sha: p.merge_commit_sha, merged_at: now(), elsewhere: true }); }
+    if (p.merged) {
+      // Landed before this pass (a train that stopped after its land, or by hand): the wake from
+      // git (build train-robust, option 2A), recorded once per merge commit; its caller prints it.
+      const w = pinWake(root, cfg.tranche, p.merge_commit_sha, q.as ?? 'bob');
+      Object.assign(row, { result: 'merged', sha: p.merge_commit_sha, merged_at: now(), elsewhere: true, wake: w.wake, what: w.what });
+    }
     else {
       const head = syncPlain(root, ctx, q);
       const withdrawn = () => {
@@ -670,7 +738,7 @@ function plainOne(root, ctx, q, { queue, idle }) {
         if (pr.some((r) => r.row === 'withdraw' && r.id === q.id)) fail(`pull request ${q.pr} was withdrawn from the queue by its caller; nothing was landed`);
         if (callerGone(pr, q.id)) fail(`pull request ${q.pr} was withdrawn from the queue: its caller did not renew it within ${GATE_WAIT_MINUTES} min; nothing was landed`);
       };
-      const r = mergePlain(root, q.pr, { reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.rounds, decision: q.decision || undefined, as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
+      const r = mergePlain(root, q.pr, { quietWake: true, reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.rounds, decision: q.decision || undefined, as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
       Object.assign(row, { result: 'merged', sha: r.sha, landed: head, merged_at: now(), checks: r.checks, wake: r.wake || null, what: r.what || null });
     }
   } catch (e) {
@@ -693,7 +761,12 @@ function plainOne(root, ctx, q, { queue, idle }) {
     row.tries = b.tries;
   }
   row.minutes = mins(started, Date.now());
-  writeState(root, cfg.state_branch, `merge train: PR ${q.pr} ${row.result} (plain)`, (wt) => append(wt, TRAIN_FILE, row));
+  // The wake's record, once per merge commit, before the row (a row kept for later still has it recorded).
+  if (row.result === 'merged' && row.wake) {
+    try { wakeOnce(root, cfg.state_branch, { pr: q.pr, sha: row.sha, what: row.what, wake: row.wake, by: 'train' }); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; }
+    log(`PR ${q.pr} moved the pin: the wake of BOB is its caller's to give (${q.by || 'its queue row'}), printed once`);
+  }
+  record(root, ctx, `merge train: PR ${q.pr} ${row.result} (plain)`, row);
   if (row.result === 'merged') log(`merged PR ${q.pr} (plain) at ${String(row.sha).slice(0, 10)}, queued ${row.waited_min} min before it was taken`);
   ctx.rows.push(row);
   return row;
@@ -715,7 +788,7 @@ export function train(root, opts = {}) {
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
   if (!given.checkRunsMany) io.checkRunsMany = given.checkRuns ? (s, pairs) => pairs.map(([sha, name]) => io.checkRuns(s, sha, name)) : checkRunsMany;
   if (!given.commentsMany) io.commentsMany = given.comments ? (s, ns) => ns.map((n) => { try { return io.comments(s, n) || []; } catch { return null; } }) : commentsMany;
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   ctx.onQueue = opts.onQueue; // a test reads the queue each round
   ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
@@ -753,10 +826,22 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
   let hour = Math.floor(Date.now() / 36e5);
   let passes = 0;
   for (;;) {
-    ctx.renew();
     const t0 = Date.now();
     ctx.steps = [];
-    timed(ctx, 'state', () => { if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE)); });
+    // The state branch at the top of a pass: a clash or a held state lock that outlasts its tries
+    // waits for the next pass, never stopping the train (review of build train-robust); a Stop (a
+    // lost lease) still stops it.
+    try {
+      ctx.renew();
+      if (ctx.pending.length) flushPending(root, ctx);
+      timed(ctx, 'state', () => { if (fetchState(root, cfg.state_branch, { fresh: true })) ctx.notes = jsonl(readState(root, cfg.state_branch, NOTES_FILE)); });
+    } catch (e) {
+      if (!(e instanceof Fail) || e instanceof Stop) throw e;
+      log(`the state branch is unread this pass (${e.message.split('\n')[0]}): the train tries again at the next pass`);
+      if (once || --rounds <= 0) return { rows: ctx.rows };
+      sleep(idleEvery);
+      continue;
+    }
     // BOB as addressed now (a handover moves it): only its review notes count.
     let bob = null;
     try { bob = readAddress(root, { fetch: false }).bob?.session || null; } catch { bob = null; }

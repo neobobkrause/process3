@@ -12,6 +12,7 @@ import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored 
 import { P3, READY_FIRST, READY_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
+import { wakeOnce } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
@@ -778,8 +779,41 @@ export function mergePlain(root, n, opts = {}) {
   const pin = pinAt(root, pr.head.sha);
   const as = opts.as ?? 'bob';
   const moved = base === (baseCfg?.tranche || DEFAULTS.tranche) && pin && pin !== pinAt(root, mb);
-  const what = `pin moved to ${pin}: run your wake steps (start check --wake prints a changed prompt), then status`;
+  const what = PIN_WHAT(pin);
   const wake = moved && as !== 'bob' ? bobWake(what, as) : null;
-  if (wake) log(wakeLine(what, as));
+  // Printed once per merge commit (state.mjs wakeOnce); the train prints none (quietWake): its
+  // caller prints the wake from the train's row (build train-robust).
+  if (wake && !opts.quietWake) printWake(root, baseCfg?.state_branch || DEFAULTS.state_branch, { pr: n, sha: r.sha, what, wake, as, by: 'merge', log });
   return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null };
+}
+
+// A pin move's wake for BOB (build train-robust, option 2A): the same words wherever the move is
+// seen, computed from git when no record carries them (a train that stopped after its land, a
+// pull request found merged by a later pass): the pin at the merge commit against the pin at its
+// first parent, the base as it was (the tool merges with merge commits only). A merge commit that
+// cannot be read gives the wake anyway, said so: an extra wake costs BOB one status, a missing
+// one stalls the tranche. { what, wake } (both null when the pin did not move or as is bob).
+export const PIN_WHAT = (pin) => `pin moved to ${pin}: run your wake steps (start check --wake prints a changed prompt), then status`;
+export function pinWake(root, base, sha, as = 'bob') {
+  if (as === 'bob' || !sha) return { what: null, wake: null };
+  git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root, allowFail: true });
+  if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', 'origin', sha], { cwd: root, allowFail: true });
+  let pin;
+  let was;
+  try { pin = pinAt(root, sha); was = pinAt(root, `${sha}^1`); } catch {
+    const what = `the pin may have moved (merge ${String(sha).slice(0, 10)} could not be read): run your wake steps (start check --wake prints a changed prompt), then status`;
+    return { what, wake: bobWake(what, as), unread: true };
+  }
+  if (!pin || pin === was) return { what: null, wake: null };
+  const what = PIN_WHAT(pin);
+  return { what, wake: bobWake(what, as) };
+}
+// Prints a wake once per merge commit, across every session that sees the merge (the
+// coordinator's ruling, 5 Nov): the first to record it prints it; a later one says it was given.
+// A record that cannot be written prints it anyway.
+export function printWake(root, sb, { pr, sha, what, wake, as, by, log = console.log }) {
+  const w = wakeOnce(root, sb, { pr, sha, what, wake, by, print: true });
+  if (w.print) log(wakeLine(what, as));
+  else log(`the wake of BOB for PR ${pr} (merge ${String(sha).slice(0, 10)}) was already given by ${w.printed?.by || 'another run'} at ${w.printed?.at || '?'}: not given again`);
+  return w;
 }
