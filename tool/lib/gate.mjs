@@ -87,7 +87,7 @@ export function gate(root, opts) {
   // was kept it skipped the suite and the receipt, and a re-run replays the same payload. Read
   // live, whichever run is kept judges the pull request as it is. A failed read stops the run.
   const live = pr ? io.getPR(slug, pr) : null;
-  const entries = entriesAt(root, head);
+  let entries = entriesAt(root, head); // the job head's in spec mode (below), as its own gate reads them
   // Spec mode (train-spec C', tranche-based as the coordinator ruled at 17:20): a draft PR from
   // train/head/<n>-<seq> into the tranche itself (base ref read from the live PR, so the workflow
   // passes nothing new) tests job PR n's change merged onto the window ahead of it. Its base is the
@@ -114,12 +114,16 @@ export function gate(root, opts) {
           : jpr.head?.repo?.full_name !== slug ? `is not from a branch of ${slug}`
             : !branchModule(ref, new Set(entries.map((e) => e.id))) ? `is from ${ref}, not a job branch`
               : !isAnc(root, jpr.head?.sha, head) ? `has head ${String(jpr.head?.sha).slice(0, 10)}, which is not in the spec head ${String(head).slice(0, 10)}` : null;
+    // A spec pull request is a draft for good: made ready, its green gate would stand as the required
+    // check for content judged only as job n's change (confirming review of the tranche-based spec).
+    if (!specWhy && live?.draft !== true) specWhy = `is not what is tested: spec PR ${pr} is not a draft (a spec pull request is never made ready)`;
     if (specWhy) findings.push(F('spec', '(spec)', `spec run for job PR ${spec.pr} (${eventBranch}): job PR ${spec.pr} ${specWhy}, so this is not that job's change to test`));
     else {
       branch = ref;
       // The job's own change, as its own gate judges it: what the job's head changed since it left
       // the tranche, not the jobs ahead of it that the spec head also holds.
       jobHead = jpr.head.sha;
+      entries = entriesAt(root, jobHead);
       mb = git(['merge-base', jobHead, base], { cwd: root });
       changed = diffNames(root, mb, jobHead);
       log(`spec run: judged as job PR ${spec.pr} (${ref}, ${String(jobHead).slice(0, 10)}) merged onto the window ahead of it, on ${live.base.ref}`);
@@ -400,6 +404,11 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   const sp = io.getPR(slug, n);
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== pr || sp.head?.repo?.full_name !== slug) return no(`PR ${n} is not a spec pull request of PR ${pr} in ${slug}`);
+  // Every pull request ever opened from the spec head is this one, into the tranche, never retargeted:
+  // GitHub lists only open PRs on a run, so a closed second PR (or a retarget) into a branch with
+  // another gate workflow could otherwise vouch for a run here (confirming review, finding 1).
+  const unbound = branchBound(slug, sp.head.ref, n, cfg.tranche, io);
+  if (unbound) return no(`spec PR ${n}'s branch is not bound to it: ${unbound.replace(/^is PR \d+'s merge, but /, '')}`);
   const ctx = { pr: n, baseRef: cfg.tranche };
   const row = gateRuns(io.comments(slug, n) || [])
     .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
@@ -607,8 +616,9 @@ function specRan(root, cfg, { slug, io, n, row, head, suiteRan }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== n || sp.head?.repo?.full_name !== slug) return null;
-  const ctx = sp.state === 'open' || branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io) ? { pr: row.spec_pr, baseRef: cfg.tranche }
-    : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref } };
+  // Bound whether open or closed (confirming review, finding 1): every PR from the spec head is this one, into the tranche.
+  if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
+  const ctx = sp.state === 'open' ? { pr: row.spec_pr, baseRef: cfg.tranche } : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref } };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
     || !diffNames(root, r.sha, head).every((f) => isRecordPath(cfg, f)) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;

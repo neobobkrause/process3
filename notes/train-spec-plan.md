@@ -174,3 +174,21 @@ GitHub's merge checkout of R(i) into that tip is R(i)'s tree. What changes with 
 - **Noise:** up to k draft PRs into the tranche; status, sweep and the train select job branches
   only. Any product workflow on `pull_request` into the tranche also runs for each spec PR: a trial
   pre-check on the copy.
+
+## Second confirming review of the tranche-based spec (247c63f), and what was done
+
+- **Binding (HIGH, fixed):** GitHub lists only *open* pull requests on a run, so a second PR from a
+  spec head into a branch with another gate workflow, since closed, or a retarget of the spec PR,
+  could make a forged run verify. The fast path and the cover now require `branchBound` on the
+  spec head always: every PR ever opened from it is the spec PR, into the tranche, never retargeted.
+  The same listing gap stands under job PRs' record-since-green and merge reads today; that is
+  outside this build and is said to the coordinator.
+- **Draft (MEDIUM, fixed):** a spec PR made ready is red in spec mode, so its green gate never
+  stands as the required check for content judged only as job n's change.
+- **Liveness (fixed):** a spec gate that never reports is closed past the hold's cap and rebuilt as a
+  red that did not judge the job (then refused after SPEC_REBUILDS).
+- **Entry (fixed):** spec mode reads the job's ledger entries at the job's own head.
+- **Residual (records):** records are `process/`, so R(i) and L may differ in other modules' ledger
+  entries and in any file under `process/`. A product test that reads `process/` could pass on R(i)
+  and not on L. This is the same rule record-since-green already stands on; a check that no suite
+  reads `process/` would close it.

@@ -690,7 +690,7 @@ function admitWindow(root, ctx, w, list, tip) {
     }
     // The cause as admitted, with the position it really takes (a build skipped ahead of it moves it).
     const cause = c.cause.replace(/^admitted at position \d+ (behind PR [\d, ]+|on the tranche tip)/, position ? `admitted at position ${position} behind PR ${w.map((x) => x.n).join(', ')}` : 'admitted at position 0 on the tranche tip');
-    const p = { ...c, cause, position, base: onto, result: res.sha, tree: res.tree, state: 'gating' };
+    const p = { ...c, cause, position, base: onto, result: res.sha, tree: res.tree, state: 'gating', built_at: Date.now() };
     if (res.sha === c.head) {
       // The job already holds its merged result on the tip: its own gate is the test, no spec.
       if (position !== 0 || onto !== tip) { ctx.log(`window: PR ${c.n}'s head already holds ${s10(onto)}, which is not the tip: not admitted`); ctx.buildFailed.add(`${c.n}@${c.head}@${onto}`); continue; }
@@ -751,6 +751,20 @@ function windowPass(root, ctx, { idle }) {
         p.url = g?.html_url;
       });
     }
+    // A spec gate that never reports (no run, a lost run, a post job that never ends) is closed past
+    // the hold's cap, as a red that did not judge the job: rebuilt up to SPEC_REBUILDS times, then
+    // refused (confirming review: the window must never wait on it for ever).
+    for (const p of w) {
+      if (p.state !== 'gating' || !p.spec_pr || !(Date.now() - (p.built_at ?? Date.now()) > HOLD_MINUTES(cfg) * MIN)) continue;
+      const k = `${p.n}@${p.head}`;
+      if ((ctx.rebuilt.get(k) || 0) < SPEC_REBUILDS) {
+        ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
+        const r = onHeadMoved(w, p.n, `spec gate did not report within ${HOLD_MINUTES(cfg)} min`);
+        closeSpecs(ctx, r.close);
+        w = r.keep;
+      } else { p.state = 'red'; p.notJudged = `no report within ${HOLD_MINUTES(cfg)} min, after ${SPEC_REBUILDS} rebuilds`; p.timedOut = true; }
+      break;
+    }
     const gone = w.findIndex((p) => p.state === 'cancelled');
     if (gone >= 0) { const r = onHeadMoved(w, w[gone].n, `spec gate cancelled (${w[gone].url || 'no run'})`); closeSpecs(ctx, r.close); w = r.keep; }
     // A red is the job's only when the spec run judged the job (its row's trigger is code) and the job
@@ -760,7 +774,8 @@ function windowPass(root, ctx, { idle }) {
     if (red >= 0) {
       const p = w[red];
       let judged = null;
-      try {
+      if (p.timedOut) judged = 'it never reported';
+      else try {
         // The row of this check run, verified as the spec PR's own (cold review: never another run's).
         const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && p.run_id != null && x.run_id === p.run_id).pop();
         const o = io.getPR(slug, p.n);
@@ -777,7 +792,7 @@ function windowPass(root, ctx, { idle }) {
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
-      } else if (judged !== true) p.notJudged = `${judged}, after ${SPEC_REBUILDS} rebuilds`;
+      } else if (judged !== true) p.notJudged ||= `${judged}, after ${SPEC_REBUILDS} rebuilds`;
       if (red >= 0 && red > 0) {
         // Red behind others that have not landed (cold review: a green spec is not a land): never
         // refused on a base that may not come to be; it is judged again at the head of the window.
@@ -841,7 +856,7 @@ function restoreWindow(root, ctx) {
   // The predicted results, which a fresh clone lacks (cold review): the window builds onto them.
   if (window.length) git(['fetch', '-q', 'origin', ...window.map((p) => `+refs/heads/${specHead(p.n, p.seq)}:refs/remotes/origin/${specHead(p.n, p.seq)}`)], { cwd: root, allowFail: true });
   closeSpecs(ctx, close);
-  ctx.window = window;
+  ctx.window = window.map((p) => ({ ...p, built_at: Date.now() })); // a restart's clock starts again
   log(`window: restarted with ${window.length} position(s)${window.length ? ` (PR ${window.map((p) => p.n).join(', ')})` : ''}${close.length ? `; ${close.length} spec(s) closed` : ''}`);
   flushWindow(root, ctx);
 }
