@@ -104,10 +104,14 @@ export function readyCount(root, { read = status } = {}) {
 // the setup check runs once for the batch, on its first start; each later start runs only the
 // session-branch check again, which re-fetches and moves the checkout to the current tip
 // (start.mjs anchor) when the tip's approvals are those it holds. A moved tip alone voids nothing.
+// A first start refused on the session branch alone (the tranche moved under it, or HEAD could not
+// be moved then) is not the batch's verdict: the next start runs the setup check again, re-anchoring
+// at the tip it fetched, as a single start does (copy, 5 Nov: a pass lost every start, twice).
 export function batchSetup(root, cfg, { setup = setupCheck, check = startCheck } = {}) {
   let once = null;
+  const branchOnly = (s) => !s.ok && s.missing?.length === 1 && s.missing[0] === 'session-branch';
   return (r, o) => {
-    if (!once) return (once = setup(r, o));
+    if (!once || branchOnly(once)) return (once = setup(r, o));
     if (!once.ok || !once.results?.some((x) => x.id === 'session-branch')) return once;
     const c = check(root, { branch: cfg.tranche, anchor: true, log: () => {} });
     const fresh = c.sameApprovals && c.sameHead;

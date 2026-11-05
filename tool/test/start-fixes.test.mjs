@@ -285,3 +285,25 @@ test('next work: an open-layer module waits while a provider in the layer map ha
   // Both merged: steps is work.
   assert.deepEqual(files([row('base'), row('model'), row('harness'), row('steps', fresh), row('other', fresh)])[0], ['build/requirements/other.md', 'build/requirements/steps.md']);
 });
+
+// Copy, 5 Nov: job start --ready computed for about 5 min, the tranche moved, and the first start's
+// setup check found HEAD not the tip; the batch kept that verdict and lost every start, twice. A
+// refusal on the session branch alone is re-checked (re-anchored) by the next start.
+test('job start --ready: a first start refused on the session branch alone does not refuse the batch; the next start re-anchors', () => {
+  const verdicts = [
+    { ok: false, missing: ['session-branch'], results: [{ id: 'session-branch', state: 'missing', detail: 'HEAD x is not the tip' }] },
+    base(),
+  ];
+  let n = 0;
+  const setup = batchSetup(null, { tranche: 'tranche' }, { setup: () => verdicts[n++], check: () => ({ sameApprovals: true, sameHead: true }) });
+  assert.equal(setup(null, { anchor: true }).ok, false);
+  assert.equal(setup(null, { anchor: true }).ok, true, 'the second start ran the setup check again');
+  assert.equal(n, 2);
+  assert.equal(setup(null, { anchor: true }).ok, true, 'later starts: the session-branch check only');
+  assert.equal(n, 2);
+  // Any other missing condition stays the batch's verdict: the setup check is not run again.
+  let m = 0;
+  const other = batchSetup(null, { tranche: 'tranche' }, { setup: () => { m++; return { ok: false, missing: ['grants', 'session-branch'], results: [] }; } });
+  other(null, {}); other(null, {});
+  assert.equal(m, 1);
+});
