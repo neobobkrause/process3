@@ -93,6 +93,15 @@ test('take-in refuses to reuse a pull request from job/<id> into another base, o
   }
 });
 
+test('take-in onto a new pull request is refused when job/<id> already had one into another base', () => {
+  const root = converting();
+  const f = fakeGitHub(root, { 7: { number: 7, state: 'closed', head: { ref: 'job/alpha' }, base: { ref: 'main' } } });
+  const before = git(['ls-remote', 'origin'], { cwd: root });
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', takeIn: 'feature/a', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet }), /a new pull request from job\/alpha cannot become alpha's job pull request: job\/alpha also had pull request\(s\) 7 into another base/);
+  assert.equal(git(['ls-remote', 'origin'], { cwd: root }), before, 'nothing pushed');
+  assert.equal(f.s.opened.length, 0);
+});
+
 test('take-in by number reuses a pull request from job/<id>: moved to the tranche and made a draft, no new PR', () => {
   const root = converting();
   git(['push', '-q', 'origin', 'refs/remotes/origin/feature/a:refs/heads/job/alpha'], { cwd: root });
@@ -100,7 +109,7 @@ test('take-in by number reuses a pull request from job/<id>: moved to the tranch
   const f = fakeGitHub(root, { 6: { number: 6, state: 'open', draft: false, html_url: 'pr6', node_id: 'N6', head: { ref: 'job/alpha', repo: { full_name: slug } }, base: { ref: 'tranche' } } });
   const r = jobStart(root, 'alpha', { coordinator: 's', takeIn: '6', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet });
   assert.equal(f.s.opened.length, 0, 'no new pull request');
-  assert.equal(f.s.edits[0].base, 'tranche');
+  assert.equal(f.s.edits[0].base, undefined, 'already into the tranche: no base is sent, so no base change is recorded');
   assert.match(f.s.edits[0].body, /Earlier work taken in: pull request #6 \(branch `job\/alpha`\)/);
   assert.deepEqual(f.s.drafts, [6]);
   assert.equal(r.pr.draft, true);

@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
+import { BOT, GATE, GATE_WORKFLOW, RECEIPT, block, verifyRow } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { Fail, git } from '../lib/util.mjs';
@@ -38,7 +38,7 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
       ],
       checkRun: () => ({ status: 'completed', conclusion: gateGreen ? 'success' : 'failure', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
-      ...honestBranch([3, 4, 5, 6, 7]),
+      ...honestBranch([3, 4, 5, 6, 7], 'tranche', 'job/alpha'),
       mergePR: (slug, n, sha) => { calls.merged = sha; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -82,6 +82,19 @@ test('merge refuses gate rows from a branch that had another PR into another bas
     assert.throws(() => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} }), re);
     assert.equal(f.calls.merged, null, 'nothing merged');
     assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head, 'nothing pushed');
+  }
+});
+
+test('merge with the real verifyRow: a run on the job branch counts; one at the same commit on another branch, or a fork, does not', () => {
+  for (const [run, ok] of [[{}, true], [{ head_branch: 'y' }, false], [{ head_repository: { full_name: 'fork/r' } }, false]]) {
+    const { root, head } = setup();
+    const f = io(head);
+    const actions = { path: GATE_WORKFLOW, head_sha: head, status: 'completed', conclusion: 'success', event: 'pull_request', pull_requests: [{ number: 3, base: { ref: 'tranche' } }], head_branch: 'job/alpha', head_repository: { full_name: 'o/r' }, ...run };
+    const row = { sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1, run_id: 11 };
+    f.io.verify = (s, r, ctx) => verifyRow(s, r, ctx, { getRun: (sl, id) => (id === 11 ? actions : null), runArtifactRow: () => row });
+    const go = () => merge(root, 3, { slug: 'o/r', io: f.io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: () => {} });
+    if (ok) assert.equal(go().merged, true);
+    else { assert.throws(go, /no green process-gate run on .* checked receipt attempt 1 and agreed with it/); assert.equal(f.calls.merged, null); }
   }
 });
 

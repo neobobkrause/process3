@@ -682,8 +682,9 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
 // that base (review 1 of PR 95).
 function refreshGate(slug, n, sha, files, { base, head, baseSha, untracked = [], io, log }) {
   if (io.checkRun(slug, sha, 'gate')?.conclusion !== 'success') fail(`pull request ${n} changes generated module files (${files.slice(0, 5).join(', ')}), and the gate on ${sha.slice(0, 10)} is not green`);
-  boundOrFail(slug, head, n, base, io);
+  // The comments first, then the branch (as jobChecks): any run behind a row read is a PR's listed.
   const rows = gateRuns(io.comments(slug, n)).filter((r) => r.sha === sha);
+  boundOrFail(slug, head, n, base, io);
   const ok = rows.filter((r) => r.ok && r.base === baseSha && r.refresh?.result === 'identical' && files.every((f) => r.refresh.files?.includes(f)) && untracked.every((f) => r.refresh.untracked?.includes(f))).find((r) => io.verify(slug, r, { pr: n, baseRef: base, branch: head }));
   if (!ok) {
     const newest = rows.at(-1);

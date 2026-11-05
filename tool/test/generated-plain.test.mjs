@@ -81,7 +81,7 @@ function plainIO(p, comments, verify) {
     calls,
     io: {
       getPR: pr, requiredChecks: () => ({ checks: [{ context: 'gate' }] }), checkRuns: () => [green], checkRun: () => green,
-      comments: () => comments, verify, ...honestBranch([148]), repo: { released: () => false, shim: () => null, descends: () => false },
+      comments: () => comments, verify, ...honestBranch([148], 'tranche', 'bob/refresh'), repo: { released: () => false, shim: () => null, descends: () => false },
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };

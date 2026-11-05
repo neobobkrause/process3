@@ -81,7 +81,8 @@ export function setJobCap(t, n) {
 
 // An honest branch history for a fake io (github.mjs unbound): pull requests ns from any branch,
 // each into base, none ever retargeted.
-export const honestBranch = (ns, base = 'tranche') => ({
-  prsFromBranch: (s, b) => ns.map((number) => ({ number, head: { ref: b }, base: { ref: base } })),
+// With branch, any other branch reads as unread (null), so a caller passing the wrong one fails.
+export const honestBranch = (ns, base = 'tranche', branch = null) => ({
+  prsFromBranch: (s, b) => (branch && b !== branch ? null : ns.map((number) => ({ number, head: { ref: b }, base: { ref: base } }))),
   baseEverChanged: () => false,
 });

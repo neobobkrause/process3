@@ -516,9 +516,11 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   // A reused pull request is moved to the tranche; one from job/<id> into another base, or one
   // whose base already changed, leaves the branch's runs bound to no job PR (github.mjs unbound),
   // so merge would refuse the job for good (cold review of build/branch-bound): refused here.
-  if (push && pr && pr.head.ref === job) {
-    const loose = unbound(slug, job, pr.number, cfg.tranche, x);
-    if (loose) fail(`pull request #${pr.number} cannot become ${id}'s job pull request: ${loose}, so merge could never trust its gate runs. Nothing was written; bring it to Bob`);
+  // A new pull request from job/<id> is bound only when every earlier one from it was too.
+  if (push) {
+    const reuse = pr && pr.head.ref === job;
+    const loose = unbound(slug, job, reuse ? pr.number : null, cfg.tranche, x);
+    if (loose) fail(`${reuse ? `pull request #${pr.number}` : `a new pull request from ${job}`} cannot become ${id}'s job pull request: ${loose}, so merge could never trust its gate runs. Nothing was written; bring it to Bob`);
   }
   const lead = jobCoordinator(root, cfg, coordinator, push);
   model ||= cfg.roles?.job?.model;
@@ -606,7 +608,8 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
       if (remoteTip(root, job) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${job} did not land`);
       if (pr && pr.head.ref === job) {
         // Reused: the job's own branch already had this pull request.
-        let p = x.editPR(slug, pr.number, { base: cfg.tranche, title: `job: ${id}`, body: start });
+        // Already into the tranche (unbound above): base is not sent, so no edit can record a base change.
+        let p = x.editPR(slug, pr.number, { title: `job: ${id}`, body: start });
         if (!p.draft) p = x.toDraft(slug, p);
         result.pr = p;
         log(`pull request reused as the job's draft into ${cfg.tranche}: ${p.html_url}`);

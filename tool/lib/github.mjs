@@ -53,9 +53,10 @@ export function baseEverChanged(slug, n, { read = (args) => gh(args, { allowFail
 // row, then closed, leaves its run listing only n (confirming review of build/train-spec, 5 Nov).
 // Every pull request ever opened from the branch must be into base and never have had its base
 // changed; pull requests cannot be deleted, so the list is complete. Unread, nothing binds.
+// n null: no pull request yet (job start --take-in, before it opens one): the history alone.
 export function unbound(slug, branch, n, base, io) {
   const from = io.prsFromBranch ? io.prsFromBranch(slug, branch) : null;
-  if (!Array.isArray(from) || !from.some((x) => x.number === n)) return `the pull requests from ${branch} could not be read`;
+  if (!Array.isArray(from) || (n !== null && !from.some((x) => x.number === n))) return `the pull requests from ${branch} could not be read`;
   const elsewhere = from.filter((x) => x.base?.ref !== base).map((x) => x.number);
   if (elsewhere.length) return `${branch} also had pull request(s) ${elsewhere.join(', ')} into another base`;
   const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
