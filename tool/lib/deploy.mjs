@@ -19,7 +19,7 @@ import { NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run }
 export const DEPLOYS_FILE = 'deploys/dev.jsonl';
 export const SLUG_PREFIX = 'p3dev-';
 const MINUTE = 60000;
-const KEYS = ['slug_prefix', 'dry_run', 'deploy', 'walk', 'guard_line', 'timeout_minutes', 'walk_reports'];
+const KEYS = ['slug_prefix', 'dry_run', 'deploy', 'walk', 'guard_line', 'timeout_minutes', 'walk_reports', 'internal_walk'];
 // A slug: lower case letters, digits and dashes, as Cloudflare names Workers and buckets.
 const SLUG = /^[a-z0-9][a-z0-9-]{0,47}$/;
 
@@ -48,10 +48,22 @@ export function deployConfig(cfg) {
   const t = d.timeout_minutes;
   if (t !== undefined && !(Number.isInteger(t) && t > 0 && t <= 360)) fail('deploy.timeout_minutes must be whole minutes from 1 to 360');
   // walk_reports: the files the walk writes, relative to the checkout, kept on the state branch.
-  const wr = d.walk_reports ?? [];
   const part = (x) => x && x !== '.' && x !== '..';
-  if (!Array.isArray(wr) || !wr.every((p) => typeof p === 'string' && p.split('/').every(part) && !basename(p).startsWith('.git')) || new Set(wr.map((p) => basename(p))).size !== wr.length) fail('deploy.walk_reports must be a list of file paths in the checkout (no leading /, no empty, . or .. part, no file name starting .git), no two with the same file name');
-  return { walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: steps(d.dry_run, 'dry_run'), deploy: steps(d.deploy, 'deploy'), walk: steps(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
+  const paths = (wr, what) => {
+    if (!Array.isArray(wr) || !wr.every((p) => typeof p === 'string' && p.split('/').every(part) && !basename(p).startsWith('.git')) || new Set(wr.map((p) => basename(p))).size !== wr.length) fail(`deploy.${what} must be a list of file paths in the checkout (no leading /, no empty, . or .. part, no file name starting .git), no two with the same file name`);
+    return wr;
+  };
+  const wr = paths(d.walk_reports ?? [], 'walk_reports');
+  // internal_walk (Bob, 4 Nov; K4111, K4162, K4781): the product's offline walk, run at the round
+  // close before the dry run, never a gate. {run: argv or argvs, timeout_minutes (whole run), reports}.
+  let iw = null;
+  const i = d.internal_walk;
+  if (i !== undefined && i !== null) {
+    if (typeof i !== 'object' || Array.isArray(i) || Object.keys(i).some((k) => !['run', 'timeout_minutes', 'reports'].includes(k))) fail('deploy.internal_walk must be an object with run, timeout_minutes and reports');
+    if (i.timeout_minutes !== undefined && !(Number.isInteger(i.timeout_minutes) && i.timeout_minutes > 0 && i.timeout_minutes <= 360)) fail('deploy.internal_walk.timeout_minutes must be whole minutes from 1 to 360');
+    iw = { run: steps(i.run, 'internal_walk.run'), timeout_minutes: i.timeout_minutes || 30, reports: paths(i.reports ?? [], 'internal_walk.reports') };
+  }
+  return { internal_walk: iw, walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: steps(d.dry_run, 'dry_run'), deploy: steps(d.deploy, 'deploy'), walk: steps(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
 }
 
 // A step marks a value secret with a line `::add-mask::<value>`, as GitHub Actions does. The
@@ -143,7 +155,8 @@ export const runSource = (row) => `${row.slug} ${String(row.commit).slice(0, 10)
 export function walkFindings(root, cfg, ref, at = {}) {
   const last = deployRows(root, cfg, at).at(-1) || null;
   if (!last) return { last, failing: 0, marks: 0, recorded: 0 };
-  const failing = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0);
+  const iw = last.internal_walk;
+  const failing = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0) + (iw ? Math.max(iw.ok ? 0 : 1, Number(iw.failures) || 0) : 0);
   const tree = (d) => git(['ls-tree', '-r', '--name-only', ref, '--', d], { cwd: root, allowFail: true }).stdout.split('\n').filter((n) => n.endsWith('.md'));
   const reqs = Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const r = JSON.parse(t).requirements; return typeof r === 'string' ? [r] : []; } catch { return []; } });
   const words = (t) => String(t).split(/[^a-z0-9-]+/);
@@ -162,7 +175,7 @@ export function walkFindings(root, cfg, ref, at = {}) {
 // plain pull request, main into the tranche at its close, would owe a deploy mid-close).
 export const deployOwed = (rc, w, tip) => (!rc.closed ? null : !w.last ? `${rc.round} closed, not yet deployed` : w.failing && w.last.commit !== tip ? `${rc.round} closed since ${String(w.last.commit).slice(0, 10)} was deployed` : null);
 // The hold on tranche close: the latest run failed or its walk found failures, not all recorded.
-export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`) with its completion item, or a known gap (its completion item "deferred: <reason>" naming ${runSource(w.last)}), or deploy dev again at the next round's close` : null);
+export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's) with its completion item, or a known gap (its completion item "deferred: <reason>" naming ${runSource(w.last)}), or deploy dev again at the next round's close` : null);
 
 const defaultIO = { exec: run };
 
@@ -196,34 +209,10 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   // Kept on purpose, not withTemp: the step logs are the evidence this deploy's output names (util.mjs keepStep).
   const logs = io.logDir || mkdtempSync(join(tmpdir(), `p3-deploy-${s}-`));
   log(`each step's whole output is kept under ${logs}`);
-  const put = { out: (t) => log(t.replace(/\n$/, '')), err: (t) => log(t.replace(/\n$/, '')), note: log };
-  const go = (stage, argvs, { guard = false } = {}) => {
-    for (const a of argvs) {
-      const argv = a.map((x) => x.split('{slug}').join(s));
-      const name = `${stage}: ${argv.join(' ')}`;
-      log(`::group::${redact(name, masks)}`);
-      const r = io.exec(argv[0], argv.slice(1), { cwd: root, timeout: dep.timeout_minutes * MINUTE, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
-      collectMasks(r.stdout, masks);
-      collectMasks(r.stderr, masks);
-      keepStep(logs, results.length + 1, stage, redact(r.stdout, masks), redact(r.stderr, masks), put);
-      log('::endgroup::');
-      const res = { stage, name: redact(argv.join(' '), masks), exit: r.code, seconds: Math.round(r.seconds) };
-      if (guard) res.guard = r.stdout.split('\n').some((l) => l.trim() === dep.guard_line);
-      results.push(res);
-      log(`${res.name}: exit ${r.code}, ${res.seconds} s${guard ? `, guard ${res.guard ? 'printed' : 'NOT printed'}` : ''}`);
-      if (r.code !== 0 || (guard && !res.guard)) return false;
-    }
-    return true;
-  };
-  // The lock files are installed, then the generated files the tranche does not commit (over
-  // max_file_bytes, say) are built, as release run does (copy, 4 Nov: a fresh checkout's build
-  // failed on esbuild, the npm ci being only in the dry run that came after it).
-  const exec = (c, args, o) => io.exec(c, args, { timeout: dep.timeout_minutes * MINUTE, ...o, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
-  const inst = install(root, cfg.lockfiles || [], { exec });
-  const gen = generatedRows(cfg);
-  const b = inst.findings.length ? { built: [], findings: inst.findings } : buildGenerated(root, gen.rows, { ref: tip, timeout: dep.timeout_minutes * MINUTE, log, exec });
-  if (b.built.length || b.findings.length) results.push({ stage: 'build', name: `${inst.findings.length ? 'install' : 'generated'}: ${[...b.built, ...b.findings.map((f) => f.file)].join(', ')}`, exit: b.findings.length ? 1 : 0, seconds: 0 });
-  for (const f of b.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+  const go = stepRunner(root, { io, log, logs, masks, results, dep, slug: s });
+  const b = prepare(root, cfg, dep, { io, log, ref: tip, results });
+  // The internal walk first (K4111), from the built tip; never a gate (K4162): its result goes in the row.
+  const inner = !b.findings.length && dep.internal_walk ? internalWalk(root, cfg, dep.internal_walk, go) : null;
   let ok = !b.findings.length && go('dry_run', dep.dry_run, { guard: true });
   let stopped = b.findings.length ? 'build' : ok ? null : 'dry_run';
   if (ok) { ok = go('deploy', dep.deploy); if (!ok) stopped = 'deploy'; }
@@ -232,33 +221,29 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   const minutes = Math.round((Date.now() - t0) / 6000) / 10;
   const row = { row: 'dev-deploy', tranche: cfg.tranche, slug: s, commit: tip, layer, ok, stopped, results, minutes, at: now() };
   // The walk's reports, as the walker wrote them (masked values as ***), under deploys/<slug>/<UTC
-  // time>/ on the state branch; one over max_file_bytes is recorded as not stored. report.json's
-  // counts go in the row (copy, 4 Nov: 77 screens' findings were lost with the log's head).
+  // time>/ on the state branch (the internal walk's under its internal/); one over max_file_bytes
+  // is recorded as not stored. report.json's counts go in the row (copy, 4 Nov: 77 screens'
+  // findings were lost with the log's head).
   const dir = `deploys/${s}/${row.at.replace(/[:.]/g, '-')}`;
   const max = cfg.max_file_bytes;
   const read = results.some((x) => x.stage === 'walk') ? dep.walk_reports.map((p) => ({ from: p, ...readReport(root, p, tWalk, max) })) : [];
-  // Every report's masks first, then each redacted, a JSON report's escaped form too.
-  for (const k of read) if (k.raw !== undefined) collectMasks(k.raw, masks);
-  for (const v of [...masks]) masks.add(JSON.stringify(v).slice(1, -1));
-  const kept = read.map((k) => {
-    if (k.raw === undefined) return k;
-    const text = redact(k.raw, masks);
-    const bytes = Buffer.byteLength(text);
-    return bytes > max ? { from: k.from, stored: `not stored, ${bytes} bytes` } : { from: k.from, text, stored: `${dir}/${basename(k.from)}` };
-  });
+  const [kept, keptInner] = keepReports([{ dir, read }, { dir: `${dir}/internal`, read: inner?.read || [] }], masks, max);
   if (kept.length) {
-    const j = kept.find((k) => k.text !== undefined && k.from.endsWith('.json'));
-    row.walk = { ...(j ? walkSummary(j.text) : {}), reports: kept.map((k) => ({ from: k.from, stored: k.stored })) };
-    const w = row.walk;
+    const w = row.walk = summarize(kept);
     log(`walk: ${w.steps !== undefined ? `${w.steps} steps, ${w.steps_ok} ok, ${w.failures} failures ${JSON.stringify(w.by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ')}`);
   }
+  if (inner) {
+    row.internal_walk = innerRow(inner, keptInner, log);
+    if (!row.internal_walk.ok) log(`the internal walk's findings enter as found marks: \`${P3} found <module> "<finding>" --from "internal walk ${runSource(row)}"\` (not a gate: the deploy went on)`);
+  }
   // Kept beside the step files before the push, so a failed state-branch write loses nothing.
-  const stored = kept.filter((x) => x.text !== undefined);
-  for (const k of stored) writeFileSync(join(logs, `report-${basename(k.from)}`), k.text);
+  if (keptInner.some((k) => k.text !== undefined)) mkdirSync(join(logs, 'report-internal'), { recursive: true });
+  const stored = [...kept, ...keptInner].filter((x) => x.text !== undefined);
+  for (const k of stored) writeFileSync(join(logs, `report-${keptInner.includes(k) ? 'internal/' : ''}${basename(k.from)}`), k.text);
   writeFileSync(join(logs, 'row.json'), JSON.stringify(row) + '\n');
   try {
     writeState(root, cfg.state_branch, `development deployment ${s}, ${rc.round}: ${ok ? 'ok' : `stopped at ${stopped}`}`, (wt) => {
-      for (const k of stored) { mkdirSync(join(wt, dir), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
+      for (const k of stored) { mkdirSync(dirname(join(wt, k.stored)), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); }
       mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
       appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify(row) + '\n');
     });
@@ -275,4 +260,108 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   // A walk can report findings and still exit 0: they enter by the same route.
   if (ok) log(`findings of the walk, if any, enter by the route for work found elsewhere: \`${P3} found <module> "<finding>" --from "walk ${runSource(row)}"\`${round}`);
   return { ok, row };
+}
+
+// A runner of steps, each in the product root, {slug} substituted, without the GitHub tokens (and
+// without `unset`), within its timeout (or what is left of `deadline`); each step's output kept
+// whole in its file, masked; returns false at the first failure.
+function stepRunner(root, { io, log, logs, masks, results, dep, slug }) {
+  const put = { out: (t) => log(t.replace(/\n$/, '')), err: (t) => log(t.replace(/\n$/, '')), note: log };
+  const go = (stage, argvs, { guard = false, deadline = null, unset = [] } = {}) => {
+    for (const a of argvs) {
+      const argv = a.map((x) => x.split('{slug}').join(slug));
+      if (deadline && Date.now() >= deadline) { results.push({ stage, name: redact(argv.join(' '), masks), exit: 1, seconds: 0, timed_out: true }); log(`${stage}: out of time, not run: ${redact(argv.join(' '), masks)}`); return false; }
+      log(`::group::${redact(`${stage}: ${argv.join(' ')}`, masks)}`);
+      const timeout = deadline ? Math.max(1, deadline - Date.now()) : dep.timeout_minutes * MINUTE;
+      const r = io.exec(argv[0], argv.slice(1), { cwd: root, timeout, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT', ...unset] });
+      collectMasks(r.stdout, masks);
+      collectMasks(r.stderr, masks);
+      keepStep(logs, results.length + 1, stage, redact(r.stdout, masks), redact(r.stderr, masks), put);
+      log('::endgroup::');
+      const res = { stage, name: redact(argv.join(' '), masks), exit: r.code, seconds: Math.round(r.seconds) };
+      if (r.timedOut) res.timed_out = true;
+      if (guard) res.guard = r.stdout.split('\n').some((l) => l.trim() === dep.guard_line);
+      results.push(res);
+      log(`${res.name}: exit ${r.code}, ${res.seconds} s${r.timedOut ? ', timed out' : ''}${guard ? `, guard ${res.guard ? 'printed' : 'NOT printed'}` : ''}`);
+      if (r.code !== 0 || (guard && !res.guard)) return false;
+    }
+    return true;
+  };
+  go.results = results;
+  return go;
+}
+
+// The lock files are installed, then the generated files the tranche does not commit (over
+// max_file_bytes, say) are built, as release run does (copy, 4 Nov: a fresh checkout's build
+// failed on esbuild, the npm ci being only in the dry run that came after it).
+function prepare(root, cfg, dep, { io, log, ref, results }) {
+  const exec = (c, args, o) => io.exec(c, args, { timeout: dep.timeout_minutes * MINUTE, ...o, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT'] });
+  const inst = install(root, cfg.lockfiles || [], { exec });
+  const b = inst.findings.length ? { built: [], findings: inst.findings } : buildGenerated(root, generatedRows(cfg).rows, { ref, timeout: dep.timeout_minutes * MINUTE, log, exec });
+  if (b.built.length || b.findings.length) results.push({ stage: 'build', name: `${inst.findings.length ? 'install' : 'generated'}: ${[...b.built, ...b.findings.map((f) => f.file)].join(', ')}`, exit: b.findings.length ? 1 : 0, seconds: 0 });
+  for (const f of b.findings) log(`${f.check}: ${f.file}: ${f.message}`);
+  return b;
+}
+
+// The internal walk (K4781: offline, Miniflare on loopback): its steps within its one timeout,
+// without the deploy's secrets (the config's "environment" names, any CLOUDFLARE_ or CF_ variable);
+// its reports read raw as soon as it ends.
+function internalWalk(root, cfg, iw, go) {
+  const t0 = Date.now();
+  const unset = [...(Array.isArray(cfg.environment) ? cfg.environment : []), ...Object.keys(process.env).filter((k) => /^(CLOUDFLARE|CF)_/.test(k))];
+  const from = go.results.length;
+  go('internal_walk', iw.run, { deadline: t0 + iw.timeout_minutes * MINUTE, unset });
+  const ran = go.results.slice(from);
+  const last = ran.at(-1);
+  return { exit: last.exit, timed_out: ran.some((x) => x.timed_out), seconds: Math.round((Date.now() - t0) / 1000), read: iw.reports.map((p) => ({ from: p, ...readReport(root, p, t0, cfg.max_file_bytes) })) };
+}
+
+// Every group's reports masked with every mask any of them declares (a JSON report's escaped form
+// too), each to be stored under its group's dir, or recorded as not stored over max.
+function keepReports(groups, masks, max) {
+  for (const g of groups) for (const k of g.read) if (k.raw !== undefined) collectMasks(k.raw, masks);
+  for (const v of [...masks]) masks.add(JSON.stringify(v).slice(1, -1));
+  return groups.map((g) => g.read.map((k) => {
+    if (k.raw === undefined) return k;
+    const text = redact(k.raw, masks);
+    const bytes = Buffer.byteLength(text);
+    return bytes > max ? { from: k.from, stored: `not stored, ${bytes} bytes` } : { from: k.from, text, stored: `${g.dir}/${basename(k.from)}` };
+  }));
+}
+const summarize = (kept) => {
+  const j = kept.find((k) => k.text !== undefined && k.from.endsWith('.json'));
+  return { ...(j ? walkSummary(j.text) : {}), reports: kept.map((k) => ({ from: k.from, stored: k.stored })) };
+};
+// The internal walk's part of a row: its counts, ok (exit 0, in time, no failures), exit, seconds.
+function innerRow(inner, kept, log) {
+  const sum = summarize(kept);
+  const r = { ...sum, ok: inner.exit === 0 && !inner.timed_out && !sum.failures, exit: inner.exit, ...(inner.timed_out ? { timed_out: true } : {}), seconds: inner.seconds };
+  log(`internal walk: ${r.timed_out ? 'timed out; ' : ''}exit ${r.exit}, ${r.seconds} s; ${r.steps !== undefined ? `${r.steps} steps, ${r.steps_ok} ok, ${r.failures} failures ${JSON.stringify(r.by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ') || 'no reports'}`);
+  return r;
+}
+
+// walk internal: the internal walk alone, any time, at the clean checkout's commit, no deploy and
+// no deploy row; its reports under walks/internal/<commit>-<UTC time>/ on the state branch.
+export function walkInternal(root, { log = console.log, io: given = {} } = {}) {
+  const io = { ...defaultIO, ...given };
+  const cfg = loadConfig(root);
+  const dep = deployConfig(cfg);
+  if (!dep.internal_walk) fail('deploy.internal_walk is not set in process/config.json: there is no internal walk to run');
+  const dirty = git(['status', '--porcelain', '--untracked-files=no'], { cwd: root });
+  if (dirty) fail(`the checkout has uncommitted changes: ${dirty.split('\n').slice(0, 3).join('; ')}`);
+  const head = git(['rev-parse', 'HEAD'], { cwd: root });
+  const logs = io.logDir || mkdtempSync(join(tmpdir(), 'p3-deploy-internal-walk-'));
+  log(`internal walk at ${head.slice(0, 10)}; each step's whole output is kept under ${logs}`);
+  const masks = new Set();
+  const go = stepRunner(root, { io, log, logs, masks, results: [], dep, slug: '' });
+  if (prepare(root, cfg, dep, { io, log, ref: head, results: go.results }).findings.length) { log('the build failed: no internal walk ran, nothing recorded'); return { ok: false }; }
+  const inner = internalWalk(root, cfg, dep.internal_walk, go);
+  const dir = `walks/internal/${head.slice(0, 10)}-${now().replace(/[:.]/g, '-')}`;
+  const [kept] = keepReports([{ dir, read: inner.read }], masks, cfg.max_file_bytes);
+  const r = innerRow(inner, kept, log);
+  const stored = kept.filter((k) => k.text !== undefined);
+  for (const k of stored) writeFileSync(join(logs, `report-${basename(k.from)}`), k.text);
+  if (stored.length) writeState(root, cfg.state_branch, `internal walk at ${head.slice(0, 10)}: ${r.ok ? 'ok' : 'findings'}`, (wt) => { for (const k of stored) { mkdirSync(join(wt, dir), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); } });
+  if (!r.ok) log(`its findings enter as found marks: \`${P3} found <module> "<finding>" --from "internal walk ${head.slice(0, 10)}"\``);
+  return { ok: r.ok, internal_walk: r };
 }
