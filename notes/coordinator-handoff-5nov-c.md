@@ -21,3 +21,9 @@ TO RESTART ON THE NEW ACCOUNT
 2. Start a coordinator from start/coordinator-4nov; it reads this file, then handoff b.
 3. Coordinator records its id on copy and probe tranches; ROOT, BOB, MERGER and watcher are started fresh on the new account by the process's own start commands; recreate the scheduled tasks above.
 4. Archive the old account's sessions once the new ones run (old sessions cannot be messaged from another account).
+
+STOP REPLIES (05:44-05:45)
+- build/train-order stopped: tip 4015f05, 792/792; PR 146 draft. Left: cut the disk part to the rename (disk_used_mb + disk_free_mb), independent review, confirming review, suite, ready, merge.
+- build/abandoned-attempt stopped: tip 5aa3eaf (784/784 on 513595c; last commit a help comment); PR 145 unmerged, ci check was running. Left: `merge 145 --plain --reviewed "..." --rounds 1` once green, then pin move.
+- BOB stopped, nothing half done. 441 back to draft. CONTROL-PLANE 290 CAUSE: process-gate.yml:30 timeout-minutes: 45 cuts the gate (runs 1619, 1671; last green took 40): raise the timeout or shorten the suite by a workflow PR before 290 can merge (release path). answer-envelope restarted (session_01RAN5ejpY66LXEUm7cFwFEi, PR 386). Plain PRs 338, 368 brought up to tranche, need a fresh gate, unmerged. plane attempt 4 not started: remote job/plane has 4cc71be1ff (train's merged-result push) not on tranche (likely the reopen loop; check after PR 145). question-explorer 346 reopen refused while its PR is open. agent-worker 364 review note still owed. Live job sessions 13.
+- Old BOB session_01RAN5eomXNvM23EMwtLVBHG still showed working: STOP sent.
