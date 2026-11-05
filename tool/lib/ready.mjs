@@ -35,7 +35,7 @@ export function startable(next, { onOrigin = () => false } = {}) {
     // Unmet requirement marks on a COMPLETE entry: reopened as found marks are, or the layer could
     // never close (copy, 5 Nov: inquiry, basis-versions and four more sat as BOB's judgment).
     else if (x.entry_state === 'COMPLETE' && (x.found || x.marks)) go.push({ id: x.module, file: x.file, reopen: `meet ${[x.marks && `the unmet requirement marks ${x.marks.join(', ')}`, x.found && `the found marks ${x.found.join(', ')}`].filter(Boolean).join(' and ')}` });
-    else skip.push({ file: x.file, id: x.module, why: `entry ${x.entry_state}: BOB's judgment` });
+    else skip.push({ file: x.file, id: x.module, why: x.after ? `unmet after its job: ${x.after.join(', ')}` : `entry ${x.entry_state}: BOB's judgment` });
   }
   return { go, skip };
 }

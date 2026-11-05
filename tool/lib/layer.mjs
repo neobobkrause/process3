@@ -82,8 +82,9 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
     log(`layer ${n} not closed: ${findings.length} finding(s) on ${sha.slice(0, 10)}; nothing recorded`);
     return { ok: false, findings };
   }
-  // A module deferred BLOCKED is recorded with its reason: { reason, marks }; the rest, its marks.
-  const deferred = Object.fromEntries(ls.cur.mods.filter((m) => m.marks.length || m.blocked).map((m) => [m.id, m.blocked ? { reason: m.blocked, marks: m.marks } : m.marks]));
+  // A module deferred BLOCKED is recorded with its reason: { reason, marks }; one whose merged job
+  // left its marks, { why: 'unmet after its job', marks }; the rest, its marks.
+  const deferred = Object.fromEntries(ls.cur.mods.filter((m) => m.marks.length || m.blocked).map((m) => [m.id, m.blocked ? { reason: m.blocked, marks: m.marks } : m.after ? { why: 'unmet after its job', marks: m.marks } : m.marks]));
   const row = { row: 'closed', layer: Number(n), tranche: cfg.tranche, commit: sha, at: now(), deferred, suites, generated_changed: changed };
   writeState(root, cfg.state_branch, `layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}`, (w) => {
     const p = join(w, CLOSED_FILE);
@@ -92,7 +93,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
     writeFileSync(p, before + JSON.stringify(row) + '\n');
     return {};
   });
-  log(`layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}; deferred: ${Object.entries(deferred).map(([id, d]) => (Array.isArray(d) ? `${id} ${d.length}` : `${id} ${d.marks.length} (BLOCKED: ${d.reason})`)).join(', ') || 'none'}`);
+  log(`layer ${n} closed at ${cfg.tranche} ${sha.slice(0, 10)}; deferred: ${Object.entries(deferred).map(([id, d]) => (Array.isArray(d) ? `${id} ${d.length}` : `${id} ${d.marks.length} (${d.why || `BLOCKED: ${d.reason}`})`)).join(', ') || 'none'}`);
   if (built.length) log(`generated, built and verified, not committed (deploy dev and release run build them): ${built.join(', ')}`);
   if (changed.length) log(`regenerated files differ from the tranche (${changed.join(', ')}): not committed here; commit them by BOB's plain pull request`);
   nextWork(root, cfg, s.rows, tranche, { log, notices: owedNotices(root, cfg, s.rows, () => {}), state: layerState(root, cfg, s.rows, tranche, { closed: [...closed, row] }) });
