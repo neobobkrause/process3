@@ -178,7 +178,7 @@ const commands = {
     return 0;
   },
 
-  // lane start <name> [--replace <session>|pending] | --record <session>; with a lane module, [--reopen "<what>" | --restart "<why>"]:
+  // lane start <name> [--replace <session>|pending] | --record <session>; with a lane module, job start's options (--reopen, --restart, --stop, --take-in, --fresh-branch, --over-cap) and --live/--sessions:
   // the lane's one session (lane.mjs): its seat written before the create_session call, refused while one is live.
   // lane end <name> --session <id>|pending --why "<why>": the seat freed.
   'lane start': (a, root) => {
@@ -186,14 +186,14 @@ const commands = {
     // A lane with a module starts its job: the checks job start makes (the grants check, the cap).
     const cfg = loadConfig(root);
     if (lane(cfg, a._[0]).module) {
-      if (a.restart === undefined) {
+      if (a.restart === undefined || a['fresh-branch'] !== undefined) {
         fetchState(root, cfg.state_branch, { fresh: true });
         const o = openState(root, cfg);
         if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
-        capCheck(root, { live: a.live, sessions: a.sessions });
       }
+      if (a.restart === undefined) capCheck(root, { live: a.live, sessions: a.sessions });
     }
-    laneStart(root, a._[0], { replace: a.replace, record: a.record, reopen: a.reopen, restart: a.restart, coordinator: a.coordinator, model: a.model });
+    laneStart(root, a._[0], { replace: a.replace, record: a.record, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'], coordinator: a.coordinator, model: a.model });
     return 0;
   },
   'lane end': (a, root) => {

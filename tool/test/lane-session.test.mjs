@@ -82,19 +82,30 @@ test('a lane with a module: its one session is the module\'s job, so lane start 
   assert.equal(laneOfModule(loadConfig(root), 'alpha').name, 'ux');
   assert.equal(laneOfModule(loadConfig(root), 'beta'), null);
   assert.throws(() => laneStart(root, 'ux', { record: S2, log: quiet }), /lane ux's session is job alpha's .*--restart/);
-  assert.throws(() => laneEnd(root, 'ux', { session: S1, why: 'x', log: quiet }), /it ends as the job does/);
   assert.match(laneSeatFor(root, loadConfig(root), 'alpha', { fetch: false }).why, /job alpha is lane ux's module, and lane ux's session session_lane1 is live/);
   assert.equal(laneSeatFor(root, loadConfig(root), 'beta', { fetch: false }), null);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 'session_bob', push: false, log: quiet }), /job alpha is lane ux's module.*one session per lane.*nothing was started/);
-  assert.throws(() => laneStart(root, 'ux', { log: quiet, start: () => assert.fail('started') }), /session_lane1 is live/);
+  // lane start passes job start's options through; job start's own check refuses beside the seat.
+  assert.throws(() => laneStart(root, 'ux', { log: quiet, reopen: 'a', restart: 'b' }), /one of --reopen, --restart and --take-in/);
+  const got = [];
+  laneStart(root, 'ux', { log: quiet, overCap: 'why', fresh: 'f', start: (_, id, o) => got.push([id, o.overCap, o.fresh, o.reopen]) });
+  assert.deepEqual(got, [['alpha', 'why', 'f', undefined]]);
+  assert.throws(() => laneStart(root, 'ux', { push: false, log: quiet, start: (r, id, o) => jobStart(r, id, { ...o, coordinator: 'session_bob', push: false }) }), /job alpha is lane ux's module.*nothing was started/);
+  // A restart replaces the job's own session: one session still, so it is not refused here.
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 'session_bob', restart: 'gone', push: false, log: quiet }), (e) => !/lane ux/.test(e.message));
+  // The seat recorded before the module was named is ended here, or nothing could free it.
+  laneEnd(root, 'ux', { session: S1, why: 'the lane now names its module', log: quiet });
+  assert.equal(laneSeatFor(root, loadConfig(root), 'alpha', { fetch: false }), null);
+  assert.throws(() => laneEnd(root, 'ux', { session: S1, why: 'again', log: quiet }), /it ends as the job does/);
+  // A malformed lane is never every job start's refusal.
+  assert.equal(laneOfModule({ lanes: [{ dir: 'x' }] }, 'alpha'), null);
   // With no seat recorded, lane start of a moduled lane is the module's job start.
   const free = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux', module: 'alpha' }] } }).root;
   const calls = [];
   const r = laneStart(free, 'ux', { reopen: 'meet R2', log: quiet, start: (_, id, o) => { calls.push([id, o.reopen]); return { ok: 1 }; } });
   assert.deepEqual(calls, [['alpha', 'meet R2']]);
   assert.deepEqual(r.job, { ok: 1 });
-  // A restart replaces the job's own session: one session still, so it is not refused here.
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 'session_bob', restart: 'gone', push: false, log: quiet }), (e) => !/lane ux/.test(e.message));
+  assert.throws(() => laneStart(withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'd' }] }, 'd/a': 'a\n' }).root, 'ux', { reopen: 'x', log: quiet }), /are for a lane with a module; lane ux names none/);
 });
 
 test('job start --ready and the starter skip a lane\'s module while its lane\'s seat is held (readySelection)', () => {
@@ -122,15 +133,26 @@ test('status and the sweep: a lane with more than one live session is a defect l
   const d = laneDefects(cfg, new Map([['ux', { lane: 'ux', at: 't', session: S1 }]]), { rows });
   assert.match(d[0], /lane ux has 2 live sessions \(session_lane1, job ux-design\).*job ux-design's is the lane's/);
   assert.deepEqual(laneDefects(cfg, new Map(), { rows, listed: listed([['session_j', 'job ux-design']]) }), []);
-  assert.match(laneDefects(cfg, new Map(), { rows, listed: listed([['session_j', 'job ux-design'], ['session_k', 'job ux-design (restart)']]) })[0], /lane ux has 2 live sessions \(session_j, session_k\)/);
+  // After a restart the module's latest job session is the lane's; the older one is the sweep's leftover.
+  assert.deepEqual(laneDefects(cfg, new Map(), { rows, listed: listed([['session_j', 'job ux-design'], ['session_k', 'job ux-design (restart)']]) }), []);
+  assert.match(laneDefects(cfg, new Map(), { rows, listed: listed([['session_j', 'job ux-design'], [S1, 'lane ux']]) })[0], /lane ux has 2 live sessions \(session_lane1, session_j\)/);
+  // A deferred job (BLOCKED with a reason, its pull request closed) holds no session.
+  assert.deepEqual(laneDefects(cfg, new Map([['ux', { lane: 'ux', at: 't', session: S1 }]]), { rows: [{ id: 'ux-design', tranche: 'BLOCKED', blocked: 'r', branch: 'BLOCKED (job/ux-design)', pr: 'closed' }] }), []);
+  assert.deepEqual(laneDefects({ lanes: [{ dir: 'x' }] }, new Map(), {}), []);
   assert.deepEqual(laneDefects(cfg, new Map(), { rows: [{ id: 'ux-design', tranche: 'COMPLETE', pr: 'merged' }] }), []);
 });
 
-test('a lane session is its own kind in the session list, kept while idle, never a leftover to archive', () => {
+test('a lane session is its own kind in the session list, kept while it holds the seat, a leftover once ended or replaced', () => {
   const old = '2026-11-01T00:00:00Z';
   const s = sessionActs([{ id: S1, title: 'lane ux', session_status: 'idle', updated_at: old }, { id: S2, title: 'other thing', session_status: 'idle', updated_at: old, parent_session_id: 'session_gone' }, { id: 'session_gone', title: 'x', session_status: 'archived' }]);
   assert.equal(s.kinds.lanes, 1);
   assert.deepEqual(s.acts.map((a) => a.id), [S2]);
+  // With the seats read: the seat's session is kept; one the seat no longer names is a leftover.
+  const list = [{ id: S1, title: 'lane ux', session_status: 'idle', updated_at: old }];
+  assert.deepEqual(sessionActs(list, { seats: new Map([['ux', { session: S1 }]]) }).acts, []);
+  assert.deepEqual(sessionActs(list, { seats: new Map([['ux', { session: null }]]) }).acts, []);
+  assert.deepEqual(sessionActs(list, { seats: new Map([['ux', { session: S2 }]]) }).acts.map((a) => [a.act, a.id]), [['archive', S1]]);
+  assert.deepEqual(sessionActs(list, { seats: new Map() }).acts.map((a) => a.id), [S1]);
   assert.match(s.line, /jobs 0, lanes 1, builds 0/);
   assert.doesNotMatch(sessionActs([]).line, /lanes/);
 });

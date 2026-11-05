@@ -25,7 +25,10 @@ export function lanes(cfg) {
   });
 }
 // The lane whose ledger module this is (a lane's "module" in process/config.json), or null.
-export const laneOfModule = (cfg, id) => (Array.isArray(cfg?.lanes) ? lanes(cfg) : []).find((l) => l.module === id) || null;
+// Never a refusal: a malformed lane is lane ask's and lane start's to refuse, not every job start's.
+export function laneOfModule(cfg, id) {
+  try { return (Array.isArray(cfg?.lanes) ? lanes(cfg) : []).find((l) => l.module === id) || null; } catch { return null; }
+}
 
 export function lane(cfg, name) {
   const all = lanes(cfg);
@@ -120,6 +123,7 @@ export function laneAsk(root, name, question, { context = [], record, worker, co
   // While the lane's seat is held, its session decides: the question goes there, not to a worker.
   const seat = readSeats(root, cfg).get(l.name);
   const job = !seat && l.module ? jobOpen(root, cfg, l.module) : null;
+  if (l.module && !seat && job === null) log(`job ${l.module}'s branch could not be read: if its session is at work, send the question there instead of a worker`);
   const to = seat ? (seat.session ? `send_message to the lane's session ${seat.session}` : `send it to the lane's session once lane start ${l.name} --record names it`) : job ? `send_message to job ${l.module}'s session, the lane's (list_sessions, title "job ${l.module}")` : null;
   const rec = `${P3} lane ask ${l.name} "${q.replace(/"/g, '\\"')}" --record "<the decision, as you keep or change it>"`;
   if (to) log(`BOB's act: lane ${l.name} has its one session live, so it decides: ${to}, with the brief below, and wait for its decision. Then, the final say yours: ${rec} --worker <its session id>`);
@@ -158,6 +162,9 @@ export function seatsOf(rows) {
   return out;
 }
 const seatsIn = (text) => seatsOf(jsonl(text));
+// The seat as the state worktree holds it, re-read inside writeState's change (a concurrent write).
+const seatAt = (wt, name) => seatsIn(existsSync(join(wt, LANE_SESSIONS_FILE)) ? readFileSync(join(wt, LANE_SESSIONS_FILE), 'utf8') : '').get(name);
+const sameSeat = (a, b) => (a?.session || null) === (b?.session || null) && (a?.at || null) === (b?.at || null);
 export const readSeats = (root, cfg) => seatsIn(readState(root, cfg.state_branch, LANE_SESSIONS_FILE));
 export const seatName = (s) => s.session || `pending since ${s.at}`;
 const busy = (l, s) => `lane ${l.name}'s session ${seatName(s)} is live (since ${s.at}): one session per lane at a time; send it the work, or replace it with ${P3} lane start ${l.name} --replace ${s.session || 'pending'}`;
@@ -171,7 +178,7 @@ export function laneSeatFor(root, cfg, id, { fetch = true } = {}) {
   return s ? { lane: l, seat: s, why: `job ${id} is lane ${l.name}'s module, and ${busy(l, s)}; or lane end ${l.name} first` } : null;
 }
 
-// Whether a module's job is open on origin (its branch's entry not COMPLETE): { branch, state },
+// Whether a module's job is at work on origin (its branch's entry WORKING or OPEN): { branch, state },
 // false, or null when origin or the entry is unread.
 export function moduleJobOpen(root, cfg, id, { heads = originJobs(root) } = {}) {
   if (!heads) return null;
@@ -180,7 +187,8 @@ export function moduleJobOpen(root, cfg, id, { heads = originJobs(root) } = {}) 
   fetchBranch(root, b, { allowFail: true });
   const t = git(['show', `refs/remotes/origin/${b}:${entryFile(id)}`], { cwd: root, allowFail: true });
   if (t.code !== 0) return null;
-  try { const st = JSON.parse(t.stdout).status?.state; return st && st !== 'COMPLETE' ? { branch: b, state: st } : false; } catch { return null; }
+  // BLOCKED awaits a ruling or is deferred: its session is not the lane's decider then.
+  try { const st = JSON.parse(t.stdout).status?.state; return st === 'WORKING' || st === 'OPEN' ? { branch: b, state: st } : false; } catch { return null; }
 }
 
 export function laneSessionText({ l, slug, tranche, bob, replaces }) {
@@ -194,24 +202,28 @@ export function laneSessionText({ l, slug, tranche, bob, replaces }) {
 }
 
 // lane start <name> [--replace <session>|pending] | --record <session>, and lane end <name>.
-export function laneStart(root, name, { replace, record, reopen, restart, coordinator, model, slug, log = console.log, start = jobStart } = {}) {
+// With a module, the job start options pass through as job start takes them (job: its own refusals,
+// the lane's recorded seat among them, hold the one session).
+const JOB_OPTS = ['reopen', 'restart', 'stop', 'takeIn', 'fresh', 'overCap'];
+export function laneStart(root, name, { replace, record, coordinator, model, slug, log = console.log, start = jobStart, ...job } = {}) {
   if (typeof name !== 'string' || !name) fail('lane start <name>');
   const cfg = loadConfig(root);
   const l = lane(cfg, name);
-  fetchState(root, cfg.state_branch, { fresh: true });
-  const seat = readSeats(root, cfg).get(l.name);
+  const given = JOB_OPTS.filter((k) => job[k] !== undefined);
   if (l.module) {
     if (record !== undefined || replace !== undefined) fail(`lane ${l.name}'s session is job ${l.module}'s (its module): job start records it; a refresh is ${P3} lane start ${l.name} --restart "<why>"`);
-    if (seat) fail(busy(l, seat));
+    if ([job.reopen, job.restart, job.takeIn].filter((v) => v !== undefined).length > 1) fail('lane start takes one of --reopen, --restart and --take-in');
     log(`lane ${l.name}'s one session is job ${l.module}'s, its ledger module's: job start ${l.module}`);
-    return { job: start(root, l.module, { coordinator, model, reopen, restart, log }) };
+    return { job: start(root, l.module, { coordinator, model, ...Object.fromEntries(given.map((k) => [k, job[k]])), log }) };
   }
-  if (reopen !== undefined || restart !== undefined) fail(`--reopen and --restart are for a lane with a module; lane ${l.name} names none`);
+  if (given.length) fail(`job start's options (--reopen, --restart, --stop, --take-in, --fresh-branch, --over-cap) are for a lane with a module; lane ${l.name} names none`);
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const seat = readSeats(root, cfg).get(l.name);
   const id = (v, what) => (typeof v === 'string' && /^session_[A-Za-z0-9]+$/.test(v) ? v : fail(`${what} <session id (session_...)>, not ${JSON.stringify(v ?? '')}`));
   if (record !== undefined) {
     const sid = id(record, '--record');
     writeState(root, cfg.state_branch, `lane ${l.name}: session ${sid}`, (wt) => {
-      const s = seatsIn(existsSync(join(wt, LANE_SESSIONS_FILE)) ? readFileSync(join(wt, LANE_SESSIONS_FILE), 'utf8') : '').get(l.name);
+      const s = seatAt(wt, l.name);
       if (!s) fail(`lane ${l.name} has no seat pending: lane start ${l.name} first; nothing recorded`);
       if (s.session) fail(`lane ${l.name} is ${s.session} (since ${s.at}); one session per lane; nothing recorded`);
       put(wt, LANE_SESSIONS_FILE, { row: 'record', at: now(), lane: l.name, session: sid });
@@ -224,10 +236,11 @@ export function laneStart(root, name, { replace, record, reopen, restart, coordi
   if (replace !== undefined && (!seat || replace !== (seat.session || 'pending'))) fail(`--replace names lane ${l.name}'s live session, ${seat ? seat.session || 'pending' : 'none'}; not ${JSON.stringify(replace)}`);
   const row = { row: 'start', at: now(), tranche: cfg.tranche, lane: l.name, ...(seat ? { replaces: seat.session || 'pending' } : {}) };
   writeState(root, cfg.state_branch, `lane ${l.name}: session started`, (wt) => {
-    const s = seatsIn(existsSync(join(wt, LANE_SESSIONS_FILE)) ? readFileSync(join(wt, LANE_SESSIONS_FILE), 'utf8') : '').get(l.name);
-    if ((s?.session || null) !== (seat?.session || null) || (s?.at || null) !== (seat?.at || null)) fail(`lane ${l.name}'s seat changed while this ran${s ? `: ${busy(l, s)}` : ''}; nothing was started`);
+    const s = seatAt(wt, l.name);
+    if (!sameSeat(s, seat)) fail(`lane ${l.name}'s seat changed while this ran${s ? `: ${busy(l, s)}` : ''}; nothing was started`);
     put(wt, LANE_SESSIONS_FILE, row);
   });
+  // BOB's address read here, not with roles.mjs readAddress: roles imports job, which imports this.
   const bob = (() => { try { return JSON.parse(readState(root, cfg.state_branch, addressFile('bob')) || 'null')?.session || null; } catch { return null; } })();
   const s = slug || repoSlug(root);
   const prompt = laneSessionText({ l, slug: s, tranche: cfg.tranche, bob, replaces: seat?.session || null });
@@ -242,13 +255,18 @@ export function laneEnd(root, name, { session, why, log = console.log } = {}) {
   if (typeof name !== 'string' || !name) fail('lane end <name> --session <its session id, or pending> --why "<why>"');
   const cfg = loadConfig(root);
   const l = lane(cfg, name);
-  if (l.module) fail(`lane ${l.name}'s session is job ${l.module}'s: it ends as the job does (job complete, or its pull request closed)`);
   if (typeof why !== 'string' || !why.trim()) fail('--why "<why the lane session ends>"');
   fetchState(root, cfg.state_branch, { fresh: true });
   const seat = readSeats(root, cfg).get(l.name);
+  // A lane with a module ends its job's session as the job ends; only a seat recorded before the
+  // lane named its module (lane start then) is ended here, or nothing could free it.
+  if (!seat && l.module) fail(`lane ${l.name}'s session is job ${l.module}'s: it ends as the job does (job complete, or its pull request closed)`);
   if (!seat) fail(`lane ${l.name} has no live session; nothing to end`);
   if (session !== (seat.session || 'pending')) fail(`--session names lane ${l.name}'s live session, ${seat.session || 'pending'}; not ${JSON.stringify(session ?? '')}`);
-  writeState(root, cfg.state_branch, `lane ${l.name}: session ended`, (wt) => put(wt, LANE_SESSIONS_FILE, { row: 'end', at: now(), lane: l.name, session: seat.session, why: why.trim() }));
+  writeState(root, cfg.state_branch, `lane ${l.name}: session ended`, (wt) => {
+    if (!sameSeat(seatAt(wt, l.name), seat)) fail(`lane ${l.name}'s seat changed while this ran; nothing was ended`);
+    put(wt, LANE_SESSIONS_FILE, { row: 'end', at: now(), lane: l.name, session: seat.session, why: why.trim() });
+  });
   log(`lane ${l.name}: ${seatName(seat)} ended; lane start ${l.name} starts the next${seat.session ? `; archive_session ${seat.session} once it is idle` : ''}`);
   return { ended: seat.session || 'pending' };
 }

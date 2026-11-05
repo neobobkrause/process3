@@ -187,7 +187,7 @@ export function capLine(cfg, live, listed) {
   const seen = listed ? `: ${live} job sessions live, ${listed.filter((x) => !isArchived(x)).length} sessions live in the account (every product, every role)` : live !== undefined ? `: ${live} job sessions live` : '';
   return { ...c, line: `${c.line}${seen}` };
 }
-export function sessionActs(list, { rows = [], roles = {}, coordinator = null, pinOpen = null, now = Date.now() } = {}) {
+export function sessionActs(list, { rows = [], roles = {}, coordinator = null, pinOpen = null, seats = null, now = Date.now() } = {}) {
   const byId = new Map(list.map((x) => [sessionId(x), x]));
   const roleIds = new Set([roles.root?.session, roles.bob?.session, roles.watcher?.session, coordinator].filter(Boolean));
   const kinds = { roles: 0, jobs: 0, builds: 0, other: 0 };
@@ -199,11 +199,15 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
     // A lane's session (lane start, title `lane <name>`) is kept while idle, never a leftover (lane.mjs).
     const kind = roleIds.has(id) ? 'roles' : job ? 'jobs' : /^lane \S+$/.test(title) ? 'lanes' : /^build\b/i.test(title) ? 'builds' : 'other';
     kinds[kind] = (kinds[kind] || 0) + 1;
-    if (kind === 'roles' || kind === 'lanes') continue;
+    if (kind === 'roles') continue;
+    // A lane session holding its lane's seat (or with the seats unread) is kept; one the seat no
+    // longer names (ended or replaced) is a leftover once idle (lane.mjs).
+    const seat = kind === 'lanes' ? seats?.get(title.slice(5)) : null;
+    if (kind === 'lanes' && (!seats || (seat && (!seat.session || seat.session === id)))) continue;
     const r = job && rows.find((y) => y.id === job);
     // Merged, or deferred (BLOCKED, its pull request closed); a module status does not list is open.
     const open = job && !(r && (jobDone(r) || (r.tranche === 'BLOCKED' && r.blocked && !r.pr && !/^WORKING/.test(String(r.branch || '')))));
-    const done = (job && !open) || (/^pin move\b/.test(title) && pinOpen === false);
+    const done = (job && !open) || (/^pin move\b/.test(title) && pinOpen === false) || kind === 'lanes';
     const parent = byId.get(x.parent_session_id);
     const orphan = !!parent && isArchived(parent);
     const asking = lower(x.post_turn_summary?.status_category) === 'need_input';
@@ -242,8 +246,8 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   let holds = [];
   try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
   // One session per lane (lane.mjs): the seats the state branch records.
-  let seats = new Map();
-  try { seats = readSeats(root, cfg); } catch { seats = new Map(); }
+  let seats = null;
+  try { seats = readSeats(root, cfg); } catch { seats = null; }
   if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the account's job sessions list_sessions shows, not ${JSON.stringify(live)}`);
   if (role === 'bob') { const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line); }
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
@@ -368,7 +372,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   let addr = {};
   try { addr = readAddress(root, { fetch: !offline }); } catch { addr = {}; }
   log(`addresses: ROOT ${addr.root ? `${addr.root.session} (${addr.root.at})` : 'none'}; BOB ${addr.bob ? `${addr.bob.session} (${addr.bob.at})` : 'none'}`);
-  if (listed) log(sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator }).line);
+  if (listed) log(sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, seats }).line);
   // Refusals per session, from the tranche's rows and this checkout's (a row BOB recorded but has
   // not merged yet counts at once); the same row in both counts once (each carries its own id).
   const seen = new Set();
@@ -1048,22 +1052,26 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
 // The lanes with more than one live session (status, sweep): the recorded seat, the lane module's
 // open job (rows: status's ledger rows), and, with list_sessions, the sessions not archived titled
 // `lane <name>` or `job <module>`; each a defect line.
-const laneJobOpen = (r) => !!r && !jobDone(r) && (/^(OPEN|WORKING|BLOCKED)/.test(String(r.branch || '')) || String(r.pr || '').startsWith('#'));
+// Open as sessionActs judges a job open: not merged, and not deferred (BLOCKED, its pull request closed).
+const laneJobOpen = (r) => !!r && !jobDone(r) && !(r.tranche === 'BLOCKED' && r.blocked && !String(r.pr || '').startsWith('#') && !/^WORKING/.test(String(r.branch || ''))) && (/^(OPEN|WORKING|BLOCKED)/.test(String(r.branch || '')) || String(r.pr || '').startsWith('#'));
 export function laneDefects(cfg, seats, { rows = [], listed = null } = {}) {
   const out = [];
-  for (const l of Array.isArray(cfg.lanes) ? lanes(cfg) : []) {
+  let all = [];
+  try { all = Array.isArray(cfg.lanes) ? lanes(cfg) : []; } catch { all = []; }
+  for (const l of all) {
     const holders = new Set();
     const s = seats?.get(l.name);
     if (s) holders.add(s.session || `lane ${l.name} (pending)`);
     if (l.module && laneJobOpen(rows.find((r) => r.id === l.module))) holders.add(`job ${l.module}`);
-    for (const x of (listed || []).filter((y) => !isArchived(y))) {
-      const t = String(x.title || '').trim();
-      if (t === `lane ${l.name}` || (l.module && new RegExp(`^job ${l.module.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\(restart\\))?$`).test(t))) {
-        if (t.startsWith('job ')) holders.delete(`job ${l.module}`);
-        if (s && !s.session && t === `lane ${l.name}`) holders.delete(`lane ${l.name} (pending)`);
-        holders.add(sessionId(x));
-      }
+    // The listed sessions: each `lane <name>` not archived, and the module's latest job session
+    // (jobSession; an older one beside it after a restart is the sweep's leftover, not a second).
+    const live = (listed || []).filter((y) => !isArchived(y));
+    for (const x of live.filter((y) => String(y.title || '').trim() === `lane ${l.name}`)) {
+      if (s && !s.session) holders.delete(`lane ${l.name} (pending)`);
+      holders.add(sessionId(x));
     }
+    const js = l.module ? jobSession(live, l.module) : null;
+    if (js) { holders.delete(`job ${l.module}`); holders.add(sessionId(js)); }
     if (holders.size > 1) out.push(`defect: lane ${l.name} has ${holders.size} live sessions (${[...holders].join(', ')}): one session per lane at a time; end or archive all but one (${l.module ? `job ${l.module}'s is the lane's` : `lane end ${l.name}`})`);
   }
   return out;

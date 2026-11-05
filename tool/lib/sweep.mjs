@@ -377,7 +377,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     if (listed) {
       let pinOpen = null;
       if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
-      const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen });
+      const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen, seats });
       found.push(s.line);
       // A job session archived since the last sweep freed a slot: starts owed (hold.mjs).
       const since = Date.parse(jsonl(readState(root, sb, SWEEP_ROWS_FILE)).filter((r) => r.row === 'sweep').at(-1)?.at) || 0;
