@@ -116,8 +116,11 @@ export function gate(root, opts) {
               : !isAnc(root, jpr.head?.sha, head) ? `has head ${String(jpr.head?.sha).slice(0, 10)}, which is not in the spec head ${String(head).slice(0, 10)}` : null;
     // A spec pull request is a draft for good: made ready, its green gate would stand as the required
     // check for content judged only as job n's change (confirming review of the tranche-based spec).
-    if (!specWhy && live?.draft !== true) specWhy = `is not what is tested: spec PR ${pr} is not a draft (a spec pull request is never made ready)`;
     if (specWhy) findings.push(F('spec', '(spec)', `spec run for job PR ${spec.pr} (${eventBranch}): job PR ${spec.pr} ${specWhy}, so this is not that job's change to test`));
+    else if (live?.draft !== true) {
+      specWhy = 'not a draft';
+      findings.push(F('spec', '(spec)', `spec PR ${pr} (${eventBranch}) is not a draft: a spec pull request is never made ready, so its gate never stands as a required check for its content`));
+    }
     else {
       branch = ref;
       // The job's own change, as its own gate judges it: what the job's head changed since it left

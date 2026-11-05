@@ -73,6 +73,7 @@ function makeIO(w, { receipts = [receipt(w.job)] } = {}) {
     verified: [],
     from: { 'job/alpha': [{ number: JOB, base: { ref: 'tranche' } }], 'train/head/5-1': [{ number: SPEC, base: { ref: 'tranche' } }] },
     verifyOk: null,
+    retargeted: new Set(), // PRs whose base was ever changed
   };
   const io = {
     getPR: (s, n) => state.prs[n] ?? null,
@@ -83,7 +84,7 @@ function makeIO(w, { receipts = [receipt(w.job)] } = {}) {
       return state.genuine.has(`${ctx.pr}|${r.run_id}`) && ctx.baseRef === state.prs[ctx.pr]?.base?.ref;
     },
     prsFromBranch: (s, b) => state.from[b] || [],
-    baseEverChanged: () => false,
+    baseEverChanged: (s, n) => state.retargeted.has(n),
   };
   return { state, io };
 }
@@ -390,6 +391,7 @@ function judgeMoved(change) {
     git(['checkout', '-q', '--detach', j], { cwd: w.root });
     const t1 = commit(w.root, { 'notes/ahead.md': 'ahead in the window\n' }, 'Merge job PR 4');
     x.state.prs[SPEC] = specPR(w, { head: { ref: 'train/head/5-2', sha: specHead, repo: { full_name: SLUG } } });
+    x.state.from['train/head/5-2'] = [{ number: SPEC, base: { ref: 'tranche' } }];
     x.state.comments[SPEC] = [];
     const s2 = gate(w.root, { base: w.t0, head: specHead, branch: 'train/head/5-2', pr: SPEC, draft: true, slug: SLUG, io: x.io, log: quiet, ...(git(['checkout', '-q', '--detach', specHead], { cwd: w.root }), {}) });
     assert.deepEqual([s2.findings, s2.run.spec], [[], { pr: JOB, seq: 2 }]);
@@ -441,12 +443,6 @@ test('the tranche cover follows a spec-tested row to its spec run, bound into th
   x.state.verified.length = 0;
   assert.equal(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).ok, true);
   assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.baseRef === 'tranche' && v.ctx.merged?.branch === 'train/head/5-1'));
-  // Closed, with another PR from its branch into another base: no branch binding, the PR's own listing only.
-  x.state.from['train/head/5-1'] = [{ number: SPEC, base: { ref: 'tranche' } }, { number: 12, base: { ref: 'main' } }];
-  x.state.verified.length = 0;
-  jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io });
-  assert.ok(x.state.verified.some((v) => v.run_id === 101 && v.ctx.baseRef === 'tranche' && !v.ctx.merged));
-  x.state.from['train/head/5-1'] = [{ number: SPEC, base: { ref: 'tranche' } }];
   x.state.prs[SPEC] = specPR(w);
 
   const refusal = /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/;
@@ -555,4 +551,67 @@ test('a spec head whose gate workflow is not the land base\'s: spec-tested refus
   const m = jobMerge(w.root, loadConfig(w.root, c), c, { slug: SLUG, io: x.io });
   assert.equal(m.ok, false);
   assert.match(m.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
+});
+
+// Confirming review of the tranche-based spec, finding 1: GitHub lists only open PRs on a run, so a
+// spec run stands only when every PR ever opened from the spec head is the spec PR, into the
+// tranche, its base never changed (branchBound), for the fast path and the cover alike.
+const unbinds = [
+  ['a second PR from the spec head into another base (closed)', (x) => { x.state.from['train/head/5-1'] = [{ number: SPEC, base: { ref: 'tranche' } }, { number: 12, state: 'closed', base: { ref: 'train/spec/5-1' } }]; }, /spec PR 9's branch is not bound to it: train\/head\/5-1 also had pull request\(s\) 12 into another base/],
+  ['the spec PR\'s base was ever changed', (x) => { x.state.retargeted.add(SPEC); }, /spec PR 9's branch is not bound to it: the base of pull request\(s\) 9 from train\/head\/5-1 was changed or its history could not be read/],
+  ['the PRs from the spec head cannot be read', (x) => { x.state.from['train/head/5-1'] = null; }, /spec PR 9's branch is not bound to it: the pull requests from train\/head\/5-1 could not be read/],
+];
+for (const [name, unbind, why] of unbinds) {
+  refused(`${name}`, ({ w, x }) => { unbind(x); return { base: w.t1, head: land(w, w.t1), why }; });
+}
+test('the tranche cover refuses a spec run whose branch is not bound to the spec PR, open or closed', () => {
+  const { w, x, c, cfg } = covered();
+  for (const state of ['open', 'closed']) {
+    x.state.prs[SPEC] = specPR(w, { state });
+    assert.equal(jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io }).ok, true, `${state}: bound, covered`);
+    for (const [name, unbind] of unbinds) {
+      const from = x.state.from['train/head/5-1'];
+      unbind(x);
+      x.state.verified.length = 0;
+      const m = jobMerge(w.root, cfg, c, { slug: SLUG, io: x.io });
+      assert.equal(m.ok, false, `${state}: ${name}`);
+      assert.match(m.why, /is PR 5's merge, but no verified green run of the alpha suite stands behind its merged result/);
+      assert.ok(!x.state.verified.some((v) => v.ctx.pr === SPEC), `${state}: ${name}: the spec run is not even verified`);
+      x.state.from['train/head/5-1'] = from;
+      x.state.retargeted.clear();
+    }
+  }
+});
+
+// Finding 2: a spec PR is a draft for good; made ready (or its draft state unread), its run is red.
+test('spec mode is red, with nothing run, when the live spec PR is not a draft', () => {
+  const w = world();
+  for (const over of [{ draft: false }, { draft: undefined }]) {
+    const x = makeIO(w);
+    x.state.prs[SPEC] = specPR(w, over);
+    forget(w);
+    const r = specRun(w, x, { draft: false });
+    assert.deepEqual(r.findings.map((f) => f.check), ['spec'], JSON.stringify(over));
+    assert.match(r.findings[0].message, /spec PR 9 \(train\/head\/5-1\) is not a draft: a spec pull request is never made ready/);
+    assert.deepEqual([r.run.ok, r.run.trigger, r.run.suite, r.run.spec], [false, 'draft', 'skipped', { pr: JOB, seq: 1 }]);
+    assert.equal(ran(w), false, 'no suite');
+  }
+});
+
+// Finding 3: spec mode reads the job's ledger entry at the job's head, as its own gate does: an entry
+// changed only on the spec head (here, pointing the suite at tests that do not exist) changes nothing.
+test('spec mode reads the job\'s entry at the job head: an entry changed only at the spec head does not change the verdict', () => {
+  const w = world();
+  const before = specRun(w, makeIO(w));
+  assert.deepEqual([before.findings, before.run.suite], [[], 'pass']);
+  git(['checkout', '-q', '--detach', w.specHead], { cwd: w.root });
+  const specHead = commit(w.root, { 'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' }, tests: ['test/nowhere/'], suite: { cwd: '.', command: ['node', '-e', 'process.exit(0)', '--test'] } }) }, 'the entry changed on the spec head only');
+  forget(w);
+  const x = makeIO(w);
+  x.state.prs[SPEC] = specPR(w, { head: { ref: 'train/head/5-1', sha: specHead, repo: { full_name: SLUG } } });
+  const r = specRun(w, x, { head: specHead });
+  assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
+  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.ok], ['code', ['alpha'], 'pass', 'pass', 'agrees', true]);
+  assert.deepEqual(r.run.tests, before.run.tests);
+  assert.ok(ran(w), 'the job head\'s suite ran');
 });
