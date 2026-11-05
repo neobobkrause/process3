@@ -367,7 +367,7 @@ export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = 
 // withTemp: a scratch directory whose owner process is gone, or one an older tool left (no owner
 // file) over TEMP_STALE_HOURS old, is removed. Kept on purpose, outside withTemp: the
 // development deploy's and release's step-log directories, the evidence their output names.
-export const TEMP_PREFIXES = ['p3-merge-', 'p3-state-', 'p3-layer-', 'p3-row-', 'p3-failing-', 'p3-base-red-'];
+export const TEMP_PREFIXES = ['p3-train-', 'p3-merge-', 'p3-state-', 'p3-layer-', 'p3-row-', 'p3-failing-', 'p3-base-red-'];
 export const TEMP_OWNER = '.p3-owner';
 export const TEMP_STALE_HOURS = 3;
 const temps = new Map();

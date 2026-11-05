@@ -153,50 +153,7 @@ export function merge(root, n, opts = {}) {
     if (jobCost !== null) log(`pull request ${n} is already merged: --job-cost-usd ${jobCost} is not recorded (a job's cost is written only by the merge that lands it)`);
     return noticesOnly(root, cfg, { id, n, pr, slug, log, compare: io.compare });
   }
-  if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
-  if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
-  if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
-  if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
-  waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });
-
-  const branch = pr.head.ref;
-  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
-  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
-  // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
-  // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
-  const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
-  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(opts.every !== undefined ? { every: opts.every } : {}) };
-  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
-  let first = io.checkRun(slug, pr.head.sha, 'gate');
-  if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);
-  if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
-  const all = io.comments(slug, n);
-  const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
-  if (!receipt) fail(`pull request ${n} has no receipt`);
-  // Each row names its Actions run; the row counts only when that run is the process gate on
-  // this tip, green, and its own artifact holds the same row (verifyRow).
-  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
-    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
-  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unagreed(gateRuns(all), pr.head.sha, receipt.attempt)}`);
-
-  // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
-  // module and records, and nothing in the ledger but its own status. The paths come from the
-  // tranche's copy of the entry, never from the job's branch.
-  const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
-  const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
-  if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
-  const baseEntry = JSON.parse(entryText.stdout);
-  const own = ownPaths(baseEntry);
-  const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
-  if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
-  // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
-  const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
-  if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
-  // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
-  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
-  if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
-  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
-  if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
+  const { branch, watch, first, all, receipt, mb, baseEntry, trig } = jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes, log, every: opts.every, mergeableEvery: opts.mergeableEvery });
 
   // Work in a worktree of its own, so the caller's checkout is never moved.
   return withTemp('p3-merge-', (tmp) => {
@@ -289,6 +246,60 @@ export function merge(root, n, opts = {}) {
   }, { root });
 }
 
+// The per-PR checks a job's merge holds before it brings the job in (merge, and each member of
+// the merge train): open, ready, into the tranche, from a job branch, mergeable, the branch where
+// GitHub has it, a green gate on the head that checked and agreed with the opener's newest
+// receipt, only the job's own files and ledger status, and the review triggers (refusing
+// --no-review when one fires).
+export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = GATE_WAIT_MINUTES, log = console.log, every, mergeableEvery }) {
+  if (pr.state !== 'open') fail(`pull request ${n} is ${pr.state}`);
+  if (pr.draft) fail(`pull request ${n} is a draft: the job has not completed`);
+  if (pr.base.ref !== cfg.tranche) fail(`pull request ${n} is into ${pr.base.ref}, not the tranche ${cfg.tranche}`);
+  if (!id) fail(`pull request ${n} is not from a job branch; any other pull request merges with --plain`);
+  waitMergeable(slug, n, pr, { every: mergeableEvery, read: io.getPR, log });
+
+  const branch = pr.head.ref;
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
+  if (git(['rev-parse', `origin/${branch}`], { cwd: root }) !== pr.head.sha) fail(`${branch} moved since the gate ran; run merge again`);
+  // merge run again on the merge-row tip an earlier run pushed, whose gate outran that run's
+  // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
+  const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
+  const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(every !== undefined ? { every } : {}) };
+  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip.
+  let first = io.checkRun(slug, pr.head.sha, 'gate');
+  if (rowTip && first?.status !== 'completed') first = waitForGate(slug, pr.head.sha, watch);
+  if (first?.conclusion !== 'success') fail(`the gate is not green on ${pr.head.sha.slice(0, 10)} (${first ? first.conclusion || first.status : 'no run'})`);
+  const all = io.comments(slug, n);
+  const receipt = latestReceipt(all, pr.user?.login); // only the opener's (review of PR 13)
+  if (!receipt) fail(`pull request ${n} has no receipt`);
+  // Each row names its Actions run; the row counts only when that run is the process gate on
+  // this tip, green, and its own artifact holds the same row (verifyRow).
+  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
+    .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
+  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unagreed(gateRuns(all), pr.head.sha, receipt.attempt)}`);
+
+  // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
+  // module and records, and nothing in the ledger but its own status. The paths come from the
+  // tranche's copy of the entry, never from the job's branch.
+  const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
+  const entryText = git(['show', `${mb}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  if (entryText.code !== 0) fail(`the tranche has no ledger entry for ${id}`);
+  const baseEntry = JSON.parse(entryText.stdout);
+  const own = ownPaths(baseEntry);
+  const ledger = checkLedger(root, { ref: `origin/${branch}`, base: mb, branch });
+  if (ledger.length) fail(`ledger: ${ledger.map((f) => `${f.file}: ${f.message}`).join('; ')}`);
+  // No rename detection, so a rename lists the path it removes too (confirming review of PR 14).
+  const outside = diffNames(root, mb, `origin/${branch}`).filter((f) => !own.some((p) => underPath(f, p)));
+  if (outside.length) fail(`${branch} changes files outside its module: ${outside.slice(0, 5).join(', ')}`);
+  // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
+  const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
+  if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
+  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
+  if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
+
+  return { branch, watch, first, all, receipt, mb, baseEntry, trig };
+}
+
 // --job-cost-usd: a figure above 0, or none (null). 0 is a figure not read: no job costs nothing.
 export function jobCostOf(v) {
   if (v === undefined || v === null) return null;
@@ -352,7 +363,7 @@ export function firstActs(t) {
   const owe = t.error ? `its triage at the merge failed, ${t.owed?.length || 0} owed` : `${t.owed.length} user module${t.owed.length === 1 ? ' owes' : 's owe'} a worker's judgment: ${t.owed.join(', ')}`;
   return [`first: ${P3} notice triage ${key} (provider notice ${key}; ${owe}: a read-only worker judges them now, not in a later batch)`, READY_FIRST.replace(/^first: /, 'then: ')];
 }
-function triageStep(root, cfg, notes, { ref, log }) {
+export function triageStep(root, cfg, notes, { ref, log }) {
   // On a rerun, the notice as recorded (its users as stored), and none when it was withdrawn.
   let raised = (notes.rows || []).find((x) => x.row === 'notice') || null;
   if (!raised && notes.notice) {
@@ -366,7 +377,7 @@ function triageStep(root, cfg, notes, { ref, log }) {
   }
 }
 
-function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
+export function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
   const { notice, why, left } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
   if (why) log(`no provider notice: ${why}`);
   if (notice && left) log(`provider notice ${notice.key}: ${left}`);
@@ -567,7 +578,7 @@ export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
 // defect sweep 4 Nov, #13; the tranche into main now runs only the suites its job merges did not
 // gate, gate.mjs trancheCover). Each round reads the pull request
 // (`pr`): a head that moved off sha stops the wait at once. GitHub judges the result.
-export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log } = {}) {
+export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, once = false, log = console.log } = {}) {
   const until = Date.now() + minutes * MINUTE;
   const extended = new Map();
   for (;;) {
@@ -578,6 +589,7 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
     const states = runs.map(([name, r]) => [name, r ? (r.status === 'completed' ? r.conclusion : r.status) : 'not started']);
     const pending = states.filter(([, st]) => RUNNING.includes(st) || st === 'not started');
     if (!pending.length) return states;
+    if (once) fail(`required checks not finished on ${sha.slice(0, 10)}: ${pending.map(([n, st]) => `${n} ${st}`).join(', ')}`);
     const t = Date.now();
     if (t >= until) {
       const going = runs.filter(([name]) => pending.some(([n]) => n === name)).every(([name, r]) => {
@@ -696,7 +708,7 @@ export function mergePlain(root, n, opts = {}) {
   if (!rules) fail(`could not read the checks ${base} requires`);
   const names = [...new Set(rules.checks.map((c) => c.context))];
   if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
-  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log });
+  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), once: !!opts.checkOnly, log });
   log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
   if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, baseSha: git(['rev-parse', baseRef], { cwd: root }), untracked, io, log });
   // The base must still be the one checked.
@@ -715,6 +727,9 @@ export function mergePlain(root, n, opts = {}) {
   baseHolds();
   // The first close stands on the gate itself, not only on GitHub's ruleset.
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
+  // The merge train (train.mjs) takes a plain pull request as a member only after every check
+  // above, with each required check finished; it lands it in a batch, not here.
+  if (opts.checkOnly) return { ok: true, sha: pr.head.sha, head, base, states, refreshed, workflows: changed.filter((f) => f.startsWith(WORKFLOWS)), rounds };
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: [reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),

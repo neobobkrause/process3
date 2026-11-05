@@ -370,7 +370,7 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
   const judge = (c) => {
     if (!judged.has(c)) {
       let v;
-      try { v = jobMerge(root, cfg, c, { slug, io }); } catch (e) { v = { ok: false, why: `could not be read (${printable(e.message, 200)})` }; }
+      try { v = TRAIN_TITLE.test(git(['log', '-1', '--format=%s', c], { cwd: root })) ? trainMerge(root, cfg, c, { slug, io }) : jobMerge(root, cfg, c, { slug, io }); } catch (e) { v = { ok: false, why: `could not be read (${printable(e.message, 200)})` }; }
       judged.set(c, v);
     }
     return judged.get(c);
@@ -383,8 +383,10 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
   for (const f of need) {
     const c = last.get(f);
     const v = c ? judge(c) : { ok: false, why: 'no commit on the tranche changes it' };
-    const others = entries.filter((e) => inModule(e, f) && e.id !== v.id).map((e) => e.id);
-    verdict.set(f, v.ok && v.own.some((p) => underPath(f, p)) && !others.length ? { c, v }
+    // A merge-train batch covers a file only when every module it lies in ran its suite there.
+    const ids = v.ids || [v.id];
+    const others = entries.filter((e) => inModule(e, f) && !ids.includes(e.id)).map((e) => e.id);
+    verdict.set(f, v.ok && (v.ids ? ids.length : v.own.some((p) => underPath(f, p))) && !others.length ? { c, v }
       : { c, why: v.ok ? `is PR ${v.pr}'s merge, but the file is ${others.length ? `also ${others.join(', ')}'s` : `not ${v.id}'s own`}` : v.why });
   }
   // A module's gate at its job merge tested it with its providers as they were then. A provider
@@ -438,6 +440,25 @@ export function branchBound(slug, branch, n, tranche, io) {
   const moved = from.map((x) => [x.number, io.baseEverChanged ? io.baseEverChanged(slug, x.number) : null]).filter(([, v]) => v !== false).map(([x]) => x);
   if (moved.length) return `is PR ${n}'s merge, but the base of pull request(s) ${moved.join(', ')} from ${branch} was changed or its history could not be read`;
   return null;
+}
+
+// A merge-train batch (train.mjs) lands as GitHub's merge of its train/ pull request, titled
+// "Merge train PR <n>", whose head the gate ran as a plain pull request: every touched module's
+// suite. It covers the modules that run named, green and verified as a job merge's run is, on
+// the merged head, with the tranche its base.
+export const TRAIN_TITLE = /^Merge train PR (\d+)$/;
+export function trainMerge(root, cfg, c, { slug, io }) {
+  const no = (why) => ({ ok: false, why });
+  const n = Number(git(['log', '-1', '--format=%s', c], { cwd: root }).match(TRAIN_TITLE)?.[1]);
+  const p = git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+  if (p.length !== 2 || git(['rev-parse', `${c}^{tree}`], { cwd: root }) !== git(['rev-parse', `${p[1]}^{tree}`], { cwd: root }) || !isAnc(root, p[0], p[1])) return no(`is train PR ${n}'s merge, but not of a batch built on the tranche`);
+  const pr = io.getPR(slug, n);
+  if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !/^train\//.test(pr.head?.ref || '') || pr.head.sha !== p[1] || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of train PR ${n} into ${cfg.tranche}`);
+  const why = branchBound(slug, pr.head.ref, n, cfg.tranche, io);
+  if (why) return no(why);
+  const row = gateRuns(io.comments(slug, n)).filter((r) => r.sha === p[1]).pop();
+  if (!row?.ok || row.trigger !== 'code' || row.suite !== 'pass' || !Array.isArray(row.scope) || !isAnc(root, row.base, p[0]) || !io.verify(slug, row, { pr: n, baseRef: cfg.tranche, merged: { branch: pr.head.ref } })) return no(`is train PR ${n}'s merge, but no verified green suite run stands on its head ${p[1].slice(0, 10)}`);
+  return { ok: true, pr: n, id: `train ${n}`, ids: row.scope };
 }
 
 export function jobMerge(root, cfg, c, { slug, io }) {
