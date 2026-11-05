@@ -4,7 +4,7 @@
 // The tool cannot call send_message: send records and prints, the session delivers.
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fail, git, now, pushRetry, withTemp } from './util.mjs';
+import { fail, git, now, pushRetry, quietly, withTemp } from './util.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -51,6 +51,9 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 // (layers/closed.jsonl), release record (releases/dev.jsonl), deploy dev (deploys/dev.jsonl) and
 // tranche open and close (metrics/tranche-open.jsonl, tranches/closed.jsonl, appended). A failure inside `change` pushes nothing.
 export function writeState(root, sb, msg, change) {
+  return quietly(() => writeStateNow(root, sb, msg, change));
+}
+function writeStateNow(root, sb, msg, change) {
   const have = fetchState(root, sb, { fresh: true });
   const start = have ? ref(sb) : git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
   return withTemp('p3-state-', (tmp) => {

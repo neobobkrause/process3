@@ -20,7 +20,7 @@ import { GATE_WAIT_MINUTES, firstActs, jobChecks, jobCostOf, merge, mergePR, rev
 import { fetchState, jsonl, readState, send, writeState } from './state.mjs';
 import { approvalsHash } from './start.mjs';
 import { randomBytes } from 'node:crypto';
-import { Fail, fail, git, isShallow, loadConfig, now, repoSlug } from './util.mjs';
+import { Fail, fail, git, heartbeat, isShallow, loadConfig, now, repoSlug } from './util.mjs';
 import { readAddress } from './roles.mjs';
 
 // A stop the train must never write past or retry: a lost lease, changed approvals, the disk.
@@ -382,6 +382,9 @@ export function train(root, opts = {}) {
   const { takeover, dead } = takeLease(root, cfg, session, ctx.token, { take: true });
   ctx.renewed = Date.now();
   ctx.renew = () => { if (Date.now() - ctx.renewed >= LEASE.renew * MIN) { takeLease(root, cfg, session, ctx.token); ctx.renewed = Date.now(); } };
+  // Renewed under every command the train runs, not only at its lines (util.mjs heartbeat). A lost
+  // lease stops the train there; a renewal that could not be pushed is tried at the next command.
+  const off = heartbeat(() => { try { ctx.renew(); } catch (e) { if (e instanceof Stop || !(e instanceof Fail)) throw e; } });
   // Heads refused by an earlier train wait as this one's would (a restart re-sends nothing).
   try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); } catch { /* unread: tried again */ }
   log(`merge train: lease held by ${session}${dead ? ' (taken over from this session\'s train that is no longer running)' : takeover ? ' (taken over from an expired lease)' : ''}`);
@@ -400,6 +403,7 @@ export function train(root, opts = {}) {
     ctx.lost = e instanceof Stop && /lease/.test(e.message);
     throw e;
   } finally {
+    off();
     if (!ctx.lost) { try { releaseLease(root, cfg, session, ctx.token); } catch (e) { log(`the lease was not released (${e.message}); it lapses within ${LEASE.expire} min`); } }
   }
 }

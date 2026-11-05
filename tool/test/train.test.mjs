@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
-import { LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, procAlive, procOf, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
+import { LEASE, LEASE_FILE, MERGER_FILE, TRAIN_FILE, TRAIN_NO_REVIEW, procAlive, procOf, takeLease, train, trainNote, trainSummary } from '../lib/train.mjs';
 import { spawn } from 'node:child_process';
 import { loadConfig } from '../lib/util.mjs';
 import { Fail, git } from '../lib/util.mjs';
@@ -306,6 +306,29 @@ test('merge train: a train of the same session retakes the lease of its own trai
   // A lease of another session, its process gone, still waits for its time.
   writeState(root, 'process-state', 'other', (d) => writeFileSync(join(d, LEASE_FILE), JSON.stringify({ session: 'session_other', token: 't', proc, at: new Date().toISOString(), expires: new Date(Date.now() + 6e5).toISOString() })));
   assert.throws(() => takeLease(root, cfg, S, 'tok-new', { take: true }), /held by session_other until/);
+});
+
+// Coordinator, 5 Nov 07:56:37: the MERGER's lease lapsed while its train was alive, gating
+// mail-door; the train renewed only at its printed lines, and a silent stretch outran the lease.
+test('merge train: the lease is renewed under a silent stretch of work, at the train\'s commands, not only at its lines', (t) => {
+  const { root, ids } = setup({ alpha: { 'src/alpha/a.mjs': 'a' } });
+  const g = github(root, ids);
+  const was = LEASE.renew;
+  LEASE.renew = 1 / 60; // one second
+  t.after(() => { LEASE.renew = was; });
+  const lease = () => { git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: root }); return JSON.parse(git(['show', 'refs/remotes/origin/process-state:merger/lease.json'], { cwd: root })); };
+  const land = g.io.mergePR;
+  let seen = null;
+  g.io.mergePR = (...a) => {
+    // A stretch printing nothing (the queue's order, a notice's triage), longer than the renewal.
+    const from = Date.now();
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2500);
+    git(['rev-parse', 'HEAD'], { cwd: root }); // the work's own commands
+    seen = { from, at: Date.parse(lease().at) };
+    return land(...a);
+  };
+  assert.equal(run(root, g).rows[0].result, 'merged');
+  assert.ok(seen.at > seen.from, `renewed inside the silent stretch (lease at ${new Date(seen.at).toISOString()}, stretch from ${new Date(seen.from).toISOString()})`);
 });
 
 test('merge train: a green gate whose row is not posted yet waits, and is not refused', () => {

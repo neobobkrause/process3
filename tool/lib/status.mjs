@@ -33,7 +33,7 @@ export const SILENT_HOURS = 2;
 // Idle, with no push for targets.replace_minutes: idle. No match: the two-hour rule stands.
 // Only the fields list_sessions returns are read (measured 4 Nov 17:20, after a fixture of invented
 // names passed while the tool counted 320 archived sessions live): id, title, session_status
-// (SESSION_STATUS_ARCHIVED, _IDLE, _RUNNING, _PENDING), status_bucket, updated_at,
+// (SESSION_STATUS_ARCHIVED, _IDLE, _RUNNING, _PENDING), status_bucket, created_at, updated_at,
 // parent_session_id, post_turn_summary.status_category. The list: bare, under data, or as the
 // tool returns it raw, {"ccr":{"data":[...]}}.
 export function readSessions(file, { root, offline = false } = {}) {
@@ -60,15 +60,18 @@ export function readSessions(file, { root, offline = false } = {}) {
   const made = out.map((x) => Date.parse(x.created_at || ''));
   const reach = made.some((t) => !Number.isFinite(t)) ? Infinity : Math.min(...made); // a session with no time: the page reaches back nowhere
   if (partial) {
+    // Newest first by creation is what makes a page's end a bound: a page in another order is no bound.
+    if (made.some((t, i) => i > 0 && t > made[i - 1])) fail(`--sessions ${file}: list_sessions has more pages (has_more), and this page is not newest first by created_at, so how far back it reaches says nothing: ${more}`);
     if (!Number.isFinite(Date.parse(was?.oldest || ''))) fail(`--sessions ${file}: list_sessions has more pages (has_more), and no whole read is recorded to say how far back a live job session can be: ${more} (once; later pages need reach back only past the oldest live job session)`);
     if (!(reach <= Date.parse(was.oldest))) fail(`--sessions ${file}: list_sessions has more pages (has_more), and a job session live at the last whole read (created ${was.oldest}) could be on them: ${more}, or until a page reaches past ${was.oldest}`);
     const c = sessionCover(root, out, { offline });
     if (c.missing.length) fail(`--sessions ${file}: list_sessions has more pages (has_more), and a recorded job session could be on them (${c.missing.map((m) => `job ${m.id}: ${m.count} session${m.count === 1 ? '' : 's'} started since ${m.first}`).slice(0, 5).join('; ')}${c.missing.length > 5 ? `; ${c.missing.length - 5} more` : ''}): ${more}, or until a page reaches past ${c.missing.map((m) => m.first).sort()[0]}`);
   }
-  // Every live job session is on this list now: the oldest one's creation (none: now) is recorded.
+  // Every live job session is on this list now: the oldest one's creation is recorded; with none,
+  // the newest session's on the list (a session made after the list was saved is newer: not now).
   const live = out.filter((x) => !isArchived(x) && /^job \S+( \(restart\))?$/.test(String(x.title || '').trim())).map((x) => Date.parse(x.created_at || ''));
-  if (!offline && Number.isFinite(reach) && live.every(Number.isFinite)) {
-    const oldest = new Date(live.length ? Math.min(...live) : Date.now()).toISOString();
+  if (!offline && Number.isFinite(reach) && out.length && live.every(Number.isFinite)) {
+    const oldest = new Date(live.length ? Math.min(...live) : Math.max(...made)).toISOString();
     if (oldest !== was?.oldest) { try { writeState(root, cfg.state_branch, 'sessions: the oldest live job session', (wt) => { mkdirSync(join(wt, dirname(LIVE_OLDEST)), { recursive: true }); writeFileSync(join(wt, LIVE_OLDEST), JSON.stringify({ oldest, at: new Date().toISOString(), live: live.length }) + '\n'); }); } catch { /* recorded at the next whole read */ } }
   }
   return out;

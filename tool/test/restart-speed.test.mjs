@@ -56,7 +56,7 @@ test('item 1: one page of list_sessions stands when it holds every session the r
   assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s6', 'other', 2)]), { root, offline: true }), /no whole read is recorded to say how far back a live job session can be/);
   // The last whole read saw its oldest live job session (another product's, say) created at 01:30.
   onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(1.5), at: iso(8), live: 3 }) + '\n' });
-  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s7', 'job a', 3.1), s('s8', 'job a (restart)', 5.1), s('s6', 'other', 2)]), { root, offline: true }), /a job session live at the last whole read \(created 2026-11-05T01:30:00\.000Z\) could be on them/);
+  assert.throws(() => readSessions(page([s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1), s('s7', 'job a', 3.1), s('s6', 'other', 2)]), { root, offline: true }), /a job session live at the last whole read \(created 2026-11-05T01:30:00\.000Z\) could be on them/);
   onState(root, { 'metrics/live-sessions.json': JSON.stringify({ oldest: iso(5.1), at: iso(8), live: 1 }) + '\n' });
   // Newest first, reaching back to 04:00 only: a's first session (started 03:00) could be on the next page.
   const short = [s('s9', 'build/x', 9), s('s8', 'job a (restart)', 5.1)];
@@ -214,8 +214,11 @@ test('item 1: a whole read records the oldest live job session (any product); a 
   // One stopping short of it is refused.
   writeFileSync(file, JSON.stringify({ data: [s('s4', 'job y', 7)], has_more: true }));
   assert.throws(() => readSessions(file, { root }), /a job session live at the last whole read \(created 2026-11-05T06:00:00\.000Z\) could be on them/);
+  // Not newest first: no bound, refused.
+  writeFileSync(file, JSON.stringify({ data: [s('s3', 'job x', 6), s('s4', 'job y', 7), s('s0', 'other', 1)], has_more: true }));
+  assert.throws(() => readSessions(file, { root }), /this page is not newest first by created_at/);
+  // No live job session: the newest session on the list bounds any later one (not the time of the read).
   writeFileSync(file, JSON.stringify({ data: [s('s4', 'build/z', 7)], has_more: false }));
-  const t = Date.now();
   readSessions(file, { root });
-  assert.ok(Date.parse(stored()) >= t - 1000, 'no live job session: any later one is newer than now');
+  assert.equal(stored(), iso(7));
 });

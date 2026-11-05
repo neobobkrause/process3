@@ -28,7 +28,20 @@ export class Fail extends Error {}
 export const fail = (msg) => { throw new Fail(msg); };
 
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
+// A heartbeat (coordinator, 5 Nov 07:56: the MERGER's lease lapsed while its train was alive
+// and gating mail-door, so ROOT's sweep replaced it): the train renews its lease only when it
+// prints a line or turns its loop, and its long silent stretches (the queue's order and provider
+// holds, a merge's notice and triage, waits whose lines are not printed) printed nothing for
+// 15 minutes. A beat set here runs before each command this process starts (git, gh), never
+// inside itself or a quiet section (a state-branch write), so whatever runs, the train renews.
+let beat = null;
+let still = 0;
+export function heartbeat(fn) { const was = beat; beat = fn; return () => { beat = was; }; }
+export function quietly(fn) { still++; try { return fn(); } finally { still--; } }
+const pulse = () => { if (beat && !still) quietly(beat); };
+
 export function run(cmd, args = [], opts = {}) {
+  pulse();
   const t0 = Date.now();
   const env = { ...process.env, ...(opts.env || {}) };
   for (const k of opts.unset || []) delete env[k];
