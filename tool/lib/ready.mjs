@@ -1,13 +1,15 @@
 // job start --ready (coordinator, 4 Nov: ready to start, median 49.5 min against a target of 10):
 // readiness starts the job without waiting for BOB to choose it. One command starts every job
 // status --role bob lists as startable, up to the job cap (jobCap) less the account's job sessions, in the order next
-// work lists them; BOB runs it on every wake and after every merge and layer close, then delivers
+// work lists them, after closing the open layer when it is ready (INT-4); BOB runs it on every
+// wake and after every merge, then delivers
 // each launch it prints with create_session and subscribes to each pull request.
 // Startable: a module with a ledger entry on the tranche and no job branch on origin, its
 // requirement file not over the cap: an OPEN entry never started; a COMPLETE one listed for a
 // provider notice (job start reopens it itself) or for found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
-import { P3, jobStart } from './job.mjs';
+import { P3, READY_NEXT, jobStart } from './job.mjs';
+import { layerClose } from './layer.mjs';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, loadConfig } from './util.mjs';
 
@@ -66,15 +68,34 @@ export function readyCount(root, { read = status } = {}) {
   return startable(out?.next, { onOrigin: (id) => heads.has(id) }).go.length;
 }
 
-export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, remote } = {}) {
+export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessions === undefined ? null : readSessions(sessions);
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
   const n = listed ? sessionsCount(listed, live, log) : Number(live);
   if ((live === undefined && !listed) || live === true || !Number.isInteger(n) || n < 0) fail('job start --ready --live <n>: n, the account\'s job sessions list_sessions shows (titled job <id>, every product; roles, builds and others not counted), or --sessions <file>, so the cap holds');
   const quiet = [];
-  const out = read(root, { role: 'bob', live: n, log: (l) => quiet.push(l) });
+  let out = read(root, { role: 'bob', live: n, log: (l) => quiet.push(l) });
   const cfg = loadConfig(root);
+  // INT-4, the next layer starts at once after a close (copy, 4 Nov: layer 4 sat ready to close
+  // over an hour, 0 startable): an open layer ready to close is closed here first, by layer close
+  // itself (its checks, its row); a refused close is printed and nothing starts.
+  const L = out.layer;
+  let closed = null;
+  if (L?.ready && L.cur && out.open?.state === 'open' && cfg.plan !== 'pause' && cfg.plan !== 'stop') {
+    log(`--- layer close ${L.cur.n} (ready to close; its checks first, then the next layer's jobs)`);
+    const held = [];
+    let r;
+    try { r = close(root, String(L.cur.n), { log: (l) => held.push(l) }); } catch (e) {
+      for (const l of held) log(l);
+      log(`refused: layer close ${L.cur.n}: ${e.message}`);
+      log(`nothing started; ${P3} status --role bob --live ${n} lists BOB's other acts`);
+      return { ok: false, closed: null, refused: e.message, started: [], failed: [], skipped: [], waiting: [] };
+    }
+    for (const l of held.filter((x) => x !== r?.wake && x !== READY_NEXT)) log(l);
+    closed = L.cur.n;
+    out = read(root, { role: 'bob', live: n, log: () => {} });
+  }
   const heads = remote || new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
   const { go, skip } = startable(out.next, { onOrigin: (id) => heads.has(id) });
   const c = capLine(cfg, n, listed);
@@ -119,5 +140,5 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
   }
   if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);
   else log(`nothing started; ${P3} status --role bob --live ${n} lists BOB's other acts`);
-  return { ok: !failed.length, started, failed, skipped: skip, waiting: wait.map((x) => x.id) };
+  return { ok: !failed.length, closed, started, failed, skipped: skip, waiting: wait.map((x) => x.id) };
 }

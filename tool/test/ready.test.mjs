@@ -271,3 +271,34 @@ test('job cap: jobCap is the only place the cap is read', () => {
   }
   assert.doesNotMatch(readFileSync(new URL('../../README.md', import.meta.url), 'utf8'), /live sessions[^.]*every role|live_cap. \(default/);
 });
+
+// INT-4 (copy, 4 Nov: layer 4 ready to close over an hour, 0 startable, nothing ran the close).
+test('job start --ready: an open layer ready to close is closed first, then the next layer\'s jobs start; a refused close starts nothing', (t) => {
+  setJobCap(t, 5);
+  const root = makeRepo({ 'README.md': 'x' });
+  const layer5 = [{ file: 'r/m5.md', count: 1, module: 'm5', entry_state: 'OPEN' }];
+  let closedYet = false;
+  const read = () => (closedYet ? { open: { state: 'open' }, layer: { ready: false, cur: { n: 5 } }, next: layer5 } : { open: { state: 'open' }, layer: { ready: true, cur: { n: 4 } }, next: [] });
+  const calls = [];
+  const out = [];
+  const r = startReady(root, { live: 0, remote: new Set(), log: (m) => out.push(m), read, start: (_, id) => { calls.push(id); return {}; },
+    close: (_, n, o) => { calls.push(`close ${n}`); o.log(`layer ${n} closed at tranche abc`); o.log('wake'); closedYet = true; return { ok: true, wake: 'wake' }; } });
+  assert.deepEqual(calls, ['close 4', 'm5']);
+  assert.equal(r.closed, 4);
+  assert.deepEqual(r.started.map((x) => x.id), ['m5']);
+  const text = out.join('\n');
+  assert.match(text, /--- layer close 4 \(ready to close; its checks first, then the next layer's jobs\)\nlayer 4 closed at tranche abc\nready: 1 startable/);
+  assert.doesNotMatch(text, /^wake$/m, 'the close\'s own wake line is not repeated here');
+  // A refused close: printed, nothing started.
+  const calls2 = [];
+  const out2 = [];
+  const f = startReady(root, { live: 0, remote: new Set(), log: (m) => out2.push(m), read: () => ({ open: { state: 'open' }, layer: { ready: true, cur: { n: 4 } }, next: layer5 }), start: (_, id) => calls2.push(id),
+    close: (_, n, o) => { o.log('m4: suite exit 1'); fail(`layer ${n}: 1 finding; nothing recorded`); } });
+  assert.deepEqual(calls2, []);
+  assert.equal(f.ok, false);
+  assert.equal(f.closed, null);
+  assert.match(out2.join('\n'), /m4: suite exit 1\nrefused: layer close 4: layer 4: 1 finding; nothing recorded\nnothing started/);
+  // Before the tranche open passed, no close here.
+  const g = startReady(root, { live: 0, remote: new Set(), log: quiet, read: () => ({ open: { state: 'pending' }, layer: { ready: true, cur: { n: 4 } }, next: [] }), close: () => assert.fail('no close before the open') });
+  assert.equal(g.closed, null);
+});

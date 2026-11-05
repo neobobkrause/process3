@@ -74,7 +74,7 @@ const io = { compare: () => null };
 const repo = 'o/p';
 const rows = (bare) => git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare }).split('\n').map((l) => JSON.parse(l));
 
-test('deploy dev at the end of the tranche: dry run, deploy, walk, one row; secrets never printed; then refused while that tip is deployed clean', () => {
+test('deploy dev at a round close: dry run, deploy, walk, one row; secrets never printed; then refused while that tip is deployed clean', () => {
   const { root, bare } = withOrigin(product());
   assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
@@ -96,7 +96,7 @@ test('deploy dev at the end of the tranche: dry run, deploy, walk, one row; secr
   assert.match(text, /walked; \*\*\*/);
   assert.doesNotMatch(JSON.stringify(rows(bare)), /s3cr3t-value/);
   assert.deepEqual(rows(bare), [r.row]);
-  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /is deployed and walked clean \(p3dev-l1\)/);
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /is deployed and walked clean \(p3dev-l1\); the next round's close makes the next one/);
   // A dirty tree; then a checkout that is not the tranche tip.
   writeFileSync(join(root, 'build/requirements/a.md'), 'changed\n');
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /uncommitted changes/);
@@ -173,8 +173,8 @@ test('deploy dev: a dry-run step that does not print the guard line stops it bef
   assert.deepEqual(f.row.results.map((x) => x.stage), ['dry_run', 'dry_run', 'deploy']);
 });
 
-// Bob, 4 Nov: the deploy and walk at the end of the tranche only, never between layers; it
-// never holds job starts. The live shape: layer 4 closed, layers 5 to 11 open.
+// Bob, 4 Nov: the deploy and walk at a round close only, never between layers; it never holds
+// job starts. The live shape: layer 4 closed, layers 5 to 11 open.
 const LIVE = (config = {}) => {
   const mods = [4, 5, 6, 7, 8, 9, 10, 11];
   return {
@@ -191,14 +191,14 @@ const push = (root, files) => { commit(root, files); git(['push', '-q', 'origin'
 const opened = (root) => { openPassed(root); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
 const closeIO = { compare: () => null, status: { ...statusIO, prFiles: () => [] } };
 
-test('deploy dev between layers: layer 4 closed, 5 to 11 open: refused, status owes none and lists next work; plan close: owed beside next work', () => {
+test('deploy dev between layers: layer 4 closed, 5 to 11 open (the first round open): refused, status owes none and lists next work; plan close (the last round): owed beside next work', () => {
   const { root } = withOrigin(LIVE());
   opened(root);
   git(['push', '-q', 'origin', 'main'], { cwd: root });
   push(root, { 'x.txt': 'the tranche past main\n' });
   assert.equal(layerClose(root, '4', { io: statusIO, log: quiet }).ok, true);
   git(['checkout', '-q', 'origin/tranche'], { cwd: root });
-  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: the deploy and walk come at the end of the tranche, never between layers \(layers 5, 6, 7, 8, 9, 10, 11 of the plan not closed\); it becomes due when every layer of the plan is closed, or the plan says close/);
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: a deploy and walk belong to a round close, never between layers \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\); it becomes due when the round closes/);
   const before = see(root);
   assert.equal(before.s.deploy, null);
   assert.doesNotMatch(before.text, /deploy and walk/);
@@ -208,17 +208,17 @@ test('deploy dev between layers: layer 4 closed, 5 to 11 open: refused, status o
   git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
   push(root, { 'process/config.json': { deploy: DEP, completion_file: 'build/round.md', plan: 'close' } });
   const after = see(root);
-  assert.match(after.text, /deploy and walk: node \.process\/tool\/p3\.mjs deploy dev \(the end of the tranche, not yet deployed\); job starts do not wait for it/);
+  assert.match(after.text, /deploy and walk at the round close: node \.process\/tool\/p3\.mjs deploy dev \(the last round \(plan close\) closed, not yet deployed\); job starts do not wait for it/);
   assert.match(after.text, /build\/requirements\/m5\.md: 1 \(layer 5\)/, 'next work beside the deploy act');
   assert.ok(after.s.next.length);
-  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /the deploy and walk are owed at the end of the tranche, before its close/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /the last round's deploy and walk are owed before the tranche closes/);
   const r = deployDev(root, { io, repo, log: quiet });
   assert.equal(r.ok, true);
   assert.equal(r.row.slug, 'p3dev-l4');
   assert.doesNotMatch(see(root).text, /deploy and walk/);
 });
 
-test('a failed walk holds tranche close until its findings are recorded; a deploy row after the completion round\'s merges clears it', () => {
+test('a failed walk holds tranche close until its findings are recorded; a deploy row at the next round\'s close clears it', () => {
   const report = node(`const fs = require('fs'); fs.mkdirSync('out', { recursive: true }); const fixed = fs.existsSync('fixed'); fs.writeFileSync('out/report.json', JSON.stringify({ steps: [{ ok: true }, { ok: fixed }, { ok: fixed }], failures: fixed ? [] : [{ kind: 'http-500' }, { kind: 'layout' }] })); process.exit(fixed ? 0 : 1)`);
   const dep = { ...DEP, walk: report, walk_reports: ['out/report.json'] };
   const { root } = withOrigin({ ...LIVE({ plan: 'close', deploy: dep }), 'out/.gitignore': '*\n' });
@@ -229,26 +229,36 @@ test('a failed walk holds tranche close until its findings are recorded; a deplo
   assert.equal(f.ok, false);
   assert.equal(f.row.stopped, 'walk');
   assert.equal(f.row.walk.failures, 2);
-  const held = /tranche close waits: the latest deploy and walk \(p3dev-end at \w+\) stopped at walk with 2 finding\(s\), 0 recorded/;
+  const run = `p3dev-end ${f.row.commit.slice(0, 10)}`;
+  const held = /tranche close waits: the latest deploy and walk \(p3dev-end \w{10}\) stopped at walk with 2 finding\(s\), 0 recorded/;
   assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), held);
   assert.match(see(root).text, held);
   assert.doesNotMatch(see(root).text, /deploy and walk: /, 'not owed again until its findings are worked');
   // One recorded: still held. Both (a found mark owed, and a known gap): the close goes on.
-  push(root, { 'build/requirements/m5.md': `${unmet}- **F1** *(not yet met: walk p3dev-end)* http-500 on /\n`, 'build/round.md': '- [ ] C-1 · m5 · F1\n' });
+  push(root, { 'build/requirements/m5.md': `${unmet}- **F1** *(not yet met: walk ${run})* http-500 on /\n`, 'build/round.md': '- [ ] C-1 · m5 · F1\n' });
   assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /2 finding\(s\), 1 recorded/);
-  push(root, { 'build/round.md': '- [ ] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on p3dev-end; deferred: a known gap (Bob)\n' });
+  push(root, { 'build/round.md': `- [ ] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on ${run}; deferred: a known gap (Bob)\n` });
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
   assert.doesNotMatch(see(root).text, /deploy and walk: /, 'the round is open');
   // The completion round's job merges: F1 met, its item ticked. Held again until a fresh deploy.
-  push(root, { 'build/requirements/m5.md': unmet, 'build/round.md': '- [x] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on p3dev-end; deferred: a known gap (Bob)\n', fixed: 'x\n' });
+  push(root, { 'build/requirements/m5.md': unmet, 'build/round.md': `- [x] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on ${run}; deferred: a known gap (Bob)\n`, fixed: 'x\n' });
   const owed = see(root).text;
-  assert.match(owed, /deploy and walk: node \.process\/tool\/p3\.mjs deploy dev \(the tranche moved past \w+, its round merged\); job starts do not wait for it/);
+  assert.match(owed, /deploy and walk at the round close: node \.process\/tool\/p3\.mjs deploy dev \(the last round \(plan close\) closed since \w+ was deployed\); job starts do not wait for it/);
   const g = deployDev(root, { io, repo, log: quiet });
   assert.equal(g.ok, true);
   assert.equal(g.row.walk.failures, 0);
   assert.doesNotMatch(see(root).text, /tranche close waits|deploy and walk: /);
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /deployed and walked clean/);
+
+  // A clean walk owes none when the tip moves after it (review: main into the tranche at its close).
+  push(root, { 'y.txt': 'a plain pull request\n' });
+  assert.doesNotMatch(see(root).text, /deploy and walk at/);
+  // A later run that fails, the same slug: the earlier run's known gap does not record its findings.
+  git(['rm', '-q', 'fixed'], { cwd: root });
+  push(root, {});
+  assert.equal(deployDev(root, { io, repo, log: quiet }).ok, false);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /2 finding\(s\), 0 recorded/);
 });
 
 test('deploy dev: a deploy row of an earlier tranche, its commit on main, does not count (review of PR 59)', () => {
@@ -337,4 +347,26 @@ test('no per-layer deploy wording left in the README, the tool, its prompts or t
     const hits = readFileSync(join(top, f), 'utf8').split('\n').filter((l) => PER_LAYER.test(l));
     assert.deepEqual(hits, [], f);
   }
+});
+
+test('rounds: every layer closed is the first round\'s close; the walk\'s findings make the completion round, open until each is done, then its close owes the next deploy', () => {
+  const report = node(`const fs = require('fs'); const fixed = fs.existsSync('fixed'); fs.mkdirSync('out', { recursive: true }); fs.writeFileSync('out/report.json', JSON.stringify({ steps: [], failures: fixed ? [] : [{ kind: 'http-500' }] })); process.exit(fixed ? 0 : 1)`);
+  const { root } = withOrigin({
+    'process/config.json': { deploy: { ...DEP, walk: report, walk_reports: ['out/report.json'] }, completion_file: 'build/round.md' },
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n',
+    'build/requirements/a.md': 'all met\n', 'build/round.md': '# Completion round\n', 'out/.gitignore': '*\n',
+  });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  assert.match(see(root).text, /deploy and walk at the round close: .* \(the first round closed, not yet deployed\); job starts do not wait for it/);
+  assert.equal(deployDev(root, { io, repo, log: quiet }).ok, false);
+  const first = git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10);
+  push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: walk p3dev-l1 ${first})* http-500\n`, 'build/round.md': '- [ ] C-1 · a · F1\n' });
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /never between layers \(the completion round is open: C-1 open in build\/round\.md; 1 found mark\(s\) of p3dev-l1 unmet\)/);
+  assert.doesNotMatch(see(root).text, /deploy and walk at/);
+  push(root, { 'build/requirements/a.md': 'all met\n', 'build/round.md': '- [x] C-1 · a · F1\n', fixed: 'x\n' });
+  assert.match(see(root).text, /deploy and walk at the round close: .* \(the completion round closed since \w+ was deployed\)/);
+  assert.equal(deployDev(root, { io, repo, log: quiet }).ok, true);
+  assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
 });

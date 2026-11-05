@@ -7,7 +7,7 @@
 // counted and reported only. The act is never reworded or rerouted. The throwaway branches are
 // kept, never deleted.
 // Close: once every layer is closed (or the plan says close), and with a `deploy` block once the
-// deploy and walk ran and its findings are recorded (walkHold), main into the tranche and the
+// last round's deploy and walk ran and its findings are recorded (walkHold), main into the tranche and the
 // tranche into main, each by a plain pull request through merge --plain; then --record writes the
 // close on the state branch, as layer close does.
 import { appendFileSync, mkdirSync } from 'node:fs';
@@ -209,11 +209,11 @@ export function trancheClose(root, { record = false, report = false, log = conso
     const left = openItems(c);
     if (left.length) fail(`completion round not done: ${left.map((x) => (x.malformed ? `${x.id} (not an item line)` : `${x.id} (${x.target})`)).join(', ')} open in ${c.file}; tick each when done, or mark it "deferred: <reason>"`);
   }
-  // The deploy and walk at the end of the tranche (Bob, 4 Nov): one run at least, and the latest's
-  // findings each recorded, as a found mark owed or a known gap, or a fresh run after the round.
+  // The last round's deploy and walk (Bob, 4 Nov): one run at least, and the latest's findings
+  // each recorded, as a found mark owed or a known gap, or a fresh run at the next round's close.
   if (cfg.deploy) {
     const w = walkFindings(root, cfg, t, { slug, read });
-    if (!w.last) fail(`the deploy and walk are owed at the end of the tranche, before its close: ${P3} deploy dev`);
+    if (!w.last) fail(`the last round's deploy and walk are owed before the tranche closes: ${P3} deploy dev`);
     const hold = walkHold(w);
     if (hold) fail(`tranche close waits: ${hold}`);
   }
