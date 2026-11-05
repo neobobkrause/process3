@@ -136,7 +136,9 @@ export function runArtifactRow(slug, id) {
 }
 // scope and after too: the tranche cover trusts a row for the module it ran and the run it stood on.
 // refresh too: merge --plain trusts a row's regenerate comparison (copy PR 148).
-const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh'];
+// base_red and receipt_passed too: a records-only run checks a later receipt's excuses by them
+// (review of PR 134).
+const SAME = ['sha', 'base', 'trigger', 'ok', 'receipt', 'receipt_attempt', 'suite', 'revert', 'scope', 'after', 'refresh', 'base_red', 'receipt_passed'];
 export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, runArtifactRow }) {
   if (!row?.run_id) return false;
   const a = io.getRun(slug, row.run_id);
