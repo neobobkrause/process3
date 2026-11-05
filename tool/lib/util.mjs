@@ -101,6 +101,8 @@ export const DEFAULTS = {
   reading_bob: ['CLAUDE.md'],
   // The plan: run, pause or stop. The job cap is not a config key: jobCap reads it.
   plan: 'run',
+  // The merge train (train.mjs, Bob's trial, 5 Nov): true, ROOT's sweep keeps a MERGER running.
+  merge_train: false,
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',

@@ -201,12 +201,15 @@ export function merge(root, n, opts = {}) {
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
+    // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
+    opts.beforeLand?.();
     const r = mergeRetry(() => io.mergePR(slug, n, tip), {
       log, wait: opts.wait, reread: { read: () => io.getPR(slug, n), sha: tip },
       fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true }),
       check: () => {
         const p = io.getPR(slug, n);
         if (p.state !== 'open' || p.base?.ref !== cfg.tranche || p.head?.sha !== tip) fail(`pull request ${n} changed while its base moved; run merge again`);
+        opts.beforeLand?.();
         // The gate ran on the job merged with the tranche as it was: a tranche that moved past
         // that is a new merged result, which merge gates afresh when run again.
         if (git(['merge-base', '--is-ancestor', `refs/remotes/origin/${cfg.tranche}`, tip], { cwd: root, allowFail: true }).code !== 0) fail(`${cfg.tranche} moved past the merged result the gate checked; run merge again`);
@@ -363,7 +366,7 @@ export function firstActs(t) {
   const owe = t.error ? `its triage at the merge failed, ${t.owed?.length || 0} owed` : `${t.owed.length} user module${t.owed.length === 1 ? ' owes' : 's owe'} a worker's judgment: ${t.owed.join(', ')}`;
   return [`first: ${P3} notice triage ${key} (provider notice ${key}; ${owe}: a read-only worker judges them now, not in a later batch)`, READY_FIRST.replace(/^first: /, 'then: ')];
 }
-export function triageStep(root, cfg, notes, { ref, log }) {
+function triageStep(root, cfg, notes, { ref, log }) {
   // On a rerun, the notice as recorded (its users as stored), and none when it was withdrawn.
   let raised = (notes.rows || []).find((x) => x.row === 'notice') || null;
   if (!raised && notes.notice) {
@@ -377,7 +380,7 @@ export function triageStep(root, cfg, notes, { ref, log }) {
   }
 }
 
-export function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
+function noticeStep(root, cfg, { id, n, mb, head, at, entry, log }) {
   const { notice, why, left } = entry ? providerChange(root, cfg, { provider: id, requirements: entry.requirements, base: mb, head, pr: n, usersAt: at, entry }) : { notice: null, why: null };
   if (why) log(`no provider notice: ${why}`);
   if (notice && left) log(`provider notice ${notice.key}: ${left}`);
@@ -578,7 +581,7 @@ export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
 // defect sweep 4 Nov, #13; the tranche into main now runs only the suites its job merges did not
 // gate, gate.mjs trancheCover). Each round reads the pull request
 // (`pr`): a head that moved off sha stops the wait at once. GitHub judges the result.
-export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, once = false, log = console.log } = {}) {
+export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log } = {}) {
   const until = Date.now() + minutes * MINUTE;
   const extended = new Map();
   for (;;) {
@@ -589,7 +592,6 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
     const states = runs.map(([name, r]) => [name, r ? (r.status === 'completed' ? r.conclusion : r.status) : 'not started']);
     const pending = states.filter(([, st]) => RUNNING.includes(st) || st === 'not started');
     if (!pending.length) return states;
-    if (once) fail(`required checks not finished on ${sha.slice(0, 10)}: ${pending.map(([n, st]) => `${n} ${st}`).join(', ')}`);
     const t = Date.now();
     if (t >= until) {
       const going = runs.filter(([name]) => pending.some(([n]) => n === name)).every(([name, r]) => {
@@ -708,7 +710,7 @@ export function mergePlain(root, n, opts = {}) {
   if (!rules) fail(`could not read the checks ${base} requires`);
   const names = [...new Set(rules.checks.map((c) => c.context))];
   if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
-  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), once: !!opts.checkOnly, log });
+  const states = waitForChecks(slug, pr.head.sha, names, { minutes, every: opts.every, read: io.checkRuns, pr: () => io.getPR(slug, n), log });
   log(names.length ? `required checks on ${pr.head.sha.slice(0, 10)}: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}; GitHub's ruleset judges them` : `note: ${base} requires no checks`);
   if (refreshed.length) refreshGate(slug, n, pr.head.sha, refreshed, { base, baseSha: git(['rev-parse', baseRef], { cwd: root }), untracked, io, log });
   // The base must still be the one checked.
@@ -727,9 +729,6 @@ export function mergePlain(root, n, opts = {}) {
   baseHolds();
   // The first close stands on the gate itself, not only on GitHub's ruleset.
   if (boot && !states.some(([c, st]) => c === 'gate' && st === 'success')) fail(`${base} has no Process3, so its first close needs the gate, required by ${base}'s ruleset and green on ${pr.head.sha.slice(0, 10)}; ${names.length ? `its required checks: ${states.map(([c, st]) => `${c} ${st}`).join(', ')}` : `${base} requires no checks`}`);
-  // The merge train (train.mjs) takes a plain pull request as a member only after every check
-  // above, with each required check finished; it lands it in a batch, not here.
-  if (opts.checkOnly) return { ok: true, sha: pr.head.sha, head, base, states, refreshed, workflows: changed.filter((f) => f.startsWith(WORKFLOWS)), rounds };
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: [reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),

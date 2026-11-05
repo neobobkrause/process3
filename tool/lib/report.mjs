@@ -2,6 +2,7 @@
 // record alone: the ledger and metrics rows the tranche holds, the state branch's sweep, handover,
 // address and closed-layer rows, and the pull requests merged into the tranche. Every figure the
 // record lacks prints "unmeasured", never a guess. Overhead is metrics report's (overhead()).
+import { MERGER_FILE, TRAIN_FILE, trainLines, trainSummary } from './train.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compare as ghCompare, comments as ghComments, gateRuns } from './github.mjs';
@@ -353,6 +354,9 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   if (perJob.length) L.push(...table(['job', 'attempts started', 'job sessions measured'], perJob), '');
   else if (!opened) L.push(`Per job: ${U} (the tranche's opening not read).`, '');
 
+  // The merge train trial (train.mjs): its measures beside the baselines, each named.
+  const trainRows = stateJsonl(TRAIN_FILE);
+  L.push('## Merge train', '', ...(trainRows === null ? [U] : trainRows.length ? trainLines(trainSummary(trainRows, stateJsonl(MERGER_FILE) || [])) : ['No merge by the train.']), '');
   // Base-red (basered.mjs): failures a job's gate tolerated because the tranche had them too.
   // Merged green, they are still owed: the layer close and the tranche into main run them again.
   L.push('## Base-red tests owed', '', 'Failing tests a merged job\'s gate tolerated because they failed at the tranche tip it merged into too. The layer close and the tranche into main run them again with no tolerance.', '');

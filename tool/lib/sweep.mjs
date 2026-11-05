@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { P3, READY_START } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, wakeSteps } from './roles.mjs';
+import { LEASE_FILE } from './train.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
 import { heldBy, layersAt, slotsHeld } from './hold.mjs';
@@ -167,7 +168,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         if (!(e instanceof Fail)) throw e;
         found.push(`config: ${e.message}`);
       }
-      const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success') || (r.flag && !r.flag.startsWith('WORKING')));
+      const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success' && !addr.merger) || (r.flag && !r.flag.startsWith('WORKING')));
       idle = { bob_acts: acts, bob_quiet_h: acts ? hours(t - last) : null };
       if (refresh || t - wake > SILENT_HOURS * H) {
         found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : `silent ${hours(t - last)}h, ${hours(t - wake)}h after a wake`}`);
@@ -178,6 +179,14 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         if (t - last > SILENT_HOURS * H) owed.push(`BOB ${bob.session} silent ${hours(t - last)}h`);
         else if (next && (noJob || t - last > IDLE_HOURS * H)) owed.push(`BOB ${bob.session} idle ${hours(t - last)}h with next work: run ${READY_START}`);
       }
+    }
+    // The MERGER (train.mjs): its heartbeat is its lease, renewed every LEASE.renew minutes; one
+    // expired means the train is not running, and ROOT replaces the merger. With merge_train in
+    // the config, ROOT starts one when none is addressed.
+    const lease = (() => { try { return JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { return null; } })();
+    if (!addr.merger) { if (cfg.merge_train === true) { found.push('no MERGER addressed'); todo.push(`start the MERGER: ${P3} start merger, create_session with the call it prints, then ${P3} start record merger <its id>`); } } else if (!(Date.parse(lease?.expires) > t) || lease.session !== addr.merger.session) {
+      found.push(`MERGER ${addr.merger.session} silent: ${lease ? `its lease ${lease.session === addr.merger.session ? `expired ${lease.expires}` : `is ${lease.session}'s`}` : 'no lease'}`);
+      todo.push(`replace the MERGER: archive_session ${addr.merger.session}, then ${P3} start merger --replace ${addr.merger.session}, create_session with the call it prints, then ${P3} start record merger <its id>`);
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
     // Past targets.decision_minutes a ruling is owed: a technical one reaches the coordinator from ROOT.

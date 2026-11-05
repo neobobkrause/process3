@@ -14,6 +14,7 @@ import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metrics
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
+import { MERGER_FILE, TRAIN_FILE, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
 import { readyCount, startReady } from './lib/ready.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
@@ -230,7 +231,9 @@ const commands = {
       let roles = new Map();
       try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); roles = stateRoles((p) => readState(root, cfg.state_branch, p)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }), jobRefs, jobRows }; } } catch { sweepRows = []; lead = { jobRefs, jobRows }; } // unreadable: idle time and the state's lead times unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
-      console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead, roles }), null, 2));
+      let mergeTrain = 'unmeasured';
+      try { if (fetchState(root, cfg.state_branch)) mergeTrain = trainSummary(jsonl(readState(root, cfg.state_branch, TRAIN_FILE)), jsonl(readState(root, cfg.state_branch, MERGER_FILE))); } catch { mergeTrain = 'unmeasured'; }
+      console.log(JSON.stringify({ ...metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead, roles }), merge_train: mergeTrain }, null, 2));
       return 0;
     }
     if (sub === 'survival') {
@@ -266,6 +269,29 @@ const commands = {
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
     if (a.plain) return mergePlain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
     return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
+  },
+
+  // merge train --session <id> [--once]: the MERGER's loop (train.mjs): each job PR green on its
+  // head merges through merge, oldest green first, under the merger's lease; exceptions go to BOB.
+  // merge train note <pr> (--reviewed ... --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> | --no-review "<why>") [--decision "<why>"] [--job-cost-usd <n> [--job-session <id>]]:
+  //   the review (and cost) the train merges this PR's current head with.
+  // merge train beat --session <id> --context <pct>: the merger's context, hourly.
+  // merge train report: the trial's measures beside the baselines.
+  'merge train': (a, root) => {
+    const sub = a._[0];
+    if (sub === 'note') return (trainNote(root, Number(one({ _: a._.slice(1) }, 'pull request number')), { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision, reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], findings: a.findings, actedOn: a['acted-on'], jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }), 0);
+    if (sub === 'beat') return (trainBeat(root, { session: a.session, context: a.context }), 0);
+    if (sub === 'report') {
+      const sb = loadConfig(root).state_branch;
+      const read = (f) => (fetchState(root, sb) ? jsonl(readState(root, sb, f)) : []);
+      const s = trainSummary(read(TRAIN_FILE), read(MERGER_FILE));
+      for (const l of trainLines(s)) console.log(l);
+      console.log(JSON.stringify(s, null, 2));
+      return 0;
+    }
+    if (sub !== undefined) fail('merge train [--once] --session <id> | merge train note <pr> ... | merge train beat ... | merge train report');
+    train(root, { once: !!a.once, session: a.session, ...(a.minutes ? { minutes: Number(a.minutes) } : {}) });
+    return 0;
   },
 
   // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]
@@ -372,9 +398,10 @@ const commands = {
     return 0;
   },
 
-  // start root | start bob | start watcher: the role's starting prompt (and create_session call).
+  // start root | start bob | start watcher | start merger: the role's starting prompt (and create_session call).
+  // start merger --replace <the addressed merger's id>: its replacement, by ROOT, once the old one is archived.
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
-  // start record <root|bob|watcher> <session id>: the address, written after the session was created.
+  // start record <root|bob|watcher|merger> <session id>: the address, written after the session was created.
   start: (a, root) => {
     if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
     startRole(root, a._[0], { replace: a.replace });
