@@ -696,7 +696,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(ids.length > fids.length ? { marks: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found) || (entered.has(x.file) && x.entry_state === 'OPEN' && x.count > 0));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);

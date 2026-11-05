@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { entry, makeRepo, openPassed } from './helpers.mjs';
 import { layerState, nextWork, status } from '../lib/status.mjs';
 import { setupCheck } from '../lib/setup.mjs';
+import { startable } from '../lib/ready.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -146,8 +147,11 @@ test('a COMPLETE module with its job pull request open is listed in no list of n
   assert.ok(!next.includes('q2.md'), 'the notice list');
   // Without the open pull requests both are listed: the fixture reaches each list.
   const free = [...base, { id: 'p2', tranche: 'COMPLETE', req: 'build/requirements/p2.md', pr: 'merged' }, { id: 'q2', tranche: 'COMPLETE', req: 'build/requirements/q2.md', pr: 'merged' }];
-  const all = nextWork(root, cfg, free, null, { log: quiet, state: layerState(root, cfg, free, null, { closed: [] }), notices: affected }).map((x) => x.file?.replace('build/requirements/', ''));
+  const items = nextWork(root, cfg, free, null, { log: quiet, state: layerState(root, cfg, free, null, { closed: [] }), notices: affected });
+  const all = items.map((x) => x.file?.replace('build/requirements/', ''));
   assert.ok(all.includes('p2.md') && all.includes('q2.md'));
+  // The COMPLETE p2 with unmet requirement marks is reopened to meet them, not left to BOB's judgment.
+  assert.deepEqual(startable(items).go.find((g) => g.id === 'p2'), { id: 'p2', file: 'build/requirements/p2.md', reopen: 'meet the unmet requirement marks R1, R2, R3' });
 });
 
 test('open_by uses: a provider in a layer recorded closed is done despite its deferred marks, unless BLOCKED or its job is open', () => {
