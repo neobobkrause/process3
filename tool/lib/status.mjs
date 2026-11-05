@@ -5,7 +5,7 @@ import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs }
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
-import { REFRESH_AT, jobBranchAt, metricsFile, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
+import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { fetchState, handoffFile, jsonl, readState, toRoute, undelivered } from './state.mjs';
@@ -14,9 +14,9 @@ import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { openAsks } from './lane.mjs';
 import { startable as starts } from './ready.mjs';
-import { flowFirst } from './flow.mjs';
 import { leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
+import { holdLines, readHolds } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, depth, exists, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -128,11 +128,11 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
+  // Every hold first, after a paused plan (Bob, 5 Nov): a limit on starts is a recorded row, never words.
+  let holds = [];
+  try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
   if (live !== undefined && !(Number.isInteger(Number(live)) && Number(live) >= 0 && live !== true)) fail(`--live <n>, the account's job sessions list_sessions shows, not ${JSON.stringify(live)}`);
-  if (role === 'bob') {
-    try { if (offline ? git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 : fetchState(root, cfg.state_branch)) for (const l of flowFirst(root, cfg.state_branch)) log(l); } catch { /* bobStatus reports the state branch */ }
-    const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line);
-  }
+  if (role === 'bob') { const c = capLine(cfg, live, listed); if (c.note) log(c.note); log(c.line); }
   const haveRef = () => git(['rev-parse', '--verify', '-q', tranche], { cwd: root, allowFail: true }).code === 0;
   let prs = null;
   let slug = null;
@@ -261,7 +261,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, rows, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
+    const out = { sessions, rows, holds, ...bobStatus(root, cfg, { rows, prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
     out.layer = layerState(root, cfg, rows, ref, { closed });
@@ -289,7 +289,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     log(out.flow.line);
     return out;
   }
-  return { rows, sessions, prs };
+  return { rows, sessions, prs, holds };
 }
 
 const decisionMinutes = (cfg, t = Number(cfg.targets?.decision_minutes ?? 30)) => (t > 0 ? t : fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`));
@@ -453,9 +453,16 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;
   };
   const here = (m) => { const f = `${LEDGER_DIR}/${m.row.id}.json`; const b = blob(ref, f); return b === null || b !== blob('refs/remotes/origin/main', f); };
+  // The R marks its last start reopened it for: its start row on the tranche (no history read, so a
+  // shallow clone reads it too; review of PR 138).
+  const left = (m) => String((ref ? rowsAt(root, ref, m.row.id) : readRows(root, m.row.id)).filter((r) => r.event === 'start').pop()?.reopen || '').match(/^meet the unmet requirement marks (R\d+(?:, R\d+)*)/)?.[1].split(', ') || [];
   for (const L of layers) {
     L.recorded = recorded.has(L.n);
-    L.worked = L.mods.some((m) => m.merged && here(m));
+    for (const m of L.mods) m.here = m.merged && here(m);
+    L.worked = L.mods.some((m) => m.here);
+    // Merged in this tranche after a reopen for these marks: unmet after its job, deferred at the
+    // close, never reopened for them again this tranche (coordinator, 5 Nov: a reopen per start --ready).
+    for (const m of L.mods) if (m.here && m.marks.length) { const l = left(m); if (m.marks.every((x) => l.includes(x))) m.after = m.marks; }
     L.closed = L.recorded || (!L.worked && L.mods.every((m) => !m.open && !m.marks.length));
   }
   const cur = layers.find((L) => !L.closed) || null;
@@ -535,7 +542,7 @@ export function noticeSlots(root, cfg, rows) {
       const rerun = !!unrecorded[u]?.includes(n.key);
       (owed[u] ||= []).push({ ...live, triage, rerun });
       if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${prN || `<job ${u}'s PR>`} (again: its answer was not recorded)` });
-      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u} --live <n>, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u} --live <n>` });
+      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u}, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u}` });
       else { (untriaged[n.key] ||= []).push(u); slots.push({ key: n.key, user: u, kind: 'triage', act: `${P3} notice triage ${n.key}` }); }
     }
   }
@@ -690,6 +697,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const texts = new Map();
   const textOf = (f) => (texts.has(f) ? texts.get(f) : (texts.set(f, whole(f)), texts.get(f)));
   const foundBy = new Set(foundReady.map((m) => m.file));
+  const after = new Set((ls?.layers || []).flatMap((L) => L.mods.filter((m) => m.after).map((m) => m.file)));
   // A found-work entry's module is taken while its job is open (taken holds its requirement file).
   const entryTaken = (f) => f.startsWith(`${FOUND_DIR}/`) && open.some((r) => foundFile(r.id) === f);
   // An OPEN entry BOB wrote and no job started: BOB's choice, startable whatever its layer or
@@ -701,7 +709,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
     const ids = unmetIds(text);
     const fids = ids.filter(isFound);
     const row = rows.find((r) => r.req === file || `${dir}/${r.id}.md` === file);
-    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(ids.length > fids.length ? { marks: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
+    return { file, count: ids.length, over: overCap(cfg, file, text), ...(row ? { module: row.id, entry_state: row.tranche, ...(row.pr?.startsWith('#') || row.ahead > 0 || row.flag ? { attempt_open: true } : {}) } : {}), ...(fids.length ? { found: fids } : {}), ...(inLayer.has(file) && ids.length > fids.length ? { [after.has(file) ? 'after' : 'marks']: ids.filter((i) => !isFound(i)) } : {}), ...(byFile.has(file) ? { notices: byFile.get(file).map((n) => n.key) } : {}) };
   }).filter((x) => (inLayer.has(x.file) && x.count) || x.notices || (foundBy.has(x.file) && x.found) || (entered.has(x.file) && x.entry_state === 'OPEN' && x.count > 0));
   // The open layer's modules first, then those opened by uses; fewest unmet first within each.
   const later = (x) => (layer !== null && layerOf.has(x.file) && layerOf.get(x.file) !== layer ? 1 : 0);
@@ -724,7 +732,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
   const shownF = foundList.slice(0, Math.max(0, n - shown.length - shownN.length));
   const shownE = enteredList.slice(0, Math.max(0, n - shown.length - shownN.length - shownF.length));
-  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}`;
+  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}${x.after ? `; unmet after its job: ${x.after.join(', ')} (layer close defers them)` : ''}`;
   const waits = (a, b) => (live === undefined ? `all ${a.length} listed` : `${b.length} listed (jobs ${live} of ${cap}), ${a.length - b.length} wait`);
   if (list.length) {
     log(`next work${layer === null ? '' : `, layer ${layer}`} (${open.length} jobs open; BOB chooses from these, unmet requirements each): ${live === undefined ? `${waits(list, shown)}; pass --sessions <file> (or --live <the account's job sessions>) to list at most the job cap less them` : waits(list, shown)}`);
@@ -766,6 +774,6 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
   const job = (id) => rows.find((r) => r.id === id && jobOpen(r));
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
-  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --live <n>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
+  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target}`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
 }

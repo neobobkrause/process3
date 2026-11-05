@@ -161,13 +161,20 @@ function unpushed(root) {
 
 // send: the record first (the caller's work pushed, then the numbered message pushed), then the
 // message and the address, read from git after that push, for the session to deliver.
-// A wake no longer leads with job start --ready: the acts that make jobs startable write starts
-// owed (flow.mjs), which holds BOB's other acts until it runs, and status leads with it.
-export function send(root, sb, { from, to, text, log = console.log }) {
+// ready, for a message to BOB: the count of startable jobs. When any, the text leads with their
+// start, so BOB starts them on whatever wake comes first (coordinator, 4 Nov). A count that cannot
+// be read leaves the text as it is: the wake is never held back for it.
+export const READY_LEAD = (n) => `first: node .process/tool/p3.mjs job start --ready --live <n> (${n} job${n === 1 ? '' : 's'} ready). Then: `;
+export function send(root, sb, { from, to, text, ready, log = console.log }) {
   roleName(from, '--from');
   roleName(to, 'the role sent to');
   if (typeof text !== 'string' || !text.trim()) fail('send <to-role> "<text>"');
   unpushed(root);
+  if (typeof ready === 'function' && !/^first: \S+ \S+ job start --ready/.test(text.trim())) {
+    let k = 0;
+    try { k = Number(ready()) || 0; } catch { k = 0; }
+    if (k > 0) text = READY_LEAD(k) + text.trim();
+  }
   const { n } = writeState(root, sb, `message from ${from} to ${to}`, (wt) => {
     const file = join(wt, messagesFile(from));
     const k = messages(existsSync(file) ? readFileSync(file, 'utf8') : '').reduce((m, x) => Math.max(m, x.n), 0) + 1;

@@ -10,10 +10,9 @@
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { P3, READY_NEXT, jobStart } from './job.mjs';
 import { layerClose } from './layer.mjs';
+import { heldBy, layersAt, slotsHeld } from './hold.mjs';
 import { capLine, isArchived, isIdle, jobDone, jobSession, readSessions, sessionId, sessionsCount, status } from './status.mjs';
-import { deadEnds, gateQueue, heldSlots, safetyOf, recordReady, safety, slotReasons, usageReading } from './flow.mjs';
-import { rowsAt } from './metrics.mjs';
-import { Fail, fail, git, jobCap, loadConfig, repoSlug } from './util.mjs';
+import { Fail, fail, git, loadConfig } from './util.mjs';
 
 const LAUNCH = /^start the job session with create_session:/;
 
@@ -37,7 +36,7 @@ export function startable(next, { onOrigin = () => false } = {}) {
     // Unmet requirement marks on a COMPLETE entry: reopened as found marks are, or the layer could
     // never close (copy, 5 Nov: inquiry, basis-versions and four more sat as BOB's judgment).
     else if (x.entry_state === 'COMPLETE' && (x.found || x.marks)) go.push({ id: x.module, file: x.file, reopen: `meet ${[x.marks && `the unmet requirement marks ${x.marks.join(', ')}`, x.found && `the found marks ${x.found.join(', ')}`].filter(Boolean).join(' and ')}` });
-    else skip.push({ file: x.file, id: x.module, why: `entry ${x.entry_state}: BOB's judgment` });
+    else skip.push({ file: x.file, id: x.module, why: x.after ? `unmet after its job: ${x.after.join(', ')}` : `entry ${x.entry_state}: BOB's judgment` });
   }
   return { go, skip };
 }
@@ -60,7 +59,19 @@ export function archivable(rows, listed) {
   return { jobs: done, sessions };
 }
 
-export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote, io = {} } = {}) {
+// Whether status lists startable jobs: the wake BOB receives leads with the start when so.
+export function readyCount(root, { read = status } = {}) {
+  // Offline: the wake is not held for GitHub or for fetches into the sender's clone (review of
+  // PR 104); the refs this clone has and one ls-remote give the count.
+  // The one ls-remote also marks an OPEN entry with no job branch unstarted (offline status read
+  // none, so a wake counted no entry BOB wrote: copy, 4 Nov, "1 job ready" at 11:58).
+  const r = git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true });
+  const heads = new Set(r.stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
+  const out = read(root, { role: 'bob', offline: true, ...(r.code === 0 ? { heads } : {}), log: () => {} });
+  return startable(out?.next, { onOrigin: (id) => heads.has(id) }).go.length;
+}
+
+export function startReady(root, { live, coordinator, model, sessions, log = console.log, read = status, start = jobStart, close = layerClose, remote } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = sessions === undefined ? null : readSessions(sessions);
   // The cap counts the account's job sessions only (Bob, 4 Nov): counted from --sessions when given (it wins over --live), else --live.
@@ -81,7 +92,6 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
     try { r = close(root, String(L.cur.n), { log: (l) => held.push(l) }); } catch (e) {
       for (const l of held) log(l);
       log(`refused: layer close ${L.cur.n}: ${e.message}`);
-      flowRecord(root, cfg, { n, started: [], failed: [], holds: [], dead: Array(Math.max(0, jobCap(cfg).cap - n)).fill({ id: `layer ${L.cur.n}`, why: `its close refused: ${e.message}` }), log });
       log(`nothing started; ${P3} status --role bob --live ${n} lists BOB's other acts`);
       return { ok: false, closed: null, refused: e.message, started: [], failed: [], skipped: [], waiting: [] };
     }
@@ -90,25 +100,22 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
     out = read(root, { role: 'bob', live: n, log: () => {} });
   }
   const heads = remote || new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
-  const { go, skip } = startable(out.next, { onOrigin: (id) => heads.has(id) });
+  const s = startable(out.next, { onOrigin: (id) => heads.has(id) });
+  const skip = s.skip;
+  // The cap less the live holds only (Bob, 5 Nov): a held module is not started; slots held are not filled.
+  const holds = out.holds || [];
+  const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
+  const go = s.go.filter((j) => { const h = heldBy(holds, j.id, layers); if (h) skip.push({ file: j.file, id: j.id, why: `held by ${h.id} (${h.scope}, by ${h.by}, until ${h.until}): ${h.why}` }); return !h; });
   const c = capLine(cfg, n, listed);
   if (c.note) log(c.note);
-  // The cap less holds (R10): Bob's recorded holds and the safety readings, each printed either way.
-  const usage = io.usage !== undefined ? io.usage : usageReading(sessions) || undefined;
-  let holds = [];
-  try {
-    holds = safety(root, cfg, { usage, queue: (io.queue || gateQueue)(io.slug !== undefined ? io.slug : slugOf(root)), mergeRows: rowsAt(root, `origin/${cfg.tranche}`), prev: safetyOf(root, cfg.state_branch) });
-  } catch (e) { if (!(e instanceof Fail)) throw e; log(`safety readings unread: ${e.message}`); }
-  const room = Math.max(0, c.cap - n - heldSlots(holds, Math.max(0, c.cap - n)));
-  const now = go.slice(0, room);
+  const held = slotsHeld(holds);
+  if (held) log(`${held} slot${held === 1 ? '' : 's'} held by recorded holds (status lists them)`);
+  const now = go.slice(0, Math.max(0, c.cap - held - n));
   const wait = go.slice(now.length);
-  log(`ready: ${go.length} startable (${c.line}); starting ${now.length}${wait.length ? `, ${wait.length} wait for the cap${room < c.cap - n ? ' less holds' : ''}: ${wait.map((x) => x.id).join(', ')}` : ''}`);
-  log(`safety: usage ${usage ? usage.reading : 'unread (pass --sessions <list_sessions saved as JSON>)'}${holds.length ? `; holding new starts: ${holds.map((h) => `${h.signal} (${h.reading})`).join('; ')}` : ''}`);
-  let archive = false;
-  if (wait.length && room === c.cap - n) {
+  log(`ready: ${go.length} startable (${c.line}); starting ${now.length}${wait.length ? `, ${wait.length} wait for the cap: ${wait.map((x) => x.id).join(', ')}` : ''}`);
+  if (wait.length) {
     // The cap holds jobs back: the idle sessions of COMPLETE or merged jobs BOB can archive.
     const a = archivable(out.rows, listed);
-    archive = !!a.sessions?.length;
     if (a.sessions) log(a.sessions.length ? `the cap holds ${wait.length} back; archive these idle sessions of COMPLETE or merged jobs to free slots, then run this again: ${a.sessions.map((x) => `${x.session} (job ${x.job}, ${x.why})`).join('; ')}` : `the cap holds ${wait.length} back; no idle session of a COMPLETE or merged job is in --sessions to archive`);
     else {
       // The PR-ready ones first (their sessions surely still stand); at most 10 named.
@@ -130,7 +137,7 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
       if (r?.resumed && r.pr && !r.created) {
         for (const l of held.filter((x) => !LAUNCH.test(x))) log(l);
         failed.push({ id: j.id, why: 'a resumed start with its pull request open: check sessions; job start <id> prints its launch' });
-        log(`not started: ${j.id}: its pull request was already open; a session may be running. Check your sessions; \`${P3} job start ${j.id} --live <n>\` prints its launch when none is`);
+        log(`not started: ${j.id}: its pull request was already open; a session may be running. Check your sessions; \`${P3} job start ${j.id}\` prints its launch when none is`);
         continue;
       }
       for (const l of held) log(l);
@@ -141,24 +148,7 @@ export function startReady(root, { live, coordinator, model, sessions, log = con
       log(`not started: ${j.id}: ${e.message}${e instanceof Fail ? '' : ' (an unexpected error; the other starts went on)'}`);
     }
   }
-  flowRecord(root, cfg, { n, started, failed, holds, keep: archive, usage, out, skip, log });
   if (started.length) log(`next acts: create_session with each launch printed above (${started.map((x) => x.id).join(', ')}), then subscribe_pr_activity to each pull request as printed`);
   else log(`nothing started; ${P3} status --role bob --live ${n} lists BOB's other acts`);
   return { ok: !failed.length, closed, started, failed, skipped: skip, waiting: wait.map((x) => x.id) };
-}
-
-const slugOf = (root) => { try { return repoSlug(root); } catch { return null; } };
-// Every free slot left empty, with its reason, recorded with the starts; starts owed cleared
-// (kept while it names idle sessions to archive). A failed record is printed: starts owed then stands.
-function flowRecord(root, cfg, { n, started, failed, holds, keep = false, usage, dead, out, skip, log }) {
-  const cap = jobCap(cfg).cap;
-  let d = dead;
-  if (!d) { try { d = deadEnds(root, cfg, { rows: out?.rows || [], next: out?.next, skip, ls: out?.layer, ref: out?.tranche && out.tranche !== 'HEAD' ? out.tranche : null }); } catch (e) { if (!(e instanceof Fail)) throw e; d = []; } }
-  const empty = slotReasons(Math.max(0, cap - n - started.length), { holds, failed, dead: d, free: Math.max(0, cap - n) });
-  const k = (x) => empty.filter((y) => y === x).length;
-  if (empty.length) log(`empty slots ${empty.length}: ${[...new Set(empty)].map((x) => `${x}${k(x) > 1 ? ` (x${k(x)})` : ''}`).join('; ')}`);
-  try { recordReady(root, cfg, { live: n, cap, started, failed, empty, holds, keep, usage }); } catch (e) {
-    if (!(e instanceof Fail)) throw e;
-    log(`flow record not written (${e.message}): starts owed stands until it is`);
-  }
 }

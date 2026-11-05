@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRepo, entry, openPassed, setJobCap } from './helpers.mjs';
-import { archivable, startable, startReady } from '../lib/ready.mjs';
+import { archivable, readyCount, startable, startReady } from '../lib/ready.mjs';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { nextWork } from '../lib/status.mjs';
 import { fail, git, jobCap } from '../lib/util.mjs';
@@ -11,8 +11,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const quiet = () => {};
-// The flow sample's offline read (flow.mjs sample): origin's job heads, here none.
-const readyN = (root) => startable(status(root, { role: 'bob', offline: true, heads: new Set(), log: quiet }).next).go.length;
 const unmet = (n) => Array.from({ length: n }, (_, i) => `- **R${i + 1}** *(not yet met: x)* text`).join('\n') + '\n';
 
 test('startable: an OPEN entry never started, a COMPLETE one with a notice or found marks; named otherwise', () => {
@@ -181,6 +179,8 @@ test('job start --ready: when the cap holds a ready job back, it names the idle 
   const out3 = [];
   startReady(root, { live: 0, remote: new Set(), log: (m) => out3.push(m), read: () => ({ next, rows }), start: (_, id) => ({ launch: { title: `job ${id}` } }) });
   assert.doesNotMatch(out3.join('\n'), /the cap holds/);
+  // readyCount: the startable jobs status lists, for the wake's lead.
+  assert.equal(readyCount(root, { read: (_, o) => { assert.equal(o.offline, true); return { next }; } }), 2);
 });
 
 // The copy, 4 Nov: publication and case-authoring, entries merged 11:44:06, layer 8 with the open
@@ -210,21 +210,21 @@ test('status --role bob: an OPEN entry BOB wrote outside the open layer, its use
   assert.deepEqual(r.next.filter((x) => x.module).map((x) => [x.module, x.entry_state]), [['pub', 'OPEN']]);
   assert.match(out.join('\n'), /entered, never started \(BOB wrote the entry; ready whatever its layer or uses\): all 1 listed\n- build\/requirements\/pub\.md: 3 \(layer 3\); entry OPEN, never started/);
   assert.deepEqual(startable(r.next).go, [{ id: 'pub', file: 'build/requirements/pub.md' }]);
-  // The flow sample's offline read: origin's job heads mark it unstarted (it counted 0 before).
-  assert.equal(readyN(root), 1);
+  // The wake's offline count: the one ls-remote marks it unstarted (it counted 0 before).
+  assert.equal(readyCount(root), 1);
   // An entered module with no unmet mark has nothing for a job: not listed.
   writeFileSync(join(root, 'build/requirements/pub.md'), '# pub\n');
   git(['commit', '-qam', 'pub met'], { cwd: root });
   git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
-  assert.equal(readyN(root), 0);
+  assert.equal(readyCount(root), 0);
   writeFileSync(join(root, 'build/requirements/pub.md'), unmet(3));
   git(['commit', '-qam', 'pub reopened'], { cwd: root });
   git(['push', '-q', 'origin', 'HEAD:tranche'], { cwd: root });
-  assert.equal(readyN(root), 1);
+  assert.equal(readyCount(root), 1);
   // Its job branch on origin: neither started again nor counted.
   git(['branch', 'job/pub'], { cwd: root });
   git(['push', '-q', 'origin', 'job/pub'], { cwd: root });
-  assert.equal(readyN(root), 0);
+  assert.equal(readyCount(root), 0);
 });
 
 // The job cap (Bob, 4 Nov): the account's job sessions only, every product, against P3_JOB_CAP, default 20.
@@ -302,7 +302,7 @@ test('job start --ready: an open layer ready to close is closed first, then the 
   assert.deepEqual(calls2, []);
   assert.equal(f.ok, false);
   assert.equal(f.closed, null);
-  assert.match(out2.join('\n'), /m4: suite exit 1\nrefused: layer close 4: layer 4: 1 finding; nothing recorded\nempty slots 5: dead end layer 4: its close refused: layer 4: 1 finding; nothing recorded \(x5\)\n[\s\S]*nothing started/);
+  assert.match(out2.join('\n'), /m4: suite exit 1\nrefused: layer close 4: layer 4: 1 finding; nothing recorded\nnothing started/);
   // Before the tranche open passed, no close here.
   const g = startReady(root, { live: 0, remote: new Set(), log: quiet, read: () => ({ open: { state: 'pending' }, layer: { ready: true, cur: { n: 4 } }, next: [] }), close: () => assert.fail('no close before the open') });
   assert.equal(g.closed, null);

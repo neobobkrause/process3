@@ -94,7 +94,7 @@ test('noticeSlots: every open slot is classed once with the command that closes 
   const { root, cfg, rows } = state();
   const s = noticeSlots(root, cfg, rows);
   assert.deepEqual(s.slots.map((x) => [x.key, x.user, x.kind]), [['p:8', 'u1', 'affected'], ['p:8', 'u2', 'triage'], ['p:8', 'u3', 'job']]);
-  assert.deepEqual(s.slots.map((x) => x.act), ['node .process/tool/p3.mjs job start u1 --live <n>', 'node .process/tool/p3.mjs notice triage p:8', 'node .process/tool/p3.mjs merge 41 (job u3\'s pull request; its START names the notice, its merge answers it)']);
+  assert.deepEqual(s.slots.map((x) => x.act), ['node .process/tool/p3.mjs job start u1', 'node .process/tool/p3.mjs notice triage p:8', 'node .process/tool/p3.mjs merge 41 (job u3\'s pull request; its START names the notice, its merge answers it)']);
   assert.deepEqual(s.withdrawn.map((w) => [w.key, w.closed]), [['q:77', 3]]);
   // owedNotices (status, layer close, next work) reads the same slots.
   assert.deepEqual(Object.keys(owedNotices(root, cfg, rows, quiet)).sort(), ['u1', 'u2']);

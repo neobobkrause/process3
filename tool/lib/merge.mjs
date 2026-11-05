@@ -221,8 +221,6 @@ export function merge(root, n, opts = {}) {
       appendRow(wt, id, {
         row: 'merge', pr: n, reviewed: !!reviewed, review: reviewed || noReview, review_rounds: rounds.rounds, ...(rounds.decision ? { decision: rounds.decision } : {}),
         triggers: trig.fired, ...measures,
-        // The base-red tests its green gate run tolerated (flow.mjs: base-red rising holds new starts).
-        base_red: [agreed.base_red, agreed.smoke?.base_red].flat().filter(Boolean).reduce((k, b) => k + (Array.isArray(b.tests) ? b.tests.length : 0), 0),
         minutes_from_complete: done ? Math.round((Date.now() - Date.parse(done.at)) / MINUTE) : null,
       });
       git(['add', '--', metricsFile(id)], { cwd: wt });
