@@ -1,6 +1,6 @@
 // Shared helpers: running programs, git, GitHub through gh, config, arguments.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -538,6 +538,22 @@ export const TEMP_STALE_HOURS = 3;
 const temps = new Map();
 let exitHook = false;
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } };
+// Write and search permission back for the owner under dir, directories first, past any error
+// (a read-only base-red tree, basered.mjs; a directory its code made 000), so it can be removed by
+// a user that is not root.
+export function ownerWritable(dir) {
+  const walk = (p) => {
+    let st;
+    try { st = lstatSync(p); } catch { return; }
+    if (st.isSymbolicLink()) return;
+    try { chmodSync(p, (st.mode & 0o7777) | (st.isDirectory() ? 0o700 : 0o200)); } catch { /* go on */ }
+    if (st.isDirectory()) { let names = []; try { names = readdirSync(p); } catch { /* go on */ } for (const n of names) walk(join(p, n)); }
+  };
+  walk(dir);
+}
+const removeTree = (dir) => {
+  try { rmSync(dir, { recursive: true, force: true }); } catch { ownerWritable(dir); rmSync(dir, { recursive: true, force: true }); }
+};
 function dropTemp(dir, root) {
   if (root) {
     // git lists a worktree by its real path (a symlinked TMPDIR, macOS's /var, is resolved).
@@ -549,9 +565,8 @@ function dropTemp(dir, root) {
       if (p && [dir, real].some((d) => p === d || p.startsWith(`${d}/`))) git(['worktree', 'remove', '--force', '--force', p], { cwd: root, allowFail: true });
     }
   }
-  rmSync(dir, { recursive: true, force: true });
+  try { removeTree(dir); } finally { temps.delete(dir); }
   if (root) git(['worktree', 'prune'], { cwd: root, allowFail: true });
-  temps.delete(dir);
 }
 // Removes the scratch directories of processes no longer running; with root, prunes its worktrees.
 export function sweepTemp(root, { base = tmpdir(), now = Date.now() } = {}) {
@@ -566,7 +581,7 @@ export function sweepTemp(root, { base = tmpdir(), now = Date.now() } = {}) {
       try { owner = Number(readFileSync(join(d, TEMP_OWNER), 'utf8')); } catch {}
       const stale = owner ? owner !== process.pid && !alive(owner) : now - statSync(d).mtimeMs > TEMP_STALE_HOURS * 3600000;
       if (!stale) continue;
-      rmSync(d, { recursive: true, force: true });
+      removeTree(d);
       gone.push(d);
     } catch {}
   }
@@ -586,7 +601,7 @@ export function holdTemp(prefix, { root } = {}) {
   const dir = mkdtempSync(join(tmpdir(), prefix));
   writeFileSync(join(dir, TEMP_OWNER), String(process.pid));
   // process.exit inside fn runs no finally: what is still held goes at exit.
-  if (!exitHook) { exitHook = true; process.once('exit', () => { for (const [d, r] of temps) dropTemp(d, r); }); }
+  if (!exitHook) { exitHook = true; process.once('exit', () => { for (const [d, r] of temps) { try { dropTemp(d, r); } catch { /* the next sweep */ } } }); }
   temps.set(dir, root);
   return { dir, drop: () => { if (temps.has(dir)) dropTemp(dir, root); } };
 }

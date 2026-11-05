@@ -3,11 +3,11 @@
 // that read it, each with the verdicts it had before.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gate as gateRun, gateComment, requirementsOnly, revertCheck } from '../lib/gate.mjs';
-import { baseRed, startBase, treeDigest } from '../lib/basered.mjs';
+import { baseRed, setWritable, startBase, treeDigest } from '../lib/basered.mjs';
 import { readResults, runSuite } from '../lib/suite.mjs';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
@@ -214,14 +214,43 @@ test('base-red: the tree prepared beside the head is read-only and hashed; any c
     (wt) => { chmodSync(join(wt, 'node_modules/dep'), 0o755); chmodSync(join(wt, 'node_modules/dep/index.js'), 0o644); writeFileSync(join(wt, 'node_modules/dep/index.js'), 'throw 1;\n'); chmodSync(join(wt, 'node_modules/dep/index.js'), 0o444); chmodSync(join(wt, 'node_modules/dep'), 0o555); },
     (wt) => { chmodSync(join(wt, 'src/alpha/index.mjs'), 0o644); writeFileSync(join(wt, 'src/alpha/index.mjs'), 'export const x = 9;\n'); },
     (wt) => { chmodSync(join(wt, 'test/alpha'), 0o755); writeFileSync(join(wt, 'test/alpha/extra.mjs'), ''); },
+    // Not a tracked file: only the hash sees it.
+    (wt) => { chmodSync(join(wt, 'node_modules'), 0o755); writeFileSync(join(wt, 'node_modules/planted.js'), 'throw 1;\n'); },
   ]) {
     const q = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000 }));
     q.used = false;
     tamper(q.wt);
     const r = baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: q });
     assert.equal(r.ok, false);
-    assert.match(r.why, /^the base's tree prepared beside the head changed after its build \(its content hash differs: \d+ files now, \d+ then\): no base-red verdict, the failures are the PR's$/);
+    assert.match(r.why, /^the base's tree prepared beside the head (changed after its build \(its content hash differs: \d+ files now, \d+ then\)|is not the base's: \S+ differs from its blob at [0-9a-f]{10}): no base-red verdict, the failures are the PR's$/);
     assert.equal(existsSync(q.dir), false, 'removed, read-only or not');
+  }
+  // Written before the hash was taken (baked into it): a source is still not the base's blob.
+  {
+    const q = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000 }));
+    q.used = false;
+    setWritable(q.wt, true);
+    writeFileSync(join(q.wt, 'test/alpha/red.test.mjs'), "import test from 'node:test'; test('plane > has ai-catalogue', () => { throw 1; });\n");
+    setWritable(q.wt, false);
+    q.digest = treeDigest(q.wt);
+    const r = baseRed(s.root, e, { base: s.base, failing, cfg, timeout: 60000, prepared: q });
+    assert.match(r.why, /^the base's tree prepared beside the head is not the base's: test\/alpha\/red\.test\.mjs differs from its blob at [0-9a-f]{10}: no base-red verdict/);
+  }
+  // A mode alone, or a link, changes the hash.
+  {
+    const q = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000 }));
+    const was = treeDigest(q.wt).digest;
+    chmodSync(join(q.wt, 'node_modules/dep/index.js'), 0o555);
+    assert.notEqual(treeDigest(q.wt).digest, was);
+    chmodSync(join(q.wt, 'node_modules/dep/index.js'), 0o444);
+    assert.equal(treeDigest(q.wt).digest, was);
+    chmodSync(join(q.wt, 'node_modules'), 0o755);
+    symlinkSync('dep', join(q.wt, 'node_modules/alias'));
+    assert.notEqual(treeDigest(q.wt).digest, was);
+    // A directory the head's code made 000 is still removed.
+    chmodSync(join(q.wt, 'node_modules/dep'), 0o000);
+    q.drop();
+    assert.equal(existsSync(q.dir), false);
   }
   // A verdict but no hash on the pipe: prepared inline.
   const n = ready(startBase(s.root, { base: s.base, cfg, timeout: 60000 }));

@@ -8,7 +8,7 @@ import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, start
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
-import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
+import { SCRIPT, baseRed, dropAll, reachers, startBase, testId } from './basered.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
@@ -66,7 +66,11 @@ export function gateConfig(root, { base, head, branch, slug, io = ghIO }) {
 
 // The gate never posts: its token can only read, and job post writes the comment from the run's
 // artifact (setup audit, 2 Nov).
+// The background base-red trees (basered.mjs startBase) are dropped on every way out of the gate.
 export function gate(root, opts) {
+  try { return gateRun(root, opts); } finally { dropAll(); }
+}
+function gateRun(root, opts) {
   const { base, head, branch: eventBranch, pr, draft: eventDraft = false, started = Date.now(), io = ghIO, exec, log = console.log } = opts;
   const slug = opts.slug || repoSlug(root);
   // A spec head is never the tranche, so the bootstrap reads the event's branch either way.

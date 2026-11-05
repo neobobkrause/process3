@@ -26,7 +26,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { install, runSuite, testFiles, testTreeFiles } from './suite.mjs';
 import { buildGenerated } from './checks.mjs';
-import { NO_TOKENS, exists, holdTemp, run, withTemp } from './util.mjs';
+import { NO_TOKENS, exists, holdTemp, ownerWritable, run, withTemp } from './util.mjs';
 
 // More tolerated failures than this is not a base that is a little red: the row stays small.
 export const MAX_BASE_RED = 50;
@@ -67,6 +67,24 @@ export function writeTree(root, sha, dir) {
   }
 }
 
+// The first of the base's files in dir that is not the base's blob (its bytes, its link or its
+// executable bit), or null: checked right before the base runs in a tree prepared beside the head,
+// beside treeDigest, since a source written before the hash was taken is in the hash. Git's own
+// hash (sha1 of "blob <size>\0" and the bytes, or of the link's target), so no filter or attribute
+// applies.
+export function changedInTree(root, sha, dir) {
+  const oid = (body) => createHash('sha1').update(`blob ${body.length}\0`).update(body).digest('hex');
+  for (const x of blobs(root, sha)) {
+    const p = join(dir, x.path);
+    try {
+      const st = lstatSync(p);
+      if (x.mode === '120000') { if (!st.isSymbolicLink() || oid(Buffer.from(readlinkSync(p))) !== x.oid) return x.path; continue; }
+      if (!st.isFile() || oid(readFileSync(p)) !== x.oid || ((st.mode & 0o100) !== 0) !== (x.mode === '100755')) return x.path;
+    } catch { return x.path; }
+  }
+  return null;
+}
+
 // The whole tree's content (build gate-speed, the coordinator's ruling on the residual: the head's
 // code runs while the base's tree exists): every file, link and directory under dir, node_modules
 // and built files included, by path, kind, permission bits and bytes (sha256), as one sha256.
@@ -94,14 +112,14 @@ export function treeDigest(dir) {
   return { digest: all.digest('hex'), files, bytes };
 }
 // Write permission off every file and directory under dir (children first), or back on for the
-// owner (directories first); links are left alone.
+// owner (ownerWritable: directories first, past any error); links are left alone.
 export function setWritable(dir, on) {
+  if (on) { ownerWritable(dir); return; }
   const walk = (p) => {
     const st = lstatSync(p);
     if (st.isSymbolicLink()) return;
-    if (on) chmodSync(p, (st.mode & 0o7777) | 0o200);
     if (st.isDirectory()) for (const n of readdirSync(p)) walk(join(p, n));
-    if (!on) chmodSync(p, st.mode & 0o7777 & ~0o222);
+    chmodSync(p, st.mode & 0o7777 & ~0o222);
   };
   walk(dir);
 }
@@ -172,14 +190,20 @@ export function prepareTree(root, base, wt, { lockfiles = [], rows = [], timeout
 // prepares its own, as before. When the process ends without a verdict (it crashed or was killed)
 // or its install or build failed, baseRed prepares the tree inline, with its own budget. drop(): the process stopped, the tree removed; also at exit.
 // The head's install, build and tests run while the base's tree exists (the coordinator's ruling,
-// 5 Nov: closed, not a residual). When its build ends the preparation makes the whole tree
-// read-only and sends its content hash (treeDigest: node_modules and built files included) on a
-// pipe only this process holds; right before the base runs in it, the hash is taken again, and a
-// tree that differs fails closed: no base-red verdict, the suite's failures are the PR's. No hash
-// sent, or a refused preparation: the tree is prepared again inline. A verdict file rewritten to
-// say ok gains nothing without the hash, which is not in a file.
+// 5 Nov). When its build ends the preparation makes the whole tree read-only and sends its content
+// hash (treeDigest: node_modules and built files included) on a pipe only this process holds; right
+// before the base runs in it, the hash is taken again and every source is checked against the
+// base's blobs (changedInTree), and a tree that differs fails closed: no base-red verdict, the
+// suite's failures are the PR's. No hash sent, or a refused preparation: prepared again inline.
+// Residual (confirming review of the hash): node_modules and built files written by the head's
+// code while the base's install and build still run are in the hash, and nothing independent
+// checks them; and, as before this build, a process the PR's tests leave running can still write
+// after the check. The tranche into main, which tolerates nothing, is the backstop.
 export const PREP = join(dirname(fileURLToPath(import.meta.url)), 'base-prep.mjs');
 const nap = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+// The preparations not yet dropped, for a caller that must drop them on every way out (dropAll).
+const live = new Set();
+export const dropAll = () => { for (const h of [...live]) h.drop(); };
 export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} }) {
   const { dir, drop } = holdTemp('p3-base-red-');
   const wt = join(dir, 'base');
@@ -218,7 +242,7 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
   // Before the scratch directories' own exit hook removes the tree the install still writes to.
   process.prependOnceListener('exit', stop);
   log(`base-red: the base ${base.slice(0, 10)}'s tree is prepared beside the head's install`);
-  return {
+  const handle = {
     base, wt, dir, used: false,
     // The prepared tree's verdict, waiting up to ms: { ok }, { ok: false, why }, or null when the
     // process ended without one (baseRed then prepares the tree inline).
@@ -238,6 +262,7 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
       }
     },
     drop() {
+      live.delete(handle);
       stop();
       process.removeListener('exit', stop);
       try { setWritable(wt, true); } catch { /* not built, or gone */ }
@@ -247,6 +272,8 @@ export function startBase(root, { base, cfg, rows = [], timeout, log = () => {} 
     // The process group killed as the OOM killer would, the exit status unwritten (tests).
     kill() { if (child?.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } } },
   };
+  live.add(handle);
+  return handle;
 }
 
 // The digest the preparation sent on its pipe (fd 3), held by this process alone: not in a file the
@@ -292,6 +319,8 @@ export function baseRed(root, entry, { base, failing, cfg, rows = [], timeout, e
         const t0 = Date.now();
         const now = treeDigest(prepared.wt);
         log(`base-red: the base's tree checked, ${now.files} files, ${Math.round(now.bytes / 1048576)} MB, in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+        const src = changedInTree(root, base, prepared.wt);
+        if (src) return no(`the base's tree prepared beside the head is not the base's: ${src} differs from its blob at ${base.slice(0, 10)}: no base-red verdict, the failures are the PR's`);
         if (now.digest !== prepared.digest.digest) return no(`the base's tree prepared beside the head changed after its build (its content hash differs: ${now.files} files now, ${prepared.digest.files} then): no base-red verdict, the failures are the PR's`);
         setWritable(prepared.wt, true);
         return compareAt(root, entry, prepared.wt, prepared.dir, { base, failing, files, left, log });
