@@ -88,3 +88,41 @@ from rows); a simulated window of 4 with one red at position 1 through train() w
 mode and `spec-tested` fast path (receipt from the job PR; draft not skipping; a tree not tested is
 not fast); jobMerge cover through a `spec-tested` row. Full suite, cold review, confirming review on
 the merge path.
+
+## Ruling and interfaces (coordinator, 5 Nov: go C')
+
+Conditions: (1) `spec-tested` fires only on exact tree equality of L and R(i) excluding record paths,
+and only for a spec row that verifies (its run, base ref `train/spec/*`, head `train/head/<pr>-<seq>`,
+its tested tree); anything else is the full re-gate. (2) Spec mode judges exactly as the job's own
+gate would; a job red in its own gate is red in spec mode (tested). (3) The window admits only PRs
+whose own job-PR gate is green (ready() already gives only those). (4) Every spec build, close and
+fallback writes a row with its cause; the train report counts fast-path lands against fallbacks.
+`merge_train_window` defaults to 1: today's serial train, unchanged.
+
+The parts and the contracts between them:
+
+- **Names.** `SPEC_REF = /^train\/(spec|head)\/(\d+)-(\d+)$/`: base `train/spec/<jobPR>-<seq>`, head
+  `train/head/<jobPR>-<seq>`, the same `<jobPR>-<seq>` on both. Exported from gate.mjs as
+  `specRefs(baseRef, headRef) -> { pr, seq } | null`.
+- **Gate spec mode** (gate.mjs): when the live PR's base ref and the event's head ref form a spec
+  pair, the run is judged as job PR `<jobPR>` (its head must be an ancestor of the spec head; the PR
+  open, into the tranche, from a job branch of this repository): branch, draft and receipt (and its
+  opener) are the job PR's; no record fast paths. Every row carries `tree` (the checkout's
+  `HEAD^{tree}`); a spec row carries `spec: { pr: <jobPR>, seq: <seq> }`.
+- **Fast path** (gate.mjs): on a job PR whose head commit's message has the trailer
+  `Spec-Tested: <specPR>`, the gate reads spec PR `<specPR>` (base and head a spec pair for this PR),
+  takes its newest row that verifies (verifyRow with `{ pr: specPR, baseRef: <its base ref> }`), is
+  green, trigger `code`, `spec.pr` this PR, whose `tree` is its own head's tree, and whose receipt
+  agrees for the job's current receipt attempt; when the files between that row's `sha` and this
+  head are all record paths, the row is `trigger: 'spec-tested'`, suite and receipt carried over,
+  `spec_pr`, `spec_run`, `spec_sha` named; no suite runs. Anything else: the trigger it would have
+  had. jobMerge's cover follows a `spec-tested` row to its spec row.
+- **merge.mjs**: `mergedResult(root, cfg, { n, id, branch, head, onto, ...row opts }) -> { sha, tree }`
+  builds, in a temporary worktree, the job's head merged onto `onto` plus its merge row (as merge()
+  builds its merged result today), and never pushes. `merge(root, n, { ..., spec: { pr, sha } })`:
+  once L is built, if the files between `spec.sha` and L are all record paths, L's head commit gets
+  the trailer and the result says `spec: { fast: true }`; else `spec: { fast: false, why }` and the
+  merge goes on as today (full re-gate).
+- **Window** (window.mjs, pure; train.mjs drives it): rows in `metrics/train-window.jsonl` on the
+  state branch, `{ at, row: 'spec', session, event, pr, seq, position, spec_pr, base, head, cause }`,
+  event one of build, close, land, fallback.
