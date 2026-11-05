@@ -17,23 +17,25 @@ import { CLOSED_FILE, releaseModules } from './status.mjs';
 import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_FIRST, READY_START, bobWake, toolPin } from './job.mjs';
 import { owe, readAuto, starterLive } from './hold.mjs';
-import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, deepenToBase, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewMeasures, reviewRounds } from './merge.mjs';
+import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, attemptStart, deepenToBase, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewCostOf, reviewMeasures, reviewRounds, reviewSessions } from './merge.mjs';
+import { diffNames, entriesAt } from './gate.mjs';
+import { rowsAt } from './metrics.mjs';
+import { TRAIN_NOTES, TRAIN_ROWS } from './stuck.mjs';
 import { admit, chainEnd, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
 import { approvalsHash } from './start.mjs';
 import { createHash, randomBytes } from 'node:crypto';
-import { DEEP_MARK, Fail, SERVER_ERROR, fail, fetchJobRefs, git, heartbeat, isRecordOrLane, isShallow, loadConfig, markedDeep, now, repoSlug } from './util.mjs';
-import { diffNames, entriesAt } from './gate.mjs';
+import { DEEP_MARK, Fail, SERVER_ERROR, fail, fetchJobRefs, git, heartbeat, isRecordOrLane, isRecordPath, isShallow, loadConfig, markedDeep, now, repoSlug } from './util.mjs';
 import { readAddress } from './roles.mjs';
 
 // A stop the train must never write past or retry: a lost lease, changed approvals, the disk.
 export class Stop extends Fail {}
 const stop = (msg) => { throw new Stop(msg); };
 
-export const TRAIN_FILE = 'metrics/train.jsonl'; // one row per merge the train tried
-export const NOTES_FILE = 'metrics/train-notes.jsonl'; // a pull request's review and cost, per head
+export const TRAIN_FILE = TRAIN_ROWS; // one row per merge the train tried (metrics/train.jsonl)
+export const NOTES_FILE = TRAIN_NOTES; // a pull request's review and cost, per head (metrics/train-notes.jsonl)
 export const MERGER_FILE = 'metrics/merger.jsonl'; // lease takeovers, the merger's context
 export const LEASE_FILE = 'merger/lease.json';
 export const PLAIN_FILE = 'merger/plain.jsonl'; // plain pull requests queued for the train, and their withdrawals
@@ -116,7 +118,20 @@ export function trainNote(root, n, opts = {}) {
     if (!bob || by !== bob) fail(`a review note is BOB's to record (the addressed BOB is ${bob || 'none'}, this session ${by || 'unknown'}); a cost may be recorded by anyone`);
   }
   const rounds = review ? reviewRounds(opts) : null;
-  const row = { at: now(), row: 'note', by, pr: Number(n), sha: pr.head.sha, ...(review ? { reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision, ...reviewMeasures(opts) } : {}), ...(cost !== null ? { job_cost_usd: cost, job_session: opts.jobSession || null } : {}), ...(pr.merged ? { merged: true } : {}) };
+  let measures = review ? reviewMeasures(opts) : null;
+  if (!opts.reviewed && (opts.reviewSession !== undefined || opts.reviewRecord !== undefined)) fail('--review-session and --review-record go with --reviewed');
+  const sessions = reviewSessions(opts.reviewSession);
+  // The review's cost read here, in BOB's checkout, where its `metrics add <id> --role review` rows are
+  // (the MERGER's clone sees only those on the tranche), as merge reads it (merge.mjs reviewCostOf).
+  if (opts.reviewed && measures.review_usd === 'unmeasured') {
+    git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${pr.head.ref}:refs/remotes/origin/${pr.head.ref}`], { cwd: root, allowFail: true });
+    let id = null;
+    try { id = branchModule(pr.head.ref, ledgerIds(root, `origin/${cfg.tranche}`)); } catch { id = null; }
+    const c = id ? reviewCostOf(root, cfg, id, { sessions, record: opts.reviewRecord, since: attemptStart(rowsAt(root, pr.head.sha, id)) }) : { usd: 'unmeasured', why: `${pr.head.ref} is not a job branch here` };
+    measures = { ...measures, review_usd: c.usd, ...(c.from ? { review_usd_from: c.from } : { review_usd_why: c.why }) };
+    log(c.from ? `review cost: ${c.usd} USD, from ${c.from}` : `review cost: unmeasured (${c.why})${sessions.length ? '; the MERGER reads the named sessions\' rows on the tranche again at the merge' : ''}`);
+  }
+  const row = { at: now(), row: 'note', by, pr: Number(n), sha: pr.head.sha, ...(review ? { reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision, ...measures, ...(sessions.length ? { review_sessions: sessions } : {}) } : {}), ...(cost !== null ? { job_cost_usd: cost, job_session: opts.jobSession || null } : {}), ...(pr.merged ? { merged: true } : {}) };
   writeState(root, cfg.state_branch, `merge train note for PR ${n}`, (wt) => append(wt, NOTES_FILE, row));
   log(`merge train note for PR ${n} at ${pr.head.sha.slice(0, 10)}: ${review ? (row.reviewed ? `reviewed, ${row.rounds} round(s)` : `no review: ${row.no_review}`) : ''}${review && cost !== null ? '; ' : ''}${cost !== null ? `job cost ${cost} USD` : ''}`);
   return row;
@@ -128,10 +143,50 @@ export function noteFor(notes, n, sha, bob) {
   const mine = notes.filter((x) => x.row === 'note' && x.pr === n && x.sha === sha && !x.merged);
   return { review: (bob ? mine.filter((x) => x.by === bob && (x.reviewed || x.no_review)).pop() : null) || null, cost: mine.filter((x) => x.job_cost_usd != null).pop() || null };
 }
+// A review of an earlier head carried to this one (review-trigger day-1 study, 5 Nov: copy PR 364,
+// reviewed at 7cac421, sat about 13.5 h refused --no-review once its head moved to d3af394): BOB's
+// newest --reviewed note for the pull request on another head counts for this head when the job's
+// change is the same at both (sameChange); the merge still judges the triggers on this head, and
+// its row names the head reviewed. Otherwise the head stays unreviewed and the reason is kept
+// (moved), for the refusal sent to BOB; status and the idle alarm name it stuck (stuck.mjs).
+// cache: a Map, so each pair of heads is compared once.
+export function carriedNote(root, cfg, notes, n, sha, bob, cache = new Map()) {
+  const own = noteFor(notes, n, sha, bob);
+  if (own.review || !bob) return own;
+  const earlier = notes.filter((x) => x.row === 'note' && x.pr === n && x.sha && x.sha !== sha && !x.merged && x.by === bob && x.reviewed).pop();
+  if (!earlier) return own;
+  const k = `${earlier.sha}>${sha}`;
+  const s = cache.get(k) || sameChange(root, cfg, earlier.sha, sha);
+  if (!s.unread) cache.set(k, s); // an unread head is compared again once fetched
+  return s.same ? { ...own, review: { ...earlier, carried_from: earlier.sha } } : { ...own, moved: { from: earlier.sha, why: s.why } };
+}
+// Whether heads a and b carry the same change: each against its merge base with the tranche, the
+// same files outside the records, and the same diff of them, line numbers and blob ids aside (a
+// head that only brought the tranche in, or that the train itself pushed a merged result to).
+// Context lines count: the tranche changing the lines beside the job's is a change to review.
+export function sameChange(root, cfg, a, b) {
+  const tranche = `refs/remotes/origin/${cfg.tranche}`;
+  const side = (sha) => {
+    if (git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0) return null;
+    const mb = git(['merge-base', sha, tranche], { cwd: root, allowFail: true });
+    if (mb.code !== 0 || !mb.stdout.trim()) return null;
+    const base = mb.stdout.trim();
+    const files = diffNames(root, base, sha).filter((f) => !isRecordPath(cfg, f)).sort();
+    const d = files.length ? git(['diff', '--no-renames', '--no-color', '--full-index', '-U3', base, sha, '--', ...files], { cwd: root }) : '';
+    return { files, diff: String(d).split('\n').filter((l, i, a) => !l.startsWith('index ') || /^Binary files /.test(a[i + 1] || '')).map((l) => (l.startsWith('@@') ? l.replace(/^@@ [^@]* @@/, '@@') : l)).join('\n') };
+  };
+  let x;
+  let y;
+  try { x = side(a); y = side(b); } catch (e) { return { same: false, unread: true, why: `not compared (${String(e.message).split('\n')[0]})` }; }
+  if (!x || !y) return { same: false, unread: true, why: `${!x ? a.slice(0, 10) : b.slice(0, 10)} or its merge base with ${cfg.tranche} is not readable here` };
+  if (x.files.join('\n') !== y.files.join('\n')) return { same: false, why: `the files it changes differ (${[...y.files.filter((f) => !x.files.includes(f)), ...x.files.filter((f) => !y.files.includes(f))].slice(0, 5).join(', ')})` };
+  if (x.diff !== y.diff) return { same: false, why: 'the job\'s change itself differs' };
+  return { same: true };
+}
 // merge()'s options from the notes for this head; with no review, --no-review (merge refuses it
 // when a trigger fires) and, with no cost, the job's cost unmeasured, priced later.
 const reviewOf = ({ review: r, cost: c }) => ({
-  ...(r ? { reviewed: r.reviewed || undefined, noReview: r.no_review || undefined, rounds: r.rounds || undefined, decision: r.decision || undefined, reviewMinutes: r.review_minutes ?? undefined, findings: r.findings ?? undefined, actedOn: r.findings_acted ?? undefined, ...(typeof r.review_usd === 'number' ? { reviewCostUsd: r.review_usd } : {}) } : { noReview: TRAIN_NO_REVIEW }),
+  ...(r ? { reviewed: r.reviewed || undefined, noReview: r.no_review || undefined, rounds: r.rounds || undefined, decision: r.decision || undefined, reviewMinutes: r.review_minutes ?? undefined, findings: r.findings ?? undefined, actedOn: r.findings_acted ?? undefined, ...(typeof r.review_usd === 'number' ? { reviewCostUsd: r.review_usd, ...(r.review_usd_from ? { reviewCostFrom: r.review_usd_from } : {}) } : r.review_sessions?.length ? { reviewSession: r.review_sessions } : {}), ...(r.carried_from ? { reviewedHead: r.carried_from } : {}) } : { noReview: TRAIN_NO_REVIEW }),
   ...(c ? { jobCostUsd: c.job_cost_usd, jobSession: c.job_session || undefined } : {}),
 });
 
@@ -264,8 +319,11 @@ function ready(root, ctx, skip = new Set()) {
     const run = g.id ?? g.completed_at;
     if ((ctx.backoff.get(`${p.number}@${p.head.sha}`)?.until || 0) > Date.now()) { job.stuck = 'the train is backing off it'; continue; }
     // A head refused (and handed to BOB) waits for a new head or gate run, or a review note made since.
-    const at = ctx.refused.get(`${p.number}@${p.head.sha}@${run}`);
-    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at)) { job.stuck = 'the train refused it on this head'; continue; }
+    // A refusal for want of a review re-enters once a review of an earlier head carries to this one (carriedNote).
+    const key = `${p.number}@${p.head.sha}@${run}`;
+    const at = ctx.refused.get(key);
+    const carried = () => /review trigger/.test(ctx.refusedWhy?.get(key) || '') && !!ctx.noteFor({ n: p.number, head: p.head.sha }).review?.carried_from;
+    if (at && !ctx.notes.some((x) => x.row === 'note' && x.pr === p.number && x.sha === p.head.sha && x.by && x.by === ctx.bob && (x.reviewed || x.no_review) && x.at >= at) && !carried()) { job.stuck = 'the train refused it on this head'; continue; }
     // ref: a user's head is fetched by it too (5 Nov: a cold clone fetched only providers' heads, so no user was held).
     out.push({ n: p.number, head: p.head.sha, ref: p.head.ref, run, id: branchModule(p.head.ref, ids), green_at: g.completed_at });
   }
@@ -489,9 +547,12 @@ function refuse(root, ctx, c, why) {
   ctx.gates.delete(c.head); // the gate is read again: a re-run makes a new key
   const told = ctx.refused.has(key);
   ctx.refused.set(key, now());
+  (ctx.refusedWhy ||= new Map()).set(key, why.split('\n')[0]);
   if (told) return;
   const first = why.split('\n')[0];
-  const text = /review trigger/.test(first) ? `PR ${c.n} (job ${c.id}) fires a review trigger and has no review recorded for ${c.head.slice(0, 10)}: review it (${P3} review brief ${c.n}), then ${P3} merge train note ${c.n} --reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>; the train merges it then`
+  let moved = null;
+  try { moved = /review trigger/.test(first) ? ctx.noteFor(c).moved || null : null; } catch { moved = null; }
+  const text = /review trigger/.test(first) ? `PR ${c.n} (job ${c.id}) fires a review trigger and has no review recorded for ${c.head.slice(0, 10)}${moved ? ` (BOB's review is of ${moved.from.slice(0, 10)}; it does not carry to this head: ${moved.why})` : ''}: review it (${P3} review brief ${c.n}), then ${P3} merge train note ${c.n} --reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>; the train merges it then`
     : /conflicts with|bring itself up to date/.test(first) ? `PR ${c.n}: job ${c.id} must sync (${P3} job sync ${c.id}, then job complete ${c.id}): ${first}`
       : /gate on the merged result is/.test(first) ? `PR ${c.n} (job ${c.id}): its merged result is red; the job fixes it: ${first}`
         : `PR ${c.n} (job ${c.id}) was not merged by the train: ${first}`;
@@ -519,6 +580,7 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     // the land's tree is the tree the spec gate tested, records aside; else the full re-gate).
     r = (ctx.merge || merge)(root, c.n, { ...reviewOf(ctx.noteFor(c)), head: c.head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, transient: ctx.transient, log: tick, onGate: (tip) => { if (c.window && ctx.window?.[0]?.n === c.n) ctx.window[0].pushed = tip; hold(root, ctx, c, tip); }, ...(c.held ? { noPush: true } : {}), ...(c.spec ? { spec: c.spec } : {}), beforeLand: () => leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals) });
     row.result = 'merged';
+    if (r?.rejudged) row.triggers_rejudged = r.rejudged; // merge.mjs: triggers judged at the land over an older row
     row.merged_at = now();
     row.green_to_merged = mins(Date.parse(c.green_at), Date.now());
     row.queue_at_end = ctx.prepared?.depth ?? null;
@@ -676,7 +738,7 @@ export function buildResult(root, ctx, c, onto) {
   if (pr.head?.sha !== c.head) fail(`pull request ${c.n} moved to ${s10(pr.head?.sha)} from ${s10(c.head)}, the head the train chose`);
   const note = reviewOf(ctx.noteFor(c));
   const rounds = reviewRounds(note);
-  const measures = reviewMeasures(note);
+  const measures = { ...reviewMeasures(note), ...(note.reviewedHead ? { reviewed_head: note.reviewedHead } : {}) };
   const { branch, receipt, trig } = jobChecks(root, c.n, pr, c.id, { cfg, slug, io, noReview: note.noReview, log: () => {} });
   return mergedResult(root, cfg, { n: c.n, id: c.id, branch, head: c.head, onto, ontoName: s10(onto), reviewed: note.reviewed, noReview: note.noReview, rounds, measures, triggers: trig.fired, attempt: receipt.attempt, log: () => {} });
 }
@@ -1233,12 +1295,13 @@ export function train(root, opts = {}) {
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
   if (!given.checkRunsMany) io.checkRunsMany = given.checkRuns ? (s, pairs) => pairs.map(([sha, name]) => io.checkRuns(s, sha, name)) : checkRunsMany;
   if (!given.commentsMany) io.commentsMany = given.comments ? (s, ns) => ns.map((n) => { try { return io.comments(s, n) || []; } catch { return null; } }) : commentsMany;
-  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], inflight: null, transient: opts.transient, bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
+  const ctx = { cfg, slug, io, log, session, minutes: opts.minutes || GATE_WAIT_MINUTES, every: opts.every, wait: opts.wait, pipeline: opts.pipeline ?? !once, diskFree: opts.diskFree || diskFreeMb, diskMin: opts.diskMinMb ?? DISK_MIN_MB, refused: new Map(), refusedWhy: new Map(), backoff: new Map(), plainTaken: new Set(), pending: [], inflight: null, transient: opts.transient, bob: undefined, rows: [], gates: new Map(), prepared: null, notes: [] };
   ctx.token = randomBytes(8).toString('hex');
   // The window (window.mjs), only past 1: merge and the merged-result build are given by a test.
   Object.assign(ctx, { k: cfg.merge_train_window || 1, merge: opts.merge || merge, build: opts.build || buildResult, window: [], windowRows: [], causes: new Map(), seqs: new Map(), buildFailed: new Set(), rebuilt: new Map(), solo: new Set() });
   ctx.onQueue = opts.onQueue; // a test reads the queue each round
-  ctx.noteFor = (c) => noteFor(ctx.notes, c.n, c.head, ctx.bob);
+  const carry = new Map();
+  ctx.noteFor = (c) => carriedNote(root, cfg, ctx.notes, c.n, c.head, ctx.bob, carry);
   const { takeover, dead } = takeLease(root, cfg, session, ctx.token, { take: true });
   ctx.renewed = Date.now();
   ctx.renew = () => { if (Date.now() - ctx.renewed >= LEASE.renew * MIN) { takeLease(root, cfg, session, ctx.token); ctx.renewed = Date.now(); } };
@@ -1246,7 +1309,7 @@ export function train(root, opts = {}) {
   // lease stops the train there; a renewal that could not be pushed is tried at the next command.
   const off = heartbeat(() => { try { ctx.renew(); } catch (e) { if (e instanceof Stop || !(e instanceof Fail)) throw e; ctx.renewed = Date.now() - Math.max(0, LEASE.renew * MIN - 30000); } }); // a failed push: tried again in 30 s
   // Heads refused by an earlier train wait as this one's would (a restart re-sends nothing).
-  try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); } catch { /* unread: tried again */ }
+  try { if (fetchState(root, cfg.state_branch, { fresh: true })) for (const x of jsonl(readState(root, cfg.state_branch, TRAIN_FILE))) if (x.result === 'refused' && x.head) { ctx.refused.set(`${x.pr}@${x.head}@${x.run}`, x.at); ctx.refusedWhy.set(`${x.pr}@${x.head}@${x.run}`, String(x.why || '')); } } catch { /* unread: tried again */ }
   log(`merge train: lease held by ${session}${dead ? ' (taken over from this session\'s train that is no longer running)' : takeover ? ' (taken over from an expired lease)' : ''}`);
   try {
     // A shallow clone cuts the history the provider hold reads (git merge-base of the tranche and a
