@@ -271,16 +271,26 @@ export function gatedChanges(root, sha, mb, files, { tranche, slug, io, baseRef,
 }
 
 // All rules for a close's product workflow files (the shims are held by the caller, rule 4).
-// at: { mb, base, baseRef, tranche, slug, io, ownerCommit }.
+// Rules 2 and 3 hold when the change fits the allowed shapes, or, since the owner's limits
+// (build workflow-limits, R1; Bob, 6 Nov), when it passes them (at.limits: merge.mjs, the
+// limits of workflow-limits.mjs against main's required checks), as the plain pull requests that
+// brought it did. Returns [{ file, limits }] for the merge's message.
+// at: { mb, base, baseRef, tranche, slug, io, ownerCommit, limits(f, src, baseSrc) }.
 export function closeWorkflows(root, sha, files, at) {
   const close = { ...at, io: { getPR, comments, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), ...(at.io || {}) } };
-  const refuse = (f, why) => fail(`the tranche changes ${f}: ${why}. A close may carry a product workflow change only through gated pull requests, and only in the allowed shapes`);
+  const refuse = (f, why) => fail(`the tranche changes ${f}: ${why}. A close may carry a product workflow change only through gated pull requests, and only in the allowed shapes or within the owner's limits`);
   const one = gatedChanges(root, sha, close.mb, files, close);
   if (one) refuse(one.f, one.why);
+  const judged = [];
   for (const f of files) {
     if (!/\.ya?ml$/.test(f)) continue; // GitHub runs only .yml and .yaml files; rule 1 held it
     const src = text(root, sha, f);
-    const why = src === null ? 'rule 3: it removes a workflow, and no allowed shape removes one' : workflowShapes(src, text(root, close.baseRef, f));
-    if (why) refuse(f, why);
+    const baseSrc = text(root, close.baseRef, f);
+    const why = src === null ? 'rule 3: it removes a workflow, and no allowed shape removes one' : workflowShapes(src, baseSrc);
+    if (!why) { judged.push({ file: f, limits: ['rule 1', 'rules 2 and 3'] }); continue; }
+    const lim = src !== null && at.limits ? at.limits(f, src, baseSrc) : null;
+    if (lim?.ok) { judged.push({ file: f, limits: ['rule 1', ...lim.limits] }); continue; }
+    refuse(f, `${why}${lim ? `; nor is it within the owner's limits (${lim.limit}${lim.line ? `, line ${lim.line}` : ''}: ${lim.why})` : ''}`);
   }
+  return judged;
 }
