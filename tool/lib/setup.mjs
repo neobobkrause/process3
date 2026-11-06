@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { generatedRows, oversizeGenerated } from './checks.mjs';
+import { laneModuleGaps } from './ledger.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
@@ -95,7 +96,7 @@ export function bashRuleMatches(rule, cmd) {
 }
 
 // One reader per condition that can be read; each returns { state, detail }.
-const readers = {
+export const readers = {
   account: (c, x) => {
     const me = x.api('user');
     if (!me?.login) return unread('the account (GET /user)');
@@ -305,6 +306,12 @@ const readers = {
       gaps.push(`.claude/settings.json carries a ${event} hook the pin does not allow (${command}): the file is the owner's, so Bob removes it through GitHub's website, or BOB opens a plain pull request into ${x.cfg.tranche} that adds it to ${HOOKS_SHIM} in the process`);
     }
     return gaps.length ? missing(gaps.join('; ')) : set(`${shims.join(', ')} equal the pin ${pin.sha.slice(0, 10)}'s shims; ${hookKeys(hooks).length} hook(s), each allowed`);
+  },
+
+  'lane-modules': (c, x) => {
+    const gaps = laneModuleGaps((f) => x.file(f), x.cfg);
+    const named = (Array.isArray(x.cfg.lanes) ? x.cfg.lanes : []).filter((l) => typeof l?.module === 'string' && l.module.trim()).length;
+    return gaps.length ? missing(gaps.join('; ')) : set(`${named} lane module(s), each with its ledger entry, modules row and requirements file`);
   },
 
   coordinator: (c, x) => {
