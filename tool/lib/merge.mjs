@@ -18,6 +18,7 @@ import { refuseUnderHold } from './inflight.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
+import { OUTSIDE, judgeWorkflow, refusal } from './workflow-limits.mjs';
 import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordOrLane, isRecordPath, isShallow, laneOnly, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
 
@@ -134,7 +135,7 @@ export function reviewRounds({ reviewed, noReview, rounds, decision, pass } = {}
   return { rounds: r, decision: decision ?? null };
 }
 
-// What a job merge's review cost and found (Bob, 4 Nov, about 19:05: measure the review triggers
+// What a job merge's review cost and found (coordinator's log, 4 Nov 19:05, recorded as Bob's decision, not quoted: measure the review triggers
 // for a day or two). --reviewed needs --review-minutes <n>, --findings <n> and --acted-on <n>
 // (how many findings the fix pass acted on); --review-cost-usd <n> when read, else unmeasured.
 // --no-review takes none of them.
@@ -512,7 +513,7 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
   const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
   if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
-  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
+  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (review triggers, 4 Nov 19:05). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
   if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
 
   return { branch, watch, first, all, receipt, mb, baseEntry, trig };
@@ -746,27 +747,64 @@ export function pinChange(root, mb, sha, repo, at = {}) {
 
 // A workflow that runs on pull_request runs the head's copy of its file, so a plain pull request
 // could rewrite a workflow, or add a job named like a required check (confirming review of
-// PR 14). A plain pull request may change a workflow file only to the process's own shim for
-// it, byte for byte, at the released process pin its head sets; any other change needs the
-// owner's word. The tranche into main (`close`, normal or bootstrap) is judged by workflows.mjs
-// instead (Bob, 4 Nov: product workflow changes are not his to bring): a process shim must still
-// be the pin's own (rule 4); any other workflow file passes rules 1 to 3 there.
-export function workflowChanges(root, sha, changed, repo, close = null) {
+// PR 14). Bob's standing approvals (CLAUDE.md, 4 Nov) and his word of 6 Nov (R1) bound what a
+// plain pull request may do there instead of refusing every change (process3 PR 188 and copy
+// PR 625 were refused and merged by hand, 6 Nov): L4, a process shim (process-gate.yml, and any
+// file named like a shim the pin ships) equals the pin's own shim, byte for byte, at the released
+// pin its head sets; every other workflow file changed or added passes L1, L2, L3 and L5
+// (workflow-limits.mjs), judged from its copy at the merge base to the head's against the base
+// branch's required checks. A deleted workflow, or one outside a limit, needs the owner's word.
+// In process3 itself (a plain pull request into a base with no pin and no config in its
+// history, and no pin at the head or the merge base) there are no shims, so L4 does not apply. The tranche into main (`close`, normal or
+// bootstrap) is judged by workflows.mjs (Bob, 4 Nov: product workflow changes are not his to
+// bring): a shim must still be the pin's own (rule 4); any other workflow file passes rule 1 and
+// either rules 2 and 3 there or these limits. Returns what was judged, for the merge's message:
+// [{ file, limits }].
+// at: { mb, required: () => the base's required check names, process3 }.
+export function workflowChanges(root, sha, changed, repo, close = null, at = {}) {
   const files = changed.filter((f) => f.startsWith(WORKFLOWS));
-  if (!files.length) return;
-  const owner = (why) => fail(`the pull request changes ${files.join(', ')}: ${why}${close ? ' (rule 4)' : '. A workflow change needs the owner\'s word: bring it to Bob'}`);
+  if (!files.length) return [];
+  const owner = (why, list = files) => fail(`the pull request changes ${list.join(', ')}: ${why}${close ? ' (rule 4)' : '. A workflow change needs the owner\'s word: bring it to Bob'}`);
   const pin = pinAt(root, sha);
-  if (!pin) owner('there is no process pin to compare it with');
-  if (!repo.released(pin)) owner(`the process pin ${pin.slice(0, 10)} is not a commit on process3's tranche or main`);
+  const own = !close && !pin && at.process3 === true && !(at.mb && pinAt(root, at.mb));
+  if (!pin && !own) owner('there is no process pin to compare it with');
+  if (pin && !repo.released(pin)) owner(`the process pin ${pin.slice(0, 10)} is not a commit on process3's tranche or main`);
   const product = [];
+  const judged = [];
+  let required = null;
+  const req = () => (required ??= at.required ? at.required() : []);
+  const limits = (f) => {
+    if (!/\.ya?ml$/.test(f)) return { ok: true, limits: [], note: 'not a workflow (GitHub runs only .yml and .yaml)' };
+    return judgeWorkflow(f, at.mb ? textAt(root, at.mb, f) : null, textAt(root, sha, f), req());
+  };
   for (const f of files) {
-    const blob = blobAt(root, sha, f);
-    const shim = repo.shim(pin, basename(f));
-    if (close && !shim && basename(f) !== 'process-gate.yml' && f.slice(WORKFLOWS.length) === basename(f)) { product.push(f); continue; }
-    if (!blob || !shim || blob !== shim) owner(`${f} is not the process's own shim at ${pin.slice(0, 10)}`);
+    if (pin) {
+      const blob = blobAt(root, sha, f);
+      const shim = repo.shim(pin, basename(f));
+      if (shim || basename(f) === 'process-gate.yml') {
+        if (!blob || !shim || blob !== shim) owner(`L4: ${f} is not the process's own shim at ${pin.slice(0, 10)}`);
+        judged.push({ file: f, limits: ['L4'] });
+        continue;
+      }
+    }
+    if (close) {
+      if (f.slice(WORKFLOWS.length) === basename(f)) product.push(f);
+      else owner(`${f} is not the process's own shim at ${pin.slice(0, 10)}`);
+      continue;
+    }
+    const r = limits(f);
+    if (!r.ok) fail(`the pull request changes ${refusal(f, r)}; ${OUTSIDE}`);
+    judged.push({ file: f, limits: r.limits, ...(r.note ? { note: r.note } : {}) });
   }
-  if (product.length) closeWorkflows(root, sha, product, close);
+  if (product.length) judged.push(...closeWorkflows(root, sha, product, { ...close, limits: (f, src, baseSrc) => judgeWorkflow(f, baseSrc, src, req()) }));
+  return judged;
 }
+const textAt = (root, rev, path) => {
+  const r = git(['show', `${rev}:${path}`], { cwd: root, allowFail: true });
+  return r.code === 0 ? r.stdout : null;
+};
+// The merge message's line for what workflowChanges judged.
+export const limitsLine = (judged) => (judged.length ? `Workflow limits: ${judged.map((j) => `${j.file.slice(WORKFLOWS.length)} ${j.limits.length ? j.limits.join(' ') : j.note || 'none'}`).join('; ')}` : null);
 
 // The first close (bootstrap; coordinator, 4 Nov: the copy's main had no .process, no config and
 // no process workflows, so its first tranche close had no base config to read the tranche's name
@@ -926,7 +964,19 @@ export function mergePlain(root, n, opts = {}) {
   const mb = git(['merge-base', baseRef, pr.head.sha], { cwd: root });
   // No rename detection: a rename lists the path it removes as well as the one it adds.
   const changed = diffNames(root, mb, pr.head.sha);
-  workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, ownerCommit: (c) => (baseCfg?.approvals.owner ? webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug) : { ok: false }) } : null);
+  // The base's required checks, read once, for the workflow limits and the wait below.
+  let rules;
+  const readRules = () => {
+    if (rules === undefined) rules = io.requiredChecks(slug, base);
+    if (!rules) fail(`could not read the checks ${base} requires`);
+    return rules;
+  };
+  // process3 itself: a base with no pin and no config in its history, not a first close into main.
+  const process3 = !main && isBootstrap(root, baseRef);
+  const workflows = workflowChanges(root, pr.head.sha, changed, io.repo, main ? { mb, base, baseRef, tranche: head, slug, io, ownerCommit: (c) => (baseCfg?.approvals.owner ? webCommitByOwner(root, c, baseCfg.approvals.owner, io.lookup, slug) : { ok: false }) } : null, {
+    mb, process3, required: () => [...new Set(readRules().checks.map((c) => c.context))],
+  });
+  if (workflows.length) log(`workflow changes within the owner's limits: ${limitsLine(workflows).replace(/^Workflow limits: /, '')}`);
   const owner = baseCfg?.approvals.owner;
   pinChange(root, mb, pr.head.sha, io.repo, {
     intoMain: main, baseRef, ownerCommit: (c) => (owner ? webCommitByOwner(root, c, owner, io.lookup, slug) : { ok: false }),
@@ -998,9 +1048,7 @@ export function mergePlain(root, n, opts = {}) {
     if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`);
   }
 
-  const rules = io.requiredChecks(slug, base);
-  if (!rules) fail(`could not read the checks ${base} requires`);
-  const names = [...new Set(rules.checks.map((c) => c.context))];
+  const names = [...new Set(readRules().checks.map((c) => c.context))];
   if (!names.length && (main || !baseCfg || base === baseCfg.tranche)) fail(`${base} requires no checks; its ruleset must require the gate before anything merges into it`);
   // Outside the train, nothing lands on the tranche under another pull request's in-flight gate.
   const held = () => { if (!opts.beforeLand && base === (baseCfg?.tranche || DEFAULTS.tranche)) refuseUnderHold(root, { ...(baseCfg || {}), tranche: baseCfg?.tranche || DEFAULTS.tranche, state_branch: baseCfg?.state_branch || DEFAULTS.state_branch }, n, { slug, io }); };
@@ -1032,7 +1080,7 @@ export function mergePlain(root, n, opts = {}) {
   noLiveJobs();
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
-    message: [pass !== undefined ? `Pass: ${pass}` : reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),
+    message: [pass !== undefined ? `Pass: ${pass}` : reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : []), ...(limitsLine(workflows) ? [limitsLine(workflows)] : [])].join('\n'),
   }), {
     log, wait: opts.wait, reread: { read: () => io.getPR(slug, n), sha: pr.head.sha },
     fetch: () => git(['fetch', '-q', 'origin', `+refs/heads/${base}:refs/remotes/origin/${base}`], { cwd: root, allowFail: true }),
@@ -1056,7 +1104,7 @@ export function mergePlain(root, n, opts = {}) {
   // Printed once per merge commit (state.mjs wakeOnce); the train prints none (quietWake): its
   // caller prints the wake from the train's row (build train-robust).
   if (wake && !opts.quietWake) printWake(root, baseCfg?.state_branch || DEFAULTS.state_branch, { pr: n, sha: r.sha, what, wake, as, by: 'merge', log });
-  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null, ...(passIds ? { pass, modules: passIds } : {}) };
+  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null, ...(passIds ? { pass, modules: passIds } : {}), ...(workflows.length ? { workflows } : {}) };
 }
 
 // A pin move's wake for BOB (build train-robust, option 2A): the same words wherever the move is

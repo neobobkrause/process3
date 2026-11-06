@@ -105,7 +105,7 @@ export function onHeadMoved(window, n, why = 'head moved', filesOf = none) {
 
 // The tranche moved by anything but the window's own land (a plain pull request, a hand merge):
 // every R(i) is built on a start that is no longer the tranche. Nothing closes while it matches.
-// `from` (judged by the train; Bob, 5 Nov): the first position whose own change shares a file with
+// `from` (judged by the train; coordinator, 5 Nov): the first position whose own change shares a file with
 // the move, records aside (0: all close, as before; the window's length: none). The positions
 // ahead of it stand, each marked `moved` with the tip so judged: each lands merged onto the tranche
 // as it is then, on the spec-tested path, which takes its tree plus a move that shares no file.

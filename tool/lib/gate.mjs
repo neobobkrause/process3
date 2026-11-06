@@ -4,7 +4,7 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, latestReceipt, parseBlock, verifyRow } from './github.mjs';
-import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
+import { branchModule, checkLedger, entryFile, homeRef, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
@@ -217,7 +217,9 @@ export function gate(root, opts) {
   // The job's branch is the one its latest start row names (a --fresh-branch start's job/<id>-<n>).
   const named = entry && startBranch(rowsAt(root, judged, job), job);
   if (named && named !== branch) findings.push(F('ledger', metricsFile(job), `branch ${branch} is not job ${job}'s branch: its latest start row names ${named}`));
-  findings.push(...checkLedger(root, { ref: judged, base: mb, branch }));
+  // A job PR into a layer branch may carry its own entry from the tranche, the ledger's home.
+  const home = job && !spec && layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null ? homeRef(root, cfg.tranche) : null;
+  findings.push(...checkLedger(root, { ref: judged, base: mb, branch, home }));
 
   // A job writes only its module's files and tests, and its own records (ARC-2).
   if (entry) {
@@ -538,7 +540,7 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   const sp = io.getPR(slug, n);
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== pr || sp.head?.repo?.full_name !== slug) return no(`PR ${n} is not a spec pull request of PR ${pr} in ${slug}`);
-  // The tree and records comparison is the binding (Bob, 5 Nov): the row's artifact and the spec
+  // The tree and records comparison is the binding (the coordinator's check audit, 5 Nov 19:30): the row's artifact and the spec
   // head's pull requests are not read again here.
   // AUD-2: the spec run must have checked, and agreed with, this job's current receipt attempt.
   const row = gateRuns(io.comments(slug, n) || [])
@@ -899,7 +901,7 @@ const listFiles = (root, p, out = []) => {
 // artifact, verifyRow): a spec pair for job PR n, from this repository, whose run of that id on
 // that commit judged job PR n, ran its suite green, tested that commit's own tree, differs from
 // the merged result only in records, on a base this land's stands on (baseDiffers). The tree and
-// records comparison is the binding (Bob, 5 Nov): the spec run's artifact is not read again; the
+// records comparison is the binding (coordinator's check audit, 5 Nov 19:30): the spec run's artifact is not read again; the
 // spec-tested row that names it is verified by the caller. null when not shown.
 function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;

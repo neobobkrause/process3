@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { METRICS_DIR, metricsFile, rowsAt } from './metrics.mjs';
-import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, exists, fail, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -82,7 +82,7 @@ const entryOf = (root, rev, file) => {
 // a link or a pin) and .mcp.json anywhere is the owner's: settings, hooks, agents, skills,
 // commands, output styles, any file (confirming review of PR 16). Like the approvals, only
 // the owner's own website commit may change them. A deny rule cannot stop an edit made
-// through the shell; this check holds every route (Bob's standing rule: sessions never
+// through the shell; this check holds every route (Bob's CLAUDE.md approvals: sessions never
 // change permission settings).
 // On process3 itself the required record check runs from main's copy of the tool
 // (pull_request_target runs from the default branch), so these rules judge process3's own
@@ -122,11 +122,11 @@ function introduced(root, sha, parents, { guarded = () => false, judged = () => 
   });
 }
 
-// record_since (decided by Bob, 2 Nov 2026): a product whose history predates Process3 names
+// record_since (Bob, 2 Nov, before the log; unverified): a product whose history predates Process3 names
 // the last commit before the process arrived; that commit and everything before it are not
 // checked. It is a key that weakens a check, so, like the approvals, only the owner's own
-// website commit may set or change it (recordCheck), with one exception (Bob's word on
-// question 16, 2 Nov 2026): any author may set it to the base's commit or an ancestor of it,
+// website commit may set or change it (recordCheck), with one exception (question 16,
+// Bob, 2 Nov, before the log; unverified): any author may set it to the base's commit or an ancestor of it,
 // since the base already leaves that history out and so it hides nothing the change brings
 // (onboarding). On a later range whose base does not hold it, the commit that set it needs
 // the owner's website commit again. It is used only while the base has no
@@ -236,11 +236,21 @@ function shallowCuts(root) {
 // trusted: the refs whose owner-set block a commit may carry (ownerBlock), beside the base: by
 // default origin/main and origin/<tranche>.
 // takenIn: the take-in tips (takenIn's tips) whose history is left out.
-export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, takenIn: earlier = [], trusted } = {}) {
+export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, takenIn: earlier = [], trusted, home } = {}) {
   const findings = [];
   const notices = [];
   const verified = new Map();
   const ownerName = cfg.approvals.owner;
+  // A shallow clone (copy, 6 Nov: a job session's depth-1 clone): a sync merge's other parent and
+  // the owner's approvals commits lie past the cut, so a merge that took the tranche's approvals
+  // cleanly read as an approvals change that was not the owner's. The whole history is fetched
+  // first (--unshallow adds history and rewrites nothing; --deepen=500 did not reach); if the
+  // clone stays shallow the check refuses, and never reports a change it has not proven.
+  if (shallowCuts(root).size) {
+    const r = git(['fetch', '-q', '--unshallow', 'origin'], { cwd: root, allowFail: true });
+    const left = shallowCuts(root).size;
+    if (left) fail(`this clone is shallow (its history is cut at ${left} commit(s)), and the record check needs the whole history to judge a merge or an approvals change; \`git fetch --unshallow origin\` did not complete${r.code !== 0 ? ` (${r.stderr.trim().split('\n').pop()})` : ''}: run \`git fetch --unshallow origin\` here, then run it again; nothing was judged`);
+  }
   // record_since names the base or an ancestor of it: a full commit id only, never a ref or
   // a short id, whose meaning could change. With no base there is nothing to compare with.
   const onBase = (v) => typeof v === 'string' && /^([0-9a-f]{40}|[0-9a-f]{64})$/i.test(v) && Boolean(base)
@@ -409,6 +419,6 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   if (headings.length > 1) {
     for (const [, line] of headings.slice(1)) findings.push({ check: 'approvals', file: afile, line, message: 'a second approvals heading; only one block may exist' });
   }
-  findings.push(...checkLedger(root, { ref: head, base: ledgerBase, branch }));
+  findings.push(...checkLedger(root, { ref: head, base: ledgerBase, branch, home }));
   return { commits: commits.length, findings, notices, size_waived: sizeWaived };
 }

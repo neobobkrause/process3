@@ -1,11 +1,12 @@
-// Holds (Bob, 5 Nov: on 4 Nov the coordinator's "about 6 job sessions at most" kept BOB near 6 of
-// 20 for about 6 hours and nothing in Process3 saw it). A hold on startable work is a row on the
+// Holds (the coordinator's design, 5 Nov 01:13, answering Bob's question why work was silently
+// limited: on 4 Nov the coordinator's "about 6 job sessions at most" kept BOB near 6 of 20 for
+// about 6 hours and nothing in Process3 saw it). A hold on startable work is a row on the
 // state branch, never words: `p3 hold <scope> --why --by --until`, ended by `p3 hold --end <id>` or
 // its end. Scope: module:<id>, layer:<n> or slots:<n>. job start --ready starts to the cap less
 // the live slot holds and starts no held module; status prints every hold first; the sweep alarms
 // on idle capacity whatever holds there are. A hold lasts until the pull requests it names (--prs)
-// have landed on the tranche, or its --until time, whichever comes first (Bob, 5 Nov: no forced
-// renewal); no hold needs Bob (coordinator's correction, 5 Nov). report tranche lists hold-hours
+// have landed on the tranche, or its --until time, whichever comes first (coordinator's check audit, 5 Nov
+// 19:30: no forced renewal); no hold needs Bob (coordinator's correction, 5 Nov). report tranche lists hold-hours
 // by setter and reason.
 import { appendFileSync, mkdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -136,6 +137,23 @@ export function holdHours(rows, from, to, landed = null) {
     out.set(k, { ...y, holds: y.holds + x.spans.length, hours: y.hours + union(x.spans).reduce((t, [s0, e0]) => t + (e0 - s0) / 36e5, 0) });
   }
   return [...out.values()].map((x) => ({ ...x, hours: Math.round(x.hours * 10) / 10 })).sort((x, y) => y.hours - x.hours);
+}
+
+// The holds a layer's open ends (coordinator, 6 Nov: holds recorded "until layer 6 closes", and a
+// session's hold --end of one was refused as weakening security): each live hold whose scope is only
+// modules of layer n (layer:<n>, or module:<id> of one of mods), with the end row hold --end
+// writes, its why naming the open. A hold on any other module, layer or on slots stays.
+export function endLayerHolds(root, sb, n, mods, { by, log = console.log, t = Date.now() } = {}) {
+  const mine = new Set(mods);
+  const ending = readHolds(root, sb, { t }).filter((h) => h.live && ((h.kind === 'layer' && Number(h.value) === n) || (h.kind === 'module' && mine.has(h.value))));
+  if (!ending.length) return [];
+  const why = `ended by layer open ${n}`;
+  writeState(root, sb, `hold: end ${ending.map((h) => h.id).join(', ')} (layer open ${n})`, (dir) => {
+    for (const h of ending) put(dir, { at: now(), row: 'end', id: h.id, by, why });
+    return {};
+  });
+  for (const h of ending) log(`${h.id} ended: ${h.scope} holds nothing now (${why})`);
+  return ending.map((h) => h.id);
 }
 
 const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); appendFileSync(join(dir, HOLDS_FILE), JSON.stringify(row) + '\n'); };

@@ -146,12 +146,30 @@ test('a shallow clone that cannot be deepened says so; it never judges a cut com
   assert.throws(() => shallowRange(bare, wrong), /could not read the job's range|run job complete again/);
 });
 
-test('a commit whose history this clone cuts is not judged as a root commit', () => {
+test('a shallow clone: the record check fetches the whole history first (--unshallow), and then judges only the job\'s own commits', () => {
   const { bare, tip } = fixture();
   const c = cloneOf(bare, 1);
   fetchBranch(c, 'tranche');
   git(['fetch', '-q', '--depth=3', 'origin', '+refs/heads/job/site:refs/remotes/origin/job/site'], { cwd: c });
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: c }), 'true');
   const r = recordCheck(c, cfg, { base: tip, head: 'origin/job/site', lookup: notOwner });
-  assert.ok(r.findings.length > 0);
-  for (const f of r.findings) assert.match(f.message, /could not be checked: this clone's history is cut there/);
+  assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: c }), 'false');
+  assert.deepEqual(r.findings, []);
+  assert.equal(r.commits, JOB_OWN);
+});
+
+// Copy, 6 Nov: in a depth-1 job clone a sync merge that took the tranche's approvals cleanly was
+// named "changes the approvals but is not neobobkrause's own commit". A clone that stays shallow
+// is refused in plain words with the command; nothing is judged, so no such change is named.
+test('a shallow clone that cannot be unshallowed is refused, naming the shallow clone and the command; no approvals change is reported', () => {
+  const { bare, tip } = fixture();
+  const c = cloneOf(bare, 1);
+  fetchBranch(c, 'tranche');
+  git(['fetch', '-q', '--depth=3', 'origin', '+refs/heads/job/site:refs/remotes/origin/job/site'], { cwd: c });
+  git(['remote', 'set-url', 'origin', 'file:///nonexistent/origin.git'], { cwd: c });
+  assert.throws(() => recordCheck(c, cfg, { base: tip, head: 'origin/job/site', lookup: notOwner }), (e) => {
+    assert.match(e.message, /this clone is shallow .*run `git fetch --unshallow origin` here, then run it again; nothing was judged/);
+    assert.doesNotMatch(e.message, /changes the approvals/);
+    return true;
+  });
 });
