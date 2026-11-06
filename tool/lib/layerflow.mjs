@@ -142,7 +142,23 @@ export function interfaceChange(root, cfg, id, before, after) {
     if (hit.length) out.provides_tests_old = hit.sort();
     if (examined.length) {
       out.provides_tests_named = examined;
-      const asserted = examined.map((f) => ({ file: f, ...classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids) }));
+      // A new file that replaces a deleted one naming a Provides requirement they share is compared
+      // with that file, as a rename would be; a new file replacing none only adds assertions.
+      const gone = examined.filter((f) => textAt(root, after, f) === null && textAt(root, before, f) !== null);
+      const nameRe = (r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`);
+      const shared = (x, y) => ids.some((r) => nameRe(r).test(x || '') && nameRe(r).test(y || ''));
+      const replaced = new Map(); // added file -> the deleted one it replaces
+      for (const f of examined) {
+        const a0 = textAt(root, after, f);
+        if (textAt(root, before, f) !== null || a0 === null) continue;
+        const was = gone.find((g) => ![...replaced.values()].includes(g) && shared(textAt(root, before, g), a0));
+        if (was) replaced.set(f, was);
+      }
+      const asserted = examined.map((f) => {
+        if ([...replaced.values()].includes(f)) return { file: f, class: 'none', why: `replaced by ${[...replaced].find(([, g]) => g === f)[0]}` };
+        if (replaced.has(f)) { const c = classifyTestChange(textAt(root, before, replaced.get(f)), textAt(root, after, f), ids); return { file: f, ...c, why: `replaces ${replaced.get(f)}: ${c.why}` }; }
+        return { file: f, ...classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids) };
+      });
       out.provides_test_changes = asserted;
       const real = asserted.filter((x) => x.class !== 'none').map((x) => x.file);
       if (real.length) out.provides_tests = real;

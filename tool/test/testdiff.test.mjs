@@ -43,7 +43,8 @@ test('breaking: the review\'s cases, each a changed expectation', () => {
     assert.equal(cls(from, after), 'breaking', k);
   }
   assert.equal(cls(base, '/* unclosed'), 'breaking', 'unparsed counts as breaking');
-  assert.equal(cls(null, base), 'breaking', 'added');
+  // A wholly new test file only adds assertions (copy PR 696, t53-layer.test.mjs).
+  assert.deepEqual(classifyTestChange(null, base, ['R3']), { class: 'additive', why: 'added: a new test file only adds assertions' });
   assert.equal(cls(base, null), 'breaking', 'removed');
 });
 

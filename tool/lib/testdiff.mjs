@@ -4,6 +4,7 @@
 //   none      nothing else changed;
 //   additive  the only change adds keys or fields to object literals (an expected row gains
 //             `pixels_sha256: null`), every existing token kept: a gate-only retest of each user;
+//             A wholly new test file is additive (unless it replaces a deleted one: compared with it).
 //   breaking  anything else (a changed or removed expected value or key, a new or changed call,
 //             setup, a fixture, a relative import): a full reschedule. Conservative: a file that
 //             cannot be read token by token, or a diff too large to align, is breaking.
@@ -176,7 +177,10 @@ function addsProperties(b, run) {
 // { class: 'none' | 'additive' | 'breaking', why } for a test file from before to after (either
 // may be null: added or removed). ids: the Provides requirement ids, whose labels do not count.
 export function classifyTestChange(before, after, ids = []) {
-  if (before === null || before === undefined) return { class: 'breaking', why: 'added' };
+  // A wholly new test file only adds assertions (coordinator, 6 Nov: copy PR 696's added
+  // t53-layer.test.mjs was read as breaking). One that replaces a deleted file is compared with
+  // that file by the caller (layerflow.mjs interfaceChange), never read here as new.
+  if (before === null || before === undefined) return { class: 'additive', why: 'added: a new test file only adds assertions' };
   if (after === null || after === undefined) return { class: 'breaking', why: 'removed' };
   const [ta, tb] = [tokens(before), tokens(after)];
   if (!ta || !tb) return { class: 'breaking', why: 'unparsed' };

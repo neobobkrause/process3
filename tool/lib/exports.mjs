@@ -16,8 +16,18 @@ import { git } from './util.mjs';
 const CODE = /\.(m|c)?(j|t)sx?$/;
 const EXTS = ['.mjs', '.js', '.cjs', '.ts', '.mts', '.jsx', '.tsx'];
 
-// Comments out and string contents blanked, so braces and parentheses can be counted; lengths
-// and line breaks kept.
+// Comments out and string and regular-expression contents blanked, so braces and parentheses can
+// be counted; lengths and line breaks kept. A slash starts a regular expression where a value can
+// begin (after an operator, an opening bracket, a comma or semicolon, or a keyword such as return),
+// else it divides (copy, 6 Nov: PR 696's `#ambiguousLaw` held /[^']+/, read as a string that ran
+// on, and every later member of the class, lawEntries among them, was lost).
+const REGEX_AFTER = new Set('(,=:[!&|?{};+-*%<>~^'.split(''));
+const REGEX_WORDS = /(?:^|[^\w$])(?:return|typeof|case|do|else|in|of|new|delete|void|throw|instanceof|yield|await)$/;
+function regexStarts(out) {
+  const t = out.replace(/\s+$/, '');
+  if (!t) return true;
+  return REGEX_AFTER.has(t[t.length - 1]) || REGEX_WORDS.test(t);
+}
 export function blank(text) {
   let out = '';
   let i = 0;
@@ -27,6 +37,19 @@ export function blank(text) {
     const d = text[i + 1];
     if (c === '/' && d === '*') { const e = text.indexOf('*/', i + 2); const j = e < 0 ? n : e + 2; out += text.slice(i, j).replace(/[^\n]/g, ' '); i = j; continue; }
     if (c === '/' && d === '/') { const e = text.indexOf('\n', i); const j = e < 0 ? n : e; out += ' '.repeat(j - i); i = j; continue; }
+    if (c === '/' && regexStarts(out)) {
+      // To the closing slash outside a character class, on the same line; never past a line break.
+      let j = i + 1;
+      let cls = false;
+      while (j < n && text[j] !== '\n') {
+        if (text[j] === '\\') { j += 2; continue; }
+        if (text[j] === '[') cls = true;
+        else if (text[j] === ']') cls = false;
+        else if (text[j] === '/' && !cls) break;
+        j++;
+      }
+      if (j < n && text[j] === '/') { out += '/' + ' '.repeat(j - i - 1) + '/'; i = j + 1; continue; }
+    }
     if (c === '"' || c === "'" || c === '`') {
       let j = i + 1;
       while (j < n && text[j] !== c) { if (text[j] === '\\') j++; else if (c !== '`' && text[j] === '\n') break; j++; }
@@ -66,6 +89,19 @@ function methods(raw, b, open) {
     if (c === '{' || c === '(' || c === '[') { depth++; continue; }
     if (c === '}' || c === ')' || c === ']') { depth--; continue; }
     if (depth !== 0) continue;
+    // A class field's initializer (`#cache = new Map();`, `count = 0`) is no member: skipped to the
+    // end of its statement, a semicolon or a line break at its own depth (cold review of R8's 696).
+    if (c === '=' && b[j + 1] !== '>' && b[j + 1] !== '=' && b[j - 1] !== '=' && b[j - 1] !== '!') {
+      let k = j + 1;
+      let dd = 0;
+      for (; k < end; k++) {
+        const x = b[k];
+        if (x === '{' || x === '(' || x === '[') dd++;
+        else if (x === '}' || x === ')' || x === ']') { if (dd === 0) break; dd--; } else if (dd === 0 && (x === ';' || x === '\n')) break;
+      }
+      j = k - 1;
+      continue;
+    }
     RE.lastIndex = j;
     const m = RE.exec(b);
     if (!m) continue;

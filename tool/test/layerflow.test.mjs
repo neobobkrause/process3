@@ -248,6 +248,24 @@ test('interface signal (R8): a provider test naming a Provides requirement count
   assert.equal(interfaceChange(root, cfg, 'a', shape, priv).changed, false);
 });
 
+test('interface signal (R8): a new test file naming a Provides requirement is additive; one replacing a deleted file is compared with it (copy PR 696)', () => {
+  const { root } = product();
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const t = (name, want) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../../src/a/index.mjs';\ntest('${name}', () => { assert.deepEqual(a(1), ${want}); });\n`;
+  const base = commit(root, { 'req/a.md': req('a', '- **R2** `a(x)` answers the list of materials\n- **R3** more'), 'test/a/r2.test.mjs': t('R2 answers a list', '[1]') }, 'R2 in Provides');
+  const added = commit(root, { 'test/a/t53-layer.test.mjs': t('R2 per layer', '[1]') }, 'a new test file');
+  const x = interfaceChange(root, cfg, 'a', base, added);
+  assert.deepEqual(x.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/t53-layer.test.mjs', 'additive']]);
+  assert.equal(x.class, 'additive');
+  // A new file replacing a deleted one (a rename) is compared with it: its changed answer is breaking.
+  git(['rm', '-q', 'test/a/r2.test.mjs'], { cwd: root });
+  const moved = commit(root, { 'test/a/r2-list.test.mjs': t('R2 answers a list', '{ materials: [1] }') }, 'renamed and changed');
+  const y = interfaceChange(root, cfg, 'a', added, moved);
+  assert.deepEqual(y.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r2-list.test.mjs', 'breaking'], ['test/a/r2.test.mjs', 'none']]);
+  assert.match(y.provides_test_changes[0].why, /^replaces test\/a\/r2\.test\.mjs: /);
+  assert.equal(y.class, 'breaking');
+});
+
 test('module states: rescheduled until a land holds the provider\'s land; deferred when BLOCKED; complete after a land', () => {
   const anc = (a, b) => b === 'h2' && a === 'L1';
   const entries = new Map([['a', { status: { state: 'WORKING' } }], ['b', { status: { state: 'COMPLETE' } }], ['c', { status: { state: 'BLOCKED', reason: 'q' } }], ['e', { status: { state: 'OPEN' } }]]);
