@@ -222,7 +222,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
         view = readOpenLayer(root, cfg, { io: io || {} });
         const holds = out.holds || [];
         ic = layerIdle({ live, cap: jobCap(cfg).cap, holds, view, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
-        count = ic ? ic.startable : view.kind === 'open' ? view.startable.length : 0;
+        count = ic ? ic.startable : view.kind === 'open' ? view.startable.filter((j) => !heldBy(holds, j.id, layersAt(root, cfg))).length : 0;
       } catch (e) { if (!(e instanceof Fail)) throw e; unread = 'layer'; }
     } else if (out.open?.state === 'open') {
       markInTrain(root, cfg, out.next, out.rows, { io: { ...io, openPRs: () => out.prs } });
@@ -361,11 +361,13 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         markLaneHeld(cfg, seats, work);
         // An open attempt read without its pull request (offline): named in the train from GitHub (item 4).
         if (!offline) markInTrain(root, cfg, work, rows, { io: io || {} });
-        next = lm ? view?.kind === 'open' && (view.startable.length > 0 || view.ready) : !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
+        // Layer mode: the open layer's jobs or merge, or the next layer to open; unread (offline),
+        // unmet work still wakes BOB, its act then status's.
+        next = lm ? (view ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after)) : !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const onOrigin = onOriginOf(originHeads);
         const f = flow(cfg, rows, work, liveRow.live, listed, holds, { onOrigin });
-        liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
+        liveRow = { ...liveRow, startable: lm && view ? (view.kind === 'open' ? view.startable.length : 0) : f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
         if (liveRow.live !== undefined) {
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
           // it could have begun, the tranche's tip or a job session's archive.

@@ -422,6 +422,8 @@ export function laneModuleCheck(cfg, entries, { log = console.log } = {}) {
   for (const l of lanes) {
     for (const e of entries) {
       const p = (e?.paths || []).find((q) => underPath(l.dir, String(q).replace(/\/+$/, '')));
+      const t = (e?.tests || []).find((q) => underPath(l.dir, String(q).replace(/\/+$/, '')));
+      if (t) { out.push(`lane ${l.name}: its folder ${l.dir} lies under module ${e.id}'s tests ${t}: the gate counts its files as ${e.id}'s tests whatever the lane's module; move the lane's folder`); continue; }
       if (!p || e.id === l.module) continue;
       out.push(`lane ${l.name}: its folder ${l.dir} lies under module ${e.id}'s path ${p}, and its row in process/config.json names ${l.module ? `module ${l.module}` : 'no module'}: the gate counts its files as ${e.id}'s and refuses a lane-only pull request; add "module": "${e.id}" to the lane's row`);
     }

@@ -5,11 +5,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { layerLead, layerMergeLine, layerOpen, layerStartAct, openLayer } from '../lib/layerflow.mjs';
+import { layerLead, layerLines, layerMergeLine, layerOpen, layerStartAct, openLayer, readOpenLayer } from '../lib/layerflow.mjs';
 import { readyCount } from '../lib/ready.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { laneModuleCheck, setupCheck } from '../lib/setup.mjs';
-import { READY_LEAD, fetchState, send, writeState } from '../lib/state.mjs';
+import { READY_LEAD, fetchState, readState, send, writeState } from '../lib/state.mjs';
 import { nextWork } from '../lib/status.mjs';
 import { idleCapacity, layerIdle, sweep } from '../lib/sweep.mjs';
 import { configOf, git } from '../lib/util.mjs';
@@ -38,10 +38,10 @@ function withOrigin(files) {
 // A product in the layer flow: modules a, b in layer 1 (unmet marks), d in layer 2.
 const LAYERS = '| layer | name | modules |\n| --- | --- | --- |\n| 1 | One | a, b |\n| 2 | Two | d |\n';
 const REQ = '# x\n\n**R1** a requirement *(not yet met: T1)*\n';
-function product(strategy = 'layer') {
+function product(strategy = 'layer', { complete = false } = {}) {
   const files = { 'process/config.json': { tranche: 'tranche', merge_strategy: strategy }, 'build/layers.md': LAYERS };
   for (const id of ['a', 'b', 'd']) {
-    files[`process/ledger/${id}.json`] = entry(id, { requirements: `build/requirements/${id}.md` });
+    files[`process/ledger/${id}.json`] = entry(id, { requirements: `build/requirements/${id}.md`, ...(complete ? { status: { state: 'COMPLETE' } } : {}) });
     files[`build/requirements/${id}.md`] = REQ;
   }
   return withOrigin(files);
@@ -57,7 +57,11 @@ test('layer flow helpers: the lead names layer jobs, the merge line only when ev
   assert.equal(layerMergeLine(view()), null);
   const done = view({ states: [{ id: 'a', state: 'complete' }, { id: 'b', state: 'deferred' }], startable: [], ready: true });
   assert.equal(layerMergeLine(done), `layer 3: complete 1, deferred 1, published 0, working 0, rescheduled 0, not started 0; merge when every module is complete or deferred (${P3} layer merge 3)`);
+  // The act owed: start, merge, open the next; unread, status.
   assert.equal(layerStartAct(view()), `${P3} layer jobs 3, then each job start it lists`);
+  assert.equal(layerStartAct(done), `${P3} layer merge 3`);
+  assert.equal(layerStartAct({ kind: 'next', n: 4 }), `${P3} layer open 4`);
+  assert.match(layerStartAct(null), /status --role bob/);
 });
 
 test('openLayer: the next layer before its open; once open, its startable jobs and no merge', () => {
@@ -71,6 +75,13 @@ test('openLayer: the next layer before its open; once open, its startable jobs a
   assert.deepEqual(v.startable.map((x) => x.id), ['a', 'b']);
   assert.equal(v.ready, false);
   assert.equal(layerMergeLine(v), null);
+  // send's lead reads the refs this clone has, no fetch: the same layer.
+  assert.equal(layerLead(readOpenLayer(root, cfg, { fetch: false, io: openIO })), `first: start layer 1's jobs (${P3} layer jobs 1): ${P3} job start a --live <n>; ${P3} job start b --live <n>. Then: `);
+  assert.equal(readyCount(root, { layer: (r, c) => readOpenLayer(r, c, { fetch: false, io: openIO }) }), layerLead(v));
+  // The merge line is next work's in status: layerLines leaves it out with merge false.
+  const ready = { ...v, startable: [], ready: true };
+  assert.ok(layerLines(root, cfg, { view: ready }).some((l) => /can merge/.test(l)));
+  assert.ok(!layerLines(root, cfg, { view: ready, merge: false }).some((l) => /can merge/.test(l)));
 });
 
 test('(a) send bob: in layer mode the lead is the open layer\'s layer jobs lines, or nothing; the train\'s lead is unchanged', () => {
@@ -200,4 +211,28 @@ test('(e) setup check: a lane whose folder lies under a module\'s paths and name
   assert.match(laneModuleCheck(lane({ module: 'other' }), entries, { log: quiet })[0], /names module other/);
   assert.deepEqual(laneModuleCheck({ lanes: [{ name: 'x', dir: 'design/x' }] }, entries, { log: quiet }), []);
   assert.deepEqual(laneModuleCheck({}, entries, { log: quiet }), []);
+  // Under a module's tests: no module setting helps; said so.
+  assert.match(laneModuleCheck({ lanes: [{ name: 't', dir: 'test/x/lane', module: 'tx' }] }, [{ id: 'tx', paths: ['src/x'], tests: ['test/x'] }], { log: quiet })[0], /lies under module tx's tests test\/x: .*move the lane's folder/);
+});
+
+const IO = { slug: 'o/p', openPRs: () => [], checkRun: () => null, checkRuns: () => [], compare: () => null, prFiles: () => [], comments: () => [], pins: () => [] };
+test('(c) sweep online, layer mode: BOB is woken to open the next layer, then to start the open layer\'s jobs; idle counted against them', () => {
+  // Every entry COMPLETE with unmet marks (no job open): next work wakes BOB at once, as in the train.
+  const root = product('layer', { complete: true });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const before = run(root, { offline: false, io: IO, live: 0 });
+  const wake = before.todo.find((x) => /^wake BOB/.test(x)) || '';
+  assert.match(wake, /with next work: run node \.process\/tool\/p3\.mjs layer open 1/, before.todo.join('\n'));
+  assert.doesNotMatch(wake, /job start --ready/);
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const after = run(root, { offline: false, io: IO, live: 0 });
+  const w2 = after.todo.find((x) => /^wake BOB/.test(x)) || '';
+  assert.match(w2, /layer jobs 1, then each job start it lists/, after.todo.join('\n'));
+  assert.ok(!after.todo.some((x) => /MERGER|job start --ready/.test(x)), after.todo.join('\n'));
+  const rows = readState(root, SB, 'metrics/sweep.jsonl').trim().split('\n').map((l) => JSON.parse(l));
+  const last = rows.at(-1);
+  assert.equal(last.startable, 2);
+  assert.equal(last.idle_capacity.startable, 2);
+  assert.equal(last.idle_capacity.layer, 1);
 });

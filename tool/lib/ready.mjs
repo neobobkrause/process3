@@ -95,7 +95,9 @@ export function archivable(rows, listed) {
 // Whether status lists startable jobs: the wake BOB receives leads with the start when so.
 // Under merge_strategy "layer" no `job start --ready` runs: the lead itself, from the open layer's
 // `layer jobs <n>` (layerflow.mjs layerLead), '' when it lists none; send leads with it as given.
-export function readyCount(root, { read = status, layer = readOpenLayer } = {}) {
+// Read from the refs this clone has (no fetch); its startable jobs need GitHub's open PRs into the
+// layer, one read, and an unread one leaves the text as it is (send catches it).
+export function readyCount(root, { read = status, layer = (r, c) => readOpenLayer(r, c, { fetch: false }) } = {}) {
   const cfg = loadConfig(root);
   if (layerMode(cfg)) return layerLead(layer(root, cfg));
   // Offline: the wake is not held for GitHub or for fetches into the sender's clone (review of

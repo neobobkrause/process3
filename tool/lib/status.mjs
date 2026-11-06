@@ -663,7 +663,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   // The shared layer branch (layerflow.mjs): the open layer and the jobs BOB starts from it.
   // Its read (view) is returned: next work takes the layer's merge line from it.
   let view = null;
-  if (layerMode(cfg) && !offline && haveState && slug) { try { view = openLayer(root, cfg, { slug }); L.push(...layerLines(root, cfg, { view })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
+  if (layerMode(cfg) && !offline && haveState && slug) { try { view = openLayer(root, cfg, { slug }); L.push(...layerLines(root, cfg, { view, merge: false })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });

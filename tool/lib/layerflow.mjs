@@ -290,9 +290,12 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
   return { kind: 'done' };
 }
 // openLayer after fetching the tranche and the state branch (send, the sweep, the idle check).
-export function readOpenLayer(root, cfg, { slug = null, io = {} } = {}) {
-  fetchBranch(root, cfg.tranche, { allowFail: true });
-  fetchState(root, cfg.state_branch, { fresh: true });
+// fetch false: the refs this clone has (send's lead: a wake is not held for fetches).
+export function readOpenLayer(root, cfg, { slug = null, io = {}, fetch = true } = {}) {
+  if (fetch) {
+    fetchBranch(root, cfg.tranche, { allowFail: true });
+    fetchState(root, cfg.state_branch, { fresh: true });
+  }
   return openLayer(root, cfg, { slug: slug || io.slug || repoSlug(root), io });
 }
 const STATE_ORDER = ['complete', 'deferred', 'published', 'working', 'rescheduled', 'not started'];
@@ -304,12 +307,17 @@ export const layerMergeLine = (v) => (v?.kind === 'open' && v.ready ? `layer ${v
 // `layer jobs <n>`; '' when there are none (the train's lead is `job start --ready`).
 export const layerLead = (v) => (v?.kind === 'open' && v.startable.length ? `first: start layer ${v.n}'s jobs (${P3} layer jobs ${v.n}): ${v.startable.map((q) => q.cmd).join('; ')}. Then: ` : '');
 // BOB's act to start work in the layer flow, where the train's says `job start --ready`.
-export const layerStartAct = (v) => (v?.kind === 'open' ? `${P3} layer jobs ${v.n}, then each job start it lists` : `${P3} status --role bob (the layer flow's next act)`);
+// The act owed: start the listed jobs, merge the layer, or open the next; unread, status says.
+export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
+  : v?.kind === 'open' && v.ready ? `${P3} layer merge ${v.n}`
+    : v?.kind === 'next' ? `${P3} layer open ${v.n}`
+      : `${P3} status --role bob (the layer flow's next act)`);
 
 // The lines status --role bob prints in the layer flow: the open layer's modules by state and the
 // jobs BOB starts (Bob, 5 Nov: BOB starts jobs; no other session creates one), or the layer to open.
 // view: openLayer's read, when the caller has it.
-export function layerLines(root, cfg, { slug, io = {}, view } = {}) {
+// merge false: the merge line is next work's (status prints it there, once).
+export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}) {
   const v = view || openLayer(root, cfg, { slug, io });
   const { n } = v;
   if (v.kind === 'stale') return [`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`];
@@ -318,7 +326,7 @@ export function layerLines(root, cfg, { slug, io = {}, view } = {}) {
   const L = [`layer flow: layer ${n} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
   if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}`));
-  if (v.ready) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
+  if (v.ready && merge) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
   return L;
 }
 
