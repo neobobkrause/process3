@@ -970,3 +970,10 @@
 - 18:50 BOB'S DECISION on BD-8 contact: no email address. Instead a 'How CivicSmith uses AI' page or document (following the EU direction, not conforming), and responses go through the existing docket. Sent to BOB: revise BD-8 and civicsmith-review/1; the publication lane writes the content, ux owns the words and placement; record it as a BD and track it as a found mark.
 - 18:55 BOB'S QUESTION: 'Why didn't the early starts launch before layer 8 closed?' Answer: a tool gap (layer open n+1 needs layer n merged; job start reads only the open layer; R12 join and R14 weren't in yet), and my miss: I applied early starts only inside layer 8 and never asked for next-layer pre-starts. ACT: R14 item 1b (next-layer pre-start) becomes R14's first standalone PR, right after 191.
 - 18:52 R15 = process3 PR 204 (5857a7a, 1184/1184): census, early runs, preflight, gate finding, temp-dir cleanup plus guard (the suite now adds 0 p3-* dirs), canon P25. Review found 7 (1 high), all fixed. Census on the copy: 7 no-entry (3 ready), 11 not in the layer map, 13 gaps before layer 11; layer 9 clean. Sent to BOB to fix now. My own layer 9 count (from files): 4 of 13 modules carry 13 unmet marks (actions 5, filing-templates 5, action-plans 2, action-records 1).
+
+## 18:51 hourly flow (6 Nov)
+- Layer 8 merged 18:41 (4.64 h). Layer 9 is open (layer/9 at 7623d97), with 13 modules: 4 carry 13 unmet marks (actions, filing-templates, action-plans, action-records) and 2 are OPEN without marks. BOB is starting in dependency order with early starts. Copy tranche lands in the hour: 678, 680-682, 691 (layer 8), 683-690.
+- process3 in the hour: 202 and 203 merged. Open: 191 (6c0cda1, ci; its R12 review report pending), 204 R15 (5857a7a, ci). Pin 4 = 191 + 204, then `layer sync 9`.
+- Alive: BOB, the 3 lanes, builders ef7TXuV (191, idle on ci: I'm subscribed, so ci wakes me) and ef1pxNY (204). etceetVvq is idle (disk); egBdLY is done.
+- The ACCOUNT's seven-day rate limit reads "allowed_warning" (resets 2026-11-08). Told Bob.
+- Own context 52%; hand over at 60%, likely after pin 4.
