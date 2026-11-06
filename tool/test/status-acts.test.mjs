@@ -38,7 +38,9 @@ test('a ready or COMPLETE job PR whose last gate is red is in BOB\'s first secti
   // A WORKING draft's red gate is the job's own work in progress: no act of BOB's.
   assert.doesNotMatch(s.join('\n'), /quiet/);
   assert.doesNotMatch(out.slice(out.indexOf('idle:')).join('\n'), /agent-worker/);
-  assert.ok(out.indexOf('red gates: act now:') < out.findIndex((l) => /^(blocked|owed|idle|open):$/.test(l)) || !out.some((l) => /^(blocked|owed|idle|open):$/.test(l)));
+  // Its first section: ahead of the WORKING draft's own group.
+  const other = out.findIndex((l) => /^(blocked|owed|idle|open):$/.test(l));
+  assert.ok(other > out.indexOf('red gates: act now:'), out.join('\n'));
 });
 
 test('a cancelled last gate names the re-gate as BOB\'s act', () => {
@@ -50,10 +52,23 @@ test('a COMPLETE job whose pull request is still a draft is an act too (extracti
   const s = section(run(product({ extraction: { state: 'COMPLETE', draft: true } })));
   assert.match(s[0], /^- extraction: COMPLETE; PR #560 draft.*BOB's act: COMPLETE, its pull request still a draft: restart it so its job complete marks it ready/);
   assert.equal(actOf({ id: 'x', pr: '#1 draft', branch: 'WORKING', ready: false }), null);
+  // job complete between its push and its ready: its gate still running is no act yet.
+  assert.equal(actOf({ id: 'x', pr: '#1 draft', branch: 'COMPLETE', ready: false, gate: 'in_progress' }), null);
+  assert.match(actOf({ id: 'x', pr: '#1 ready', branch: 'COMPLETE', ready: true, gate: 'timed_out' }), /^gate timed_out: restart it/);
+  assert.match(actOf({ id: 'x', pr: '#1 ready', ready: true, gate: 'stale' }), /^gate stale: re-gate it/);
+  assert.equal(actOf({ id: 'x', pr: 'merged', branch: 'COMPLETE', gate: 'failure' }), null);
 });
 
 test('the top lines name the count of acts before any hold or list; none is 0', () => {
   const out = run(product({ a: { state: 'COMPLETE', gate: 'failure' }, b: { state: 'COMPLETE', draft: true }, c: { state: 'COMPLETE', gate: 'success' } }));
   assert.equal(out[0], 'acts now: 2 (a, b): see red gates: act now');
   assert.equal(run(product({ c: { state: 'COMPLETE', gate: 'success' } }))[0], 'acts now: 0');
+});
+
+test('under a stopped plan the count follows the plan line and says the acts wait', () => {
+  const p = product({ a: { state: 'COMPLETE', gate: 'failure' } });
+  commit(p.root, { 'process/config.json': { plan: 'stop' } });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: p.root });
+  const out = run(p);
+  assert.deepEqual(out.slice(0, 2), ['plan stop: take no new step', 'acts now: 1 (a): see red gates: act now; plan stop: they wait for the plan to resume']);
 });

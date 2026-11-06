@@ -299,7 +299,10 @@ export function status(root, opts = {}) {
     out = statusLines(root, { ...opts, log: (l) => held.push(l), top: () => { top = held.length; } });
   } finally {
     const acts = out ? (out.rows || []).filter((r) => actOf(r)) : null;
-    for (const l of [...held.slice(0, top), ...(acts ? [actsCount(acts)] : []), ...held.slice(top)]) log(l);
+    let plan = null;
+    try { plan = acts?.length ? loadConfig(root).plan : null; } catch { plan = null; }
+    const wait = ['pause', 'stop'].includes(plan) ? `; plan ${plan}: they wait for the plan to resume` : '';
+    for (const l of [...held.slice(0, top), ...(acts ? [actsCount(acts) + wait] : []), ...held.slice(top)]) log(l);
   }
   return out;
 }
@@ -313,7 +316,8 @@ export function actOf(r) {
   const complete = String(r.branch || '').startsWith('COMPLETE');
   if ((r.ready || complete) && RED.includes(r.gate)) return `gate ${r.gate}: restart it with the finding: ${P3} job start ${r.id} --restart "<the gate's finding>"`;
   if ((r.ready || complete) && CANCELLED.includes(r.gate)) return `gate ${r.gate}: re-gate it: re-run its gate run, or give it a new event (edit the pull request)`;
-  if (complete && !r.ready) return `COMPLETE, its pull request still a draft: restart it so its job complete marks it ready: ${P3} job start ${r.id} --restart "COMPLETE, PR a draft"`;
+  // A gate still running on a COMPLETE draft is job complete between its push and its ready (cold review).
+  if (complete && !r.ready && !['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(r.gate)) return `COMPLETE, its pull request still a draft: restart it so its job complete marks it ready: ${P3} job start ${r.id} --restart "COMPLETE, PR a draft"`;
   return null;
 }
 export const actsCount = (acts) => `acts now: ${acts.length}${acts.length ? ` (${acts.map((r) => r.id).slice(0, 8).join(', ')}): see red gates: act now` : ''}`;
