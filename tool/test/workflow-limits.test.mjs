@@ -143,7 +143,12 @@ test('L5: a required job keeps its steps, their conditions and every line its ru
   // Allowed: a timeout, an action version, node-version, a step added, lines after a run's last.
   ok(judge(edit('timeout-minutes: 10', 'timeout-minutes: 20')));
   ok(judge(edit('actions/setup-node@v4\n        with:\n          node-version: 22', 'actions/setup-node@v5\n        with:\n          node-version: 26\n          cache: npm')));
-  ok(judge(edit('      - name: tests\n', '      - name: lint\n        run: npm run lint\n      - name: tests\n')));
+  // A step is added only after the job's last existing step (Bob, 6 Nov, on #192).
+  no(judge(edit('      - name: tests\n', '      - name: lint\n        run: npm run lint\n      - name: tests\n')), 'L5', /a new step before its existing step "tests"; new steps go only after its last existing step/);
+  no(judge(edit('      - uses: actions/checkout@v4\n', '      - run: echo "PATH=$PWD/fake" >> "$GITHUB_PATH"\n      - uses: actions/checkout@v4\n')), 'L5', /new step before its existing step 1;/);
+  ok(judge(edit('--base "$BASE"\n  other:', '--base "$BASE"\n      - name: lint\n        run: npm run lint\n  other:')));
+  // A job that is not a required check takes new steps anywhere.
+  ok(judge(edit('      - run: echo hi\n', '      - run: echo first\n      - run: echo hi\n')));
   ok(judge(edit('--base "$BASE"\n', '--base "$BASE"\n          echo done\n')));
   // Refused: a step removed, a run line dropped or changed, a line put before, a condition.
   no(judge(edit("      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n", '')), 'L5', /loses its step "tests"/);
@@ -168,8 +173,8 @@ test('L5: a required job keeps its steps, their conditions and every line its ru
   no(judge(edit('--base "$BASE"\n', '--base "$BASE"\n          true\n', plainSh), plainSh), 'L5', /does not stop at a failed command/);
   const bashSh = edit('        run: |\n', '        shell: bash\n        run: |\n');
   ok(judge(edit('--base "$BASE"\n', '--base "$BASE"\n          echo done\n', bashSh), bashSh));
-  // Reordering the steps is a removal for this judge.
-  no(judge(edit("      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n      - name: record check\n", "      - name: record check\n").replace("  other:\n", "      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n  other:\n")), 'L5', /loses its step "record check"/);
+  // Reordering the steps puts a step before one the job had: refused.
+  no(judge(edit("      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n      - name: record check\n", "      - name: record check\n").replace("  other:\n", "      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n  other:\n")), 'L5', /new step before its existing step "tests"/);
 });
 
 test('process3 PR 188 and copy PR 625 pass; a deleted workflow and an unread one are refused', () => {
@@ -178,8 +183,8 @@ test('process3 PR 188 and copy PR 625 pass; a deleted workflow and an unread one
   assert.deepEqual(r188.required, ['ci']);
   for (const f of ['container-images', 'deploy-test', 'regression', 'release-sign']) {
     ok(judgeWorkflow(`.github/workflows/${f}.yml`, fx(`625-base-${f}.yml`), fx(`625-head-${f}.yml`), ['gate', 'record']));
-    // Even were the release and regression jobs required checks, 625 only adds steps to them.
-    if (f !== 'deploy-test') ok(judgeWorkflow(`.github/workflows/${f}.yml`, fx(`625-base-${f}.yml`), fx(`625-head-${f}.yml`), ['gate', 'regression', 'sign', 'image']));
+    // Were these jobs required checks, 625's steps, added before their last, would be refused.
+    if (f !== 'deploy-test') no(judgeWorkflow(`.github/workflows/${f}.yml`, fx(`625-base-${f}.yml`), fx(`625-head-${f}.yml`), ['gate', 'regression', 'sign', 'image']), 'L5', /new step before/);
   }
   no(judgeWorkflow('.github/workflows/ci.yml', CI, null, REQ), 'removal', /deletes a workflow/);
   no(judgeWorkflow('.github/workflows/ci.yml', CI, 'on: push\njobs: [a]\n', REQ), 'reading', /no jobs mapping/);

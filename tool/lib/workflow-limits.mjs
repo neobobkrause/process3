@@ -23,7 +23,8 @@
 //     the shell), `if`, `needs`, `continue-on-error`, `strategy`, `env`, `defaults` and every
 //     other key but `name` (L1), `permissions` (L2), `timeout-minutes`, `concurrency` and
 //     `steps`; its workflow keeps its `env` and `defaults`. Adding steps, `timeout-minutes`,
-//     action versions and node-version may change.
+//     action versions and node-version may change; a step may be added only after the job's
+//     last existing step (Bob, 6 Nov, on #192).
 // A required check names a job when it equals the job's name or key, or begins with it and ` (`
 // (a matrix) or ` / ` (a called workflow), or ends with ` / ` and it, in any case; a name
 // holding an expression (`${{`) is taken to match any.
@@ -140,6 +141,10 @@ function keepsChecks(bj, hj, key, hLine, wf) {
     while (at < hs.length && stepKey(hs[at]) !== id) at++;
     const label = isMap(b) && isText(b.name) ? `"${b.name}"` : `step ${i + 1}`;
     if (at >= hs.length) return { why: `the required job ${key} loses its step ${label} (base line ${lineOf(bj.steps, i)}), or has it moved before another`, line: lineOf(hj, 'steps') ?? hLine };
+    // New steps only after its last existing step (Bob, 6 Nov, on #192: "as recommended"): a step
+    // put before one it had could write $GITHUB_PATH or $GITHUB_ENV, or change the files, ahead
+    // of the tests.
+    if (at !== i) return { why: `the required job ${key} has a new step before its existing ${label.startsWith(`"`) ? `step ${label}` : label}; new steps go only after its last existing step`, line: lineOf(hs, i) ?? hLine };
     j = at + 1;
     const h = hs[at];
     const line = lineOf(hs, at);
