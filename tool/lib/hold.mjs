@@ -13,11 +13,10 @@ import { join } from 'node:path';
 import { layerOf } from './metrics.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { exists, fail, git, loadConfig, now } from './util.mjs';
-import { condText, firstMet, fromText, parseConditions, readFacts } from './ends.mjs';
+import { LANDED, condText, firstMet, fromText, parseConditions, readFacts } from './ends.mjs';
 
 // The pull requests landed on ref, by number, each with the time its merge was committed: the
 // tranche's first-parent merges, as merge, merge --plain and GitHub title them. null when unread.
-const LANDED = /^Merge (?:job PR |PR |pull request #)(\d+)\b/;
 export function landedPRs(root, ref) {
   const r = git(['log', '--first-parent', '--format=%ct %s', ref], { cwd: root, allowFail: true });
   if (r.code !== 0) return null;
@@ -35,10 +34,11 @@ const SHOWN_EXPIRED_H = 24; // an expired hold is printed as expired for a day
 const SCOPE = /^(module|layer|slots):([A-Za-z0-9._/-]+)$/;
 const min = (ms) => Math.round(ms / 6e4);
 
-// A hold's conditions (R13, ends.mjs): its --when list, or, on a row from before them, the one its
-// words plainly give (fromText: "until layer <n> closes"); { conds, from } or { unparsed }.
+// A hold's conditions (R13, ends.mjs): its when list (every row written since carries one, empty
+// or not), or, only on a row from before them, the one its words plainly give (fromText);
+// { conds, from } or { unparsed }.
 export function holdConds(h) {
-  if (Array.isArray(h.when) && h.when.length) return { conds: h.when, from: 'when' };
+  if (Array.isArray(h.when)) return { conds: h.when, from: h.when.length ? 'when' : null };
   const f = fromText(h.why);
   return f.conds ? { conds: f.conds, from: 'words' } : { conds: [], unparsed: f.unparsed };
 }
@@ -87,15 +87,17 @@ export const BY_TOOL = 'process3';
 export function expireHolds(root, sb, { facts, log = console.log, t = Date.now() } = {}) {
   const ending = readHolds(root, sb, { t, ...(facts !== undefined ? { facts } : {}) }).filter((h) => h.met && !h.ended && h.left > 0);
   if (!ending.length) return [];
-  writeState(root, sb, `hold: end ${ending.map((h) => h.id).join(', ')} (condition met)`, (dir) => {
-    // Read again inside the write: one ended meanwhile is not ended twice.
+  const { wrote } = writeState(root, sb, `hold: end ${ending.map((h) => h.id).join(', ')} (condition met)`, (dir) => {
+    // Read again inside the write: one ended meanwhile is not ended twice, nor said ended here.
     const f = join(dir, HOLDS_FILE);
     const done = new Set((existsSync(f) ? jsonl(readFileSync(f, 'utf8')) : []).filter((r) => r.row === 'end').map((r) => r.id));
-    for (const h of ending) if (!done.has(h.id)) put(dir, { at: now(), row: 'end', id: h.id, by: BY_TOOL, why: `condition met: ${h.met.why}`, condition: h.met.c, ...(h.conds_from === 'words' ? { read_from_words: true } : {}) });
-    return {};
+    const mine = ending.filter((h) => !done.has(h.id));
+    for (const h of mine) put(dir, { at: now(), row: 'end', id: h.id, by: BY_TOOL, why: `condition met: ${h.met.why}`, condition: h.met.c, ...(h.conds_from === 'words' ? { read_from_words: true } : {}) });
+    return { wrote: mine.map((h) => h.id) };
   });
-  for (const h of ending) log(`${h.id} ended by the tool: ${h.scope} holds nothing now (${h.met.why}${h.conds_from === 'words' ? ', read from its words' : ''})`);
-  return ending.map((h) => h.id);
+  const ids = new Set(wrote || []);
+  for (const h of ending.filter((x) => ids.has(x.id))) log(`${h.id} ended by the tool: ${h.scope} holds nothing now (${h.met.why}${h.conds_from === 'words' ? ', read from its words' : ''})`);
+  return [...ids];
 }
 
 // The lines status prints first: each live hold, then each expired in the last day.
@@ -144,9 +146,18 @@ export function hold(root, scope, { why, by, until, prs, when, end, log = consol
   // closes) record it, said.
   let conds = [];
   if (when !== undefined) { try { conds = parseConditions(when === true ? '' : when); } catch (e) { fail(`--when ${e.message}`); } if (!conds.length) fail('--when <condition>[,<condition>...]: layer_closed:<n>, layer_open:<n>, pr_merged:<n>, module_complete:<id>, session_gone:<id>, at:<ISO time>'); }
-  const read = !conds.length ? fromText(why).conds || [] : [];
+  // Words are read only when nothing else ends the hold: a --prs or --until hold keeps the ends
+  // it was given (a condition read from its words would end it sooner).
+  const read = !conds.length && until === undefined && !nums.length ? fromText(why).conds || [] : [];
   if (until === undefined && !nums.length && !conds.length && !read.length) fail('--prs <n>[,<n>...] (the pull requests whose land ends the hold), --when <condition> (layer_closed:<n>, layer_open:<n>, pr_merged:<n>, module_complete:<id>, session_gone:<id>) or --until <ISO time | <n>m | <n>h>: an end the tool can check; words alone are refused');
   conds = conds.length ? conds : read;
+  // A condition already met ends nothing later: refused, so a hold is never ended as it is made.
+  if (conds.length) {
+    let f = null;
+    try { f = readFacts(root, cfg, { t }); } catch { f = null; }
+    const met = f ? firstMet(conds, f) : null;
+    if (met) fail(`the condition ${condText(met.c)} is met already (${met.why}): a hold on it would hold nothing; nothing recorded`);
+  }
   let at = null;
   if (until !== undefined) {
     const rel = String(until).match(/^(\d+)([mh])$/);
@@ -155,7 +166,7 @@ export function hold(root, scope, { why, by, until, prs, when, end, log = consol
   }
   // A hold on a scope still held, or held until the last hour, renews it: the chain stays visible.
   const prev = holds.filter((h) => h.scope === m[0] && !h.ended && h.left > -36e5 && !(h.done !== null && h.done < t - 36e5)).at(-1);
-  const row = { row: 'hold', scope: m[0], why: why.trim(), by, ...(at !== null ? { until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z') } : {}), ...(nums.length ? { prs: [...new Set(nums.map(Number))] } : {}), ...(conds.length ? { when: conds } : {}), ...(prev ? { renews: prev.id } : {}) };
+  const row = { row: 'hold', scope: m[0], why: why.trim(), by, ...(at !== null ? { until: new Date(at).toISOString().replace(/\.\d+Z$/, 'Z') } : {}), ...(nums.length ? { prs: [...new Set(nums.map(Number))] } : {}), when: conds, ...(prev ? { renews: prev.id } : {}) };
   if (read.length) log(`its words give the condition ${read.map(condText).join(', ')}: recorded with it; the tool ends the hold when it holds`);
   const { id } = writeState(root, sb, `hold: ${m[0]}`, (dir) => {
     const f = join(dir, HOLDS_FILE);

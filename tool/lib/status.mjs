@@ -1,6 +1,7 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
 import { staleLines, staleRecords } from './expire.mjs';
+import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { layerMode } from './layerbase.mjs';
 import { layerLines } from './layerflow.mjs';
@@ -350,10 +351,13 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
   // Every hold first, after a paused plan (coordinator's design, 5 Nov 01:13): a limit on starts is a recorded row, never words.
   let holds = [];
   top(); // BOB's count of acts, after the starts owed and the plan, before any hold (status)
-  try { holds = readHolds(root, cfg.state_branch, { offline, listed }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
+  // The facts conditions are judged on, read once for the holds and the stale records (R13).
+  let facts = null;
+  try { facts = readFacts(root, cfg, { listed }); } catch { facts = null; }
+  try { holds = readHolds(root, cfg.state_branch, { offline, listed, facts }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
   // Stale records (R13, expire.mjs): each whose condition holds or whose referent is gone, and
   // whether the tool ends it at its next write; the holds met are in the holds lines above.
-  try { for (const l of staleLines(staleRecords(root, cfg, { listed }).filter((x) => !(x.kind === 'hold' && x.auto)))) log(l); } catch (e) { log(`stale records: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
+  try { if (facts) for (const l of staleLines(staleRecords(root, cfg, { listed, facts, holds }).filter((x) => !(x.kind === 'hold' && x.auto)))) log(l); } catch (e) { log(`stale records: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   // One session per lane (lane.mjs): the seats the state branch records.
   let seats = null;
   try { seats = readSeats(root, cfg); } catch { seats = null; }

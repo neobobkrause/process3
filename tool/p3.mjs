@@ -614,6 +614,12 @@ const commands = {
   },
 };
 
+// After an act that wrote and succeeded, the tool ends the records whose condition is met (R13,
+// expire.mjs); a failure is said on stderr and never changes the act's result.
+export function endsAfter(root, cfg, name, code, { expire = expireRecords, err = (m) => console.error(m) } = {}) {
+  if (code !== 0 || !ENDS_AFTER.has(name)) return null;
+  try { return expire(root, cfg); } catch (e) { err(`records whose condition is met were not ended: ${e.message}`); return null; }
+}
 // The acts after which the tool ends the records whose condition is met (R13).
 export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete', 'block', 'layer open', 'layer land', 'layer merge', 'layer close', 'layer publish', 'tranche open', 'tranche close', 'lane start', 'lane end', 'lane ask', 'notice triage']);
 export async function main(argv) {
@@ -639,7 +645,7 @@ export async function main(argv) {
     // Records whose condition is met end at the tool's writes (R13, expire.mjs): after each act
     // that writes, the holds met end, recorded; never a refusal of the act. The sweep does the
     // same with the session list (lane seats).
-    if (cfg && code === 0 && ENDS_AFTER.has(name) && !process.env.NODE_TEST_CONTEXT) { try { expireRecords(root, cfg); } catch (e) { console.error(`records whose condition is met were not ended: ${e.message}`); } }
+    if (cfg && !process.env.NODE_TEST_CONTEXT) endsAfter(root, cfg, name, code);
     return code;
   } catch (e) {
     if (e instanceof Fail) {

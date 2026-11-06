@@ -16,14 +16,14 @@ const ROLES = ['root', 'bob', 'watcher', 'merger', 'coordinator'];
 
 // [{ kind, id, why, auto }]: auto, the tool ends it at its next write; else reported only.
 // listed: list_sessions' result, or null (session conditions unknown, nothing said of them).
-export function staleRecords(root, cfg, { listed = null, t = Date.now(), facts } = {}) {
+export function staleRecords(root, cfg, { listed = null, t = Date.now(), facts, holds: given } = {}) {
   const f = facts ?? readFacts(root, cfg, { listed, t });
   const out = [];
   const sb = cfg.state_branch;
   // Holds: a condition met (auto); a live one whose words give no checkable end (reported once:
   // it holds until its --until time or its pull requests).
   let holds = [];
-  try { holds = readHolds(root, sb, { offline: true, t, facts: f }); } catch { holds = []; }
+  try { holds = given ?? readHolds(root, sb, { offline: true, t, facts: f }); } catch { holds = []; }
   for (const h of holds) {
     if (h.met && !h.ended && h.left > 0) out.push({ kind: 'hold', id: h.id, why: `${h.scope}: ${h.met.why}${h.conds_from === 'words' ? ' (read from its words)' : ''}`, auto: true });
     else if (h.live && !h.conds.length && !(h.prs || []).length && /\buntil\b|\bwhen\b|\bonce\b|\bafter\b/i.test(h.why)) out.push({ kind: 'hold', id: h.id, why: `${h.scope}: its words name an end the tool cannot check (${h.unparsed}); it holds until ${h.until || 'ended'}`, auto: false });
@@ -72,7 +72,8 @@ export function expireRecords(root, cfg, { listed = null, log = console.log, t =
         writeState(root, sb, `lane seats ended: ${seats.map((s) => s.lane).join(', ')} (session gone)`, (wt) => {
           const live = seatsNow(wt);
           for (const s of seats) {
-            if ((live.get(s.lane)?.session || null) !== s.session) continue;
+            const now0 = live.get(s.lane);
+            if ((now0?.session || null) !== s.session || (now0?.at || null) !== (s.at || null)) continue;
             const p = join(wt, LANE_SESSIONS_FILE);
             mkdirSync(dirname(p), { recursive: true });
             appendFileSync(p, JSON.stringify({ row: 'end', at: now(), lane: s.lane, session: s.session, by: BY_TOOL, why: `session_gone:${s.session} met (archived)` }) + '\n');

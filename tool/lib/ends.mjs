@@ -57,33 +57,80 @@ export function parseCondition(s) {
 export const parseConditions = (s) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean).map(parseCondition);
 export const condText = (c) => Object.entries(c).map(([k, v]) => `${k}:${v}`).join('');
 
-// An old row's free-text end, read only where its meaning is plain (the migration): "until layer
-// <n> closes" (or "is closed", "merges"), "until layer <n> opens". Refused, with why, when the
-// text also says something follows it ("after it", "then", "pauses"): that is a second step, not
-// the end. { conds } or { unparsed }.
-const LATER = /\bafter (?:it|that|this|which)\b|\bthen\b|\bpauses?\b|\band after\b/i;
+// An old row's free-text end (the migration), read only where the words are the plain phrase and
+// nothing else bears on the end: each ';'-clause is "until layer <n> closes" (or "opens"),
+// optionally "start only layer <n> work" after it, optionally one parenthesis, and optionally a
+// "<who> <date> <time>:" prefix; the only other clause allowed is "ends when the coordinator
+// says", which the owner set aside for these holds (Bob, 6 Nov: the tool ends them). Anything
+// else ("and", "unless", "after", a second condition, another sentence) is refused, with why.
+// { conds } or { unparsed }.
+const PREFIX = String.raw`(?:[A-Za-z][\w ,()-]*? \d{1,2} [A-Z][a-z]{2} \d{1,2}:\d{2}: )?`;
+const PLAIN = new RegExp(String.raw`^${PREFIX}until layer (\d+) (closes|opens)(?: start only layer \1 work)?(?: \([^()]*\))?$`, 'i');
+const SET_ASIDE = /^ends when the coordinator says$/i;
 export function fromText(text) {
-  const t = String(text ?? '');
-  const closes = [...t.matchAll(/\buntil layer (\d+) (?:closes|is closed|merges|is merged)\b/gi)].map((m) => ({ layer_closed: Number(m[1]) }));
-  const opens = [...t.matchAll(/\buntil layer (\d+) opens\b/gi)].map((m) => ({ layer_open: Number(m[1]) }));
-  const conds = [...closes, ...opens];
-  if (!conds.length) return { unparsed: 'no "until layer <n> closes" or "opens" in its words' };
-  if (conds.length > 1) return { unparsed: 'more than one condition in its words' };
-  if (LATER.test(t)) return { unparsed: `its words say something follows the condition ("${t.match(LATER)[0]}")` };
+  const clauses = String(text ?? '').split(';').map((c) => c.trim()).filter(Boolean);
+  const hits = clauses.map((c) => c.match(PLAIN));
+  const conds = hits.filter(Boolean).map((m) => (m[2].toLowerCase() === 'closes' ? { layer_closed: Number(m[1]) } : { layer_open: Number(m[1]) }));
+  if (!/\buntil layer \d+ (?:closes|opens)\b/i.test(String(text ?? ''))) return { unparsed: 'no "until layer <n> closes" or "opens" in its words' };
+  if (conds.length !== 1) return { unparsed: conds.length ? 'more than one condition in its words' : 'its "until layer <n>" clause says more than the plain phrase' };
+  const other = clauses.filter((c, i) => !hits[i] && !SET_ASIDE.test(c));
+  if (other.length) return { unparsed: `its words say more than the condition ("${other[0].slice(0, 60)}")` };
   return { conds };
 }
 
-// The facts the checks read, from this clone: the state branch (as fetched), the tranche, the
-// ledger. listed: list_sessions' result (an array of { id, status }), or null (unknown).
+// The tranche's first-parent merges by pull request number (merge, merge --plain and GitHub's
+// titles), shared with hold.mjs.
+export const LANDED = /^Merge (?:job PR |PR |pull request #)(\d+)\b/;
+
+// The facts the checks read, from this clone: the state branch (as fetched), the tranche, main and
+// the ledger, each read once. A layer row counts for this tranche only when it names this
+// tranche and its commit is not on main (the tranche branch keeps its name from tranche to
+// tranche; status.mjs closedRows reads closes the same way); a row whose commit this clone cannot
+// place is unknown, never met. listed: list_sessions' result (an array), or null (unknown).
 export function readFacts(root, cfg, { listed = null, t = Date.now(), landed } = {}) {
   const sb = cfg.state_branch;
   const tr = `origin/${cfg.tranche}`;
-  let closed = null;
-  try {
-    const rows = jsonl(readState(root, sb, 'layers/closed.jsonl'));
-    closed = new Set(rows.filter((r) => r.row === 'closed' && (!r.tranche || r.tranche === cfg.tranche)).map((r) => Number(r.layer)));
-  } catch { closed = null; }
-  const flow = (n, kind) => { try { return readState(root, sb, `layerflow/${n}/${kind}.json`) !== null; } catch { return null; } };
+  const hasMain = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
+  const onMain = (c) => {
+    if (!c || !/^[0-9a-f]{7,64}$/.test(String(c))) return null;
+    if (!hasMain) return null;
+    const r = git(['merge-base', '--is-ancestor', c, 'refs/remotes/origin/main'], { cwd: root, allowFail: true });
+    return r.code === 0 ? true : r.code === 1 ? false : null;
+  };
+  // This tranche's row: true, false (another tranche's), or null (cannot tell).
+  const ours = (row, commit) => {
+    if (!row || (row.tranche && row.tranche !== cfg.tranche)) return false;
+    const m = onMain(commit);
+    return m === null ? null : !m;
+  };
+  let closedRows = null;
+  try { closedRows = jsonl(readState(root, sb, 'layers/closed.jsonl')).filter((r) => r.row === 'closed'); } catch { closedRows = null; }
+  const flowCache = new Map();
+  const flow = (n, kind) => {
+    const k = `${n}/${kind}`;
+    if (!flowCache.has(k)) {
+      let v;
+      try { const x = readState(root, sb, `layerflow/${n}/${kind}.json`); v = x === null ? undefined : JSON.parse(x); } catch { v = null; }
+      flowCache.set(k, v);
+    }
+    return flowCache.get(k);
+  };
+  // Any of the rows for layer n met (true), else unknown if any could not be told (null), else false.
+  const anyOurs = (pairs) => { let unk = false; for (const [row, c] of pairs) { const o = ours(row, c); if (o === true) return true; if (o === null) unk = true; } return unk ? null : false; };
+  const layerClosed = (n) => {
+    if (closedRows === null) return null;
+    const m = flow(n, 'merged');
+    if (m === null) return null;
+    return anyOurs([...closedRows.filter((r) => Number(r.layer) === n).map((r) => [r, r.commit]), ...(m ? [[m, m.commit]] : [])]);
+  };
+  const layerOpen = (n) => {
+    const o = flow(n, 'open');
+    if (o === null) return null;
+    const open = o ? ours(o, o.from) : false;
+    if (open === true) return true;
+    const c = layerClosed(n);
+    return c === true ? true : open === null || c === null ? null : false;
+  };
   let entries = null;
   const entry = (id) => {
     if (entries === null) entries = new Map();
@@ -99,20 +146,21 @@ export function readFacts(root, cfg, { listed = null, t = Date.now(), landed } =
   const lands = () => {
     if (land === undefined) {
       const r = git(['log', '--first-parent', '--format=%s', tr], { cwd: root, allowFail: true });
-      land = r.code === 0 ? new Set(r.stdout.split('\n').map((s) => s.match(/^Merge (?:job PR |PR |pull request #)(\d+)\b/)?.[1]).filter(Boolean).map(Number)) : null;
+      land = r.code === 0 ? new Set(r.stdout.split('\n').map((x) => x.match(LANDED)?.[1]).filter(Boolean).map(Number)) : null;
     }
     return land;
   };
-  const sessions = Array.isArray(listed) ? new Map(listed.map((s) => [s.id, s])) : null;
+  const sessions = Array.isArray(listed) ? new Map(listed.map((x) => [x.id, x])) : null;
+  const archived = (x) => String(x.session_status || x.status || '').toLowerCase().replace(/^session_status_/, '') === 'archived';
   return {
     t,
-    layerClosed: (n) => (closed === null ? null : closed.has(n) || flow(n, 'merged') === true ? true : flow(n, 'merged') === null ? null : false),
-    layerOpen: (n) => { const o = flow(n, 'open'); return o === true ? true : closed?.has(n) ? true : o; },
-    prMerged: (n) => { const l = lands(); return l === null ? null : l instanceof Map ? l.has(n) : l.has(n); },
+    layerClosed,
+    layerOpen,
+    prMerged: (n) => { const l = lands(); return l === null ? null : l.has(n); },
     moduleComplete: (id) => { const e = entry(id); return e === null ? null : e === undefined ? false : e.status?.state === 'COMPLETE'; },
     // Archived in the list. A session the list does not hold is unknown, not gone: list_sessions
     // pages, and a short list is no proof an id is gone.
-    sessionGone: (id) => { if (!sessions) return null; const s = sessions.get(id); return s ? /archived/i.test(String(s.session_status || s.status || '')) : null; },
+    sessionGone: (id) => { if (!sessions) return null; const x = sessions.get(id); return x ? archived(x) : null; },
   };
 }
 

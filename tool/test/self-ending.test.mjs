@@ -46,14 +46,20 @@ function product(state = {}, { ledger = {}, config = {} } = {}) {
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-ends-')), 'o.git');
   git(['init', '-q', '--bare', bare], { cwd: root });
   git(['remote', 'add', 'origin', bare], { cwd: root });
-  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
   git(['checkout', '-q', 'tranche'], { cwd: root });
+  // This tranche's work: a commit not on main, which its layer rows name.
+  const tip = commit(root, { 'work.txt': 'this tranche' });
+  git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
-  if (Object.keys(state).length) writeState(root, SB, 'seed', (dir) => { for (const [p, t] of Object.entries(state)) { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), t); } return {}; });
+  const onMain = git(['rev-parse', 'main'], { cwd: root });
+  if (Object.keys(state).length) writeState(root, SB, 'seed', (dir) => { for (const [p, t] of Object.entries(state)) { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), t.replaceAll(TIP, tip).replaceAll(MAIN, onMain)); } return {}; });
   return root;
 }
+// Placeholders a fixture's state names, filled with this tranche's commit and main's.
+const TIP = '@TIP@';
+const MAIN = '@MAIN@';
 const jl = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n';
-const closed = (...ns) => jl(ns.map((n) => ({ row: 'closed', layer: n, tranche: 'tranche', commit: 'c'.repeat(40), at: '2026-11-06T05:53:29Z' })));
+const closed = (...ns) => jl(ns.map((n) => ({ row: 'closed', layer: n, tranche: 'tranche', commit: TIP, at: '2026-11-06T05:53:29Z' })));
 
 test('conditions: the forms --when takes, refused otherwise; a list ends on any one met', () => {
   assert.deepEqual(parseCondition('layer_closed:6'), { layer_closed: 6 });
@@ -78,13 +84,21 @@ test('the migration: plain words give a condition; words that say something foll
   assert.deepEqual(fromText(W19).conds, [{ layer_closed: 6 }]);
   assert.deepEqual(fromText(W20).conds, [{ layer_closed: 6 }]);
   assert.deepEqual(fromText('until layer 9 opens').conds, [{ layer_open: 9 }]);
-  assert.match(fromText(W18).unparsed, /something follows the condition \("after it"\)/, 'hold-18: product work pauses after layer 6 closes');
+  assert.match(fromText(W18).unparsed, /its words say more than the condition \("after it product work pauses/, 'hold-18: product work pauses after layer 6 closes');
   assert.match(fromText(W23).unparsed, /no "until layer <n> closes"/);
-  assert.match(fromText('until layer 6 closes, or until layer 7 closes').unparsed, /more than one condition/);
+  assert.match(fromText('until layer 6 closes; until layer 7 closes').unparsed, /more than one condition/);
+  // Only the plain phrase: any other clause is refused (cold review of R13).
+  for (const w of ['not until layer 6 closes and PR 40 lands', 'until layer 6 closes and the coordinator agrees', 'until layer 6 closes in the next tranche', 'until layer 6 closes unless the copy fails', 'wait until layer 6 closes; after, keep held for review', 'until layer 6 closes. Then review']) {
+    assert.ok(fromText(w).unparsed, w);
+  }
 });
 
 test('facts: closed and merged layers, open layers, landed PRs, complete modules, archived sessions', () => {
-  const root = product({ 'layers/closed.jsonl': closed(6) + jl([{ row: 'closed', layer: 9, tranche: 'other' }]), 'layerflow/7/merged.json': '{}\n', 'layerflow/8/open.json': '{}\n' }, {
+  const root = product({
+    'layers/closed.jsonl': closed(6) + jl([{ row: 'closed', layer: 9, tranche: 'other', commit: TIP }, { row: 'closed', layer: 10, tranche: 'tranche', commit: MAIN }]),
+    'layerflow/7/merged.json': JSON.stringify({ row: 'merged', layer: 7, tranche: 'tranche', commit: TIP }), 'layerflow/8/open.json': JSON.stringify({ row: 'open', layer: 8, tranche: 'tranche', from: TIP }),
+    'layerflow/11/open.json': JSON.stringify({ row: 'open', layer: 11, tranche: 'tranche', from: MAIN }), 'layerflow/12/open.json': JSON.stringify({ row: 'open', layer: 12, tranche: 'tranche', from: 'f'.repeat(40) }),
+  }, {
     ledger: { 'process/ledger/a.json': entry('a', { status: { state: 'COMPLETE' } }), 'process/ledger/b.json': entry('b') },
   });
   git(['checkout', '-q', '-b', 'side'], { cwd: root });
@@ -95,8 +109,8 @@ test('facts: closed and merged layers, open layers, landed PRs, complete modules
   git(['fetch', '-q', 'origin'], { cwd: root });
   fetchState(root, SB);
   const f = readFacts(root, loadConfig(root), { listed: [{ id: 'session_gone1', session_status: 'SESSION_STATUS_ARCHIVED' }, { id: 'session_live1', session_status: 'idle' }] });
-  assert.deepEqual([6, 7, 8, 9].map((n) => f.layerClosed(n)), [true, true, false, false], 'another tranche\'s close is not this one\'s');
-  assert.deepEqual([7, 8, 9].map((n) => f.layerOpen(n)), [false, true, false]);
+  assert.deepEqual([6, 7, 8, 9, 10].map((n) => f.layerClosed(n)), [true, true, false, false, false], 'another tranche\'s close is not this one\'s, by name (9) or by its commit on main (10, an earlier tranche of the same name)');
+  assert.deepEqual([7, 8, 9, 11, 12].map((n) => f.layerOpen(n)), [true, true, false, false, null], 'an earlier tranche\'s open is not this one\'s (11); a commit this clone cannot place is unknown (12)');
   assert.deepEqual([41, 42].map((n) => f.prMerged(n)), [true, false]);
   assert.deepEqual(['a', 'b', 'zz'].map((id) => f.moduleComplete(id)), [true, false, false]);
   assert.deepEqual(['session_gone1', 'session_live1', 'session_unlisted'].map((id) => f.sessionGone(id)), [true, false, null], 'a session the list does not hold is unknown, never gone');
@@ -112,7 +126,7 @@ test('the case: layer 6 closed ends hold-19 to hold-22 by the tool, recorded wit
   assert.ok(holdLines(before).some((l) => /^- hold-19 layer:8, .*holds nothing, layer_closed:6 met \(read from its words\); the tool ends it at its next write/.test(l)));
   const stale = staleRecords(root, cfg);
   assert.deepEqual(stale.filter((x) => x.auto).map((x) => x.id), ['hold-19', 'hold-20', 'hold-21', 'hold-22']);
-  assert.match(stale.find((x) => x.id === 'hold-18').why, /its words name an end the tool cannot check \(its words say something follows the condition \("after it"\)\); it holds until 20/);
+  assert.match(stale.find((x) => x.id === 'hold-18').why, /its words name an end the tool cannot check \(its words say more than the condition \("after it product work pauses for the layer-branch pin"\)\); it holds until 20/);
   const said = [];
   assert.deepEqual(expireRecords(root, cfg, { log: (l) => said.push(l) }).holds, ['hold-19', 'hold-20', 'hold-21', 'hold-22']);
   assert.match(said[0], /^hold-19 ended by the tool: layer:8 holds nothing now \(layer_closed:6 met, read from its words\)$/);
@@ -130,8 +144,8 @@ test('the case: layer 6 closed ends hold-19 to hold-22 by the tool, recorded wit
   status(root, { offline: true, log: (l) => out.push(l) });
   assert.ok(out.some((l) => /^- hold hold-18: layer:7: its words name an end the tool cannot check/.test(l)));
   assert.ok(!out.some((l) => /hold --end/.test(l)), 'no hold --end for a person to type');
-  // Not before its layer closes.
-  const open = product({ [HOLDS_FILE]: jl(holdRows()), 'layers/closed.jsonl': closed(5) });
+  // Not before its layer closes, nor on an earlier tranche's close of a layer 6 (its commit on main).
+  const open = product({ [HOLDS_FILE]: jl(holdRows()), 'layers/closed.jsonl': closed(5) + jl([{ row: 'closed', layer: 6, tranche: 'tranche', commit: MAIN }]) });
   assert.deepEqual(expireRecords(open, loadConfig(open), { log: quiet }).holds, []);
 });
 
@@ -148,13 +162,19 @@ test('hold --when: the condition is recorded and ends the hold; words alone are 
   assert.match(said[0], /its words give the condition layer_closed:6: recorded with it/);
   const cfg = loadConfig(root);
   assert.deepEqual(expireRecords(root, cfg, { log: quiet }).holds, [], 'layer 6 not closed yet');
-  writeState(root, SB, 'close 6', (dir) => { appendFileSync(join(dir, 'layers/closed.jsonl'), closed(6)); return {}; });
+  // A condition met already is refused: a hold is never ended as it is made.
+  assert.throws(() => hold(root, 'module:e', { why: 'x', by: S, when: 'layer_closed:5', log: quiet }), /the condition layer_closed:5 is met already .*nothing recorded/);
+  // Words do not add an end to a hold given its own: --prs and --until keep theirs.
+  const own = hold(root, 'module:f', { why: 'until layer 6 closes', by: S, prs: '40', log: quiet });
+  assert.deepEqual(own.when, []);
+  const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  writeState(root, SB, 'close 6', (dir) => { appendFileSync(join(dir, 'layers/closed.jsonl'), closed(6).replaceAll(TIP, tip)); return {}; });
   assert.deepEqual(expireHolds(root, SB, { log: quiet }), ['hold-1', 'hold-2']);
   fetchState(root, SB, { fresh: true });
-  assert.deepEqual(readHolds(root, SB).map((h) => [h.id, h.live, h.ended?.by]), [['hold-1', false, BY_TOOL], ['hold-2', false, BY_TOOL]]);
+  assert.deepEqual(readHolds(root, SB).map((h) => [h.id, h.live, h.ended?.by]), [['hold-1', false, BY_TOOL], ['hold-2', false, BY_TOOL], ['hold-3', true, undefined]]);
   // A hold ended by hand meanwhile is not ended twice.
   hold(root, 'module:d', { why: 'x', by: S, when: 'module_complete:d', log: quiet });
-  hold(root, 'hold-3', { by: S, end: 'hold-3', log: quiet });
+  hold(root, 'hold-4', { by: S, end: 'hold-4', log: quiet });
   assert.deepEqual(expireHolds(root, SB, { log: quiet }), []);
 });
 
@@ -200,4 +220,18 @@ test('ROOT\'s sweep ends what the tool can and finds the rest, with nothing for 
   assert.ok(!r.todo.some((x) => /hold --end|lane end/.test(x)), 'nothing for a person to type');
   fetchState(root, SB, { fresh: true });
   assert.deepEqual(readHolds(root, SB).filter((h) => h.ended?.by === BY_TOOL).map((h) => h.id), ['hold-19', 'hold-20', 'hold-21', 'hold-22']);
+});
+
+test('after an act that wrote and succeeded the tool ends what is met; a failure never changes the act', async () => {
+  const { ENDS_AFTER, endsAfter } = await import('../p3.mjs');
+  const calls = [];
+  const expire = (root, cfg) => { calls.push(cfg.tranche); return { holds: ['hold-1'], seats: [] }; };
+  assert.deepEqual(endsAfter('/r', { tranche: 't' }, 'layer land', 0, { expire }), { holds: ['hold-1'], seats: [] });
+  assert.equal(endsAfter('/r', { tranche: 't' }, 'layer land', 1, { expire }), null, 'a failed act: nothing');
+  assert.equal(endsAfter('/r', { tranche: 't' }, 'status', 0, { expire }), null, 'a read: nothing');
+  assert.deepEqual(calls, ['t']);
+  const said = [];
+  assert.equal(endsAfter('/r', { tranche: 't' }, 'merge', 0, { expire: () => { throw new Error('push refused'); }, err: (m) => said.push(m) }), null);
+  assert.deepEqual(said, ['records whose condition is met were not ended: push refused']);
+  for (const a of ['merge', 'hold', 'layer open', 'layer land', 'layer merge', 'job start', 'lane end']) assert.ok(ENDS_AFTER.has(a), a);
 });
