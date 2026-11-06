@@ -49,8 +49,11 @@ export function lanes(cfg) {
     // lane's folder, inside or around dir, or holding a generated path (never what the build reads).
     if (l.research !== undefined && (typeof l.research !== 'string' || !l.research.trim())) fail(`lane ${l.name.trim()}'s research is a folder in the product, not ${JSON.stringify(l.research)}`);
     if (l.research !== undefined && kind === 'triage') fail(`lane ${l.name.trim()} is a triage lane: its register is its record; it takes no research folder`);
+    if (l.research !== undefined && !dir) fail(`lane ${l.name.trim()} sets research but no dir: set its "dir" too`);
     const research = dir ? researchOf({ ...l, kind }) : null;
-    if (research && laneDirs({ lanes: [{ ...l, kind }] })[0]?.research !== research) fail(`lane ${l.name.trim()}'s research folder ${research}/ cannot be its research area: not the root, inside or around its dir, under process/, .process/, .github/, .claude/ or CLAUDE.md, nor outside the checkout`);
+    if (research && laneDirs({ lanes: [{ ...l, kind }] })[0]?.research !== research) fail(`lane ${l.name.trim()}'s research folder ${research}/ cannot be its research area: its last part is research or ends in -research, and it is not the root, inside or around its dir, under process/, .process/, .github/, .claude/ or CLAUDE.md, nor outside the checkout`);
+    // Nor another lane's: the gate drops a research area that overlaps another lane's folders.
+    if (research && laneDirs(cfg).find((x) => x.name === l.name.trim())?.research !== research) fail(`lane ${l.name.trim()}'s research folder ${research}/ overlaps another lane's dir or research; give it its own`);
     const gen = (Array.isArray(cfg.generated) ? cfg.generated : []).flatMap((r) => (Array.isArray(r?.paths) ? r.paths : [])).map((g) => String(g).replace(/^\.\//, ''));
     const g = research && gen.find((x) => underPath(x, research) || underPath(research, x.replace(/\/+$/, '')));
     if (g) fail(`lane ${l.name.trim()}'s research folder ${research}/ holds the generated path ${g}: research is never what the build reads`);
@@ -100,10 +103,13 @@ const QUALIFIED = /^qualification-(\d{4}-\d{2}-\d{2})\.md$/;
 export function qualification(root, l) {
   if (!l?.research) return null;
   const area = l.research;
-  const here = existsSync(join(root, area)) && statSync(join(root, area)).isDirectory();
-  const files = here ? walk(root, area) : [];
-  const index = here && existsSync(join(root, area, RESEARCH_INDEX));
-  const records = here ? readdirSync(join(root, area)).map((n) => QUALIFIED.exec(n)?.[1]).filter(Boolean).sort() : [];
+  const isFile = (p) => { try { return statSync(join(root, p)).isFile(); } catch { return false; } };
+  const here = (() => { try { return statSync(join(root, area)).isDirectory(); } catch { return false; } })();
+  // A broken link or an unreadable entry reads as not qualified, never a crash of every START.
+  let files = [];
+  try { files = here ? walk(root, area) : []; } catch { files = []; }
+  const index = here && isFile(`${area}/${RESEARCH_INDEX}`);
+  const records = here ? readdirSync(join(root, area)).filter((n) => isFile(`${area}/${n}`)).map((n) => QUALIFIED.exec(n)?.[1]).filter(Boolean).sort() : [];
   return { area, files, bytes: files.reduce((n, f) => n + f.bytes, 0), index, records, latest: records.at(-1) || null, qualified: index && records.length > 0 };
 }
 const missing = (q) => (!q.files.length ? `${q.area}/ is missing or empty` : [!q.index && `${q.area}/${RESEARCH_INDEX} is missing`, !q.records.length && `${q.area}/ holds no qualification-<YYYY-MM-DD>.md`].filter(Boolean).join('; '));
@@ -361,6 +367,10 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   const home = l.repo === 'process' ? PROCESS_ROOT : root;
   if (!existsSync(join(home, l.dir))) fail(`lane ${l.name}'s directory ${l.dir}/ is not in ${l.repo === 'process' ? 'the pinned process3' : 'this checkout'}`);
   if (seat && replace === undefined) fail(busy(l, seat));
+  // A folder already there under the research area's name, holding files but no index.md, is not
+  // the lane's research: the gate would let its changes skip the suite (review), so name it.
+  const pre = l.kind === 'triage' ? null : qualification(root, l);
+  if (pre && pre.files.length && !pre.index && !pre.records.length) fail(`lane ${l.name}'s research folder ${pre.area}/ already holds ${pre.files.length} file(s), and neither ${RESEARCH_INDEX} nor a qualification record: it is not the lane's research; set the lane's "research" in process/config.json to a folder of its own; nothing was started`);
   if (replace !== undefined && (!seat || replace !== (seat.session || 'pending'))) fail(`--replace names lane ${l.name}'s live session, ${seat ? seat.session || 'pending' : 'none'}; not ${JSON.stringify(replace)}`);
   const row = { row: 'start', at: now(), tranche: cfg.tranche, lane: l.name, ...(seat ? { replaces: seat.session || 'pending' } : {}) };
   writeState(root, cfg.state_branch, `lane ${l.name}: session started`, (wt) => {

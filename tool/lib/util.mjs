@@ -409,8 +409,18 @@ export function laneDirs(cfg) {
   return ls.filter((l) => l && typeof l.name === 'string' && l.name.trim() && typeof l.dir === 'string')
     .map((l) => ({ name: l.name.trim(), dir: norm(l.dir), module: typeof l.module === 'string' ? l.module.trim() : null, research: researchOf(l, norm) }))
     .filter((l) => ok(l.dir))
-    .map((l) => ({ ...l, research: l.research && ok(l.research) && !underPath(l.research, l.dir) && !underPath(l.dir, l.research) ? l.research : null }));
+    .map((l, _, all) => {
+      // Dropped, never widened, where it could take a folder that is not research: outside the
+      // lane rules, inside or around dir, or overlapping another lane's dir or research.
+      const r = l.research;
+      const clash = (x) => underPath(r, x) || underPath(x, r);
+      const good = r && ok(r) && RESEARCH_NAME.test(r) && !clash(l.dir) && !all.some((o) => o !== l && (clash(o.dir) || (o.research && clash(o.research))));
+      return { ...l, research: good ? r : null };
+    });
 }
+// A research area's last segment is "research" or ends in "-research", so no source folder or root
+// build file (src, package.json) is ever taken for one (review of build/lane-qualification).
+export const RESEARCH_NAME = /(^|\/)([^/]+-)?research$/;
 // A design lane's research area (Bob, 6 Nov: "This initial and ongoing research should be
 // recording in a lane-specific area of the product repo for subsequent sessions to draw from and
 // evolve"): its "research" in process/config.json, else the sibling <dir>-research. A sibling, not
@@ -419,7 +429,8 @@ export function laneDirs(cfg) {
 // own folder (laneOfPath): a pull request changing only it and dir lands without a suite run.
 // A triage lane keeps its register instead: no research area.
 export function researchOf(l, norm = (d) => d.trim().replace(/^\.\//, '').replace(/\/+$/, '')) {
-  if (!l || l.kind === 'triage' || typeof l.dir !== 'string' || !l.dir.trim()) return null;
+  if (!l || (l.kind !== undefined && l.kind !== 'design') || typeof l.dir !== 'string' || !l.dir.trim()) return null;
+  if (l.research !== undefined && typeof l.research !== 'string') return null;
   if (typeof l.research === 'string' && l.research.trim()) return norm(l.research);
   return `${norm(l.dir)}-research`;
 }

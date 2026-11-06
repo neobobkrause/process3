@@ -28,26 +28,57 @@ const asksOn = (bare) => git(['show', `process-state:${LANES_FILE}`], { cwd: bar
 
 test('a lane\'s research area: the sibling <dir>-research by default, or its "research"; never inside or around dir, a generated path, or a governed folder; none for a triage lane', () => {
   assert.equal(lanes({ lanes: [{ name: 'ux', dir: 'docs/ux-substrate/' }] })[0].research, 'docs/ux-substrate-research');
-  assert.equal(lanes({ lanes: [{ name: 'ux', dir: 'docs/ux', research: './docs/lanes/ux/' }] })[0].research, 'docs/lanes/ux');
+  assert.equal(lanes({ lanes: [{ name: 'ux', dir: 'docs/ux', research: './docs/lanes/ux-research/' }] })[0].research, 'docs/lanes/ux-research');
   for (const research of ['docs/ux/research', 'docs', 'process/ux', '.github/r', '../r', '.']) assert.throws(() => lanes({ lanes: [{ name: 'ux', dir: 'docs/ux', research }] }), /cannot be its research area/, research);
   assert.throws(() => lanes({ lanes: [{ name: 'ux', dir: 'docs/ux', research: '' }] }), /research is a folder in the product/);
   assert.throws(() => lanes({ generated: [{ paths: ['docs/ux-research/big.json'] }], lanes: [{ name: 'ux', dir: 'docs/ux' }] }), /holds the generated path docs\/ux-research\/big\.json: research is never what the build reads/);
   assert.throws(() => lanes({ lanes: [{ name: 't', dir: 'triage', kind: 'triage', research: 'r' }] }), /triage lane: its register is its record/);
   assert.equal(lanes({ lanes: [{ name: 't', dir: 'triage', kind: 'triage' }] })[0].research, null);
   assert.equal(laneDirs({ lanes: [{ name: 't', dir: 'triage', kind: 'triage' }] })[0].research, null);
+  // Review: only a folder named research or *-research; never a source folder or a root build file.
+  for (const research of ['src', 'package.json', 'docs/researcher']) assert.throws(() => lanes({ lanes: [{ name: 'ux', dir: 'docs/ux', research }] }), /cannot be its research area/, research);
+  assert.equal(lanes({ lanes: [{ name: 'ux', dir: 'docs/ux', research: 'notes/research' }] })[0].research, 'notes/research');
+  assert.throws(() => lanes({ lanes: [{ name: 'ux', research: 'docs/ux-research' }] }), /sets research but no dir/);
+  // Nor another lane's folders, either way round.
+  assert.throws(() => lanes({ lanes: [{ name: 'a', dir: 'ui' }, { name: 'b', dir: 'ui-research' }] }), /overlaps another lane's dir or research/);
+  assert.throws(() => lanes({ lanes: [{ name: 'a', dir: 'docs', research: 'other-research' }, { name: 'b', dir: 'other-research/x' }] }), /overlaps another lane's/);
+  // The gate (laneDirs alone, from the base config) drops what lanes() refuses, never widens.
+  assert.deepEqual(laneDirs({ lanes: [{ name: 'a', dir: 'ui' }, { name: 'b', dir: 'ui-research' }] }).map((x) => x.research), [null, 'ui-research-research']);
+  assert.equal(laneDirs({ lanes: [{ name: 'a', dir: 'ui', research: 'src' }] })[0].research, null);
+  assert.equal(laneDirs({ lanes: [{ name: 'a', dir: 'ui', kind: 'Triage' }] })[0].research, null);
+  assert.equal(laneDirs({ lanes: [{ name: 'a', dir: 'ui', research: ['src'] }] })[0].research, null);
 });
 
 test('the gate counts the research area as the lane\'s own folder: a pull request changing only it (and the lane\'s dir) takes the lane-only path', () => {
-  const cfg = { records: [], lanes: [{ name: 'ux', dir: 'design/ux', module: 'ux' }, { name: 'ai', dir: 'design/ai', research: 'notes/ai' }] };
+  const cfg = { records: [], lanes: [{ name: 'ux', dir: 'design/ux', module: 'ux' }, { name: 'ai', dir: 'design/ai', research: 'notes/ai-research' }] };
   assert.equal(laneOfPath(cfg, 'design/ux-research/index.md'), 'ux');
-  assert.equal(laneOfPath(cfg, 'notes/ai/qualification-2026-11-06.md'), 'ai');
+  assert.equal(laneOfPath(cfg, 'notes/ai-research/qualification-2026-11-06.md'), 'ai');
   assert.equal(laneOfPath(cfg, 'design/ai-research/x.md'), null);
   assert.equal(laneOnly(cfg, ['design/ux/a.md', 'design/ux-research/index.md']), 'ux');
-  assert.equal(laneOnly(cfg, ['design/ux-research/index.md', 'notes/ai/index.md']), null);
+  assert.equal(laneOnly(cfg, ['design/ux-research/index.md', 'notes/ai-research/index.md']), null);
   // A research file another module's paths name is that module's, judged as today.
   assert.equal(laneOfPath(cfg, 'design/ux-research/x.md', [entry('other', { paths: ['design/ux-research/'] })]), null);
   assert.equal(laneOfPath(cfg, 'design/ux-research/.github/x.yml'), null);
+  // A triage lane's sibling is no lane path; nor is one under an invalid dir; overlapping lanes stay two.
+  assert.equal(laneOfPath({ records: [], lanes: [{ name: 't', dir: 'triage', kind: 'triage' }] }, 'triage-research/x.md'), null);
+  assert.equal(laneOfPath({ records: [], lanes: [{ name: 'p', dir: 'process/ux' }] }, 'process/ux-research/x.md'), null);
+  const two = { records: [], lanes: [{ name: 'a', dir: 'ui' }, { name: 'b', dir: 'ui-research' }] };
+  assert.equal(laneOfPath(two, 'ui-research/x.md'), 'b');
+  assert.equal(laneOnly(two, ['ui/a.md', 'ui-research/x.md']), null);
 });
+
+test('qualification: index and records must be files; an unreadable research area reads as not qualified; a folder already there that is not research is refused', async () => {
+  const { mkdirSync, symlinkSync } = await import('node:fs');
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/a.md': 'a\n', 'design/ux-research/x/keep.md': 'k\n' });
+  const l = lanes(loadConfig(root))[0];
+  mkdirSync(join(root, 'design/ux-research/index.md'));
+  mkdirSync(join(root, 'design/ux-research/qualification-2026-11-06.md'));
+  const q = qualification(root, l);
+  assert.deepEqual([q.index, q.records.length, q.qualified], [false, 0, false]);
+  assert.throws(() => laneStart(root, 'ux', { slug: 'o/p', log: quiet }), /research folder design\/ux-research\/ already holds \d+ file\(s\), and neither index\.md nor a qualification record: it is not the lane's research/);
+  symlinkSync(join(root, 'nowhere'), join(root, 'design/ux-research/broken'));
+  assert.equal(qualification(root, l).qualified, false);
+  });
 
 test('lane start on a lane with no qualification record prints the QUALIFICATION brief; once its index and dated record are in, the research area leads the START', () => {
   const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
