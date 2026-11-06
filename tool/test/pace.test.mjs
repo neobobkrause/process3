@@ -124,6 +124,10 @@ test('a 403 with Retry-After pauses every session until it passes, never a retry
   const { root: a, bare } = withOrigin({ 'process/config.json': {} });
   const b = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'b');
   git(['clone', '-q', bare, b], { cwd: a });
+  // A clone with a git identity, as every session's has: without one (CI has no global identity)
+  // its state write fails, and its refusal stays in its own clone (ci of PR 205, node 22).
+  git(['config', 'user.email', 'noreply@github.com'], { cwd: b });
+  git(['config', 'user.name', 'Test'], { cwd: b });
   const cfg = configOf({});
   const c = clock();
   const sharedA = stateShare(a, cfg, { now: c.now });
@@ -143,7 +147,8 @@ test('a 403 with Retry-After pauses every session until it passes, never a retry
   assert.deepEqual(c.slept, [120e3]);
   assert.match(budgetGate(b, { p: P, now: c.t - 1 }) || '', /rate-limited this account until/);
   // A second refusal within the hour, by session B: every GitHub call stops.
-  ghAfter(['api', 'repos/o/p'], { code: 1, stderr: 'HTTP 429: Too Many Requests' }, b, { now: c.now });
+  const second = ghAfter(['api', 'repos/o/p'], { code: 1, stderr: 'HTTP 429: Too Many Requests' }, b, { now: c.now });
+  assert.deepEqual([second.unshared, second.stopped], [undefined, true], 'shared with the account, and a stop');
   process.env.CLAUDE_CODE_SESSION_ID = 'cse_a';
   useShared(stateShare(a, cfg, { now: c.now }));
   assert.throws(() => ghTurn(['pr', 'view', '1'], a, { p: P, now: c.now, sleep: c.sleep }), (e) => e instanceof Paced && /^GitHub budget: GitHub refused this account again within an hour of an earlier refusal.*Tell the coordinator.*github resume/.test(e.message));
