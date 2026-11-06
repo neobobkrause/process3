@@ -269,7 +269,19 @@ test('interface signal (R8): a new test file naming a Provides requirement is ad
   const renamed = commit(root, { 'req/a.md': req('a', '- **R5** `a(x)` answers the materials\n- **R3** more'), 'test/a/r5.test.mjs': t('R5 answers', '{ materials: [1] }') }, 'R2 renamed R5');
   const z = interfaceChange(root, cfg, 'a', moved, renamed);
   assert.deepEqual(z.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r2-list.test.mjs', 'breaking'], ['test/a/r5.test.mjs', 'additive']]);
-  assert.equal(z.class, 'breaking');
+  assert.equal(z.class, 'breaking');  // The coordinator's ruling (6 Nov): a new file naming an existing Provides requirement while the
+  // provider's source changed may assert a changed answer ({materials: [...]}, exports unchanged):
+  // breaking. One naming only a requirement new in this land stays additive.
+  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r5-shape.test.mjs': t('R5 answers {materials}', '{ materials: [1] }') }, 'shape, a new test');
+  const w = interfaceChange(root, cfg, 'a', renamed, shape);
+  assert.equal(w.exports, null, 'exports unchanged');
+  assert.deepEqual(w.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r5-shape.test.mjs', 'breaking']]);
+  assert.match(w.provides_test_changes[0].why, /^added, naming R5 \(Provides before this land\) while a's source changed: it may assert a changed answer$/);
+  assert.equal(w.class, 'breaking');
+  const fresh = commit(root, { 'req/a.md': req('a', '- **R5** `a(x)` answers the materials\n- **R3** more\n- **R7** `a2()` is new'), 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\nexport const a2 = () => 1;\n', 'test/a/r7.test.mjs': t('R7 answers', '1') }, 'a new requirement, its new test');
+  const v = interfaceChange(root, cfg, 'a', shape, fresh);
+  assert.deepEqual(v.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r7.test.mjs', 'additive']]);
+  assert.equal(v.class, 'additive');
 });
 
 test('module states: rescheduled until a land holds the provider\'s land; deferred when BLOCKED; complete after a land', () => {

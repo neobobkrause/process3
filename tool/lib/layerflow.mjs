@@ -133,7 +133,8 @@ export function interfaceChange(root, cfg, id, before, after) {
   if (tests.length) {
     // The ids of both sides: a test of a Provides requirement renamed or dropped is examined too
     // (cold review of R8: R2 renamed R4 with r2.test.mjs deleted read as additive).
-    const ids = [...new Set([...(providesIds(textAt(root, after, e.requirements)) || []), ...(providesIds(textAt(root, before, e.requirements)) || [])])];
+    const idsBefore = providesIds(textAt(root, before, e.requirements)) || [];
+    const ids = [...new Set([...(providesIds(textAt(root, after, e.requirements)) || []), ...idsBefore])];
     const names = (t) => ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t));
     const hit = ids.length ? tests.filter((f) => names(`${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`)) : [];
     // A fixture (a file under its tests that is not itself a test: rows, JSON, a snapshot) that a test
@@ -159,7 +160,16 @@ export function interfaceChange(root, cfg, id, before, after) {
       const asserted = examined.map((f) => {
         if ([...replaced.values()].includes(f)) return { file: f, class: 'none', why: `replaced by ${[...replaced].find(([, g]) => g === f)[0]}` };
         if (replaced.has(f)) { const c = classifyTestChange(textAt(root, before, replaced.get(f)), textAt(root, after, f), ids); return { file: f, ...c, why: `replaces ${replaced.get(f)}: ${c.why}` }; }
-        return { file: f, ...classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids) };
+        const c = classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids);
+        // A new file is additive only when every requirement it names is new, or the provider's
+        // own source did not change in this land (the coordinator's ruling, 6 Nov, under Bob's "c":
+        // additive means nothing an existing user relies on changed). One naming an existing
+        // Provides requirement while its implementation changed may assert a changed answer.
+        if (textAt(root, before, f) === null && c.class === 'additive' && src.length) {
+          const old = idsBefore.filter((r) => nameRe(r).test(textAt(root, after, f) || ''));
+          if (old.length) return { file: f, class: 'breaking', why: `added, naming ${old.join(', ')} (Provides before this land) while ${id}'s source changed: it may assert a changed answer` };
+        }
+        return { file: f, ...c };
       });
       out.provides_test_changes = asserted;
       const real = asserted.filter((x) => x.class !== 'none').map((x) => x.file);
