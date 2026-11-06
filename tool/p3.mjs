@@ -3,6 +3,7 @@
 // Usage: node <clone>/tool/p3.mjs <command> [args]
 // p3-capability: gate-no-post (products' older shims grep for this line at the pin; keep it until
 // every product carries the shim without the legacy path; review B of PR 32)
+import { expireRecords } from './lib/expire.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
@@ -274,7 +275,7 @@ const commands = {
 
   // hold <module:<id>|layer:<n>|slots:<n>> --why "<reason>" --by <session> [--prs <n>[,<n>...]] [--until <ISO time|<n>m|<n>h>]; hold --end <id> --by <session>:
   // the only way to hold startable work below the job cap (coordinator's design, 5 Nov 01:13), a row on the state branch; it lasts until its named PRs land or its --until time.
-  hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, prs: a.prs, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
+  hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, prs: a.prs, ...(a.when !== undefined ? { when: a.when } : {}), ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
 
   // test <id>: the module's own suite, as the gate runs it.
   test: (a, root) => (jobTest(root, one(a, 'module'), { session: typeof a.session === 'string' ? a.session : null }).ok ? 0 : 1),
@@ -615,6 +616,14 @@ const commands = {
   },
 };
 
+// After an act that wrote and succeeded, the tool ends the records whose condition is met (R13,
+// expire.mjs); a failure is said on stderr and never changes the act's result.
+export function endsAfter(root, cfg, name, code, { expire = expireRecords, err = (m) => console.error(m) } = {}) {
+  if (code !== 0 || !ENDS_AFTER.has(name)) return null;
+  try { return expire(root, cfg); } catch (e) { err(`records whose condition is met were not ended: ${e.message}`); return null; }
+}
+// The acts after which the tool ends the records whose condition is met (R13).
+export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete', 'block', 'layer open', 'layer land', 'layer merge', 'layer close', 'layer publish', 'tranche open', 'tranche close', 'lane start', 'lane end', 'lane ask', 'notice triage']);
 export async function main(argv) {
   const a = parseArgs(argv);
   const two = a._.slice(0, 2).join(' ');
@@ -635,6 +644,10 @@ export async function main(argv) {
     const code = (await fn(a, root)) ?? 0;
     const act = cfg && code === 0 ? owes(name, a) : null;
     if (act) { try { writeState(root, cfg.state_branch, `starts owed: ${act}`, (dir) => owe(dir, act)); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); } }
+    // Records whose condition is met end at the tool's writes (R13, expire.mjs): after each act
+    // that writes, the holds met end, recorded; never a refusal of the act. The sweep does the
+    // same with the session list (lane seats).
+    if (cfg && !process.env.NODE_TEST_CONTEXT) endsAfter(root, cfg, name, code);
     return code;
   } catch (e) {
     if (e instanceof Fail) {
