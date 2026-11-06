@@ -34,7 +34,8 @@ import { branchModule, entryFile, ledgerIds } from './ledger.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, jobCap, loadConfig, now, repoSlug, underPath, unmetIds } from './util.mjs';
+import { endLayerHolds } from './hold.mjs';
+import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 export const LAND_TITLE = /^Merge layer PR (\d+)$/;
@@ -222,15 +223,32 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   const L = layers.find((x) => x.n === n) || fail(`layer ${n} is not in ${cfg.layers_file} on ${layerBranch(n)}`);
   const rows = flowRows(root, cfg.state_branch, n);
   const dir = cfg.requirements_dir.replace(/\/$/, '');
-  const entries = new Map(L.mods.map((id) => [id, entryAt(root, ref, id)]));
-  const marks = new Map(L.mods.map((id) => [id, unmetIds(textAt(root, ref, entries.get(id)?.requirements || `${dir}/${id}.md`) || '').filter((x) => !isFound(x))]));
+  // An entry the layer branch lacks is read from the tranche, the ledger's home (copy, 6 Nov: layer/8
+  // was cut before PR 638 added four entries): its job starts from it (job start) and carries it on.
+  const home = `refs/remotes/origin/${cfg.tranche}`;
+  const entries = new Map(L.mods.map((id) => [id, entryAt(root, ref, id) || entryAt(root, home, id)]));
+  const reqOf = (id) => entries.get(id)?.requirements || `${dir}/${id}.md`;
+  const marks = new Map(L.mods.map((id) => [id, unmetIds(textAt(root, ref, reqOf(id)) ?? textAt(root, home, reqOf(id)) ?? '').filter((x) => !isFound(x))]));
   const list = (io.openPRs || openPRs)(slug, layerBranch(n));
   if (list === null) fail(`GitHub unreadable: the open pull requests into ${layerBranch(n)} are not known`);
-  const ids = ledgerIds(root, ref);
+  // The tranche's ids too: a module whose entry only the tranche holds has its job PR named by it.
+  const ids = new Set([...ledgerIds(root, ref), ...ledgerIds(root, home)]);
   const prs = list.map((p) => ({ number: p.number, draft: !!p.draft, head: p.head?.sha, ref: p.head?.ref, module: branchModule(p.head?.ref, ids) }));
+  // A job that blocks commits BLOCKED on its own branch, not on the layer (copy, 6 Nov: corpus-export,
+  // BLOCKED on rows owed to layer 11, showed as working and its draft PR held the layer merge): the
+  // entry at its open PR's head counts when it reads BLOCKED, and that PR holds the merge no longer.
+  const blockedOn = new Map();
+  for (const p of prs.filter((x) => x.module && L.mods.includes(x.module) && x.head)) {
+    if (git(['cat-file', '-e', `${p.head}^{commit}`], { cwd: root, allowFail: true }).code !== 0 && p.ref) fetchBranch(root, p.ref, { allowFail: true });
+    const e = entryAt(root, p.head, p.module);
+    if (e?.status?.state === 'BLOCKED') { entries.set(p.module, e); blockedOn.set(p.module, p.number); }
+  }
   const anc = (a, b) => isAnc(root, a, b);
-  const states = moduleStates({ mods: L.mods, entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc });
-  return { n, ref, mods: L.mods, layers, rows, entries, prs, states };
+  const states = moduleStates({ mods: L.mods, entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
+    .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)` } : x));
+  // The open PRs that hold the merge: all but those of a module deferred by its PR head's BLOCKED.
+  const holding = prs.filter((p) => !(blockedOn.has(p.module) && blockedOn.get(p.module) === p.number));
+  return { n, ref, mods: L.mods, layers, rows, entries, prs, holding, states };
 }
 
 // Whether a layer is behind us when the flow starts mid-tranche (the copy switches after layer 6,
@@ -289,7 +307,7 @@ export function layerLines(root, cfg, { slug, io = {} } = {}) {
     for (const s of x.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
     const st = startable(x.states);
     if (st.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...st.map((q) => `- ${q.cmd}`));
-    if (mergeReady(x.states) && !x.prs.length) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
+    if (mergeReady(x.states) && !x.holding.length) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
     return L;
   }
   return L.length ? L : ['layer flow: every layer has merged'];
@@ -322,6 +340,12 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const ids = ledgerIds(root, tr);
   const held = into.filter((p) => mine.has(branchModule(p.head?.ref, ids)));
   if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (or close) under the train before the layer opens`);
+  // Every module of the layer has its ledger entry on the tranche before the branch is cut (copy,
+  // 6 Nov: layer/8 was cut before four of its entries landed, and their jobs could not start).
+  const bare = [...mine].filter((id) => !ids.has(id));
+  const cut = git(['ls-remote', '--heads', 'origin', layerBranch(n)], { cwd: root, allowFail: true }).stdout.trim() !== '';
+  if (bare.length && cut) log(`warning: layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; ${layerBranch(n)} is cut already, so their jobs cannot start until the entries land`);
+  if (bare.length && !cut) fail(`layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; land their entries first, then open the layer; nothing was opened`);
   const rows = flowRows(root, cfg.state_branch, n);
   if (staleFlow(root, rows)) fail(`layer ${n}'s flow rows and ${layerBranch(n)} are an earlier tranche's (its merge ${short(rows.merged.commit)} is on main): a second tranche under the flow is not built; ask the coordinator`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);
@@ -336,11 +360,13 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
     log(`${b} cut from ${cfg.tranche} ${short(at)}`);
   } else log(`${b} is on origin at ${short(at)}`);
   if (!rows.open) writeRows(root, cfg.state_branch, `layer ${n} open on ${b}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by }]]);
+  // Holds on this layer's modules end at its open, recorded as hold --end records them.
+  const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}`);
-  return { ok: true, branch: b, from: at, startable: s };
+  return { ok: true, branch: b, from: at, startable: s, ended };
 }
 
 export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
@@ -362,8 +388,8 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   fetchLayer(root, cfg, n);
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   for (const s of L.states) log(`${s.id}: ${s.state} (${s.why})`);
-  const ready = mergeReady(L.states) && !L.prs.length;
-  log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.prs.length ? `, ${L.prs.length} PR(s) open into ${layerBranch(n)}` : ''}`);
+  const ready = mergeReady(L.states) && !L.holding.length;
+  log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.holding.length ? `, ${L.holding.length} PR(s) open into ${layerBranch(n)}` : ''}`);
   return { ok: true, states: L.states, ready };
 }
 
@@ -487,7 +513,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const rows = flowRows(root, cfg.state_branch, n);
   if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche}`);
-  const id = branchModule(pr.head?.ref, ledgerIds(root, lref)) || fail(`pull request ${n0} is from ${pr.head?.ref}, not a job branch`);
+  const id = branchModule(pr.head?.ref, new Set([...ledgerIds(root, lref), ...ledgerIds(root, `refs/remotes/origin/${cfg.tranche}`)])) || fail(`pull request ${n0} is from ${pr.head?.ref}, not a job branch`);
   if (layerOf(layersAt(root, cfg, lref), id) !== n) fail(`${id} is not a module of layer ${n}`);
   fetchBranch(root, pr.head.ref, { allowFail: true });
   const head = pr.head.sha;
@@ -563,9 +589,10 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   if (L.rows.merged) fail(`layer ${n} already merged (${short(L.rows.merged.commit)})`);
   const not = L.states.filter((s) => !DONE.includes(s.state));
   if (not.length) fail(`layer ${n} cannot merge: ${not.map((s) => `${s.id} is ${s.state} (${s.why})`).join('; ')}`);
-  if (L.prs.length) fail(`layer ${n} cannot merge: PR(s) ${L.prs.map((p) => p.number).join(', ')} still open into ${layerBranch(n)}`);
+  if (L.holding.length) fail(`layer ${n} cannot merge: PR(s) ${L.holding.map((p) => p.number).join(', ')} still open into ${layerBranch(n)}`);
   const x = { findPR, createPR, checkRun, getPR, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   const b = layerBranch(n);
+  carriedSync(root, cfg, n, L, log);
   const head = rev(root, L.ref);
   // The layer's checks (INT-4; Bob, 5 Nov): what layer close runs, less the module suites (no test
   // run at close): each entry's checks, the generated rows built, and every committed generated
@@ -609,6 +636,43 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   });
   log(`layer ${n} merged into ${cfg.tranche}${r.sha ? ` at ${short(r.sha)}` : ''}, ${merged.hours} h after it opened; the next layer opens from the new tranche: ${P3} layer open ${n + 1}`);
   return { ok: true, merged, closed };
+}
+// A module's entry (and requirements) carried from the tranche (job start, R4) is added on both
+// sides after the layer was cut: OPEN on the tranche, the job's state on the layer, an add/add
+// conflict GitHub cannot merge (cold review of PR 190). When merging the tranche into the layer
+// conflicts only there, the tool merges it into the layer, taking the layer's version of each, and
+// pushes that merge; any other conflict refuses with the files named. A clean merge writes nothing.
+export function carriedSync(root, cfg, n, L, log = console.log) {
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const head = rev(root, L.ref);
+  if (isAnc(root, tr, head)) return null;
+  return withTemp('p3-layer-', (tmp) => {
+    const w = join(tmp, 'w');
+    git(['worktree', 'add', '-q', '--detach', w, head], { cwd: root });
+    try {
+      const m = git(['merge', '-q', '--no-ff', '--no-commit', tr], { cwd: w, allowFail: true });
+      const conflicted = git(['diff', '--name-only', '--diff-filter=U'], { cwd: w }).split('\n').filter(Boolean);
+      if (m.code === 0 || !conflicted.length) return null;
+      const mb = git(['merge-base', head, tr], { cwd: root });
+      const own = new Set(L.mods.flatMap((id) => [entryFile(id), ...(L.entries.get(id)?.requirements ? [L.entries.get(id).requirements] : [])]));
+      const bad = conflicted.filter((f) => !own.has(f) || exists(root, mb, f));
+      if (bad.length) {
+        git(['merge', '--abort'], { cwd: w, allowFail: true });
+        fail(`layer ${n} cannot merge: ${layerBranch(n)} and ${cfg.tranche} conflict in ${bad.join(', ')}; only a module's entry or requirements carried from ${cfg.tranche} is resolved by the tool; nothing was opened`);
+      }
+      git(['checkout', '-q', '--ours', '--', ...conflicted], { cwd: w });
+      git(['add', '--', ...conflicted], { cwd: w });
+      git(['commit', '-q', '--no-edit', '-m', `Merge ${cfg.tranche} into ${layerBranch(n)}: the layer's ${conflicted.join(', ')} kept (carried from ${cfg.tranche})`], { cwd: w });
+      const sha = git(['rev-parse', 'HEAD'], { cwd: w });
+      const p = git(['push', '-q', 'origin', `${sha}:refs/heads/${layerBranch(n)}`], { cwd: w, allowFail: true });
+      if (p.code !== 0) fail(`the push of ${layerBranch(n)} with ${cfg.tranche} merged in failed (${p.stderr.trim()}); nothing was opened; run layer merge ${n} again`);
+      fetchBranch(root, layerBranch(n));
+      log(`${layerBranch(n)}: ${cfg.tranche} merged in at ${short(sha)}, the layer's version kept of ${conflicted.join(', ')} (added on both after the layer was cut)`);
+      return sha;
+    } finally {
+      git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true });
+    }
+  }, { root });
 }
 const readFileSyncSafe = (p) => { try { return readFileSync(p, 'utf8'); } catch { return ''; } };
 // Whether a layer-check finding is the closing layer's: every finding is, except a generated

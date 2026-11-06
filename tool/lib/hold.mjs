@@ -139,6 +139,23 @@ export function holdHours(rows, from, to, landed = null) {
   return [...out.values()].map((x) => ({ ...x, hours: Math.round(x.hours * 10) / 10 })).sort((x, y) => y.hours - x.hours);
 }
 
+// The holds a layer's open ends (coordinator, 6 Nov: holds recorded "until layer 6 closes", and a
+// session's hold --end of one was refused as weakening security): each live hold whose scope is only
+// modules of layer n (layer:<n>, or module:<id> of one of mods), with the end row hold --end
+// writes, its why naming the open. A hold on any other module, layer or on slots stays.
+export function endLayerHolds(root, sb, n, mods, { by, log = console.log, t = Date.now() } = {}) {
+  const mine = new Set(mods);
+  const ending = readHolds(root, sb, { t }).filter((h) => h.live && ((h.kind === 'layer' && Number(h.value) === n) || (h.kind === 'module' && mine.has(h.value))));
+  if (!ending.length) return [];
+  const why = `ended by layer open ${n}`;
+  writeState(root, sb, `hold: end ${ending.map((h) => h.id).join(', ')} (layer open ${n})`, (dir) => {
+    for (const h of ending) put(dir, { at: now(), row: 'end', id: h.id, by, why });
+    return {};
+  });
+  for (const h of ending) log(`${h.id} ended: ${h.scope} holds nothing now (${why})`);
+  return ending.map((h) => h.id);
+}
+
 const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); appendFileSync(join(dir, HOLDS_FILE), JSON.stringify(row) + '\n'); };
 
 // Starts owed (coordinator, 5 Nov: a marker, never a refusal): every act that can make work

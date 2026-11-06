@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { METRICS_DIR, metricsFile, rowsAt } from './metrics.mjs';
-import { CONFIG_FILE, DEFAULTS, exists, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, exists, fail, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -236,11 +236,21 @@ function shallowCuts(root) {
 // trusted: the refs whose owner-set block a commit may carry (ownerBlock), beside the base: by
 // default origin/main and origin/<tranche>.
 // takenIn: the take-in tips (takenIn's tips) whose history is left out.
-export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, takenIn: earlier = [], trusted } = {}) {
+export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase, lookup, since, takenIn: earlier = [], trusted, home } = {}) {
   const findings = [];
   const notices = [];
   const verified = new Map();
   const ownerName = cfg.approvals.owner;
+  // A shallow clone (copy, 6 Nov: a job session's depth-1 clone): a sync merge's other parent and
+  // the owner's approvals commits lie past the cut, so a merge that took the tranche's approvals
+  // cleanly read as an approvals change that was not the owner's. The whole history is fetched
+  // first (--unshallow adds history and rewrites nothing; --deepen=500 did not reach); if the
+  // clone stays shallow the check refuses, and never reports a change it has not proven.
+  if (shallowCuts(root).size) {
+    const r = git(['fetch', '-q', '--unshallow', 'origin'], { cwd: root, allowFail: true });
+    const left = shallowCuts(root).size;
+    if (left) fail(`this clone is shallow (its history is cut at ${left} commit(s)), and the record check needs the whole history to judge a merge or an approvals change; \`git fetch --unshallow origin\` did not complete${r.code !== 0 ? ` (${r.stderr.trim().split('\n').pop()})` : ''}: run \`git fetch --unshallow origin\` here, then run it again; nothing was judged`);
+  }
   // record_since names the base or an ancestor of it: a full commit id only, never a ref or
   // a short id, whose meaning could change. With no base there is nothing to compare with.
   const onBase = (v) => typeof v === 'string' && /^([0-9a-f]{40}|[0-9a-f]{64})$/i.test(v) && Boolean(base)
@@ -409,6 +419,6 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   if (headings.length > 1) {
     for (const [, line] of headings.slice(1)) findings.push({ check: 'approvals', file: afile, line, message: 'a second approvals heading; only one block may exist' });
   }
-  findings.push(...checkLedger(root, { ref: head, base: ledgerBase, branch }));
+  findings.push(...checkLedger(root, { ref: head, base: ledgerBase, branch, home }));
   return { commits: commits.length, findings, notices, size_waived: sizeWaived };
 }
