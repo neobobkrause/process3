@@ -11,7 +11,7 @@ All tests were run on 6 Nov from a builder session on the current account (creat
 | Scheduled tasks | list_triggers, enabled only | 7 enabled: the hourly flow check, the Phase 1 and 2 survival reads (all three the coordinator's), BOB's layer 9 check-in, sweep (ROOT), watcher; plus Bob's alpha-pipeline-runner, which is not the process's | Switch out step 3 switches them off; switch in (d) recreates them | Coordinator; alpha-pipeline-runner is Bob's |
 | Role, job and lane sessions | `switch out --dry-run` on the copy | BOB, ROOT and the watcher (the MERGER then, gone with PR 191); 8 live jobs; 3 lane seats (investigation, publication, ux) and 1 open ask; layer 9 open; 16 old sessions named | Switch out stop acts; switch in (c), (e), (f), (h); `switch/retired.json` ends their seats | Coordinator, ROOT, BOB |
 | Unanswered messages | The same dry run | 211 in all. 201 are to BOB: 147 refusals from the former MERGER and job reports back to 3 Nov | Switch in (g): those to BOB stay in the record for `status --role bob`; about 10 others are resent | Coordinator |
-| GitHub identity | `switch in --preflight` on the copy, the probe and process3 | ok: acting as civicsmith; push true, admin false on all three; push dry run ok | Bob connects GitHub as civicsmith on the new account | Bob |
+| GitHub identity | `switch in --preflight` on the copy, the probe and process3 | ok: acting as civicsmith (the process's GitHub account until 6 Nov; now believeinoakland); push true, admin false on all three; push dry run ok | Bob connects GitHub as civicsmith on the new account | Bob |
 | Claude GitHub App | The same preflight (its push dry run) | ok on this account | Bob installs it for the three repositories | Bob |
 | Cloud environment | get_environment | BioDefault (personal): unrestricted network; walk-certificate setup script; 1 network secret (api.cloudflare.com); variables BIO_*, CF_*, CLOUDFLARE_*, GITHUB_TOKEN, JOURNEY_*. A personal environment does not move with the account | Bob recreates it with the values only he holds | Bob |
 | Cloudflare | GET api.cloudflare.com/client/v4/user/tokens/verify | 200 | Bob: the Cloudflare connector or the environment's network secret | Bob |
@@ -21,7 +21,7 @@ All tests were run on 6 Nov from a builder session on the current account (creat
 
 ## Canary: Bob, on the target account, days ahead
 
-1. Sign in to the target Claude account. Connect GitHub (claude.ai, Settings, Connectors) as **civicsmith**, never as neobobkrause.
+1. Sign in to the target Claude account. Connect GitHub (claude.ai, Settings, Connectors) as **the process's GitHub account (now believeinoakland)**, never as neobobkrause, the repositories' owner.
 2. Install the Claude GitHub App for civicsmith-copy, process3 and process3-probes.
 3. Recreate the cloud environment BioDefault (network, setup script, variables, the api.cloudflare.com network secret), and connect Google Drive and Cloudflare.
 4. Share the Foundations and the Ledger map (and the lanes' design artifacts) with the target account with edit access. Open each one there.

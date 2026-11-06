@@ -30,7 +30,7 @@ For the coordinator, or ROOT, when Bob moves Process3 to another Claude account.
 
 Each step is tested ahead by the canary. The owner of each item is in the inventory (notes/account-switch-canary.md).
 
-1. On the new Claude account, connect GitHub (claude.ai, Settings, Connectors) signed in as civicsmith, the collaborator (push, not admin), never the repositories' owner.
+1. On the new Claude account, connect GitHub (claude.ai, Settings, Connectors) signed in as the process's GitHub account (now believeinoakland), the collaborator (push, not admin), never the repositories' owner.
 2. Install the Claude GitHub App for civicsmith-copy, process3 and process3-probes.
 3. Recreate the cloud environment BioDefault: its network, its setup script, its variables and the network secret for api.cloudflare.com, with the values only Bob holds. Connect Google Drive.
 4. Give the new account edit access to the process documents (the Foundations, the Ledger map, the lanes' design artifacts). Until then the new account can only read them.
