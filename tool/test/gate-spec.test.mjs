@@ -177,13 +177,13 @@ test('spec mode judges the run as the job: green, code, its suite run on a draft
   assert.deepEqual(r.run.spec, { pr: JOB, seq: 1 });
   assert.equal(r.run.tree, treeOf(w.root, w.specHead));
   assert.deepEqual([r.run.sha, r.run.base], [w.specHead, w.t0]);
-  assert.deepEqual([r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt], [['alpha'], 'pass', 'pass', 'present', 1]);
+  assert.deepEqual([r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt], [['alpha'], 'pass', 'pass', 'agrees', 1]);
   assert.ok(ran(w), 'the suite ran');
   assert.ok(said.some((m) => /spec run: judged as job PR 5 \(job\/alpha, [0-9a-f]{10}\)/.test(m)), said.join('\n'));
   // The job PR's own gate on its own head: the same verdict and the same change judged; its row
   // has no spec, its tree its checkout's.
   const own = jobRun(w, makeIO(w), { base: w.t0, head: w.job });
-  assert.deepEqual([own.run.trigger, own.run.suite, own.run.receipt, own.run.ok, own.run.spec], ['code', 'pass', 'present', true, undefined]);
+  assert.deepEqual([own.run.trigger, own.run.suite, own.run.receipt, own.run.ok, own.run.spec], ['code', 'pass', 'agrees', true, undefined]);
   assert.equal(own.run.tree, treeOf(w.root, w.job));
   assert.deepEqual(r.changed, own.changed);
   // The job PR as a draft: the spec run is a draft run too (the job's own gate would skip).
@@ -241,9 +241,9 @@ test('a job red in its own gate is red in spec mode, the same finding: a failing
   const failing = world({ jobFiles: (mark) => ({ 'src/alpha/index.mjs': 'export const x = 3;\n', 'test/alpha/x.test.mjs': markedTest(mark) }) });
   const own = jobRun(failing, makeIO(failing), { base: failing.t0, head: failing.job });
   const spec = specRun(failing, makeIO(failing));
-  assert.deepEqual(own.findings.map((f) => f.check).sort(), ['suite']);
+  assert.deepEqual(own.findings.map((f) => f.check).sort(), ['receipt', 'suite']);
   assert.deepEqual(spec.findings.map(key).sort(), own.findings.map(key).sort());
-  assert.deepEqual([spec.run.ok, spec.run.suite, spec.run.receipt], [false, 'fail', 'present']);
+  assert.deepEqual([spec.run.ok, spec.run.suite, spec.run.receipt], [false, 'fail', 'disagrees']);
 
   const outside = world({ jobFiles: (mark) => ({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': markedTest(mark), 'src/beta/b.mjs': 'export const b = 1;\n' }) });
   const own2 = jobRun(outside, makeIO(outside), { base: outside.t0, head: outside.job });
@@ -290,7 +290,7 @@ test('spec-tested: the land on the tested tree, records aside, on a base the spe
   assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
   assert.equal(r.run.trigger, 'spec-tested', said.join('\n'));
   assert.deepEqual([r.run.spec_pr, r.run.spec_run, r.run.spec_sha], [SPEC, 101, w.specHead]);
-  assert.deepEqual([r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['pass', 'pass', 'present', 1, true]);
+  assert.deepEqual([r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['pass', 'pass', 'agrees', 1, true]);
   assert.deepEqual(r.run.scope, s.run.scope);
   assert.equal(r.run.tree, treeOf(w.root, L));
   assert.equal(r.run.spec, undefined);
@@ -300,6 +300,17 @@ test('spec-tested: the land on the tested tree, records aside, on a base the spe
   assert.ok(!x.state.verified.some((v) => v.run_id === 101), 'the spec row is not verified again');
 });
 
+// AUD-2: the spec run stands for the land only when it checked, and agreed with, the job's current receipt attempt.
+test('spec-tested: a receipt attempt the spec run did not check is not taken; the land runs its suite', () => {
+  const { w, x } = greenSpec();
+  const L = land(w, w.t1);
+  x.state.comments[JOB].push({ id: 60, body: block(RECEIPT, receipt(w.job, { attempt: 2 })), user: { login: 'civicsmith' } });
+  const said = [];
+  const r = jobRun(w, x, { base: w.t1, head: L, log: (m) => said.push(m) });
+  assert.notEqual(r.run.trigger, 'spec-tested');
+  assert.ok(said.some((m) => /Spec-Tested is not taken: spec PR \d+ has no green code run of alpha on its own commit's tree agreeing with receipt attempt 2/.test(m)), said.join('\n'));
+});
+
 // A base-red spec run stands only on its own base: at window position 0 the land's base is it.
 test('spec-tested: a base-red spec run stands when its base is the land\'s base itself', () => {
   const { w, x, s } = greenSpec({ aheadFiles: null });
@@ -307,7 +318,7 @@ test('spec-tested: a base-red spec run stands when its base is the land\'s base 
   post(x.state, SPEC, { ...s.run, run_id: 108, suite: 'base-red', base_red: [{ module: 'alpha', tests: ['test/alpha/old.test.mjs::nothing'] }] });
   const said = [];
   const r = jobRun(w, x, { base: w.t0, head: land(w, w.t0), log: (m) => said.push(m) });
-  assert.deepEqual([r.run.trigger, r.run.spec_run, r.run.suite, r.run.receipt, r.run.ok], ['spec-tested', 108, 'base-red', 'present', true], said.join('\n'));
+  assert.deepEqual([r.run.trigger, r.run.spec_run, r.run.suite, r.run.receipt, r.run.ok], ['spec-tested', 108, 'base-red', 'agrees', true], said.join('\n'));
   assert.equal(ran(w), false, 'no suite ran');
 });
 
@@ -593,7 +604,7 @@ test('with the window closed, a spec-shaped PR is judged as a non-job PR and a S
   const L = land(w, serial);
   const said = [];
   const r = jobRun(w, x, { base: serial, head: L, log: (m) => said.push(m) });
-  assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.suite, r.run.receipt], ['code', undefined, 'pass', 'present']);
+  assert.deepEqual([r.run.trigger, r.run.spec_pr, r.run.suite, r.run.receipt], ['code', undefined, 'pass', 'agrees']);
   assert.ok(ran(w), 'the suite ran');
   assert.ok(!said.some((m) => /Spec-Tested|spec-tested/.test(m)), said.join('\n'));
 });
@@ -658,7 +669,7 @@ test('spec mode reads the job\'s entry at the job head: an entry changed only at
   x.state.prs[SPEC] = specPR(w, { head: { ref: 'train/head/5-1', sha: specHead, repo: { full_name: SLUG } } });
   const r = specRun(w, x, { head: specHead });
   assert.deepEqual(r.findings, [], JSON.stringify(r.findings));
-  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.ok], ['code', ['alpha'], 'pass', 'pass', 'present', true]);
+  assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.ok], ['code', ['alpha'], 'pass', 'pass', 'agrees', true]);
   assert.deepEqual(r.run.tests, before.run.tests);
   assert.ok(ran(w), 'the job head\'s suite ran');
 });

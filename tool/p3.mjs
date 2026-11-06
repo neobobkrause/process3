@@ -8,8 +8,9 @@ import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
+import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerStatus } from './lib/layerflow.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
-import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
+import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
@@ -125,6 +126,10 @@ const commands = {
     notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
   }).ok ? 0 : 1),
 
+  // revert exempt <pr> --why "<why>" --reviewer <session>: a reviewer's exemption from the gate's revert
+  // check, for a refactor whose tests rightly pass before and after (AUD-1, JOB-12); never the job's own.
+  'revert exempt': (a, root) => (revertExempt(root, one(a, 'pull request'), { why: a.why, reviewer: a.reviewer }).ok ? 0 : 1),
+
   // job sync <id>: the job brings its branch up to date: origin's job/<id> (BOB's pushes) and the
   // tranche merged in, both deepened from GitHub's compare in a shallow clone, then .process
   // updated to the branch's pin. From a clean checkout without job/<id>, it checks it out first.
@@ -133,6 +138,27 @@ const commands = {
   // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
   // the tranche tip, then the close recorded on the state branch with the deferred marks.
   'layer close': (a, root) => (layerClose(root, one(a, 'layer number'), { as: senderOf(root, a.as) }).ok ? 0 : 1),
+
+  // The shared layer branch (layerflow.mjs), only with process/config.json "merge_strategy": "layer":
+  // layer open <n>: cut layer/<n> from the tranche tip; lists the jobs that can start, which ROOT starts.
+  // layer jobs <n>: the jobs that can start now (not started, or reopened by a reschedule).
+  // layer status <n>: each module's state, and whether the layer can merge.
+  // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
+  // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
+  // layer merge <n> [--no-wait]: the layer into the tranche as one PR, once every module is complete or deferred.
+  // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
+  'layer open': (a, root) => (layerOpen(root, one(a, 'layer number'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
+  'layer jobs': (a, root) => (layerJobs(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer publish': async (a, root) => {
+    const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
+    const every = a.every === undefined ? 30 : Number(a.every);
+    if (!Number.isFinite(every) || every <= 0) fail(`--every <seconds>, not ${JSON.stringify(a.every)}`);
+    return (await layerPublish(root, one(a, 'module'), { every: every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
+  },
+  'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer merge': async (a, root) => ((await layerMerge(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer report': (a, root) => (layerReport(root, one(a, 'layer number'), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
 
   // pin move <product slug> --report <session id> --why "<what it unblocks>" --pin <sha> [--tranche <name>]:
   // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin
@@ -323,12 +349,14 @@ const commands = {
   // module's `metrics add <id> --role review` rows (those of --review-session, or since the attempt started); none read: unmeasured, said why.
   // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
+  // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review, no receipt.
   //   Into the tranche while a merge train holds its lease, it is queued for the train (ahead of every job) and waits for its land (train.mjs plainViaTrain).
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
-    if (a.plain) return plainViaTrain(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
+    if (a.pass !== undefined && !a.plain) fail('--pass is a plain merge: merge <pr> --plain --pass "<what and why>"');
+    if (a.plain) return plainViaTrain(root, n, { ...review, ...(a.pass !== undefined ? { pass: a.pass } : {}), ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
     return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], reviewSession: a['review-session'], reviewRecord: a['review-record'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
   },
 

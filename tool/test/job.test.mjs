@@ -49,7 +49,7 @@ test('job start refuses an entry that is not OPEN', () => {
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /WORKING, not OPEN/);
 });
 
-test('job complete runs the checks and the suite, then sets COMPLETE and builds the receipt', () => {
+test('job complete runs the fast checks and no suite (AUD-7), then sets COMPLETE and builds the receipt', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
@@ -57,8 +57,7 @@ test('job complete runs the checks and the suite, then sets COMPLETE and builds 
   const r = jobComplete(root, 'alpha', { push: false, notVerified: ['the live site'], log: quiet });
   assert.equal(r.ok, true);
   assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
-  const suite = r.receipt.commands.find((c) => c.suite);
-  assert.deepEqual([suite.exit, suite.tests.total, suite.tests.pass], [0, 1, 1]);
+  assert.equal(r.receipt.commands.find((c) => c.suite), undefined, 'the suite runs in CI, never in the session');
   assert.deepEqual(r.receipt.not_verified, ['the live site']);
   assert.equal(r.receipt.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
 });
@@ -132,13 +131,27 @@ test('job complete names its session in get_session\'s form (cse_ to session_) a
   assert.deepEqual([m.session, m.session_usd, m.cost_usd], ['session_X', 3.16, 2.16]);
 });
 
-test('job complete refuses on a red suite and leaves the status alone', () => {
+// AUD-7, PLT-4, JOB-5: the session runs only the fast checks; the module's suite runs in CI, whose
+// gate checks the receipt against its own run (AUD-2). A red test is CI's to find, not job complete's.
+test('job complete never runs the suite: a failing test does not stop it; a failed fast check does', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'test/alpha/b.test.mjs': failing });
-  assert.equal(jobComplete(root, 'alpha', { push: false, log: quiet }).ok, false);
-  assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
+  const r = jobComplete(root, 'alpha', { push: false, noSuite: true, log: quiet });
+  assert.equal(r.ok, true);
+  assert.equal(r.receipt.commands.find((c) => c.suite || /node --test/.test(c.cmd)), undefined);
+  assert.deepEqual(r.receipt.not_verified, [], 'the suite is CI\'s, not a line the job did not verify');
+  const red = product();
+  write(red, { 'process/ledger/alpha.json': JSON.stringify({ ...JSON.parse(readFileSync(join(red, 'process/ledger/alpha.json'), 'utf8')), checks: [['node', '-e', 'process.exit(4)']] }, null, 2) + '\n' });
+  git(['add', '-A'], { cwd: red });
+  git(['commit', '-q', '-m', 'a module check that fails'], { cwd: red });
+  git(['branch', '-f', 'tranche', 'HEAD'], { cwd: red });
+  jobStart(red, 'alpha', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: red });
+  commit(red, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
+  assert.equal(jobComplete(red, 'alpha', { push: false, log: quiet }).ok, false);
+  assert.equal(readEntry(red, 'alpha').status.state, 'WORKING');
 });
 
 test('job complete refuses on another branch and on uncommitted work', () => {
@@ -296,6 +309,17 @@ test('block, pushed, ends with the wake of BOB from the job', () => {
   assert.equal(jobSender('a'.repeat(50)).length, 40);
 });
 
+test('a job push refuses a commit that adds a dist/ file, before anything is pushed (agent-runner 3ee34e5, 6 Nov)', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  commit(root, { 'src/alpha/dist/alpha.bundled.mjs': 'export {};\n' });
+  assert.throws(() => jobBlock(root, 'alpha', { reason: 'x', log: quiet }), /nothing was pushed: commit \w+ adds src\/alpha\/dist\/alpha\.bundled\.mjs \(under a dist\/ directory/);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'not pushed');
+});
+
 test('after a failed push, a rerun posts the saved receipt for the COMPLETE commit', () => {
   const root = withOrigin();
   const f = fakeGitHub();
@@ -311,7 +335,7 @@ test('after a failed push, a rerun posts the saved receipt for the COMPLETE comm
   assert.equal(f.state.comments.length, 1);
   const r = parseBlock(f.state.comments[0].body, 'p3:receipt');
   assert.equal(r.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
-  assert.equal(r.commands.find((c) => c.suite).exit, 0);
+  assert.equal(r.commands.find((c) => c.suite), undefined);
 });
 
 // Copy PR 40, 4 Nov: a COMPLETE job's rerun with a new --exempt-revert was ignored, the saved
@@ -340,7 +364,7 @@ test('a COMPLETE job rerun with --exempt-revert posts one amended receipt at the
   assert.deepEqual(r.exempt, { revert: 'filter-only test edits' });
   assert.deepEqual(r.not_verified, ['the live site']);
   assert.deepEqual(r.amended.was, { exempt: {}, not_verified: ['the live site'] });
-  assert.equal(r.commands.find((c) => c.suite).exit, 0, 'the commands are the saved run, not a new one');
+  assert.equal(r.commands.find((c) => c.suite), undefined, 'the commands are the saved run, not a new one');
   assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
   assert.equal(readRows(root, 'alpha').filter((x) => x.event === 'complete').length, 1);
   // The same claims again post nothing; a plain rerun posts nothing either.
@@ -455,8 +479,7 @@ test('a COMPLETE job with fix commits after it completes attempt 2: checks, suit
   assert.notEqual(tip, fix, 'a new COMPLETE commit');
   assert.equal(git(['rev-parse', 'HEAD^'], { cwd: root }), fix);
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed');
-  const suite = r.receipt.commands.find((c) => c.suite);
-  assert.deepEqual([suite.exit, suite.tests.total], [0, 2], 'the suite ran again, with the fix');
+  assert.equal(r.receipt.commands.find((c) => c.suite), undefined, 'no suite in the session (AUD-7)');
   assert.deepEqual(r.receipt.exempt, { revert: 'browser test skips in CI without Chromium' });
   assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
   const rows = readRows(root, 'alpha');
@@ -550,13 +573,13 @@ test('attempt 2 after the job merges an older tranche commit starts at its own f
   assert.equal(s2.at, mergeAt < done ? done : mergeAt);
 });
 
-test('attempt 2 on a red suite writes nothing and leaves attempt 1 COMPLETE', () => {
+test('attempt 2 with a red test completes all the same: the suite is CI\'s (AUD-7)', () => {
   const { root, f } = completed();
   const before = commit(root, { 'test/alpha/b.test.mjs': failing });
-  assert.equal(jobComplete(root, 'alpha', { gh: f.gh, log: quiet }).ok, false);
-  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), before);
-  assert.equal(readRows(root, 'alpha').length, 2);
-  assert.equal(f.state.comments.length, 1);
+  const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+  assert.equal(r.ok, true);
+  assert.notEqual(git(['rev-parse', 'HEAD'], { cwd: root }), before);
+  assert.equal(f.state.comments.length, 2);
 });
 
 test('the same-commit amendment works on attempt 2 and keeps its attempt number', () => {
@@ -585,7 +608,7 @@ test('merge passes on a green gate run that read attempt 2, and refuses one that
   jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'present', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
+  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'agrees', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
   const mk = (gate) => ({
     getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
     comments: () => [...f.state.comments, gate],
@@ -593,7 +616,7 @@ test('merge passes on a green gate run that read attempt 2, and refuses one that
     verify: () => true,
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });
-  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /read receipt attempt 2; its newest run read attempt 1/);
+  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /checked receipt attempt 2 and agreed with it; its newest run read attempt 1/);
   const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.equal(r.merged, true);
 });
@@ -855,7 +878,7 @@ test('test, job complete and their installs run product code without the GitHub 
     assert.equal(t.ok, true, t.output);
     assert.ok(calls[0].unset.includes('GH_TOKEN') && calls[0].unset.includes('GITHUB_TOKEN'));
     assert.ok(!calls[0].unset.includes('CLOUDFLARE_API_TOKEN'));
-    // job complete: its install runs first, then its suite, both without the tokens.
+    // job complete: its install runs, without the tokens; no suite runs in the session (AUD-7).
     git(['branch', '-f', 'tranche', 'main'], { cwd: root });
     jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
     git(['checkout', '-q', 'job/alpha'], { cwd: root });
@@ -865,8 +888,7 @@ test('test, job complete and their installs run product code without the GitHub 
     const c = jobComplete(root, 'alpha', { push: false, exec, log: quiet });
     assert.equal(c.ok, true);
     assert.deepEqual(calls.map((x) => x.cwd), ['test'], 'job complete installs the stale lock first');
-    assert.deepEqual(c.receipt.commands.filter((x) => /npm ci|node --test/.test(x.cmd)).map((x) => [x.cmd.split(' ')[0], x.exit]), [['npm', 0], ['node', 0]]);
-    assert.equal(c.receipt.commands.find((x) => x.suite).tests.pass, 2);
+    assert.deepEqual(c.receipt.commands.filter((x) => /npm ci|node --test/.test(x.cmd)).map((x) => [x.cmd.split(' ')[0], x.exit]), [['npm', 0]]);
   } finally {
     for (const [k, v] of Object.entries(keep)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
@@ -1478,26 +1500,6 @@ test('the START no longer asks the job for --cost-usd', () => {
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: (m) => said.push(m) });
   assert.doesNotMatch(said.join('\n'), /--cost-usd/);
   assert.match(said.join('\n'), /job complete alpha --not-verified/);
-});
-
-// Measured on civicsmith-copy 4 Nov: plane's suite takes 19-20 of its 20 minutes, and the
-// base-red run was given only what was left, so it died with ETIMEDOUT. It gets its own budget.
-test('job complete gives the base-red run the whole suite_timeout_minutes, not what the suite left', () => {
-  const slow = "import test from 'node:test'; import a from 'node:assert'; test('slow red', async () => { await new Promise((r) => setTimeout(r, 6000)); a.fail('x'); });\n";
-  const { root, calls, exec } = locked(['package-lock.json'], { 'package-lock.json': lock(true), 'test/alpha/b.test.mjs': slow });
-  const timeouts = [];
-  const spy = (cmd, args, o) => { timeouts.push({ cwd: o.cwd, timeout: o.timeout }); return exec(cmd, args, o); };
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
-  const r = jobComplete(root, 'alpha', { push: false, exec: spy, log: quiet });
-  const base = timeouts.filter((t) => t.cwd.includes('p3-base-red-'));
-  assert.equal(base.length, 1, 'the base install ran');
-  assert.ok(base[0].timeout > 20 * 60000 - 4000, `base-red budget ${base[0].timeout} ms`);
-  const receipt = readRows(root, 'alpha').filter((x) => x.event === 'complete').pop()?.receipt;
-  assert.deepEqual(receipt?.commands.find((c) => c.suite).base_red, ['test/alpha/b.test.mjs::slow red'], JSON.stringify(r));
-  assert.ok(calls.length);
 });
 
 test('p3 test runs the suite within suite_timeout_minutes from config', () => {
