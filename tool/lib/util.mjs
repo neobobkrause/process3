@@ -49,7 +49,9 @@ export function run(cmd, args = [], opts = {}) {
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
   // Every push waits its turn: the pause, the stop and the account's push ceiling (R17b, pace.mjs).
-  try { pushTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
+  // A refused push: a failed push to a caller that handles failures (allowFail), with the refusal as
+  // its stderr, so the caller says what to rerun; else the refusal itself (R17c, item F).
+  try { pushTurn(args, opts.cwd); } catch (e) { if (!(e instanceof Paced)) throw e; if (opts.allowFail) return { code: 1, stdout: '', stderr: e.message, seconds: 0, timedOut: false, paced: true }; fail(e.message); }
   fetchSeen(args, opts.cwd);
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);

@@ -198,6 +198,15 @@ function writeStateNow(root, sb, msg, change) {
   }, { root });
 }
 
+// State writes held in this clone (refs/p3/unpushed/: a push refused to the end, by the GitHub
+// budget among others), each { ref, subject }; status and ROOT's sweep print them as an act so they
+// never sit unnoticed (R17c, item F).
+export function heldWrites(root) {
+  const r = git(['for-each-ref', '--format=%(refname)%09%(subject)', 'refs/p3/unpushed/'], { cwd: root, allowFail: true });
+  return r.code === 0 ? r.stdout.split('\n').filter(Boolean).map((l) => { const [ref, ...s] = l.split('\t'); return { ref, subject: s.join('\t') }; }) : [];
+}
+export const heldAct = (held) => `\`node .process/tool/p3.mjs state replay\` (${held.length} state write(s) held in this clone since a refused push: ${held.slice(0, 3).map((h) => h.subject).join('; ')}${held.length > 3 ? '; ...' : ''})`;
+
 // For the tests: a stand-in for the state push.
 export const stateIO = { push: null, wait: null };
 

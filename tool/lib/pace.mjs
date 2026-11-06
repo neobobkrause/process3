@@ -248,11 +248,20 @@ export class Paced extends Error {}
 const nap = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 // Waits out a pause or a full window, or refuses when the wait is longer than MAX_WAIT_MIN.
+// The command to run again after a refusal: this p3 command as it was given (R17c, item F: every
+// refusal names the limit, when it frees and what to rerun).
+export function rerunLine(argv = process.argv) {
+  const at = argv.findIndex((x) => /(^|\/)p3\.mjs$/.test(String(x)));
+  if (at < 0) return 'the same command';
+  const tool = /(^|\/)\.process\/tool\/p3\.mjs$/.test(argv[at]) ? 'node .process/tool/p3.mjs' : /(^|\/)tool\/p3\.mjs$/.test(argv[at]) ? 'node tool/p3.mjs' : `node ${argv[at]}`;
+  const q = (x) => (/^[\w./:@=,+-]+$/.test(x) ? x : `'${String(x).replace(/'/g, `'\\''`)}'`);
+  return `\`${[tool, ...argv.slice(at + 1).map(q)].join(' ')}\``;
+}
 function waitUntil(until, why, { now, sleep }) {
   const ms = until - now();
   if (ms <= 0) return;
   if (noWait) throw new Paced(`GitHub budget: ${why}: not now; tried again later`);
-  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: acts on GitHub wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
+  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: acts on GitHub wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); then rerun ${rerunLine()}; what this command did before the refusal stands, and the rerun picks up from it`);
   sleep(ms);
 }
 
@@ -279,7 +288,7 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
   for (let round = 0; ; round++) {
     const s = shared.read({ fresh: round > 0 || content > 0 || !!cost.push });
     const pause = pauseOf(cwd, s);
-    if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume --by <its session>\` once the account is in good standing`);
+    if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume --by <its session>\` once the account is in good standing; then rerun ${rerunLine()}`);
     let wait = null;
     if (pause?.until && Date.parse(pause.until) > now()) wait = [Date.parse(pause.until), `GitHub rate-limited this account (${pause.why})`];
     if (!wait && cost.primary) {
@@ -302,7 +311,7 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
       }
     }
     if (!wait) break;
-    if (round >= 4) throw new Paced(`GitHub budget: still waiting after four waits (${wait[1]}); run this again later`);
+    if (round >= 4) throw new Paced(`GitHub budget: still waiting after four waits (${wait[1]}); rerun ${rerunLine()} later`);
     shared.beforeWait?.();
     waitUntil(wait[0], wait[1], { now, sleep });
   }
