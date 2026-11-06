@@ -843,3 +843,6 @@
 
 ## 10:51 hourly flow (6 Nov)
 - Copy pin moved at 10:01 (623, e24aef852f; pin 4a85f26, merge_strategy layer). BOB (running, updated 10:40) is drafting pass/dist and the workflow-edits PR with a worker; pass/dist lands on a green gate, then BOB hands over to a fresh layer-mode BOB, then layer 7 opens. No lands since 623. Jobs 3/20, all held; the starter is off. process3 still at 4a85f26: 188 is unmerged (Bob), so 187, 181 and 184 wait for the second pin move. ROOT archived build/layer-branch. Own context fine.
+
+## 11:51 hourly flow (6 Nov)
+- No lands since 623 (10:01). BOB went idle at 11:15 waiting on copy PR 624's gate (625 is the other of its two dist PRs), and nothing wakes it on a gate result: nudged at 11:53 to land or report. Jobs 3/20 held; process3 still at 4a85f26 (188 unmerged, Bob). Watcher woke at 11:18 and flagged idle capacity; told it the holds stand. Gap: a BOB waiting on a gate goes idle with no wake (subscribe it to its own PRs, or keep a send_later).
