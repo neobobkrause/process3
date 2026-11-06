@@ -78,10 +78,7 @@ export function scanFixture({ latency = 800, gitLatency = 500 } = {}) {
     db[`repos/o/r/commits/${sha}/check-runs#gate`] = { check_runs: [gate] };
     db[`repos/o/r/commits/${sha}/check-runs#post`] = { check_runs: [{ id: 2000 + i, status: 'completed', conclusion: 'success', started_at: new Date(Date.parse(green) + 1000).toISOString() }] };
     const runs = [1, 2, 3].map((k) => ({ sha: `old${k}${id}`, at: iso(200 + k), trigger: 'code', suite: 'pass', minutes: ((i * 7 + k * 3) % 23) + 2, run_id: k }));
-    // One time for both: two calls a millisecond apart made the comment read as edited, so
-    // gateRuns dropped its rows and that PR's gate minutes went unread (the order moved, 6 Nov).
-    const posted = iso(200);
-    db[`repos/o/r/issues/${100 + i}/comments`] = [{ id: 1, body: block(GATE, { runs }), user: { login: BOT }, created_at: posted, updated_at: posted }];
+    db[`repos/o/r/issues/${100 + i}/comments`] = [{ id: 1, body: block(GATE, { runs }), user: { login: BOT }, created_at: iso(200), updated_at: iso(200) }];
   }
   writeFileSync(join(gh, 'db.json'), JSON.stringify(db));
   const slow = (cmd) => `sleep ${gitLatency / 1000}; ${cmd}`;

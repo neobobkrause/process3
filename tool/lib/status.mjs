@@ -681,7 +681,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
 
 // The suite budget (build ci-budget, R2; Bob, "go R2"): each module whose newest gate row on this
 // tranche's pull requests (its merges since the opening, and its open job pull request) took
-// over SUITE_BUDGET of suite_timeout_minutes (default 20) for its own suite. Its seconds are the
+// over SUITE_BUDGET of suite_timeout_minutes (20 when unset) for its own suite. Its seconds are the
 // row's suite_by_module, or, from a row before that, suite_seconds when the run's scope was that
 // module alone. One line per module, most over first; [] when none; null when a read failed.
 export const SUITE_BUDGET = 0.7;
@@ -690,7 +690,8 @@ export function suiteBudget(root, cfg, { tranche, comments, rows = [] }) {
   const opened = openedAt(leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche).grants, cfg);
   const prs = new Map();
   if (opened) for (const r of rowsAt(root, tranche)) if (r.row === 'merge' && Date.parse(r.at) >= Date.parse(opened) && r.pr && r.module) prs.set(Number(r.pr), r.module);
-  for (const r of rows) { const n = Number(String(r.pr || '').replace(/^#/, '')); if (String(r.pr || '').startsWith('#') && n) prs.set(n, r.id); }
+  // An open job pull request: status writes its pr as "#<n> ready" or "#<n> draft" (cold review).
+  for (const r of rows) { const n = Number(String(r.pr || '').match(/^#(\d+)/)?.[1]); if (n) prs.set(n, r.id); }
   const newest = new Map();
   for (const [pr, module] of prs) {
     let got;
@@ -699,7 +700,8 @@ export function suiteBudget(root, cfg, { tranche, comments, rows = [] }) {
     for (const row of gateRuns(got)) {
       const sec = Number.isFinite(row.suite_by_module?.[module]) ? row.suite_by_module[module]
         : !row.suite_by_module && Array.isArray(row.scope) && row.scope.length === 1 && row.scope[0] === module && Number.isFinite(row.suite_seconds) ? row.suite_seconds : null;
-      if (sec === null || !['pass', 'fail', 'base-red'].includes(row.suite)) continue;
+      // A run of only some of the module's tests (requirements-only) is not its suite's time.
+      if (sec === null || !['pass', 'fail', 'base-red'].includes(row.suite) || (row.requirements_only || []).some((x) => x?.module === module)) continue;
       const was = newest.get(module);
       if (!was || String(row.at) > String(was.at)) newest.set(module, { at: row.at, sec, pr });
     }

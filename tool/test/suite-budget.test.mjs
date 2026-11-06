@@ -36,12 +36,15 @@ test('suite budget: a module over 70% of suite_timeout_minutes is named with its
     40: [row(7, { suite: 'fail', suite_by_module: { cli: 16.5 * 60 } })], // an open job PR, red
     41: [row(7, { suite: 'skipped', suite_by_module: { web: 19 * 60 } })], // no suite ran
   };
-  const rows = [{ id: 'cli', pr: '#40' }, { id: 'web', pr: '#41' }, { id: 'done', pr: 'merged' }];
+  const rows = [{ id: 'cli', pr: '#40 ready' }, { id: 'web', pr: '#41 draft' }, { id: 'done', pr: 'merged' }];
   const got = suiteBudget(root, loadConfig(root), { tranche: 'origin/tranche', comments: reader(runs), rows });
   assert.deepEqual(got, [
     `suite budget: cli's gate suite took 16.5 min, 83% of suite_timeout_minutes 20 (over 70%; PR 40, gate row ${at(7)}): speed or split its suite before it times out`,
     `suite budget: plane's gate suite took 15 min, 75% of suite_timeout_minutes 20 (over 70%; PR 11, gate row ${at(4)}): speed or split its suite before it times out`,
   ]);
+  // A newer run of only some of a module's tests (requirements-only) does not hide its full suite.
+  runs[11].push(row(6, { suite_by_module: { plane: 60 }, requirements_only: [{ module: 'plane', files: ['t/a.test.mjs'] }] }));
+  assert.ok(suiteBudget(root, loadConfig(root), { tranche: 'origin/tranche', comments: reader(runs), rows }).some((l) => l.startsWith('suite budget: plane\'s gate suite took 15 min')));
   // A row's whole-run seconds count for a module only when it ran that module alone.
   runs[12] = [row(3, { scope: ['lib', 'plane'], suite_seconds: 19 * 60 })];
   assert.equal(suiteBudget(root, loadConfig(root), { tranche: 'origin/tranche', comments: reader(runs), rows }).some((l) => l.includes('lib\'s')), false);
