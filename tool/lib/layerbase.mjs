@@ -47,14 +47,26 @@ export function jobCfg(root, cfg, id, { push = true, merged = null } = {}) {
   const map = layersAt(root, cfg, hasRef(root, tr) ? tr : null);
   // A product with no layer map has no layer to branch from: its jobs keep the tranche (noLayers).
   if (!map.length) return { ...cfg, noLayers: true };
-  const n = layerOf(map, id);
-  if (n === null) return cfg;
-  const b = layerBranch(n);
-  if (push) fetchBranch(root, b, { allowFail: true });
-  if (!hasRef(root, push ? `refs/remotes/origin/${b}` : `refs/heads/${b}`)) return cfg;
-  const isMerged = merged ? merged(n) : push ? mergedOnState(root, cfg, n) : false;
-  if (isMerged) return cfg;
-  return { ...cfg, tranche: b, layer: { n, tranche: cfg.tranche } };
+  // Its own layer first; else a layer it joined (layer join: a module whose layer is behind the open
+  // one joins the next to open), each only while its branch exists and has not merged.
+  const live = (n) => {
+    const b = layerBranch(n);
+    if (push) fetchBranch(root, b, { allowFail: true });
+    if (!hasRef(root, push ? `refs/remotes/origin/${b}` : `refs/heads/${b}`)) return false;
+    return !(merged ? merged(n) : push ? mergedOnState(root, cfg, n) : false);
+  };
+  const own = layerOf(map, id);
+  const n = [own, ...joinedLayers(root, cfg, id)].find((x) => x !== null && live(x));
+  if (n === undefined) return cfg;
+  return { ...cfg, tranche: layerBranch(n), layer: { n, tranche: cfg.tranche, ...(n !== own ? { joined: true } : {}) } };
+}
+// The layers a module joined, from the state branch's layerflow/<n>/join/<id>.json rows, lowest first.
+function joinedLayers(root, cfg, id) {
+  const sb = `refs/remotes/origin/${cfg.state_branch}`;
+  const r = git(['ls-tree', '-r', '--name-only', sb, '--', `${FLOW_DIR}/`], { cwd: root, allowFail: true });
+  if (r.code !== 0) return [];
+  const want = `/join/${safeName(id)}.json`;
+  return r.stdout.split('\n').filter((f) => f.endsWith(want)).map((f) => Number(f.split('/')[1])).filter(Number.isInteger).sort((a, b) => a - b);
 }
 function mergedOnState(root, cfg, n) {
   const sb = cfg.state_branch;

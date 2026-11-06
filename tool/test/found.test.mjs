@@ -127,7 +127,9 @@ test('status: found work is next work as soon as its module is ready by open_by 
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.equal(r.layer.cur.n, 2, 'a found mark does not reopen a closed layer');
   const t = out.join('\n');
-  assert.match(t, /next work, layer 2 .*\n- build\/requirements\/p2\.md: 2 \(layer 2\)\n- build\/requirements\/u3\.md: 1 \(layer 3\)\n/);
+  assert.match(t, /next work, layer 2 .*\n- build\/requirements\/p2\.md: 2 \(layer 2\)\n/);
+  // u3 (layer 3) is ready by its uses: owed to its layer, never started early (the coordinator's ruling, 6 Nov).
+  assert.match(t, /owed to their own layers [^\n]*:\n- build\/requirements\/u3\.md: 1 \(layer 3\): owed to layer 3\n/);
   assert.match(t, /found work \(work found elsewhere, ready by open_by uses, whatever its layer;[^\n]*: all 2 listed\n/);
   assert.match(t, /\n- build\/requirements\/base\.md: 1 \(layer 1\); found F1\n/);
   assert.match(t, /- process\/found\/reader\.md: 1; found F1; no requirement file: BOB gives the module its requirement file and ledger entry/);
@@ -136,11 +138,11 @@ test('status: found work is next work as soon as its module is ready by open_by 
   assert.match(t, /found, no module \(process\/found\/no-module\.md; BOB's act: name its module with `node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "<source>"`, deleting its line here in the same pull request\):\n- F1 \(walk p3dev-l1\): LOGIN_FAILED/);
   assert.ok(r.next.some((x) => x.found_no_module === 'F1'), 'BOB\'s act is counted as work');
   assert.deepEqual(r.next.filter((x) => x.found).map((x) => x.file).sort(), ['build/requirements/base.md', 'process/found/reader.md']);
-  // base's found work done: f4 (layer 4) is ready by its uses and listed as found work.
+  // base's found work done: f4 (layer 4) is ready by its uses: owed to layer 4, its found mark named.
   const later = repo({}, { 'process/found/reader.md': '# r\n' });
   const o2 = [];
   const r2 = status(later, { role: 'bob', offline: true, log: (m) => o2.push(m) });
-  assert.match(o2.join('\n'), /- build\/requirements\/f4\.md: 1 \(layer 4\); found F1\n?/);
+  assert.match(o2.join('\n'), /- build\/requirements\/f4\.md: 1 \(layer 4\): owed to layer 4; found F1\n?/);
   assert.equal(r2.layer.cur.n, 2);
   // The open layer closes past found work: q2 with only a found mark does not hold layer 2's close.
   const q = repo({}, { 'build/requirements/p2.md': unmet(0), 'build/requirements/q2.md': unmet(0) + F(1) });

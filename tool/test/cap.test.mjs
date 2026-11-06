@@ -54,7 +54,7 @@ test('status --role bob, origin read: an OPEN entry with no job branch on origin
 // The copy, 4 Nov: publication and case-authoring, entries merged 11:44:06, layer 8 with the open
 // layer 4 and providers with unmet marks, were neither layer work, ready by uses nor notice work:
 // listed nowhere, so job start --ready at the merges of 11:52 to 12:05 never started them.
-test('status --role bob: an OPEN entry BOB wrote outside the open layer, its uses not done, is listed', () => {
+test('status --role bob: an OPEN entry BOB wrote in a later layer than the open one is owed to its layer, not listed as work', () => {
   const root = makeRepo({
     'build/layers.md': '| Layer | Modules |\n|---|---|\n| 1 | `base` |\n| 2 | `prov` |\n| 3 | `pub`, `later` |\n',
     'process/modules.json': JSON.stringify({ modules: [{ id: 'base', paths: ['src/base/'], uses: [] }, { id: 'prov', paths: ['src/prov/'], uses: [] }, { id: 'pub', paths: ['src/pub/'], uses: ['prov'] }, { id: 'later', paths: ['src/later/'], uses: ['prov'] }] }),
@@ -75,8 +75,10 @@ test('status --role bob: an OPEN entry BOB wrote outside the open layer, its use
   const out = [];
   const r = status(root, { role: 'bob', log: (m) => out.push(m), io: { openPRs: () => [], prFiles: () => [], checkRun: () => null, compare: () => null } });
   // pub is listed (its entry is BOB's choice); later, with no entry, is not.
-  assert.deepEqual(r.next.filter((x) => x.module).map((x) => [x.module, x.entry_state]), [['pub', 'OPEN']]);
-  assert.match(out.join('\n'), /entered, never started \(BOB wrote the entry; ready whatever its layer or uses\): all 1 listed\n- build\/requirements\/pub\.md: 3 \(layer 3\); entry OPEN, never started/);
+  assert.deepEqual(r.next.filter((x) => x.module).map((x) => [x.module, x.entry_state, x.owed_layer]), [['pub', 'OPEN', 3]]);
+  // The layer flow starts it from layer 3's list once it opens (the coordinator's ruling, 6 Nov).
+  assert.match(out.join('\n'), /owed to their own layers [^\n]*:\n(- [^\n]*\n)*- build\/requirements\/pub\.md: 3 \(layer 3\): owed to layer 3/);
+  assert.doesNotMatch(out.join('\n'), /entered, never started/);
 });
 
 // The job cap (Bob, 4 Nov): the account's job sessions only, every product, against P3_JOB_CAP, default 20.
