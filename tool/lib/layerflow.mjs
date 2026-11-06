@@ -236,7 +236,23 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
 // closed by the train: cold review 3): closed (layers/closed.jsonl, layer close's or layer merge's
 // row), merged by the flow, or with nothing left in it (every module COMPLETE or BLOCKED at the
 // tranche tip, no unmet requirement mark), as status's layerState counts an implicit close.
-export const closedLayers = (root, sb) => new Set((readState(root, sb, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return r.row === 'closed' ? [r.layer] : []; } catch { return []; } }));
+// Only this tranche's close rows, as status's closedRows keeps them: its name, a commit not on main
+// (an earlier tranche of the same name closed its layers before it reached main: confirming review N4).
+export function closedLayers(root, sb, cfg) {
+  fetchBranch(root, 'main', { allowFail: true });
+  const main = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 ? 'refs/remotes/origin/main' : null;
+  return new Set((readState(root, sb, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => {
+    try { const r = JSON.parse(l); return r.row === 'closed' && (!cfg || (r.tranche ?? cfg.tranche) === cfg.tranche) && !(main && r.commit && hasCommit(root, r.commit) && isAnc(root, r.commit, main)) ? [r.layer] : []; } catch { return []; }
+  }));
+}
+// A layer whose flow rows are an earlier tranche's: its merge reached main. The flow's rows and
+// branch for a second tranche are not built (the trial is one layer); refused, never reused.
+function staleFlow(root, rows) {
+  const c = rows.merged?.commit;
+  if (!c || !hasCommit(root, c)) return false;
+  fetchBranch(root, 'main', { allowFail: true });
+  return git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 && isAnc(root, c, 'refs/remotes/origin/main');
+}
 function layerBehind(root, cfg, L, closed, ref) {
   if (closed.has(L.n) || flowRows(root, cfg.state_branch, L.n).merged) return true;
   const dir = cfg.requirements_dir.replace(/\/$/, '');
@@ -252,7 +268,7 @@ function layerBehind(root, cfg, L, closed, ref) {
 export function layerLines(root, cfg, { slug, io = {} } = {}) {
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
-  const closed = closedLayers(root, cfg.state_branch);
+  const closed = closedLayers(root, cfg.state_branch, cfg);
   const L = [];
   for (const layer of layers) {
     const { n } = layer;
@@ -287,7 +303,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   if (!layers.some((L) => L.n === n)) fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}`);
   // One layer at a time: every earlier layer closed, merged, or with nothing left in it; this one
   // not closed already; and no job of its modules still open into the tranche (the train's).
-  const closed = closedLayers(root, cfg.state_branch);
+  const closed = closedLayers(root, cfg.state_branch, cfg);
   if (closed.has(n)) fail(`layer ${n} is closed already (${CLOSED_FILE}); open the next one`);
   for (const L of layers.filter((x) => x.n < n)) {
     const r = flowRows(root, cfg.state_branch, L.n);
@@ -301,6 +317,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const held = into.filter((p) => mine.has(branchModule(p.head?.ref, ids)));
   if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (or close) under the train before the layer opens`);
   const rows = flowRows(root, cfg.state_branch, n);
+  if (staleFlow(root, rows)) fail(`layer ${n}'s flow rows and ${layerBranch(n)} are an earlier tranche's (its merge ${short(rows.merged.commit)} is on main): a second tranche under the flow is not built; ask the coordinator`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);
   const b = layerBranch(n);
   fetchBranch(root, b, { allowFail: true });
@@ -365,7 +382,9 @@ export function spawnComplete(root, id, args = []) {
   process.once('exit', stop);
   process.once('SIGINT', sig);
   process.once('SIGTERM', sig);
-  const done = new Promise((res) => { c.on('exit', (code, s2) => { process.off('exit', stop); process.off('SIGINT', sig); process.off('SIGTERM', sig); res({ code: code ?? (s2 ? 143 : 1) }); }); c.on('error', () => res({ code: 1 })); });
+  const off = () => { process.off('exit', stop); process.off('SIGINT', sig); process.off('SIGTERM', sig); process.off('SIGHUP', sig); };
+  process.once('SIGHUP', sig);
+  const done = new Promise((res) => { c.on('exit', (code, s2) => { off(); res({ code: code ?? (s2 ? 143 : 1) }); }); c.on('error', () => { off(); res({ code: 1 }); }); });
   return { done, kill };
 }
 
@@ -619,7 +638,12 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     // (not a run narrowed to the tests that read a requirements file).
     const row = runs.filter((r) => r.sha === p[1]).pop();
     const whole = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
-    if (!whole(row) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land, but the newest gate run on its head ${short(p[1])} is ${row ? 'not a verified green run of the whole suite' : 'missing'}`);
+    // A records-since-green row (the PR edited, the layer tip unchanged) stands on the run it names,
+    // as jobMerge follows it (confirming review N3).
+    const tested = !row?.ok || !io.verify(slug, row, ctx) ? null
+      : row.trigger === 'record-since-green' ? runs.filter((r) => r.sha === row.after).reverse().find((r) => whole(r) && isAnc(root, r.sha, p[1]) && io.verify(slug, r, ctx)) || null
+        : whole(row) ? row : null;
+    if (!tested) return no(`is PR ${k}'s land, but the newest gate run on its head ${short(p[1])} is ${row ? 'not a verified green run of the whole suite' : 'missing'}`);
     const v = { pr: k, id, head: p[1], parent: p[0] };
     landOf.set(c, v);
     return v;
@@ -636,6 +660,8 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   for (const e of entries) {
     const fs = need.filter((f) => inMod(e, f));
     if (!fs.length && !inLayer.has(e.id)) continue;
+    // A BLOCKED module is deferred, as layer status counts it: it holds nothing (confirming review N2).
+    if (e.status?.state === 'BLOCKED') continue;
     const last = lands.find((x) => x.v.id === e.id) || null; // newest first
     if (fs.length && !last) { for (const f of fs) findings.push({ check: 'layer', file: f, line: 1, message: `${e.id} changed with no land of its publish on ${branch}` }); continue; }
     const stray = last ? fs.filter((f) => chain.slice(0, chain.indexOf(last.c)).some((c) => diffNames(root, parents(c)[0], c).includes(f))) : [];

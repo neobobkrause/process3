@@ -318,7 +318,9 @@ export function gate(root, opts) {
     // exec (the tests'), which a process of its own cannot use.
     // A change only to a module's requirements file runs only the tests that read it: read here
     // to know whether a suite runs at all, and again once the generated files are built.
-    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
+    // Not for a job PR into a layer branch: its land must carry a run of the whole suite, which
+    // the layer's merge reads (confirming review N1).
+    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche && !layerJob ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
     // Only a suite whose failures can be read per test can be base-red.
     const mayBaseRed = scope.some((e) => reportsEvents(e.suite.command) && (onlyAt(e) === null || onlyAt(e).length));
     const prepared = mayBaseRed && branch !== cfg.tranche && !exec && opts.prepareBase !== false

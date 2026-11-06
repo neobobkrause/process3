@@ -557,3 +557,59 @@ test('layer open mid-tranche: a layer the train closed is not opened again, an e
   const p2 = product();
   await assert.rejects(async () => layerOpen(p2.root, 2, { io: openIO, log: quiet }), /layer 1 is not closed/);
 });
+
+test('the gate: a job PR into a layer branch that changes only its requirements file runs the whole suite, never the narrowed one', async () => {
+  const { gate } = await import('../lib/gate.mjs');
+  const { RECEIPT } = await import('../lib/github.mjs');
+  const root = makeRepo({
+    'process/config.json': { merge_strategy: 'layer' },
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'WORKING' } }),
+    'req/alpha.md': '# alpha\n\n**R1** a thing *(not yet met: T1)*\n',
+    'src/alpha/index.mjs': 'export const x = 1;\n',
+    'test/alpha/old.test.mjs': "import test from 'node:test'; test('nothing', () => {});\n",
+  });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
+  const head = commit(root, { 'req/alpha.md': '# alpha\n\n**R1** a thing\n' }, 'mark struck');
+  const receipt = { kind: 'receipt', module: 'alpha', attempt: 1, sha: head, commands: [], exempt: {} };
+  const io = (baseRef) => ({ comments: () => [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }], getPR: () => ({ user: { login: 'civicsmith' }, draft: false, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
+  const into = (baseRef) => gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(baseRef), log: quiet }).run;
+  const lay = into('layer/1');
+  assert.deepEqual([lay.trigger, lay.suite, lay.requirements_only], ['code', 'pass', undefined]);
+  assert.ok(into('working').requirements_only, 'into any other branch the run is narrowed, as before');
+});
+
+test('the gate\'s layer trigger: a BLOCKED user is deferred, not a finding; a records-since-green newest row stands on the run it names', async () => {
+  const { root, bare } = await opened();
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x % y; }\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  let mergedAs = null;
+  const io0 = landIO(bare, prs);
+  await layerLand(root, 1, { io: { ...io0, merge: (s, k, sha, t) => { const r = io0.merge(s, k, sha, t); mergedAs = r.sha; return r; } }, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  entries.find((e) => e.id === 'b').status = { state: 'BLOCKED', reason: 'a question' };
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const green = { sha: ha, ok: true, trigger: 'code', suite: 'pass', scope: ['a'] };
+  const since = { sha: ha, ok: true, trigger: 'record-since-green', after: ha };
+  const io = { getPR: () => ({ ...prs[1], merged: true, merge_commit_sha: mergedAs }), verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [green, since] }, 'gate') }] };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  assert.deepEqual(r.covered.map((x) => x.id), ['a']);
+  assert.deepEqual(r.findings, []);
+});
+
+test('closed layers are this tranche\'s only: a close row of another tranche, or one whose commit is on main, does not count', async () => {
+  const { root } = product();
+  const { closedLayers } = await import('../lib/layerflow.mjs');
+  const { writeState } = await import('../lib/state.mjs');
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  const onMain = git(['rev-parse', 'origin/main'], { cwd: root });
+  const here = commit(root, { 'x.txt': 'x\n' }, 'tranche moves');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const rows = [{ row: 'closed', layer: 1, tranche: 'tranche', commit: onMain }, { row: 'closed', layer: 2, tranche: 'other' }, { row: 'closed', layer: 3, tranche: 'tranche', commit: here }];
+  writeState(root, SB, 'closes', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n'); return {}; });
+  assert.deepEqual([...closedLayers(root, SB, configOf({}))], [3]);
+});
