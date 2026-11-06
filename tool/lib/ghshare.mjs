@@ -18,7 +18,8 @@ import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { fetchState, flushState, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { fail, git, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
-import { exempt, nextPause, pacing, sessionId, usageRows } from './pace.mjs';
+import { exempt, nextPause, pacing, readLog, sessionId, usageRows } from './pace.mjs';
+import { PROCESS_ROOT } from './register.mjs';
 
 export const PAUSE_FILE = 'github/pause.json';
 export const RESUMED_FILE = 'github/resumed.jsonl';
@@ -29,12 +30,13 @@ export const LEDGER_BRANCH = 'process-state';
 const MARK = 'p3-gh-shared-to';
 const safe = (s) => String(s || 'no-session').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
 
-// The ledger for a clone: its config's pacing.ledger, else (a clone with no product config)
-// pacing.json's "ledger" at its root; null when there is none to name. A ledger that is this
-// clone's own repository is its own state branch.
-export function ledgerOf(root, cfg) {
-  let name = cfg?.pacing?.ledger ?? null;
-  if (!name && !cfg) { try { name = JSON.parse(readFileSync(join(root, 'pacing.json'), 'utf8')).ledger || null; } catch { name = null; } }
+// The ledger for a clone: its config's pacing.ledger, else the pinned process3's pacing.json (so
+// every product and process3's own clones share one ledger without each naming it: cold review
+// of R17b), else the clone's own pacing.json; null when none names one. A ledger that is this
+// clone's own repository is its own state branch. The tests read process3's own only when given.
+const ledgerIn = (dir) => { try { return JSON.parse(readFileSync(join(dir, 'pacing.json'), 'utf8')).ledger || null; } catch { return null; } };
+export function ledgerOf(root, cfg, { processRoot = process.env.NODE_TEST_CONTEXT ? null : PROCESS_ROOT } = {}) {
+  const name = cfg?.pacing?.ledger ?? (processRoot ? ledgerIn(processRoot) : null) ?? ledgerIn(root);
   if (!name) return cfg ? { own: true } : null;
   let slug = null;
   try { slug = repoSlug(root); } catch { slug = null; }
@@ -72,7 +74,9 @@ export function remoteStore(root, url) {
         git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
         const p = git(['push', '-q', url, `HEAD:refs/heads/${LEDGER_BRANCH}`], { cwd: wt, allowFail: true });
         if (p.code === 0) { fetch(); return out; }
-        if (k >= 4) fail(`the GitHub ledger at ${url} refused the write ${k} times: ${p.stderr.trim().split('\n').pop()}`);
+        // Only a moved tip is tried again, after 2, 4, 8 s; any other refusal (auth, network) at once.
+        if (!/non-fast-forward|fetch first|rejected|cannot lock ref/i.test(p.stderr) || k >= 4) fail(`the GitHub ledger at ${url} refused the write${k > 1 ? ` ${k} times` : ''}: ${p.stderr.trim().split('\n').pop()}`);
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, (process.env.NODE_TEST_CONTEXT ? 10 : 1000) * 2 ** k);
         fetch();
         git(['reset', '-q', '--hard', tip() || start], { cwd: wt });
         git(['clean', '-q', '-fdx'], { cwd: wt });
@@ -146,8 +150,12 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   let after = 0;
   try { after = Number(readFileSync(mark, 'utf8')) || 0; } catch { after = 0; }
   if (!force && !pending && now() - after < pacing().share_s * 1000) return 0;
-  const rows = usageRows(root, { after });
+  // The mark is the last row shared, taken before the write: the share's own push, logged during
+  // it, is shared next time (cold review of R17b).
+  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push'].includes(r.kind));
+  const rows = usageRows(root, { after, rows: log });
   if (!rows.length) return 0;
+  const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg.state_branch);
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
   // The share's own push is logged, not gated: a gate here would wait on the use it reports.
@@ -159,6 +167,6 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     writeFileSync(join(wt, file), [...kept, ...rows.map((r) => JSON.stringify(r))].join('\n') + '\n');
     return {};
   }));
-  try { writeFileSync(mark, String(now())); } catch { /* best effort */ }
+  try { writeFileSync(mark, String(last)); } catch { /* best effort */ }
   return rows.length;
 }

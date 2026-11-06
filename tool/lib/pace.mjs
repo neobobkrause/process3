@@ -20,7 +20,7 @@
 // No import from util.mjs (util imports this).
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
 // GitHub's published limits, read 6 Nov 2026 from the source below.
@@ -101,6 +101,9 @@ function commonDir(cwd) {
 }
 export const githubLog = (cwd) => (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG) || join(commonDir(cwd), GITHUB_LOG);
 export const sessionId = () => process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null;
+// This clone, as the ledger's rows name it: one session can act from two clones (process3 and a
+// product), and only the clone's own rows are in its log (cold review of R17b).
+export const cloneId = (cwd) => `${hostname()}:${commonDir(cwd)}`;
 const readJSON = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
 
 // What a gh call costs against the secondary limits: its REST points (a read 1, a write 5) and
@@ -133,6 +136,7 @@ export function logEvent(kind, what, cwd, extra = {}, at = Date.now()) {
 // A row's content-creating requests: a gh call's flag, or a note's count.
 const contentOf = (r) => (r.content === true ? 1 : Number(r.content) || 0);
 export function readLog(cwd) {
+  if (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG === '0') return [];
   try { return readFileSync(githubLog(cwd), 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }); } catch { return []; }
 }
 
@@ -146,7 +150,7 @@ export function useShared(s) { shared = s || LOCAL; }
 // shared row covers a minute, counted whole while its minute is in the window.
 export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), others = shared.read().use || [] } = {}) {
   const since = t - seconds * 1000;
-  const me = sessionId();
+  const me = cloneId(cwd);
   const out = { calls: 0, points: 0, content: 0, pushes: 0 };
   for (const r of rows) {
     if (!(Date.parse(r.at) > since)) continue;
@@ -154,7 +158,7 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
     if (r.kind === 'push') out.pushes++;
   }
   for (const u of others) {
-    if (u.session && u.session === me) continue; // this clone's own are in its log
+    if (u.clone && u.clone === me) continue; // this clone's own are in its log
     if (!(Date.parse(u.minute) + 60e3 > since)) continue;
     out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0;
   }
@@ -163,10 +167,10 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
 // When the oldest counted call leaves the window, so the next fits: the first moment after t at
 // which the window's count drops by `need` (approximate for shared rows: their minute's end).
 function freedAt(cwd, { t, seconds, field, need, rows, others }) {
-  const me = sessionId();
+  const me = cloneId(cwd);
   const times = [];
   for (const r of rows) if (Date.parse(r.at) > t - seconds * 1000 && (field === 'pushes' ? r.kind === 'push' : r.kind === 'gh')) times.push([Date.parse(r.at), field === 'points' ? (r.points ?? 1) : field === 'pushes' ? 1 : contentOf(r)]);
-  for (const u of others) if (!(u.session && u.session === me) && Date.parse(u.minute) + 60e3 > t - seconds * 1000) times.push([Date.parse(u.minute) + 59e3, u[field] || 0]);
+  for (const u of others) if (!(u.clone && u.clone === me) && Date.parse(u.minute) + 60e3 > t - seconds * 1000) times.push([Date.parse(u.minute) + 59e3, u[field] || 0]);
   times.sort((a, b) => a[0] - b[0]);
   let freed = 0;
   for (const [at, n] of times) { freed += n; if (freed >= need) return at + seconds * 1000 + 1000; }
@@ -399,7 +403,7 @@ export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
     if (!(at > after) || !['gh', 'push'].includes(r.kind)) continue;
     const minute = iso(Math.floor(at / 60e3) * 60e3);
     const k = `${r.session}\0${minute}`;
-    const x = by.get(k) || { session: r.session || null, minute, calls: 0, points: 0, content: 0, pushes: 0 };
+    const x = by.get(k) || { session: r.session || null, clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0 };
     if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); } else x.pushes++;
     by.set(k, x);
   }
@@ -428,7 +432,7 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   const by = new Map();
   const since = now - 3600e3;
   for (const r of rows) if (Date.parse(r.at) > since && ['gh', 'push'].includes(r.kind)) { const k = r.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; if (r.kind === 'gh') { x.calls++; x.content += contentOf(r); } else x.pushes++; by.set(k, x); }
-  for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since && u.session !== sessionId()) { const k = u.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += u.pushes || 0; by.set(k, x); }
+  for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since && u.clone !== cloneId(cwd)) { const k = u.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += u.pushes || 0; by.set(k, x); }
   for (const x of [...by.values()].sort((a, b) => b.calls - a.calls)) log(`  ${x.session}: ${x.calls} gh call(s), ${x.content} content-creating, ${x.pushes} push(es) in the hour`);
   return { minute: m, hour: h, primary: pr, pause: pause || null };
 }

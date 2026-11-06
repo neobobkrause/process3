@@ -500,8 +500,23 @@ const commands = {
   // and is logged and shared. Never a force or a delete (Bob's standing approvals).
   'github push': (a, root) => {
     if (Object.keys(a).some((k) => k !== '_' && !['set-upstream', 'quiet'].includes(k))) fail('github push <remote> <refspec>... [--set-upstream] [--quiet]: no other flag (never --force, --delete, --mirror or --all)');
-    if (!a._.length || a._.some((x) => /^[+:]|^-/.test(x))) fail('github push <remote> <refspec>...: a refspec never starts with + (a force) or : (a delete)');
-    const r = git(['push', ...(a['set-upstream'] ? ['-u'] : []), ...(a.quiet ? ['-q'] : []), ...a._], { cwd: root, allowFail: true });
+    if (['set-upstream', 'quiet'].some((k) => a[k] !== undefined && a[k] !== true)) fail('github push <remote> <refspec>... --set-upstream --quiet: the flags take no value; put them after the refspecs');
+    // An explicit refspec always (cold review of R17b): a bare remote pushes what the clone's config
+    // says, which can mirror (delete) or force. No wildcard, no force, no delete, never main.
+    const [remote, ...specs] = a._.map(String);
+    if (!remote || !specs.length) fail('github push <remote> <refspec>...: name what to push (e.g. HEAD:refs/heads/<your branch>); a bare remote pushes whatever the clone\'s config says');
+    if ([remote, ...specs].some((x) => /^[+:-]/.test(x))) fail('github push <remote> <refspec>...: a refspec never starts with + (a force) or : (a delete)');
+    for (const x of specs) {
+      if (x.includes('*')) fail(`github push: ${x}: no wildcard refspec; push one branch at a time`);
+      const dst = (x.includes(':') ? x.split(':').pop() : x).replace(/^refs\/heads\//, '');
+      if (!dst) fail(`github push: ${x}: no empty destination (a delete)`);
+      if (dst === 'main') fail(`github push: ${x}: never to main; main moves only through the tranche's pull request (Bob's standing approvals)`);
+    }
+    for (const k of [`remote.${remote}.mirror`, `remote.${remote}.push`]) {
+      const v = git(['config', '--get-all', k], { cwd: root, allowFail: true }).stdout.trim();
+      if (v && !(k.endsWith('.mirror') && v === 'false')) fail(`github push: ${k} is set in this clone (${v.split('\n')[0]}): it can force or delete; unset it first`);
+    }
+    const r = git(['push', ...(a['set-upstream'] ? ['-u'] : []), ...(a.quiet ? ['-q'] : []), remote, ...specs], { cwd: root, allowFail: true });
     if (r.stdout.trim()) console.log(r.stdout.trim());
     if (r.stderr.trim()) console.error(r.stderr.trim());
     return r.code === 0 ? 0 : 1;

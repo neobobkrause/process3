@@ -34,8 +34,8 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   L.push(`6. \`git fetch origin ${tranche} --depth 1\`, then \`git checkout -q -b ${branch} FETCH_HEAD\`, then \`git cherry-pick refs/p3/pin-base..p3-pin-work\`. If the cherry-pick stops (a conflict, or nothing left to pick: the tip already carries the pin), \`git cherry-pick --abort\`, send \`${report}\` what it said and end.`);
   L.push(`7. \`${P3} setup check --at HEAD\` again: a gap, as in step 5.`);
   L.push(`8. \`${P3} pin check ${slug}\` (a pin move must not run beside another): if it refuses, send its exact words to \`${report}\` and end.`);
-  L.push(`9. \`git push -u origin ${branch}\``);
-  L.push(`10. create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
+  L.push(`9. \`${P3} github push origin ${branch} --set-upstream\``);
+  L.push(`10. \`${P3} github note --content 1\`, then create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
   L.push(`11. \`${P3} merge <that pull request> --plain --as pin --no-review "a process pin move; the fix was reviewed in process3"\` (a pull request that conflicts with ${tranche} is refused at once: send the refusal and end)`);
   L.push(`12. It prints the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`.`);
   L.push(`13. Send \`${report}\` one message with send_message: the pull request, the merge commit, and the wake's number. Then end.`);

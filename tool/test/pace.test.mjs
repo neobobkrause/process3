@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { laneStart } from '../lib/lane.mjs';
-import { budgetGate, classify, ghAfter, ghTurn, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
+import { budgetGate, classify, ghAfter, ghTurn, usage, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
 import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
 import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, strandedWrites, writeState } from '../lib/state.mjs';
 import { configOf, git, jobCap } from '../lib/util.mjs';
@@ -223,8 +223,8 @@ test('github budget: use against each published limit, per window, as a percenta
   assert.ok(shareUsage(root, cfg, { force: true }) >= 1);
   assert.match(git(['ls-tree', '--name-only', 'process-state', 'github/use/'], { cwd: bare }), /github\/use\/cse_me\.jsonl/);
   assert.equal(shareUsage(root, cfg, {}), 0, 'nothing new since');
-  // Another session's shared rows count; this one's own come from its log, never twice.
-  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString().replace(/\.\d+Z$/, 'Z'), calls: 10, points: 50, content: 10, pushes: 2 }, { session: 'cse_me', minute: new Date(c.t).toISOString(), calls: 5, points: 21, content: 4, pushes: 1 }] }), pause: () => {} });
+  // Another session's shared rows count; this clone's own come from its log, never twice.
+  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString().replace(/\.\d+Z$/, 'Z'), calls: 10, points: 50, content: 10, pushes: 2 }, { session: 'cse_me', clone: cloneId(root), minute: new Date(c.t).toISOString(), calls: 5, points: 21, content: 4, pushes: 1 }] }), pause: () => {} });
   const out = [];
   const r = githubBudget(root, { now: c.t, log: (l) => out.push(l), p: P, rateLimit: () => ({ limit: 5000, remaining: 4000, reset: c.t + 1800e3 }) });
   // Every push this clone made is in its log (the fixture's, the share's state push, job/a's).
@@ -343,7 +343,7 @@ test('coalesced writes survive another process resetting the clone\'s ref, a kil
 
 // R17b (coordinator's rulings, 6 Nov): pushes and connector writes in the ledger, one ledger per
 // account (process3's clones use the product's), and the process's own push ceiling (PD-3).
-import { exempt, noteTurn, pushTurn } from '../lib/pace.mjs';
+import { cloneId, exempt, noteTurn, pushTurn } from '../lib/pace.mjs';
 import { ledgerOf, USE_DIR } from '../lib/ghshare.mjs';
 
 test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the tool\'s own included; state-branch pushes are counted, never held', (t) => {
@@ -397,6 +397,11 @@ test('one ledger per account: a process3 clone reads and writes the product\'s s
   const p3 = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/civicsmith-copy' }) });
   assert.deepEqual(ledgerOf(p3, null), { own: false, name: 'neobobkrause/civicsmith-copy', url: 'https://github.com/neobobkrause/civicsmith-copy.git' });
   assert.deepEqual(ledgerOf(product, configOf({})), { own: true });
+  // A product whose config names none takes the pinned process3's (cold review of R17b: probes'
+  // config named none and would have kept a ledger of its own).
+  const pinned = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/civicsmith-copy' }) });
+  assert.equal(ledgerOf(product, configOf({}), { processRoot: pinned }).url, 'https://github.com/neobobkrause/civicsmith-copy.git');
+  assert.equal(ledgerOf(product, configOf({ pacing: { ledger: 'o/elsewhere' } }), { processRoot: pinned }).name, 'o/elsewhere', 'the config\'s own wins');
   assert.equal(ledgerOf(makeRepo({ 'a.md': 'x\n' }), null), null, 'no config and no pacing.json: no ledger');
   assert.match(pacingProblem({ ledger: 'not a repo' }), /pacing\.ledger is "<owner>\/<repo>"/);
   const c = clock(Date.now());
@@ -437,4 +442,49 @@ test('p3 github push refuses a force or a delete; pushes as given otherwise', as
   assert.ok(errs.some((e) => /never --force, --delete, --mirror or --all/.test(e)));
   assert.equal(git(['rev-parse', 'side'], { cwd: bare }), git(['rev-parse', 'HEAD'], { cwd: root }));
   assert.equal(git(['rev-parse', 'tranche'], { cwd: bare }).length, 40, 'nothing deleted');
+});
+
+test('a session\'s use from another clone counts here; the share\'s own push is shared next time', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_same' });
+  const here = makeRepo({ 'README.md': 'x\n' });
+  const elsewhere = makeRepo({ 'README.md': 'y\n' });
+  const t0 = Date.now();
+  const minute = new Date(t0).toISOString();
+  // The same session's 30 content-creating requests, made from its other clone.
+  const others = [{ session: 'cse_same', clone: cloneId(elsewhere), minute, calls: 30, points: 150, content: 30, pushes: 0 }, { session: 'cse_same', clone: cloneId(here), minute, calls: 9, points: 9, content: 9, pushes: 0 }];
+  assert.equal(usage(here, { t: t0, seconds: 60, rows: [], others }).content, 30, 'the other clone\'s rows count; this clone\'s come from its log');
+  // The share: its own push (logged during the write) is in the next share.
+  const { root, bare } = withOrigin({ 'process/config.json': {} });
+  writeFileSync(f, '');
+  ghTurn(['pr', 'comment', '1'], root, { p: P });
+  const cfg = configOf({});
+  assert.ok(shareUsage(root, cfg, { force: true }) >= 1);
+  const pushed = readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('"kind":"push"')).length;
+  assert.ok(pushed >= 1, 'the share pushed, logged');
+  assert.ok(shareUsage(root, cfg, { force: true }) >= 1, 'that push is shared next time');
+  const rows = git(['show', `process-state:${USE_DIR}/cse_same.jsonl`], { cwd: bare }).split('\n').map((l) => JSON.parse(l));
+  assert.ok(rows.reduce((n, r) => n + r.pushes, 0) >= 1);
+});
+
+test('github push names its refspec, refuses wildcards and main, and a remote whose config mirrors or forces', async (t) => {
+  env(t);
+  const { root } = withOrigin({ 'README.md': 'x\n' });
+  const { main } = await import('../p3.mjs');
+  const cwd = process.cwd();
+  const [log, err] = [console.log, console.error];
+  const errs = [];
+  console.log = () => {};
+  console.error = (m) => errs.push(String(m));
+  try {
+    process.chdir(root);
+    assert.equal(await main(['github', 'push', 'origin']), 1);
+    assert.equal(await main(['github', 'push', 'origin', 'refs/heads/*:refs/heads/*']), 1);
+    assert.equal(await main(['github', 'push', 'origin', 'HEAD:main']), 1);
+    assert.equal(await main(['github', 'push', '--quiet', 'origin', 'HEAD:refs/heads/q']), 1);
+    git(['config', 'remote.origin.mirror', 'true'], { cwd: root });
+    assert.equal(await main(['github', 'push', 'origin', 'HEAD:refs/heads/m']), 1);
+  } finally { process.chdir(cwd); console.log = log; console.error = err; }
+  const text = errs.join('\n');
+  for (const re of [/name what to push/, /no wildcard refspec/, /never to main/, /the flags take no value; put them after the refspecs/, /remote\.origin\.mirror is set in this clone \(true\): it can force or delete/]) assert.match(text, re);
 });
