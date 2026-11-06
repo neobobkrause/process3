@@ -34,6 +34,7 @@ import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, pro
 import { fetchState, handoff, jsonl, outcome, readState, send, writeState } from './lib/state.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
+import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
@@ -228,6 +229,26 @@ const commands = {
     return 0;
   },
 
+  // triage add | choose | close | list: the triage register (register.mjs, AUD-8), in process3 the
+  // process's, in a product its triage lane's; add, choose and close commit it on the current branch,
+  // to land by pull request.
+  'triage add': (a, root) => {
+    if (a._.length) fail('triage add takes no positional arguments: --kind, --problem, --evidence, and each --option with its --context');
+    triageAdd(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, a);
+    return 0;
+  },
+  'triage choose': (a, root) => {
+    if (a._.length !== 1) fail('triage choose <id> --response "<the chosen response>" --chosen-by "<the dated words that chose it>" [--end "<the condition that ends it>" --affects <roles>]');
+    triageChoose(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, a._[0], a);
+    return 0;
+  },
+  'triage close': (a, root) => {
+    if (a._.length !== 1) fail('triage close <id> --how "<how the end condition was met>"');
+    triageClose(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, a._[0], { how: a.how });
+    return 0;
+  },
+  'triage list': (a, root) => { triageList(root, existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null, { all: !!a.all }); return 0; },
+
   // tranche close: refused unless every layer is closed and the completion file's items are done or
   // deferred (PLN-4), or the plan says close; BOB's acts.
   // tranche close --record: once the tranche is on main, the close on the state branch.
@@ -248,7 +269,7 @@ const commands = {
   },
 
   // hold <module:<id>|layer:<n>|slots:<n>> --why "<reason>" --by <session> [--prs <n>[,<n>...]] [--until <ISO time|<n>m|<n>h>]; hold --end <id> --by <session>:
-  // the only way to hold startable work below the job cap (Bob, 5 Nov), a row on the state branch; it lasts until its named PRs land or its --until time.
+  // the only way to hold startable work below the job cap (coordinator's design, 5 Nov 01:13), a row on the state branch; it lasts until its named PRs land or its --until time.
   hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, prs: a.prs, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
 
   // test <id>: the module's own suite, as the gate runs it.

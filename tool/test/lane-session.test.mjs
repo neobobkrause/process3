@@ -35,7 +35,7 @@ test('lane start holds one seat per lane: refused while one is live or pending, 
   assert.equal(r.call.title, 'lane ux');
   assert.equal(r.call.source_revision, 'tranche');
   assert.match(r.prompt, /You are the ux lane's one session in o\/p/);
-  assert.match(r.prompt, /Design lanes, run under BOB, own their lane folders\. Within the product's principles you decide design and wording there, and your changes land through the gated merge train like any job's/);
+  assert.match(r.prompt, /Design lanes, run under BOB, own their lane folders\. Within the product's principles you decide design and wording there \(Bob's CLAUDE\.md, 5 Nov\); a pull request that changes only files in your own lane's folder lands through the merge tool without a test suite run/);
   assert.match(r.prompt, /claude\.ai artifacts and documents, never repository files/);
   assert.match(r.prompt, /- none recorded yet/);
   assert.match(r.prompt, /`design\/ux\/` holds only what the product's build reads.*One changing only `design\/ux\/` takes the gate's records-only path/);
@@ -179,7 +179,7 @@ test('a lane module\'s START says the job is the lane\'s one session', () => {
 test('lane config: a folder the gate would not count is refused; a paused plan starts no lane session; lane start takes no job start option', async () => {
   const { lanes } = await import('../lib/lane.mjs');
   for (const dir of ['.', 'process/ux', '../x', '.github/x']) assert.throws(() => lanes({ lanes: [{ name: 'ux', dir }] }), /cannot be a lane folder/, dir);
-  assert.deepEqual(lanes({ lanes: [{ name: 'ux', dir: './design/ux/' }] }), [{ name: 'ux', dir: 'design/ux', module: null }]);
+  assert.deepEqual(lanes({ lanes: [{ name: 'ux', dir: './design/ux/' }] }), [{ name: 'ux', dir: 'design/ux', module: null, kind: 'design', repo: 'product' }]);
   const { root } = withOrigin({ 'process/config.json': { plan: 'pause', lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
   assert.throws(() => laneStart(root, 'ux', { slug: 'o/p', log: quiet }), /plan pause: take no new step; no lane session was started/);
   const { main } = await import('../p3.mjs');

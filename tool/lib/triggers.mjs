@@ -1,5 +1,7 @@
-// Review triggers (Bob, 4 Nov, about 19:05: "start with two triggers, changes to security lists and
-// deleted or loosened tests, and review before merge. Measure for a day or 2."). An audit of 10
+// Review triggers (coordinator's log, 4 Nov 19:05, recorded as Bob's decision, not quoted: two
+// triggers, security-list changes and deleted or loosened tests, review before merge, measured
+// for a day or two; the coordinator removed the security-path trigger's paths on 5 Nov, copy
+// PR 560, so only the test trigger fires there). An audit of 10
 // job pull requests on the copy found three judgement errors no test catches: PR 253 loosened a
 // requirement-pinning test to pass its own wrong change, PR 174 deleted panel.test.mjs while
 // panel.mjs stayed live, PR 95 dropped acts from REAUTH_ACTS. Each trigger is computed from the

@@ -7,11 +7,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { entry, makeRepo } from './helpers.mjs';
+import { SEED_ENTRY, entry, makeRepo, processRegisterFixture } from './helpers.mjs';
 import { handoverBegin, recordStart, startRole } from '../lib/roles.mjs';
 import { jobStart, startText } from '../lib/job.mjs';
 import { briefText } from '../lib/review.mjs';
 import { git } from '../lib/util.mjs';
+import { STANDING_HEAD, promptBody } from '../lib/register.mjs';
+
+processRegisterFixture([SEED_ENTRY]);
 
 const quiet = () => {};
 const SCREEN = 4096;
@@ -50,8 +53,12 @@ test('start root, start bob (fresh and by handover) and start watcher each print
   assert.ok(prompts['bob by handover'].includes('You replace BOB `session_oldbob1`'));
   for (const [role, p] of Object.entries(prompts)) {
     assert.match(p, /--approvals [0-9a-f]{64}/, `${role}: measured with a real approvals hash`);
-    assert.ok(bytes(p) <= SCREEN, `${role}: ${bytes(p)} bytes, over ${SCREEN}`);
+    // The prompt is one screen; the standing block after it (register.mjs) has its own cap.
+    assert.ok(bytes(promptBody(p)) <= SCREEN, `${role}: ${bytes(promptBody(p))} bytes, over ${SCREEN}`);
   }
+  // The fixture's entry names BOB and the MERGER, not ROOT.
+  for (const role of ['bob', 'merger', 'bob by handover']) assert.ok(prompts[role].includes(STANDING_HEAD), role);
+  assert.ok(!prompts.root.includes(STANDING_HEAD));
 });
 
 test('a job START with a typical entry is one screen at most', () => {

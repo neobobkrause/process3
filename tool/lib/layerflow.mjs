@@ -107,8 +107,8 @@ export function interfaceChange(root, cfg, id, before, after) {
       if (anyExportChange(x)) out.exports = x;
     } catch (err) { out.unread = String(err.message || err).slice(0, 200); }
   }
-  // A return shape is not in the exports (Bob, 5 Nov: a provider answered {materials: [...]} for a
-  // list, its exports unchanged, and screens-publish read it wrongly). A changed test of the
+  // A return shape is not in the exports (BOB's finding, bob-249, 6 Nov: a provider answered
+  // {materials: [...]} for a list, its exports unchanged, and screens-publish read it wrongly). A changed test of the
   // provider that names one of its Public / Provides requirements (a word R<id> the section holds,
   // read at after, else before) counts too: it reschedules, it refuses nothing.
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
@@ -803,7 +803,9 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
     gate_runs: per.reduce((s, x) => s + x.gate_runs, 0), lands: rows.lands.length,
     interface_changes: rows.lands.filter((l) => l.interface?.changed).length,
     reschedules: rows.reschedules.length,
-    // Which trigger fired, per reschedule (Bob, 5 Nov): exports, Provides text, or a Provides test.
+    // Which trigger fired, per reschedule (Bob, 5 Nov, as relayed in the coordinator's handoff: "the
+    // interface signal is exports + Provides text + tests of Provides requirements"); exports-unread
+    // is the tool's own addition.
     reschedule_triggers: Object.fromEntries(['exports', 'provides-text', 'provides-test', 'exports-unread'].map((k) => [k, rows.reschedules.filter((r) => (r.triggers || []).includes(k)).length])),
     reschedule_changed_result: resultChanges(rows.reschedules, rows.runs, anc),
     halted_runs: halted.length, minutes_lost_to_halts: Math.round(halted.reduce((s, r) => s + (r.minutes_lost || 0), 0) * 10) / 10,
