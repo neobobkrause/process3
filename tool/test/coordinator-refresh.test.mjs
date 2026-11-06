@@ -7,9 +7,12 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { commit, makeRepo } from './helpers.mjs';
+import { SEED_ENTRY, commit, makeRepo, processRegisterFixture } from './helpers.mjs';
 import { coordinatorOf, coordinatorPrompt, readAddress, recordStart, rootPrompt, startCoordinator, startRole } from '../lib/roles.mjs';
 import { withCoordinator } from '../lib/state.mjs';
+import { STANDING_HEAD, promptBody } from '../lib/register.mjs';
+
+processRegisterFixture([SEED_ENTRY]);
 import { restartActs } from '../lib/switch.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { main } from '../p3.mjs';
@@ -48,7 +51,8 @@ test('start coordinator prints one create_session call: process3 alone, from the
   assert.ok(prompt.includes('Bob\'s own words are instructions'));
   assert.ok(prompt.includes(`replacing session \`${C1}\``));
   assert.ok(prompt.includes('Never call create_session for your successor'));
-  assert.ok(Buffer.byteLength(prompt) <= 2048, 'short');
+  assert.ok(Buffer.byteLength(promptBody(prompt)) <= 2048, 'short');
+  assert.ok(prompt.includes(STANDING_HEAD), 'the fixture entry names the coordinator');
   const text = out.join('\n');
   assert.match(text, /\(\d+ bytes\)/, 'the prompt\'s size is printed');
   assert.equal(text.split('create_session with').length - 1, 1, 'one create_session call');

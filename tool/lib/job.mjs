@@ -15,6 +15,7 @@ import { movedText, retiredIds, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
+import { standingFor } from './register.mjs';
 import { jobCfg, layerMode, layerOfBranch, refuseInLayer } from './layerbase.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
@@ -92,7 +93,7 @@ const DEFAULT_ACTS = (branch) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, abandoned = null, takeIn, notices = [], rootId = null, decisionMinutes = 30, lane = null }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, abandoned = null, takeIn, notices = [], rootId = null, decisionMinutes = 30, lane = null, standing = '' }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -146,6 +147,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
   // The chain's last automatic step is the watcher (coordinator, 4 Nov); `address <role>` reads each.
   L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then the watcher, with the minutes, by send_message (\`${P3} address <role>\`). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
+  // The chosen short-term triage responses naming job briefs (register.mjs, AUD-8), verbatim, before the acts and their limits.
+  if (standing) L.push('', standing.trimEnd());
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
   L.push('', 'Give each judged act (a push, a session start) its own shell command, never chained with another.');
   L.push('', '## Acts you may take', '');
@@ -412,7 +415,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()) });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -469,7 +472,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const entry = readEntry(root, id);
     const attempt = Math.max(nextAttempt(root, id), (fresh0?.prior ?? 0) + 1);
     const reading = readingSet(root, entry, [], cfg);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
     appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id)], `job start ${id} (attempt ${attempt})`);
@@ -600,7 +603,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     const attempt = nextAttempt(root, id);
     const reading = readingSet(root, entry, [], cfg);
     const owed = noticesFor(root, cfg, id, push);
-    const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), attempt, reading, takeIn: take, notices: owed });
+    const start = startText({ entry, slug, branch: job, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, takeIn: take, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now() });
     appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch: job, take_in: { branch: source, pr: take.pr, commits: commits.length, tip: git(['rev-parse', tip], { cwd: root }) }, ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
     git(['add', '--', ...paths], { cwd: root });
@@ -689,7 +692,7 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
   const receipt = !r ? 'none posted' : r.sha === tipSha ? `posted for the branch's tip` : `posted for ${String(r.sha).slice(0, 10)}, not the branch's tip`;
   const startRow = git(['show', `origin/${branch}:${metricsFile(id)}`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.event === 'start').pop();
   const start = startText({
-    entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
+    entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: startRow?.reopen,
     notices: named(noticesFor(root, cfg, id, true), startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()),
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
