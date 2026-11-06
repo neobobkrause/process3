@@ -206,6 +206,10 @@ export const DEFAULTS = {
   // green pull requests gate at once, each on its predicted merged result behind those ahead. 1 is
   // the serial train, unchanged; a whole number up to MERGE_TRAIN_WINDOW_MAX.
   merge_train_window: 1,
+  // The merge strategy (design note "Shared Layer Branch", Bob, 5 Nov; trial first): "train", today's
+  // flow, a job's pull request into the tranche; "layer", a job publishes onto its layer's branch
+  // layer/<n>, which merges into the tranche once (layerflow.mjs).
+  merge_strategy: 'train',
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
@@ -356,6 +360,8 @@ export function configOf(c, where = CONFIG_FILE) {
   // A window the train cannot run is refused where the config is read, never mid-train.
   const k = c.merge_train_window ?? DEFAULTS.merge_train_window;
   if (!Number.isInteger(k) || k < 1 || k > MERGE_TRAIN_WINDOW_MAX) fail(`${where}: merge_train_window ${JSON.stringify(c.merge_train_window)} is not a whole number from 1 to ${MERGE_TRAIN_WINDOW_MAX} (1: the serial train)`);
+  const ms = c.merge_strategy ?? DEFAULTS.merge_strategy;
+  if (!['train', 'layer'].includes(ms)) fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)} is not "train" (the default) or "layer" (the shared layer branch)`);
   return {
     ...DEFAULTS, ...c,
     merge_train_window: k,

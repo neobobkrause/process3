@@ -6,6 +6,8 @@ import { fail, gh, ghMany, git, isShallow, run, withTemp } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
+// A reviewed revert exemption on a job's pull request (AUD-1, JOB-12; gate.mjs revertExemption).
+export const REVERT_EXEMPT = 'p3:revert-exempt';
 
 // A machine-readable comment: an HTML marker and one fenced JSON block.
 export const block = (marker, data, lead = '') =>

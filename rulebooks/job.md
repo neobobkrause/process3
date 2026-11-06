@@ -9,7 +9,7 @@ For a job session, read once at start, after your START. Your START wins where t
 
 ## Rules
 
-1. Each new test fails with your change reverted (JOB-12); the gate's revert check names any that still pass, for the reviewer (coordinator's check audit, 5 Nov 19:30). Nudge.
+1. Each new test fails with your change reverted (AUD-1, JOB-12). Held by the gate's revert check; a refactor whose tests rightly pass before and after takes a reviewed exemption recorded on its pull request (`revert exempt`), never the receipt's own.
 2. A "what if" you notice is one line in your report, never code or owed work (GAP-3; Bob, 2 Nov, before the log; unverified). Nudge.
 3. Push before you message your coordinator; the message only wakes it (MSG-1). Nudge.
 4. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.

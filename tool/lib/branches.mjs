@@ -160,7 +160,9 @@ export function prune(root, { slug, dryRun = false, ref, run, io = githubIO(), p
   const kept = { protected: [], 'open-pr': [], recent: [], ahead: [] };
   const candidates = [];
   for (const b of branches) {
-    if (protectedNames.has(b.name)) { kept.protected.push(b.name); continue; }
+    // A layer branch (layer/<n>, the shared layer branch) is cut from the tranche tip with no commit
+    // of its own until a publish lands, so rule (a) would take it: kept whatever its commits.
+    if (protectedNames.has(b.name) || /^layer\/\d+$/.test(b.name)) { kept.protected.push(b.name); continue; }
     if (openRefs.has(b.name)) { kept['open-pr'].push(b.name); continue; }
     // A branch at the tranche's tip may have been cut a minute ago with no commit of its own; the
     // activity log is its only other witness, so it is kept as recent too.

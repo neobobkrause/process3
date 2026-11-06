@@ -1132,7 +1132,7 @@ export function plainViaTrain(root, n, opts = {}) {
   const rounds = reviewRounds(opts); // a review not given is refused here, before anything is queued
   const id = randomBytes(6).toString('hex');
   const by = (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
-  const q = { at: now(), row: 'queue', id, pr: Number(n), head: pr.head.sha, ref: pr.head.ref, by, reviewed: opts.reviewed || null, no_review: opts.noReview || null, rounds: rounds.rounds, decision: rounds.decision || null, as: opts.as ?? 'bob', take_by: takeBy(minutes, opts.queueMinutes), renews: true };
+  const q = { at: now(), row: 'queue', id, pr: Number(n), head: pr.head.sha, ref: pr.head.ref, by, reviewed: opts.reviewed || null, no_review: opts.noReview || null, ...(opts.pass !== undefined ? { pass: opts.pass } : {}), rounds: rounds.rounds, decision: rounds.decision || null, as: opts.as ?? 'bob', take_by: takeBy(minutes, opts.queueMinutes), renews: true };
   writeState(root, cfg.state_branch, `merge train: PR ${n} queued (plain)`, (wt) => append(wt, PLAIN_FILE, q));
   log(`the merge train (${lease.session}) holds the tranche: PR ${n} is queued for it at ${q.head.slice(0, 10)}, before any job pull request; waiting for its land (up to ${minutes} min once the train takes it, and up to one job's gate wait more until then)`);
   const pause = opts.pause || (() => sleep(every));
@@ -1317,7 +1317,7 @@ function plainOne(root, ctx, q, { queue, idle }) {
         if (pr.some((r) => r.row === 'withdraw' && r.id === q.id)) fail(`pull request ${q.pr} was withdrawn from the queue by its caller; nothing was landed`);
         if (callerGone(pr, q.id)) fail(`pull request ${q.pr} was withdrawn from the queue: its caller did not renew it within ${GATE_WAIT_MINUTES} min; nothing was landed`);
       };
-      const r = mergePlain(root, q.pr, { quietWake: true, reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.rounds, decision: q.decision || undefined, as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
+      const r = mergePlain(root, q.pr, { quietWake: true, reviewed: q.reviewed || undefined, noReview: q.no_review || undefined, rounds: q.pass ? undefined : q.rounds, decision: q.decision || undefined, ...(q.pass ? { pass: q.pass } : {}), as: q.as, head, slug, io: ctx.io, minutes: ctx.minutes, every: ctx.every, wait: ctx.wait, log: tick, beforeLand: () => { leaseHeld(root, cfg, ctx.session, ctx.token, ctx.approvals); withdrawn(); } });
       Object.assign(row, { result: 'merged', sha: r.sha, landed: head, merged_at: now(), checks: r.checks, wake: r.wake || null, what: r.what || null });
     }
   } catch (e) {

@@ -8,6 +8,7 @@
 // requirement file not over the cap: an OPEN entry never started; a COMPLETE one listed for a
 // provider notice (job start reopens it itself) or for unmet or found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
+import { layerMode } from './layerbase.mjs';
 import { P3, READY_NEXT, jobStart } from './job.mjs';
 import { layerClose } from './layer.mjs';
 import { heldBy, layersAt, paid, readHolds, slotsHeld } from './hold.mjs';
@@ -134,6 +135,10 @@ const factsAt = (root, cfg, j, at = `refs/remotes/origin/${cfg.tranche}`) => {
 
 export function startReady(root, { live, coordinator, model, sessions, archived, auto = false, owedSince = null, log = console.log, read = status, start = jobStart, close = layerClose, remote, setup = batchSetup(root, loadConfig(root)), fetch = (b) => fetchBranch(root, b, { allowFail: true }) } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
+  // The shared layer branch (layerflow.mjs; Bob, 5 Nov): the tool lists what can start and ROOT
+  // starts it, layer by layer; status's next work reads the tranche, which a layer's work reaches
+  // only at its merge, so it starts nothing here.
+  if (layerMode(loadConfig(root))) fail('merge_strategy is "layer": jobs start from the open layer\'s list, `node .process/tool/p3.mjs layer jobs <n>`, each by ROOT with job start <id>; nothing was started');
   const begun = new Date(Date.now() - 1000).toISOString(); // the acts owed before this run (whole seconds: one second back) are its to pay
   // The live count read once, fresh, at the pass's start (copy, 5 Nov 03:40: 12 counted from an
   // earlier read, 9 live): a --sessions file saved over SESSIONS_FRESH_MIN ago is refused, and the
