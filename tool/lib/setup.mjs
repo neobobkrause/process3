@@ -175,7 +175,7 @@ const readers = {
     return (days >= c.value.min_days ? set : missing)(`the newest gate-row artifact (${newest.created_at}) is kept ${days} days`);
   },
 
-  // Deploy tokens are a standard condition (Bob, 2 Nov). Names only: never a value, a length or
+  // Deploy tokens are a standard condition (Bob, 2 Nov, before the log; unverified). Names only: never a value, a length or
   // a prefix. This reader never calls Cloudflare's API; only deploy-token does, with harmless reads.
   environment: (c, x) => {
     const names = x.cfg.environment;
@@ -193,7 +193,7 @@ const readers = {
     return x.env.CLOUDFLARE_ACCOUNT_ID === String(want) ? set(`CLOUDFLARE_ACCOUNT_ID matches ${want}: yes`) : missing(`CLOUDFLARE_ACCOUNT_ID matches ${want}: no`);
   },
 
-  // Classic branch protection on main or the tranche (Bob, 2 Nov: an older rule was missed). A
+  // Classic branch protection on main or the tranche (Bob, 2 Nov, before the log; unverified: an older rule was missed). A
   // branch's "protected" is true for rulesets too; its protection.enabled, and the protection
   // endpoint where it can be read, tell a classic rule. Any classic rule is to be removed.
   'classic-protection': (c, x) => {
@@ -218,7 +218,7 @@ const readers = {
     return set(`no classic branch protection rule on ${x.main} or ${x.cfg.tranche}`);
   },
 
-  // The approvals (Bob, 2 Nov; build J): one block in CLAUDE.md on the tranche, the block the
+  // The approvals (Bob's CLAUDE.md approvals, 2 Nov; build J): one block in CLAUDE.md on the tranche, the block the
   // owner last set by a website commit on the tranche or main, as the record check judges it.
   approvals: (c, x) => {
     const { file, heading, owner } = x.cfg.approvals;
@@ -234,7 +234,7 @@ const readers = {
     return set(`one block, the one ${owner}'s website commit ${top.sha.slice(0, 10)} set`);
   },
 
-  // The session's own checkout (Bob, 2 Nov): start check's own test, against the tranche.
+  // The session's own checkout (Bob, 2 Nov, before the log; unverified): start check's own test, against the tranche.
   'session-branch': (c, x) => {
     if (x.at) return { state: 'skipped', detail: `--at ${x.at} judges that commit, not the session's checkout` };
     const r = x.onTranche();

@@ -32,7 +32,7 @@ export function counts(text) {
 
 // Runs the suite over the given files (default: all of the entry's). Files are root-relative.
 // Product code never gets the GitHub or Actions tokens (NO_TOKENS); every other variable stays,
-// since a module's tests may use them (Bob, 2 Nov: deploy tokens are a standard condition).
+// since a module's tests may use them (Bob, 2 Nov, before the log; unverified: deploy tokens are a standard condition).
 // opts.events: a file the failing tests are written to by fail-reporter.mjs (base-red), beside
 // the TAP the runner prints, when the command is the node test runner naming no reporter.
 export const REPORTER = join(dirname(fileURLToPath(import.meta.url)), 'fail-reporter.mjs');

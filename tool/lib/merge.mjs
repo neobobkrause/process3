@@ -135,7 +135,7 @@ export function reviewRounds({ reviewed, noReview, rounds, decision, pass } = {}
   return { rounds: r, decision: decision ?? null };
 }
 
-// What a job merge's review cost and found (Bob, 4 Nov, about 19:05: measure the review triggers
+// What a job merge's review cost and found (coordinator's log, 4 Nov 19:05, recorded as Bob's decision, not quoted: measure the review triggers
 // for a day or two). --reviewed needs --review-minutes <n>, --findings <n> and --acted-on <n>
 // (how many findings the fix pass acted on); --review-cost-usd <n> when read, else unmeasured.
 // --no-review takes none of them.
@@ -513,7 +513,7 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   // The review triggers, from the job's own diff and the tranche's config (triggers.mjs).
   const trig = reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry: baseEntry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
   if (trig.bad) log(`note: ${trig.bad}; no security path is read`);
-  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (Bob, 4 Nov). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
+  if (trig.fired.length && noReview) fail(`pull request ${n} fires the review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')} (${trig.why}): --no-review is refused (review triggers, 4 Nov 19:05). Brief a fresh read-only reviewer with ${P3} review brief ${n}, which carries the hunks that fired it; one review and one fix pass; then merge ${n} --reviewed "<what it found>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n>`);
   if (trig.fired.length) log(`review trigger${trig.fired.length > 1 ? 's' : ''} ${trig.fired.join(' and ')}: ${trig.why}`);
 
   return { branch, watch, first, all, receipt, mb, baseEntry, trig };
