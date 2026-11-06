@@ -120,6 +120,9 @@ test('a reviewed exemption survives the tranche merged in, fails closed without 
   const ctx = (head, jobSession = 'session_job') => ({ root: s.root, cfg, head, entry: e, job: 'alpha', jobSession });
   const merged = commit(s.root, { 'src/beta/b.mjs': 'export const b = 1;\n' }, 'Bring the tranche in');
   assert.equal(revertExemption([exemptBlock(s.head)], ctx(merged)).ok, true, 'another module\'s files do not void it');
+  const testEdit = commit(s.root, { 'test/alpha/y.test.mjs': inertTest + '// edited after review\n' });
+  assert.match(revertExemption([exemptBlock(s.head)], ctx(testEdit)).why, /in 1 file\(s\): test\/alpha\/y\.test\.mjs/, 'a test edited after review voids it');
+  git(['reset', '-q', '--hard', merged], { cwd: s.root });
   const changed = commit(s.root, { 'src/alpha/index.mjs': 'export const x = 4;\n' });
   assert.match(revertExemption([exemptBlock(s.head)], ctx(changed)).why, /the job's code differs from .* in 1 file\(s\): src\/alpha\/index\.mjs/);
   assert.match(revertExemption([exemptBlock(s.head)], ctx(merged, null)).why, /records no session, so its reviewer cannot be told from the job/);
@@ -160,6 +163,10 @@ test('a test the receipt names for a mark that fails in the gate\'s run disagree
   assert.equal(namedVerdict(g, 'test/a.test.mjs::no such'), null);
   assert.equal(namedVerdict(g, 'test/a.test.mjs::x is'), null, 'a longer name that holds it is another test');
   assert.equal(namedVerdict(g, 'test/b.test.mjs::anything', ['test/b.test.mjs::test/b.test.mjs']), null, 'a whole file tolerated as base-red says nothing of its tests');
+  // Another describe's test of the same name, tolerated as base-red, is not the named test's failure.
+  const c = passedByFile([{ passing: [{ file: 't/c.test.mjs', name: 'A > works' }], failing: [{ file: 't/c.test.mjs', name: 'B > works' }], whole: [] }]);
+  assert.equal(namedVerdict(c, 't/c.test.mjs::works', ['t/c.test.mjs::B > works']), 'pass');
+  assert.equal(namedVerdict(c, 't/c.test.mjs::works'), 'fail');
   assert.equal(namedVerdict(g, 'test/c.test.mjs::x'), null);
   assert.equal(namedVerdict(null, 'test/a.test.mjs::x is 9'), null);
   assert.equal(passedByFile([{ passing: null, failing: null }]), null);

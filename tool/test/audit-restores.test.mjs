@@ -17,8 +17,13 @@ test('a receipt disagreement refutes its COMPLETE claim, as a red suite or rever
   assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'agrees' }, 1), false);
   assert.equal(refutes({ receipt_attempt: 2, receipt: 'disagrees' }, 1), false, 'another attempt\'s run');
   // A revert failure a reviewer then exempted on the same attempt refutes nothing; a red suite still does.
-  assert.equal(refuted([{ receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' }, { receipt_attempt: 1, suite: 'pass', revert: 'exempt', receipt: 'agrees' }], 1), false);
-  assert.equal(refuted([{ receipt_attempt: 1, suite: 'fail', revert: 'skipped', receipt: 'disagrees' }, { receipt_attempt: 1, suite: 'pass', revert: 'exempt', receipt: 'agrees' }], 1), true);
+  const fail = (sha) => ({ sha, receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' });
+  const exempt = (sha, reviewed = sha) => ({ sha, receipt_attempt: 1, suite: 'pass', revert: 'exempt', revert_exempt: { sha: reviewed }, receipt: 'agrees' });
+  assert.equal(refuted([fail('c1'), exempt('c1')], 1), false);
+  // Only an exemption after it, of the same commit: not one before it, nor of later code.
+  assert.equal(refuted([exempt('c1'), fail('c1')], 1), true);
+  assert.equal(refuted([fail('c1'), exempt('c2')], 1), true);
+  assert.equal(refuted([{ receipt_attempt: 1, suite: 'fail', revert: 'skipped', receipt: 'disagrees' }, exempt('c1')], 1), true);
   assert.equal(refuted([{ receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' }], 1), true);
   const at = (h) => new Date(Date.parse('2026-11-06T00:00:00Z') + h * 36e5).toISOString();
   const rows = [{ row: 'attempt', event: 'complete', attempt: 1, pr: 2, at: at(1) }, { row: 'attempt', event: 'complete', attempt: 1, pr: 3, at: at(2) }];

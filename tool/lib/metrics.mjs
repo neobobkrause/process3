@@ -173,8 +173,11 @@ export const BUCKETS = [[1, 5], [6, 10], [11, 15], [16, 20], [21, Infinity]];
 // (AUD-1: a refactor whose tests rightly pass before and after) refutes nothing.
 export const refutes = (r, attempt) => r?.receipt_attempt === attempt && (r.suite === 'fail' || r.revert === 'fail' || r.receipt === 'disagrees');
 export function refuted(runs, attempt) {
-  const exempt = (runs || []).some((r) => r?.receipt_attempt === attempt && r.revert === 'exempt');
-  return (runs || []).some((r) => refutes(exempt && r.revert === 'fail' && r.suite !== 'fail' && r.receipt !== 'disagrees' ? null : r, attempt));
+  const list = runs || [];
+  // Cancelled only by an exempt run after it on the same attempt whose reviewed commit is its own.
+  const excused = (r, i) => r?.revert === 'fail' && r.suite !== 'fail' && r.receipt !== 'disagrees'
+    && list.slice(i + 1).some((x) => x?.receipt_attempt === attempt && x.revert === 'exempt' && x.revert_exempt?.sha === r.sha);
+  return list.some((r, i) => !excused(r, i) && refutes(r, attempt));
 }
 const r2 = (x) => Math.round(x * 100) / 100;
 export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gates = () => null, syncs = null, reverts = null, quick = null, from, to = now() }) {

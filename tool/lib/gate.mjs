@@ -589,7 +589,8 @@ export function namedVerdict(g, t, tolerated = []) {
   const name = t.slice(at + 2);
   // The test itself, or one nested under describes: never a longer name that holds it.
   const holds = (x) => [name, escName(name)].some((n) => x === n || x.endsWith(` > ${n}`));
-  const failed = f.fail.some(holds);
+  // A failure tolerated as base-red is not the named test's (another describe's test of that name).
+  const failed = f.fail.some((x) => holds(x) && !tolerated.includes(`${file}::${x}`));
   if (failed) return 'fail';
   if (f.pass.some(holds)) return 'pass';
   // A file that failed as a whole ran none of its tests; tolerated as base-red, the run says nothing of them.
@@ -608,7 +609,7 @@ export function measuredBy(root, cfg, receipt, green, entries = []) {
   // That run checked this very attempt (its claims are the same whatever amends it), or this
   // receipt was made on the tree that run tested, records aside. Without the first, a receipt
   // older than the head's code would send every records-only head through the suite (cold review).
-  const checked = green.receipt_attempt === receipt.attempt;
+  const checked = Number.isInteger(receipt.attempt) && green.receipt_attempt === receipt.attempt;
   const same = checked || (git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries, { self: job })));
   if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${at}, tested` };
@@ -624,8 +625,11 @@ export function measuredBy(root, cfg, receipt, green, entries = []) {
 // The reviewed revert exemption (AUD-1, JOB-12): a refactor whose tests rightly pass before and
 // after the change. Recorded on the pull request by `revert exempt` (job.mjs), a p3:revert-exempt
 // block naming its reviewer, its reason and the head it reviewed. It stands when its reviewer is
-// not the job's own session (a receipt, or the job, never exempts itself) and the head differs
-// from the reviewed commit only in records, so the code reviewed is the code tested.
+// not the job's own session (a receipt, or the job, never exempts itself) and the job's own files
+// (its module's paths and tests, records and requirements aside) are as the reviewed commit had
+// them, so the code reviewed is the code tested. The newest block that stands wins; withdrawing
+// one means deleting its comment. The reviewer and the job's session are the sessions' own words
+// (the complete row, written on the job's branch): the gate cannot prove who posted a block.
 // { ok, by, sha, why }, { ok: false, why }, or null when none is recorded.
 export const P3_EXEMPT = 'p3 revert exempt <pr> --why "<why>" --reviewer <session>, by a reviewer that is not the job';
 export const completeSession = (rows) => (rows || []).filter((r) => r.row === 'attempt' && r.event === 'complete').pop()?.session || null;
@@ -634,7 +638,7 @@ export function revertExemption(all, { root, cfg, head, entry, job, jobSession =
   const blocks = (all || []).filter((c) => !c.updated_at || c.updated_at === c.created_at)
     .map((c) => parseBlock(c.body, REVERT_EXEMPT)).filter(Boolean).reverse();
   if (!blocks.length) return null;
-  const sf = (x) => String(x).replace(/^cse_/, 'session_');
+  const sf = (x) => String(x).trim().replace(/^cse_/, 'session_');
   const own = entry ? ownPaths(entry) : [];
   const judge = (x) => {
     const no = (why) => ({ ok: false, why });

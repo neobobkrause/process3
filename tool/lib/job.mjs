@@ -1217,8 +1217,9 @@ export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
 // revert exempt <pr> --why "<why>" --reviewer <session> (AUD-1, JOB-12): a reviewer's exemption from
 // the gate's revert check, for a refactor whose tests rightly pass before and after the change.
 // Posted on the job's pull request as a p3:revert-exempt block naming the head it reviewed; the
-// gate takes it only from a reviewer that is not the job's own session, and only while the head
-// differs from that commit in records alone (gate.mjs revertExemption). A body edit then gives the
+// gate takes it only from a reviewer that is not the job's own session, and only while the job's
+// own files (its module's paths and tests, records aside) are as that commit had them
+// (gate.mjs revertExemption). A body edit then gives the
 // gate a new event (pull_request: edited), as a comment gives none.
 export const EXEMPT_MARK = 'p3:revert-exempt-regate';
 export function revertExempt(root, n, { why, reviewer, io: given = {}, log = console.log } = {}) {
