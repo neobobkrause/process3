@@ -25,7 +25,7 @@ All tests were run on 6 Nov from a builder session on the current account (creat
 2. Install the Claude GitHub App for civicsmith-copy, process3 and process3-probes.
 3. Recreate the cloud environment BioDefault (network, setup script, variables, the api.cloudflare.com network secret), and connect Google Drive and Cloudflare.
 4. Share the Foundations and the Ledger map (and the lanes' design artifacts) with the target account with edit access. Open each one there.
-5. Start ONE session on the target account, on civicsmith-copy, in that environment, with this prompt:
+5. Check that the copy's `.process` pin includes process3 R16 (`switch in --preflight` must exist there). Then start ONE session on the target account, on civicsmith-copy, in that environment, with this prompt:
 
    > Read-only canary for the account switch. Change nothing: no push, no session, no task, no document edit beyond the one comment below. Run `git fetch origin tranche && git checkout -q --detach FETCH_HEAD && git submodule update --init .process`, then `node .process/tool/p3.mjs switch in --preflight --by <your session id>`. Then run each session check it prints with your own tools; for the documents, create a comment "switch canary <date>" on the Foundations and delete it. Send the coordinator (`node .process/tool/p3.mjs address coordinator`) every line, ok or failed with its words, then end your turn.
 
@@ -44,12 +44,18 @@ All tests were run on 6 Nov from a builder session on the current account (creat
 The rehearsal found five defects, and each is fixed in this change:
 
 - the manifest kept every task's prompt empty, because list_triggers keeps it under derived_state;
-- a task that starts a fresh session each time was not marked as one;
+- a task that starts a fresh session each time was not marked as one, and was taken for Bob's (cold review);
 - Bob's own task would have been switched off;
 - the probe's manifest listed the copy's 8 jobs, because the account holds every product's sessions;
 - switch out demanded every page of 1,800+ sessions, about 5 min.
 
 A sixth defect is also fixed: switch in would have resent 211 messages one by one.
+
+The cold review found three more, each fixed:
+
+- (h)'s `lane start --replace` was refused once ROOT's sweep had ended the retired seat;
+- a task bound to a lane was to be created at (d), before the lane's new session existed;
+- a later preflight compared the approvals with an earlier switch's spent manifest.
 
 The real switch out and the role restarts on the probe were not run. The probe has no role sessions to restart, and starting them on the copy costs usage at "allowed_warning". The coordinator can order a live rehearsal on the probe.
 

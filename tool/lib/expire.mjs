@@ -32,7 +32,7 @@ export function staleRecords(root, cfg, { listed = null, t = Date.now(), facts, 
   let seats = new Map();
   try { seats = readSeats(root, cfg); } catch { seats = new Map(); }
   for (const s of seats.values()) {
-    if (s.session && f.sessionGone(s.session) === true) out.push({ kind: 'lane seat', id: s.lane, why: `its session ${s.session} is archived`, auto: true, seat: s });
+    if (s.session && f.sessionGone(s.session) === true) out.push({ kind: 'lane seat', id: s.lane, why: `its session ${s.session} is archived or retired`, auto: true, seat: s });
   }
   let names = null;
   try { names = new Set(lanes(cfg).map((l) => l.name)); } catch { names = null; }
@@ -77,11 +77,11 @@ export function expireRecords(root, cfg, { listed = null, log = console.log, t =
             if ((now0?.session || null) !== s.session || (now0?.at || null) !== (s.at || null)) continue;
             const p = join(wt, LANE_SESSIONS_FILE);
             mkdirSync(dirname(p), { recursive: true });
-            appendFileSync(p, JSON.stringify({ row: 'end', at: now(), lane: s.lane, session: s.session, by: BY_TOOL, why: `session_gone:${s.session} met (archived)` }) + '\n');
+            appendFileSync(p, JSON.stringify({ row: 'end', at: now(), lane: s.lane, session: s.session, by: BY_TOOL, why: `session_gone:${s.session} met (archived, or retired by an account switch)` }) + '\n');
           }
           return {};
         });
-        for (const s of seats) log(`lane ${s.lane}: its seat ended by the tool (session ${s.session} is archived); lane start ${s.lane} starts the next when there is work`);
+        for (const s of seats) log(`lane ${s.lane}: its seat ended by the tool (session ${s.session} is archived, or retired by an account switch); lane start ${s.lane} starts the next when there is work`);
         out.seats = seats.map((s) => s.lane);
       } catch (e) { log(`lane seats whose session is gone were not ended (${String(e.message).split('\n')[0].slice(0, 160)})`); }
     }

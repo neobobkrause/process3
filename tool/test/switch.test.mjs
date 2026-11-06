@@ -254,7 +254,8 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   // As list_triggers gives them (6 Nov): the prompt under derived_state, a fresh task persist_session
   // false, and one of Bob's own that is not the process's.
   const live = [...TASKS.triggers, { id: 'trig_lane', name: 'ux check-in', enabled: true, persist_session: true, persistent_session_id: 'session_uxold', run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'ux: next PR' } },
-    { id: 'trig_bobs', name: 'alpha-pipeline-runner', enabled: true, persist_session: false, run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'not ours' } }];
+    { id: 'trig_bobs', name: 'alpha-pipeline-runner', enabled: true, persist_session: false, run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'not ours' } },
+    { id: 'trig_fresh', name: 'nightly census', enabled: true, persist_session: false, cron_expression: '7 3 * * *', derived_state: { prompt: 'Run node .process/tool/p3.mjs setup check' } }];
   const { t, s } = files(root, { tasks: live, sessions: SESSIONS });
   const before = git(['rev-parse', 'origin/process-state'], { cwd: root });
   const out = [];
@@ -270,11 +271,14 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   for (const id of [COORD, ID.root, ID.bob, ID.watcher, 'session_jobalpha', 'session_uxold', 'session_triageold']) assert.ok(m.sessions.includes(id), id);
   assert.match(out[0], /switch out --dry-run: .* 2 lane seat\(s\), 1 open ask\(s\), .* nothing was stopped$/);
   assert.ok(out.some((l) => /dry run: do none of them/.test(l)));
-  const lane = m.tasks.find((x) => x.id === 'trig_lane'), bobs = m.tasks.find((x) => x.id === 'trig_bobs');
+  const lane = m.tasks.find((x) => x.id === 'trig_lane'), bobs = m.tasks.find((x) => x.id === 'trig_bobs'), fresh = m.tasks.find((x) => x.id === 'trig_fresh');
+  // A new-session-per-fire task that runs the process's tool is the process's: switched off (review of R16).
+  assert.deepEqual([fresh.role, fresh.fresh], ['fresh', true]);
+  assert.ok(out.some((l) => /^\s*- trig_fresh nightly census \(fresh\)/.test(l)));
   assert.deepEqual([lane.role, lane.prompt, bobs.role, bobs.fresh], ['lane ux', 'ux: next PR', 'not the process', true]);
   assert.ok(out.some((l) => /trig_lane ux check-in \(lane ux\)/.test(l)));
   assert.ok(out.some((l) => /not the process's, left as it is.*trig_bobs/.test(l)));
-  assert.ok(!out.some((l) => /^   - trig_bobs/.test(l)), 'never switched off');
+  assert.ok(!out.some((l) => /^\s*- trig_bobs/.test(l)), 'never switched off');
   assert.ok(out.some((l) => /2b\. Each lane's session.*lane ux: session_uxold; lane triage: session_triageold/.test(l)));
 });
 
@@ -304,10 +308,16 @@ test('switch in --preflight: read-only, with or without a manifest, the process 
 
 test('switch in retires the old account\'s sessions: R13 ends a lane seat bound to one with no session list; the restart names the layer flow and the lanes', () => {
   const root = withLanes(product(), { layer: true });
-  const { t, s } = files(root, { tasks: TASKS, sessions: SESSIONS });
+  const tasks = { triggers: [...TASKS.triggers, { id: 'trig_lane', name: 'ux check-in', enabled: true, persistent_session_id: 'session_uxold', cron_expression: '5 * * * *', prompt: 'ux session_uxold: next PR' },
+    { id: 'trig_fresh', name: 'nightly census', enabled: true, persist_session: false, cron_expression: '7 3 * * *', derived_state: { prompt: 'Run node .process/tool/p3.mjs setup check' } }] };
+  const { t, s } = files(root, { tasks, sessions: SESSIONS });
   switchOut(root, { tasks: t, sessions: s, by: COORD, read, log: quiet });
   const out = [];
   switchIn(root, { sessions: s, by: NEW, slug: 'o/p', io: okIO, log: (l) => out.push(l) });
+  // A spent manifest is never compared by a later preflight (review of R16).
+  const pre = [];
+  switchIn(root, { by: NEW, preflight: true, slug: 'o/p', io: okIO, log: (l) => pre.push(l) });
+  assert.match(pre[0], /the manifest is an earlier switch's, already switched in \(the approvals are not compared\)/);
   fetchState(root, 'process-state', { fresh: true });
   const retired = JSON.parse(readState(root, 'process-state', RETIRED_FILE));
   assert.ok(retired.sessions.includes('session_uxold') && retired.sessions.includes(COORD) && !retired.sessions.includes(NEW));
@@ -320,6 +330,12 @@ test('switch in retires the old account\'s sessions: R13 ends a lane seat bound 
   const text = out.join('\n');
   assert.match(text, /\(f\) BOB, for each open layer \(2\): `node \.process\/tool\/p3\.mjs layer jobs <n>`/);
   assert.doesNotMatch(text, /job start --ready/);
-  assert.match(text, /\(h\) BOB restarts each lane .*\n    - `node \.process\/tool\/p3\.mjs lane start ux --replace session_uxold`.*then send it its 1 open ask/);
+  // The seat ends at ROOT's sweep, which can run before (h): a plain lane start, --replace only if still held.
+  assert.match(text, /\(h\) BOB restarts each lane .*\n    - `node \.process\/tool\/p3\.mjs lane start ux` \(`--replace session_uxold` if it says the seat is still held\).*then send it its 1 open ask/);
+  // A lane-bound task waits for (h); a fresh process task is recreated as one.
+  assert.match(text, /    - ux check-in \(lane ux\): created at \(h\)/);
+  assert.match(text, /    - then ux check-in \(lane ux\): .*"persistent_session_id":"<the new lane ux id you recorded>","prompt":"ux <the new lane ux id>: next PR"/);
+  assert.ok(text.indexOf('then ux check-in') > text.indexOf('(h) BOB restarts'));
+  assert.match(text, /    - nightly census \(fresh\): .*"create_new_session_on_fire":true/);
   assert.match(text, /retired \d+ session\(s\) of the old account/);
 });

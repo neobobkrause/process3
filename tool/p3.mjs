@@ -485,7 +485,8 @@ const commands = {
   //   the state branch's switch/manifest.json, and the stop acts in order. Writes nothing else.
   // switch in --sessions <list_sessions JSON file> --by <session> [--approvals <hash>]: the first act
   //   on the new account: the preflight (GitHub, the account, push, the approvals), refused on any
-  //   failure, then the restart's acts in order. Writes nothing.
+  //   failure, then switch/retired.json (the old account's sessions, R13's session_gone) and the
+  //   restart's acts in order. Writes nothing else.
   //   --dry-run (R16): the manifest under switch/dry-run/, never switch/manifest.json, and nothing stopped.
   //   switch in --preflight --by <session>: every check, read-only, plus the session checks to run;
   //   from any session on either account, before anything stops.
@@ -496,7 +497,7 @@ const commands = {
     if (sub === 'out') return (switchOut(root, { tasks: a.tasks, sessions: a.sessions, by: a.by, dryRun: !!a['dry-run'] }), 0);
     if (sub === 'in') { const r = switchIn(root, { sessions: a.sessions, by: a.by, approvals: a.approvals, preflight: !!a.preflight }); return r.ok === false ? 1 : 0; }
     if (sub === 'quiet') return switchQuiet(root, { ...(a.minutes !== undefined ? { minutes: a.minutes } : {}) }).ok ? 0 : 1;
-    fail('switch out --tasks <file> --sessions <file> --by <session> | switch in --sessions <file> --by <session> [--approvals <hash>] | switch quiet [--minutes <n>]');
+    fail('switch out --tasks <file> --sessions <file> --by <session> [--dry-run] | switch in --sessions <file> --by <session> [--approvals <hash>] | switch in --preflight --by <session> | switch quiet [--minutes <n>]');
   },
 
   // watch --session <the watcher's id> [--full | --escalated <minutes>]: the watcher's decision,

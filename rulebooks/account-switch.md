@@ -12,7 +12,7 @@ For the coordinator, or ROOT, when Bob moves Process3 to another Claude account.
 
 1. Save list_triggers with `enabled: true` and limit 100, every page, as one JSON file. Save list_sessions, newest first, as another. One page stands when it reaches back as far as the record needs: the tool applies status's rule and names the cursor if it does not.
 2. From each product checkout at the tranche (the copy, then the probe): `node .process/tool/p3.mjs switch out --tasks <tasks file> --sessions <sessions file> --by <your session id>`. It writes `switch/manifest.json` on the state branch and nothing else. The manifest holds:
-   - each enabled task, with its schedule, prompt and role: a role, the coordinator, `lane <name>`, or `not the process` for a task bound to no session of the process, such as Bob's alpha-pipeline-runner, which is listed and never touched;
+   - each enabled task, with its schedule, prompt and role. The role is one of a role's name, the coordinator, `lane <name>`, `fresh` (a new-session-per-fire task that runs the process's tool), or `not the process`: a task bound to no session that never names the process, such as Bob's alpha-pipeline-runner, which is listed and never touched;
    - each live job of this product (its ledger or a job branch on its origin), with its session, branch, pull request and state;
    - the role addresses;
    - the open layers (layer flow);
@@ -39,15 +39,15 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
 
 ## 3. New account: switch in, its first act
 
-1. Save list_sessions as JSON. From each product checkout at the tranche, before any push or start: `node .process/tool/p3.mjs switch in --sessions <file> --by <your session id>`. It records the old account's sessions in `switch/retired.json`, so R13's session_gone ends what was bound to them (lane seats, holds) at the tool's next write. The new account's list_sessions never lists those sessions.
+1. Save list_sessions as JSON. From each product checkout at the tranche, before any push or start: `node .process/tool/p3.mjs switch in --sessions <file> --by <your session id>`. It records the old account's sessions in `switch/retired.json`, so R13's session_gone ends what was bound to them (lane seats, holds) at ROOT's next sweep. The new account's list_sessions never lists those sessions.
 2. If it refuses, each failed check names who fixes it; most are Bob's (the GitHub connection, the account, the GitHub App). Tell Bob those words, wait, and run it again. Never push before it passes. If only the approvals changed, and the change is Bob's own for the new account, run it again with `--approvals <the tip's hash it printed>` on his word. Then run the session checks it prints, and send Bob any failure with its fix.
 3. Once it passes, do its acts in order, each its own command:
    - (a) The coordinator's id merged into process/config.json, on the copy and on the probe.
    - (b) `switch quiet`, until it exits 0.
    - (c) ROOT, then from ROOT: the handover for BOB and `start watcher --replace`, with the old ids.
-   - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins. ROOT's sweep and the watcher's daily task are made by their own starts.
+   - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins, and each `fresh` task as one again. ROOT's sweep and the watcher's daily task are made by their own starts. A task bound to a lane waits for (h).
    - (e) BOB restarts every recorded job, the release path first.
    - (f) In the layer flow, `layer jobs <n>` for each open layer, with `layer sync <n>` first if the pin moved (SLB-12). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
-   - (g) Messages to BOB stay in the record, where `status --role bob` lists them. The others are delivered to the new sessions.
-   - (h) Each lane with a seat (the triage seat too): `lane start <lane> --replace <old id>`, then `--record <new id>`, then its open asks.
+   - (g) Messages to BOB stay in the record: `status --role bob` lists them by id, and their text is on the state branch. The others are delivered to the new sessions.
+   - (h) Each lane with a seat (the triage seat too): `lane start <lane>`, with `--replace <old id>` only if it says the seat is still held (ROOT's sweep usually ends it first); then `--record <new id>`, its open asks, and the tasks bound to it.
 4. Old sessions cannot be messaged or archived from the new account. Bob archives them on the old account once the new ones run, and deletes the switched-off tasks there.

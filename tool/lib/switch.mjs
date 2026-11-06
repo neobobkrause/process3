@@ -26,6 +26,8 @@ export const RETIRED_FILE = 'switch/retired.json';
 export const QUIET_MIN = 2;
 const ROLES = ['root', 'bob', 'watcher'];
 const SESSION = /^session_[A-Za-z0-9]+$/;
+// A task prompt that runs the process's tool, or names a product of it.
+const PROCESS_TASK = /p3\.mjs|\.process\/tool|process3|civicsmith/i;
 const by_ = (by) => (SESSION.test(String(by)) ? String(by) : fail('--by <session>: the session running this (the coordinator or ROOT)'));
 
 // list_triggers saved as JSON: a list, or one under "triggers" or "data"; every page.
@@ -63,11 +65,13 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
     // list_triggers keeps the prompt under derived_state and marks a new-session-per-fire task
     // persist_session false (this account, 6 Nov). A task bound to no session that names no
     // process role is not the process's (Bob's own, such as alpha-pipeline-runner): listed, never
-    // switched off or recreated by the switch.
+    // switched off or recreated by the switch. One that runs the process's tool is the process's
+    // (role fresh): switched off, and recreated as a new-session-per-fire task (review of R16).
     const session = t.persistent_session_id || null;
     const fresh = t.create_new_session_on_fire === true || t.persist_session === false;
     const role = roleOf(session, addresses, coordinators, seats0);
-    return { id: t.id, name: t.name || null, ...(t.cron_expression ? { cron_expression: t.cron_expression } : {}), ...(t.run_once_at ? { run_once_at: t.run_once_at } : {}), prompt: t.prompt || t.derived_state?.prompt || '', session, role: !session && role === 'unknown' ? 'not the process' : role, ...(fresh ? { fresh: true } : {}) };
+    const prompt = t.prompt || t.derived_state?.prompt || '';
+    return { id: t.id, name: t.name || null, ...(t.cron_expression ? { cron_expression: t.cron_expression } : {}), ...(t.run_once_at ? { run_once_at: t.run_once_at } : {}), prompt, session, role: !session && role === 'unknown' ? (PROCESS_TASK.test(prompt) ? 'fresh' : 'not the process') : role, ...(fresh ? { fresh: true } : {}) };
   });
   // The live job sessions: each unarchived session titled job <id>, the newest per module, whose
   // module is in this product's ledger or has a job branch on its origin. One account holds every
@@ -193,6 +197,7 @@ export function preflight(root, m, { slug, approvals, api = (p) => gh(['api', p]
 const freshPrompt = (m, prompt, approvals) => {
   let p = String(prompt).split(m.approvals).join(approvals);
   for (const r of ROLES) if (m.addresses[r]?.session) p = p.split(m.addresses[r].session).join(`<the new ${r} id: ${P3} address ${r}>`);
+  for (const x of m.lanes || []) if (x.session) p = p.split(x.session).join(`<the new lane ${x.lane} id>`);
   return p;
 };
 
@@ -216,10 +221,11 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   L.push(m.tasks.length ? '(d) The scheduled tasks, after the starts, each a create_trigger call (the new ids from `address <role>`):' : '(d) No scheduled tasks to recreate.');
   for (const k of m.tasks) {
     const when = k.cron_expression ? { cron_expression: k.cron_expression } : k.run_once_at ? { run_once_at: k.run_once_at } : {};
+    if (k.role.startsWith('lane ')) { L.push(`    - ${k.name || k.id} (${k.role}): created at (h), once the lane's new session is recorded`); continue; }
     if (k.role === 'not the process') { L.push(`    - ${k.name || k.id}: not the process's; Bob moves it himself if he wants it`); continue; }
     if (k.role === 'root' || k.role === 'watcher') { L.push(`    - ${k.name || k.id} (${k.role}): made by ${k.role === 'root' ? 'ROOT from its own prompt (sweep task)' : 'start watcher\'s output'}, with the current approvals; nothing to do here`); continue; }
     if (k.run_once_at && Date.parse(k.run_once_at) <= t) { L.push(`    - ${k.name || k.id}: its one time (${k.run_once_at}) has passed; recreate it only if it is still wanted`); continue; }
-    const bound = k.fresh ? { create_new_session_on_fire: true } : k.role === 'coordinator' ? {} : k.role.startsWith('lane ') ? { persistent_session_id: `<the new ${k.role} session, recorded at (h)>` } : ROLES.includes(k.role) ? { persistent_session_id: `<the new ${k.role} id: ${P3} address ${k.role}>` } : { persistent_session_id: `<unknown: it was bound to ${k.session || 'no session'}; the coordinator decides>` };
+    const bound = k.fresh ? { create_new_session_on_fire: true } : k.role === 'coordinator' ? {} : ROLES.includes(k.role) ? { persistent_session_id: `<the new ${k.role} id: ${P3} address ${k.role}>` } : { persistent_session_id: `<unknown: it was bound to ${k.session || 'no session'}; the coordinator decides>` };
     L.push(`    - ${k.name || k.id} (${k.role}${k.role === 'coordinator' ? ', created from the coordinator session itself' : ''}): ${JSON.stringify({ name: k.name, ...when, ...bound, prompt: freshPrompt(m, k.prompt, approvals) })}`);
   }
   // Each job by routeFor's route (job.mjs): an open pull request, or BLOCKED, is a --restart; a
@@ -250,7 +256,15 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   L.push(seats.length ? '(h) BOB restarts each lane that had a session, each its own command, then the create_session it prints and its --record:' : '(h) No lane had a session.');
   for (const x of seats) {
     const asks = (m.asks || []).filter((a) => a.lane === x.lane).length;
-    L.push(`    - \`${P3} lane start ${x.lane} --replace ${x.session}\`, then \`${P3} lane start ${x.lane} --record <new id>\`${asks ? `; then send it its ${asks} open ask(s) (\`${P3} lane ask ${x.lane} "<question>"\` prints each brief)` : ''}`);
+    // The retired seat ends at ROOT's first sweep (expire.mjs), which can run before (h): then a
+    // plain lane start; --replace only while the seat still shows the old session (review of R16).
+    L.push(`    - \`${P3} lane start ${x.lane}\` (\`--replace ${x.session}\` if it says the seat is still held), then \`${P3} lane start ${x.lane} --record <new id>\`${asks ? `; then send it its ${asks} open ask(s) (\`${P3} lane ask ${x.lane} "<question>"\` prints each brief)` : ''}`);
+  }
+  // The tasks bound to a lane's session, now that its new id is recorded.
+  for (const k of m.tasks.filter((x) => x.role.startsWith('lane '))) {
+    const when = k.cron_expression ? { cron_expression: k.cron_expression } : k.run_once_at ? { run_once_at: k.run_once_at } : {};
+    if (k.run_once_at && Date.parse(k.run_once_at) <= t) { L.push(`    - ${k.name || k.id}: its one time (${k.run_once_at}) has passed; recreate it only if it is still wanted`); continue; }
+    L.push(`    - then ${k.name || k.id} (${k.role}): ${JSON.stringify({ name: k.name, ...when, persistent_session_id: `<the new ${k.role} id you recorded>`, prompt: freshPrompt(m, k.prompt, approvals) })}`);
   }
   return L;
 }
@@ -280,7 +294,11 @@ export function switchIn(root, { sessions, by, approvals, preflight: only = fals
   if (only) {
     let m0 = null;
     try { m0 = JSON.parse(readState(root, cfg.state_branch, MANIFEST_FILE) || 'null'); } catch { m0 = null; }
-    log(`switch in --preflight: read-only; ${m0 ? `the manifest by ${m0.by} at ${m0.at}` : 'no manifest yet (the approvals are not compared)'}`);
+    // A manifest an earlier switch in already used is spent: its approvals are not today's (review of R16).
+    let spent = false;
+    try { spent = !!m0 && JSON.parse(readState(root, cfg.state_branch, RETIRED_FILE) || 'null')?.manifest_at === m0.at; } catch { spent = false; }
+    if (spent) m0 = null;
+    log(`switch in --preflight: read-only; ${m0 ? `the manifest by ${m0.by} at ${m0.at}` : `${spent ? 'the manifest is an earlier switch\'s, already switched in' : 'no manifest yet'} (the approvals are not compared)`}`);
     const checks = preflight(root, m0, { slug, approvals, cfg, ...io });
     for (const c of checks) log(`- ${c.ok ? 'ok' : 'FAILED'}: ${c.line}${c.ok ? '' : `. Fixes it: ${c.fix}`}`);
     for (const l of sessionCheckLines()) log(l);
@@ -312,7 +330,7 @@ export function switchIn(root, { sessions, by, approvals, preflight: only = fals
       try { prev = JSON.parse(readFileSync(join(wt, RETIRED_FILE), 'utf8')).sessions || []; } catch { prev = []; }
       writeFileSync(join(wt, RETIRED_FILE), JSON.stringify({ at: now(), by, manifest_at: m.at, sessions: [...new Set([...prev, ...retired])] }, null, 2) + '\n');
     });
-    log(`retired ${retired.length} session(s) of the old account (${RETIRED_FILE}): what is bound to them ends by R13's session_gone at the tool's next write`);
+    log(`retired ${retired.length} session(s) of the old account (${RETIRED_FILE}): what is bound to them ends by R13's session_gone at ROOT's next sweep`);
   }
   log('Restart, in order, each act its own command:');
   for (const l of restartActs(m, { by, cfg: { ...tranche, tranche: cfg.tranche }, approvals: tipApprovals(root, cfg).approvals, addresses, messages: [...seen.values()] })) log(l);
