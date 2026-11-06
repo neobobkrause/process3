@@ -1,8 +1,9 @@
 // Throwaway git repositories for tests.
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { git } from '../lib/util.mjs';
+import { writeState } from '../lib/state.mjs';
 
 export function makeRepo(files = {}) {
   const root = mkdtempSync(join(tmpdir(), 'p3-test-'));
@@ -89,4 +90,19 @@ export function processRegisterFixture(open) {
   return dir;
 }
 // A chosen short-term response (AUD-8), as the prompts print it.
-export const SEED_ENTRY = { id: 'P1', kind: 'short-term', problem: 'Process3 fixes and product job pull requests contend for the merge train.', evidence: 'test fixture', options: [{ option: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', context: 'test fixture' }], response: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', chosen_by: 'Bob, 5 Nov: "yes"', chosen_at: '2026-11-05', end_condition: 'for 2 hours no position is re-gated.', affects: ['bob', 'merger', 'coordinator'], owner: 'the process-triage lane', state: 'response chosen' };
+export const SEED_ENTRY = { id: 'P1', kind: 'short-term', problem: 'Process3 fixes and product job pull requests contend for the merge train.', evidence: 'test fixture', options: [{ option: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', context: 'test fixture' }], response: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', chosen_by: 'Bob, 5 Nov: "yes"', chosen_at: '2026-11-05', end_condition: 'for 2 hours no position is re-gated.', affects: ['bob', 'coordinator'], owner: 'the process-triage lane', state: 'response chosen' };
+
+// A layer recorded closed on the state branch (layers/closed.jsonl), as layer merge records it,
+// at the tranche tip on origin: the fixture step the removed train-era `layer close` once was.
+export function closeLayer(root, n, { tranche = 'tranche', sb = 'process-state', deferred = {} } = {}) {
+  git(['fetch', '-q', 'origin', `+refs/heads/${tranche}:refs/remotes/origin/${tranche}`], { cwd: root });
+  const commitSha = git(['rev-parse', `refs/remotes/origin/${tranche}`], { cwd: root });
+  const row = { row: 'closed', layer: Number(n), tranche, commit: commitSha, at: new Date().toISOString(), deferred, suites: [], generated_changed: [] };
+  writeState(root, sb, `layer ${n} closed (test)`, (w) => {
+    mkdirSync(join(w, 'layers'), { recursive: true });
+    const p = join(w, 'layers', 'closed.jsonl');
+    writeFileSync(p, (existsSync(p) ? readFileSync(p, 'utf8') : '') + JSON.stringify(row) + '\n');
+    return {};
+  });
+  return { ok: true, row };
+}

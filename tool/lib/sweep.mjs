@@ -4,21 +4,16 @@
 // address and prints the watcher's decision. The session makes every call.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { P3, READY_START, jobSender, wakeLine } from './job.mjs';
+import { P3, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
-import { LEASE, LEASE_FILE } from './train.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { OWED_ALARM_MIN, bobAct, heldBy, layersAt, owe, readAuto, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
-import { readySelection } from './ready.mjs';
+import { heldBy, layersAt, slotsHeld } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
-import { SILENT_HOURS, laneDefects, onOriginOf, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, parkedLine, parkedSessions, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { SILENT_HOURS, laneDefects, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
-import { layerMode } from './layerbase.mjs';
 import { layerMergeLine, layerStartAct, readOpenLayer } from './layerflow.mjs';
-import { checkRun, openPRs } from './github.mjs';
-import { readStuck, stuckLine } from './stuck.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
 // One row per sweep, appended next to the heartbeat (which each sweep overwrites): whether status
@@ -66,25 +61,21 @@ function overMedian(root, ref, attempts) {
 
 // Idle capacity (Bob, 5 Nov: cap use about 48% over a day; a spoken "about 6 at most" held BOB
 // near 6 of 20 for 6 hours and nothing alarmed). Live job sessions under the cap less the slots
-// held with startable work (job start --ready's own selection, readySelection, with origin's job
-// heads where read: onOrigin) for IDLE_MIN.work minutes, or no
-// startable work while under half the cap for IDLE_MIN.empty: an alarm, each empty slot with its
-// reason (job start --ready's skip lines, then the holds). null when neither holds.
+// held, with the open layer's startable jobs for IDLE_MIN.work minutes, or no startable work while
+// under half the cap and BOB owes the act that frees work, for IDLE_MIN.empty: an alarm, each
+// empty slot with its reason. null when neither holds.
 export const IDLE_MIN = { work: 15, empty: 30 };
 // Since when an idle of this kind has run: the last judged row's, when it saw the same kind; else
 // the latest it could have begun. Not carried: never before the last sweep (review of PR 139).
-// Starts owed OWED_ALARM_MIN or more with startable work: idle that long (coordinator, 5 Nov).
-function idleSince(kind, { prev, freed, owed, t }) {
+function idleSince(kind, { prev, freed, t }) {
   const p = prev?.idle_capacity;
   const since = Math.min(t, p?.kind === kind && Date.parse(p.since) ? Date.parse(p.since) : Math.max(freed || t, Date.parse(prev?.at) || 0));
-  const late = kind === 'work' && Date.parse(owed?.since) && t - Date.parse(owed.since) >= OWED_ALARM_MIN * 6e4;
-  return { since, late, min: Math.floor((t - since) / 6e4) };
+  return { since, min: Math.floor((t - since) / 6e4) };
 }
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
-// Under merge_strategy "layer" (layerflow.mjs): no train, no job start --ready. The empty slots are
-// counted against the open layer's startable jobs (`layer jobs <n>`: view, openLayer's read), less
-// those a live hold names; the train's ready set and other layers' holds say nothing here.
-export function layerIdle({ live, cap, holds = [], view, layers = new Map(), prev, freed, owed, t = Date.now() }) {
+// The empty slots are counted against the open layer's startable jobs (`layer jobs <n>`: view,
+// layerflow.mjs openLayer's read), less those a live hold names; other layers' holds say nothing here.
+export function layerIdle({ live, cap, holds = [], view, layers = new Map(), prev, freed, t = Date.now() }) {
   const held = slotsHeld(holds);
   const open = view?.kind === 'open';
   const st = open ? view.startable : [];
@@ -96,7 +87,7 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
   const owedAct = (open && view.ready) || view?.kind === 'next';
   const kind = n > 0 && live < cap - held ? 'work' : n === 0 && owedAct && live < cap / 2 ? 'empty' : null;
   if (!kind) return null;
-  const { since, late, min } = idleSince(kind, { prev, freed, owed, t });
+  const { since, min } = idleSince(kind, { prev, freed, t });
   const empty = Math.max(0, cap - held - live);
   const k = Math.min(n, empty);
   const why = [];
@@ -107,56 +98,12 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
     const where = open ? (view.ready ? `layer ${view.n} can merge (${P3} layer merge ${view.n})` : `layer ${view.n} lists no job to start`) : view?.kind === 'next' ? `layer ${view.n} is next and not open (${P3} layer open ${view.n})` : 'no open layer';
     why.push(`${rest} x no startable work: ${where}`);
   }
-  return { kind, since: iso(since), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(open ? { layer: view.n } : {}), reasons: why };
+  return { kind, since: iso(since), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind], ...(open ? { layer: view.n } : {}), reasons: why };
 }
-export function idleCapacity({ live, cap, holds, work, onOrigin, layers, closable = null, prev, freed, owed, t = Date.now() }) {
-  const held = slotsHeld(holds);
-  const sel = readySelection(work, { onOrigin, holds, layers });
-  // Modules parked in the merge train (their pull request ready, gate green) are neither startable
-  // nor a reason a slot is empty: named apart, with their PRs (build train-robust, item 4).
-  const train = sel.skip.filter((x) => x.train);
-  // Modules whose job branch this read could not see: unknown, neither startable nor merged, named apart.
-  const unknown = sel.skip.filter((x) => x.unknown);
-  const skip = sel.skip.filter((x) => !x.train && !x.unknown);
-  const inWork = sel.held;
-  const n = sel.go.length;
-  // A layer ready to close (review): job start --ready closes it first and starts the next layer's
-  // work, which this read cannot count; under the cap that is work not started, never "no work".
-  const kind = (n > 0 || closable !== null) && live < cap - held ? 'work' : n === 0 && closable === null && live < cap / 2 ? 'empty' : null;
-  if (!kind) return null;
-  // Not carried: never before the last sweep, which saw no such idle (review of PR 139).
-  const p = prev?.idle_capacity;
-  const since = Math.min(t, p?.kind === kind && Date.parse(p.since) ? Date.parse(p.since) : Math.max(freed || t, Date.parse(prev?.at) || 0));
-  // Starts owed OWED_ALARM_MIN or more with startable work: idle that long (coordinator, 5 Nov).
-  const late = kind === 'work' && Date.parse(owed?.since) && t - Date.parse(owed.since) >= OWED_ALARM_MIN * 6e4;
-  const min = Math.floor((t - since) / 6e4);
-  const empty = Math.max(0, cap - held - live);
-  // The startable work first, each slot it could fill; then skip lines and holds; the rest empty of work.
-  const k = Math.min(n, empty);
-  // Dead ends first (unmet work nothing will start: next work skipped as BOB's judgment), a
-  // Process3 defect for the coordinator (coordinator, 5 Nov).
-  const judged = (x) => /BOB's judgment$/.test(x.why);
-  const dead = skip.filter(judged).map((x) => `dead end ${x.id || x.file}: ${x.why}`);
-  const lines = [...dead, ...skip.filter((x) => !judged(x)).map((x) => `${x.id || x.file}: ${x.why}`), ...inWork.map((y) => `${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`)].slice(0, empty - k);
-  const why = [...(closable !== null ? [`layer ${closable} ready to close: job start --ready closes it, then starts the next layer's work`] : []), ...lines.filter((l) => l.startsWith('dead end ')), ...(k ? [`${k} x startable, not started`] : []), ...lines.filter((l) => !l.startsWith('dead end '))];
-  const rest = empty - k - lines.length;
-  if (rest > 0) why.push(closable !== null ? `${rest} x for the next layer's work` : `${rest} x no startable work`);
-  // One stuck in the train (stuck.mjs) is named with its reason: parked, it would sit unseen (copy PR 364, 13.5 h).
-  const stuck = train.filter((x) => x.stuck);
-  for (const x of stuck) why.push(x.stuck);
-  const moving = train.filter((x) => !x.stuck);
-  if (moving.length) why.push(`in the train, not startable: ${moving.map((x) => `${x.id} PR ${x.train}`).join(', ')}`);
-  if (unknown.length) why.push(`unknown, job branch unread, not counted: ${unknown.map((x) => x.id).join(', ')}`);
-  // Modules after the open layer with unmet marks and no ledger entry: they can never start (item 7).
-  const noEntry = work?.noEntry || [];
-  if (noEntry.length) why.push(`no ledger entry, cannot start: ${noEntry.map((m) => `${m.id} (${m.count} unmet)`).join(', ')}`);
-  return { kind, since: new Date(since).toISOString().replace(/\.\d+Z$/, 'Z'), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind] || !!late, ...(late ? { owed_since: owed.since } : {}), ...(closable !== null ? { layer_ready: closable } : {}), ...(dead.length ? { dead } : {}), ...(train.length ? { in_train: train.map((x) => ({ id: x.id, pr: x.train, ...(x.stuck ? { stuck: true } : {}) })) } : {}), ...(unknown.length ? { unknown: unknown.map((x) => x.id) } : {}), ...(noEntry.length ? { no_entry: noEntry.map((m) => ({ id: m.id, count: m.count })) } : {}), reasons: why };
-}
-
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
 // command any role runs, before its act, evaluates idle capacity when the last sweep row is
 // CHECK_MIN old (read from the local ref first: no fetch while it is fresh), on the live count the
-// last sweep or job start --ready measured within LIVE_MIN (none: no judgment, the cap being the
+// last sweep measured within LIVE_MIN (none: no judgment, the cap being the
 // account's), and records a 'check' row beside the sweep's, once per CHECK_MIN whatever sessions
 // race (re-read in the worktree). Only the run whose row lands prints: on an alarm the wake of BOB
 // (BOB itself: its act) and the line for the coordinator. Not in GitHub Actions, which cannot write
@@ -166,36 +113,7 @@ export const LIVE_MIN = 65;
 const lastRow = (text) => jsonl(text).at(-1);
 const fresh = (row, t) => t - (Date.parse(row?.at) || 0) < CHECK_MIN * 6e4;
 // The row an idle continues from: the last that judged on a measured count (sweep or check).
-// A job start --ready that started work ends any idle before it (it carries no idle_capacity).
-export const judged = (rows) => [...rows].reverse().find((r) => (['sweep', 'check'].includes(r.row) && Number.isInteger(r.live)) || (r.row === 'ready' && r.started?.length));
-// Next work whose attempt is open, read offline (a reopened module, its entry COMPLETE on the
-// tranche, commits on its branch): one read of GitHub's open pull requests and each one's gate
-// says which sit in the merge train, ready with a green gate (build train-robust, item 4: the
-// copy's idle checks listed interface-assets 443 and four more as "its attempt is open" against
-// empty slots). Marked in_train; unread, left as they were. io: { openPRs, checkRun }, for tests.
-export function markInTrain(root, cfg, next, rows, { io = {} } = {}) {
-  const open = (next || []).filter((x) => x.attempt_open && !x.in_train && x.module);
-  if (!open.length) return 0;
-  const read = { openPRs, checkRun, ...io };
-  let k = 0;
-  try {
-    const slug = io.slug || repoSlug(root);
-    const prs = read.openPRs(slug, cfg.tranche) || [];
-    // Stuck in the train (stuck.mjs), from the state branch the caller fetched; unread: none named.
-    let bob = null;
-    try { bob = readAddress(root).bob?.session || null; } catch { bob = null; }
-    const stuck = read.stuck ? read.stuck(prs) : readStuck(root, cfg.state_branch, prs, bob) || new Map();
-    for (const x of open) {
-      const r = (rows || []).find((y) => y.id === x.module);
-      if (r?.flag) continue; // a flagged attempt needs an act: not the train's (as status.mjs inTrain)
-      const pr = prs.find((p) => p.head?.ref === refOf(r || { id: x.module }) && !p.draft && p.base?.ref === cfg.tranche);
-      if (!pr) continue;
-      const run = read.checkRun(slug, pr.head.sha, 'gate');
-      if (run?.conclusion === 'success') { x.in_train = pr.number; if (stuck.has(pr.number)) x.train_stuck = stuckLine(stuck.get(pr.number), x.module); k++; }
-    }
-  } catch { /* GitHub unread: the lines stay as they were */ }
-  return k;
-}
+export const judged = (rows) => [...rows].reverse().find((r) => ['sweep', 'check'].includes(r.row) && Number.isInteger(r.live));
 export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = status, io, log = console.log } = {}) {
   const sb = cfg.state_branch;
   if (cfg.plan === 'pause' || cfg.plan === 'stop') return null;
@@ -203,34 +121,24 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   cfg = withCoordinator(root, cfg);
   const rows = jsonl(readState(root, sb, SWEEP_ROWS_FILE));
   if (fresh(rows.at(-1), t)) return null;
-  const m = [...rows].reverse().find((r) => ['sweep', 'ready'].includes(r.row) && Number.isInteger(r.live));
+  const m = [...rows].reverse().find((r) => r.row === 'sweep' && Number.isInteger(r.live));
   const live = m && t - Date.parse(m.at) < LIVE_MIN * 6e4 ? m.live : null;
   let ic = null;
   let count = null;
   let unread = null;
   let view = null;
   if (live !== null) {
-    // The read job start --ready counts from (copy, 5 Nov: offline, a clone without origin's job
-    // refs counted 26 startable against --ready's 2): GitHub's open pull requests read once and the
-    // job refs they and the ledger need fetched (status jobRefs), the rest offline. GitHub or
-    // origin unread: no count and no judgment, said in the row.
-    const out = read(root, { role: 'bob', offline: true, jobRefs: true, ...(io ? { io } : {}), log: () => {} });
-    if (out.prs == null || !out.heads) unread = out.prs == null ? 'GitHub' : 'origin';
-    else if (layerMode(cfg) && out.open?.state === 'open') {
-      // The layer flow: the open layer's startable jobs, read once (GitHub's PRs into the layer).
+    // The holds and the tranche open from the record, offline; the open layer's startable jobs from
+    // one read of GitHub's pull requests into it. Unread: no count and no judgment, said in the row.
+    const out = read(root, { role: 'bob', offline: true, ...(io ? { io } : {}), log: () => {} });
+    if (out.open?.state === 'open') {
       try {
         view = readOpenLayer(root, cfg, { io: io || {} });
         const holds = out.holds || [];
-        ic = layerIdle({ live, cap: jobCap(cfg).cap, holds, view, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
-        count = ic ? ic.startable : view.kind === 'open' ? view.startable.filter((j) => !heldBy(holds, j.id, layersAt(root, cfg))).length : 0;
+        const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
+        ic = layerIdle({ live, cap: jobCap(cfg).cap, holds, view, layers, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), t });
+        count = ic ? ic.startable : view.kind === 'open' ? view.startable.filter((j) => !heldBy(holds, j.id, layers)).length : 0;
       } catch (e) { if (!(e instanceof Fail)) throw e; unread = 'layer'; }
-    } else if (out.open?.state === 'open') {
-      markInTrain(root, cfg, out.next, out.rows, { io: { ...io, openPRs: () => out.prs } });
-      const holds = out.holds || [];
-      const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
-      const onOrigin = onOriginOf(out.heads);
-      count = readySelection(out.next, { onOrigin, holds, layers }).go.length;
-      ic = idleCapacity({ live, cap: jobCap(cfg).cap, holds, work: out.next, onOrigin, layers, closable: out.layer?.ready && out.layer.cur ? out.layer.cur.n : null, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), owed: readOwed(root, sb), t });
     }
   }
   const { reasons = [], ...rec } = ic || {};
@@ -247,18 +155,17 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
   if (ic?.dead) log(`dead ends (a Process3 defect), to the coordinator: ${ic.dead.join('; ')}`);
   if (ic?.alarm) {
-    const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min${ic.owed_since ? ` (starts owed since ${ic.owed_since})` : ''}; ${reasons.join('; ')}`;
+    const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${reasons.join('; ')}`;
     log(line);
-    const act = layerMode(cfg) ? layerStartAct(view) : READY_START;
+    const act = layerStartAct(view);
     log(wakeLine(`${line}: run ${act}`, from) || `next act: ${act}`);
     log(`and tell the coordinator: ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'no coordinator in process/config.json: tell Bob by push notification'} with "${line}"`);
   }
   return row;
 }
 
-// p3.mjs main, before every command in a product: starts owed first for BOB's acts (status prints
-// its own), then the idle check, the wake naming the act's sender (a job's job-<id>).
-// Not before job start --ready or the sweep, which answer an idle themselves.
+// p3.mjs main, before every command in a product: the idle check, the wake naming the act's
+// sender (a job's job-<id>). Not before the sweep, which answers an idle itself.
 export const JOB_ACTS = ['job complete', 'block', 'test', 'job sync'];
 export function senderFor(root, name, a) {
   if (JOB_ACTS.includes(name) && a._[0]) return jobSender(String(a._[0]));
@@ -267,20 +174,10 @@ export function senderFor(root, name, a) {
   try { return senderOf(root, a.as); } catch { return 'bob'; }
 }
 export function beforeAct(root, cfg, name, a, { env = process.env, io, log = console.log, err = console.error } = {}) {
-  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o, readAuto(root, cfg.state_branch))); } } catch { /* a marker, never a refusal */ } }
-  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch' || name === 'auto start' || name === 'auto done' || (name === 'job start' && a.ready)) return null;
+  if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch') return null;
   try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
-// The sweep's over-cap owed line, judged again once the parked sessions are left out: gone when the
-// working sessions fit the cap, else naming the working count. Changes owed in place.
-export function overCapOwed(owed, working, parked, cap) {
-  const k = owed.findIndex((x) => /job sessions, over the job cap of/.test(x));
-  if (k < 0) return owed;
-  if (working <= cap) owed.splice(k, 1);
-  else owed[k] = `${working} working job sessions (${parked} more parked in the train), over the job cap of ${cap}: archive finished ones before starting more`;
-  return owed;
-}
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {
   checkSession(session);
   // ROOT's context (P2-G10): the share of its window ROOT's own session record shows (get_session on itself).
@@ -303,7 +200,6 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline });
   live = sessionsCount(listed, live, log);
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null };
-  let archived = false; // no BOB, or a paused plan: not read
   // The account's job count and the cap go in the sweep row (live, job_cap, and with --sessions the
   // account's sessions, every product and role, so a platform limit would show): lead times names a full cap as a wait's cause.
   let liveRow = {};
@@ -322,23 +218,14 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     found.push(`plan ${plan}`, ...owed);
     owed.length = 0; // heartbeat only
   } else {
-    const { rows, sessions, holds = [], seats = new Map(), heads: originHeads = null } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
-    // The cap and the idle alarm count job sessions doing work (build train-robust, item 5): a
-    // listed session parked in the train is not counted, and the sweep row records how many.
-    const parked = listed ? parkedSessions(listed, rows) : [];
-    if (parked.length && liveRow.live !== undefined) {
-      liveRow = { ...liveRow, live: liveRow.live - parked.length, parked: parked.length };
-      found.push(parkedLine(parked));
-      // Over the cap is judged on working sessions too (review of build train-robust).
-      overCapOwed(owed, liveRow.live, parked.length, jobCap(cfg).cap);
-    }
+    const { rows, sessions, holds = [], seats = new Map() } = status(root, { offline, log: () => {}, ...(io ? { io } : {}) });
     const tranche = `origin/${cfg.tranche}`;
     const t = Date.now();
     // Step 2: hand over BOB flagged REFRESH, or woken over two hours ago with no write to the
     // record (its address, the tranche's tip, its messages or handoff) since. A wake is a message
     // from root to bob; the first since BOB's last write is the one outstanding.
     const bob = addr.bob;
-    let startAct = READY_START;
+    let startAct = layerStartAct(null);
     if (!bob) { found.push('no BOB addressed'); todo.push(`start BOB: ${P3} start bob`); } else {
       const last = Math.max(Date.parse(bob.at) || 0, ct(root, [tranche]), ct(root, [`refs/remotes/origin/${sb}`, '--', 'messages/bob.jsonl', 'handoff/bob.md']));
       const refresh = sessions.some((s) => s.session === bob.session && s.refresh);
@@ -348,31 +235,27 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       // too (coordinator, 4 Nov: nextWork lists nothing then, so a BOB that missed the wake slept).
       // A bad config value (open_by) is a finding; the sweep carries on to the heartbeat.
       let next = false;
-      // The layer flow (merge_strategy "layer"): the open layer read once; its startable jobs and
-      // its merge are BOB's acts, never the train's close or job start --ready.
-      const lm = layerMode(cfg);
+      // The open layer read once: its startable jobs, its merge, or the next layer to open are BOB's acts.
       let view = null;
-      if (lm && !offline) { try { view = readOpenLayer(root, cfg, { io: io || {} }); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`layer flow: unread (${e.message})`); } }
-      startAct = lm ? layerStartAct(view) : READY_START;
+      if (!offline) { try { view = readOpenLayer(root, cfg, { io: io || {} }); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`layer flow: unread (${e.message})`); } }
+      startAct = layerStartAct(view);
       try {
         const ls = layerState(root, cfg, rows, tranche);
-        if (lm) { const m = layerMergeLine(view); if (m) found.push(m); } else if (ls?.ready || ls?.pending) found.push(`layer ${ls.cur.n} ${ls.ready ? 'ready to close' : 'owed a close'}`);
+        const mergeLine = layerMergeLine(view);
+        if (mergeLine) found.push(mergeLine);
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
         markLaneHeld(cfg, seats, work);
-        // An open attempt read without its pull request (offline): named in the train from GitHub (item 4).
-        if (!offline) markInTrain(root, cfg, work, rows, { io: io || {} });
         // Layer mode: the open layer's jobs or merge, or the next layer to open; unread (offline),
         // unmet work still wakes BOB, its act then status's.
-        next = lm ? (view ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after)) : !!(ls?.ready || ls?.pending) || work.some((x) => !x.after); // unmet after its job: no act
+        next = view ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
-        const onOrigin = onOriginOf(originHeads);
-        const f = flow(cfg, rows, work, liveRow.live, listed, holds, { onOrigin });
-        liveRow = { ...liveRow, startable: lm && view ? (view.kind === 'open' ? view.startable.length : 0) : f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
+        const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view });
+        liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
         if (liveRow.live !== undefined) {
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
           // it could have begun, the tranche's tip or a job session's archive.
           const freed = Math.max(ct(root, [tranche]), ...(listed || []).filter((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim())).map((x) => Date.parse(x.updated_at) || 0));
-          const ic = lm ? (view ? layerIdle({ live: liveRow.live, cap: jobCap(cfg).cap, holds, view, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, owed: readOwed(root, sb), t }) : null) : idleCapacity({ live: liveRow.live, cap: jobCap(cfg).cap, holds, work, onOrigin, closable: ls?.ready && ls.cur ? ls.cur.n : null, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, owed: readOwed(root, sb), t });
+          const ic = view ? layerIdle({ live: liveRow.live, cap: jobCap(cfg).cap, holds, view, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, t }) : null;
           if (ic) {
             const { reasons, ...rec } = ic;
             liveRow.idle_capacity = rec;
@@ -389,7 +272,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         if (!(e instanceof Fail)) throw e;
         found.push(`config: ${e.message}`);
       }
-      const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success' && !addr.merger) || (r.flag && !r.flag.startsWith('WORKING')));
+      const acts = next || rows.some((r) => r.tranche === 'BLOCKED' || (r.ready && r.gate === 'success') || (r.flag && !r.flag.startsWith('WORKING')));
       idle = { bob_acts: acts, bob_quiet_h: acts ? hours(t - last) : null };
       if (refresh || t - wake > SILENT_HOURS * H) {
         found.push(`BOB ${bob.session} ${refresh ? 'flagged REFRESH' : `silent ${hours(t - last)}h, ${hours(t - wake)}h after a wake`}`);
@@ -399,29 +282,6 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         const noJob = !rows.some((r) => r.tranche !== 'COMPLETE');
         if (t - last > SILENT_HOURS * H) owed.push(`BOB ${bob.session} silent ${hours(t - last)}h`);
         else if (next && (noJob || t - last > IDLE_HOURS * H)) owed.push(`BOB ${bob.session} idle ${hours(t - last)}h with next work: run ${startAct}`);
-      }
-    }
-    // The MERGER (train.mjs): its heartbeat is its lease, renewed every LEASE.renew minutes; one
-    // expired means the train is not running, and ROOT replaces the merger. With merge_train in
-    // the config, ROOT starts one when none is addressed. One recorded less than LEASE.expire ago may not have started its train yet.
-    const readLease = () => { try { return JSON.parse(readState(root, sb, LEASE_FILE) || 'null'); } catch { return null; } };
-    let lease = readLease();
-    const lapsed = (l, now) => (!(Date.parse(l?.expires) > now) || l.session !== addr.merger.session) && !(now - Date.parse(addr.merger.at) <= LEASE.expire * 6e4);
-    // Under merge_strategy "layer" no MERGER runs (SLB-8): none is expected, started or replaced.
-    if (layerMode(cfg)) { /* nothing to say */ } else if (!addr.merger) { if (cfg.merge_train === true) { found.push('no MERGER addressed'); todo.push(`start the MERGER: ${P3} start merger, create_session with the call it prints, then ${P3} start record merger <its id>`); } } else if (lapsed(lease, t)) {
-      // Read again just before the act (copy, 5 Nov 07:56: a live train gating mail-door was
-      // archived on a lapse it renewed past minutes later): the lease fresh from origin, and the
-      // MERGER session's own last update, when list_sessions is given; either within the lease's
-      // period means it runs, and it is reported, not replaced.
-      if (!offline) { try { fetchState(root, sb, { fresh: true }); lease = readLease(); } catch { /* the earlier read stands */ } }
-      const now2 = Date.now();
-      const me = (listed || []).find((x) => x.id === addr.merger.session);
-      const busy = me && !isArchived(me) && now2 - (Date.parse(me.updated_at || '') || 0) <= LEASE.expire * 6e4;
-      if (!lapsed(lease, now2)) found.push(`MERGER ${addr.merger.session}: its lease, read again, is live to ${lease.expires}; not replaced`);
-      else if (busy) found.push(`MERGER ${addr.merger.session}: its lease ${lease ? `expired ${lease.expires}` : 'is gone'}, but its session was active at ${me.updated_at}, within the lease's ${LEASE.expire} min: not replaced; tell the coordinator if the next sweep finds the same`);
-      else {
-        found.push(`MERGER ${addr.merger.session} silent: ${lease ? `its lease ${lease.session === addr.merger.session ? `expired ${lease.expires}` : `is ${lease.session}'s`}` : 'no lease'}`);
-        todo.push(`replace the MERGER: archive_session ${addr.merger.session}, then ${P3} start merger --replace ${addr.merger.session}, create_session with the call it prints, then ${P3} start record merger <its id>`);
       }
     }
     // Step 3: stalled or blocked jobs, and attempts far over their role's median.
@@ -448,9 +308,6 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
       const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen, seats });
       found.push(s.line);
-      // A job session archived since the last sweep freed a slot: starts owed (hold.mjs).
-      const since = Date.parse(jsonl(readState(root, sb, SWEEP_ROWS_FILE)).filter((r) => r.row === 'sweep').at(-1)?.at) || 0;
-      archived = listed.some((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim()) && Date.parse(x.updated_at) > since);
       for (const a of s.acts) todo.push(a.act === 'archive' ? `archive ${a.id}: archive_session ${a.id} ("${a.title}", idle, its work done or its parent archived)` : `tell ${a.owner} ${a.id} asks: ${a.question} (send it to ${a.owner}${a.owner.startsWith('session_') ? ' with send_message' : ''}, naming ${a.id} "${a.title}", whose parent is archived)`);
     }
   }
@@ -466,7 +323,6 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     writeFileSync(join(dir, HEARTBEAT_FILE), JSON.stringify(beat) + '\n');
     mkdirSync(join(dir, 'metrics'), { recursive: true });
     appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct, ...liveRow }) + '\n');
-    if (archived) owe(dir, 'a job session archived');
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

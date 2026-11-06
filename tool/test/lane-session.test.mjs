@@ -8,7 +8,6 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobStart, startText } from '../lib/job.mjs';
 import { LANE_SESSIONS_FILE, laneArtifact, laneAsk, laneEnd, laneOfModule, laneSeatFor, laneStart, markLaneHeld, readArtifacts, readSeats, seatsOf } from '../lib/lane.mjs';
-import { readySelection, startable } from '../lib/ready.mjs';
 import { laneDefects, sessionActs } from '../lib/status.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { entry, makeRepo } from './helpers.mjs';
@@ -35,7 +34,7 @@ test('lane start holds one seat per lane: refused while one is live or pending, 
   assert.equal(r.call.title, 'lane ux');
   assert.equal(r.call.source_revision, 'tranche');
   assert.match(r.prompt, /You are the ux lane's one session in o\/p/);
-  assert.match(r.prompt, /Design lanes, run under BOB, own their lane folders\. Within the product's principles you decide design and wording there, and your changes land through the gated merge train like any job's/);
+  assert.match(r.prompt, /Design lanes, run under BOB, own their lane folders\. Within the product's principles you decide design and wording there, and your changes land through the gated merge tool \(Bob, 5 Nov\)/);
   assert.match(r.prompt, /claude\.ai artifacts and documents, never repository files/);
   assert.match(r.prompt, /- none recorded yet/);
   assert.match(r.prompt, /`design\/ux\/` holds only what the product's build reads.*One changing only `design\/ux\/` takes the gate's records-only path/);
@@ -105,18 +104,6 @@ test('lane artifact records a lane\'s design documents\' links for its successor
   assert.match(laneStart(root, 'ux', { slug: 'o/p', log: quiet }).prompt, /- Design doc: https:\/\/claude\.ai\/artifact\/AAA/);
   laneEnd(root, 'ux', { session: 'pending', why: 'test', log: quiet });
   assert.match(laneAsk(root, 'ux', 'which?', { log: quiet }).brief, /The lane's design documents .*\n- Design doc: https:\/\/claude\.ai\/artifact\/AAA/);
-});
-
-test('job start --ready and the starter skip a lane\'s module while its lane\'s seat is held (readySelection)', () => {
-  const cfg = { lanes: [{ name: 'ux', dir: 'd', module: 'ux-design' }, { name: 'ai', dir: 'e' }] };
-  const next = [{ file: 'req/ux-design.md', module: 'ux-design', entry_state: 'COMPLETE', marks: ['R1'] }, { file: 'req/plane.md', module: 'plane', entry_state: 'OPEN' }];
-  assert.deepEqual(startable(structuredClone(next)).go.map((x) => x.id), ['ux-design', 'plane']);
-  const held = markLaneHeld(cfg, new Map([['ux', { lane: 'ux', at: 't', session: S1 }]]), structuredClone(next));
-  const sel = readySelection(held, {});
-  assert.deepEqual(sel.go.map((x) => x.id), ['plane']);
-  assert.match(sel.skip.find((x) => x.id === 'ux-design').why, /lane ux's session session_lane1 is live: its work is the lane's, one session per lane/);
-  // A seat on another lane holds nothing here.
-  assert.equal(readySelection(markLaneHeld(cfg, new Map([['ai', { lane: 'ai', at: 't', session: S2 }]]), structuredClone(next)), {}).go.length, 2);
 });
 
 test('status and the sweep: a lane with more than one live session is a defect line', () => {

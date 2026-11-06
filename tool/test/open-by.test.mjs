@@ -8,7 +8,6 @@ import { join } from 'node:path';
 import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
 import { blockedJobs, flow, layerState, nextWork, status } from '../lib/status.mjs';
 import { setupCheck } from '../lib/setup.mjs';
-import { startReady, startable } from '../lib/ready.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -107,7 +106,7 @@ test('open_by: an unknown value is refused by status and named by setup check', 
   assert.match(old.open_by, /^next work opens by: layer \(open_by\)/);
 });
 
-test('a layer with no unmet marks closes implicitly only when no job of it merged in this tranche; one with work owes layer close', () => {
+test('a layer with no unmet marks closes implicitly only when no job of it merged in this tranche; one with work stays open for its layer merge', () => {
   const done = { 'build/requirements/p2.md': unmet(0), 'process/ledger/busy.json': entry('busy', { requirements: 'build/requirements/busy.md', status: { state: 'COMPLETE' } }) };
   // busy's job merged in this tranche (its entry not on main): layer 2 is the open layer, ready to close.
   const worked = repo({}, done);
@@ -115,7 +114,7 @@ test('a layer with no unmet marks closes implicitly only when no job of it merge
   const r = status(worked, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.equal(r.layer.cur.n, 2);
   assert.equal(r.layer.ready, true);
-  assert.match(out.join('\n'), /layer 2 ready to close: .* layer close 2/);
+  assert.doesNotMatch(out.join('\n'), /ready to close|layer close/);
   assert.doesNotMatch(out.join('\n'), /layer 2 closed: no unmet marks/);
   // The same layer with that job already on main: no work in this tranche, it closes with its one line.
   const quietLayer = repo({}, done);
@@ -159,8 +158,6 @@ test('a COMPLETE module with its job pull request open is listed in no list of n
   const items = nextWork(root, cfg, free, null, { log: quiet, state: layerState(root, cfg, free, null, { closed: [] }), notices: affected });
   const all = items.map((x) => x.file?.replace('build/requirements/', ''));
   assert.ok(all.includes('p2.md') && all.includes('q2.md'));
-  // The COMPLETE p2 with unmet requirement marks is reopened to meet them, not left to BOB's judgment.
-  assert.deepEqual(startable(items).go.find((g) => g.id === 'p2'), { id: 'p2', file: 'build/requirements/p2.md', reopen: 'meet the unmet requirement marks R1, R2, R3' });
 });
 
 test('open_by uses: a provider in a layer recorded closed is done despite its deferred marks, unless BLOCKED or its job is open', () => {
@@ -192,9 +189,8 @@ test('status: the flow line, and each BLOCKED job with its age, oldest first, it
   const t = out.join('\n');
   assert.match(t, /blocked:\n- w3: [^\n]*; blocked 9\d min; ruling owed by Bob: requirement R1 contradicts R2\n- x3: [^\n]*; blocked 4\d min; ruling owed by the coordinator \(session_coord\): the test harness cannot reach the worker\n- v3: [^\n]*; blocked \d min\n/);
   assert.match(t, /^flow: live 3\/20 \(default\), startable \d+, blocked 3 \(oldest 9\d min\)$/m);
-  assert.deepEqual([r.flow.startable, r.flow.blocked], [startable(r.next).go.length, 3]);
-  // Startable is what job start --ready would start: an open attempt, or a file with no entry, is not.
-  assert.equal(flow({}, [], [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN', attempt_open: true }, { file: 'r/b.md', count: 1 }], 0).startable, 0);
+  // Startable is the open layer's list (layerflow.mjs): offline, unread, 0.
+  assert.deepEqual([r.flow.startable, r.flow.blocked], [0, 3]);
   // Deferred (a reason, its pull request closed, on a reopened COMPLETE module too) awaits no ruling;
   // Bob's only for a requirement question (rule 9; audit of PR 139): the owner job block named, else a
   // reason that opens with "requirement" or asks what the product must do; an id alone is the coordinator's.
@@ -202,49 +198,6 @@ test('status: the flow line, and each BLOCKED job with its age, oldest first, it
   const b = (id, blocked, owner) => ({ id, tranche: 'BLOCKED', blocked, pr: '#9 draft', since: old, ...(owner ? { owner } : {}) });
   assert.deepEqual(blockedJobs({}, [{ id: 'd', tranche: 'COMPLETE', flag: 'BLOCKED', blocked: 'x', pr: 'merged', since: old }, b('e', 'R4 fails its test fixture'), b('f', 'R4 contradicts R7', 'bob'), b('g', 'requirement R2: which fees apply?'), b('h', 'requirement wording aside, the build breaks', 'coordinator'), b('i', 'what the product must do on a refund is unwritten')])
     .map((x) => [x.id, x.by]), [['e', 'the coordinator'], ['f', 'Bob'], ['g', 'Bob'], ['h', 'the coordinator'], ['i', 'Bob']]);
-});
-
-// Coordinator, 5 Nov, review of PR 137 item 5: job start --ready, through status itself, reopens a
-// COMPLETE entry for its unmet requirement marks at most once per tranche: merged in this tranche
-// after a reopen for the same marks, it is "unmet after its job", for the layer close to defer.
-test('job start --ready reopens a COMPLETE entry for unmet marks once per tranche, a shallow clone too', (t) => {
-  const old = process.env.P3_JOB_CAP;
-  process.env.P3_JOB_CAP = '5';
-  t.after(() => { if (old === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = old; });
-  const root = repo({}, { 'build/requirements/q2.md': unmet(2), 'process/ledger/q2.json': entry('q2', { requirements: 'build/requirements/q2.md', status: { state: 'COMPLETE' } }) });
-  const run = () => {
-    const calls = [];
-    const out = [];
-    startReady(root, { live: 0, remote: new Set(), log: (m) => out.push(m), read: (r, o) => status(r, { ...o, offline: true }), start: (_, id, o) => { calls.push([id, o.reopen]); return {}; }, close: () => { throw new Error('no close'); } });
-    return { calls, text: out.join('\n') };
-  };
-  const q2 = (r) => r.calls.find(([id]) => id === 'q2');
-  // Its job left R1 and R2: reopened once to meet them.
-  assert.deepEqual(q2(run()), ['q2', 'meet the unmet requirement marks R1, R2']);
-  // That reopen merged in this tranche (main lacks its entry) and left them: not reopened again.
-  commit(root, { 'process/metrics/q2.jsonl': `${JSON.stringify({ row: 'attempt', event: 'start', role: 'job', attempt: 2, reopen: 'meet the unmet requirement marks R1, R2' })}\n`, 'process/ledger/q2.json': entry('q2', { requirements: 'build/requirements/q2.md', status: { state: 'COMPLETE', at: 'x' } }) }, 'q2 reopened and merged');
-  const here = run();
-  assert.equal(q2(here), undefined);
-  assert.match(here.text, /q2.*unmet after its job: R1, R2/);
-  // The same in a shallow clone (the product's sessions clone --depth 1): read from the tip's rows.
-  const cfg = loadConfig(root);
-  const shallowAfter = () => {
-    const c = join(mkdtempSync(join(tmpdir(), 'p3-shallow-')), 'c');
-    git(['clone', '-q', '--depth', '1', `file://${root}`, c], { cwd: root });
-    git(['update-ref', '-d', 'refs/remotes/origin/main'], { cwd: c }); // its main is root's tip: no tranche merged into it
-    assert.equal(git(['rev-parse', '--is-shallow-repository'], { cwd: c }), 'true');
-    const mod = layerState(c, cfg, status(c, { offline: true, log: quiet }).rows, 'HEAD', { closed: [] }).layers.flatMap((L) => L.mods).find((m) => m.id === 'q2');
-    return mod.after;
-  };
-  assert.deepEqual(shallowAfter(), ['R1', 'R2']);
-  // Merged in an earlier tranche (main holds the entry): reopened.
-  git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: root });
-  assert.deepEqual(q2(run()), ['q2', 'meet the unmet requirement marks R1, R2']);
-  git(['update-ref', '-d', 'refs/remotes/origin/main'], { cwd: root });
-  // A mark written after that merge: reopened for them all, in a shallow clone too.
-  commit(root, { 'build/requirements/q2.md': unmet(3) }, 'R3 added');
-  assert.deepEqual(q2(run()), ['q2', 'meet the unmet requirement marks R1, R2, R3']);
-  assert.equal(shallowAfter(), undefined);
 });
 
 test('a found-work item outside the open layer\'s work is reopened for its found marks only, never its deferred R marks', () => {
@@ -256,5 +209,4 @@ test('a found-work item outside the open layer\'s work is reopened for its found
   const items = nextWork(root, cfg, rows, null, { log: quiet, state: layerState(root, cfg, rows, null, { closed }) });
   const b = items.find((x) => x.module === 'base');
   assert.deepEqual([b.found, b.marks], [['F1'], undefined]);
-  assert.deepEqual(startable(items).go.find((g) => g.id === 'base'), { id: 'base', file: 'build/requirements/base.md', reopen: 'meet the found marks F1' });
 });

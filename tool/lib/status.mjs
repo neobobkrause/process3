@@ -1,26 +1,22 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
-import { layerMode } from './layerbase.mjs';
 import { layerLines, layerMergeLine, openLayer } from './layerflow.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
-import { P3, READY_START, readingSet } from './job.mjs';
+import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
-import { readStuck, stuckLine } from './stuck.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
-import { startable as starts } from './ready.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
-import { heldBy, holdLines, layersAt, readAuto, readHolds, readOwed, startsOwedLine } from './hold.mjs';
-import { readStarts, starterLines } from './auto.mjs';
+import { heldBy, holdLines, layersAt, readHolds } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -198,27 +194,8 @@ const lower = (v) => String(v || '').toLowerCase();
 const state = (x) => lower(x.session_status).replace(/^session_status_/, '');
 export const isArchived = (x) => state(x) === 'archived';
 export const isIdle = (x) => state(x) === 'idle' || ['completed', 'failed', 'review_ready'].includes(lower(x.status_bucket));
-// A job parked in the merge train (build train-robust, items 4 and 5; coordinator, 5 Nov): its pull
-// request ready with a green gate on its head and nothing flagged, so the train merges it with no
-// act of the job's. Its PR number, or null. Its idle session does no work: the cap and the idle
-// alarm do not count it (parkedSessions). Next work read offline names such a module in the
-// train from GitHub (sweep.mjs markInTrain).
-export const inTrain = (r) => (r && r.ready && r.gate === 'success' && !r.flag && /^#\d+ ready$/.test(String(r.pr || '')) ? Number(String(r.pr).slice(1).split(' ')[0]) : null);
-// The job sessions parked in the train: each such job's latest session, unarchived and idle (a
-// session still running is working, whatever its pull request). [{ id, pr, session }].
-export function parkedSessions(listed, rows) {
-  const out = [];
-  for (const r of rows || []) {
-    const pr = inTrain(r);
-    if (!pr || !listed) continue;
-    const js = jobSession(listed, r.id);
-    if (js && !js.carried && !isArchived(js) && isIdle(js)) out.push({ id: r.id, pr, session: sessionId(js) });
-  }
-  return out;
-}
-export const parkedLine = (p) => `${p.length} job session${p.length === 1 ? '' : 's'} parked in the train (ready, gate green, idle) not counted against the cap: ${p.map((x) => `${x.id} PR ${x.pr}`).join(', ')}`;
 // A job's result recorded: COMPLETE (on the tranche, or on its branch, its pull request ready),
-// no attempt reopened and nothing flagged. Its idle sessions can go (job start --ready, sweep).
+// no attempt reopened and nothing flagged. Its idle sessions can go (the sweep).
 // A status row's job branch: its ref when a --fresh-branch start moved it, else job/<id>.
 export const refOf = (r) => r.ref || `job/${r.id}`;
 const jobHeads = (h) => [...(h || [])].filter((x) => x.startsWith('refs/heads/job/')).map((x) => x.slice(11));
@@ -327,16 +304,6 @@ export const actsCount = (acts) => `acts now: ${acts.length}${acts.length ? ` ($
 function statusLines(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given, top = () => {} } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   let cfg = loadConfig(root);
-  // Starts owed, the first line (hold.mjs): a marker, never a refusal.
-  try {
-    if (offline || fetchState(root, cfg.state_branch)) {
-      const o = readOwed(root, cfg.state_branch);
-      // The starter (auto.mjs): running or not, and the minutes from starts owed to started.
-      const au = readAuto(root, cfg.state_branch);
-      if (o) log(startsOwedLine(o, au));
-      if (role === 'bob' && (au || readState(root, cfg.state_branch, addressFile('merger')) !== null)) for (const l of starterLines(au, readStarts(root, cfg.state_branch), o)) log(l);
-    }
-  } catch { /* the holds line says the state branch is unread */ }
   cfg = withCoordinator(root, cfg);
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = givenListed || (sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline }));
@@ -521,23 +488,19 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
       const hold = walkHold(w);
       if (hold) log(`tranche close waits: ${hold}`);
     }
-    // The cap counts job sessions doing work (item 5): a listed session parked in the train is not counted.
-    out.parked = listed ? parkedSessions(listed, rows) : [];
-    if (out.parked.length) { live = Number(live) - out.parked.length; log(parkedLine(out.parked)); }
     out.live = live;
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices, view: out.flow_layer });
     markLaneHeld(cfg, seats, out.next);
     out.seats = seats;
     out.lane_defects = laneDefects(cfg, seats, { rows, listed });
     for (const d of out.lane_defects) log(d);
-    out.flow = flow(cfg, rows, out.next, live, listed, holds, { onOrigin: onOriginOf(out.heads) });
+    out.flow = flow(cfg, rows, out.next, live, listed, holds, { view: out.flow_layer });
     log(out.flow.line);
     return out;
   }
   return { rows, sessions, prs, holds, seats, heads: idsOn(originHeads) };
 }
-// The modules whose job/<id> origin has (null when origin's heads were not read), and the test
-// job start --ready's selection takes (ready.mjs startable onOrigin).
+// The modules whose job/<id> origin has (null when origin's heads were not read).
 const idsOn = (h) => (h ? new Set(jobHeads(h).map((x) => x.slice(4))) : null);
 export const onOriginOf = (heads) => (heads ? (id) => heads.has(id) : undefined);
 
@@ -569,9 +532,9 @@ export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new 
   }).sort((a, b) => (b.min ?? -1) - (a.min ?? -1));
 }
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
-// the work job start --ready would start (ready.mjs startable), and the jobs awaiting a ruling. The sweep records its numbers.
-export function flow(cfg, rows, next, live, listed = null, holds = [], { onOrigin } = {}) {
-  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), starts(next, { onOrigin }).go.length];
+// the open layer's startable jobs (view: layerflow.mjs openLayer; unread, 0), and the jobs awaiting a ruling. The sweep records its numbers.
+export function flow(cfg, rows, next, live, listed = null, holds = [], { view = null } = {}) {
+  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), view?.kind === 'open' ? view.startable.length : 0];
   // Working against occupied (coordinator, 5 Nov): with list_sessions, each open job's live session
   // running or waiting (idle), and what a waiting one waits on where status knows it.
   const wait = [];
@@ -586,8 +549,7 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { onOrigi
     // A done job's idle session, or an older one beside its latest, holds a slot until archived.
     wait.push(`${id} ${!r ? 'not this product\'s' : jobSession(listed, id) !== js || !jobOpen(r) ? 'archive' : r.tranche === 'BLOCKED' || r.flag === 'BLOCKED' ? 'block' : r.ready && r.gate === 'success' ? 'merge' : r.ready ? 'gate' : 'BOB'}`);
   }
-  const parked = listed ? parkedSessions(listed, rows).length : 0;
-  const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''}${parked ? `; ${parked} parked in the train, not counted` : ''})` : '';
+  const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
   // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
   const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
   const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
@@ -607,11 +569,6 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const age = (t) => (t ? `${Math.round((Date.now() - Date.parse(t)) / 36e5 * 10) / 10}h ago` : 'unknown');
   const idle = (r) => r.flag?.startsWith('WORKING') || (r.updated && Date.now() - Date.parse(r.updated) > IDLE_HOURS * 36e5);
   const groups = { 'red gates: act now': [], blocked: [], owed: [], idle: [], open: [] };
-  const merger = haveState && readState(root, sb, addressFile('merger')) !== null; // job merges are the MERGER's
-  // A pull request stuck in the train (stuck.mjs): owed, with its reason, never "the train merges it".
-  let bobAt = null;
-  try { bobAt = JSON.parse(readState(root, sb, addressFile('bob')) || 'null')?.session || null; } catch { bobAt = null; }
-  const stuck = merger && Array.isArray(prs) ? readStuck(root, sb, prs, bobAt) || new Map() : new Map();
   let merged = 0;
   // Each job awaiting a ruling with its age, oldest first; every other row in ledger order.
   const waits = new Map(blockedJobs(cfg, rows, Date.now(), holds, holdLayers(root, cfg, holds)).map((b, i) => [b.id, { ...b, i }]));
@@ -619,8 +576,6 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
     const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}${waits.get(r.id)?.text ?? ''}`;
     if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
     else if (actOf(r)) groups['red gates: act now'].push(`${line}; BOB's act: ${actOf(r)}`);
-    else if (r.ready && r.gate === 'success' && merger && stuck.has(inTrain(r))) groups.owed.push(`${line}; ${stuckLine(stuck.get(inTrain(r)), r.id)}`);
-    else if (r.ready && r.gate === 'success' && merger) groups.open.push(`${line}; the MERGER's train merges it`);
     else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed, with --job-cost-usd (its session's get_session usage.cost_usd)`);
     else if (r.flag && !r.flag.startsWith('WORKING')) groups.owed.push(line);
     else if (r.pr === 'merged') merged++;
@@ -650,7 +605,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const owedMsgs = haveState ? undelivered(root, sb) : [];
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
   const reports = haveState ? toRoute(root, sb) : [];
-  if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.replace(/^first: .*? job start --ready --live <n> \(\d+ jobs? ready\)\. Then: /, '').replace(/^first: start layer \d+'s jobs \(.*?\. Then: /, '').slice(0, 100)}`));
+  if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.slice(0, 100)}`));
   // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
   const target = decisionMinutes(cfg);
   for (const m of reports) {
@@ -663,7 +618,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   // The shared layer branch (layerflow.mjs): the open layer and the jobs BOB starts from it.
   // Its read (view) is returned: next work takes the layer's merge line from it.
   let view = null;
-  if (layerMode(cfg) && !offline && haveState && slug) { try { view = openLayer(root, cfg, { slug }); L.push(...layerLines(root, cfg, { view, merge: false })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
+  if (!offline && haveState && slug) { try { view = openLayer(root, cfg, { slug }); L.push(...layerLines(root, cfg, { view, merge: false })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
@@ -995,11 +950,11 @@ export function releaseModules(root, cfg, ref, open = new Set()) {
 // provider change is not layer work), under its own heading; a notice not yet triaged is BOB's act
 // `notice triage`, and none of its modules is listed. A notice module of the open layer with unmet
 // marks stays in the layer's list, its one job answering both.
-// Under merge_strategy "layer" the train's close lines are not said: view (layerflow.mjs openLayer,
-// read online) gives the layer's merge line when every module is complete or deferred, else nothing.
+// view (layerflow.mjs openLayer, read online) gives the layer's merge line when every module is
+// complete or deferred, else nothing.
 export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {}, view = null } = {}) {
   // An entry written on the tranche and never started (OPEN, no job branch, no pull request) has
-  // no open job: it is next work, which `job start --ready` starts (copy, 4 Nov: four such
+  // no open job: it is next work, which BOB starts from the open layer's list (copy, 4 Nov: four such
   // entries were listed nowhere, so each waited for BOB to remember it).
   // status marks it (unstarted) only when it read origin's branches and GitHub's pull requests,
   // or, offline, when the caller passed origin's job/* heads (readyCount's one ls-remote).
@@ -1035,12 +990,9 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
     }
-    if (layerMode(cfg)) { const m = layerMergeLine(view); if (m) log(m); } else if (ls.ready) log(`layer ${layer} ready to close: ${READY_START} closes it, then starts the next layer's jobs (or ${P3} layer close ${layer})`);
-    if (ls.pending && !layerMode(cfg)) {
-      log(`layer ${layer} ready to close once BOB closes these unmerged (never deleting the branch):`);
-      for (const m of ls.owed) log(`- close PR #${m.pr} unmerged: ${m.blocked}`);
-      log(`then: ${P3} layer close ${layer}`);
-    }
+    // The layer's merge line (layerflow.mjs), only when every module is complete or deferred.
+    const m = layerMergeLine(view);
+    if (m) log(m);
   } else if (ref) {
     const r = git(['ls-tree', '--name-only', `${ref}:${dir}`], { cwd: root, allowFail: true });
     files = (r.code === 0 ? r.stdout.split('\n') : []).filter((x) => x.endsWith('.md') && x !== 'README.md').map((n) => `${dir}/${n}`);
@@ -1107,7 +1059,7 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
   const shownN = noticeList.slice(0, Math.max(0, n - shown.length));
   const shownF = foundList.slice(0, Math.max(0, n - shown.length - shownN.length));
   const shownE = enteredList.slice(0, Math.max(0, n - shown.length - shownN.length - shownF.length));
-  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} job start --ready` : ''}${x.after ? `; unmet after its job: ${x.after.join(', ')} (layer close defers them)` : ''}`;
+  const tag = (x) => `${x.found ? `; found ${x.found.join(', ')}` : ''}${x.notices ? `; provider notice ${x.notices.join(', ')}` : ''}${x.entry_state === 'OPEN' ? `; entry OPEN, never started: ${P3} layer jobs <n> lists its start` : ''}${x.after ? `; unmet after its job: ${x.after.join(', ')} (layer close defers them)` : ''}`;
   // Modules of the layers after the open one with unmet marks and no ledger entry (build
   // train-robust, item 7: 14 on the copy, 5 Nov, skipped silently, so no one saw they could never
   // start): each named, with its count, until BOB writes its entry. On the returned list as noEntry,

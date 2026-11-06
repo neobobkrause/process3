@@ -4,7 +4,7 @@
 // The tool cannot call send_message: send records and prints, the session delivers.
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Fail, fail, fetchRetry, git, now, pushRetry, quietly, withStateLock, withTemp } from './util.mjs';
+import { Fail, fail, fetchRetry, git, now, pushRetry, withStateLock, withTemp } from './util.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -56,7 +56,7 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 // withStateLock): a `change` makes no network call, so nothing but the state fetch and push is
 // waited on under it.
 export function writeState(root, sb, msg, change) {
-  return quietly(() => withStateLock(root, () => writeStateNow(root, sb, msg, change)));
+  return withStateLock(root, () => writeStateNow(root, sb, msg, change));
 }
 function writeStateNow(root, sb, msg, change) {
   const have = fetchState(root, sb, { fresh: true });
@@ -178,23 +178,11 @@ function unpushed(root) {
 
 // send: the record first (the caller's work pushed, then the numbered message pushed), then the
 // message and the address, read from git after that push, for the session to deliver.
-// ready, for a message to BOB: the count of startable jobs. When any, the text leads with their
-// start, so BOB starts them on whatever wake comes first (coordinator, 4 Nov). A count that cannot
-// be read leaves the text as it is: the wake is never held back for it.
-// Under merge_strategy "layer" no `job start --ready` runs: ready returns the lead itself, a string
-// (layerflow.mjs layerLead: the open layer's `layer jobs <n>` lines), '' when there are none.
-export const READY_LEAD = (n) => `first: node .process/tool/p3.mjs job start --ready --live <n> (${n} job${n === 1 ? '' : 's'} ready). Then: `;
-export const LED = /^first: (\S+ \S+ job start --ready|start layer \d+'s jobs \()/;
-export function send(root, sb, { from, to, text, ready, log = console.log }) {
+export function send(root, sb, { from, to, text, log = console.log }) {
   roleName(from, '--from');
   roleName(to, 'the role sent to');
   if (typeof text !== 'string' || !text.trim()) fail('send <to-role> "<text>"');
   unpushed(root);
-  if (typeof ready === 'function' && !LED.test(text.trim())) {
-    let k = 0;
-    try { k = ready(); } catch { k = 0; }
-    if (typeof k === 'string') { if (k) text = k + text.trim(); } else if (Number(k) > 0) text = READY_LEAD(Number(k)) + text.trim();
-  }
   const { n } = writeState(root, sb, `message from ${from} to ${to}`, (wt) => {
     const file = join(wt, messagesFile(from));
     const k = messages(existsSync(file) ? readFileSync(file, 'utf8') : '').reduce((m, x) => Math.max(m, x.n), 0) + 1;

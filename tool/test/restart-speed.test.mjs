@@ -7,8 +7,7 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { commit, entry, makeRepo, onState } from './helpers.mjs';
-import { parkedSessions, readSessions, recordedStarts, sessionActs, sessionsBound, sessionsCount } from '../lib/status.mjs';
-import { archivable } from '../lib/ready.mjs';
+import { readSessions, recordedStarts, sessionActs, sessionsBound, sessionsCount } from '../lib/status.mjs';
 import { writeState } from '../lib/state.mjs';
 import { jobStart } from '../lib/job.mjs';
 import { startCheck } from '../lib/start.mjs';
@@ -282,11 +281,8 @@ test('item 1 (review): a record begun from bounded pages is not whole; a session
   readSessions(file, { root });
   r = stored();
   assert.deepEqual([r.whole, 'partial_since' in r], [true, false]);
-  // m merged, its idle session carried: counted against the cap, never archived on a past read's word, never parked.
+  // m merged, its idle session carried: counted against the cap, never archived on a past read's word.
   const listed = [s('s9', 'job a', 9), { ...s('s4', 'job m', 4), carried: true }];
-  assert.deepEqual(archivable([{ id: 'm', tranche: 'COMPLETE', branch: 'COMPLETE', pr: 'merged' }], listed).sessions, []);
-  assert.deepEqual(archivable([{ id: 'm', tranche: 'COMPLETE', branch: 'COMPLETE', pr: 'merged' }], [s('s4', 'job m', 4)]).sessions.map((x) => x.session), ['s4']);
-  assert.deepEqual(parkedSessions(listed, [{ id: 'm', ready: true, gate: 'success', pr: '#7 ready' }]), []);
   assert.equal(sessionsCount(listed, undefined, () => {}), 2);
   assert.deepEqual(sessionActs([{ ...s('s4', 'job m', 1), carried: true }], { rows: [{ id: 'm', tranche: 'COMPLETE', branch: 'COMPLETE', pr: 'merged' }], now: Date.parse(iso(10)) }).acts, []);
 });

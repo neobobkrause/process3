@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { BOT, GATE, block } from '../lib/github.mjs';
 import { jobStart, jobSync, startText } from '../lib/job.mjs';
-import { startReady } from '../lib/ready.mjs';
 import { bobPrompt } from '../lib/roles.mjs';
 import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
@@ -87,19 +86,11 @@ const landIO = (bare, prs, { gate = 'success', open = [] } = {}) => ({
 });
 const openIO = { slug: 'o/p', openPRs: () => [] };
 
-test('config: merge_strategy defaults to the train and refuses anything but train or layer', () => {
-  assert.equal(configOf({}).merge_strategy, 'train');
+test('config: merge_strategy is "layer", the only flow: absent reads as layer; "train" or any other value is refused', () => {
+  assert.equal(configOf({}).merge_strategy, 'layer');
   assert.equal(configOf({ merge_strategy: 'layer' }).merge_strategy, 'layer');
-  assert.throws(() => configOf({ merge_strategy: 'batch' }), /merge_strategy "batch" is not "train"/);
-});
-
-test('switch off: every layer command is refused and a job keeps the tranche as its base', () => {
-  const { root } = product({ strategy: 'train' });
-  assert.throws(() => layerOpen(root, 1, { io: openIO, log: quiet }), /merge_strategy is "train"/);
-  git(['push', '-q', 'origin', 'tranche:layer/1'], { cwd: root });
-  const cfg = jobCfg(root, configOf({ merge_strategy: 'train' }), 'a');
-  assert.equal(cfg.tranche, 'tranche');
-  assert.equal(cfg.layer, undefined);
+  assert.throws(() => configOf({ merge_strategy: 'train' }), /merge_strategy "train": the merge train was removed/);
+  assert.throws(() => configOf({ merge_strategy: 'batch' }), /merge_strategy "batch": the merge train was removed/);
 });
 
 test('layer map: the modules of each layer, from the layers table', () => {
@@ -149,11 +140,10 @@ test('job branches: with the switch on, job start cuts job/<id> from layer/<n> a
   assert.notEqual(git(['merge-base', '--is-ancestor', trancheOnly, 'HEAD'], { cwd: root, allowFail: true }).code, 0, 'the tranche is not merged into a layer job');
 });
 
-test('switch on: no job starts outside an open layer, and job start --ready starts nothing (the layer\'s list does)', () => {
+test('no job starts outside an open layer (the layer\'s list starts them)', () => {
   const { root } = product();
   git(['branch', 'layer/1', 'tranche'], { cwd: root });
   assert.throws(() => jobStart(root, 'd', { coordinator: 's', push: false, log: quiet }), /d's layer has no open branch/);
-  assert.throws(() => startReady(root, { live: 0, log: quiet, setup: () => ({}) }), /jobs start from the open layer's list/);
 });
 
 test('a layer job\'s START names layer publish and the halt on a reschedule; a tranche job\'s keeps job complete', () => {
@@ -175,10 +165,9 @@ test('BOB starts the layer\'s jobs: status --role bob lists them, and BOB\'s pro
   assert.match(lines[0], /layer 1 open on layer\/1; .*not started 3/);
   assert.ok(lines.includes('- node .process/tool/p3.mjs job start a --live <n>'));
   assert.ok(lines.some((l) => /yours to start, BOB/.test(l)));
-  const p = (layer) => bobPrompt({ slug: 'o/p', rootId: 'r', approvals: 'a'.repeat(64), layer });
-  assert.match(p(true), /jobs to start.*layer jobs <n>/);
-  assert.doesNotMatch(p(true), /job start --ready/);
-  assert.match(p(false), /job start --ready/);
+  const p = bobPrompt({ slug: 'o/p', rootId: 'r', approvals: 'a'.repeat(64) });
+  assert.match(p, /jobs to start.*layer jobs <n>/);
+  assert.doesNotMatch(p, /job start --ready/);
 });
 
 test('take-in is refused in the layer flow', () => {

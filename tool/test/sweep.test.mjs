@@ -103,7 +103,7 @@ test('sweep step 2: an idle BOB with next work and no job open is woken, not han
   recordStart(root, 'bob', B, { log: quiet });
   const s = run(root);
   assert.equal(s.todo.length, 1);
-  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work: run node \.process\/tool\/p3\.mjs job start --ready --live <n>\."/);
+  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work: run node \.process\/tool\/p3\.mjs status --role bob \(the layer flow's next act\)\."/);
   assert.match(beat(root).found.join(), /BOB session_bob1 idle 0h with next work/);
   commit(root, { 'process/ledger/m.json': entry('m', { requirements: 'build/requirements/m.md' }) });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
@@ -261,7 +261,7 @@ test('sweep row: an untriaged provider notice alone is an act for BOB', () => {
 
 // Coordinator, 4 Nov (from PR 69's report): a layer ready to close lists no next work, so the
 // sweep, the backstop, missed it; and a bad open_by made nextWork throw inside the sweep.
-test('sweep: a layer ready to close is BOB\'s act; a bad open_by is a finding and the heartbeat is still written', () => {
+test('sweep: a layer the train called ready to close says nothing offline; a bad open_by is a finding and the heartbeat is still written', () => {
   const layers = '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n| 2 | next | d |\n';
   const root = withOrigin({
     'build/layers.md': layers,
@@ -272,9 +272,9 @@ test('sweep: a layer ready to close is BOB\'s act; a bad open_by is a finding an
   recordStart(root, 'root', R, { log: quiet });
   recordStart(root, 'bob', B, { log: quiet });
   const s = run(root);
-  assert.match(s.found.join('; '), /layer 1 ready to close/);
-  assert.equal(s.todo.length, 1);
-  assert.match(s.todo[0], /send bob "Sweep: BOB session_bob1 idle 0h with next work: run node \.process\/tool\/p3\.mjs job start --ready --live <n>\."/);
+  // Offline the open layer is unread: no train-era close line, and no wake for it (layer merge is read online).
+  assert.doesNotMatch(s.found.join('; '), /ready to close/);
+  assert.equal(s.todo.length, 0, s.todo.join('\n'));
 
   const bad = withOrigin({ 'process/config.json': { tranche: 'tranche', open_by: 'bogus' }, 'build/layers.md': layers, 'build/requirements/a.md': '- **R1** *(not yet met: x)* y\n', 'build/requirements/d.md': '- **R1** *(not yet met: x)* y\n' });
   recordStart(bad, 'root', R, { log: quiet });
@@ -385,56 +385,6 @@ test('sweep: the row records startable and blocked work; a ruling owed past deci
   recordStart(bad, 'bob', B, { log: quiet });
   assert.match(run(bad).found.join('|'), /config: targets\.decision_minutes/);
   assert.ok(readState(bad, 'process-state', HEARTBEAT_FILE));
-});
-
-test('sweep: with merge_train, no MERGER is started; one whose lease lapsed is replaced, one just recorded is not', () => {
-  const root = withOrigin({ 'process/config.json': { tranche: 'tranche', merge_train: true } });
-  recordStart(root, 'root', R, { log: quiet });
-  recordStart(root, 'bob', B, { log: quiet });
-  assert.ok(run(root).todo.some((t) => /^start the MERGER: .*start merger, create_session.*start record merger/.test(t)));
-  const M = 'session_merger1';
-  writeState(root, 'process-state', 'merger', (d) => { mkdirSync(join(d, 'addresses'), { recursive: true }); writeFileSync(join(d, 'addresses/merger.json'), JSON.stringify({ session: M, at: new Date().toISOString() })); });
-  assert.ok(!run(root).todo.some((t) => /MERGER/.test(t)), 'just recorded: its train may not have started');
-  writeState(root, 'process-state', 'merger', (d) => {
-    writeFileSync(join(d, 'addresses/merger.json'), JSON.stringify({ session: M, at: OLD }));
-    mkdirSync(join(d, 'merger'), { recursive: true });
-    writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: OLD }));
-  });
-  const r = run(root);
-  assert.ok(r.found.some((f) => /^MERGER session_merger1 silent: its lease expired/.test(f)));
-  assert.ok(r.todo.some((t) => /^replace the MERGER: archive_session session_merger1, then .*start merger --replace session_merger1/.test(t)));
-  writeState(root, 'process-state', 'merger', (d) => writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: new Date(Date.now() + 6e5).toISOString() })));
-  assert.ok(!run(root).todo.some((t) => /MERGER/.test(t)), 'a live lease is its heartbeat');
-});
-
-// Copy, 5 Nov 07:56:37: ROOT's sweep archived a live MERGER on a lapse its train renewed past.
-test('sweep: before replacing the MERGER it reads the lease again from origin, and leaves one whose session was active within the lease period', () => {
-  const root = withOrigin({ 'process/config.json': { tranche: 'tranche', merge_train: true } });
-  recordStart(root, 'root', R, { log: quiet });
-  recordStart(root, 'bob', B, { log: quiet });
-  const M = 'session_merger1';
-  writeState(root, 'process-state', 'merger', (d) => {
-    mkdirSync(join(d, 'addresses'), { recursive: true });
-    writeFileSync(join(d, 'addresses/merger.json'), JSON.stringify({ session: M, at: OLD }));
-    mkdirSync(join(d, 'merger'), { recursive: true });
-    writeFileSync(join(d, 'merger/lease.json'), JSON.stringify({ session: M, token: 't', expires: OLD }));
-  });
-  // The session's own last update, within the lease period: reported, not replaced.
-  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
-  writeFileSync(file, JSON.stringify({ data: [{ id: M, title: 'MERGER', session_status: 'SESSION_STATUS_RUNNING', created_at: OLD, updated_at: new Date(Date.now() - 6e4).toISOString() }], has_more: false }));
-  const busy = run(root, { sessions: file });
-  assert.ok(!busy.todo.some((t) => /replace the MERGER/.test(t)), busy.todo.join('\n'));
-  assert.ok(busy.found.some((f) => /^MERGER session_merger1: its lease expired .*, but its session was active at .*, within the lease's 15 min: not replaced/.test(f)), busy.found.join('\n'));
-  // The train renews on origin after this clone last read the state branch: read again, not replaced.
-  const other = join(mkdtempSync(join(tmpdir(), 'p3-other-')), 'c');
-  git(['clone', '-q', '-b', 'process-state', git(['remote', 'get-url', 'origin'], { cwd: root }), other], { cwd: tmpdir() });
-  for (const [k, v] of [['user.email', 'o@example.com'], ['user.name', 'O'], ['commit.gpgsign', 'false']]) git(['config', k, v], { cwd: other });
-  commit(other, { 'merger/lease.json': JSON.stringify({ session: M, token: 't', expires: new Date(Date.now() + 6e5).toISOString() }) }, 'renew');
-  git(['push', '-q', 'origin', 'process-state'], { cwd: other });
-  const io = { openPRs: () => [], checkRun: () => null, checkRuns: () => [], compare: () => null, prFiles: () => [], comments: () => [], pins: () => [] };
-  const fresh = run(root, { offline: false, io });
-  assert.ok(!fresh.todo.some((t) => /replace the MERGER/.test(t)), fresh.todo.join('\n'));
-  assert.ok(fresh.found.some((f) => /^MERGER session_merger1: its lease, read again, is live to /.test(f)), fresh.found.join('\n'));
 });
 
 // Coordinator, 5 Nov: op-declarations, BLOCKED and held to 11:27 on the coordinator's ruling, was

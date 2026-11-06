@@ -162,7 +162,7 @@ test('the roles read the coordinator by address; ROOT may start and archive a co
   assert.match(p, /the coordinator session the tool's `address coordinator` prints/);
   assert.match(p, /at the coordinator's ask, its `start coordinator` command and the steps it prints/);
   assert.ok(Buffer.byteLength(p) <= 4096, 'one screen');
-  assert.match(p, /create no session or task but those above and the MERGER the sweep prints/);
+  assert.match(p, /create no session or task but those above, merge nothing/);
   assert.match(p, /archive only an old BOB or coordinator and what sweep prints/);
   assert.match(p, /send a technical question \(a fix, a restart, a route\) to the coordinator with send_message/);
   const c = coordinatorPrompt({ slug: 'o/copy', processSlug: 'o/process3', rootId: R, old: C1, branch: BRANCH, handoff: NOTE });

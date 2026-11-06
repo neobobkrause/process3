@@ -7,10 +7,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { layerClose } from '../lib/layer.mjs';
 import { MARKER, RELEASES_FILE, checkVersion, defaultVersion, releaseBody, releaseConfig, releaseDev, releaseReady, releaseRun, releaseSign, tagOf } from '../lib/release.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
-import { commit, entry, makeRepo, onState, write } from './helpers.mjs';
+import { commit, entry, makeRepo, onState, write, closeLayer } from './helpers.mjs';
 
 const quiet = () => {};
 const SHIM = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims', 'process-dev-release.yml');
@@ -96,14 +95,14 @@ const deployed = (root, commit, over = {}) => {
 test('release dev between layers (Bob, 5 Nov): layer 1 closed, layer 2 open: refused, naming what holds the round', () => {
   const { root } = withOrigin(product());
   assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layers 1, 2 not closed\)/);
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: a release belongs to a round close, never between layers \(the first round is open: layer 2 not closed\); it becomes due when the round closes/);
 });
 
 test('release dev at a closed round: refused until the round is deployed and walked, then BOB\'s acts; refused off the tranche tip, on a dirty tree, without a release block, on a taken version', () => {
   const { root } = withOrigin(product());
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
-  assert.equal(layerClose(root, '2', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
+  assert.equal(closeLayer(root, '2').ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
   assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the first round is closed but not yet deployed: `node \.process\/tool\/p3\.mjs deploy dev` first/);
   deployed(root, tip);
@@ -138,8 +137,8 @@ test('release dev at a closed round: refused until the round is deployed and wal
 test('release dev after a failed walk: held until its findings are recorded; a known gap lets it go though the tip moved; under plan close the round is closed', () => {
   const { root } = withOrigin({ ...product(), 'build/round.md': '# Completion round\n' });
   push(root, { 'process/config.json': { release: REL, completion_file: 'build/round.md' } });
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
-  assert.equal(layerClose(root, '2', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
+  assert.equal(closeLayer(root, '2').ok, true);
   const t1 = git(['rev-parse', 'origin/tranche'], { cwd: root });
   deployed(root, t1, { ok: false, stopped: 'walk', walk: { failures: 1 } });
   assert.throws(() => releaseDev(root, { io, slug, log: quiet }), /no development release now: the latest deploy and walk \(p3dev-l2 \w{10}\) stopped at walk with 1 finding\(s\), 0 recorded/);

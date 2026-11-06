@@ -7,7 +7,6 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
-import { layerClose } from './lib/layer.mjs';
 import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerStatus } from './lib/layerflow.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
@@ -15,13 +14,11 @@ import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
-import { merge } from './lib/merge.mjs';
-import { MERGER_FILE, TRAIN_FILE, TRAIN_USAGE, plainViaTrain, releaseSessionLease, train, trainBeat, trainLines, trainNote, trainSummary } from './lib/train.mjs';
-import { capCheck, readyCount, startReady } from './lib/ready.mjs';
+import { merge, mergePlain } from './lib/merge.mjs';
+import { capCheck } from './lib/cap.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { hold, owe, owes, readAuto, starterLive } from './lib/hold.mjs';
-import { autoDone, autoLoop, autoStart } from './lib/auto.mjs';
+import { hold } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -75,11 +72,10 @@ const commands = {
     const [first, second] = a._;
     if (first === 'delivered' || first === 'failed') {
       outcome(root, sb, { from: a.from, n: Number(second), result: first, reason: typeof a.reason === 'string' ? a.reason : undefined });
-    } else send(root, sb, { from: a.from, to: first, text: second, ...(first === 'bob' ? { ready: () => readyCount(root) } : {}) });
+    } else send(root, sb, { from: a.from, to: first, text: second });
     return 0;
   },
 
-  // job start --ready --live <n> [--coordinator <session>] [--model <m>] [--sessions <file, saved within 10 min> [--archived <id>]...]: BOB starts every startable job status lists, up to the job cap (jobCap in lib/util.mjs) less n, n the account's job sessions (or counted from --sessions <file>).
   // job start <id> --live <n> | --sessions <file> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"]: BOB opens a job;
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
@@ -97,12 +93,6 @@ const commands = {
       const o = openState(root, cfg);
       if (o.state !== 'open') fail(`${openLine(o)}; nothing was started`);
     }
-    // job start --ready --live <n>: every startable job status lists, up to the cap (ready.mjs).
-    if (a.ready) {
-      if (a._.length || [a.reopen, a.restart, a['take-in'], a['over-cap'], a['fresh-branch']].some((v) => v !== undefined)) fail('job start --ready --live <n> takes no module and none of --reopen, --restart, --take-in, --over-cap, --fresh-branch');
-      try { const sb = loadConfig(root).state_branch; if (fetchState(root, sb)) { const au = readAuto(root, sb); if (starterLive(au)) console.log(`note: the MERGER's starter runs (${au.session}, last pass ${au.at}) and makes these starts itself; a start it already made is refused here as on origin`); } } catch { /* a note only */ }
-      return startReady(root, { live: a.live, coordinator: a.coordinator, model: a.model, sessions: a.sessions, archived: list(a.archived).filter((x) => x !== true) }).ok ? 0 : 1;
-    }
     // --fresh-branch goes with --reopen (a COMPLETE module) or --restart (an OPEN one), or alone.
     if ([a.reopen, a.restart, a['take-in']].filter((v) => v !== undefined).length > 1) fail('job start takes one of --reopen, --restart and --take-in');
     if (a['fresh-branch'] !== undefined && a['take-in'] !== undefined) fail('--fresh-branch goes alone, with --reopen or with --restart, not with --take-in');
@@ -111,15 +101,6 @@ const commands = {
     jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'] });
     return 0;
   },
-
-  // auto start --session <the MERGER's id> --approvals <its prompt's hash>: the starter (auto.mjs), run by the MERGER in the
-  // background beside its train; --here is its loop, in the starter's own clone (the launcher's).
-  // auto done <pass> --created <module>=<session id>...: the sessions the MERGER created from a pass.
-  'auto start': (a, root) => {
-    if (a.here) { const r = autoLoop(root, { session: a.session, ...(typeof a.approvals === 'string' ? { approvals: a.approvals } : {}) }); return r.exit; }
-    return autoStart(root, { session: a.session, approvals: a.approvals });
-  },
-  'auto done': (a, root) => (autoDone(root, one(a, 'pass'), list(a.created).filter((x) => x !== true)), 0),
 
   // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
@@ -134,10 +115,6 @@ const commands = {
   // tranche merged in, both deepened from GitHub's compare in a shallow clone, then .process
   // updated to the branch's pin. From a clean checkout without job/<id>, it checks it out first.
   'job sync': (a, root) => (jobSync(root, one(a, 'module')).ok ? 0 : 1),
-
-  // layer close <n>: BOB closes the open layer once status says it is ready: the layer checks on
-  // the tranche tip, then the close recorded on the state branch with the deferred marks.
-  'layer close': (a, root) => (layerClose(root, one(a, 'layer number'), { as: senderOf(root, a.as) }).ok ? 0 : 1),
 
   // The shared layer branch (layerflow.mjs), only with process/config.json "merge_strategy": "layer":
   // layer open <n>: cut layer/<n> from the tranche tip; lists the jobs that can start, which ROOT starts.
@@ -315,9 +292,7 @@ const commands = {
       let roles = new Map();
       try { if (fetchState(root, cfg.state_branch)) { sweepRows = jsonl(readState(root, cfg.state_branch, SWEEP_ROWS_FILE)); roles = stateRoles((p) => readState(root, cfg.state_branch, p)); lead = { ...leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche), closed: closedRows(root, cfg, { slug: repoSlug(root) }), jobRefs, jobRows }; } } catch { sweepRows = []; lead = { jobRefs, jobRows }; } // unreadable: idle time and the state's lead times unmeasured
       const layers = git(['show', `${branch}:${cfg.layers_file}`], { cwd: root, allowFail: true });
-      let mergeTrain = 'unmeasured';
-      try { if (fetchState(root, cfg.state_branch)) mergeTrain = trainSummary(jsonl(readState(root, cfg.state_branch, TRAIN_FILE)), jsonl(readState(root, cfg.state_branch, MERGER_FILE))); } catch { mergeTrain = 'unmeasured'; }
-      console.log(JSON.stringify({ ...metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead, roles }), merge_train: mergeTrain }, null, 2));
+      console.log(JSON.stringify(metricsReport(root, repoSlug(root), branch, { sweepRows, layers: layers.code === 0 ? layers.stdout : null, refreshAt: cfg.refresh_context, cfg, lead, roles }), null, 2));
       return 0;
     }
     if (sub === 'survival') {
@@ -350,39 +325,13 @@ const commands = {
   // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
   // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review, no receipt.
-  //   Into the tranche while a merge train holds its lease, it is queued for the train (ahead of every job) and waits for its land (train.mjs plainViaTrain).
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
     const review = { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision };
     if (a.pass !== undefined && !a.plain) fail('--pass is a plain merge: merge <pr> --plain --pass "<what and why>"');
-    if (a.plain) return plainViaTrain(root, n, { ...review, ...(a.pass !== undefined ? { pass: a.pass } : {}), ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
+    if (a.plain) return mergePlain(root, n, { ...review, ...(a.pass !== undefined ? { pass: a.pass } : {}), ...(a.minutes ? { minutes: Number(a.minutes) } : {}), as: senderOf(root, a.as) }).merged ? 0 : 1;
     return merge(root, n, { ...review, ...(a.minutes ? { minutes: Number(a.minutes) } : {}), jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'], reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], reviewSession: a['review-session'], reviewRecord: a['review-record'], findings: a.findings, actedOn: a['acted-on'] }).merged ? 0 : 1;
-  },
-
-  // merge train --session <id> [--once]: the MERGER's loop (train.mjs): each job PR green on its
-  // head merges through merge, oldest green first, under the merger's lease; exceptions go to BOB.
-  // merge train note <pr> (--reviewed ... --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n> | --review-session <id> | --review-record <file>] | --no-review "<why>") [--decision "<why>"] [--job-cost-usd <n> [--job-session <id>]]:
-  //   the review (and cost) the train merges this PR's current head with; the review's cost read as merge reads it, here, from BOB's checkout.
-  // merge train beat --session <id> --context <pct>: the merger's context, hourly.
-  // merge train release --session <id>: a stopped train's lease given back by its own session.
-  // merge train report: the trial's measures beside the baselines.
-  'merge train': (a, root) => {
-    const sub = a._[0];
-    if (sub === 'note') return (trainNote(root, Number(one({ _: a._.slice(1) }, 'pull request number')), { reviewed: a.reviewed, noReview: a['no-review'], rounds: a.rounds, decision: a.decision, reviewMinutes: a['review-minutes'], reviewCostUsd: a['review-cost-usd'], reviewSession: a['review-session'], reviewRecord: a['review-record'], findings: a.findings, actedOn: a['acted-on'], jobCostUsd: a['job-cost-usd'], jobSession: a['job-session'] }), 0);
-    if (sub === 'beat') return (trainBeat(root, { session: a.session, context: a.context }), 0);
-    if (sub === 'release') return (releaseSessionLease(root, loadConfig(root), a.session), 0);
-    if (sub === 'report') {
-      const sb = loadConfig(root).state_branch;
-      const read = (f) => (fetchState(root, sb) ? jsonl(readState(root, sb, f)) : []);
-      const s = trainSummary(read(TRAIN_FILE), read(MERGER_FILE));
-      for (const l of trainLines(s)) console.log(l);
-      console.log(JSON.stringify(s, null, 2));
-      return 0;
-    }
-    if (sub !== undefined) fail(`usage: ${TRAIN_USAGE}`);
-    train(root, { once: !!a.once, session: a.session, ...(a.minutes ? { minutes: Number(a.minutes) } : {}) });
-    return 0;
   },
 
   // gate --base <sha> --head <sha> --branch <ref> --pr <n> --draft <true|false> [--started <epoch s>]
@@ -492,7 +441,7 @@ const commands = {
   // from: a changed prompt is printed once, with its pin, and recorded (prompt refresh).
   'start check': (a, root) => {
     // A role's first check re-anchors as job start does (coordinator, 5 Nov: ROOT, BOB and the
-    // MERGER failed theirs on every tranche merge landing between create_session and the check,
+    // MERGER (since removed) failed theirs on every tranche merge landing between create_session and the check,
     // with the train merging every few minutes): a clean checkout the tip has moved past, with
     // the tip's approvals and pin, moves to the tip; anything else still fails.
     if (!a.wake) return startCheck(root, { branch: a.branch, setup: true, anchor: true }).ok ? 0 : 1;
@@ -503,11 +452,10 @@ const commands = {
     return 0;
   },
 
-  // start root | start bob | start watcher | start merger: the role's starting prompt (and create_session call).
-  // start merger --replace <the addressed merger's id>: its replacement, by ROOT, once the old one is archived.
+  // start root | start bob | start watcher: the role's starting prompt (and create_session call).
   // start watcher --replace <the addressed watcher's id>: its replacement, by whoever starts ROOT.
   // start coordinator --replace <its id> --branch <b> --handoff <path>: by ROOT, at the coordinator's ask.
-  // start record <root|bob|watcher|merger|coordinator> <session id>: the address, written after the session was created.
+  // start record <root|bob|watcher|coordinator> <session id>: the address, written after the session was created.
   start: (a, root) => {
     if (a._[0] === 'record') { recordStart(root, a._[1], a._[2]); return 0; }
     startRole(root, a._[0], { replace: a.replace, branch: a.branch, handoff: a.handoff });
@@ -543,10 +491,10 @@ const commands = {
   // daily or at once on an escalation.
   watch: (a, root) => { watch(root, { session: a.session, full: !!a.full, escalated: a.escalated }); return 0; },
 
-  // address <root|bob|watcher|merger|coordinator>: the address as the state branch holds it now;
+  // address <root|bob|watcher|coordinator>: the address as the state branch holds it now;
   // the coordinator's, else `coordinator` in process/config.json.
   address: (a, root) => {
-    const asked = String(one(a, 'role (root, bob, watcher, merger or coordinator)')).toLowerCase();
+    const asked = String(one(a, 'role (root, bob, watcher or coordinator)')).toLowerCase();
     if (asked === 'coordinator') {
       const addr = readAddress(root);
       const c = coordinatorOf(tipConfig(root), addr) || fail('no coordinator is addressed and process/config.json on the tranche names none');
@@ -621,12 +569,10 @@ export async function main(argv) {
   let cfg = null;
   try {
     root = repoRoot();
-    // Starts owed and the idle check in a product only: process3 itself has no process/config.json.
+    // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const code = (await fn(a, root)) ?? 0;
-    const act = cfg && code === 0 ? owes(name, a) : null;
-    if (act) { try { writeState(root, cfg.state_branch, `starts owed: ${act}`, (dir) => owe(dir, act)); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); } }
     return code;
   } catch (e) {
     if (e instanceof Fail) {

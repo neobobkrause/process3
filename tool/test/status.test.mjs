@@ -62,7 +62,7 @@ test('status --role bob: next work only from the open layer, at most the job cap
   openPassed(closed);
   const owes = [];
   assert.deepEqual(status(closed, { role: 'bob', offline: true, log: (m) => owes.push(m) }).next, []);
-  assert.match(owes.join('\n'), /layer 1 ready to close: .* layer close 1/);
+  assert.doesNotMatch(owes.join('\n'), /ready to close|layer close/);
   git(['update-ref', 'refs/remotes/origin/main', 'HEAD'], { cwd: closed });
   assert.deepEqual(status(closed, { role: 'bob', offline: true, log: quiet }).next.map((x) => x.file), ['build/requirements/d.md']);
   assert.throws(() => status(root, { role: 'bob', offline: true, live: 'x', log: quiet }), /--live/);

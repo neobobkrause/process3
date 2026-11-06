@@ -49,7 +49,7 @@ const hasCommit = (root, c) => git(['cat-file', '-e', `${c}^{commit}`], { cwd: r
 const minutes = (a, b) => Math.round(((Date.parse(b) - Date.parse(a)) / MINUTE) * 10) / 10;
 
 export function needLayerMode(cfg, what) {
-  if (!layerMode(cfg)) fail(`${what} is the shared layer branch's, and process/config.json's merge_strategy is ${JSON.stringify(cfg.merge_strategy ?? 'train')}: the train's flow runs; set "merge_strategy": "layer" (Bob's word) to use it`);
+  if (!layerMode(cfg)) fail(`${what}: process/config.json's merge_strategy is ${JSON.stringify(cfg.merge_strategy)}; the shared layer branch is the only flow ("layer", or the key left out)`);
 }
 const layerNum = (n) => (/^\d+$/.test(String(n)) ? Number(n) : fail(`the layer's number, not ${JSON.stringify(n)}`));
 
@@ -289,8 +289,8 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
   }
   return { kind: 'done' };
 }
-// openLayer after fetching the tranche and the state branch (send, the sweep, the idle check).
-// fetch false: the refs this clone has (send's lead: a wake is not held for fetches).
+// openLayer after fetching the tranche and the state branch (the sweep, the idle check).
+// fetch false: the refs this clone has.
 export function readOpenLayer(root, cfg, { slug = null, io = {}, fetch = true } = {}) {
   if (fetch) {
     fetchBranch(root, cfg.tranche, { allowFail: true });
@@ -301,12 +301,9 @@ export function readOpenLayer(root, cfg, { slug = null, io = {}, fetch = true } 
 const STATE_ORDER = ['complete', 'deferred', 'published', 'working', 'rescheduled', 'not started'];
 export const stateCounts = (states) => STATE_ORDER.map((k) => `${k} ${states.filter((s) => s.state === k).length}`).join(', ');
 // The open layer's merge line, only when it holds (every module complete or deferred, no PR open
-// into the layer); else null. status prints it where the train's "ready to close" stood.
+// into the layer); else null. status prints it in next work.
 export const layerMergeLine = (v) => (v?.kind === 'open' && v.ready ? `layer ${v.n}: ${stateCounts(v.states)}; merge when every module is complete or deferred (${P3} layer merge ${v.n})` : null);
-// The lead of a message to BOB in the layer flow: the open layer's jobs to start, from
-// `layer jobs <n>`; '' when there are none (the train's lead is `job start --ready`).
-export const layerLead = (v) => (v?.kind === 'open' && v.startable.length ? `first: start layer ${v.n}'s jobs (${P3} layer jobs ${v.n}): ${v.startable.map((q) => q.cmd).join('; ')}. Then: ` : '');
-// BOB's act to start work in the layer flow, where the train's says `job start --ready`.
+// BOB's act to start work: the open layer's jobs, its merge, or the next layer's open.
 // The act owed: start the listed jobs, merge the layer, or open the next; unread, status says.
 export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
   : v?.kind === 'open' && v.ready ? `${P3} layer merge ${v.n}`
@@ -349,14 +346,14 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   for (const L of layers.filter((x) => x.n < n)) {
     const r = flowRows(root, cfg.state_branch, L.n);
     if (r.open && !r.merged) fail(`layer ${L.n} is open on ${layerBranch(L.n)} and has not merged; layer ${n} opens after it (${P3} layer merge ${L.n})`);
-    if (!layerBehind(root, cfg, L, closed, tr)) fail(`layer ${L.n} is not closed: close it first (the train's layer close, or ${P3} layer open ${L.n})`);
+    if (!layerBehind(root, cfg, L, closed, tr)) fail(`layer ${L.n} is not closed: close it first (${P3} layer open ${L.n}, then layer merge ${L.n})`);
   }
   const into = (io.openPRs || openPRs)(slug, cfg.tranche);
   if (into === null) fail(`GitHub unreadable: the open pull requests into ${cfg.tranche} are not known; nothing was opened`);
   const mine = new Set(layers.find((L) => L.n === n).mods);
   const ids = ledgerIds(root, tr);
   const held = into.filter((p) => mine.has(branchModule(p.head?.ref, ids)));
-  if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (or close) under the train before the layer opens`);
+  if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (merged by merge, or closed) before the layer opens`);
   const rows = flowRows(root, cfg.state_branch, n);
   if (staleFlow(root, rows)) fail(`layer ${n}'s flow rows and ${layerBranch(n)} are an earlier tranche's (its merge ${short(rows.merged.commit)} is on main): a second tranche under the flow is not built; ask the coordinator`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);
@@ -510,7 +507,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (!Number.isInteger(n0) || n0 <= 0) fail(`layer land <pr>, a pull request number, not ${JSON.stringify(prn)}`);
   const pr = x.getPR(slug, n0) || fail(`pull request ${n0} not found`);
   const n = layerOfBranch(pr.base?.ref);
-  if (n === null) fail(`pull request ${n0} is into ${pr.base?.ref}, not a layer branch: the train's merge lands it`);
+  if (n === null) fail(`pull request ${n0} is into ${pr.base?.ref}, not a layer branch: a job's pull request goes into its layer's branch`);
   // A land GitHub merged but never recorded (its state write failed after the merge: cold review 7)
   // is recorded on a second run, from the merge commit: its reschedules are never lost.
   const recover = pr.merged === true && !!pr.merge_commit_sha;
@@ -607,7 +604,7 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   // path regenerated, a finding when one differs. Red: nothing opened, nothing merged.
   const { layerChecks } = await import('./layer.mjs');
   const mods = L.states.map((s) => ({ id: s.id, blocked: s.state === 'deferred' ? s.why : null }));
-  const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, withSuites: false, log, ...(x.exec ? { exec: x.exec } : {}) });
+  const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, log, ...(x.exec ? { exec: x.exec } : {}) });
   const all = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
   // SLB-7 (Bob): at close only the layer's own checks hold it. A generated row's verify failure
   // blocks only when its paths, or a module it names, are the closing layer's; any other is
@@ -797,7 +794,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
   }
   const c = m.reschedule_changed_result;
   log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
-  log('the baseline: the same layer\'s history under the serial train (merge train report, and the merge rows on the state branch)');
+  log('the baseline: the same layer\'s history under the serial train (the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));
   return { ok: true, measures: m };
 }
