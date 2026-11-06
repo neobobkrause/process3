@@ -925,3 +925,9 @@
 - 16:22 process3 PR 197 (found preview numbering) merged ce12d31 by me (--no-review, small fix with a failing-first test). Rides pin 3. 194 at d516af3: ci running.
 - 16:30 process3 PR 194 (R2 B + R9) merged 0460644 by me (rounds 2, findings 8 / acted 7, review minutes 40 est). Tranche merge kept both sides in layerflow; 1138/1138. Pin 3 now waits only on R11 (layer sync + Bob's pin rule).
 - 16:40 R11 = PR 198 (layer sync + SLB-12 enforcement; Foundations rev 47 and Ledger map rev 38 carry SLB-12, Bob's 6 Nov). Fresh review found 5 defects, all fixed; old-tool check passes on a sync merge. Missing: job-branch sync of 658-661 (asked again). Needs a tranche merge. R10 = PR 196 (includes the two layer 8 gaps; 3 review findings fixed). 191 + R12 (PR 199, layer join) ride pin 4.
+
+## 16:52 hourly flow (6 Nov)
+- Layer 8 has been open 2.81 h. 16 complete; 658-661 have finished their work but are red only on the old-tool ledger finding (layer/8 still at pin 4a85f26); their sessions are archived. corpus-export is deferred (R18 decided, BD-1). No lands into layer/8 in the last hour; it has been idle since 16:15 waiting on R11 → pin 3 → layer sync 8. Estimate: layer 8 merges about 18:00-18:30Z (~4.5 h, inside the 27.6 h limit). Copy tranche lands in the hour: 662, 648, 663, 664.
+- process3 lands in the hour: 193 (16:14), 197 (16:22), 194 (16:30). 198 (R11) at 07a2e93 now includes the job-branch sync, but it conflicts with the tranche; builder etceetVvq is running the suite. 196 (R10), 191 and 199 are queued. ci times: 193 10m18s, 194 about 10m; within R2 (under 14 min).
+- Alive: BOB, builders etceetVvq (running) and ef7TXuV; ef1pxNY idle with its queue empty. Lane builder egBdLY (PR 195) idle since 16:02 waiting on ci with nothing to wake it; nudged. Same gap as BOB on 6 Nov 11:15: a session waiting on ci goes idle.
+- Moving with urgency: process3 yes (3 merges in the hour). Layer 8 is blocked on tooling, not effort.
