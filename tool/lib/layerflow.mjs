@@ -349,17 +349,21 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   // A module deferred by its PR head's BLOCKED whose newest gate run on that head passed its suite has
   // its work done, BLOCKED only on a process finding (copy, 6 Nov: layer 8's 658-661 on the old tool's
   // ledger finding): a merge then would drop finished work (layerMerge refuses; layer status says so).
+  // Any run on that head of the module's whole suite, green (as layerCover reads a land's): a later
+  // row never turns it off; a read that fails is unknown, which holds the merge too (cold review of
+  // PR 201).
   const doneWork = new Map();
+  const whole = (r, id) => r?.suite === 'pass' && r.trigger === 'code' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
   for (const [id, k] of blockedOn) {
     const pr = prs.find((q) => q.number === k);
-    let runs = [];
-    try { runs = gateRuns((io.comments || ghComments)(slug, k) || []).filter((r) => r.sha === pr.head); } catch { runs = []; }
-    const last = runs.at(-1);
-    if (last?.suite === 'pass') doneWork.set(id, k);
+    let runs = null;
+    try { const c = (io.comments || ghComments)(slug, k); runs = Array.isArray(c) ? gateRuns(c).filter((r) => r.sha === pr.head) : null; } catch { runs = null; }
+    if (runs === null) doneWork.set(id, { pr: k, unknown: true });
+    else if (runs.some((r) => whole(r, id))) doneWork.set(id, { pr: k });
   }
   const anc = (a, b) => isAnc(root, a, b);
   let states = moduleStates({ mods: L.mods, entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
-    .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)`, ...(doneWork.has(x.id) ? { done_work: blockedOn.get(x.id) } : {}) } : x))
+    .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)`, ...(doneWork.has(x.id) ? { done_work: doneWork.get(x.id).pr, ...(doneWork.get(x.id).unknown ? { done_unknown: true } : {}) } : {}) } : x))
     // A retest refused since its newest outstanding reschedule: a job re-tests it.
     .map((x) => (x.outstanding?.length && (rows.retest_refusals || []).some((r) => r.module === x.id && String(r.at) >= String(x.outstanding.map((o) => o.at).sort().at(-1))) ? { ...x, retest_refused: true } : x));
   // R10: the states in the layer's total order, each with the in-layer providers not yet landed.
@@ -517,7 +521,7 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   const done = L.states.filter((s) => s.done_work);
   if (done.length) {
     log(`${done.length} deferred with work done (suite green, BLOCKED only on a process finding): restart to publish; layer merge ${n} refuses until then, or takes --defer-done "<why>":`);
-    for (const s of done) log(`  ${P3} job start ${s.id} --live <n> --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work})`);
+    for (const s of done) log(`  ${P3} job start ${s.id} --live <n> --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work}${s.done_unknown ? '; its gate runs could not be read, so counted as done until they are' : ''})`);
   }
   log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.holding.length ? `, ${L.holding.length} PR(s) open into ${layerBranch(n)}` : ''}`);
   return { ok: true, states: L.states, ready, deferred_done: done.map((s) => s.id) };
@@ -896,7 +900,11 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
       // the branch left the layer) and the layer holds it now (coordinator, 6 Nov: layer 8's 658-661).
       const mb = git(['merge-base', head, tip], { cwd: root, allowFail: true }).stdout.trim();
       const carried = !!mb && !entryAt(root, mb, id) && !!entryAt(root, tip, id);
-      if (carried || /ledger/i.test(String(be.status.reason || ''))) leave(`BLOCKED only on the ledger-carry finding this sync cleared (${entryFile(id)} is on ${b0} now): restart it to publish: ${P3} job start ${id} --live <n> --restart "the ledger-carry finding is cleared by layer sync ${n}: publish"`);
+      // Both the carry and a reason naming the ledger say so; the carry alone only suggests it
+      // (cold review of PR 201: a job BLOCKED for a real reason may have carried its entry too).
+      const restart = `${P3} job start ${id} --live <n> --restart "the ledger-carry finding is cleared by layer sync ${n}: publish"`;
+      if (carried && /ledger|carr/i.test(String(be.status.reason || ''))) leave(`BLOCKED only on the ledger-carry finding this sync cleared (${entryFile(id)} is on ${b0} now): restart it to publish: ${restart}`);
+      else if (carried) leave(`BLOCKED (${be.status.reason || 'no reason'}); its carried entry ${entryFile(id)} is on ${b0} now: if only the ledger-carry finding blocked it, restart it to publish: ${restart}`);
       else leave('BLOCKED');
       continue;
     }

@@ -1392,7 +1392,8 @@ test('a module deferred at its PR head with a green suite there is deferred with
   layerOpen(root, 1, { io: openIO, log: quiet });
   const h = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 7;\n', 'process/ledger/c.json': entry('c', { layer: 1, status: { state: 'BLOCKED', reason: 'gate red on the ledger finding only' } }) });
   const pr = [{ number: 658, draft: false, head: { ref: 'job/c', sha: h } }];
-  const comments = (s, k) => (k === 658 ? [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: false, trigger: 'code', suite: 'pass', findings: 1 }] }, 'gate') }] : []);
+  // A whole-suite green run on its head, then a later red row of another kind: still work done.
+  const comments = (s, k) => (k === 658 ? [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: false, trigger: 'code', suite: 'pass', scope: ['c'], findings: 1 }] }, 'gate') }, { user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: false, trigger: 'record', suite: 'skipped' }] }, 'gate') }] : []);
   const lines = [];
   const st = layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr, comments }, log: (l) => lines.push(l) });
   assert.deepEqual(st.deferred_done, ['c']);
@@ -1401,6 +1402,11 @@ test('a module deferred at its PR head with a green suite there is deferred with
   const mio = { slug: 'o/p', openPRs: () => pr, comments, findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
   await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: c \(PR 658\) is deferred with work done .*restart it to publish .*or merge with --defer-done "<why>"/);
   await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet, deferDone: true }), /--defer-done needs why/);
+  // GitHub unreadable: counted as work done until read, the merge held.
+  await assert.rejects(layerMerge(root, 1, { io: { ...mio, comments: () => { throw new Error('gh: 502'); } }, wait: false, log: quiet }), /c \(PR 658\) is deferred with work done/);
+  // A green row narrowed to requirements tests is not the whole suite.
+  const narrow = (s, k) => (k === 658 ? [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: true, trigger: 'code', suite: 'pass', scope: ['c'], requirements_only: [{ module: 'c' }] }] }, 'gate') }] : []);
+  assert.deepEqual(layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr, comments: narrow }, log: quiet }).deferred_done, []);
   const m = await layerMerge(root, 1, { io: mio, wait: false, log: quiet, deferDone: 'c waits for layer 2 by Bob\'s word' });
   assert.deepEqual(m.merged.deferred_done, { modules: ['c'], why: 'c waits for layer 2 by Bob\'s word' });
   // A suite that failed on its head is no work done: deferred as before, the merge not held for it.
