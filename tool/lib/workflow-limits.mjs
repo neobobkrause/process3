@@ -9,22 +9,25 @@
 //  L1 no job added, removed or renamed whose name (its `name:`, else its key) matches a required
 //     check of the base branch;
 //  L2 no permissions widened, at the workflow or a job: no new scope, no read to write, no block
-//     removed where the base had one (a missing block inherits the default, which is wider); a
-//     new workflow declares its permissions and grants no write;
+//     removed where the base had one (a missing block inherits the default, which is wider);
+//     where the base had no block, the head may read but not write; a new workflow declares its
+//     permissions and grants no write;
 //  L3 no pull_request_target or workflow_run trigger added;
 //  L4 a process shim stays byte-identical to the pin's (merge.mjs, which holds the shims);
 //  L5 in a job that is a required check, no existing step removed or reordered, and none gets
 //     its `if:`, `continue-on-error`, `shell`, `working-directory`, `env`, `id` or the action it
-//     uses changed, nor an input that is a script; a step's `run:` keeps every line it had, in
-//     order, and gains lines only after its last one (a line put before could be `set +e`). The
-//     job itself keeps its `if`, `needs`, `continue-on-error`, `strategy`, `env`, `defaults` and
-//     every other key but `name` (L1), `permissions` (L2), `timeout-minutes`, `runs-on`,
-//     `concurrency` and `steps`; its workflow keeps its `env` and `defaults`. Adding steps,
-//     `timeout-minutes`, action versions and `with:` inputs such as node-version may change.
+//     uses changed, nor an input but a version or a cache (`with: ref:` would test other code);
+//     a step's `run:` keeps every line it had, in order, and gains lines only after its last one
+//     (a line put before could be `set +e`), and only where its shell stops at a failed command
+//     (bash -e); a folded (`>`) run may not change. The job itself keeps its `runs-on` (it picks
+//     the shell), `if`, `needs`, `continue-on-error`, `strategy`, `env`, `defaults` and every
+//     other key but `name` (L1), `permissions` (L2), `timeout-minutes`, `concurrency` and
+//     `steps`; its workflow keeps its `env` and `defaults`. Adding steps, `timeout-minutes`,
+//     action versions and node-version may change.
 // A required check names a job when it equals the job's name or key, or begins with it and ` (`
-// (a matrix) or ` / ` (a called workflow), or ends with ` / ` and it; a name holding an
-// expression (`${{`) is taken to match any.
-import { lineOf, readWorkflow } from './wfyaml.mjs';
+// (a matrix) or ` / ` (a called workflow), or ends with ` / ` and it, in any case; a name
+// holding an expression (`${{`) is taken to match any.
+import { foldedAt, lineOf, readWorkflow } from './wfyaml.mjs';
 import { hunks, plainText } from './workflows.mjs';
 
 const isMap = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -40,7 +43,8 @@ export function jobNames(key, job) {
   return isText(n) ? [n] : [key];
 }
 export function matchesRequired(names, required) {
-  return names.some((n) => (n.includes('${{') && required.length) || required.some((c) => c === n || c.startsWith(`${n} (`) || c.startsWith(`${n} / `) || c.endsWith(` / ${n}`)));
+  const req = required.map((c) => String(c).toLowerCase());
+  return names.map((n) => String(n).toLowerCase()).some((n) => (n.includes('${{') && req.length) || req.some((c) => c === n || c.startsWith(`${n} (`) || c.startsWith(`${n} / `) || c.endsWith(` / ${n}`)));
 }
 
 // The events of `on`: a name, a list of names, or a mapping's keys.
@@ -71,10 +75,14 @@ function perms(p, where) {
   return { all: null, scopes };
 }
 const level = (P, scope) => (P.all ? LEVEL[P.all] : LEVEL[P.scopes[scope] ?? 'none']);
-// Why head's permissions are wider than base's, or null. undefined is the default: the widest.
+// Why head's permissions are wider than base's, or null. undefined is the default. Removing a
+// block is a widening (the default may write); where the base had none, the head is held to the
+// read default that a repository is created with (cold review of R1: a base with no block let any
+// head through), so it may add a block that reads but none that writes.
+const READ_DEFAULT = { all: 'read', scopes: {} };
 function wider(base, head) {
   if (head === undefined) return base === undefined ? null : 'its permissions block is removed, so it takes the default, which is wider';
-  if (base === undefined) return null;
+  if (base === undefined) base = READ_DEFAULT;
   if (head.all) {
     if (base.all && LEVEL[base.all] >= LEVEL[head.all]) return null;
     return `permissions ${head.all}-all is wider than the base's`;
@@ -95,12 +103,27 @@ function stepKey(s) {
   const r = runLines(s.run);
   return r ? `run:${r[0] ?? ''}` : `?${JSON.stringify(s)}`;
 }
-const JOB_FREE = new Set(['name', 'permissions', 'timeout-minutes', 'runs-on', 'concurrency', 'steps']);
+// runs-on is not free: it picks the default shell (pwsh on Windows does not stop at a failed
+// command), and the run rule below stands on bash -e (cold review of R1).
+const JOB_FREE = new Set(['name', 'permissions', 'timeout-minutes', 'concurrency', 'steps']);
 const STEP_FREE = new Set(['name', 'timeout-minutes', 'uses', 'with', 'run']);
-const SCRIPT_INPUTS = /^(script|run|command|commands|args|entrypoint|shell)$/i;
+// The inputs of an existing step that may change, be added or be removed: a toolchain's version
+// and its cache. Any other (checkout's ref, repository or path; a script) could change what is
+// tested (cold review of R1).
+const FREE_INPUT = /^([a-z0-9]+-)?version$|^cache(-dependency-path)?$/i;
+// Whether a step's run stops at a failed command, so a line appended after its last cannot hide
+// one: GitHub's default shell on Linux and macOS (bash -e), or shell bash or sh, which GitHub
+// runs with -e; the job's and the workflow's defaults count, and runs-on must not be Windows.
+const SHELL_E = new Set(['bash', 'sh']);
+function stopsOnFailure(step, job, wf) {
+  const sh = step.shell ?? job?.defaults?.run?.shell ?? wf?.defaults?.run?.shell;
+  if (sh !== undefined) return SHELL_E.has(sh);
+  const on = JSON.stringify(job?.['runs-on'] ?? '');
+  return !/windows|\$\{\{/i.test(on);
+}
 
 // L5 for one required job present in both. Returns { why, line } or null.
-function keepsChecks(bj, hj, key, hLine) {
+function keepsChecks(bj, hj, key, hLine, wf) {
   if (!isMap(bj) || !isMap(hj)) return same(bj, hj) ? null : { why: `the required job ${key} changed shape`, line: hLine };
   for (const k of new Set([...Object.keys(bj), ...Object.keys(hj)])) {
     if (JOB_FREE.has(k) || same(bj[k], hj[k])) continue;
@@ -129,8 +152,11 @@ function keepsChecks(bj, hj, key, hLine) {
     const bw = isMap(b.with) ? b.with : {};
     const hw = isMap(h.with) ? h.with : {};
     if (b.with !== undefined && !isMap(b.with) && !same(b.with, h.with)) return { why: `the required job ${key}'s step ${label} has its with changed`, line };
-    for (const k of new Set([...Object.keys(bw), ...Object.keys(hw)])) if (SCRIPT_INPUTS.test(k) && !same(bw[k], hw[k])) return { why: `the required job ${key}'s step ${label} has its input ${k} changed`, line: lineOf(hw, k) ?? line };
-    if (b.run !== undefined || h.run !== undefined) {
+    for (const k of new Set([...Object.keys(bw), ...Object.keys(hw)])) if (!FREE_INPUT.test(k) && !same(bw[k], hw[k])) return { why: `the required job ${key}'s step ${label} has its input ${k} ${k in hw ? (k in bw ? 'changed' : 'added') : 'removed'}; only a version or a cache may change`, line: lineOf(hw, k) ?? line };
+    if ((b.run !== undefined || h.run !== undefined) && !same(b.run, h.run)) {
+      // A folded run is joined into one line by GitHub: its lines cannot be judged one by one.
+      if (foldedAt(b, 'run') || foldedAt(h, 'run')) return { why: `the required job ${key}'s step ${label} has a folded (>) run that changed`, line: lineOf(h, 'run') ?? line };
+      if (!stopsOnFailure(h, hj, wf)) return { why: `the required job ${key}'s step ${label} has its run changed, and its shell does not stop at a failed command`, line: lineOf(h, 'run') ?? line };
       const br = runLines(b.run);
       const hr = runLines(h.run);
       if (!br || !hr) return { why: `the required job ${key}'s step ${label} has its run ${hr ? 'added' : 'removed'}`, line: lineOf(h, 'run') ?? line };
@@ -203,7 +229,7 @@ export function judgeWorkflow(path, base, head, required = []) {
   if (requiredJobs.length) {
     for (const k of ['env', 'defaults']) if (!same(B[k], H[k])) return bad('L5', lineOf(H, k), `it changes the workflow's ${k}, and the workflow holds the required job ${requiredJobs.join(', ')}`);
     for (const k of requiredJobs) {
-      const r = keepsChecks(bJobs[k], hJobs[k], k, lineOf(hJobs, k));
+      const r = keepsChecks(bJobs[k], hJobs[k], k, lineOf(hJobs, k), H);
       if (r) return bad('L5', r.line, r.why);
     }
   }

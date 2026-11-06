@@ -11,8 +11,16 @@
 // its keys or items (lineOf).
 
 const LINES = Symbol('lines');
+const FOLDED = Symbol('folded');
 export const lineOf = (node, key) => node?.[LINES]?.[key] ?? null;
-const mark = (node) => { Object.defineProperty(node, LINES, { value: Array.isArray(node) ? [] : {}, enumerable: false }); return node; };
+// Whether a mapping's value at key was a folded (`>`) block scalar: its lines are kept raw here,
+// where GitHub joins them, so a judge that reads lines must not read it (cold review of R1).
+export const foldedAt = (node, key) => node?.[FOLDED]?.has(key) === true;
+const mark = (node) => {
+  Object.defineProperty(node, LINES, { value: Array.isArray(node) ? [] : {}, enumerable: false });
+  if (!Array.isArray(node)) Object.defineProperty(node, FOLDED, { value: new Set(), enumerable: false });
+  return node;
+};
 
 class YamlError extends Error {}
 const no = (line, why) => { throw new YamlError(`line ${line}: ${why}`); };
@@ -225,6 +233,7 @@ export function parseWorkflow(src) {
         if (i >= L.length) no(first, 'a flow collection is not closed');
         // Inside its key, but for a closing bracket at the key's own indent.
         if (!isSkip(L[i]) && (ind(L[i]) < parent || (ind(L[i]) === parent && !/^ *[\]}]/.test(L[i].t)))) no(L[i].n, 'a flow collection\'s line is not inside its key');
+        noTab(L[i]);
         const piece = flowCut(L[i].t);
         text += '\n' + piece;
         d += depth(piece);
@@ -246,6 +255,9 @@ export function parseWorkflow(src) {
   };
 
   // A mapping whose keys sit at indent d; `first` is a line already split off a `- ` item.
+  // A tab outside a block scalar is refused: YAML 1.2 reads one as a separator, libyaml refuses
+  // it, and this reader would keep it in a value (cold review of R1).
+  const noTab = (l) => { if (/\t/.test(l.t)) no(l.n, 'a tab outside a block scalar'); };
   const map = (d, first = null) => {
     const out = mark({});
     let l = first;
@@ -255,6 +267,7 @@ export function parseWorkflow(src) {
         if (!l || ind(l) < d) return out;
         if (ind(l) > d) no(l.n, 'a line deeper than its mapping\'s keys');
       }
+      noTab(l);
       const t = l === first ? first.rest : l.t.slice(d);
       if (/^-( |$)/.test(t)) {
         if (l === first) no(l.n, 'a sequence inside a sequence item');
@@ -268,7 +281,9 @@ export function parseWorkflow(src) {
       if (k === '<<') no(l.n, 'a merge key');
       if (Object.hasOwn(out, k)) no(l.n, `the key ${k} is given twice`);
       out[LINES][k] = l.n;
-      out[k] = inlineValue(t.slice(m[0].length).trim() === '' ? '' : t.slice(m[0].length).replace(/^[ ]+/, ''), l, d);
+      const v = t.slice(m[0].length).trim() === '' ? '' : t.slice(m[0].length).replace(/^[ ]+/, '');
+      if (v[0] === '>') out[FOLDED].add(k);
+      out[k] = inlineValue(v, l, d);
       l = null;
     }
   };
@@ -281,6 +296,7 @@ export function parseWorkflow(src) {
       const l = next();
       if (!l || ind(l) < d) return out;
       if (ind(l) > d) no(l.n, 'a line deeper than its sequence\'s dashes');
+      noTab(l);
       const t = l.t.slice(d);
       if (!/^-( |$)/.test(t)) return out;
       out[LINES].push(l.n);

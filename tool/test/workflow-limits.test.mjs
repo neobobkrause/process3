@@ -80,6 +80,9 @@ test('the reader reads plain workflow YAML, with lines, and refuses what it cann
     ['a: [1, 2\n', /not closed/],
     ['a: 1\u2028b: 2\n', /line break/],
     ['- a\n', /top level is not a mapping/],
+    ['on: \tpull_request_target\n', /tab/],
+    ['jobs:\n  a:\n    name:\tgate\n', /tab|not a `key: value`/],
+    ['a: [\n  \tb]\n', /tab/],
   ]) assert.match(readWorkflow(src).why || 'read', re, JSON.stringify(src));
   // Every workflow in the fixtures reads.
   for (const f of ['188-base-ci.yml', '188-head-ci.yml', '625-head-regression.yml', '625-head-container-images.yml', '625-head-deploy-test.yml', '625-head-release-sign.yml']) assert.equal(readWorkflow(fx(f)).why, undefined, f);
@@ -97,6 +100,7 @@ test('L1: no job added, removed or renamed whose name matches a required check',
   assert.equal(matchesRequired(['build'], ['ci / build']), true);
   assert.equal(matchesRequired(['${{ matrix.x }}'], ['ci']), true);
   assert.equal(matchesRequired(['cin'], ['ci']), false);
+  assert.equal(matchesRequired(['Gate'], ['gate']), true, 'in any case');
   // A new workflow whose job is named like a required check.
   no(judgeWorkflow('.github/workflows/fake.yml', null, 'on: push\npermissions: {}\njobs:\n  x:\n    name: record\n    runs-on: y\n', REQ), 'L1', /adds the job x/);
 });
@@ -118,6 +122,11 @@ test('L2: no permissions widened, at the workflow or a job, and no block removed
   no(judgeWorkflow('.github/workflows/n.yml', null, 'on: push\njobs:\n  a:\n    runs-on: x\n', REQ), 'L2', /must declare its permissions/);
   no(judgeWorkflow('.github/workflows/n.yml', null, 'on: push\npermissions:\n  contents: write\njobs:\n  a:\n    runs-on: x\n', REQ), 'L2', /grants write/);
   no(judge(edit('  contents: read\njobs', '  contents: maybe\njobs')), 'L2', /not read, write or none/);
+  // A base with no block anywhere: the head may add one that reads, none that writes.
+  const bare = edit('permissions:\n  contents: read\n', '').replace('    permissions:\n      contents: read\n', '');
+  ok(judge(edit('jobs:\n', 'permissions:\n  contents: read\njobs:\n', bare), bare));
+  no(judge(edit('jobs:\n', 'permissions: write-all\njobs:\n', bare), bare), 'L2', /write-all/);
+  no(judge(edit('  other:\n    runs-on: ubuntu-latest\n', '  other:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write\n', bare), bare), 'L2', /job other/);
 });
 
 test('L3: no pull_request_target or workflow_run trigger added', () => {
@@ -150,6 +159,15 @@ test('L5: a required job keeps its steps, their conditions and every line its ru
   no(judge(edit('jobs:\n', 'env:\n  CI_SKIP: 1\njobs:\n')), 'L5', /workflow's env/);
   // A job that is not a required check may change freely (the other limits aside).
   ok(judge(edit('      - run: echo hi\n', '      - run: echo bye\n        if: false\n')));
+  // The cold review's holes: a folded run, the runner (and so the shell), an input that is not a
+  // version, an explicit shell without -e.
+  no(judge(edit("        run: node --test 'tool/test/*.test.mjs'\n", "        run: >\n          node --test 'tool/test/*.test.mjs'\n          || true\n")), 'L5', /folded/);
+  no(judge(edit('  ci:\n    runs-on: ubuntu-latest', '  ci:\n    runs-on: windows-latest')), 'L5', /runs-on changed/);
+  no(judge(edit('      - uses: actions/checkout@v4\n', '      - uses: actions/checkout@v4\n        with:\n          ref: 0123abc\n')), 'L5', /input ref added; only a version or a cache/);
+  const plainSh = edit('        run: |\n', '        shell: bash {0}\n        run: |\n');
+  no(judge(edit('--base "$BASE"\n', '--base "$BASE"\n          true\n', plainSh), plainSh), 'L5', /does not stop at a failed command/);
+  const bashSh = edit('        run: |\n', '        shell: bash\n        run: |\n');
+  ok(judge(edit('--base "$BASE"\n', '--base "$BASE"\n          echo done\n', bashSh), bashSh));
   // Reordering the steps is a removal for this judge.
   no(judge(edit("      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n      - name: record check\n", "      - name: record check\n").replace("  other:\n", "      - name: tests\n        run: node --test 'tool/test/*.test.mjs'\n  other:\n")), 'L5', /loses its step "record check"/);
 });
