@@ -787,3 +787,4 @@
 - Layer 6 left: 610 agent-runner (fix after review), 569 agent-worker restart (option b, with F5 plain PR 616), the agent-worker notice if still owed; then 379, 380, 615 and 617 close unmerged. Estimate 05:00-05:30Z.
 - Live jobs: about 2 of 20 (610, 569 restart); the rest are held by design. The starter keeps reopening deferred found marks in layer 6 (615, 617); BOB holds each, and the layer branch retires the starter.
 - process3 for the pause: 183, 185, 186, 187, 181, 184 accepted. Own context fine, below 60%.
+- 04:05 BOB: 610 and 569 reviewed, green, noted for the train; 618 (control-plane F2) merged 03:57. Estimate: both land by about 04:30; close about 04:45 without a notice job, about 05:30 with one. Told BOB to brief the 497 notice job as a pass-through pin test if agent-worker already returns the refusal unchanged.
