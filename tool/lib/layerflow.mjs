@@ -27,7 +27,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
-import { assertionChange } from './testdiff.mjs';
+import { classifyTestChange } from './testdiff.mjs';
 import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated } from './checks.mjs';
@@ -125,23 +125,38 @@ export function interfaceChange(root, cfg, id, before, after) {
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
     const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
-    const hit = ids.length ? tests.filter((f) => { const t = `${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`; return ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t)); }) : [];
-    if (hit.length) {
-      out.provides_tests_named = hit.sort();
-      const asserted = hit.map((f) => ({ file: f, ...assertionChange(textAt(root, before, f), textAt(root, after, f), ids) }));
+    const names = (t) => ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t));
+    const hit = ids.length ? tests.filter((f) => names(`${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`)) : [];
+    // A fixture (a file under its tests that is not itself a test: rows, JSON, a snapshot) that a test
+    // naming a Provides requirement refers to by name counts as that test (cold review of PR 193).
+    const naming = ids.length ? git(['ls-tree', '-r', '--name-only', after, '--', ...(e.tests || [])], { cwd: root, allowFail: true }).stdout.split('\n').filter((f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f)).map((f) => textAt(root, after, f) || '').filter(names) : [];
+    const fixtures = tests.filter((f) => !hit.includes(f) && !/\.(test|spec)\.[cm]?[jt]sx?$/.test(f) && naming.some((t) => t.includes(f.split('/').pop())));
+    const examined = [...hit, ...fixtures].sort();
+    if (examined.length) {
+      out.provides_tests_named = examined;
+      const asserted = examined.map((f) => ({ file: f, ...classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids) }));
       out.provides_test_changes = asserted;
-      const real = asserted.filter((x) => x.changed).map((x) => x.file);
+      const real = asserted.filter((x) => x.class !== 'none').map((x) => x.file);
       if (real.length) out.provides_tests = real;
     }
   }
-  const realExports = !!out.exports && (out.exports.added.length || out.exports.removed.length || out.exports.kinds.length) > 0;
-  out.triggers = [...(realExports ? ['exports'] : []), ...(out.provides_tests ? ['provides-test'] : [])];
+  // Bob's refinement "c" (6 Nov): breaking (an export removed, renamed or of another kind; a
+  // Provides test whose existing expected values or keys changed) reschedules each user for a job;
+  // additive (only new exports, or Provides tests that only add keys or fields) retests each user
+  // through the gate alone (layer retest), a red retest falling back to a job.
+  const ex = out.exports;
+  const exportsBreaking = !!ex && (ex.removed.length || ex.kinds.length) > 0;
+  const exportsAdditive = !!ex && ex.added.length > 0;
+  const testsBreaking = (out.provides_test_changes || []).some((x) => x.class === 'breaking');
+  const testsAdditive = (out.provides_test_changes || []).some((x) => x.class === 'additive');
+  out.triggers = [...(exportsBreaking || exportsAdditive ? ['exports'] : []), ...(out.provides_tests ? ['provides-test'] : [])];
   out.triggers_old = [...(anyExport ? ['exports'] : []), ...(out.provides ? ['provides-text'] : []), ...(out.provides_tests_named ? ['provides-test'] : []), ...(out.unread ? ['exports-unread'] : [])];
-  out.changed = out.triggers.length > 0;
+  out.class = exportsBreaking || testsBreaking || out.unread ? 'breaking' : exportsAdditive || testsAdditive ? 'additive' : 'none';
+  out.changed = out.class !== 'none';
   return out;
 }
 // An export's kind from its signature (exports.mjs): function, class, value, external, method, getter...
-export const kindOf = (sig) => { const t = String(sig ?? ''); return /^function\b/.test(t) ? 'function' : /^static /.test(t) ? 'static method' : /^\(/.test(t) ? 'method' : t; };
+export const kindOf = (sig) => { const t = String(sig ?? ''); return /^function\b/.test(t) ? 'function' : /^static \(/.test(t) ? 'static method' : /^\(/.test(t) ? 'method' : t; };
 // The requirement ids the Public / Provides section names (**R<id>**), or null without a section.
 export function providesIds(md) {
   const t = providesRaw(md);
@@ -158,7 +173,8 @@ export function interfaceText(ic) {
     if (x.changed.some((c) => !kinds.has(c.name))) parts.push(`changed the parameters of ${x.changed.filter((c) => !kinds.has(c.name)).map((c) => `${c.name} ${c.before} -> ${c.after}`).join(', ')} (not a trigger)`);
   }
   if (ic.provides) parts.push('its Public / Provides text changed (a notice, not a trigger)');
-  if (ic.provides_tests) parts.push(`its tests of Public / Provides requirements changed what they assert (${(ic.provides_test_changes || []).filter((x) => x.changed).map((x) => `${x.file}: ${x.why}`).join(', ') || ic.provides_tests.join(', ')}), which may mean a changed answer shape`);
+  if (ic.provides_tests) parts.push(`its tests of Public / Provides requirements changed what they assert (${(ic.provides_test_changes || []).filter((x) => x.class !== 'none').map((x) => `${x.file}: ${x.class}, ${x.why}`).join(', ') || ic.provides_tests.join(', ')}), which may mean a changed answer shape`);
+  if (ic.class && ic.class !== 'none') parts.push(ic.class === 'additive' ? 'additive: each user is retested by its gate alone' : 'breaking: each user re-runs in a job');
   if (ic.unread) parts.push(`its exports could not be read (${ic.unread})`);
   return parts.join('; ') || 'no change';
 }
@@ -224,8 +240,12 @@ export function startable(states) {
     if (s.state === 'not started') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.marks.length && s.why.startsWith('COMPLETE') ? ` --reopen "meet the unmet requirement marks ${s.marks.join(', ')}"` : ''}` }];
     if (s.state === 'rescheduled' && s.pr === null) {
       const why = [...new Set(s.outstanding.map((r) => `${r.provider} (land ${short(r.provider_land)})`))].join(', ');
-      // With no land of its own on the layer, CI can re-test it with no job session (layer retest).
-      return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`, ...(s.lands === 0 && !s.marks.length ? { retest: `${P3} layer retest ${s.id}` } : {}) }];
+      const job = `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`;
+      // With no unmet mark, CI can re-test it with no job session (layer retest): the way for an
+      // additive change (Bob's "c"), offered beside the job for a breaking one.
+      if (s.marks.length) return [{ id: s.id, cmd: job }];
+      const additive = s.outstanding.every((r) => r.class === 'additive');
+      return [{ id: s.id, cmd: additive ? `${P3} layer retest ${s.id}` : job, ...(additive ? { job, additive: true } : { retest: `${P3} layer retest ${s.id}` }) }];
     }
     return [];
   });
@@ -389,7 +409,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
-  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}`);
+  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
 }
 
@@ -401,7 +421,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
-  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}`);
+  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, startable: s, states: L.states };
 }
 
@@ -536,12 +556,9 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob' }
   // Unmet requirement marks are a job's to meet: a retest would land it with them still unmet.
   if (s.marks.length) fail(`${id} has unmet requirement marks (${s.marks.join(', ')}): a job meets them: ${P3} job start ${id} --live <n> --reopen "meet the unmet requirement marks ${s.marks.join(', ')} and re-test against the new interface"`);
   const tip = rev(root, L.ref);
-  const e = L.entries.get(id) || fail(`no ledger entry for ${id}`);
-  // No commit of its own on the layer since the open: no land but a retest's, and none of its files
-  // changed but its records (a retest's row).
-  const mine = L.rows.lands.filter((l) => l.module === id && !l.retest);
-  const touched = L.rows.open ? diffNames(root, L.rows.open.from, tip).filter((f) => f !== metricsFile(id) && ownPaths(e).some((p) => underPath(f, p))) : ['(no open row)'];
-  if (mine.length || touched.length) fail(`${id} has work on ${b0} since the open (${mine.length ? `${mine.length} land(s)` : touched.slice(0, 3).join(', ')}): a job re-tests it: ${reopen}`);
+  L.entries.get(id) || fail(`no ledger entry for ${id}`);
+  // Its own work may be on the layer (landed): the retest re-runs it there. Work the layer lacks
+  // (below) is a job's.
   // Its job branch, as its last start row names it. It holds nothing the layer lacks but earlier
   // retests (a red one, or one a later provider land overtook), and no other job branch of it holds
   // work the layer lacks (a fresh start whose pull request never opened: cold review of PR 193).
@@ -671,7 +688,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? same : [], users_noticed: noticed };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land]];
   if (ic.changed) {
-    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers }]);
+    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class }]);
   }
   if (noticed.length) {
     const key = noticeKey(id, n0);
@@ -679,20 +696,30 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   }
   // The notices this module owed (from earlier layers' providers) are answered by its land.
   try { for (const k of noticeRecords(root, cfg.state_branch).filter((q) => !q.withdrawn && q.open.includes(id))) files.push([answerFile(id, k.key), { row: 'answered', at, key: k.key, user: id, pr: n0, by: 'layer land' }]); } catch { /* none read: none answered */ }
-  writeRows(root, cfg.state_branch, `layer ${n}: land PR ${n0} (${id})${ic.changed ? `, interface changed: ${same.length} rescheduled` : ''}`, files);
+  writeRows(root, cfg.state_branch, `layer ${n}: land PR ${n0} (${id})${ic.changed ? `, interface changed (${ic.class}): ${same.length} ${ic.class === 'additive' ? 'to retest' : 'rescheduled'}` : ''}`, files);
   log(`landed PR ${n0} (${id}) into ${layerBranch(n)} at ${short(after)}; interface: ${interfaceText(ic)}`);
   const msgs = [];
+  const retests = [];
   if (ic.changed) {
     const open = (x.openPRs || openPRs)(slug, layerBranch(n)) || [];
-    const ids = ledgerIds(root, lref);
+    const ids = new Set([...ledgerIds(root, lref), ...ledgerIds(root, `refs/remotes/origin/${cfg.tranche}`)]);
     for (const u of same) {
       const p = open.find((q) => branchModule(q.head?.ref, ids) === u);
-      const text = `layer ${n}: ${id} changed its interface (land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and its gate re-runs your suite against ${id}'s new version. A run started before this never counts.`;
-      if (p) { msgs.push({ user: u, pr: p.number, text }); log(`BOB delivers to job ${u}'s session (PR ${p.number}), with send_message priority now: ${text}`); } else log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`);
+      const text = `layer ${n}: ${id} changed its interface (${ic.class}; land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and its gate re-runs your suite against ${id}'s new version. A run started before this never counts.`;
+      if (p) { msgs.push({ user: u, pr: p.number, text }); log(`BOB delivers to job ${u}'s session (PR ${p.number}), with send_message priority now: ${text}`); continue; }
+      if (ic.class !== 'additive') { log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`); continue; }
+      // Additive: the gate alone re-tests it (layer retest), no job session; refused, a job does.
+      try {
+        const r = (x.retest || layerRetest)(root, u, { io: x, log, by });
+        retests.push({ user: u, pr: r.pr?.number ?? null });
+      } catch (err) {
+        retests.push({ user: u, pr: null, refused: String(err.message || err).slice(0, 300) });
+        log(`${u}: no retest opened (${String(err.message || err).replace(/^p3 [\w ]+: /, '')}); ${P3} layer jobs ${n} lists it`);
+      }
     }
   }
   if (noticed.length) log(`provider notice ${noticeKey(id, n0)} for ${noticed.length} user(s)${ic.changed ? ' in later layers' : ', its Public / Provides text changed (no reschedule)'}: ${noticed.join(', ')}`);
-  return { ok: true, land, messages: msgs };
+  return { ok: true, land, messages: msgs, retests };
 }
 
 // ---- layer merge ----------------------------------------------------------------------------
@@ -924,12 +951,17 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
     modules: per.length, hours_open_to_merged: hours ?? 'not merged',
     gate_runs: per.reduce((s, x) => s + x.gate_runs, 0), lands: rows.lands.length,
     interface_changes: rows.lands.filter((l) => l.interface?.changed).length,
-    reschedules: rows.reschedules.length,
+    // Bob's "c": reschedules (breaking: a job each) apart from retests owed (additive: the gate alone).
+    reschedules: rows.reschedules.filter((r) => r.class !== 'additive').length,
+    retests_owed: rows.reschedules.filter((r) => r.class === 'additive').length,
+    lands_breaking: rows.lands.filter((l) => l.interface?.class === 'breaking' || (l.interface?.changed && !l.interface?.class)).length,
+    lands_additive: rows.lands.filter((l) => l.interface?.class === 'additive').length,
     // R8 (Bob, 6 Nov): the triggers each land fired under the rule before R8 and under R8's, and the
     // reschedules the old rule would have made; the difference is the false re-tests avoided.
     triggers_old_rule: countTriggers(rows.lands, 'triggers_old'), triggers_new_rule: countTriggers(rows.lands, 'triggers'),
     reschedules_old_rule: rows.lands.reduce((t, l) => t + (l.users_rescheduled_old_rule || l.users_rescheduled || []).length, 0),
-    reschedules_avoided: rows.lands.reduce((t, l) => t + Math.max(0, (l.users_rescheduled_old_rule || l.users_rescheduled || []).length - (l.users_rescheduled || []).length), 0),
+    // Job sessions the old rule would have started that the new one does not (an additive change's users are retested, not rescheduled).
+    reschedules_avoided: rows.lands.reduce((t, l) => t + Math.max(0, (l.users_rescheduled_old_rule || l.users_rescheduled || []).length - (l.interface?.class === 'additive' ? 0 : (l.users_rescheduled || []).length)), 0),
     // Retests (layer retest): opened, and those landed (no job session; a CI suite run each).
     retests: (rows.retests || []).length, retest_lands: rows.lands.filter((l) => l.retest).length,
     // Which trigger fired, per reschedule (Bob, 5 Nov, as relayed in the coordinator's handoff: "the
@@ -956,7 +988,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
     m.tool_lines = { from: toolFrom, to: toolTo, added: ins, removed: del };
   }
   const c = m.reschedule_changed_result;
-  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests} retest(s), ${m.retest_lands} landed; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
+  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.lands_breaking} breaking and ${m.lands_additive} additive land(s); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests_owed} retest(s) owed by additive changes, ${m.retests} retest(s), ${m.retest_lands} landed; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
   log('the baseline: the same layer\'s history under the serial train (merge train report, and the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));
   return { ok: true, measures: m };

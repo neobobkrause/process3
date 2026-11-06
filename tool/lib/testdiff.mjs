@@ -1,105 +1,151 @@
-// Whether a provider's test changed what it asserts (Bob, 6 Nov, R8: only real interface changes
-// reschedule). A test that names a Public / Provides requirement reschedules its provider's users
-// only when an assertion changed: the arguments of an assert or expect call (expected value, shape,
-// status or error), or a fixture an assertion names. Test names, comments, requirement-id labels,
-// imports and formatting do not count, and neither does setup no assertion reads. Conservative:
-// whatever cannot be told apart counts as a change.
+// What a provider's test change means for its users (Bob, 6 Nov, R8 and its refinement "c"): a
+// test naming a Public / Provides requirement is compared token by token, after what never counts
+// is set aside (comments, formatting, test names, requirement-id labels, package imports).
+//   none      nothing else changed;
+//   additive  the only change adds keys or fields to object literals (an expected row gains
+//             `pixels_sha256: null`), every existing token kept: a gate-only retest of each user;
+//   breaking  anything else (a changed or removed expected value or key, a new or changed call,
+//             setup, a fixture, a relative import): a full reschedule. Conservative: a file that
+//             cannot be read token by token, or a diff too large to align, is breaking.
 
-// Code with comments removed and whitespace outside strings collapsed; strings kept as written.
-// null when a string, template or comment does not close (unsure: a change).
-export function normCode(src) {
+// Tokens: strings, templates and regular expressions kept whole; comments dropped; null when a
+// string, template, regular expression or comment does not close.
+const PUNCT_BEFORE_REGEX = /[(,=:[!&|?{};+\-*%<>~^]$/;
+const KEYWORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'case', 'do', 'else', 'in', 'of', 'new', 'delete', 'void', 'throw', 'instanceof', 'yield', 'await']);
+const WORD = /[A-Za-z_$][\w$]*|\d[\w.]*|=>|===|!==|==|!=|<=|>=|&&|\|\||\?\?|\?\.|\.\.\.|\*\*|\+\+|--|[^\s]/y;
+export function tokens(src) {
   const s = String(src ?? '');
-  let out = '';
-  let space = false;
-  const push = (t) => { if (space && out && /[\w$]$/.test(out) && /^[\w$]/.test(t)) out += ' '; space = false; out += t; };
+  const out = [];
+  const regexOk = () => { const p = out.at(-1); return p === undefined || PUNCT_BEFORE_REGEX.test(p) || KEYWORDS_BEFORE_REGEX.has(p); };
   for (let i = 0; i < s.length;) {
     const c = s[i];
-    if (c === '/' && s[i + 1] === '/') { const j = s.indexOf('\n', i); i = j < 0 ? s.length : j; space = true; continue; }
-    if (c === '/' && s[i + 1] === '*') { const j = s.indexOf('*/', i + 2); if (j < 0) return null; i = j + 2; space = true; continue; }
+    if (/\s/.test(c)) { i++; continue; }
+    if (c === '/' && s[i + 1] === '/') { const j = s.indexOf('\n', i); i = j < 0 ? s.length : j; continue; }
+    if (c === '/' && s[i + 1] === '*') { const j = s.indexOf('*/', i + 2); if (j < 0) return null; i = j + 2; continue; }
     if (c === '"' || c === "'" || c === '`') {
       let j = i + 1;
+      // A template's ${...} is kept inside its token: any change in it changes the token.
       while (j < s.length && s[j] !== c) { if (s[j] === '\\') j++; else if (c !== '`' && s[j] === '\n') return null; j++; }
       if (j >= s.length) return null;
-      push(s.slice(i, j + 1));
+      out.push(s.slice(i, j + 1));
       i = j + 1;
       continue;
     }
-    if (/\s/.test(c)) { space = true; i++; continue; }
-    push(c);
-    i++;
+    if (c === '/' && regexOk()) {
+      let j = i + 1;
+      let cls = false;
+      while (j < s.length && (cls || s[j] !== '/')) { if (s[j] === '\n') return null; if (s[j] === '\\') j++; else if (s[j] === '[') cls = true; else if (s[j] === ']') cls = false; j++; }
+      if (j >= s.length) return null;
+      j++;
+      while (j < s.length && /[a-z]/i.test(s[j])) j++;
+      out.push(s.slice(i, j));
+      i = j;
+      continue;
+    }
+    WORD.lastIndex = i;
+    const w = WORD.exec(s);
+    out.push(w[0]);
+    i += w[0].length;
   }
   return out;
 }
 
 const ID = /\bR\d+(?:\.\d+)*[a-z]?\b/g;
-// The normalized code with imports dropped, test names blanked and requirement ids labelled alike.
-function body(n, ids) {
-  let t = n.replace(/\bimport(?:[\w$\s{},*]*?from)?(["'])[^"'\n]*\1;?/g, '');
-  t = t.replace(/\b(test|it|describe|suite)((?:\.(?:only|skip|todo))?)\((["'`])(?:\\.|(?!\3)[^\\])*\3/g, '$1$2(""');
-  for (const id of ids) t = t.split(id).join('R#');
-  return t.replace(ID, 'R#');
-}
-// The text between the bracket at i and its match, strings skipped; null when it does not close.
-function group(t, i) {
-  let d = 0;
-  for (let j = i; j < t.length; j++) {
-    const c = t[j];
-    if (c === '"' || c === "'" || c === '`') { let k = j + 1; while (k < t.length && t[k] !== c) { if (t[k] === '\\') k++; k++; } j = k; continue; }
-    if ('([{'.includes(c)) d++;
-    else if (')]}'.includes(c) && --d === 0) return j;
-  }
-  return null;
-}
-// Every assert(...) / assert.x(...) / expect(...).chain(...) call, in order; null when unsure.
-function assertions(t) {
+const TEST_CALL = new Set(['test', 'it', 'describe', 'suite']);
+// What never counts set aside: package imports (a relative one may be a fixture: it stays), test
+// names (the first string of test(...) / it(...) / describe(...)) and requirement-id labels.
+function significant(toks, ids) {
   const out = [];
-  const RE = /\b(assert(?:\.[\w$]+)*|expect)\(/g;
-  for (let m; (m = RE.exec(t));) {
-    if (/[\w$.]$/.test(t.slice(0, m.index))) continue;
-    let end = group(t, m.index + m[0].length - 1);
-    if (end === null) return null;
-    // expect(x).not.toEqual(y): the chain is part of the assertion.
-    for (let k; (k = /^\.[\w$]+(\()?/.exec(t.slice(end + 1)));) {
-      if (!k[1]) { end += k[0].length; continue; }
-      const e2 = group(t, end + k[0].length);
-      if (e2 === null) return null;
-      end = e2;
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (t === 'import' && (i === 0 || toks[i - 1] === ';' || toks[i - 1] === '}') && toks[i + 1] !== '(') {
+      // The statement runs to its module string (and its ';'): a package's is dropped.
+      let k = i + 1;
+      while (k < toks.length && k < i + 200 && !/^["']/.test(toks[k]) && toks[k] !== ';') k++;
+      if (/^["']/.test(toks[k] || '') && !/^["']\.{1,2}\//.test(toks[k])) { i = toks[k + 1] === ';' ? k + 1 : k; continue; }
     }
-    out.push(t.slice(m.index, end + 1));
-    RE.lastIndex = end + 1;
+    if (/^["'`]/.test(t) && toks[i - 1] === '(' && TEST_CALL.has(toks[i - 2])) { out.push('""'); continue; }
+    if (/^["'`]/.test(t) && toks[i - 1] === '(' && toks[i - 2] && ['only', 'skip', 'todo'].includes(toks[i - 2]) && toks[i - 3] === '.' && TEST_CALL.has(toks[i - 4])) { out.push('""'); continue; }
+    let x = t;
+    for (const id of ids) x = x.split(id).join('R#');
+    out.push(x.replace(ID, 'R#'));
   }
   return out;
 }
-const WORDS = new Set(['assert', 'expect', 'true', 'false', 'null', 'undefined', 'new', 'typeof', 'await', 'async', 'function', 'return', 'const', 'let', 'var', 'not', 'this']);
-// The declaration statement of a name (const/let/var/function/class), or '' without one.
-function decl(t, name) {
-  const m = new RegExp(`(?:^|[^\\w$.])(?:const|let|var|function\\*?|class)\\s*${name.replace(/\$/g, '\\$')}(?![\\w$])`).exec(t);
-  if (!m) return '';
-  let d = 0;
-  for (let j = m.index; j < t.length; j++) {
-    const c = t[j];
-    if (c === '"' || c === "'" || c === '`') { let k = j + 1; while (k < t.length && t[k] !== c) { if (t[k] === '\\') k++; k++; } j = k; continue; }
-    if ('([{'.includes(c)) d++;
-    else if (')]}'.includes(c)) { d--; if (d === 0 && c === '}' && /^(function|class)/.test(t.slice(m.index).replace(/^[^\w$]/, ''))) return t.slice(m.index, j + 1); }
-    else if (d === 0 && c === ';') return t.slice(m.index, j + 1);
+
+// The tokens of b not in their longest common subsequence with a, as runs { at, toks } (at: index
+// in b); deleted: whether a token of a is not in it. null when the middle is too large to align.
+function diff(a, b) {
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let q = 0;
+  while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  const A = a.slice(p, a.length - q);
+  const B = b.slice(p, b.length - q);
+  if (A.length * B.length > 4e6) return null;
+  const n = A.length;
+  const m = B.length;
+  const L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const runs = [];
+  let deleted = false;
+  let i = 0;
+  let j = 0;
+  let cur = null;
+  const close = () => { if (cur) runs.push(cur); cur = null; };
+  while (i < n || j < m) {
+    if (i < n && j < m && A[i] === B[j]) { close(); i++; j++; } else if (j < m && (i >= n || L[i][j + 1] >= L[i + 1][j])) { (cur ||= { at: p + j, toks: [] }).toks.push(B[j]); j++; } else { deleted = true; i++; }
   }
-  return t.slice(m.index);
+  close();
+  return { runs, deleted };
 }
 
-// { changed, why }: whether the assertions of a test file changed from before to after (either
-// may be null: added or removed). ids: the Provides requirement ids, labels not counted.
-export function assertionChange(before, after, ids = []) {
-  if (before === null || before === undefined || after === null || after === undefined) return { changed: true, why: before == null ? 'added' : 'removed' };
-  const [na, nb] = [normCode(before), normCode(after)];
-  if (na === null || nb === null) return { changed: true, why: 'unparsed' };
-  const [a, b] = [body(na, ids), body(nb, ids)];
-  if (a === b) return { changed: false, why: 'names, comments, labels, imports or formatting only' };
-  const [xa, xb] = [assertions(a), assertions(b)];
-  if (xa === null || xb === null) return { changed: true, why: 'unparsed' };
-  if (xa.join('\n') !== xb.join('\n')) return { changed: true, why: 'assertions' };
-  // The same assertions: a fixture any of them names changed?
-  const names = [...new Set([...xa.join(' ').replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, '').matchAll(/(?<![\w$.])[A-Za-z_$][\w$]*/g)].map((m) => m[0]))].filter((w) => !WORDS.has(w));
-  const moved = names.filter((w) => decl(a, w) !== decl(b, w));
-  if (moved.length) return { changed: true, why: `fixture ${moved.join(', ')}` };
-  return { changed: false, why: 'setup only' };
+// Whether an inserted run, at position at in b, only adds properties to an object literal:
+// `, key: value` or `key: value,` (one or more), inside braces, each value balanced.
+function addsProperties(b, run) {
+  // The innermost open bracket before the run must be '{'.
+  const stack = [];
+  for (let k = 0; k < run.at; k++) { const t = b[k]; if ('([{'.includes(t)) stack.push(t); else if (')]}'.includes(t)) stack.pop(); }
+  if (stack.at(-1) !== '{') return false;
+  const t = run.toks;
+  let k = 0;
+  const lead = t[0] === ',';
+  if (lead) k++;
+  let props = 0;
+  while (k < t.length) {
+    if (!/^(?:[A-Za-z_$][\w$]*|["'][^"']*["']|\d+)$/.test(t[k]) || t[k + 1] !== ':') return false;
+    k += 2;
+    let d = 0;
+    const start = k;
+    while (k < t.length && !(d === 0 && t[k] === ',')) { if ('([{'.includes(t[k])) d++; else if (')]}'.includes(t[k])) { if (--d < 0) return false; } k++; }
+    if (d !== 0 || k === start) return false;
+    props++;
+    if (k < t.length) k++; // its comma
+    if (!lead && k === t.length && t[k - 1] !== ',') {
+      // `key: value` with no comma of its own: the token after the run must close the object or be
+      // the comma that was the previous last property's (inserted before an existing `}`).
+      if (b[run.at + t.length] !== '}') return false;
+    }
+  }
+  if (lead && t.at(-1) === ',') return false;
+  return props > 0;
 }
+
+// { class: 'none' | 'additive' | 'breaking', why } for a test file from before to after (either
+// may be null: added or removed). ids: the Provides requirement ids, whose labels do not count.
+export function classifyTestChange(before, after, ids = []) {
+  if (before === null || before === undefined) return { class: 'breaking', why: 'added' };
+  if (after === null || after === undefined) return { class: 'breaking', why: 'removed' };
+  const [ta, tb] = [tokens(before), tokens(after)];
+  if (!ta || !tb) return { class: 'breaking', why: 'unparsed' };
+  const [a, b] = [significant(ta, ids), significant(tb, ids)];
+  if (a.join('\u0000') === b.join('\u0000')) return { class: 'none', why: 'names, comments, labels, imports or formatting only' };
+  const d = diff(a, b);
+  if (!d) return { class: 'breaking', why: 'too large to align' };
+  if (d.deleted) return { class: 'breaking', why: 'an existing token changed or was removed' };
+  const bad = d.runs.filter((r) => !addsProperties(b, r));
+  if (bad.length) return { class: 'breaking', why: `added code that is not an object property: ${bad[0].toks.slice(0, 8).join(' ')}` };
+  return { class: 'additive', why: `added ${d.runs.map((r) => r.toks.filter((x, k) => r.toks[k + 1] === ':').join(', ')).join('; ')}` };
+}
+// The earlier name: { changed, why }.
+export const assertionChange = (before, after, ids = []) => { const c = classifyTestChange(before, after, ids); return { changed: c.class !== 'none', class: c.class, why: c.why }; };
