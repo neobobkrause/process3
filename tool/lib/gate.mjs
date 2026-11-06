@@ -81,7 +81,7 @@ export function gate(root, opts) {
   // tree: what this run tests, the checkout (GitHub's merge of the head into the base) as it is
   // before anything runs.
   const tree = git(['rev-parse', 'HEAD^{tree}'], { cwd: root });
-  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
+  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, ...(Number(process.env.GITHUB_RUN_ATTEMPT) > 0 ? { run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT) } : {}), trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   // The pull request as it is now. Its draft state is read live, not from the event (the gate
   // race, measured on the copy 4 Nov, PRs 55, 61, 62, 63): job complete pushes, then marks
   // ready, so one head gets a synchronize run whose payload says draft and a ready_for_review
@@ -269,6 +269,9 @@ export function gate(root, opts) {
       runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
       runRow.suite_seconds = results.reduce((t, s) => t + s.seconds, 0);
+      // Each module's own suite seconds (build ci-budget, R2): status warns when one nears
+      // suite_timeout_minutes, which bounds each suite alone. A requirements-only skip ran nothing.
+      runRow.suite_by_module = Object.fromEntries(scope.map((e, k) => [e.id, results[k]?.seconds]).filter(([id, sec]) => Number.isFinite(sec) && !runRow.requirements_only?.some((x) => x.module === id && !x.files?.length)));
     }
     // AUD-1, JOB-12: the job's new or changed tests must fail with its change reverted. A test
     // that still passes (inert) fails the gate. A refactor whose tests rightly pass before and

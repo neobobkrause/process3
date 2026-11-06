@@ -168,9 +168,14 @@ export function found(root, module, finding, { from, write = false, offline = fa
   const local = [file, ...(module ? [foundFile(module)] : [])].map(readAt(root, null));
   // The local found/<key>-f<n> branches count too: a run whose branch is made but not yet pushed
   // (defect sweep 4 Nov).
+  // A branch counts only when it holds a written mark: a commit the tranche lacks. One cut as a
+  // preview printed it (step 1, no commit yet) is the same mark, not a pending one (copy, 6 Nov:
+  // op-capabilities numbered F2 after its F1 preview's branch; PR 664 renumbered it by hand).
   const remote = offline ? '' : git(['ls-remote', '--heads', 'origin', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
-  const localHeads = git(['for-each-ref', '--format=%(refname)', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
-  const heads = `${remote}\n${localHeads}`;
+  const localHeads = git(['for-each-ref', '--format=%(objectname) %(refname)', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
+  const written = (sha) => !ref || git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0
+    || git(['merge-base', '--is-ancestor', sha, ref], { cwd: root, allowFail: true }).code !== 0;
+  const heads = `${remote}\n${localHeads}`.split('\n').map((l) => l.trim().split(/\s+/)).filter(([sha, name]) => sha && name && written(sha)).map(([, name]) => name).join('\n');
   const pending = [...heads.matchAll(new RegExp(`refs/heads/found/${key}-f(\\d+)$`, 'gm'))].map((m) => `**F${m[1]}**`).join(' ');
   const n = nextFound(...texts, ...local, pending);
   const line = foundLine(n, what, source);

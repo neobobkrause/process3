@@ -1,5 +1,7 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
+import { staleLines, staleRecords } from './expire.mjs';
+import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { layerLines, layerMergeLine, openLayer } from './layerflow.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
@@ -16,7 +18,7 @@ import { completionItems, openItems } from './completion.mjs';
 import { lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
-import { heldBy, holdLines, layersAt, readHolds } from './hold.mjs';
+import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
 import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -304,6 +306,8 @@ export const actsCount = (acts) => `acts now: ${acts.length}${acts.length ? ` ($
 function statusLines(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given, top = () => {} } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   let cfg = loadConfig(root);
+  // Starts owed, the first line (hold.mjs): a marker, never a refusal; paid by a module's land (R10).
+  try { if (offline || fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* the holds line says the state branch is unread */ }
   cfg = withCoordinator(root, cfg);
   if (sessionsFile === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
   const listed = givenListed || (sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline }));
@@ -316,7 +320,13 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
   // Every hold first, after a paused plan (coordinator's design, 5 Nov 01:13): a limit on starts is a recorded row, never words.
   let holds = [];
   top(); // BOB's count of acts, after the starts owed and the plan, before any hold (status)
-  try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
+  // The facts conditions are judged on, read once for the holds and the stale records (R13).
+  let facts = null;
+  try { facts = readFacts(root, cfg, { listed }); } catch { facts = null; }
+  try { holds = readHolds(root, cfg.state_branch, { offline, listed, facts }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
+  // Stale records (R13, expire.mjs): each whose condition holds or whose referent is gone, and
+  // whether the tool ends it at its next write; the holds met are in the holds lines above.
+  try { if (facts) for (const l of staleLines(staleRecords(root, cfg, { listed, facts, holds }).filter((x) => !(x.kind === 'hold' && x.auto)))) log(l); } catch (e) { log(`stale records: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   // One session per lane (lane.mjs): the seats the state branch records.
   let seats = null;
   try { seats = readSeats(root, cfg); } catch { seats = null; }
@@ -560,8 +570,11 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { view = 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
 // activity; merged as a count; other open pull requests into the tranche; undelivered messages;
 // REFRESH from refusals and from context use; BOB's reading set with sizes.
-export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList, comments, holds = [] }) {
+export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList, comments: readComments, holds = [] }) {
   const sb = cfg.state_branch;
+  // Each pull request's comments read once per status (base-red and the suite budget share them).
+  const seen = new Map();
+  const comments = readComments && ((pr) => { if (!seen.has(pr)) seen.set(pr, readComments(pr)); return seen.get(pr); });
   const L = [];
   let haveState = false;
   if (!offline) { try { haveState = fetchState(root, sb); } catch (e) { L.push(`${sb}: ${e.message}`); } }
@@ -592,6 +605,9 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
     groups.owed.unshift(...(red === null ? ['base-red: unread (a merged PR\'s gate rows)']
       : red.map((o) => `base-red ${age(o.since)}: ${o.module} ${o.test} (PR ${o.pr})`)));
   }
+  // Bob, 6 Nov (R2): a module whose gate suite took over 70% of suite_timeout_minutes, from
+  // the newest gate row of its pull requests on this tranche, is one line among the acts.
+  if (!offline && comments && haveState) groups['red gates: act now'].push(...(suiteBudget(root, cfg, { tranche, comments, rows }) ?? ['suite budget: unread (a pull request\'s gate rows)']));
   for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
   L.push(`merged: ${merged}`);
   const jobs = new Set(rows.map(refOf));
@@ -628,6 +644,37 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   L.push(`reading set for bob: ${files.reduce((s, x) => s + x.b, 0)} bytes; ${files.map((x) => `${x.f} ${x.b}`).join(', ')}`);
   for (const l of L) log(l);
   return { rows, undelivered: owedMsgs, flow_layer: view };
+}
+
+// The suite budget (build ci-budget, R2; Bob, "go R2"): each module whose newest gate row on this
+// tranche's pull requests (its merges since the opening, and its open job pull request) took
+// over SUITE_BUDGET of suite_timeout_minutes (20 when unset) for its own suite. Its seconds are the
+// row's suite_by_module, or, from a row before that, suite_seconds when the run's scope was that
+// module alone. One line per module, most over first; [] when none; null when a read failed.
+export const SUITE_BUDGET = 0.7;
+export function suiteBudget(root, cfg, { tranche, comments, rows = [] }) {
+  const limit = Number(cfg.suite_timeout_minutes) > 0 ? Number(cfg.suite_timeout_minutes) : 20;
+  const opened = openedAt(leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche).grants, cfg);
+  const prs = new Map();
+  if (opened) for (const r of rowsAt(root, tranche)) if (r.row === 'merge' && Date.parse(r.at) >= Date.parse(opened) && r.pr && r.module) prs.set(Number(r.pr), r.module);
+  // An open job pull request: status writes its pr as "#<n> ready" or "#<n> draft" (cold review).
+  for (const r of rows) { const n = Number(String(r.pr || '').match(/^#(\d+)/)?.[1]); if (n) prs.set(n, r.id); }
+  const newest = new Map();
+  for (const [pr, module] of prs) {
+    let got;
+    try { got = comments(pr); } catch { return null; }
+    if (got === null || got === undefined) return null;
+    for (const row of gateRuns(got)) {
+      const sec = Number.isFinite(row.suite_by_module?.[module]) ? row.suite_by_module[module]
+        : !row.suite_by_module && Array.isArray(row.scope) && row.scope.length === 1 && row.scope[0] === module && Number.isFinite(row.suite_seconds) ? row.suite_seconds : null;
+      // A run of only some of the module's tests (requirements-only) is not its suite's time.
+      if (sec === null || !['pass', 'fail', 'base-red'].includes(row.suite) || (row.requirements_only || []).some((x) => x?.module === module)) continue;
+      const was = newest.get(module);
+      if (!was || String(row.at) > String(was.at)) newest.set(module, { at: row.at, sec, pr });
+    }
+  }
+  return [...newest].map(([module, x]) => ({ module, ...x, min: x.sec / 60 })).filter((x) => x.min > SUITE_BUDGET * limit).sort((a, b) => b.min - a.min)
+    .map((x) => `suite budget: ${x.module}'s gate suite took ${Math.round(x.min * 10) / 10} min, ${Math.round((x.min / limit) * 100)}% of suite_timeout_minutes ${limit} (over ${Math.round(SUITE_BUDGET * 100)}%; PR ${x.pr}, gate row ${x.at}): speed or split its suite before it times out`);
 }
 
 // The tranche's base-red tests (baseRedOwed over its merge rows since its opening), each once by

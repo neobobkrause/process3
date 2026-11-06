@@ -1,18 +1,18 @@
 // The shared layer branch (layerflow.mjs, layerbase.mjs; design note "Shared Layer Branch", Bob,
 // 5 Nov): one test per rule the tool holds, on a local product with a bare origin.
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, block } from '../lib/github.mjs';
+import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { jobStart, jobSync, startText } from '../lib/job.mjs';
 import { bobPrompt } from '../lib/roles.mjs';
 import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
 import {
-  flowRows, interfaceChange, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport,
-  layerStatus, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows,
+  flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
+  layerStatus, layerSync, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -77,13 +77,15 @@ function jobWork(bare, id, files, { n = 1, from = `origin/layer/${n}` } = {}) {
   return h;
 }
 const prOf = (n, id, head, extra = {}) => ({ number: n, state: 'open', draft: false, base: { ref: 'layer/1' }, head: { ref: `job/${id}`, sha: head }, ...extra });
-const landIO = (bare, prs, { gate = 'success', open = [] } = {}) => ({
+const landIO = (bare, prs, { gate = 'success', open = [], comments = () => [] } = {}) => ({
   slug: 'o/p',
   getPR: (s, k) => prs[k],
   checkRun: () => ({ status: 'completed', conclusion: gate }),
-  comments: () => [],
+  comments,
   openPRs: () => open,
   merge: (s, k, sha, title) => ghMerge(bare, prs[k].base.ref, sha, title),
+  // An additive change's retests (layer retest) are their own tests'.
+  retest: () => { throw new Error('no retest in this test'); },
 });
 const openIO = { slug: 'o/p', openPRs: () => [] };
 
@@ -106,7 +108,8 @@ test('layer open: cuts layer/<n> from the tranche tip, records the open, and lis
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], r.from);
   fetchState(root, SB, { fresh: true });
   assert.equal(JSON.parse(readState(root, SB, flowFile(1, 'open'))).from, r.from);
-  assert.deepEqual(r.startable.map((x) => x.id), ['a', 'b', 'c']);
+  // b uses a, which has not landed: listed after the rest (R10).
+  assert.deepEqual(r.startable.map((x) => [x.id, x.after || null]), [['a', null], ['c', null], ['b', ['a']]]);
   assert.ok(lines.some((l) => /BOB starts them; no other session creates a job/.test(l)));
   // Again: nothing cut twice, the open kept.
   assert.equal(layerOpen(root, 1, { io: openIO, log: quiet }).from, r.from);
@@ -183,35 +186,52 @@ test('Public / Provides: the section under ## Public, unmet marks and spacing le
   assert.equal(providesText(req('a', '- a(x)')), providesText(req('a', '-  a(x)  ')));
 });
 
-test('interface signal: an export change or a Provides change counts; a change inside the module does not', () => {
+test('interface signal (R8): an export added, removed or of another kind counts; a parameter change, a Provides rewording or an inner change does not, though the old rule fired', () => {
   const { root } = product();
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
   const inner = commit(root, { 'src/a/index.mjs': 'export function a(x) { const y = x; return y; }\n' }, 'inner');
   assert.equal(interfaceChange(root, cfg, 'a', base, inner).changed, false, 'implementation only');
-  const exp = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' }, 'signature');
-  const x = interfaceChange(root, cfg, 'a', inner, exp);
-  assert.equal(x.changed, true);
-  assert.deepEqual(x.exports.changed.map((c) => c.name), ['a']);
+  const sig = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' }, 'signature');
+  const s1 = interfaceChange(root, cfg, 'a', inner, sig);
+  assert.deepEqual([s1.changed, s1.triggers, s1.triggers_old], [false, [], ['exports']], 'a parameter change is recorded, not a trigger');
+  assert.match(interfaceText(s1), /changed the parameters of a function\(x\) -> function\(x, y\) \(not a trigger\)/);
+  const added = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' }, 'added');
+  const s2 = interfaceChange(root, cfg, 'a', sig, added);
+  assert.deepEqual([s2.changed, s2.triggers], [true, ['exports']]);
+  assert.deepEqual(s2.class, 'additive');
+  assert.match(interfaceText(s2), /^added a2; additive: each user is retested by its gate alone$/);
+  const kind = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport function a2() { return 1; }\n' }, 'kind');
+  const k = interfaceChange(root, cfg, 'a', added, kind);
+  assert.match(interfaceText(k), /changed the kind of a2 value -> function\(\).*breaking/);
+  const gone = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' }, 'removed');
+  const g = interfaceChange(root, cfg, 'a', kind, gone);
+  assert.deepEqual([g.exports.removed, g.class], [['a2'], 'breaking']);
   const marks = commit(root, { 'req/a.md': req('a').replace(' *(not yet met: T1)*', '') }, 'mark struck');
-  assert.equal(interfaceChange(root, cfg, 'a', exp, marks).changed, false, 'a struck mark outside Provides');
+  assert.equal(interfaceChange(root, cfg, 'a', gone, marks).changed, false, 'a struck mark outside Provides');
   const prov = commit(root, { 'req/a.md': req('a', '- a(x, y) returns their sum') }, 'provides');
   const p = interfaceChange(root, cfg, 'a', marks, prov);
-  assert.equal(p.changed, true);
+  assert.deepEqual([p.changed, p.triggers_old], [false, ['provides-text']], 'a Provides rewording is a notice, not a reschedule');
   assert.ok(p.provides);
 });
 
-test('interface signal: a changed provider test naming a Public / Provides requirement counts (a return shape the exports do not show); the trigger is named', () => {
+test('interface signal (R8): a provider test naming a Provides requirement counts only when what it asserts changes; its name or id label alone does not', () => {
   const { root } = product();
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
-  const base = commit(root, { 'req/a.md': req('a', '- **R2** `materials(x)` answers the list of materials'), 'test/a/r2.test.mjs': "import test from 'node:test'; test('R2 answers a list', () => {});\n", 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private', () => {});\n" }, 'R2 in Provides');
-  // The answer's shape changes ({materials: [...]}); the exports and the Provides text do not.
-  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r2.test.mjs': "import test from 'node:test'; test('R2 answers {materials: [...]}', () => {});\n" }, 'shape');
-  const x = interfaceChange(root, cfg, 'a', base, shape);
+  const t = (name, want) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../../src/a/index.mjs';\ntest('${name}', () => { assert.deepEqual(a(1), ${want}); });\n`;
+  const base = commit(root, { 'req/a.md': req('a', '- **R2** `a(x)` answers the list of materials\n- **R3** more'), 'test/a/r2.test.mjs': t('R2 answers a list', '[1]'), 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private', () => {});\n" }, 'R2 in Provides');
+  // Only its name and id label change: no trigger, though the old rule fired.
+  const label = commit(root, { 'test/a/r2.test.mjs': `// the list\n${t('R3 answers the list of materials', '[1]')}` }, 'label');
+  const l = interfaceChange(root, cfg, 'a', base, label);
+  assert.deepEqual([l.changed, l.triggers_old], [false, ['provides-test']]);
+  // The answer's shape changes ({materials: [...]}): the expected value changes, the exports do not.
+  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r2.test.mjs': t('R2 answers {materials: [...]}', '{ materials: [1] }') }, 'shape');
+  const x = interfaceChange(root, cfg, 'a', label, shape);
   assert.equal(x.exports, null);
   assert.equal(x.provides, null);
   assert.deepEqual(x.provides_tests, ['test/a/r2.test.mjs']);
   assert.deepEqual(x.triggers, ['provides-test']);
+  assert.match(interfaceText(x), /r2\.test\.mjs: breaking/);
   // A test of a requirement not in Provides changes nothing.
   const priv = commit(root, { 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private, again', () => {});\n" }, 'private test');
   assert.equal(interfaceChange(root, cfg, 'a', shape, priv).changed, false);
@@ -273,7 +293,7 @@ test('halt and restart: a reschedule mid-run kills the run at once, records the 
   git(['fetch', '-q', 'origin'], { cwd: root });
   git(['checkout', '-q', '-B', 'job/b', 'origin/job/b'], { cwd: root });
   // a lands on the layer while b's first run goes; the land's reschedule names b.
-  const aHead = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const aHead = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   let killed = 0;
   let round = 0;
   const tips = [];
@@ -318,7 +338,7 @@ test('land: no combined re-test; an interface change reschedules users in the la
   const { root, bare } = await opened();
   // c lands first; a's PR is behind the layer tip and lands anyway (disjoint files).
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'a', ha) };
   const lines = [];
   const rc = await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
@@ -341,7 +361,7 @@ test('land: no combined re-test; an interface change reschedules users in the la
 test('land: a run that started before a provider\'s newest interface change never counts', async () => {
   const { root, bare } = await opened();
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha), 2: prOf(2, 'b', hb) };
   await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
   await assert.rejects(layerLand(root, 2, { io: landIO(bare, prs), log: quiet }), /started before a's interface change .* it never counts/);
@@ -364,12 +384,13 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'c', hc) };
   await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
   await layerLand(root, 2, { io: landIO(bare, prs), log: quiet });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export class a { constructor(x, y) { this.v = x * y; } }\n' });
   prs[3] = prOf(3, 'a', ha);
   await layerLand(root, 3, { io: landIO(bare, prs), log: quiet });
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.deepEqual(j.startable.map((x) => x.id), ['b']);
-  assert.match(j.startable[0].cmd, /--reopen "re-test against the new interface of a/);
+  // b is OPEN (it never ran): a plain start, never --reopen (coordinator, 6 Nov 16:03).
+  assert.equal(j.startable[0].cmd, 'node .process/tool/p3.mjs job start b --live <n>');
   const mio = (extra = {}) => ({ slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), ...extra });
   await assert.rejects(layerMerge(root, 1, { io: mio(), wait: false, log: quiet }), /b is rescheduled/);
   // b's job re-runs on the new tip and lands; now the layer merges, with no test run.
@@ -399,6 +420,64 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   assert.equal(typeof rep.hours_open_to_merged, 'number');
 });
 
+// The time budget (R9): the land records the PR's gate runs as state rows (the gate's own token
+// only reads), and layer report sums each module's starts, wall, local test, gate and work minutes.
+test('time budget: a land writes its gate runs as rows; layer report sums them with the test and publish runs', async () => {
+  const { root, bare } = await opened();
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  const prs = { 1: prOf(1, 'c', hc) };
+  const gateRows = [
+    { sha: hc, run_id: 71, at: '2026-11-06T10:00:00Z', trigger: 'record', suite: 'skipped', ok: true, minutes: 0.5 },
+    { sha: hc, run_id: 72, at: '2026-11-06T10:10:00Z', trigger: 'code', suite: 'pass', ok: true, minutes: 6, scope: ['c'], suite_seconds: 240, suite_by_module: { c: 240 } },
+    // GitHub's re-run of run 72 keeps its run id: its own row, not lost to the first.
+    { sha: hc, run_id: 72, run_attempt: 2, at: '2026-11-06T10:20:00Z', trigger: 'code', suite: 'pass', ok: true, minutes: 5, scope: ['c'], suite_seconds: 180, suite_by_module: { c: 180 } },
+  ];
+  const comments = () => [{ user: { login: BOT }, body: block(GATE, { runs: gateRows }) }];
+  await layerLand(root, 1, { io: landIO(bare, prs, { comments }), log: quiet });
+  fetchState(root, SB, { fresh: true });
+  const rows = flowRows(root, SB, 1);
+  assert.deepEqual(rows.gates.map((g) => [g.module, g.pr, g.run_id, g.run_attempt, g.minutes, g.suite_minutes, g.record_only]), [['c', 1, 71, null, 0.5, null, true], ['c', 1, 72, null, 6, 4, false], ['c', 1, 72, 2, 5, 3, false]]);
+  // A p3 test run and a publish run of c, after the opening.
+  const open = rows.open.at;
+  const later = (m) => new Date(Date.parse(open) + m * 60000).toISOString();
+  writeRows(root, SB, 'rows', [
+    [flowFile(1, 'test', 'c-1'), { row: 'test', layer: 1, module: 'c', session: 'session_x', started: later(1), ended: later(3), at: later(3), minutes: 2, result: 'pass' }],
+    [flowFile(1, 'run', 'c-1'), { row: 'run', layer: 1, module: 'c', round: 1, started: later(4), ended: later(7), at: later(7), minutes: 3, result: 'pass' }],
+  ]);
+  const rep = layerReport(root, 1, { log: quiet }).measures.time_budget;
+  const c = rep.per_module.find((x) => x.id === 'c');
+  // The publish run runs no suite (job complete; the gate runs it): apart from the tests.
+  assert.deepEqual([c.test_runs, c.local_test_minutes, c.publish_runs, c.publish_minutes, c.gate_runs, c.gate_minutes, c.gate_suite_minutes, c.gate_record_only_minutes], [1, 2, 1, 3, 3, 11.5, 7, 0.5]);
+  assert.equal(rep.total.gate_minutes, 11.5);
+});
+
+test('time budget: wall from each start to its complete, work is wall minus local tests, null when unknown', () => {
+  const at = (m) => new Date(Date.UTC(2026, 10, 6, 10, m)).toISOString();
+  const attempts = {
+    a: [
+      { row: 'attempt', event: 'start', attempt: 1, at: at(0) }, { row: 'attempt', event: 'complete', attempt: 1, at: at(30) },
+      { row: 'attempt', event: 'start', attempt: 2, at: at(40) }, { row: 'attempt', event: 'complete', attempt: 2, at: at(50) },
+      { row: 'attempt', event: 'start', attempt: 0, at: '2026-11-05T00:00:00Z' }, // before the opening
+    ],
+    b: [{ row: 'attempt', event: 'start', attempt: 1, at: at(5) }], // still open: wall unknown
+  };
+  // a's tests: one inside its first attempt (counted against its wall), one after its last
+  // complete (a gate-red fix: no wall here, so not subtracted from work).
+  const tests = [{ module: 'a', minutes: 4, started: at(16), ended: at(20), at: at(20) }, { module: 'a', minutes: 2, started: at(55), ended: at(57), at: at(57) }, { module: 'b', minutes: 3, started: at(6), ended: at(9), at: at(9) }];
+  const runs = [{ module: 'a', minutes: 6, at: at(29) }];
+  const gates = [{ module: 'a', minutes: 7, suite_minutes: 5, record_only: false }, { module: 'a', minutes: 1, suite_minutes: null, record_only: true }, { module: 'a', minutes: null, suite_minutes: null, record_only: false }];
+  const b = timeBudget(['b', 'a'], { attempts, tests, runs, gates, since: '2026-11-06T09:00:00Z' });
+  assert.deepEqual(b.per_module.map((x) => [x.id, x.starts, x.open_attempts, x.wall_minutes, x.local_test_minutes, x.tests_in_wall_minutes, x.publish_minutes, x.gate_minutes, x.gate_unknown_runs, x.gate_suite_minutes, x.gate_record_only_minutes, x.work_minutes]), [
+    ['a', 2, 0, 40, 6, 4, 6, 8, 1, 5, 1, 36],
+    ['b', 1, 1, null, 3, 0, 0, 0, 0, 0, 0, null],
+  ]);
+  assert.deepEqual(b.total, { starts: 3, wall_minutes: 40, wall_unknown_modules: 1, local_test_minutes: 9, publish_minutes: 6, gate_minutes: 8, gate_unknown_runs: 1, gate_suite_minutes: 5, gate_record_only_minutes: 1, work_minutes: 36, test_share: 0.1, test_per_work: 0.11 });
+  assert.equal(budgetLine(b), 'time budget: 3 start(s); wall 40 min (1 module(s) unknown); local tests 9 min; publish runs 6 min; gate 8 min on landed PRs (suites 5, record-only 1, 1 run(s) of unknown length); work 36 min; tests 10% of wall, 0.11 per minute of work');
+  // Nothing known: nulls, never a guess.
+  const none = timeBudget(['b'], { attempts: { b: attempts.b } });
+  assert.deepEqual([none.total.wall_minutes, none.total.work_minutes, none.total.test_share, none.total.test_per_work], [null, null, null, null]);
+});
+
 test('layer merge runs the layer checks but no module suite: a red entry check refuses the merge; green, it merges and still no suite ran', async () => {
   const marker = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'suite-ran');
   const suite = { cwd: '.', command: ['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, '1')`, '--test'] };
@@ -423,7 +502,7 @@ test('the gate\'s layer trigger: each module covered by a verified green land; a
   const { root, bare } = await opened();
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(7);\n" });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x - y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x - y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'b', hb), 3: prOf(3, 'a', ha) };
   const mergedAs = {};
   const io0 = landIO(bare, prs);
@@ -504,7 +583,7 @@ test('the gate: a ready job PR into a layer branch runs its suite even when it c
 
 test('the gate\'s layer trigger: a user of the layer that never re-ran after its provider\'s interface change is a finding; a head whose newest run is red covers nothing', async () => {
   const { root, bare } = await opened();
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y + 1; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y + 1; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha) };
   let mergedAs = null;
   const io0 = landIO(bare, prs);
@@ -527,7 +606,7 @@ test('the gate\'s layer trigger: a user of the layer that never re-ran after its
 
 test('land: a merge GitHub made whose land was never recorded is recorded on a second run, reschedules included', async () => {
   const { root, bare } = await opened();
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return [x, y]; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return [x, y]; }\nexport const a2 = 1;\n' });
   const m = ghMerge(bare, 'layer/1', ha, 'Merge layer PR 8');
   const io = landIO(bare, { 8: prOf(8, 'a', ha, { state: 'closed', merged: true, merge_commit_sha: m.sha }) });
   const r = await layerLand(root, 8, { io: { ...io, merge: () => assert.fail('no second merge') }, log: quiet });
@@ -575,7 +654,7 @@ test('the gate: a job PR into a layer branch that changes only its requirements 
 
 test('the gate\'s layer trigger: a BLOCKED user is deferred, not a finding; a records-since-green newest row stands on the run it names', async () => {
   const { root, bare } = await opened();
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x % y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x % y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha) };
   let mergedAs = null;
   const io0 = landIO(bare, prs);
@@ -611,7 +690,7 @@ test('closed layers are this tranche\'s only: a close row of another tranche, or
 test('a BLOCKED module whose code is on the layer is judged as any: a provider\'s later interface change is still a finding', async () => {
   const { root, bare } = await opened();
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(8);\n" });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x ** y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x ** y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'a', ha) };
   const mergedAs = {};
   const io0 = landIO(bare, prs);
@@ -818,4 +897,479 @@ test('layer merge: a carried entry\'s add/add conflict with the tranche is merge
   const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
   assert.throws(() => carriedSync(root, cfg, 1, rl(root, cfg, 1, { io: openIO, slug: 'o/p' }), quiet), /layer\/1 and tranche conflict in src\/c\/index\.mjs.*nothing was opened/);
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], tip);
+});
+
+// Coordinator, 6 Nov (R7): a provider's land rescheduled 12 users, most COMPLETE before the layer
+// opened with no code on it, each re-test a whole job session. The gate's trust stays with CI.
+test('layer retest: a rescheduled module with no work on the layer gets a records-only ready PR carrying its last receipt; its land clears the reschedule, and the report counts it', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  // The land's own retest is left to this test (a stub that opens nothing and refuses nothing).
+  await layerLand(root, 1, { io: { ...landIO(bare, prs), retest: () => ({ pr: null }) }, log: quiet });
+  const jl = [];
+  const j = layerJobs(root, 1, { io: openIO, log: (l) => jl.push(l) });
+  assert.deepEqual(j.states.find((s) => s.id === 'b').state, 'rescheduled');
+  // a's change is additive (an added export): the retest is b's way, the job its fallback.
+  assert.equal(j.startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
+  assert.ok(jl.some((l) => /additive change: a red retest falls back to .*job start b/.test(l)));
+  const first = git(['rev-list', '--max-parents=0', 'origin/tranche'], { cwd: root });
+  const receipt = { kind: 'receipt', module: 'b', attempt: 1, sha: first, commands: [], exempt: {} };
+  const made = [];
+  const posted = [];
+  const io = {
+    slug: 'o/p', openPRs: () => [],
+    prsFromBranch: () => [{ number: 40, state: 'closed', merged_at: '2026-11-05T00:00:00Z', user: { login: 'civicsmith' } }],
+    comments: (s, k) => (k === 40 ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : []),
+    createPR: (s, p) => { made.push(p); return { number: 41 + made.length - 1, ...p }; },
+    addComment: (s, k, body) => { posted.push([k, body]); return { id: 2 }; },
+    markReady: (s, k) => { posted.push([k, 'ready']); },
+    jobHeads: () => new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t')[1].replace('refs/heads/', ''))),
+  };
+  assert.throws(() => layerRetest(root, 'b', { io: { ...io, prsFromBranch: () => [] }, log: quiet }), /no receipt of b on a merged pull request from job\/b that layer\/1 holds: a job re-tests it/);
+  assert.equal(made.length, 0);
+  const lines = [];
+  const r = layerRetest(root, 'b', { io, log: (l) => lines.push(l) });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.equal(git(['rev-parse', 'origin/job/b'], { cwd: root }), r.head);
+  assert.equal(git(['rev-parse', `${r.head}^`], { cwd: root }), tip, 'one commit on the layer tip');
+  assert.deepEqual(git(['diff', '--name-only', tip, r.head], { cwd: root }), 'process/metrics/b.jsonl', 'records only');
+  assert.deepEqual([made[0].head, made[0].base, made[0].draft], ['job/b', 'layer/1', true]);
+  assert.equal(posted[0][0], 41);
+  assert.equal(parseBlock(posted[0][1], RECEIPT).sha, first, 'its last receipt carried');
+  assert.deepEqual(posted[1], [41, 'ready'], 'marked ready only after the receipt is on it');
+  // Red, say: PR 41 is closed; a second retest takes the layer into job/b by a merge, no rewrite.
+  const closed = { number: 41, state: 'closed', merged_at: null, user: { login: 'civicsmith' } };
+  const io2 = { ...io, prsFromBranch: () => [closed, ...io.prsFromBranch()] };
+  const r2 = layerRetest(root, 'b', { io: io2, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.equal(git(['merge-base', '--is-ancestor', r.head, r2.head], { cwd: root, allowFail: true }).code, 0, 'a fast-forward of job/b');
+  assert.deepEqual(git(['diff', '--name-only', tip, r2.head], { cwd: root }), 'process/metrics/b.jsonl', 'records only');
+  // A job branch of b holding work the layer lacks refuses (a fresh start whose PR never opened).
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/b-2', 'origin/layer/1'], { cwd: d });
+  commit(d, { 'src/b/index.mjs': 'export const b = 2;\n' }, 'job start b (attempt 2)');
+  git(['push', '-q', 'origin', 'job/b-2'], { cwd: d });
+  assert.throws(() => layerRetest(root, 'b', { io: { ...io2, prsFromBranch: () => [closed, { ...closed, number: 42 }, ...io.prsFromBranch()] }, log: quiet }), /origin's job\/b-2 at .* has work layer\/1 lacks: a job re-tests it/);
+  git(['push', '-q', 'origin', ':job/b-2'], { cwd: d });
+  prs[41] = prOf(41, 'b', r2.head);
+  assert.ok(lines.some((l) => /PR 41 from job\/b, ready; the gate runs its whole suite. Green: .*layer land 41/.test(l)));
+  // CI's gate is green on its head: the merge tool lands it, and b is complete.
+  const land = await layerLand(root, 41, { io: landIO(bare, prs), log: quiet });
+  assert.equal(land.land.retest, true);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((s) => s.id === 'b').state, 'complete');
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  assert.deepEqual([m.retests, m.retest_lands], [2, 1]);
+  // Not rescheduled now: refused.
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /b is complete: layer retest is for a rescheduled module/);
+});
+
+test('layer retest: a module whose own work landed on the layer is retested; one with work the layer lacks is refused, naming the job start', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' });
+  const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'a', ha) };
+  for (const k of [1, 2]) await layerLand(root, k, { io: landIO(bare, prs), log: quiet });
+  // Its land's retest was refused (the stub): layer jobs now leads with b's job.
+  assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
+  // b's job branch holds work the layer lacks (pushed, never landed).
+  jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
+  const io = { slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: () => assert.fail('no PR'), addComment: () => assert.fail('no comment') };
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /origin's job\/b at .* has work layer\/1 lacks: a job re-tests it: .*job start b --live <n> --reopen "re-test against the new interface of a"/);
+  assert.throws(() => layerRetest(root, 'c', { io, log: quiet }), /c is complete/);
+});
+
+// Bob, 6 Nov (R8): publication's land in layer 8 rescheduled 12 users, most COMPLETE.
+test('land (R8): a reworded Provides text reschedules no one and leaves a notice for the users; an added export retests them; the report counts both rules', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h1 = jobWork(bare, 'a', { 'req/a.md': req('a', '- a(x) returns x, unchanged').replace(' *(not yet met: T1)*', '') });
+  const prs = { 1: prOf(1, 'a', h1) };
+  const lines = [];
+  const r1 = await layerLand(root, 1, { io: landIO(bare, prs), log: (l) => lines.push(l) });
+  assert.deepEqual([r1.land.users_rescheduled, r1.land.users_rescheduled_old_rule, r1.land.users_noticed], [[], ['b'], ['b', 'd']]);
+  assert.ok(lines.some((l) => /provider notice a:1 for 2 user\(s\), its Public \/ Provides text changed \(no reschedule\): b, d/.test(l)));
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(JSON.parse(readState(root, SB, 'notices/a-1.json')).users, ['b', 'd']);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((s) => s.id === 'b').state, 'complete');
+  // An added export (additive): b is retested by its gate alone, not rescheduled for a job.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' }, 'a2');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[2] = prOf(2, 'a', h2);
+  const opened = [];
+  const r2 = await layerLand(root, 2, { io: { ...landIO(bare, prs), retest: (r, u) => { opened.push(u); return { pr: { number: 70 } }; } }, log: quiet });
+  assert.deepEqual([r2.land.users_rescheduled, r2.land.interface.triggers, r2.land.interface.class], [['b'], ['exports'], 'additive']);
+  assert.deepEqual([opened, r2.retests], [['b'], [{ user: 'b', pr: 70 }]]);
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  // The stub opened no retest row for b, so b's re-test is still counted as a job: 1 avoided (the Provides land's).
+  assert.deepEqual([m.reschedules, m.retests_owed, m.reschedules_old_rule, m.reschedules_avoided, m.lands_additive, m.lands_breaking], [0, 1, 2, 1, 1, 0]);
+  assert.deepEqual([m.triggers_old_rule['provides-text'], m.triggers_new_rule['provides-text'], m.triggers_new_rule.exports], [1, 0, 1]);
+  assert.equal(typeof m.reschedule_changed_result.unknown, 'number', 'reschedule_changed_result still counts');
+  assert.equal(m.reschedule_changed_result.rows.length, 1);
+});
+
+test('land (R8): exports that cannot be read refuse the land, naming what could not be read; nothing is merged', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  let merged = 0;
+  const io = { ...landIO(bare, { 1: prOf(1, 'a', h) }), merge: () => { merged++; return {}; }, interfaceChange: () => ({ unread: 'git show failed for src/a/index.mjs' }) };
+  await assert.rejects(layerLand(root, 1, { io, log: quiet }), /refused: a's exports could not be read at .* \(git show failed for src\/a\/index\.mjs\); the job fixes what cannot be read and publishes again; nothing was merged/);
+  assert.equal(merged, 0);
+});
+
+test('layer retest refuses a rescheduled module with unmet requirement marks: a job meets them', async () => {
+  const { root, bare } = product();
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', ha) }), log: quiet });
+  const j = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.equal(j.states.find((s) => s.id === 'b').state, 'rescheduled');
+  assert.equal(j.startable.find((x) => x.id === 'b').retest, undefined, 'not offered');
+  assert.throws(() => layerRetest(root, 'b', { io: { slug: 'o/p', openPRs: () => [] }, log: quiet }), /b has unmet requirement marks \(R1\): a job meets them: .*job start b --live <n> --reopen "meet the unmet requirement marks R1/);
+});
+
+// Bob's refinement "c" (6 Nov), on the copy's layer 8: publication 632 added the export
+// Publication.renderingsByPixels, and the expected rows of g47t-miniflare and g47t-registry gained
+// `pixels_sha256: null`. It rescheduled 12 users; 8 re-ran as job sessions and none changed a result.
+test('publication 632: an added export and expected rows that only gain a key are additive, so each user gets a gate-only retest; a changed expected value is breaking', async () => {
+  const pub = "export class Publication {\n  renderings(id) { return []; }\n}\n";
+  const rows = (extra) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { Publication } from '../../src/a/index.mjs';\nconst expected = [\n  { id: 'p1', status: 'published', pages: 3${extra} },\n  { id: 'p2', status: 'draft', pages: 1${extra} },\n];\ntest('R2 the registry lists the renderings', () => {\n  assert.deepEqual(new Publication().renderings('x'), expected);\n});\n`;
+  const { root, bare } = product({ done: true, over: {} });
+  const d0 = clone(bare);
+  git(['checkout', '-q', '-B', 't', 'origin/tranche'], { cwd: d0 });
+  commit(d0, { 'src/a/index.mjs': pub, 'req/a.md': req('a', '- **R2** the registry lists the renderings').replace(' *(not yet met: T1)*', ''), 'test/a/g47t-registry.test.mjs': rows(''), 'test/a/g47t-miniflare.test.mjs': rows('').replace('registry lists', 'miniflare lists') }, 'publication before 632');
+  git(['push', '-q', 'origin', 't:tranche'], { cwd: d0 });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h = jobWork(bare, 'a', {
+    'src/a/index.mjs': "export class Publication {\n  renderings(id) { return []; }\n  renderingsByPixels(sha) { return []; }\n}\n",
+    'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null'),
+    'test/a/g47t-miniflare.test.mjs': rows(', pixels_sha256: null').replace('registry lists', 'miniflare lists'),
+  });
+  const prs = { 632: prOf(632, 'a', h) };
+  const opened = [];
+  const r = await layerLand(root, 632, { io: { ...landIO(bare, prs), retest: (x, u) => { opened.push(u); return { pr: { number: 700 + opened.length } }; } }, log: quiet });
+  const ic = r.land.interface;
+  assert.equal(ic.class, 'additive');
+  assert.deepEqual(ic.exports.added, ['Publication.renderingsByPixels']);
+  assert.deepEqual(ic.provides_test_changes.map((x) => [x.file, x.class, x.why]), [['test/a/g47t-miniflare.test.mjs', 'additive', 'added pixels_sha256; pixels_sha256'], ['test/a/g47t-registry.test.mjs', 'additive', 'added pixels_sha256; pixels_sha256']]);
+  assert.deepEqual(opened, ['b'], 'each user in the layer retested by its gate alone');
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(flowRows(root, SB, 1).reschedules.map((x) => [x.user, x.class]), [['b', 'additive']]);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
+  // A changed expected value is breaking: a job each, no retest opened.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null').replace("status: 'draft'", "status: 'withdrawn'") }, 'a value');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[633] = prOf(633, 'a', h2);
+  const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: () => assert.fail('no retest for a breaking change') }, log: quiet });
+  assert.deepEqual([r2.land.interface.class, r2.land.users_rescheduled], ['breaking', ['b']]);
+});
+
+test('layer retest refuses a module owed a job for a breaking change, even when an additive one followed (the retest\'s land would clear both)', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h1 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export class a { constructor(x) { this.v = x; } }\n' });
+  const prs = { 1: prOf(1, 'a', h1) };
+  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'src/a/index.mjs': 'export class a { constructor(x) { this.v = x; } }\nexport const a2 = 1;\n' }, 'additive');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[2] = prOf(2, 'a', h2);
+  const lines = [];
+  const r = await layerLand(root, 2, { io: { ...landIO(bare, prs), retest: undefined }, log: (l) => lines.push(l) });
+  assert.equal(r.land.interface.class, 'additive');
+  assert.match(r.retests[0].refused, /b owes a job for a's breaking change/);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 1).retest_refusals.length, 1, 'the refusal is kept');
+  assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
+});
+
+// R10 (Bob, 6 Nov ~15:35): a layer's jobs earliest in the total order first, so an interface
+// change is found before its users start or test.
+test('layer jobs (R10): startable in the layer\'s total order, a module whose in-layer provider has not landed after the rest, marked "after"; status follows it', async () => {
+  const { root, bare } = product();
+  // b uses a; e uses b: the order a, c, b, e (map order a, b, c, e).
+  commit(root, { 'build/layers.md': layers.replace('| 1 | One | a, b, c |', '| 1 | One | e, b, a, c |'), 'build/modules.json': { modules: [...modules.modules, { id: 'e', uses: ['b'] }] }, 'process/ledger/e.json': entry('e', { layer: 1 }), 'req/e.md': req('e') }, 'e joins layer 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const lines = [];
+  const o = layerOpen(root, 1, { io: openIO, log: (l) => lines.push(l) });
+  assert.deepEqual(o.startable.map((x) => [x.id, x.after || null]), [['a', null], ['c', null], ['b', ['a']], ['e', ['b']]]);
+  assert.ok(lines.some((l) => /job start b --live <n>\s+\(after a\)/.test(l)));
+  const j = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.deepEqual(j.states.map((s) => s.id), ['a', 'c', 'b', 'e'], 'layer status reads in the same order');
+  const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
+  const at = st.findIndex((l) => /^jobs to start/.test(l));
+  assert.deepEqual(st.slice(at + 1, at + 5).map((l) => l.match(/job start (\w)/)[1]), ['a', 'c', 'b', 'e']);
+  assert.match(st[at + 3], /\(after a\)$/);
+  // a lands: b is ready now, e still after b.
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', ha) }), log: quiet });
+  const k = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.deepEqual(k.startable.map((x) => [x.id, x.after || null]), [['c', null], ['b', null], ['e', ['b']]]);
+});
+
+test('job start (R10): a start while an in-layer provider has not landed is early, in its start row; layer report counts early starts', () => {
+  const { root } = product();
+  git(['branch', 'layer/1', 'tranche'], { cwd: root });
+  const lines = [];
+  jobStart(root, 'b', { coordinator: 's', push: false, log: (l) => lines.push(l) });
+  const row = JSON.parse(git(['show', 'job/b:process/metrics/b.jsonl'], { cwd: root }).trim().split('\n').pop());
+  assert.deepEqual([row.event, row.layer, row.early], ['start', 1, ['a']]);
+  assert.ok(lines.some((l) => /note: an early start: a has not landed on layer\/1/.test(l)));
+  jobStart(root, 'a', { coordinator: 's', push: false, log: quiet });
+  assert.deepEqual(JSON.parse(git(['show', 'job/a:process/metrics/a.jsonl'], { cwd: root }).trim().split('\n').pop()).early, []);
+  writeRows(root, SB, 'starts', [[flowFile(1, 'start', 'b-1'), { row: 'start', layer: 1, module: 'b', attempt: 1, early: ['a'], at: '2026-11-06T15:40:00Z' }], [flowFile(1, 'start', 'a-1'), { row: 'start', layer: 1, module: 'a', attempt: 1, early: [], at: '2026-11-06T15:41:00Z' }]]);
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  assert.deepEqual([m.starts, m.early_starts], [2, 1]);
+});
+
+test('total order: providers first, the map order kept otherwise, a cycle after', async () => {
+  const { totalOrder, layerProviders } = await import('../lib/layerflow.mjs');
+  const prov = layerProviders(['e', 'b', 'a', 'c', 'x', 'y'], [{ id: 'b', uses: ['a', 'z'] }, { id: 'e', uses: ['b'] }, { id: 'x', uses: ['y'] }, { id: 'y', uses: ['x'] }], new Map());
+  assert.deepEqual(prov.get('b'), ['a'], 'a provider outside the layer is not in it');
+  assert.deepEqual(totalOrder(['e', 'b', 'a', 'c', 'x', 'y'], prov), ['a', 'c', 'b', 'e', 'x', 'y']);
+});
+
+// Coordinator, 6 Nov 16:03: the merge tool still said "starts owed since 05:29Z (network-notices,
+// case-checker, case-inputs)" after their re-tests landed.
+test('layer land pays the starts owed by its module (its job complete or block); others stay', async () => {
+  const { owe, readOwed } = await import('../lib/hold.mjs');
+  const { writeState } = await import('../lib/state.mjs');
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  writeState(root, SB, 'owed', (dir) => { owe(dir, 'job complete c'); owe(dir, 'job complete b'); owe(dir, 'block c'); return {}; });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 4;\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'c', hc) }), log: quiet });
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(readOwed(root, SB).acts.map((x) => x.act), ['job complete b']);
+});
+
+test('R10 (cold review): a COMPLETE provider with unmet marks has not landed (it is about to be reopened); a provider BLOCKED on its job branch has (deferred), for job start as for layer jobs', () => {
+  const { root, bare } = product({ over: { a: { status: { state: 'COMPLETE' } } } });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  // a is COMPLETE with R1 unmet: b waits on it.
+  assert.deepEqual(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').after, ['a']);
+  // a's job commits BLOCKED on its branch: job start of b is not early.
+  jobWork(bare, 'a', { 'process/ledger/a.json': entry('a', { layer: 1, status: { state: 'BLOCKED', reason: 'owed to layer 2' } }) });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  git(['branch', '-f', 'layer/1', 'origin/layer/1'], { cwd: root });
+  const lines = [];
+  jobStart(root, 'b', { coordinator: 's', push: false, log: (l) => lines.push(l) });
+  assert.deepEqual(JSON.parse(git(['show', 'job/b:process/metrics/b.jsonl'], { cwd: root }).trim().split('\n').pop()).early, []);
+  assert.ok(!lines.some((l) => /early start/.test(l)));
+});
+
+// R11 (copy, 6 Nov): layer/8 was cut at a tranche pinned at 4a85f26; the pin moved to 0635b64 on the
+// tranche, and layer/8's gate, run with the base's own tool, still refused R4's carried entries.
+// SLB-12 (Bob, 6 Nov): a pin move while a layer is open is followed by layer sync before any job lands.
+// An empty .process stands for the submodule, so `git add -A` keeps the pointer.
+const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive: true }); git(['update-index', '--add', '--cacheinfo', `160000,${sha},.process`], { cwd: dir }); git(['commit', '-q', '-m', msg], { cwd: dir }); return git(['rev-parse', 'HEAD'], { cwd: dir }); };
+const syncIO = (bare, made) => ({
+  slug: 'o/p', openPRs: () => [], findPR: () => null,
+  createPR: (s, p) => { made.push(p); return { number: 90 + made.length, ...p }; },
+  waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
+  merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
+});
+test('layer sync (R11, SLB-12): a pin moved on the tranche while the layer is open leads layer jobs and status, holds the merge, and layer sync lands the tranche by a gated PR, the pin and shims the tranche\'s, a ledger entry the layer\'s', async () => {
+  const { root, bare } = product({ done: true });
+  const p1 = git(['rev-parse', 'HEAD'], { cwd: root });
+  setPin(root, p1, 'pin 1');
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v1\n' }, 'shim 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  // On the layer: e's entry carried by its job and landed (COMPLETE), and c's land.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'l', 'origin/layer/1'], { cwd: d });
+  commit(d, { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'COMPLETE' } }) }, 'Merge layer PR 5');
+  git(['push', '-q', 'origin', 'l:layer/1'], { cwd: d });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 5;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  // The tranche: the pin moves, the shim with it, and e's OPEN entry lands (PR 638).
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--ff-only', 'origin/tranche'], { cwd: root });
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1 }) }, 'Merge PR 638');
+  const p2 = git(['rev-parse', 'HEAD'], { cwd: root });
+  setPin(root, p2, 'pin move 2');
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v2\n' }, 'shim 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // A land after the pin move.
+  const d2 = clone(bare);
+  git(['checkout', '-q', '-B', 'job/c', 'origin/layer/1'], { cwd: d2 });
+  const hc2 = commit(d2, { 'src/c/index.mjs': 'export const c = 6;\n' }, 'c again');
+  git(['push', '-q', '-f', 'origin', 'job/c'], { cwd: d2 });
+  await layerLand(root, 7, { io: landIO(bare, { 7: prOf(7, 'c', hc2) }), log: quiet });
+  const lines = [];
+  const j = layerJobs(root, 1, { io: openIO, log: (l) => lines.push(l) });
+  assert.match(j.sync.line, /^run node \.process\/tool\/p3\.mjs layer sync 1 first: layer\/1's process pin .* differs from tranche's .*\(SLB-12\)$/);
+  assert.equal(lines[0], j.sync.line, 'layer jobs leads with it');
+  const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
+  assert.equal(st[0], j.sync.line, 'status leads with it');
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no layer PR'), checkRun: () => ({ status: 'completed', conclusion: 'success' }) };
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: layer\/1's process pin .* differs .*a job landed after that pin move .*run .*layer sync 1 first/);
+  // layer sync: one gated PR, landed by the merge tool.
+  const made = [];
+  const r = await layerSync(root, 1, { io: syncIO(bare, made), log: quiet });
+  assert.equal(r.synced, true);
+  assert.deepEqual([made[0].base, made[0].draft, made[0].head], ['layer/1', false, `layer-sync/1-${git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10)}`]);
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.equal(git(['merge-base', '--is-ancestor', 'origin/tranche', tip], { cwd: root, allowFail: true }).code, 0, 'the layer holds the tranche');
+  assert.equal(git(['ls-tree', tip, '--', '.process'], { cwd: root }).split(/\s+/)[2], p2, 'the tranche\'s pin');
+  assert.equal(git(['show', `${tip}:.github/workflows/process-gate.yml`], { cwd: root }), 'name: gate v2', 'the tranche\'s shim');
+  assert.equal(JSON.parse(git(['show', `${tip}:process/ledger/e.json`], { cwd: root })).status.state, 'COMPLETE', 'the layer\'s entry');
+  assert.deepEqual(r.row.resolved, ['process/ledger/e.json']);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 1).syncs.length, 1, 'a layer event');
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).sync, null, 'in sync now');
+  assert.equal((await layerSync(root, 1, { io: syncIO(bare, made), log: quiet })).synced, false, 'nothing to do again');
+});
+
+test('layer sync (R11) refuses a conflict outside .process, the shims and ledger entries, naming it; nothing is opened. layer merge goes on when the pin moved after the last land', async () => {
+  const { root, bare } = product({ done: true });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 5;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  await new Promise((r) => setTimeout(r, 1100)); // the pin move is dated after the land
+  commit(root, { 'src/c/index.mjs': 'export const c = 9;\n' }, 'a plain PR on c');
+  const p = git(['rev-parse', 'HEAD'], { cwd: root });
+  setPin(root, p, 'pin move');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const made = [];
+  await assert.rejects(layerSync(root, 1, { io: syncIO(bare, made), log: quiet }), /layer sync 1 refused: layer\/1 and tranche conflict in src\/c\/index\.mjs; only \.process, the process's shims and ledger entries are resolved by the tool; nothing was opened/);
+  assert.equal(made.length, 0);
+  // The pin moved after the layer's last land: the merge is not held (a note says so).
+  const lines = [];
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, q) => ({ number: 99, ...q, base: { ref: q.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  await layerMerge(root, 1, { io: mio, wait: false, log: (l) => lines.push(l) }).catch((e) => assert.doesNotMatch(e.message, /layer sync/));
+  assert.ok(lines.some((l) => /note: layer\/1's process pin .* differs .*the pin moved after the layer's last land, so the merge goes on/.test(l)));
+});
+
+// Cold review of PR 198 (layer sync).
+test('layer sync (cold review): two pin moves, the first unsynced before a land, hold the merge; a closed attempt takes a new branch; an older sync PR open, or a head that is not the tool\'s merge, refuses; a lost row is recorded', async () => {
+  const { root, bare } = product({ done: true });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  await new Promise((r) => setTimeout(r, 1100));
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 5;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  await new Promise((r) => setTimeout(r, 1100));
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 3');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no layer PR'), checkRun: () => ({ status: 'completed', conclusion: 'success' }) };
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /a job landed after that pin move/, 'pin 2 came before the land, unsynced');
+  // A first attempt, then closed (red, say): the next takes a new branch name.
+  const made = [];
+  const io = syncIO(bare, made);
+  await layerSync(root, 1, { io, wait: false, log: quiet });
+  await layerSync(root, 1, { io, wait: false, log: quiet });
+  const stem = `layer-sync/1-${git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10)}`;
+  assert.deepEqual(made.map((p) => p.head), [stem, `${stem}-2`]);
+  // An older sync PR still open into the layer refuses.
+  await assert.rejects(layerSync(root, 1, { io: { ...io, openPRs: () => [{ number: 50, head: { ref: 'layer-sync/1-0000000000', sha: 'x' } }] }, log: quiet }), /an older sync PR is open into layer\/1: #50/);
+  // An open sync PR whose head is not the tool's merge (a push to its branch) is never landed.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'w', `origin/${stem}-2`], { cwd: d });
+  const forged = commit(d, { 'src/c/index.mjs': 'export const c = 666;\n' }, 'a push to the sync branch');
+  git(['push', '-q', 'origin', `w:${stem}-2`], { cwd: d });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  await assert.rejects(layerSync(root, 1, { io: { ...io, openPRs: () => [{ number: 92, head: { ref: `${stem}-2`, sha: forged } }] }, log: quiet }), /sync PR 92's head .* is not the tool's merge .*nothing was landed/);
+  // Landed by GitHub, its row lost: the next run records it.
+  const ok = git(['rev-parse', `origin/${stem}`], { cwd: root });
+  ghMerge(bare, 'layer/1', ok, 'Merge layer sync PR 91');
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.equal((await layerSync(root, 1, { io, log: quiet })).synced, false);
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(flowRows(root, SB, 1).syncs.map((r) => [r.pr, r.recovered]), [[91, true]]);
+});
+
+test('the gate\'s layer trigger after a layer sync: the sync\'s merge is not a stray change to a module\'s file', async () => {
+  const { root, bare } = product({ done: true });
+  commit(root, { 'src/c/more.mjs': 'export const one = 1;\n// 2\n// 3\n// 4\nexport const five = 5;\n' }, 'more');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/more.mjs': 'export const one = 11;\n// 2\n// 3\n// 4\nexport const five = 5;\n' });
+  const prs = { 6: prOf(6, 'c', hc) };
+  const mergedAs = {};
+  const io0 = landIO(bare, prs);
+  await layerLand(root, 6, { io: { ...io0, merge: (s, k, sha, t) => { const r = io0.merge(s, k, sha, t); mergedAs[k] = r.sha; return r; } }, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  commit(root, { 'src/c/more.mjs': 'export const one = 1;\n// 2\n// 3\n// 4\nexport const five = 55;\n' }, 'a plain PR on c, another line');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  await layerSync(root, 1, { io: syncIO(bare, []), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  assert.deepEqual(changed, ['src/c/more.mjs']);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const merged = { 6: { ...prs[6], merged: true, merge_commit_sha: mergedAs[6] } };
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { getPR: (s, k) => merged[k], verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: hc, ok: true, trigger: 'code', suite: 'pass', scope: ['c'] }] }, 'gate') }] } });
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual(r.covered.map((x) => x.id), ['c']);
+});
+
+// Coordinator, 6 Nov 16:13: layer 8's job PRs 658-661 were red only on the old tool's ledger finding,
+// their sessions archived. After the layer syncs, layer sync brings it into each open job branch.
+test('layer sync (layer 8): each open job PR branch takes the synced layer when the merge brings only the pointer, shims, ledger entries and records; a BLOCKED one, or one the merge would bring code into, is left alone', async () => {
+  const { root, bare } = product({ done: true });
+  commit(root, { 'build/layers.md': layers.replace('| 1 | One | a, b, c |', '| 1 | One | a, b, c, e |'), 'req/e.md': req('e'), '.github/workflows/process-gate.yml': 'name: gate v1\n' }, 'e joins layer 1');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // Opened before e's entry landed (as layer/8 was): open by hand, as the refusal now forbids it.
+  git(['push', '-q', 'origin', 'tranche:layer/1'], { cwd: root });
+  writeRows(root, SB, 'open', [[flowFile(1, 'open'), { row: 'open', layer: 1, branch: 'layer/1', tranche: 'tranche', from: git(['rev-parse', 'tranche'], { cwd: root }), at: new Date().toISOString(), by: 'bob' }]]);
+  // job/a, cut now; then c's code lands on the layer; then job/e (carrying e's entry) and job/b (BLOCKED).
+  jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 2; }\n' });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  const he = jobWork(bare, 'e', { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'WORKING' } }), 'src/e/index.mjs': 'export const e = 1;\n', 'process/metrics/e.jsonl': '{"row":"attempt","event":"start","attempt":1}\n' });
+  jobWork(bare, 'b', { 'process/ledger/b.json': entry('b', { layer: 1, status: { state: 'BLOCKED', reason: 'owed to layer 2' } }) });
+  // The tranche: e's OPEN entry (PR 638), the pin moved, the shim with it.
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  // PR 638's entry has a field the job's carried copy lacks (a later edit of the tranche's).
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1, paths: ['src/e/', 'lib/e/'] }) }, 'Merge PR 638');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin move 2');
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v2\n' }, 'shim 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const open = [658, 660, 661].map((k, i) => ({ number: k, draft: false, head: { ref: ['job/e', 'job/b', 'job/a'][i], sha: null } }));
+  // A fork's PR naming a job branch is never pushed to.
+  open.push({ number: 662, draft: false, head: { ref: 'job/c', sha: null, repo: { full_name: 'someone/fork' } } });
+  const lines = [];
+  const r = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: (l) => lines.push(l) });
+  assert.equal(r.synced, true);
+  assert.deepEqual(r.jobs.merged.map((x) => [x.branch, x.changed.sort()]), [['job/e', ['.github/workflows/process-gate.yml', '.process', 'process/ledger/e.json']]]);
+  assert.deepEqual(r.jobs.left.map((x) => [x.branch, x.why.split(' (')[0]]), [['job/b', 'BLOCKED'], ['job/a', 'the layer brings other changes']]);
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const eh = git(['rev-parse', 'origin/job/e'], { cwd: root });
+  assert.equal(git(['merge-base', '--is-ancestor', tip, eh], { cwd: root, allowFail: true }).code, 0, 'job/e holds the synced layer');
+  assert.equal(git(['merge-base', '--is-ancestor', he, eh], { cwd: root, allowFail: true }).code, 0, 'a fast-forward of job/e');
+  const merged = JSON.parse(git(['show', `${eh}:process/ledger/e.json`], { cwd: root }));
+  assert.deepEqual([merged.status.state, merged.paths], ['WORKING', ['src/e/', 'lib/e/']], 'the layer\'s entry, the job\'s status');
+  // The ledger rule, as the gate reads it now: e's entry is in the base, only its status differs.
+  assert.deepEqual(checkLedger(root, { ref: eh, base: git(['merge-base', eh, tip], { cwd: root }), branch: 'job/e' }), []);
+  assert.ok(lines.some((l) => /job\/e \(PR 658\) took layer\/1 .*its gate re-runs with the new tool/.test(l)));
+  // Run again: nothing more to do.
+  const again = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: quiet });
+  assert.deepEqual([again.synced, again.jobs.merged.length], [false, 0]);
 });

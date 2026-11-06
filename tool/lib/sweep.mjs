@@ -2,6 +2,7 @@
 // cannot call Claude's session or task tools: sweep reads the record and prints what ROOT must do,
 // in the Foundations' order, and writes the heartbeat; watch reads the heartbeat's age and ROOT's
 // address and prints the watcher's decision. The session makes every call.
+import { expireRecords, staleRecords } from './expire.mjs';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { P3, jobSender, wakeLine } from './job.mjs';
@@ -9,7 +10,7 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { heldBy, layersAt, slotsHeld } from './hold.mjs';
+import { bobAct, heldBy, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, laneDefects, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
@@ -174,6 +175,8 @@ export function senderFor(root, name, a) {
   try { return senderOf(root, a.as); } catch { return 'bob'; }
 }
 export function beforeAct(root, cfg, name, a, { env = process.env, io, log = console.log, err = console.error } = {}) {
+  // Starts owed first for BOB's acts (status prints its own): a marker, never a refusal.
+  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
   if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch') return null;
   try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
@@ -200,6 +203,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   const listed = sessionsFile === undefined ? null : readSessions(sessionsFile, { root, offline });
   live = sessionsCount(listed, live, log);
   let idle = { bob_acts: 'unmeasured', bob_quiet_h: null };
+  let archived = false; // no BOB, or a paused plan: not read
   // The account's job count and the cap go in the sweep row (live, job_cap, and with --sessions the
   // account's sessions, every product and role, so a platform limit would show): lead times names a full cap as a wait's cause.
   let liveRow = {};
@@ -309,8 +313,23 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
       const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen, seats });
       found.push(s.line);
+      // A job session archived since the last sweep freed a slot: starts owed (hold.mjs).
+      const since = Date.parse(jsonl(readState(root, sb, SWEEP_ROWS_FILE)).filter((r) => r.row === 'sweep').at(-1)?.at) || 0;
+      archived = listed.some((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim()) && Date.parse(x.updated_at) > since);
       for (const a of s.acts) todo.push(a.act === 'archive' ? `archive ${a.id}: archive_session ${a.id} ("${a.title}", idle, its work done or its parent archived)` : `tell ${a.owner} ${a.id} asks: ${a.question} (send it to ${a.owner}${a.owner.startsWith('session_') ? ' with send_message' : ''}, naming ${a.id} "${a.title}", whose parent is archived)`);
     }
+  }
+  // Stale records (R13, expire.mjs): the tool ends those it can (holds whose condition is met,
+  // lane seats whose session is archived, read from list_sessions here); the rest are found, each
+  // with what ends it. Nothing for a person to type.
+  if (cfg) {
+    try {
+      const ended = expireRecords(root, cfg, { listed, log: () => {} });
+      if (ended.holds.length) found.push(`holds ended by the tool (condition met): ${ended.holds.join(', ')}`);
+      if (ended.seats.length) found.push(`lane seats ended by the tool (session archived): ${ended.seats.join(', ')}`);
+      const left = staleRecords(root, cfg, { listed }).filter((x) => !x.auto);
+      for (const x of left) found.push(`stale ${x.kind} ${x.id}: ${x.why}`);
+    } catch (e) { found.push(`stale records: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   }
   if (owed.length) {
     found.push(...owed);
@@ -324,6 +343,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     writeFileSync(join(dir, HEARTBEAT_FILE), JSON.stringify(beat) + '\n');
     mkdirSync(join(dir, 'metrics'), { recursive: true });
     appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct, ...liveRow }) + '\n');
+    if (archived) owe(dir, 'a job session archived');
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

@@ -1,5 +1,6 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, REVERT_EXEMPT, addComment, aheadBy, block, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
@@ -16,7 +17,8 @@ import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
 import { standingFor } from './register.mjs';
-import { jobCfg, layerMode, layerOfBranch, refuseInLayer } from './layerbase.mjs';
+import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
+import { earlyProviders, writeRows } from './layerflow.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -106,6 +108,10 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
     L.push('', `You are also the ${lane.name} lane's one session (Bob, 5 Nov): within the product's principles you decide design and wording in \`${lane.dir || 'its folder'}/\`; a question only Bob can answer goes to BOB as "decision: Bob's", with options and your recommendation.`);
     // Its design documents are claude.ai artifacts and documents, recorded by lane artifact.
     if (lane.artifacts?.length) L.push(`The lane's design documents (claude.ai; read what your work needs): ${lane.artifacts.map((a) => `${a.title ? `${a.title} ` : ''}${a.url}`).join('; ')}.`);
+    // Qualification (Bob, 6 Nov; lane.mjs qualification): the research area first, or qualify first.
+    const r = lane.research;
+    if (r?.qualified) L.push(`The lane's research area \`${r.area}/\` is its ground truth: read its index.md before you decide design there, and record what you research there.`);
+    else if (r) L.push(`The lane has not qualified: \`${r.area}/\` holds no index.md and qualification record. Before you decide any design there, qualify it (Bob, 6 Nov): workers research the canon, the existing code and the best practice of its area, and you land their findings in \`${r.area}/\` (index.md, qualification-<YYYY-MM-DD>.md) as a pull request changing only that folder.`);
   }
   if (entry.prior_work) L.push('', `Prior work: ${entry.prior_work}`);
   if (reopen && abandoned) L.push('', `This attempt starts afresh from the tranche: the attempt on \`${abandoned.branch}\`${abandoned.pr ? ` (#${abandoned.pr}, closed unmerged)` : ''} was abandoned, and none of its work is on your branch. What it must do: ${reopen}`);
@@ -485,6 +491,14 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const held = git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').some((l) => l === `branch refs/heads/${branch}`);
   if (stale && held) fail(`${branch} is checked out in a worktree; check out another branch there first`);
 
+  // R10 (Bob, 6 Nov): a start while a provider in its layer has not landed is early; its start row
+  // says so, and layer report counts it.
+  let early = [];
+  if (cfg.layer) {
+    // Unread: null (unknown), never counted as not early (cold review of PR 196).
+    try { if (push) fetchState(root, cfg.state_branch); early = earlyProviders(root, { ...cfg, tranche: cfg.layer.tranche }, cfg.layer.n, id, from); } catch (e) { early = null; log(`note: whether this start is early was not read (${e.message})`); }
+    if (early?.length) log(`note: an early start: ${early.join(', ')} ${early.length > 1 ? 'have' : 'has'} not landed on ${cfg.tranche}; ${id} may meet ${early.length > 1 ? 'their' : 'its'} interface change later (layer jobs lists ${id} after ${early.join(', ')})`);
+  }
   const sym = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true });
   const back = sym.code === 0 ? sym.stdout.trim() : git(['rev-parse', 'HEAD'], { cwd: root });
   const before = stale ? git(['rev-parse', `refs/heads/${branch}`], { cwd: root }) : null;
@@ -505,7 +519,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}), ...(cfg.layer ? { layer: cfg.layer.n, early } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id), ...(carried?.req ? [carried.req.file] : [])], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -516,6 +530,8 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
       provable(root, id, branch, cfg.tranche, from);
       git(['push', '-q', '-u', 'origin', branch], { cwd: root });
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
+      // The layer's own count of starts, early ones marked (layer report).
+      if (cfg.layer) { try { writeRows(root, cfg.state_branch, `layer ${cfg.layer.n}: ${id} started${early?.length ? ' early' : ''}`, [[flowFile(cfg.layer.n, 'start', `${safeName(id)}-${attempt}-${Date.now()}`), { row: 'start', layer: cfg.layer.n, module: id, attempt, branch, early, at: now() }]]); } catch (e) { log(`note: the layer's start row was not written (${e.message}); the start row on ${branch} has it`); } }
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });
       log(`draft pull request: ${result.pr.html_url}`);
       const subscribe = subscribeFor(slug, result.pr);
@@ -1244,22 +1260,44 @@ function restoreGenerated(root, ran, log) {
 }
 
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
-export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
+export function jobTest(root, id, { log = console.log, exec, toolRoot, session = null, record = (r) => recordTest(root, r, { log }) } = {}) {
   // origin's layer branch, as the session's clone has it (no local layer/<n>): cold review 5.
   const cfg = jobCfg(root, loadConfig(root), id);
   pinCheck(root, id, { toolRoot, tranche: trancheRef(root, cfg), what: `\`${P3} test ${id}\`` });
   const entry = readEntry(root, id);
+  const started = now();
+  // The time budget (R9, Bob, 6 Nov: how much time goes to tests against real work): every run
+  // is a state row, its module, session, minutes and result, whatever the result.
+  const row = (result, extra = {}) => {
+    const ended = now();
+    const sid = sessionForm(typeof session === 'string' && session ? session : process.env.CLAUDE_CODE_REMOTE_SESSION_ID || process.env.CLAUDE_CODE_SESSION_ID || null);
+    record({ row: 'test', module: id, session: sid || null, started, ended, at: ended, minutes: Math.round(((Date.parse(ended) - Date.parse(started)) / MINUTE) * 100) / 100, result, ...(cfg.layer ? { layer: cfg.layer.n } : {}), ...extra, state_branch: cfg.state_branch });
+  };
   const inst = installModule(root, cfg, entry, { exec, log });
-  if (inst.findings.length) return { ok: false, install: inst };
+  if (inst.findings.length) { row('install failed'); return { ok: false, install: inst }; }
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const built = buildModuleGenerated(root, cfg, { timeout, exec, log });
   // A build that fails part way may have rewritten committed paths: put back, as after the suite.
-  if (built.findings.length) { restoreGenerated(root, built.ran, log); return { ok: false, install: inst, generated: built }; }
+  if (built.findings.length) { restoreGenerated(root, built.ran, log); row('build failed'); return { ok: false, install: inst, generated: built }; }
   let s;
   try { s = runSuite(root, entry, undefined, { timeout }); } finally { restoreGenerated(root, built.ran, log); }
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
+  row(s.exit === 0 ? 'pass' : 'fail', { suite_seconds: s.seconds, tests: s.tests });
   return { ok: s.exit === 0, install: inst, ...s };
+}
+
+// A `p3 test` run's row on the state branch, one file per run, never edited: under its layer's
+// flow (layerflow/<n>/test/) when the module is in an open layer, else tests/<module>/. A row
+// that cannot be written is said, never a refusal: the run itself stands.
+export function recordTest(root, r, { log = console.log } = {}) {
+  const { state_branch: sb, ...row } = r;
+  const name = `${safeName(row.module)}-${Date.parse(row.started)}-${randomUUID().slice(0, 8)}`;
+  const path = row.layer !== undefined ? flowFile(row.layer, 'test', name) : `tests/${safeName(row.module)}/${name}.json`;
+  try {
+    writeState(root, sb, `test ${row.module}: ${row.result}, ${row.minutes} min`, (w) => { mkdirSync(dirname(join(w, path)), { recursive: true }); writeFileSync(join(w, path), JSON.stringify(row, null, 2) + '\n'); return {}; });
+    return path;
+  } catch (e) { log(`the test row was not recorded (${String(e.message).split('\n')[0].slice(0, 160)})`); return null; }
 }
 
 // revert exempt <pr> --why "<why>" --reviewer <session> (AUD-1, JOB-12): a reviewer's exemption from
