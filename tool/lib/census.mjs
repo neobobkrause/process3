@@ -22,6 +22,7 @@
 //                      carries it, and the layer's own reads do not see it until then).
 // Each gap names exactly what BOB writes. preflight: for a layer's modules, what `job start` would
 // refuse on (no entry, an invalid one, its state, a live hold, a lane seat, the plan) with the fix.
+import { spawnSync } from 'node:child_process';
 import { entryFile, validate } from './ledger.mjs';
 import { readModules } from './notice.mjs';
 import { layersAt } from './layerbase.mjs';
@@ -32,6 +33,30 @@ const ls = (root, ref, dir) => {
   return r.code === 0 ? r.stdout.split('\n').filter(Boolean) : [];
 };
 const show = (root, ref, p) => { const r = git(['show', `${ref}:${p}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; };
+
+// Every file under dirs at ref, path to text, read in two git calls (cold review of R15: a census of
+// a 220-module product took about 700 git spawns, once per file).
+function blobs(root, ref, dirs) {
+  const t = git(['ls-tree', '-r', ref, '--', ...dirs], { cwd: root, allowFail: true });
+  if (t.code !== 0) return new Map();
+  const list = t.stdout.split('\n').map((l) => l.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/)).filter(Boolean).map((m) => [m[1], m[2]]);
+  if (!list.length) return new Map();
+  const r = spawnSync('git', ['cat-file', '--batch'], { cwd: root, input: list.map(([sha]) => sha).join('\n') + '\n', maxBuffer: 1 << 30 });
+  const out = new Map();
+  if (r.status !== 0) return out;
+  const buf = r.stdout;
+  let at = 0;
+  for (const [, path] of list) {
+    const nl = buf.indexOf(10, at);
+    if (nl < 0) break;
+    const head = buf.subarray(at, nl).toString('utf8').split(' ');
+    const size = Number(head[2]);
+    if (head[1] !== 'blob' || !Number.isFinite(size)) break;
+    out.set(path, buf.subarray(nl + 1, nl + 1 + size).toString('utf8'));
+    at = nl + 1 + size + 1;
+  }
+  return out;
+}
 
 // The suite of a module's neighbours: the one most entries use whose tests share its first test
 // path's top directory; null when none (the suite is then BOB's to name).
@@ -55,15 +80,18 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   const rows = readModules(root, cfg, ref);
   if (rows === null) return { gaps: [], skipped: `no ${cfg.modules_file || 'modules file'} at ${ref}` };
   const row = new Map(rows.filter((m) => m?.id).map((m) => [m.id, m]));
+  const dir = String(cfg.requirements_dir || 'build/requirements').replace(/\/$/, '');
+  const files = blobs(root, ref, ['process/ledger', dir]);
+  // A file at ref: from the batch when it is under those directories, else one read.
+  const text = (p) => (files.has(p) ? files.get(p) : p.startsWith('process/ledger/') || p.startsWith(`${dir}/`) ? null : show(root, ref, p));
   const entries = new Map();
-  for (const f of ls(root, ref, 'process/ledger').filter((x) => x.endsWith('.json'))) {
+  for (const f of [...files.keys()].filter((x) => /^process\/ledger\/[^/]+\.json$/.test(x))) {
     const id = f.replace(/^.*\//, '').replace(/\.json$/, '');
     let e = null;
-    try { e = JSON.parse(show(root, ref, f)); } catch { e = null; }
+    try { e = JSON.parse(files.get(f)); } catch { e = null; }
     entries.set(id, e);
   }
-  const dir = String(cfg.requirements_dir || 'build/requirements').replace(/\/$/, '');
-  const reqs = new Map(ls(root, ref, dir).filter((f) => f.endsWith('.md') && f.slice(dir.length + 1).indexOf('/') < 0 && !/^README\.md$/i.test(f.slice(dir.length + 1))).map((f) => [f.slice(dir.length + 1, -3), f]));
+  const reqs = new Map([...files.keys()].filter((f) => f.endsWith('.md') && f.slice(dir.length + 1).indexOf('/') < 0 && !/^README\.md$/i.test(f.slice(dir.length + 1))).map((f) => [f.slice(dir.length + 1, -3), f]));
   const map = layersAt(root, cfg, ref);
   const mapLayer = new Map(map.flatMap((L) => L.mods.map((m) => [m, L.n])));
   const lanes = (Array.isArray(cfg.lanes) ? cfg.lanes : []).filter((l) => l?.module).map((l) => l.module);
@@ -76,7 +104,7 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   const reqOf = (id) => {
     if (!reqPath.has(id)) {
       const named = entries.get(id)?.requirements ? String(entries.get(id).requirements).replace(/^\.\//, '') : null;
-      reqPath.set(id, named && show(root, ref, named) !== null ? named : reqs.get(id) || null);
+      reqPath.set(id, named && text(named) !== null ? named : reqs.get(id) || null);
     }
     return reqPath.get(id);
   };
@@ -84,7 +112,7 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   const unmet = (id) => {
     const f = reqOf(id);
     if (!f) return [];
-    if (!reqText.has(id)) reqText.set(id, show(root, ref, f) || '');
+    if (!reqText.has(id)) reqText.set(id, text(f) || '');
     return unmetIds(reqText.get(id));
   };
   const all = new Set([...row.keys(), ...entries.keys(), ...reqs.keys(), ...mapLayer.keys(), ...lanes]);
@@ -97,10 +125,14 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
     const e = entries.get(id);
     const marks = unmet(id);
     const lane = lanes.includes(id);
+    // Whether the module still needs a job: its entry OPEN, BLOCKED or WORKING, an unmet mark, or
+    // no entry and its layer open or to come. A COMPLETE module, or a lane's (no layer lists a
+    // lane), is never refused for its place in the layer map (cold review of R15).
+    const needs = (e && ['OPEN', 'BLOCKED', 'WORKING'].includes(e.status?.state)) || marks.length > 0 || (!e && ahead(id));
     if (!r) gap(id, 'no-modules-row', `add ${id}'s row to ${cfg.modules_file} (its paths, tests, uses and layer): it is named by ${[entries.has(id) && 'its ledger entry', reqs.has(id) && reqs.get(id), mapLayer.has(id) && cfg.layers_file, lane && 'the lanes config'].filter(Boolean).join(', ')}`);
-    if (r && !mapLayer.has(id) && map.length) gap(id, 'not-in-layer-map', `name ${id} on its layer's line in ${cfg.layers_file}${Number.isInteger(r.layer) ? ` (its modules row says layer ${r.layer})` : ''}: no layer's jobs list it`);
-    if (r && mapLayer.has(id) && Number.isInteger(r.layer) && r.layer !== mapLayer.get(id)) gap(id, 'layer-mismatch', `${cfg.modules_file} says layer ${r.layer}, ${cfg.layers_file} says ${mapLayer.get(id)}: make them one`);
-    if (e && e.requirements && show(root, ref, String(e.requirements).replace(/^\.\//, '')) === null) gap(id, 'entry-requirements', `its entry names ${e.requirements}, which ${ref} does not hold: write it, or name the right file in ${entryFile(id)}`);
+    if (r && !mapLayer.has(id) && map.length && needs && !lane) gap(id, 'not-in-layer-map', `name ${id} on its layer's line in ${cfg.layers_file}${Number.isInteger(r.layer) ? ` (its modules row says layer ${r.layer})` : ''}: no layer's jobs list it`);
+    if (r && mapLayer.has(id) && Number.isInteger(r.layer) && r.layer !== mapLayer.get(id) && needs) gap(id, 'layer-mismatch', `${cfg.modules_file} says layer ${r.layer}, ${cfg.layers_file} says ${mapLayer.get(id)}: make them one`);
+    if (e && e.requirements && text(String(e.requirements).replace(/^\.\//, '')) === null) gap(id, 'entry-requirements', `its entry names ${e.requirements}, which ${ref} does not hold: write it, or name the right file in ${entryFile(id)}`);
     if (!entries.has(id) && (ahead(id) || marks.length || lane) && r) {
       // The entry, ready when nothing in it is a judgment.
       const suite = neighbourSuite(entries, r.tests);
@@ -112,8 +144,9 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
         paths: [...new Set([...(r.paths || []), reqOf(id)])], tests: r.tests, requirements: reqOf(id), uses: r.uses || [], suite,
         reading: [reqOf(id), readme, situation].filter(Boolean), status: { state: 'OPEN', at: now },
       };
-      if (content && validate(content).length) throw new Error(`census: the ready entry for ${id} is invalid: ${validate(content).join('; ')}`);
-      gap(id, 'no-entry', `write ${entryFile(id)}${why ? ` (not ready: ${why}; that is BOB's to write)` : ' (ready below: no judgment in it)'}: ${lane ? 'a lane\'s module' : marks.length ? `${marks.length} unmet mark(s) in ${reqOf(id)}` : `layer ${n} is open or still to come`}`, content ? { file: entryFile(id), content } : {});
+      // A row the schema refuses (an odd type, say) makes the entry BOB's, never a throw.
+      const bad = content ? validate(content) : [];
+      gap(id, 'no-entry', `write ${entryFile(id)}${why || bad.length ? ` (not ready: ${why || `its modules row gives an entry the schema refuses: ${bad.slice(0, 2).join('; ')}`}; that is BOB's to write)` : ' (ready below: no judgment in it)'}: ${lane ? 'a lane\'s module' : marks.length ? `${marks.length} unmet mark(s) in ${reqOf(id)}` : `layer ${n} is open or still to come`}`, content && !bad.length ? { file: entryFile(id), content } : {});
     }
     if (!reqOf(id) && r && !e?.requirements && (entries.has(id) || ahead(id))) gap(id, 'no-requirements', `write ${dir}/${id}.md, the module's requirements (BOB's: judgment)`);
   }
@@ -139,7 +172,7 @@ export function censusLines(c, { layers = null, tranche = 'tranche', label = 'ga
     ...(ready.length ? [`ready entries (${ready.length}), one plain pull request into ${tranche}, no judgment in them:`, ...ready.map((g) => `--- ${g.file}\n${JSON.stringify(g.content, null, 2)}`)] : [])];
 }
 
-// The layers open now: a layerflow open row and no merged row, its branch on origin.
+// The layers open now: a layerflow open row and no merged row on the state branch.
 export function openLayers(root, cfg, read) {
   const out = [];
   for (const L of layersAt(root, cfg, `origin/${cfg.tranche}`)) {
@@ -169,9 +202,13 @@ export function preflight(root, cfg, n, { ref, census: c, holds = [], heldBy = (
     try { e = JSON.parse(t); } catch { out.push({ id, why: `${entryFile(id)} is not JSON`, fix: `fix ${entryFile(id)}` }); continue; }
     const errs = validate(e);
     if (errs.length) { out.push({ id, why: `its entry is invalid: ${errs.slice(0, 3).join('; ')}`, fix: `fix ${entryFile(id)}` }); continue; }
-    if (!['OPEN', 'BLOCKED', 'COMPLETE'].includes(e.status?.state)) out.push({ id, why: `its entry is ${e.status?.state} on ${ref}`, fix: 'bring it to Bob (job start refuses any other state)' });
+    const st = e.status?.state;
+    if (st === 'COMPLETE') {
+      const marks = unmetIds(show(root, ref, String(e.requirements || '').replace(/^\.\//, '')) || '');
+      if (marks.length) out.push({ id, why: `its entry is COMPLETE with ${marks.length} unmet mark(s): a plain job start refuses it`, fix: `job start ${id} --reopen "meet the unmet requirement marks ${marks.slice(0, 5).join(', ')}" (layer jobs prints it)` });
+    } else if (!['OPEN', 'BLOCKED'].includes(st)) out.push({ id, why: `its entry is ${st} on ${ref}: job start refuses it`, fix: 'bring it to Bob (job start takes OPEN or BLOCKED)' });
     const h = heldBy(holds, id, layers);
-    if (h) out.push({ id, why: `held by ${h.id} (${h.scope})`, fix: `the hold ends by its own condition (${h.when?.length ? h.when.map((x) => Object.entries(x)[0].join(':')).join(', ') : h.until ? `at ${h.until}` : 'its pull requests'})` });
+    if (h) out.push({ id, why: `held by ${h.id} (${h.scope}): job start --ready and layer jobs skip it`, fix: `the hold ends by its own condition (${h.when?.length ? h.when.map((x) => Object.entries(x)[0].join(':')).join(', ') : h.until ? `at ${h.until}` : 'its pull requests'})` });
     const s = seat(id);
     if (s) out.push({ id, why: s.why, fix: `lane end ${s.lane.name} before its layer opens, or send the work to its session` });
   }
@@ -198,7 +235,9 @@ export function changeGaps(root, cfg, { base, head, changed }) {
   }
   for (const id of newEntries) {
     if (!after.has(id)) out.push({ file: entryFile(id), message: `${id}'s new ledger entry has no row in ${cfg.modules_file}: add it in this pull request (census, R15)` });
-    if (!has(head, `${dir}/${id}.md`)) out.push({ file: entryFile(id), message: `${id}'s new ledger entry has no requirements file ${dir}/${id}.md: add it in this pull request (census, R15)` });
+    let named = null;
+    try { named = JSON.parse(show(root, head, entryFile(id)) || '{}').requirements || null; } catch { named = null; }
+    if (!has(head, named ? String(named).replace(/^\.\//, '') : `${dir}/${id}.md`)) out.push({ file: entryFile(id), message: `${id}'s new ledger entry has no requirements file ${named || `${dir}/${id}.md`}: add it in this pull request (census, R15)` });
   }
   return out;
 }

@@ -92,6 +92,26 @@ test('census: every gap kind, named with what BOB writes; a module that needs no
   assert.match(census(root, configOf({ modules_file: 'nope.json' }), { ref: 'origin/tranche' }).skipped, /no nope\.json/);
 });
 
+test('census (cold review): a lane\'s module and a COMPLETE module with no work are never refused for the layer map; an odd row is not ready, never a throw', () => {
+  const root = product();
+  const cfg = loadConfig(root);
+  const rows = JSON.parse(git(['show', 'HEAD:build/modules.json'], { cwd: root })).modules;
+  commit(root, {
+    'build/layers.md': '| layer | name | modules |\n| --- | --- | --- |\n| 1 | One | done1, old1, owed1 |\n| 2 | Two | a2, b2 |\n| 3 | Three | c3, d3 |\n| 4 | Four | e4, skew, bad |\n',
+    'build/modules.json': { modules: [...rows, row('finished', 2), row('odd', 3, { uses: 'not-a-list' })] },
+    'process/ledger/ux-design.json': ent('ux-design', 4, { status: { state: 'COMPLETE' } }),
+    'process/ledger/finished.json': ent('finished', 2, { status: { state: 'COMPLETE' } }),
+    'build/requirements/finished.md': req('finished', false),
+    'build/requirements/odd.md': req('odd'),
+  });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const c = census(root, cfg, { ref: 'origin/tranche', open: [2] });
+  assert.deepEqual(c.gaps.filter((g) => ['ux-design', 'finished'].includes(g.id)), [], 'the lane\'s module (off the map) and a COMPLETE module with no unmet mark (off the map) are no gap');
+  assert.deepEqual(c.gaps.filter((g) => g.id === 'odd').map((g) => [g.kind, !!g.content]), [['not-in-layer-map', false], ['no-entry', false]]);
+  assert.match(c.gaps.find((g) => g.id === 'odd' && g.kind === 'no-entry').fix, /not ready: its modules row gives an entry the schema refuses/);
+});
+
 test('census lines: the open layer and lookahead first, the rest counted, the ready entries as one batch', () => {
   const root = product();
   const c = census(root, loadConfig(root), { ref: 'origin/tranche', open: [2], now: NOW });
@@ -129,7 +149,7 @@ test('open layers: an open row with no merged row', () => {
 test('preflight: what job start would refuse for the next layer, each with its fix', () => {
   const root = product();
   const cfg = loadConfig(root);
-  commit(root, { 'process/ledger/c3.json': ent('c3', 3, { status: { state: 'WORKING' } }), 'process/ledger/d3.json': { id: 'd3' } });
+  commit(root, { 'process/ledger/c3.json': ent('c3', 3, { status: { state: 'WORKING' } }), 'process/ledger/d3.json': { id: 'd3' }, 'process/ledger/e4.json': ent('e4', 4, { status: { state: 'COMPLETE' }, requirements: 'build/requirements/owed1.md' }) });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
   const c = census(root, cfg, { ref: 'origin/tranche', open: [2] });
@@ -145,6 +165,8 @@ test('preflight: what job start would refuse for the next layer, each with its f
   assert.equal(preflight(root, { ...cfg, plan: 'pause' }, 2, { ref: 'origin/tranche', census: c })[0].id, '*');
   // A module of the layer with no entry is named with the census's fix.
   const gone = preflight(root, cfg, 4, { ref: 'origin/tranche', census: c });
+  // A COMPLETE module with an unmet mark: a plain start refuses it; the fix is --reopen.
+  assert.ok(gone.some((x) => x.id === 'e4' && /COMPLETE with 1 unmet mark\(s\): a plain job start refuses it/.test(x.why) && /--reopen/.test(x.fix)), JSON.stringify(gone));
   assert.ok(gone.some((x) => x.id === 'ux-design' && /no-entry/.test(x.why) && /write process\/ledger\/ux-design\.json/.test(x.fix)));
 });
 
@@ -161,10 +183,13 @@ test('the gate: a requirements file or modules row added with no entry, or an en
   assert.ok(got.some((x) => /new2 gains a modules row with no ledger entry/.test(x.message)));
   assert.ok(got.some((x) => /new3's new ledger entry has no row in build\/modules\.json/.test(x.message)));
   assert.ok(got.some((x) => /new3's new ledger entry has no requirements file build\/requirements\/new3\.md/.test(x.message)));
+  // An entry whose requirements live where its requirements field says: no finding for them.
+  const elsewhere = commit(root, { 'build/modules.json': rows([row('new2', 4), row('new5', 4)]), 'process/ledger/new5.json': ent('new5', 4, { requirements: 'docs/req/new5.md' }), 'docs/req/new5.md': req('new5') });
+  assert.deepEqual(changeGaps(root, cfg, { base: head, head: elsewhere, changed: git(['diff', '--name-only', head, elsewhere], { cwd: root }).split('\n').filter(Boolean) }).filter((x) => /new5/.test(x.message)), []);
   // All three pieces together: nothing.
-  const whole = commit(root, { 'build/requirements/new4.md': req('new4'), 'build/modules.json': rows([row('new2', 4), row('new4', 4)]), 'process/ledger/new4.json': ent('new4', 4) });
-  const ch2 = git(['diff', '--name-only', head, whole], { cwd: root }).split('\n').filter(Boolean);
-  assert.deepEqual(changeGaps(root, cfg, { base: head, head: whole, changed: ch2 }).filter((x) => /new4/.test(x.message)), []);
+  const whole = commit(root, { 'build/requirements/new4.md': req('new4'), 'build/modules.json': rows([row('new2', 4), row('new5', 4), row('new4', 4)]), 'process/ledger/new4.json': ent('new4', 4) });
+  const ch2 = git(['diff', '--name-only', elsewhere, whole], { cwd: root }).split('\n').filter(Boolean);
+  assert.deepEqual(changeGaps(root, cfg, { base: elsewhere, head: whole, changed: ch2 }).filter((x) => /new4/.test(x.message)), []);
 });
 
 test('status --role bob: the gaps block for the open layer and its lookahead, then the next layer\'s preflight', () => {
