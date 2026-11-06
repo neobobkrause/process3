@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushSeen, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -47,6 +48,7 @@ export function run(cmd, args = [], opts = {}) {
 // product code may have written into .git/config while the gate ran it (review of build G).
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
+  pushSeen(args, opts.cwd);
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
@@ -85,8 +87,17 @@ function gitCwds() {
 export const exists = (root, rev, path) => git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true }).code === 0;
 
 // GitHub through the gh CLI (measured route, platform row 14). Returns parsed JSON or text.
+// Every gh call takes its turn against the account's budget of GitHub's published limits, and a
+// rate-limit refusal pauses every session until GitHub's reset (R17, pace.mjs).
+export function ghRun(args, opts = {}) {
+  try { ghTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
+  const r = run('gh', args, opts);
+  const p = ghAfter(args, r, opts.cwd);
+  if (p) fail(`GitHub refused gh ${args.slice(0, 2).join(' ')} with a rate limit${p.unshared ? ` (the pause is recorded in this clone only: the state branch refused it, ${p.unshared.split('\n')[0]})` : ''}; ${p.stopped ? 'a refusal within an hour of an earlier one: every GitHub call is stopped until the coordinator runs `node .process/tool/p3.mjs github resume --by <its session>`; tell the coordinator' : `every session waits until ${p.until}; run this again after it, never inside it`}`);
+  return r;
+}
 export function gh(args, opts = {}) {
-  const r = run('gh', args, { input: opts.input, cwd: opts.cwd });
+  const r = ghRun(args, { input: opts.input, cwd: opts.cwd });
   if (r.code !== 0 && !opts.allowFail) fail(`gh ${args.slice(0, 3).join(' ')} failed: ${(r.stderr || r.stdout).trim()}`);
   if (opts.allowFail && r.code !== 0) return null;
   const s = r.stdout.trim();
@@ -147,6 +158,9 @@ export function repoSlug(root) {
 }
 
 export const DEFAULTS = {
+  // GitHub limit conformance (R17, pace.mjs): the share of GitHub's published limits used, the
+  // limits themselves, optional session caps, the per-clone burst floor and the poll backoff.
+  pacing: { ...PACING_DEFAULTS },
   tranche: 'tranche',
   records: ['process/'],
   transient: [],
@@ -309,6 +323,9 @@ export function configOf(c, where = CONFIG_FILE) {
     const r = recs.find((x) => typeof x === 'string' && (underPath(strip(g), strip(x)) || underPath(strip(x), strip(g))));
     if (r !== undefined) fail(`${where}: the generated path ${g} and the records path ${r} overlap; a generated file is never a record`);
   }
+  const pp = pacingProblem(c.pacing);
+  if (pp) fail(`${where}: ${pp}`);
+  setPacing(c.pacing);
   const ms = c.merge_strategy ?? DEFAULTS.merge_strategy;
   if (ms !== 'layer') fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)}: the merge train was removed (Bob, 6 Nov); the shared layer branch is the only flow, so set "merge_strategy": "layer" or leave the key out`);
   return {
@@ -317,6 +334,7 @@ export function configOf(c, where = CONFIG_FILE) {
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
+    pacing: { ...DEFAULTS.pacing, ...(c.pacing || {}), github_limits: { ...DEFAULTS.pacing.github_limits, ...(c.pacing?.github_limits || {}) } },
   };
 }
 
@@ -333,8 +351,13 @@ export function jobCap(cfg = {}, env = process.env) {
   const cap = set ? (/^\d+$/.test(String(raw).trim()) ? Number(raw) : NaN) : JOB_CAP_DEFAULT;
   if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
   const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
+  // An optional hard cap (R17, off by default): pacing.jobs, when set and lower, is the cap in
+  // force; otherwise the budget of GitHub's published limits throttles (pace.mjs).
+  const paced = pacedJobs(cfg);
+  const lower = paced !== null && paced < cap;
+  const from = lower ? `pacing.jobs in ${CONFIG_FILE}` : set ? JOB_CAP_VAR : 'default';
   return {
-    cap, from: set ? JOB_CAP_VAR : 'default', line: `job cap ${cap} (${set ? JOB_CAP_VAR : 'default'})`,
+    cap: lower ? paced : cap, from, line: `job cap ${lower ? paced : cap} (${from})`,
     note: old.length ? `${CONFIG_FILE}: ${old.join(', ')} ignored; the job cap now comes from ${JOB_CAP_VAR} (default ${JOB_CAP_DEFAULT})` : null,
   };
 }
@@ -552,6 +575,8 @@ export function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'ESRCH' ? false : e.code === 'EPERM' ? true : null; }
 }
+// Whether this process holds the clone's state lock now (a write is under way).
+export const stateLockHeld = (root) => (lockDepth.get(stateLockPath(root)) || 0) > 0;
 export function stateLockPath(root) {
   if (!lockPaths.has(root)) {
     const r = run('git', ['rev-parse', '--git-common-dir'], { cwd: root });

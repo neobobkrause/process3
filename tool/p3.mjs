@@ -29,7 +29,9 @@ import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { fetchState, handoff, jsonl, outcome, readState, send, writeState, stateReplay } from './lib/state.mjs';
+import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
+import { clearLocalPause, githubBudget, useShared } from './lib/pace.mjs';
+import { shareUsage, stateShare } from './lib/ghshare.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -136,9 +138,11 @@ const commands = {
   'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
   'layer publish': async (a, root) => {
     const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
-    const every = a.every === undefined ? 30 : Number(a.every);
-    if (!Number.isFinite(every) || every <= 0) fail(`--every <seconds>, not ${JSON.stringify(a.every)}`);
-    return (await layerPublish(root, one(a, 'module'), { every: every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
+    // Unset, the run's check of the layer branch backs off from 30 s to 5 min (R17); --every fixes
+    // it, at 30 s or more.
+    const every = a.every === undefined ? null : Number(a.every);
+    if (every !== null && !(Number.isFinite(every) && every >= 30)) fail(`--every <seconds>, 30 or more (GitHub pacing), not ${JSON.stringify(a.every)}`);
+    return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
   'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
@@ -488,6 +492,20 @@ const commands = {
   //   failure, then the restart's acts in order. Writes nothing.
   // switch quiet [--minutes 2]: exit 0 only when the tranche's tip has not moved for that long.
   // The runbook: rulebooks/account-switch.md.
+  // github budget (R17): use against each of GitHub's published limits, per window, account-wide
+  // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
+  'github budget': (a, root) => { githubBudget(root); return 0; },
+  // github resume --by <session> (R17): the coordinator clears a stop (two refusals within an
+  // hour) once the account is in good standing; every session may call GitHub again.
+  'github resume': (a, root) => {
+    const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
+    const cfg = loadConfig(root);
+    stateShare(root, cfg).resume(by);
+    clearLocalPause(root);
+    console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
+    return 0;
+  },
+
   switch: (a, root) => {
     const sub = a._[0];
     if (sub === 'out') return (switchOut(root, { tasks: a.tasks, sessions: a.sessions, by: a.by }), 0);
@@ -578,6 +596,10 @@ export function endsAfter(root, cfg, name, code, { expire = expireRecords, err =
 }
 // The acts after which the tool ends the records whose condition is met (R13).
 export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete', 'block', 'layer open', 'layer land', 'layer merge', 'layer join', 'layer publish', 'tranche open', 'tranche close', 'lane start', 'lane end', 'lane ask', 'notice triage']);
+// The commands whose state writes push at once (R17): see main.
+let endFlush = () => {};
+let endHooked = false;
+export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay']);
 export async function main(argv) {
   const a = parseArgs(argv);
   const two = a._.slice(0, 2).join(' ');
@@ -590,10 +612,40 @@ export async function main(argv) {
   a._ = a._.slice(name.split(' ').length);
   let root = null;
   let cfg = null;
+  // One state push per command (R17, GitHub pacing): the writes are coalesced and pushed at its
+  // end. Not the commands whose write reserves a session they then hand out (a seat, a start, a
+  // handover) or that replay kept writes: theirs push at once, as before (cold review of R17).
+  const batched = process.env.P3_STATE_BATCH !== '0' && !UNBATCHED.has(name);
+  if (batched) stateBatch(true);
+  let flushed = false;
+  const flush = () => {
+    if (flushed || !batched) return null;
+    flushed = true;
+    // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
+    if (cfg && root && !process.env.NODE_TEST_CONTEXT) { try { shareUsage(root, cfg, { pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    stateBatch(false);
+    try { flushState(); return null; } catch (e) { return e; }
+  };
+  // A command ended early still pushes what it wrote: at exit, and on SIGTERM, SIGHUP or SIGINT
+  // (a timeout, or publish halting its run); a SIGKILL's writes stay kept for the next command.
+  if (batched) {
+    endFlush = () => { const e = flush(); if (e) console.error(`p3 ${name}: ${e.message}`); };
+    if (!endHooked) {
+      endHooked = true;
+      process.on('exit', () => endFlush());
+      for (const [sig, n] of [['SIGTERM', 15], ['SIGHUP', 1], ['SIGINT', 2]]) if (!process.listenerCount(sig)) process.once(sig, () => { endFlush(); process.exit(128 + n); });
+    }
+  }
   try {
     root = repoRoot();
+    // A p3 command killed in this clone before its flush left its writes kept (state.mjs): moved
+    // for replay, and said.
+    try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
+    // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
+    // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else.
+    if (cfg && !process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') useShared(stateShare(root, cfg));
     if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
@@ -605,8 +657,14 @@ export async function main(argv) {
     // that writes, the holds met end, recorded; never a refusal of the act. The sweep does the
     // same with the session list (lane seats).
     if (cfg && !process.env.NODE_TEST_CONTEXT) endsAfter(root, cfg, name, code);
+    const lost = flush();
+    if (lost) throw lost;
     return code;
   } catch (e) {
+    // A refusal after writes: they are pushed, as they were before the writes were coalesced.
+    const lost = flush();
+    if (lost instanceof Fail) console.error(`p3 ${name}: ${lost.message}`);
+    else if (lost) throw lost;
     if (e instanceof Fail) {
       console.error(`p3 ${name}: ${e.message}`);
       if (a.out) writeFileSync(a.out, JSON.stringify({ error: e.message, findings: [{ check: 'tool', file: '(tool)', line: 1, message: e.message }] }, null, 2) + '\n');
