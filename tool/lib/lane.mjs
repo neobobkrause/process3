@@ -27,7 +27,7 @@ import { P3, rulebook } from './job.mjs';
 import { entryFile, jobBranch, laneModuleGaps, ledgerIds, originJobs } from './ledger.mjs';
 import { PROCESS_ROOT, PROCESS_TRIAGE, REGISTER, productTriageLane } from './register.mjs';
 import { addressFile, fetchState, jsonl, readState, writeState } from './state.mjs';
-import { fail, fetchBranch, git, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
+import { fail, fetchBranch, git, laneChecks, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
 
 export const LANES_FILE = 'lanes/asks.jsonl';
 
@@ -57,7 +57,10 @@ export function lanes(cfg) {
     const gen = (Array.isArray(cfg.generated) ? cfg.generated : []).flatMap((r) => (Array.isArray(r?.paths) ? r.paths : [])).map((g) => String(g).replace(/^\.\//, ''));
     const g = research && gen.find((x) => underPath(x, research) || underPath(research, x.replace(/\/+$/, '')));
     if (g) fail(`lane ${l.name.trim()}'s research folder ${research}/ holds the generated path ${g}: research is never what the build reads`);
-    return { name: l.name.trim(), dir: dir ? dir.replace(/^\.\//, '') : null, module, kind, research, repo: 'product' };
+    // Its checks (laneChecks): commands the gate runs on its lane-only pull requests.
+    const checks = laneChecks({ lanes: [l] }, l.name.trim());
+    if (checks === null) fail(`lane ${l.name.trim()}'s checks are a list of commands, each a string or a list of words, not ${JSON.stringify(l.checks)}`);
+    return { name: l.name.trim(), dir: dir ? dir.replace(/^\.\//, '') : null, module, kind, research, repo: 'product', ...(checks.length ? { checks } : {}) };
   });
 }
 // The lane whose ledger module this is (a lane's "module" in process/config.json), or null.
