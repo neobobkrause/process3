@@ -260,7 +260,7 @@ test('#5: synced with BOB\'s push, the new attempt is checked and its receipt na
     assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head(root), 'the push landed');
     const posted = parseBlock(f.state.comments.at(-1).body, 'p3:receipt');
     assert.equal(posted.sha, head(root));
-    assert.ok(posted.commands.find((c) => c.suite), 'the suite ran on the merged result');
+    assert.equal(posted.commands.find((c) => c.suite), undefined, 'no suite in the session: CI runs it on the merged result (AUD-7)');
   }
 });
 

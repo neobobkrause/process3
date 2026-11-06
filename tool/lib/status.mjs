@@ -1,6 +1,8 @@
 // status (REC-3, minimal for Phase 1): every ledger entry with its state as the tranche and
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
+import { layerMode } from './layerbase.mjs';
+import { layerLines } from './layerflow.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, readingSet } from './job.mjs';
@@ -658,6 +660,8 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const pct = context === undefined ? null : Number(String(context).replace(/%$/, ''));
   if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
   if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
+  // The shared layer branch (layerflow.mjs): the open layer and the jobs BOB starts from it.
+  if (layerMode(cfg) && !offline && haveState && slug) { try { L.push(...layerLines(root, cfg, { slug })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
