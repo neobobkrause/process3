@@ -487,7 +487,7 @@ test('trial measures: a reschedule that changed its user\'s result is counted, a
   assert.equal(m.gate_runs, 2);
 });
 
-test('the gate: a ready job PR into a layer branch runs its suite even when it changes only records; into the tranche it keeps the record path', async () => {
+test('the gate: a ready job PR into a layer branch runs its suite even when it changes only records; into the tranche it does so only to check a receipt', async () => {
   const { gate } = await import('../lib/gate.mjs');
   const { RECEIPT } = await import('../lib/github.mjs');
   const root = makeRepo({
@@ -504,8 +504,12 @@ test('the gate: a ready job PR into a layer branch runs its suite even when it c
   const into = (baseRef) => gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(baseRef), log: quiet }).run;
   const lay = into('layer/1');
   assert.deepEqual([lay.trigger, lay.suite], ['code', 'pass']);
+  // Into the tranche: with a receipt and no green code run that measured it, the suite runs to check
+  // it (AUD-2, JOB-7); with no receipt yet it keeps the record path.
   const tr = into('tranche');
-  assert.deepEqual([tr.trigger, tr.suite], ['record', 'skipped']);
+  assert.deepEqual([tr.trigger, tr.suite, tr.receipt], ['code', 'pass', 'agrees']);
+  const bare = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: { ...io('tranche'), comments: () => [] }, log: quiet }).run;
+  assert.deepEqual([bare.trigger, bare.suite], ['record', 'skipped']);
 });
 
 test('the gate\'s layer trigger: a user of the layer that never re-ran after its provider\'s interface change is a finding; a head whose newest run is red covers nothing', async () => {

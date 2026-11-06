@@ -167,6 +167,18 @@ export function capUse(sweepRows, from, to = now()) {
 // The flow figures (audit of PR 139: cap use beside velocity, efficiency and quality, so a knee shows).
 export const FLOW_RULE = 'cap use, job session-hours over cap session-hours (a diagnostic, no target); velocity, unmet R and F marks closed per calendar hour net of marks added unmet (the fall in the unmet count at the tranche; a mark added already met, as a split adds it, never counts); efficiency, merges per job session-hour, and gate runs, cancels and job syncs per merged PR; quality, the false-done share (complete claims a gate run of the receipt refuted), the marks reopen starts named, and reverts. Per concurrency bucket, every figure with a time (job syncs and reverts whole only); each sweep row\'s live count held until the next row, at most 2 hours.';
 export const BUCKETS = [[1, 5], [6, 10], [11, 15], [16, 20], [21, Infinity]];
+// A COMPLETE claim is refuted (SES-12, the false-done rate) when a gate run that checked that
+// attempt's receipt failed its suite or its revert check, or disagreed with the receipt (AUD-2,
+// JOB-7: every disagreement counts). A revert failure a reviewer later exempted on the same attempt
+// (AUD-1: a refactor whose tests rightly pass before and after) refutes nothing.
+export const refutes = (r, attempt) => r?.receipt_attempt === attempt && (r.suite === 'fail' || r.revert === 'fail' || r.receipt === 'disagrees');
+export function refuted(runs, attempt) {
+  const list = runs || [];
+  // Cancelled only by an exempt run after it on the same attempt whose reviewed commit is its own.
+  const excused = (r, i) => r?.revert === 'fail' && r.suite !== 'fail' && r.receipt !== 'disagrees'
+    && list.slice(i + 1).some((x) => x?.receipt_attempt === attempt && x.revert === 'exempt' && x.revert_exempt?.sha === r.sha);
+  return list.some((r, i) => !excused(r, i) && refutes(r, attempt));
+}
 const r2 = (x) => Math.round(x * 100) / 100;
 export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gates = () => null, syncs = null, reverts = null, quick = null, from, to = now() }) {
   const [a, b] = [Date.parse(from) || -Infinity, Date.parse(to)];
@@ -174,7 +186,7 @@ export function flowFigures({ sweeps = [], rows = [], unmetAt = () => null, gate
   const runsOf = (pr) => { try { return pr ? gates(pr) : null; } catch { return null; } };
   // Each event once, with what it adds: a merge its gate runs; a complete claim whether a gate run of its receipt refuted it; a reopen its marks.
   const merges = [...new Map(rows.filter((r) => r.row === 'merge' && inW(r)).map((r) => [String(r.pr), r])).values()].map((r) => ({ at: Date.parse(r.at), runs: runsOf(r.pr) }));
-  const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete' && inW(r)).map((c) => ({ at: Date.parse(c.at), refuted: (runsOf(c.pr) || []).some((x) => x.receipt_attempt === c.attempt && (x.suite === 'fail' || x.revert === 'fail')) }));
+  const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete' && inW(r)).map((c) => ({ at: Date.parse(c.at), refuted: refuted(runsOf(c.pr), c.attempt) }));
   const reopens = rows.filter((r) => r.row === 'attempt' && r.event === 'start' && r.reopen && !r.abandoned && inW(r)).map((r) => ({ at: Date.parse(r.at), marks: (String(r.reopen).match(/\b[RF][\w.-]*\d\b/g) || []).length }));
   const fall = (x, y) => { const [u, v] = [unmetAt(new Date(x).toISOString()), unmetAt(new Date(y).toISOString())]; return Number.isInteger(u) && Number.isInteger(v) ? u - v : null; };
   const blank = () => ({ h: 0, job: 0, slots: 0, fall: 0, merges: [], completes: [], reopens: [] });
@@ -400,7 +412,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
   const completes = rows.filter((r) => r.row === 'attempt' && r.event === 'complete');
   const merges = [...new Map(rows.filter((r) => r.row === 'merge').map((r) => [String(r.pr), r])).values()]; // each PR once (copy, 4 Nov: PR 60's merge recorded twice)
   const measured = rows.filter((r) => r.row === 'attempt' && r.event === 'measured');
-  let refuted = 0;
+  let refutedN = 0;
   let gateMinutes = 0;
   const gates = [];
   for (const c of completes) {
@@ -410,9 +422,7 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
     const runs = gateRuns(all);
     gates.push({ pr: c.pr, runs: runs.length });
     gateMinutes += runs.reduce((s, r) => s + (r.minutes || 0), 0);
-    // A COMPLETE claim is refuted when a gate run that checked that attempt's receipt failed
-    // its suite or its revert check.
-    if (runs.some((r) => r.receipt_attempt === c.attempt && (r.suite === 'fail' || r.revert === 'fail'))) refuted++;
+    if (refuted(runs, c.attempt)) refutedN++;
   }
   const cost = measured.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
   const tokens = measured.some((r) => typeof r.tokens === 'number') ? measured.reduce((s, r) => s + (Number(r.tokens) || 0), 0) : 'unmeasured';
@@ -425,8 +435,8 @@ export function report(root, slug, branch, { read = { comments, getPR }, sweepRo
   const surviving = surv.filter((s) => s.state === 'survived').length;
   return {
     complete_claims: completes.length,
-    refuted,
-    false_done_rate: completes.length ? refuted / completes.length : null,
+    refuted: refutedN,
+    false_done_rate: completes.length ? refutedN / completes.length : null,
     cost_usd: cost,
     tokens,
     surviving_prs: surviving,
