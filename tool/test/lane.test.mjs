@@ -34,6 +34,7 @@ test('lane ask: refused until the lane names its directory; the brief carries th
   const { root, bare } = withOrigin({
     'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux/' }] },
     'design/ux/README.md': 'principles\n', 'design/ux/screens/a.md': 'screen a\n', 'build/q.md': 'context\n',
+    'design/ux-research/index.md': 'index\n', 'design/ux-research/qualification-2026-11-06.md': 'record\n',
   });
   assert.throws(() => laneAsk(root, 'ux', 'which?', { context: 'build/nope.md', log: quiet }), /--context build\/nope\.md: no such file/);
   const out = [];

@@ -16,6 +16,8 @@ import { entry, makeRepo } from './helpers.mjs';
 const quiet = () => {};
 const S1 = 'session_lane1';
 const S2 = 'session_lane2';
+// A qualified lane's research area (Bob, 6 Nov): its index and a dated qualification record.
+const QUAL = { 'design/ux-research/index.md': 'index\n', 'design/ux-research/qualification-2026-11-06.md': 'record\n' };
 
 function withOrigin(files) {
   const root = makeRepo(files);
@@ -95,7 +97,7 @@ test('a lane with a module: the lane\'s session and the module\'s job are one se
 });
 
 test('lane artifact records a lane\'s design documents\' links for its successor: the START and the ask brief list them', () => {
-  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n', ...QUAL });
   assert.throws(() => laneArtifact(root, 'ux', 'not a link', { log: quiet }), /the document's https link/);
   laneArtifact(root, 'ux', 'https://claude.ai/artifact/AAA', { title: 'Design doc', log: quiet });
   laneArtifact(root, 'ux', 'https://claude.ai/artifact/BBB', { log: quiet });
@@ -157,7 +159,7 @@ test('a lane session is its own kind in the session list, kept while it holds th
 });
 
 test('lane ask while the lane\'s session is live: the question goes to that session, not to a worker', () => {
-  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n', ...QUAL });
   const a = [];
   laneAsk(root, 'ux', 'which words?', { log: (m) => a.push(m) });
   assert.match(a.join('\n'), /start one read-only worker/);
@@ -179,7 +181,7 @@ test('a lane module\'s START says the job is the lane\'s one session', () => {
 test('lane config: a folder the gate would not count is refused; a paused plan starts no lane session; lane start takes no job start option', async () => {
   const { lanes } = await import('../lib/lane.mjs');
   for (const dir of ['.', 'process/ux', '../x', '.github/x']) assert.throws(() => lanes({ lanes: [{ name: 'ux', dir }] }), /cannot be a lane folder/, dir);
-  assert.deepEqual(lanes({ lanes: [{ name: 'ux', dir: './design/ux/' }] }), [{ name: 'ux', dir: 'design/ux', module: null, kind: 'design', repo: 'product' }]);
+  assert.deepEqual(lanes({ lanes: [{ name: 'ux', dir: './design/ux/' }] }), [{ name: 'ux', dir: 'design/ux', module: null, kind: 'design', research: 'design/ux-research', repo: 'product' }]);
   const { root } = withOrigin({ 'process/config.json': { plan: 'pause', lanes: [{ name: 'ux', dir: 'design/ux' }] }, 'design/ux/README.md': 'x\n' });
   assert.throws(() => laneStart(root, 'ux', { slug: 'o/p', log: quiet }), /plan pause: take no new step; no lane session was started/);
   const { main } = await import('../p3.mjs');
