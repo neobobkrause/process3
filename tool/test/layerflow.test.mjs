@@ -547,7 +547,7 @@ test('layer open mid-tranche: a layer the train closed is not opened again, an e
   // Layer 1 closed by the train's layer close.
   const { writeState } = await import('../lib/state.mjs');
   const { mkdirSync, writeFileSync } = await import('node:fs');
-  writeState(root, SB, 'layer 1 closed', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), JSON.stringify({ row: 'closed', layer: 1 }) + '\n'); return {}; });
+  writeState(root, SB, 'layer 1 closed', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), JSON.stringify({ row: 'closed', layer: 1, tranche: 'tranche' }) + '\n'); return {}; });
   await assert.rejects(async () => layerOpen(root, 1, { io: openIO, log: quiet }), /layer 1 is closed already/);
   await assert.rejects(async () => layerOpen(root, 2, { io: { ...openIO, openPRs: () => [{ number: 4, head: { ref: 'job/d' } }] }, log: quiet }), /job PRs open into tranche: #4 \(job\/d\)/);
   assert.equal(layerOpen(root, 2, { io: openIO, log: quiet }).ok, true);
@@ -612,4 +612,36 @@ test('closed layers are this tranche\'s only: a close row of another tranche, or
   const rows = [{ row: 'closed', layer: 1, tranche: 'tranche', commit: onMain }, { row: 'closed', layer: 2, tranche: 'other' }, { row: 'closed', layer: 3, tranche: 'tranche', commit: here }];
   writeState(root, SB, 'closes', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n'); return {}; });
   assert.deepEqual([...closedLayers(root, SB, configOf({}))], [3]);
+});
+
+test('a BLOCKED module whose code is on the layer is judged as any: a provider\'s later interface change is still a finding', async () => {
+  const { root, bare } = await opened();
+  const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(8);\n" });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x ** y; }\n' });
+  const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'a', ha) };
+  const mergedAs = {};
+  const io0 = landIO(bare, prs);
+  const io = { ...io0, merge: (s, k, sha, t) => { const r = io0.merge(s, k, sha, t); mergedAs[k] = r.sha; return r; } };
+  await layerLand(root, 1, { io, log: quiet });
+  await layerLand(root, 2, { io, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  entries.find((e) => e.id === 'b').status = { state: 'BLOCKED', reason: 'set instead of re-running' };
+  const runs = (k) => [{ sha: prs[k].head.sha, ok: true, trigger: 'code', suite: 'pass', scope: [prs[k].head.ref.slice(4)] }];
+  const cio = { getPR: (s, k) => ({ ...prs[k], merged: true, merge_commit_sha: mergedAs[k] }), verify: () => true, comments: (s, k) => [{ user: { login: BOT }, body: block(GATE, { runs: runs(k) }, 'gate') }] };
+  const r = layerCover(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: cio });
+  assert.ok(r.findings.some((f) => /b's last green run .* did not hold the interface change of a/.test(f.message)));
+});
+
+test('an earlier tranche\'s flow rows (their merge on main) count for nothing: that layer is not reopened, and a later one does not open on them', async () => {
+  const { root } = product();
+  const onMain = git(['rev-parse', 'origin/main'], { cwd: root });
+  writeRows(root, SB, 'an earlier tranche', [[flowFile(1, 'open'), { row: 'open', layer: 1, at: '2026-10-01T00:00:00Z' }], [flowFile(1, 'merged'), { row: 'merged', layer: 1, commit: onMain, at: '2026-10-02T00:00:00Z' }]]);
+  await assert.rejects(async () => layerOpen(root, 1, { io: openIO, log: quiet }), /an earlier tranche's .* not built/);
+  await assert.rejects(async () => layerOpen(root, 2, { io: openIO, log: quiet }), /layer 1 is not closed/);
+  fetchState(root, SB, { fresh: true });
+  assert.match(layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO })[0], /earlier tranche's/);
 });

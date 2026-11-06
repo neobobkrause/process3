@@ -242,9 +242,11 @@ export function closedLayers(root, sb, cfg) {
   fetchBranch(root, 'main', { allowFail: true });
   const main = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 ? 'refs/remotes/origin/main' : null;
   return new Set((readState(root, sb, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => {
-    try { const r = JSON.parse(l); return r.row === 'closed' && (!cfg || (r.tranche ?? cfg.tranche) === cfg.tranche) && !(main && r.commit && hasCommit(root, r.commit) && isAnc(root, r.commit, main)) ? [r.layer] : []; } catch { return []; }
+    try { const r = JSON.parse(l); return r.row === 'closed' && (!cfg || r.tranche === cfg.tranche) && !(main && r.commit && hasCommit(root, r.commit) && isAnc(root, r.commit, main)) ? [r.layer] : []; } catch { return []; }
   }));
 }
+// This tranche's merge of the layer: a merged row whose merge has not reached main.
+const mergedHere = (root, rows) => !!rows.merged && !staleFlow(root, rows);
 // A layer whose flow rows are an earlier tranche's: its merge reached main. The flow's rows and
 // branch for a second tranche are not built (the trial is one layer); refused, never reused.
 function staleFlow(root, rows) {
@@ -254,7 +256,7 @@ function staleFlow(root, rows) {
   return git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 && isAnc(root, c, 'refs/remotes/origin/main');
 }
 function layerBehind(root, cfg, L, closed, ref) {
-  if (closed.has(L.n) || flowRows(root, cfg.state_branch, L.n).merged) return true;
+  if (closed.has(L.n) || mergedHere(root, flowRows(root, cfg.state_branch, L.n))) return true;
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   return L.mods.every((id) => {
     const e = entryAt(root, ref, id);
@@ -273,6 +275,7 @@ export function layerLines(root, cfg, { slug, io = {} } = {}) {
   for (const layer of layers) {
     const { n } = layer;
     const r = flowRows(root, cfg.state_branch, n);
+    if (staleFlow(root, r)) { L.push(`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`); return L; }
     if (!r.open && layerBehind(root, cfg, layer, closed, tr)) continue;
     if (r.merged) continue;
     if (!r.open) { L.push(`layer flow: layer ${n} is next and not open: \`${P3} layer open ${n}\``); return L; }
@@ -660,8 +663,9 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   for (const e of entries) {
     const fs = need.filter((f) => inMod(e, f));
     if (!fs.length && !inLayer.has(e.id)) continue;
-    // A BLOCKED module is deferred, as layer status counts it: it holds nothing (confirming review N2).
-    if (e.status?.state === 'BLOCKED') continue;
+    // A BLOCKED module that changed nothing on the layer is deferred, as layer status counts it,
+    // and holds nothing (confirming review N2); one whose code is on the layer is judged as any.
+    if (!fs.length && e.status?.state === 'BLOCKED') continue;
     const last = lands.find((x) => x.v.id === e.id) || null; // newest first
     if (fs.length && !last) { for (const f of fs) findings.push({ check: 'layer', file: f, line: 1, message: `${e.id} changed with no land of its publish on ${branch}` }); continue; }
     const stray = last ? fs.filter((f) => chain.slice(0, chain.indexOf(last.c)).some((c) => diffNames(root, parents(c)[0], c).includes(f))) : [];
