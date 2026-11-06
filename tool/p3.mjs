@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
-import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerStatus } from './lib/layerflow.mjs';
+import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest, layerStatus } from './lib/layerflow.mjs';
 import { layerMode } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
@@ -145,6 +145,7 @@ const commands = {
   // layer jobs <n>: the jobs that can start now (not started, or reopened by a reschedule).
   // layer status <n>: each module's state, and whether the layer can merge.
   // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
+  // layer retest <id>: a rescheduled module with no work on the layer re-tested by CI on a ready PR, no job session.
   // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
   // layer merge <n> [--no-wait]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
@@ -157,6 +158,7 @@ const commands = {
     if (!Number.isFinite(every) || every <= 0) fail(`--every <seconds>, not ${JSON.stringify(a.every)}`);
     return (await layerPublish(root, one(a, 'module'), { every: every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
+  'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer merge': async (a, root) => ((await layerMerge(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer report': (a, root) => (layerReport(root, one(a, 'layer number'), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
@@ -273,7 +275,7 @@ const commands = {
   hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, prs: a.prs, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
 
   // test <id>: the module's own suite, as the gate runs it.
-  test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
+  test: (a, root) => (jobTest(root, one(a, 'module'), { session: typeof a.session === 'string' ? a.session : null }).ok ? 0 : 1),
 
   // block <id> --reason "<why>" [--owner bob|coordinator]: who owes its ruling; bob only for a requirement question, what the product must do (rule 9)
   block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason, owner: a.owner }).ok ? 0 : 1),
