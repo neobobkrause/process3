@@ -8,7 +8,7 @@ import { generatedRows, oversizeGenerated } from './checks.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
-import { DEFAULTS, OPEN_BY, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { address, fetchState } from './state.mjs';
 
@@ -346,7 +346,13 @@ export function fileLog(x, ref, file, root) {
 // --at HEAD, before a pin-move pull request merges), that commit's pin and files are judged
 // instead of the tranche tip's, and session-branch is skipped.
 export function setupCheck(root, { slug, at = null, anchor = false, conditions = loadConditions(), io = {}, log = console.log } = {}) {
-  const local = loadConfig(root);
+  // A checkout still naming the removed merge train is read as the layer flow here, so setup check
+  // can name the blocker (strategyCheck) instead of refusing before it prints anything.
+  let local;
+  try { local = loadConfig(root); } catch (e) {
+    if (!/merge_strategy/.test(e.message)) throw e;
+    local = configOf({ ...JSON.parse(readFileSync(join(root, CONFIG_FILE), 'utf8')), merge_strategy: 'layer' });
+  }
   let sha = null;
   if (at) {
     const r = git(['rev-parse', '-q', '--verify', `${at}^{commit}`], { cwd: root, allowFail: true });
@@ -403,11 +409,15 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
   const openByLine = openByCheck(x.cfg);
   log(openByLine);
+  // The merge train was removed (Bob, 6 Nov): a tranche config still naming another strategy makes
+  // every command, the gate included, refuse once the pin moves to this tool (cold review of PR 191).
+  const strategy = strategyCheck(tcfg);
+  if (strategy) log(strategy);
   const size = sizeCheck(root, x, sha, { io, log });
   const carry = takeInCheck(root, x, { io, log });
   const generated = generatedCheck(root, x, sha, { log });
   const lanes = laneModuleCheck(x.cfg, io.entries || ledgerEntries(root, sha || `origin/${x.cfg.tranche}`), { log });
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, lanes };
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, lanes, ...(strategy ? { strategy } : {}) };
 }
 
 const ledgerEntries = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { return [JSON.parse(t)]; } catch { return []; } });
@@ -431,6 +441,14 @@ export function laneModuleCheck(cfg, entries, { log = console.log } = {}) {
   for (const w of out) log(`warning: ${w}`);
   if (!out.length) log(`lanes: ${lanes.length}, each folder outside other modules' paths`);
   return out;
+}
+
+// A blocker before a pin move: process/config.json on the tranche naming a merge_strategy other
+// than "layer" (or the key absent). Informational here; loadConfig refuses it once the pin moves.
+export function strategyCheck(cfg) {
+  const ms = cfg?.merge_strategy;
+  if (ms === undefined || ms === 'layer') return null;
+  return `BLOCKER before a pin move: process/config.json on the tranche says "merge_strategy": ${JSON.stringify(ms)}; the merge train was removed and every command (the gate included) refuses it at the new pin. First a plain pull request setting "merge_strategy": "layer" (or removing the key), merged under the current pin`;
 }
 
 // Which opening of next work is in force (open_by in process/config.json; status --role bob).

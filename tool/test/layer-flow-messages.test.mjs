@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { layerLines, layerMergeLine, layerOpen, layerStartAct, openLayer } from '../lib/layerflow.mjs';
 import { recordStart } from '../lib/roles.mjs';
-import { laneModuleCheck, setupCheck } from '../lib/setup.mjs';
+import { laneModuleCheck, setupCheck, strategyCheck } from '../lib/setup.mjs';
 import { fetchState, readState, writeState } from '../lib/state.mjs';
 import { nextWork } from '../lib/status.mjs';
 import { layerIdle, sweep } from '../lib/sweep.mjs';
@@ -217,4 +217,15 @@ test('the gate row of a layer pull request (trigger layer) passes the post check
   const row = { sha: 'a'.repeat(40), run_id: 1, trigger: 'layer', findings: 0, ok: true, minutes: 1 };
   assert.doesNotThrow(() => checkRow(row));
   assert.throws(() => checkRow({ ...row, trigger: 'spec-tested' }), /trigger/);
+});
+
+test('setup check names merge_strategy "train" as a blocker before a pin move, even from a checkout whose own config says it', () => {
+  assert.equal(strategyCheck({}), null);
+  assert.equal(strategyCheck({ merge_strategy: 'layer' }), null);
+  assert.match(strategyCheck({ merge_strategy: 'train' }), /^BLOCKER before a pin move: .*"merge_strategy": "train".*plain pull request setting "merge_strategy": "layer"/);
+  const root = makeRepo({ 'process/config.json': { tranche: 'tranche', merge_strategy: 'train' } });
+  const out = [];
+  const r = setupCheck(root, { slug: 'o/r', conditions: [], io: { file: (f) => (f === 'process/config.json' ? JSON.stringify({ merge_strategy: 'train' }) : null), address: null, pin: null, entries: [], api: () => null, openPRs: () => [], prFiles: () => [] }, log: (l) => out.push(l) });
+  assert.match(r.strategy, /BLOCKER before a pin move/);
+  assert.ok(out.some((l) => /^BLOCKER before a pin move/.test(l)), out.join('\n'));
 });
