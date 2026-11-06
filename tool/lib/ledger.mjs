@@ -109,12 +109,33 @@ export function writeStatus(root, id, status) {
   return e;
 }
 
+// Whether home holds file, and it differs from e only in its status.
+function carried(root, home, file, e) {
+  const t = git(['show', `${home}:${file}`], { cwd: root, allowFail: true });
+  if (t.code !== 0) return false;
+  try { return fixed(JSON.parse(t.stdout)) === fixed(e); } catch { return false; }
+}
+// The ref of the ledger's home, the tranche, for checkLedger's home: origin's, else a local
+// branch, fetched once when neither is here; null when it cannot be read.
+export function homeRef(root, tranche) {
+  if (!tranche) return null;
+  const has = (r) => git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+  const remote = `refs/remotes/origin/${tranche}`;
+  if (has(remote)) return remote;
+  if (has(`refs/heads/${tranche}`)) return `refs/heads/${tranche}`;
+  git(['fetch', '-q', 'origin', `+refs/heads/${tranche}:${remote}`], { cwd: root, allowFail: true });
+  return has(remote) ? remote : null;
+}
+
 const finding = (file, message) => ({ check: 'ledger', file, line: 1, message });
 const fixed = (e) => JSON.stringify({ ...e, status: undefined });
 
 // Schema check of every entry; with base and a job/<id> branch, also that the job changed
-// nothing in the ledger except the status of its own entry.
-export function checkLedger(root, { base, branch, ref } = {}) {
+// nothing in the ledger except the status of its own entry. home (the layer flow): the ref of the
+// ledger's home, the tranche. A job on a layer branch cut before the tranche got its module's
+// entry (copy, 6 Nov: layer/8 and PR 638) carries that entry onto the layer: it may add its own
+// entry when home holds it, and nothing but the status differs from home's.
+export function checkLedger(root, { base, branch, ref, home } = {}) {
   const findings = [];
   const head = readLedgerTexts(root, ref);
   const parsed = {};
@@ -132,7 +153,11 @@ export function checkLedger(root, { base, branch, ref } = {}) {
     const before = readLedgerTexts(root, base);
     for (const file of new Set([...Object.keys(before), ...Object.keys(head)])) {
       if (before[file]?.trimEnd() === head[file]?.trimEnd()) continue;
-      if (!(file in before)) { findings.push(finding(file, 'a job may not add a ledger entry')); continue; }
+      if (!(file in before)) {
+        if (file === own && home && parsed[file] && carried(root, home, file, parsed[file])) continue;
+        findings.push(finding(file, `a job may not add a ledger entry${file === own && home ? ` (its own is added only as ${home} holds it, the status aside)` : ''}`));
+        continue;
+      }
       if (!(file in head)) { findings.push(finding(file, 'a job may not remove a ledger entry')); continue; }
       if (file !== own) { findings.push(finding(file, `job ${job} may change only its own entry`)); continue; }
       let b;

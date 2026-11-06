@@ -1,0 +1,70 @@
+# container-images.yml: builds the fleet's container images and publishes each by digest (bio K1893, K1894; trial
+# draft §3.3, K2816 (4)). Replaces agent-runner-image.yml.
+#
+# A release names each image only by its digest (agent-runner R7, R13; file-scanner R10), and `deploy-fleet` pulls it
+# from a registry. No session can build one (no Docker, the proxy's TLS), so GitHub's runners build them from the cut
+# branch's Dockerfiles and publish them on GHCR and on Docker Hub (`docker.io/civicsmith`, bio K3805, K3808: Cloudflare
+# Containers cannot pull from GHCR, so the release names the Docker Hub copy; both carry the same digest). The release
+# then writes each printed digest into `fleet-member.json` and `wrangler.jsonc` at the cut. Runs on a push of a cut branch touching a container member, or
+# by hand.
+name: container-images
+
+on:
+  push:
+    branches: ["dist/cut-*"]
+    paths: ["agent-runner/Dockerfile", "agent-runner/package.json", "agent-runner/package-lock.json", "agent-runner/src/**",
+            "file-scanner/Dockerfile.*", "file-scanner/package.json", "file-scanner/package-lock.json",
+            "file-scanner/packages-*.json", "file-scanner/container/**", "file-scanner/src/**",
+            "reader-container/Dockerfile", "reader-container/package.json", "reader-container/package-lock.json",
+            "reader-container/packages.json", "reader-container/container/**", "reader-container/src/**",
+            ".github/workflows/container-images.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: agent-runner, context: agent-runner, file: agent-runner/Dockerfile, member: agent-runner }
+          - { name: file-scanner-scanner, context: file-scanner, file: file-scanner/Dockerfile.scanner, member: file-scanner }
+          - { name: file-scanner-renderer, context: file-scanner, file: file-scanner/Dockerfile.renderer, member: file-scanner }
+          - { name: reader-container, context: reader-container, file: reader-container/Dockerfile, member: reader-container }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: version
+        id: v
+        run: echo "version=$(node -p "require('./${{ matrix.member }}/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.v.outputs.version }}
+            docker.io/civicsmith/${{ matrix.name }}:${{ steps.v.outputs.version }}
+      - name: digest
+        run: |
+          echo "image: docker.io/civicsmith/${{ matrix.name }}@${{ steps.push.outputs.digest }}"
+          echo "image: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.push.outputs.digest }}"
+          echo "### ${{ matrix.name }} ${{ steps.v.outputs.version }}: \`docker.io/civicsmith/${{ matrix.name }}@${{ steps.push.outputs.digest }}\` (also \`ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.push.outputs.digest }}\`)" >> "$GITHUB_STEP_SUMMARY"

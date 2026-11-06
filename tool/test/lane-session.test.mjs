@@ -1,5 +1,5 @@
 // One session per lane (Bob, 5 Nov 17:33): the lane's seat on the state branch, held by lane
-// start, checked by job start, job start --ready and the starter (readySelection), and a defect
+// start, checked by job start, and a defect
 // line in status and the sweep when a lane has more than one live session.
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';

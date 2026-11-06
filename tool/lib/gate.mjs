@@ -4,7 +4,7 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, latestReceipt, parseBlock, verifyRow } from './github.mjs';
-import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
+import { branchModule, checkLedger, entryFile, homeRef, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
@@ -110,7 +110,9 @@ export function gate(root, opts) {
   // The job's branch is the one its latest start row names (a --fresh-branch start's job/<id>-<n>).
   const named = entry && startBranch(rowsAt(root, judged, job), job);
   if (named && named !== branch) findings.push(F('ledger', metricsFile(job), `branch ${branch} is not job ${job}'s branch: its latest start row names ${named}`));
-  findings.push(...checkLedger(root, { ref: judged, base: mb, branch }));
+  // A job PR into a layer branch may carry its own entry from the tranche, the ledger's home.
+  const home = job && layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null ? homeRef(root, cfg.tranche) : null;
+  findings.push(...checkLedger(root, { ref: judged, base: mb, branch, home }));
 
   // A job writes only its module's files and tests, and its own records (ARC-2).
   if (entry) {

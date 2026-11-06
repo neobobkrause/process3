@@ -1,0 +1,66 @@
+# release-sign.yml: signing a release, apart from assembling it (bundler R30; N713; Bob's K1936 Q4 step 2).
+#
+# Sessions assemble and never sign (bundler R30; `--sign` refuses outside GitHub Actions). This workflow is
+# the only place a release is signed: it runs in the GitHub environment `release`, whose secret
+# `BIO_RELEASE_SEED` is the release key and whose required reviewer is Bob, so each run waits for his
+# approval, one approval per release. It re-assembles the commit it signs, so it signs only what it proved
+# fresh, never a payload a session handed it, and commits the signed `release/` back to the branch it ran on.
+# The commands and their order are bundler's (its record, R30; `release-assemble.mjs`'s header).
+# Started by hand (Actions tab, or BOB with the GitHub tools) on a `dist/cut-<version>` branch.
+name: release-sign
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The release version, e.g. 0.82.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-sign
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: release
+    steps:
+      - name: refuse a branch that is not a release cut
+        run: |
+          case "$GITHUB_REF_NAME" in
+            dist/cut-*) ;;
+            *) echo "release-sign runs only on a dist/cut-<version> branch, not $GITHUB_REF_NAME"; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26.10.0"
+      - name: install (bundler R30, steps 1-2)
+        run: |
+          set -euo pipefail
+          (cd bio-plane && npm ci --no-audit --no-fund --loglevel=error)
+          node bio-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
+            [ "$dir" = "bio-plane" ] && continue
+            (cd "$dir" && npm ci --no-audit --no-fund --loglevel=error)
+          done
+      - name: assemble, nothing written (step 3)
+        run: node bio-plane/scripts/release-assemble.mjs --version "${{ inputs.version }}" --dry-run
+      - name: sign (step 4)
+        env:
+          BIO_RELEASE_SEED: ${{ secrets.BIO_RELEASE_SEED }}
+        run: node bio-plane/scripts/release-assemble.mjs --version "${{ inputs.version }}" --sign
+      - name: commit the signed release
+        run: |
+          set -euo pipefail
+          git config user.name "release-sign"
+          git config user.email "release-sign@users.noreply.github.com"
+          git add release/
+          git commit -m "release ${{ inputs.version }}: signed by release-sign (bundler R30; run ${{ github.run_id }})"
+          git push origin "HEAD:$GITHUB_REF_NAME"

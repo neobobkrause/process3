@@ -1,0 +1,119 @@
+# deploy-test.yml: deploy a named branch's built artifacts to a test copy, unsigned (Bob's K4180, K4186; bundler R40).
+#
+# Development builds go to the trial copy without a signature: only the alpha release teams install is signed,
+# under `release`. This workflow runs in the GitHub environment `deploy-test`, whose secret `CLOUDFLARE_API_TOKEN`
+# is a token for account 20b533579290b9b93168345edd3b7f72 only (K4184); it has no reviewer. The scripts refuse a
+# copy not marked a test instance ([NOT_A_TEST_INSTANCE]) and any other account ([WRONG_ACCOUNT]), and every step
+# logs its `test deploy:` and `rollback :` lines. The steps and their order are bundler's (BUNDLER #24's record).
+# A container member's image must already be published (`container-images.yml`); its marker names the digest.
+# Started by hand (Actions tab, or BOB with the GitHub tools) once this file is on `main`; until then (GitHub dispatches
+# only workflows on the default branch, and `main` never moves while a tranche runs, P12) by pushing the branch's tip
+# to `deploy-test/<copy>/dry-run` (every step --dry-run) or `deploy-test/<copy>/deploy` (K4290, K4296). The room's store
+# options (G83, bundler R41) are the dispatch inputs `store_location` and `store_generation`, or on the push route a middle
+# segment, `deploy-test/<copy>/<opts>/<mode>` with opts e.g. `wnam`, `wnam-g2`, `g1` (K4768); no segment keeps the held values.
+name: deploy-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "The branch whose built artifacts are deployed, e.g. tranche/T51"
+        required: true
+        type: string
+      copy:
+        description: "The test copy's instance name, e.g. biosmoke8"
+        required: true
+        type: string
+      dry_run:
+        description: "Run every step with --dry-run (nothing deployed)"
+        required: false
+        type: boolean
+        default: false
+      store_location:
+        description: "The room's location hint for rooms not yet created (G83, bundler R41), e.g. wnam; empty keeps the held value"
+        required: false
+        type: string
+        default: ""
+      store_generation:
+        description: "The room generation (G83, bundler R41): 2 or more starts new rooms, 1 removes it (the rollback); empty keeps the held value"
+        required: false
+        type: string
+        default: ""
+  push:
+    branches: ["deploy-test/*/dry-run", "deploy-test/*/deploy", "deploy-test/*/*/dry-run", "deploy-test/*/*/deploy"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-test-${{ inputs.copy || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: deploy-test
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCT: 20b533579290b9b93168345edd3b7f72
+      CLOUDFLARE_ACCOUNT_ID: 20b533579290b9b93168345edd3b7f72
+    steps:
+      - name: what to deploy, and where
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            ref="${{ github.ref_name }}"; copy="${ref#deploy-test/}"; mode="${copy##*/}"; copy="${copy%/*}"
+            [ "$mode" = "dry-run" ] && dry="--dry-run" || dry=""
+            src="${{ github.sha }}"
+            # K4768: the push route's store options, a middle segment `deploy-test/<copy>/<opts>/<mode>` whose
+            # dash-separated tokens are a location hint (letters) and `g<n>` (the generation), e.g. wnam, wnam-g2, g1.
+            loc=""; gen=""
+            case "$copy" in */*) opts="${copy#*/}"; copy="${copy%%/*}"
+              for tok in ${opts//-/ }; do
+                case "$tok" in g[1-9]|g[1-9][0-9]) gen="${tok#g}";; *[!a-z]*|'') echo "bad store option: $tok"; exit 1;; *) loc="$tok";; esac
+              done;;
+            esac
+          else
+            copy="${{ inputs.copy }}"; dry="${{ inputs.dry_run && '--dry-run' || '' }}"; src="${{ inputs.branch }}"
+            loc="${{ inputs.store_location }}"; gen="${{ inputs.store_generation }}"
+          fi
+          case "$copy" in ''|*[!a-z0-9-]*) echo "bad copy name: $copy"; exit 1;; esac
+          case "$loc" in *[!a-z]*) echo "bad store location: $loc"; exit 1;; esac
+          case "$gen" in ''|[1-9]|[1-9][0-9]) ;; *) echo "bad store generation: $gen"; exit 1;; esac
+          store=""; [ -n "$loc" ] && store="--store-location $loc"; [ -n "$gen" ] && store="$store --store-generation $gen"
+          echo "STORE=$store" >> "$GITHUB_ENV"
+          echo "COPY=$copy" >> "$GITHUB_ENV"; echo "CIVICSMITH_TEST_INSTANCE=$copy" >> "$GITHUB_ENV"
+          echo "DRY=$dry" >> "$GITHUB_ENV"; echo "SRC=$src" >> "$GITHUB_ENV"
+          echo "test deploy: copy $copy, source $src, ${dry:-real run}${store:+, store options$store}"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SRC }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26.10.0"
+      - name: install
+        run: |
+          set -euo pipefail
+          (cd bio-plane && npm ci --no-audit --no-fund --loglevel=error)
+          node bio-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
+            [ "$dir" = "bio-plane" ] && continue
+            (cd "$dir" && npm ci --no-audit --no-fund --loglevel=error)
+          done
+      - name: build the branch's artifacts
+        run: node bio-plane/scripts/bundles.mjs
+      - name: deploy each member, in the order discoverMembers lists
+        run: |
+          set -euo pipefail
+          for member in $(node -e 'import("./bio-plane/scripts/fleet-bundle.mjs").then(async (m) => { const list = await m.discoverMembers(); for (const d of list) console.log(d.name ?? d.member ?? d); })'); do
+            echo "::group::$member"
+            node bio-plane/scripts/deploy-fleet.mjs "$member" --instance "$COPY" --test-instance $DRY
+            echo "::endgroup::"
+          done
+      - name: deploy the plane
+        working-directory: bio-plane
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          node scripts/deploy.mjs "$COPY" "$version" dist/bio-plane.bundled.mjs --test-instance $DRY $STORE
