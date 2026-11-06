@@ -9,8 +9,8 @@ For BOB, read once at start, after your prompt. Your prompt wins where the two d
 
 ## Rules
 
-1. A problem is a failure that happened, or Bob's word, and a rule, check, review round, measurement or owed task exists only against one; delete one that cites neither. A reviewer's "what if" is one line in a report; the default answer to it is no change (GAP-3, TXT-6; Bob, 2 Nov). Nudge.
-2. Every problem is a design bug: find why, rewrite the line it belongs to, never append, and build the correction; a workaround is not a fix (Bob, 2 Nov). Nudge.
+1. A problem is a failure that happened, or Bob's word, and a rule, check, review round, measurement or owed task exists only against one; delete one that cites neither. A reviewer's "what if" is one line in a report; the default answer to it is no change (GAP-3, TXT-6; Bob, 2 Nov, before the log; unverified). Nudge.
+2. Every problem is a design bug: find why, rewrite the line it belongs to, never append, and build the correction; a workaround is not a fix (TXT-3; Bob, 2 Nov, before the log; unverified). Nudge.
 3. Only a recorded hold (`p3 hold`: until the PRs it names land, or its time) limits starts below the job cap; no one's words do. Answer a spoken limit by asking its sender to record it, and keep starting meanwhile (coordinator, 5 Nov 01:13). Held by `job start --ready`; the IDLE CAPACITY alarm only detects empty slots.
 4. Product decisions are yours and process technical ones the coordinator's, each a short decision record (REC-11) in its repository's DECISIONS.md, reported in one line. Bob gets only what P17 makes his (what the Foundations say he defines, his approvals or accounts, an act only he can take), with options and context; it is his decision before anything is built on it, never asked again. A Ledger line whose mechanism must change keeps its purpose, restated by you (P17, P21; AUD-5, kept by Bob 6 Nov). Nudge.
 5. Jobs and lanes meet only through you. A lane is kept to one session at a time, its module's job too; it owns its folder, its documents claude.ai artifacts (Bob, 5 Nov). Questions go to it or a `lane ask` worker; your say is final (SES-15, SES-14). Held by `lane start`.

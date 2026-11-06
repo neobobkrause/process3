@@ -149,7 +149,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(branch)) L.push(`- ${a}`);
   // Review of PR 72: the wake's send writes the state branch, which "push to job/<id> only" forbade.
   L.push('- the wake that job complete or block prints, and its send_message');
-  // A division of labour (Bob, 2 Nov): deploying and releasing are the coordinator's acts in a
+  // A division of labour (Bob, 2 Nov, before the log; unverified): deploying and releasing are the coordinator's acts in a
   // round; local wrangler and miniflare runs are the job's own builds and tests.
   L.push('', 'Not yours, and this line wins over any act above: merging; pushing to any other branch yourself (the wake\'s send writes the state branch); editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md or another module\'s files; starting sessions; deploying, releasing, release signing and acting on a live site (the coordinator\'s; local wrangler and miniflare builds and tests are yours). Other modules\' work, or a need for the coordinator\'s acts: report it to your coordinator.');
   return L.join('\n') + '\n';
@@ -242,7 +242,7 @@ function provable(root, id, branch, tranche, from) {
 function setupOrStop(root, cfg, slug, setup, log) {
   // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
   const s = setup(root, { slug, log, anchor: true });
-  // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
+  // A session not started from the tranche (Bob, 2 Nov, before the log; unverified): say so plainly, with the check's own
   // words for what to do (re-review of PR 24).
   if (s.missing.includes('session-branch')) {
     const t = s.tranche || cfg.tranche;
@@ -270,7 +270,7 @@ export function routeFor(id, { state, ahead, open }) {
 
 // BOB: branch, status WORKING, START, draft pull request; prints what to start the session with.
 // Safe to run again: when the branch is pushed but has no pull request, it opens the PR.
-// --reopen "<what>" (Bob's decision 1A, 2 Nov 2026): a new attempt on a COMPLETE module whose
+// --reopen "<what>" (decision 1A, Bob, 2 Nov, before the log; unverified): a new attempt on a COMPLETE module whose
 // last attempt merged. The branch restarts from the tranche, which already holds the old tip,
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted. On an
 // abandoned attempt (commits the tranche lacks, no open pull request, not an unfinished start)

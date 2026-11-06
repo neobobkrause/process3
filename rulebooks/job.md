@@ -5,12 +5,12 @@ For a job session, read once at start, after your START. Your START wins where t
 ## Principles (TXT-4)
 
 1. Every claim about your work is checked in git or GitHub, never taken from your words: the receipt is what counts (JOB-7, REC-5). Held by `job complete` and CI.
-2. Caution is a cost, paid only against a measured failure or Bob's word (GAP-3; Bob, 2 Nov). Nudge.
+2. Caution is a cost, paid only against a measured failure or Bob's word (GAP-3; Bob, 2 Nov, before the log; unverified). Nudge.
 
 ## Rules
 
 1. Each new test fails with your change reverted (JOB-12); the gate's revert check names any that still pass, for the reviewer (coordinator's check audit, 5 Nov 19:30). Nudge.
-2. A "what if" you notice is one line in your report, never code or owed work (GAP-3; Bob, 2 Nov). Nudge.
+2. A "what if" you notice is one line in your report, never code or owed work (GAP-3; Bob, 2 Nov, before the log; unverified). Nudge.
 3. Push before you message your coordinator; the message only wakes it (MSG-1). Nudge.
 4. Nothing holds a turn; stop means stop in that turn (ENF-2, ENF-3). Nudge.
 5. Reports and receipts name their reader and use plain words (TXT-7). Nudge.
