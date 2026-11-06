@@ -2,6 +2,7 @@
 // cannot call Claude's session or task tools: sweep reads the record and prints what ROOT must do,
 // in the Foundations' order, and writes the heartbeat; watch reads the heartbeat's age and ROOT's
 // address and prints the watcher's decision. The session makes every call.
+import { expireRecords, staleRecords } from './expire.mjs';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { P3, READY_START, jobSender, wakeLine } from './job.mjs';
@@ -394,6 +395,18 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       archived = listed.some((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim()) && Date.parse(x.updated_at) > since);
       for (const a of s.acts) todo.push(a.act === 'archive' ? `archive ${a.id}: archive_session ${a.id} ("${a.title}", idle, its work done or its parent archived)` : `tell ${a.owner} ${a.id} asks: ${a.question} (send it to ${a.owner}${a.owner.startsWith('session_') ? ' with send_message' : ''}, naming ${a.id} "${a.title}", whose parent is archived)`);
     }
+  }
+  // Stale records (R13, expire.mjs): the tool ends those it can (holds whose condition is met,
+  // lane seats whose session is archived, read from list_sessions here); the rest are found, each
+  // with what ends it. Nothing for a person to type.
+  if (cfg) {
+    try {
+      const ended = expireRecords(root, cfg, { listed, log: () => {} });
+      if (ended.holds.length) found.push(`holds ended by the tool (condition met): ${ended.holds.join(', ')}`);
+      if (ended.seats.length) found.push(`lane seats ended by the tool (session archived): ${ended.seats.join(', ')}`);
+      const left = staleRecords(root, cfg, { listed }).filter((x) => !x.auto);
+      for (const x of left) found.push(`stale ${x.kind} ${x.id}: ${x.why}`);
+    } catch (e) { found.push(`stale records: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   }
   if (owed.length) {
     found.push(...owed);

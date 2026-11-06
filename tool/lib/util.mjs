@@ -404,9 +404,35 @@ export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r))
 const NOT_LANE = ['process', '.process', '.github', '.claude', 'CLAUDE.md'];
 export function laneDirs(cfg) {
   const ls = Array.isArray(cfg?.lanes) ? cfg.lanes : [];
+  const norm = (d) => d.trim().replace(/^\.\//, '').replace(/\/+$/, '');
+  const ok = (d) => d && d !== '.' && !d.startsWith('/') && !d.split('/').includes('..') && !NOT_LANE.some((n) => underPath(d, n));
   return ls.filter((l) => l && typeof l.name === 'string' && l.name.trim() && typeof l.dir === 'string')
-    .map((l) => ({ name: l.name.trim(), dir: l.dir.trim().replace(/^\.\//, '').replace(/\/+$/, ''), module: typeof l.module === 'string' ? l.module.trim() : null }))
-    .filter((l) => l.dir && l.dir !== '.' && !l.dir.startsWith('/') && !l.dir.split('/').includes('..') && !NOT_LANE.some((n) => underPath(l.dir, n)));
+    .map((l) => ({ name: l.name.trim(), dir: norm(l.dir), module: typeof l.module === 'string' ? l.module.trim() : null, research: researchOf(l, norm) }))
+    .filter((l) => ok(l.dir))
+    .map((l, _, all) => {
+      // Dropped, never widened, where it could take a folder that is not research: outside the
+      // lane rules, inside or around dir, or overlapping another lane's dir or research.
+      const r = l.research;
+      const clash = (x) => underPath(r, x) || underPath(x, r);
+      const good = r && ok(r) && RESEARCH_NAME.test(r) && !clash(l.dir) && !all.some((o) => o !== l && (clash(o.dir) || (o.research && clash(o.research))));
+      return { ...l, research: good ? r : null };
+    });
+}
+// A research area's last segment is "research" or ends in "-research", so no source folder or root
+// build file (src, package.json) is ever taken for one (review of build/lane-qualification).
+export const RESEARCH_NAME = /(^|\/)([^/]+-)?research$/;
+// A design lane's research area (Bob, 6 Nov: "This initial and ongoing research should be
+// recording in a lane-specific area of the product repo for subsequent sessions to draw from and
+// evolve"): its "research" in process/config.json, else the sibling <dir>-research. A sibling, not
+// a folder inside dir: dir holds only what the product's build reads (sources and generators), and
+// research is never a build input, so it stays out of every glob of dir. It counts as the lane's
+// own folder (laneOfPath): a pull request changing only it and dir lands without a suite run.
+// A triage lane keeps its register instead: no research area.
+export function researchOf(l, norm = (d) => d.trim().replace(/^\.\//, '').replace(/\/+$/, '')) {
+  if (!l || (l.kind !== undefined && l.kind !== 'design') || typeof l.dir !== 'string' || !l.dir.trim()) return null;
+  if (l.research !== undefined && typeof l.research !== 'string') return null;
+  if (typeof l.research === 'string' && l.research.trim()) return norm(l.research);
+  return `${norm(l.dir)}-research`;
 }
 // The lane whose folder holds f, or null; a file a ledger module other than the lane's own owns
 // (its paths or tests: entries, the ledger's) is that module's, judged as today.
@@ -414,7 +440,7 @@ export function laneDirs(cfg) {
 // code is always tested; CLAUDE.md, .claude/, .github/ or .process/ anywhere in the folder.
 const GOVERNS = /(^|\/)(CLAUDE\.md$|\.claude\/|\.github\/|\.process\/)/;
 export function laneOfPath(cfg, f, entries = [], { self = null } = {}) {
-  const l = laneDirs(cfg).find((x) => underPath(f, x.dir));
+  const l = laneDirs(cfg).find((x) => underPath(f, x.dir) || (x.research && underPath(f, x.research)));
   if (!l || GOVERNS.test(f)) return null;
   const owns = (e, ps) => (ps || []).some((p) => underPath(f, p));
   const other = entries.some((e) => owns(e, e.tests) || ((e.id !== l.module || e.id === self) && owns(e, e.paths)));

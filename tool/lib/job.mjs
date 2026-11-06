@@ -107,6 +107,10 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
     L.push('', `You are also the ${lane.name} lane's one session (Bob, 5 Nov): within the product's principles you decide design and wording in \`${lane.dir || 'its folder'}/\`; a question only Bob can answer goes to BOB as "decision: Bob's", with options and your recommendation.`);
     // Its design documents are claude.ai artifacts and documents, recorded by lane artifact.
     if (lane.artifacts?.length) L.push(`The lane's design documents (claude.ai; read what your work needs): ${lane.artifacts.map((a) => `${a.title ? `${a.title} ` : ''}${a.url}`).join('; ')}.`);
+    // Qualification (Bob, 6 Nov; lane.mjs qualification): the research area first, or qualify first.
+    const r = lane.research;
+    if (r?.qualified) L.push(`The lane's research area \`${r.area}/\` is its ground truth: read its index.md before you decide design there, and record what you research there.`);
+    else if (r) L.push(`The lane has not qualified: \`${r.area}/\` holds no index.md and qualification record. Before you decide any design there, qualify it (Bob, 6 Nov): workers research the canon, the existing code and the best practice of its area, and you land their findings in \`${r.area}/\` (index.md, qualification-<YYYY-MM-DD>.md) as a pull request changing only that folder.`);
   }
   if (entry.prior_work) L.push('', `Prior work: ${entry.prior_work}`);
   if (reopen && abandoned) L.push('', `This attempt starts afresh from the tranche: the attempt on \`${abandoned.branch}\`${abandoned.pr ? ` (#${abandoned.pr}, closed unmerged)` : ''} was abandoned, and none of its work is on your branch. What it must do: ${reopen}`);
