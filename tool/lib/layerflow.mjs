@@ -572,7 +572,13 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   const { layerChecks } = await import('./layer.mjs');
   const mods = L.states.map((s) => ({ id: s.id, blocked: s.state === 'deferred' ? s.why : null }));
   const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, withSuites: false, log, ...(x.exec ? { exec: x.exec } : {}) });
-  const red = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
+  const all = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
+  // SLB-7 (Bob): at close only the layer's own checks hold it. A generated row's verify failure
+  // blocks only when its paths, or a module it names, are the closing layer's; any other is
+  // printed for the module it names, for BOB's found mark there, and the merge goes on.
+  const judged = all.map((f) => ({ f, ...verifyOwner(f, { mods: L.mods, entries: [...L.entries.values()].filter(Boolean), ids: [...ledgerIds(root, L.ref)] }) }));
+  for (const j of judged.filter((x) => !x.blocks)) log(`not this layer's: ${j.f.file}: ${j.f.message}; record it as a found mark${j.names.length ? ` on ${j.names.join(', ')}` : ''}: ${P3} found ${j.names[0] || '<module>'} "<the finding>" --from "layer ${n} merge"`);
+  const red = judged.filter((x) => x.blocks).map((x) => x.f);
   if (red.length) {
     for (const f of red) log(`${f.check}: ${f.file}: ${f.message}`);
     fail(`layer ${n} cannot merge: the layer checks found ${red.length} finding(s) on ${b} ${short(head)}; no module suite ran`);
@@ -604,6 +610,16 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   return { ok: true, merged, closed };
 }
 const readFileSyncSafe = (p) => { try { return readFileSync(p, 'utf8'); } catch { return ''; } };
+// Whether a layer-check finding is the closing layer's: every finding is, except a generated
+// row's verify failure whose paths no layer module owns and whose message names no layer module.
+// names: the other modules its message names (whole ids).
+export function verifyOwner(f, { mods, entries, ids }) {
+  const named = (id) => new RegExp(`(^|[^\\w-])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\w-]|$)`).test(String(f.message || ''));
+  const names = ids.filter((id) => !mods.includes(id) && named(id)).sort();
+  if (f.check !== 'generated' || !/ failed \(exit [^)]*\) after (regenerating|building)/.test(String(f.message || ''))) return { blocks: true, names };
+  const owned = entries.filter((e) => mods.includes(e.id)).some((e) => ownPaths(e).some((p) => underPath(f.file, p)));
+  return { blocks: owned || mods.some(named), names };
+}
 async function waitGate(x, slug, prn, head) {
   if (x.waitForGate) return x.waitForGate(slug, head, { pr: () => x.getPR(slug, prn) });
   const { waitForGate } = await import('./merge.mjs');

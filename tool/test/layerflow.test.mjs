@@ -26,9 +26,9 @@ const modules = { modules: [{ id: 'a', uses: [] }, { id: 'b', uses: ['a'] }, { i
 const layers = '# The layers\n\n| layer | name | modules |\n| --- | --- | --- |\n| 1 | One | a, b, c |\n| 2 | Two | d |\n';
 
 // A product on the tranche with a bare origin: modules a, b (uses a), c in layer 1, d (uses a) in layer 2.
-function product({ strategy = 'layer', over = {}, done = false } = {}) {
+function product({ strategy = 'layer', over = {}, done = false, config = {} } = {}) {
   const files = {
-    'process/config.json': { merge_strategy: strategy, modules_file: 'build/modules.json' },
+    'process/config.json': { merge_strategy: strategy, modules_file: 'build/modules.json', ...config },
     'build/layers.md': layers,
     'build/modules.json': modules,
   };
@@ -649,4 +649,20 @@ test('an earlier tranche\'s flow rows (their merge on main) count for nothing: t
   const { mkdirSync, writeFileSync } = await import('node:fs');
   writeState(root, SB, 'layer 1 closed', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), JSON.stringify({ row: 'closed', layer: 1, tranche: 'tranche' }) + '\n'); return {}; });
   assert.match(layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO })[0], /layer 2 is next and not open/);
+});
+
+test('layer merge (SLB-7): a generated verify failure naming a module of a later layer is printed for it and does not refuse; one naming a module of the closing layer refuses', async () => {
+  for (const [who, refused] of [['d', false], ['c', true]]) {
+    const generated = [{ paths: ['gen/words.json'], regenerate: ['node', '-e', "require('fs').mkdirSync('gen',{recursive:true});require('fs').writeFileSync('gen/words.json','[]')"], verify: ['node', '-e', `console.error('missing word row for ${who}');process.exit(1)`] }];
+    const { root, bare } = product({ done: true, config: { generated } });
+    layerOpen(root, 1, { io: openIO, log: quiet });
+    const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 71, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+    const lines = [];
+    const go = layerMerge(root, 1, { io: mio, wait: false, log: (l) => lines.push(l) });
+    if (refused) await assert.rejects(go, /the layer checks found 1 finding/);
+    else {
+      assert.equal((await go).ok, true);
+      assert.ok(lines.some((l) => /^not this layer's: gen\/words.json: .*missing word row for d.*found mark on d/.test(l)), lines.join('\n'));
+    }
+  }
 });
