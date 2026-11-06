@@ -6,11 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, readReport, redact, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
-import { layerClose } from '../lib/layer.mjs';
 import { status } from '../lib/status.mjs';
 import { trancheClose } from '../lib/tranche.mjs';
 import { DEFAULTS, git, loadConfig, run } from '../lib/util.mjs';
-import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
+import { commit, entry, makeRepo, onState, openPassed, closeLayer } from './helpers.mjs';
 
 const quiet = () => {};
 const GUARD = 'p3dev guard: passed';
@@ -76,7 +75,7 @@ const rows = (bare) => git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bar
 
 test('deploy dev at a round close: dry run, deploy, walk, one row; secrets never printed; then refused while that tip is deployed clean', () => {
   const { root, bare } = withOrigin(product());
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
   // A slug that is not a development deployment's.
   assert.throws(() => deployDev(root, { io, repo, slug: 'civicsmith', log: quiet }), /does not begin with p3dev-/);
@@ -116,7 +115,7 @@ test('deploy dev: a walk that prints 1,600 lines keeps every line in its file; t
     fs.writeFileSync('out/live/big.txt', 'z'.repeat(300 * 1024));`);
   const reports = ['out/live/report.json', 'out/live/report.txt', 'out/live/big.txt', 'out/live/none.txt'];
   const { root, bare } = withOrigin({ ...product({ ...DEP, walk, walk_reports: reports }), 'process/config.json': { deploy: { ...DEP, walk, walk_reports: reports }, max_file_bytes: 200 * 1024, plan: 'close' } });
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
   const out = [];
   const r = deployDev(root, { io: { ...io, logDir }, repo, log: (m) => out.push(m) });
@@ -154,7 +153,7 @@ test('deploy dev: a walk that prints 1,600 lines keeps every line in its file; t
 test('deploy dev: a dry-run step that does not print the guard line stops it before the deploy; the row records it and a later run may go', () => {
   const ran = [];
   const { root, bare } = withOrigin(product({ ...DEP, dry_run: [node(`console.log(${JSON.stringify(GUARD)})`), node("console.log('p3dev guard: passed?')")] }));
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   const out = [];
   const exec = (c, a, o) => { ran.push(a.join(' ')); assert.ok(o.unset.includes('GITHUB_TOKEN')); return { code: 0, stdout: a[1].includes('?') ? 'p3dev guard: passed?\n' : `${GUARD}\n`, stderr: '', seconds: 0 }; };
   const r = deployDev(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) });
@@ -168,7 +167,7 @@ test('deploy dev: a dry-run step that does not print the guard line stops it bef
   assert.equal(again.ok, true);
   // A failing deploy step stops before the walk.
   const { root: r2 } = withOrigin(product({ ...DEP, deploy: node('process.exit(4)') }));
-  assert.equal(layerClose(r2, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(r2, '1').ok, true);
   const f = deployDev(r2, { io, repo, log: quiet });
   assert.equal(f.row.stopped, 'deploy');
   assert.deepEqual(f.row.results.map((x) => x.stage), ['dry_run', 'dry_run', 'deploy']);
@@ -197,7 +196,7 @@ test('deploy dev between layers: layer 4 closed, 5 to 11 open (the first round o
   opened(root);
   git(['push', '-q', 'origin', 'main'], { cwd: root });
   push(root, { 'x.txt': 'the tranche past main\n' });
-  assert.equal(layerClose(root, '4', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '4').ok, true);
   git(['checkout', '-q', 'origin/tranche'], { cwd: root });
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: a deploy and walk belong to a round close, never between layers \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\); it becomes due when the round closes/);
   const before = see(root);
@@ -271,7 +270,7 @@ test('deploy dev: a deploy row of an earlier tranche, its commit on main, does n
   git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
   commit(root, { 'y.txt': 'y\n' });
   git(['push', '-q', 'origin', 'HEAD:refs/heads/tranche'], { cwd: root });
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   git(['checkout', '-q', 'origin/tranche'], { cwd: root });
   const r = deployDev(root, { io, repo, log: quiet });
   assert.equal(r.ok, true, 'the stale row on main does not make layer 1 deployed');
@@ -327,7 +326,7 @@ test('deploy dev: a mask declared in a later report, or held JSON-escaped, is **
     console.log('::add-mask::' + v);`);
   const reports = ['out/a.txt', 'out/b.json', 'out/c.txt'];
   const { root, bare } = withOrigin({ ...product({ ...DEP, walk, walk_reports: reports }) });
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   writeFileSync(join(bare, 'hooks', 'pre-receive'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
   const logDir = mkdtempSync(join(tmpdir(), 'p3-steps-'));
   const out = [];
@@ -393,7 +392,7 @@ test('internal walk config: optional; run an argv or argvs, timeout_minutes defa
 test('deploy dev with an internal walk: it runs first, without the tokens or Cloudflare secrets; one failure does not stop the deploy; the row carries it; its findings count for tranche close', () => {
   const dep = { ...DEP, internal_walk: IW };
   const { root, bare } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', environment: ['P3_DEPLOY_SECRET'] }, 'out/.gitignore': '*\n' });
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   const seen = [];
   const exec = (c, a, o) => { seen.push(o.unset); return run(c, a, o); };
   const env = { CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN, GH_TOKEN: process.env.GH_TOKEN };
@@ -430,7 +429,7 @@ test('deploy dev with an internal walk: it runs first, without the tokens or Clo
 test('deploy dev: an internal walk that times out is recorded as such, and the deploy still runs', () => {
   const dep = { ...DEP, internal_walk: { ...IW, timeout_minutes: 1 } };
   const { root } = withOrigin(product(dep));
-  assert.equal(layerClose(root, '1', { io: statusIO, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   const exec = (c, a, o) => (a.some((x) => x.includes("arm: 'local'")) ? { code: 1, stdout: '', stderr: 'killed', seconds: 60, timedOut: true } : run(c, a, o));
   const r = deployDev(root, { io: { ...io, exec }, repo, log: quiet });
   assert.equal(r.ok, true);

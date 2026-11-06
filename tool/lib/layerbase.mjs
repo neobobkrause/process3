@@ -1,14 +1,14 @@
-// The shared layer branch's switch and the job's base (design note "Shared Layer Branch", Bob,
-// 5 Nov; trial first). process/config.json "merge_strategy": "train" (the default: today's flow,
-// a job's branch cut from the tranche and its pull request into it) or "layer": a job of the open
-// layer's module works on a branch cut from layer/<n>, publishes onto it, and the layer merges into
-// the tranche once. This file has no imports from job.mjs, so job.mjs can read it.
+// The shared layer branch and the job's base (design note "Shared Layer Branch", Bob, 5 Nov; the
+// only flow since the merge train was removed, Bob, 6 Nov). A job of the open layer's module works
+// on a branch cut from layer/<n>, publishes onto it, and the layer merges into the tranche once.
+// process/config.json "merge_strategy" is "layer" or absent (util.mjs refuses any other value).
+// This file has no imports from job.mjs, so job.mjs can read it.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { exists, fail, fetchBranch, git } from './util.mjs';
 
-export const STRATEGIES = ['train', 'layer'];
-export const layerMode = (cfg) => cfg?.merge_strategy === 'layer';
+export const STRATEGIES = ['layer'];
+export const layerMode = (cfg) => (cfg?.merge_strategy ?? 'layer') === 'layer';
 export const LAYER_BRANCH = /^layer\/(\d+)$/;
 export const layerBranch = (n) => `layer/${n}`;
 export const layerOfBranch = (b) => { const m = String(b || '').match(LAYER_BRANCH); return m ? Number(m[1]) : null; };
@@ -36,22 +36,37 @@ export const layerOf = (layers, id) => layers.find((L) => L.mods.includes(id))?.
 
 const hasRef = (root, r) => git(['rev-parse', '-q', '--verify', r], { cwd: root, allowFail: true }).code === 0;
 
-// The config a job's commands run with. With the switch off, or for a module of no open layer
-// branch, the config itself. With it on, for a module of a layer whose branch layer/<n> exists
+// The config a job's commands run with. For a module of no open layer branch, the config itself
+// (with noLayers when the product has no layer map at all). With it on, for a module of a layer whose branch layer/<n> exists
 // (on origin, or locally with push false) and has not merged (the state branch's merged row): the
 // layer branch takes the tranche's place in the job's start, sync, complete and test, and
 // `layer` names it ({ n, tranche: the real tranche }).
 export function jobCfg(root, cfg, id, { push = true, merged = null } = {}) {
   if (!layerMode(cfg) || cfg.layer) return cfg;
   const tr = push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`;
-  const n = layerOf(layersAt(root, cfg, hasRef(root, tr) ? tr : null), id);
-  if (n === null) return cfg;
-  const b = layerBranch(n);
-  if (push) fetchBranch(root, b, { allowFail: true });
-  if (!hasRef(root, push ? `refs/remotes/origin/${b}` : `refs/heads/${b}`)) return cfg;
-  const isMerged = merged ? merged(n) : push ? mergedOnState(root, cfg, n) : false;
-  if (isMerged) return cfg;
-  return { ...cfg, tranche: b, layer: { n, tranche: cfg.tranche } };
+  const map = layersAt(root, cfg, hasRef(root, tr) ? tr : null);
+  // A product with no layer map has no layer to branch from: its jobs keep the tranche (noLayers).
+  if (!map.length) return { ...cfg, noLayers: true };
+  // Its own layer first; else a layer it joined (layer join: a module whose layer is behind the open
+  // one joins the next to open), each only while its branch exists and has not merged.
+  const live = (n) => {
+    const b = layerBranch(n);
+    if (push) fetchBranch(root, b, { allowFail: true });
+    if (!hasRef(root, push ? `refs/remotes/origin/${b}` : `refs/heads/${b}`)) return false;
+    return !(merged ? merged(n) : push ? mergedOnState(root, cfg, n) : false);
+  };
+  const own = layerOf(map, id);
+  const n = [own, ...joinedLayers(root, cfg, id)].find((x) => x !== null && live(x));
+  if (n === undefined) return cfg;
+  return { ...cfg, tranche: layerBranch(n), layer: { n, tranche: cfg.tranche, ...(n !== own ? { joined: true } : {}) } };
+}
+// The layers a module joined, from the state branch's layerflow/<n>/join/<id>.json rows, lowest first.
+function joinedLayers(root, cfg, id) {
+  const sb = `refs/remotes/origin/${cfg.state_branch}`;
+  const r = git(['ls-tree', '-r', '--name-only', sb, '--', `${FLOW_DIR}/`], { cwd: root, allowFail: true });
+  if (r.code !== 0) return [];
+  const want = `/join/${safeName(id)}.json`;
+  return r.stdout.split('\n').filter((f) => f.endsWith(want)).map((f) => Number(f.split('/')[1])).filter(Number.isInteger).sort((a, b) => a - b);
 }
 function mergedOnState(root, cfg, n) {
   const sb = cfg.state_branch;

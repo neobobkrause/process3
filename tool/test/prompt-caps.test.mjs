@@ -44,20 +44,14 @@ test('start root, start bob (fresh and by handover) and start watcher each print
   recordStart(root, 'root', ID, { log: quiet });
   recordStart(root, 'bob', 'session_oldbob1', { log: quiet });
   prompts['bob by handover'] = handoverBegin(root, { slug: SLUG, log: quiet }).prompt;
-  // With a MERGER addressed: its prompt (the train and the starter) and BOB's, fresh and by handover.
-  recordStart(root, 'merger', 'session_merger01', { log: quiet });
-  prompts.merger = startRole(root, 'merger', { slug: SLUG, replace: 'session_merger01', log: quiet }).prompt;
-  prompts['bob with a MERGER, by handover'] = handoverBegin(root, { slug: SLUG, log: quiet }).prompt;
-  assert.match(prompts['bob with a MERGER, by handover'], /`starter:` line says NOT RUNNING/);
-  assert.match(prompts.merger, /auto start --session/);
   assert.ok(prompts['bob by handover'].includes('You replace BOB `session_oldbob1`'));
   for (const [role, p] of Object.entries(prompts)) {
     assert.match(p, /--approvals [0-9a-f]{64}/, `${role}: measured with a real approvals hash`);
     // The prompt is one screen; the standing block after it (register.mjs) has its own cap.
     assert.ok(bytes(promptBody(p)) <= SCREEN, `${role}: ${bytes(promptBody(p))} bytes, over ${SCREEN}`);
   }
-  // The fixture's entry names BOB and the MERGER, not ROOT.
-  for (const role of ['bob', 'merger', 'bob by handover']) assert.ok(prompts[role].includes(STANDING_HEAD), role);
+  // The fixture's entry names BOB, not ROOT.
+  for (const role of ['bob', 'bob by handover']) assert.ok(prompts[role].includes(STANDING_HEAD), role);
   assert.ok(!prompts.root.includes(STANDING_HEAD));
 });
 

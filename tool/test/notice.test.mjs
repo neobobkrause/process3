@@ -538,7 +538,7 @@ test('merge of a provider job that changed its exports with no requirement chang
   // outcome is the last line.
   const at = out.findIndex((l) => /^merged pull request 50/.test(l));
   assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs notice triage p:50 \(provider notice p:50; 1 user module owes a worker's judgment: u1/);
-  assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
+  assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs status --role bob, then each `job start`/);
   assert.match(out.at(-1), /^notice triage at the merge: 1 owe a worker's judgment; next act: node \.process\/tool\/p3\.mjs notice triage p:50/);
   assert.match(brief, /- u1: src\/u1\/; src\/u1\/a\.mjs:1$/);
 });
@@ -570,7 +570,7 @@ test('a merge whose every notice user imports the provider records each owed at 
   assert.match(out.join('\n'), /notice triage p:224 at the merge: 0 of 2 not affected \(no file imports p\), none answered; 2 owe a worker's judgment, recorded owed on process-state: u1, u2/);
   const at = out.findIndex((l) => /^merged pull request 224/.test(l));
   assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs notice triage p:224 \(provider notice p:224; 2 user modules owe a worker's judgment: u1, u2/);
-  assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs job start --ready/);
+  assert.match(out[at + 2], /^then: node \.process\/tool\/p3\.mjs status --role bob/);
   assert.match(out.at(-1), /^notice triage at the merge: 2 owe a worker's judgment; next act: node \.process\/tool\/p3\.mjs notice triage p:224/);
   // merge run again after it landed: its triage, still owed, is the first act there too.
   const again = [];
@@ -595,7 +595,7 @@ test('a merge that leaves no triage owed prints the ready jobs\' start first, as
   const out = [];
   merge(root, 7, { slug: 'o/r', io, reviewed: 'fresh', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: (m) => out.push(m) });
   const at = out.findIndex((l) => /^merged pull request 7/.test(l));
-  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs job start --ready --live <n>/);
+  assert.match(out[at + 1], /^first: node \.process\/tool\/p3\.mjs status --role bob, then each `job start`/);
   assert.ok(!out.some((l) => /^then: /.test(l)));
 });
 

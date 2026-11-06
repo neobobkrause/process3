@@ -2,8 +2,8 @@
 // limited: on 4 Nov the coordinator's "about 6 job sessions at most" kept BOB near 6 of 20 for
 // about 6 hours and nothing in Process3 saw it). A hold on startable work is a row on the
 // state branch, never words: `p3 hold <scope> --why --by --until`, ended by `p3 hold --end <id>` or
-// its end. Scope: module:<id>, layer:<n> or slots:<n>. job start --ready starts to the cap less
-// the live slot holds and starts no held module; status prints every hold first; the sweep alarms
+// its end. Scope: module:<id>, layer:<n> or slots:<n>. job start counts the cap less the live slot holds
+// (cap.mjs) and the idle check counts no held module; status prints every hold first; the sweep alarms
 // on idle capacity whatever holds there are. A hold lasts until the pull requests it names (--prs)
 // have landed on the tranche, or its --until time, whichever comes first (coordinator's check audit, 5 Nov
 // 19:30: no forced renewal); no hold needs Bob (coordinator's correction, 5 Nov). report tranche lists hold-hours
@@ -133,7 +133,7 @@ export function hold(root, scope, { why, by, until, prs, when, end, log = consol
     if (!h) fail(`no hold ${JSON.stringify(end)} on ${sb}:${HOLDS_FILE}`);
     if (!h.live) fail(`${h.id} holds nothing already (${h.ended ? 'ended' : h.done !== null && h.done <= t ? 'its PRs landed' : 'expired'})`);
     writeState(root, sb, `hold: end ${h.id}`, (dir) => { put(dir, { at: now(), row: 'end', id: h.id, by }); return {}; });
-    log(`${h.id} ended: ${h.scope} holds nothing now; job start --ready starts what it held`);
+    log(`${h.id} ended: ${h.scope} holds nothing now; its jobs can start (layer jobs <n>)`);
     return { ended: h.id };
   }
   const m = String(scope ?? '').match(SCOPE);
@@ -221,22 +221,21 @@ const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); 
 
 // Starts owed (coordinator, 5 Nov: a marker, never a refusal): every act that can make work
 // startable or free a slot writes flow/owed.json (p3.mjs after the act: a merge, job complete,
-// block, layer close, a triage recorded; the sweep for a job session archived). status and every
-// act of BOB's print startsOwedLine first, exit unchanged; job start --ready clears the acts owed
-// up to its own start. Owed OWED_ALARM_MIN or more counts as idle capacity (sweep.mjs).
+// block, a hold ended, a triage recorded; the sweep for a job session archived). status and every
+// act of BOB's print startsOwedLine first, exit unchanged; a module's own acts are paid when its job
+// lands on its layer (paidFor, layer land; R10), the rest by paidUpTo. The starter and job start --ready are removed.
 export const OWED_FILE = 'flow/owed.json';
-export const OWED_ALARM_MIN = 15;
 export function owes(name, a) {
-  if (['merge', 'job complete', 'block', 'layer close'].includes(name)) return `${name} ${a._[0] ?? ''}`.trim();
-  // A hold ended frees what it held (an expiry is the starter's to see: auto.mjs).
+  if (['merge', 'job complete', 'block'].includes(name)) return `${name} ${a._[0] ?? ''}`.trim();
+  // A hold ended frees what it held.
   if (name === 'hold' && a.end !== undefined && a.end !== true) return `hold ended ${a.end}`;
   return name === 'notice triage' && a.record !== undefined ? `triage recorded ${a._[0] ?? ''}`.trim() : null;
 }
-export const bobAct = (name, a) => (name === 'job start' ? !a.ready : name === 'send' ? a.from === 'bob'
-  : ['merge', 'layer close', 'notice triage', 'notice withdraw', 'tranche open', 'tranche close', 'lane ask', 'handoff', 'hold', 'found', 'pin move', 'release dev', 'deploy dev', 'walk internal'].includes(name));
+export const bobAct = (name, a) => (name === 'job start' ? true : name === 'send' ? a.from === 'bob'
+  : ['merge', 'layer join', 'layer open', 'layer land', 'layer merge', 'notice triage', 'notice withdraw', 'tranche open', 'tranche close', 'lane ask', 'handoff', 'hold', 'found', 'pin move', 'release dev', 'deploy dev', 'walk internal'].includes(name));
 export function readOwed(root, sb) { try { return JSON.parse(readState(root, sb, OWED_FILE) || 'null'); } catch { return null; } }
-export const startsOwedLine = (o, auto = null) => `starts owed since ${o.since} (${o.acts.map((x) => x.act).slice(-3).join('; ')}): ${starterLive(auto) ? `the MERGER's starter (${auto.session}) makes them` : 'run job start --ready'}`;
-// In a state worktree: owe(act) keeps the first act's time; paid(begun) drops the acts up to begun.
+export const startsOwedLine = (o) => `starts owed since ${o.since} (${o.acts.map((x) => x.act).slice(-3).join('; ')}): run status --role bob, then each \`job start\` its \`jobs to start\` lists (layer jobs <n>)`;
+// In a state worktree: owe(act) keeps the first act's time; paidFor(ids) drops a module's own acts.
 export function owe(dir, act) {
   const f = join(dir, OWED_FILE);
   let o = null;
@@ -244,6 +243,20 @@ export function owe(dir, act) {
   mkdirSync(join(dir, 'flow'), { recursive: true });
   writeFileSync(f, JSON.stringify({ since: o?.since || now(), acts: [...(o?.acts || []).slice(-9), { at: now(), act }] }) + '\n');
 }
+// What BOB has acted on: a job start or a layer open pays the acts owed before it began; the
+// sweep pays all when the open layer lists nothing to start, or no layer is left (cold review of
+// PR 191: hold ended, triage recorded, merge and an archived session were never paid otherwise).
+export function paidUpTo(dir, begun) {
+  const f = join(dir, OWED_FILE);
+  let o = null;
+  try { o = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { o = null; }
+  if (!o) return false;
+  const later = (o.acts || []).filter((x) => Date.parse(x.at) > Date.parse(begun));
+  if (later.length) writeFileSync(f, JSON.stringify({ since: later[0].at, acts: later }) + '\n');
+  else rmSync(f, { force: true });
+  return true;
+}
+export const paysOwed = (name) => ['job start', 'layer open'].includes(name);
 // The layer flow (coordinator, 6 Nov 16:03: "starts owed since 05:29Z (network-notices, case-checker,
 // case-inputs)" stood after their re-tests landed): job start --ready never runs there, so a module's
 // own acts (its job complete, its block) are paid when its job or retest lands on the layer.
@@ -259,25 +272,3 @@ export function paidFor(dir, ids) {
   else rmSync(f, { force: true });
   return true;
 }
-export function paid(dir, begun) {
-  const f = join(dir, OWED_FILE);
-  let o = null;
-  try { o = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { o = null; }
-  const later = (o?.acts || []).filter((x) => Date.parse(x.at) > Date.parse(begun));
-  if (later.length) writeFileSync(f, JSON.stringify({ since: later[0].at, acts: later }) + '\n');
-  else rmSync(f, { force: true });
-}
-
-// The starter (auto.mjs; Bob, 5 Nov: "Why do you have to order BOB to start jobs?"): the MERGER's
-// second background loop, which makes every ready start without a session's judgment. Its state:
-// flow/auto.json { session, at (its last pass), pass, pending (launches printed, their sessions not
-// yet seen) }; its measure: metrics/starts.jsonl, a 'pass' row per pass and a 'created' row per job
-// session seen created, with the minutes from the starts owed to it.
-export const AUTO_FILE = 'flow/auto.json';
-export const STARTS_FILE = 'metrics/starts.jsonl';
-// Minutes: a pass at least this often (an archive or a gate gone green writes no owed row); none
-// sooner than gap after the last; a pass's list_sessions awaited this long; a launch not seen
-// created this long is printed again; a starter with no pass this long is not running.
-export const AUTO = { every: 10, gap: 3, sessionsWait: 10, reprint: 10, live: 25 };
-export function readAuto(root, sb) { try { return JSON.parse(readState(root, sb, AUTO_FILE) || 'null'); } catch { return null; } }
-export const starterLive = (a, t = Date.now()) => !!a?.session && t - Math.max(Date.parse(a.at) || 0, Date.parse(a.beat) || 0) < AUTO.live * 6e4;

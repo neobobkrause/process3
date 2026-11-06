@@ -22,7 +22,8 @@
 // said), and how each ends (notes/records-inventory.md keeps the table):
 //   holds (holds/holds.jsonl)            --prs, --until, --when: ENDED BY THE TOOL here; old
 //                                        free-text rows read through fromText;
-//   starts owed (flow/owed.json)         paid by job start --ready, by the tool already;
+//   starts owed (flow/owed.json)         paid by the module's land on its layer (layer land),
+//                                        by the tool already;
 //   reschedules (layerflow/<n>)          answered by the user's land holding the provider's land,
 //                                        by the tool already (layerflow outstanding);
 //   layer events (layerflow/<n>)         open ends at merged, by the tool already;

@@ -208,7 +208,7 @@ export function preflight(root, cfg, n, { ref, census: c, holds = [], heldBy = (
       if (marks.length) out.push({ id, why: `its entry is COMPLETE with ${marks.length} unmet mark(s): a plain job start refuses it`, fix: `job start ${id} --reopen "meet the unmet requirement marks ${marks.slice(0, 5).join(', ')}" (layer jobs prints it)` });
     } else if (!['OPEN', 'BLOCKED'].includes(st)) out.push({ id, why: `its entry is ${st} on ${ref}: job start refuses it`, fix: 'bring it to Bob (job start takes OPEN or BLOCKED)' });
     const h = heldBy(holds, id, layers);
-    if (h) out.push({ id, why: `held by ${h.id} (${h.scope}): job start --ready and layer jobs skip it`, fix: `the hold ends by its own condition (${h.when?.length ? h.when.map((x) => Object.entries(x)[0].join(':')).join(', ') : h.until ? `at ${h.until}` : 'its pull requests'})` });
+    if (h) out.push({ id, why: `held by ${h.id} (${h.scope}): job start and layer jobs skip it`, fix: `the hold ends by its own condition (${h.when?.length ? h.when.map((x) => Object.entries(x)[0].join(':')).join(', ') : h.until ? `at ${h.until}` : 'its pull requests'})` });
     const s = seat(id);
     if (s) out.push({ id, why: s.why, fix: `lane end ${s.lane.name} before its layer opens, or send the work to its session` });
   }

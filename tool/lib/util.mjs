@@ -28,20 +28,7 @@ export class Fail extends Error {}
 export const fail = (msg) => { throw new Fail(msg); };
 
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
-// A heartbeat (coordinator, 5 Nov 07:56: the MERGER's lease lapsed while its train was alive
-// and gating mail-door, so ROOT's sweep replaced it): the train renews its lease only when it
-// prints a line or turns its loop, and its long silent stretches (the queue's order and provider
-// holds, a merge's notice and triage, waits whose lines are not printed) printed nothing for
-// 15 minutes. A beat set here runs before each command this process starts (git, gh), never
-// inside itself or a quiet section (a state-branch write), so whatever runs, the train renews.
-let beat = null;
-let still = 0;
-export function heartbeat(fn) { const was = beat; beat = fn; return () => { beat = was; }; }
-export function quietly(fn) { still++; try { return fn(); } finally { still--; } }
-const pulse = () => { if (beat && !still) quietly(beat); };
-
 export function run(cmd, args = [], opts = {}) {
-  pulse();
   const t0 = Date.now();
   const env = { ...process.env, ...(opts.env || {}) };
   for (const k of opts.unset || []) delete env[k];
@@ -105,32 +92,6 @@ export function gh(args, opts = {}) {
   const s = r.stdout.trim();
   if (!s) return null;
   try { return JSON.parse(s); } catch { return s; }
-}
-
-// Several gh calls at once (merge train cold start, 5 Nov: 53 serial reads before the first
-// pick): run side by side, at most `concurrency` at a time, in one child node process, and
-// returned in order, each as gh() returns it (null when it failed and allowFail is set).
-const MANY = `const { execFile } = require('node:child_process');
-const jobs = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
-const out = new Array(jobs.list.length);
-let next = 0;
-const one = () => { const i = next++; if (i >= jobs.list.length) return Promise.resolve();
-  return new Promise((ok) => execFile('gh', jobs.list[i], { maxBuffer: 256 * 1024 * 1024, encoding: 'utf8' }, (e, stdout, stderr) => { out[i] = { code: e ? (typeof e.code === 'number' ? e.code : 1) : 0, stdout: stdout || '', stderr: stderr || '' }; ok(); })).then(one); };
-Promise.all(Array.from({ length: Math.min(jobs.concurrency, jobs.list.length) }, one)).then(() => process.stdout.write(JSON.stringify(out)));`;
-export const GH_CONCURRENCY = 16;
-export function ghMany(list, { allowFail = true, concurrency = GH_CONCURRENCY } = {}) {
-  if (!list.length) return [];
-  if (list.length === 1) return [gh(list[0], { allowFail })];
-  const r = run(process.execPath, ['-e', MANY], { input: JSON.stringify({ list, concurrency }) });
-  let res = null;
-  try { res = JSON.parse(r.stdout); } catch { res = null; }
-  if (r.code !== 0 || !Array.isArray(res)) return list.map((a) => gh(a, { allowFail })); // the batch itself failed: one by one, as before
-  return res.map((x, i) => {
-    if (x.code !== 0) { if (!allowFail) fail(`gh ${list[i].slice(0, 3).join(' ')} failed: ${(x.stderr || x.stdout).trim()}`); return null; }
-    const s = x.stdout.trim();
-    if (!s) return null;
-    try { return JSON.parse(s); } catch { return s; }
-  });
 }
 
 // A shallow clone (clone_depth on create_session): its history is cut, so a full fetch of a
@@ -200,16 +161,10 @@ export const DEFAULTS = {
   reading_bob: ['CLAUDE.md'],
   // The plan: run, pause or stop. The job cap is not a config key: jobCap reads it.
   plan: 'run',
-  // The merge train (train.mjs, Bob's trial, 5 Nov): true, ROOT's sweep keeps a MERGER running.
-  merge_train: false,
-  // The merge train's window (train.mjs, window.mjs; notes/train-spec-plan.md, option C'): how many
-  // green pull requests gate at once, each on its predicted merged result behind those ahead. 1 is
-  // the serial train, unchanged; a whole number up to MERGE_TRAIN_WINDOW_MAX.
-  merge_train_window: 1,
-  // The merge strategy (design note "Shared Layer Branch", Bob, 5 Nov; trial first): "train", today's
-  // flow, a job's pull request into the tranche; "layer", a job publishes onto its layer's branch
-  // layer/<n>, which merges into the tranche once (layerflow.mjs).
-  merge_strategy: 'train',
+  // The merge strategy (design note "Shared Layer Branch", Bob, 5 Nov; the merge train removed, Bob,
+  // 6 Nov): "layer", the only flow: a job publishes onto its layer's branch layer/<n>, which merges
+  // into the tranche once (layerflow.mjs). Absent reads as "layer"; any other value is refused.
+  merge_strategy: 'layer',
   // status --role bob: where the requirement files that give BOB its next work live, and the
   // layer map that says which of them are open (its lowest layer not yet closed).
   requirements_dir: 'build/requirements',
@@ -249,9 +204,6 @@ export const DEFAULTS = {
   targets: { start_minutes: 10, merge_minutes: 15, decision_minutes: 30, replace_minutes: 30 },
 };
 
-// The widest window: k spec gates and one confirm gate share the runners (the plan: k = 4 keeps the
-// peak about 15 of 20), so 8 is already past the cap.
-export const MERGE_TRAIN_WINDOW_MAX = 8;
 
 // open_by values (status --role bob): "uses" the default, "layer" the old behaviour.
 export const OPEN_BY = ['uses', 'layer'];
@@ -357,14 +309,10 @@ export function configOf(c, where = CONFIG_FILE) {
     const r = recs.find((x) => typeof x === 'string' && (underPath(strip(g), strip(x)) || underPath(strip(x), strip(g))));
     if (r !== undefined) fail(`${where}: the generated path ${g} and the records path ${r} overlap; a generated file is never a record`);
   }
-  // A window the train cannot run is refused where the config is read, never mid-train.
-  const k = c.merge_train_window ?? DEFAULTS.merge_train_window;
-  if (!Number.isInteger(k) || k < 1 || k > MERGE_TRAIN_WINDOW_MAX) fail(`${where}: merge_train_window ${JSON.stringify(c.merge_train_window)} is not a whole number from 1 to ${MERGE_TRAIN_WINDOW_MAX} (1: the serial train)`);
   const ms = c.merge_strategy ?? DEFAULTS.merge_strategy;
-  if (!['train', 'layer'].includes(ms)) fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)} is not "train" (the default) or "layer" (the shared layer branch)`);
+  if (ms !== 'layer') fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)}: the merge train was removed (Bob, 6 Nov); the shared layer branch is the only flow, so set "merge_strategy": "layer" or leave the key out`);
   return {
     ...DEFAULTS, ...c,
-    merge_train_window: k,
     // A null tranche is the default one, as the anchor reads it (second confirming review of PR 97).
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
@@ -375,7 +323,7 @@ export function configOf(c, where = CONFIG_FILE) {
 // The job cap (Bob, 4 Nov): the job sessions running at once across the whole account, every
 // product (list_sessions is account-scoped); roles, builds and other sessions are not counted. One
 // value per account, P3_JOB_CAP in the account's cloud environment, default 20. The one place the
-// cap is read: job start --ready, status, the sweep and lead times call this and nothing else.
+// cap is read: job start, status, the sweep and lead times call this and nothing else.
 // A product config's old live_cap (or job_cap) is ignored, with a note saying so. Empty is unset.
 export const JOB_CAP_VAR = 'P3_JOB_CAP';
 const JOB_CAP_DEFAULT = 20;

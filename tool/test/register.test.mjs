@@ -17,7 +17,6 @@ import { git, loadConfig } from '../lib/util.mjs';
 processRegisterFixture([SEED_ENTRY]);
 const quiet = () => {};
 const R = 'session_01rootrootroot';
-const M = 'session_01mergermerger';
 const CFG = { tranche: 'tranche', lanes: [{ name: 'triage', dir: 'triage', kind: 'triage' }] };
 const SHORT = {
   kind: 'short-term',
@@ -30,7 +29,7 @@ const CHOICE = {
   response: 'Run at most two product builds at once; process3 gate runs go first.',
   'chosen-by': 'Bob, 6 Nov: "the first"',
   end: 'for 2 hours no gate run waits over 5 minutes.',
-  affects: 'bob,merger',
+  affects: 'bob,coordinator',
 };
 // An entry added and chosen, as the lane does it.
 const addChosen = (root, add = SHORT, choice = CHOICE, opts = { log: quiet }) => {
@@ -54,16 +53,14 @@ function land(root) {
 }
 const prompts = (root) => {
   recordStart(root, 'root', R, { log: quiet });
-  recordStart(root, 'merger', M, { log: quiet });
-  const address = { root: { session: R }, merger: { session: M } };
+  const address = { root: { session: R } };
   return {
     bob: startRole(root, 'bob', { slug: 'o/p', address, log: quiet }).prompt,
-    merger: startRole(root, 'merger', { slug: 'o/p', address, replace: M, log: quiet }).prompt,
     root: startRole(root, 'root', { slug: 'o/p', address: {}, log: quiet }).prompt,
   };
 };
 
-test('options first, printed nowhere; a chosen short-term response reaches BOB and the MERGER, not ROOT, and leaves them on close', () => {
+test('options first, printed nowhere; a chosen short-term response reaches BOB, not ROOT, and leaves them on close', () => {
   const root = product();
   const out = [];
   writeFileSync(join(root, 'other.txt'), 'staged, not the register\n');
@@ -79,7 +76,7 @@ test('options first, printed nowhere; a chosen short-term response reaches BOB a
   assert.throws(() => triageAdd(root, loadConfig(root), { kind: 'short-term', problem: 'p', evidence: 'e' }, { log: quiet }), /options lists each option with its context/);
   land(root);
   let p = prompts(root);
-  for (const role of ['bob', 'merger', 'root']) assert.ok(!p[role].includes('Run at most two'), `${role}: no response is chosen yet`);
+  for (const role of ['bob', 'root']) assert.ok(!p[role].includes('Run at most two'), `${role}: no response is chosen yet`);
   assert.throws(() => triageChoose(root, loadConfig(root), 'T1', { ...CHOICE, end: '' }, { log: quiet }), /needs end_condition/);
   assert.throws(() => triageChoose(root, loadConfig(root), 'T1', { ...CHOICE, 'chosen-by': '' }, { log: quiet }), /needs chosen_by/);
   const c = triageChoose(root, loadConfig(root), 'T1', CHOICE, { log: quiet });
@@ -87,7 +84,7 @@ test('options first, printed nowhere; a chosen short-term response reaches BOB a
   assert.throws(() => triageChoose(root, loadConfig(root), 'T1', CHOICE, { log: quiet }), /already has its chosen response/);
   land(root);
   p = prompts(root);
-  for (const role of ['bob', 'merger']) {
+  for (const role of ['bob']) {
     assert.ok(p[role].includes(`- product T1. Response chosen ${c.chosen_at}: ${CHOICE.response}`), role);
     assert.ok(p[role].includes(`  Ends when: ${CHOICE.end}`), role);
     assert.ok(!p[role].includes('Keep one queue') && !p[role].includes(SHORT.context[0]), `${role}: options are not printed`);
@@ -99,7 +96,7 @@ test('options first, printed nowhere; a chosen short-term response reaches BOB a
   assert.deepEqual([closed.length, closed[0].id, closed[0].state, closed[0].how_met, closed[0].response], [1, 'T1', 'closed', 'measured 5 Nov 14:00 to 16:00: no gate run waited over 5 minutes', CHOICE.response]);
   land(root);
   p = prompts(root);
-  for (const role of ['bob', 'merger']) assert.ok(!p[role].includes(CHOICE.response), role);
+  for (const role of ['bob']) assert.ok(!p[role].includes(CHOICE.response), role);
   // The next id never reuses a closed one's.
   assert.equal(triageAdd(root, loadConfig(root), SHORT, { log: quiet }).id, 'T2');
 });
@@ -111,7 +108,7 @@ test('a long-term entry is printed into no prompt; the register lands by pull re
   assert.throws(() => triageAdd(root, loadConfig(root), { ...long, 'judged-against': undefined }, { log: quiet }), /judged_against/);
   land(root);
   const p = prompts(root);
-  for (const role of ['bob', 'merger', 'root']) assert.ok(!p[role].includes('Merges serialize'), role);
+  for (const role of ['bob', 'root']) assert.ok(!p[role].includes('Merges serialize'), role);
   const out = [];
   triageList(root, loadConfig(root), { log: (l) => out.push(l) });
   assert.match(out.join('\n'), /1 open[\s\S]*"judged_against": "Foundations: merges never wait behind BOB's work\."/);
@@ -141,7 +138,7 @@ test('the process register\'s seed P1, while awaiting a choice, brings options w
   const p1 = live.register.open.find((e) => e.id === 'P1');
   if (!p1 || p1.response !== undefined) return; // chosen or closed by the process-triage lane
   assert.ok(p1.options.length >= 2);
-  for (const role of ['bob', 'root', 'merger', 'coordinator', 'job']) assert.equal(standingBlock([live], role), '', role);
+  for (const role of ['bob', 'root', 'coordinator', 'job']) assert.equal(standingBlock([live], role), '', role);
 });
 
 test('over the cap, every entry is still printed and the block and the commands say so', () => {
@@ -149,7 +146,7 @@ test('over the cap, every entry is still printed and the block and the commands 
   const big = { ...CHOICE, response: 'x'.repeat(700) };
   const out = [];
   for (let i = 0; i < 3; i++) addChosen(root, SHORT, big, { log: (l) => out.push(l) });
-  assert.match(out.join('\n'), new RegExp(`over the cap: the standing block of bob, merger is over ${STANDING_CAP} bytes`));
+  assert.match(out.join('\n'), new RegExp(`over the cap: the standing block of bob, coordinator is over ${STANDING_CAP} bytes`));
   land(root);
   const p = prompts(root);
   assert.equal(p.bob.split('x'.repeat(700)).length - 1, 3);

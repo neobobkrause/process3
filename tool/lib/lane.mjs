@@ -215,8 +215,7 @@ export function laneAsk(root, name, question, { context = [], record, worker, co
 // writes the seat before it prints the create_session call and refuses while one is live or
 // pending; --replace is the refresh; lane end frees it. A lane that names its ledger "module": the
 // module's marks are the lane's work in the lane's folder, so the lane's session and the module's
-// job are one seat: job start (single, --ready, the starter through readySelection) refuses or
-// skips the module while the lane's seat is held, and lane start refuses while the module's job is
+// job are one seat: job start refuses the module while the lane's seat is held, and lane start refuses while the module's job is
 // at work. Not the module's job itself: a job's merge needs a suite-measured receipt, and the
 // lane's folder needs none. A lane ask worker is a read-only subagent of BOB's, writing and landing
 // nothing, so it holds no seat; while the seat is held the question goes to the lane's session.
@@ -429,8 +428,8 @@ export function laneEnd(root, name, { session, why, log = console.log } = {}) {
   return { ended: seat.session || 'pending' };
 }
 
-// Next work's items of a lane's module whose lane's recorded seat is held, marked so job start
-// --ready, its idle count and the starter skip them (ready.mjs startable).
+// Next work's items of a lane's module whose lane's recorded seat is held, marked so (status and
+// the sweep read the mark).
 export function markLaneHeld(cfg, seats, next) {
   for (const x of next || []) {
     const l = x?.module ? laneOfModule(cfg, x.module) : null;

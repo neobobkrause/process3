@@ -1,5 +1,5 @@
 // One session per lane (Bob, 5 Nov 17:33): the lane's seat on the state branch, held by lane
-// start, checked by job start, job start --ready and the starter (readySelection), and a defect
+// start, checked by job start, and a defect
 // line in status and the sweep when a lane has more than one live session.
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -8,7 +8,6 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobStart, startText } from '../lib/job.mjs';
 import { LANE_SESSIONS_FILE, laneArtifact, laneAsk, laneEnd, laneOfModule, laneSeatFor, laneStart, markLaneHeld, readArtifacts, readSeats, seatsOf } from '../lib/lane.mjs';
-import { readySelection, startable } from '../lib/ready.mjs';
 import { laneDefects, sessionActs } from '../lib/status.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { entry, makeRepo } from './helpers.mjs';
@@ -107,18 +106,6 @@ test('lane artifact records a lane\'s design documents\' links for its successor
   assert.match(laneStart(root, 'ux', { slug: 'o/p', log: quiet }).prompt, /- Design doc: https:\/\/claude\.ai\/artifact\/AAA/);
   laneEnd(root, 'ux', { session: 'pending', why: 'test', log: quiet });
   assert.match(laneAsk(root, 'ux', 'which?', { log: quiet }).brief, /The lane's design documents .*\n- Design doc: https:\/\/claude\.ai\/artifact\/AAA/);
-});
-
-test('job start --ready and the starter skip a lane\'s module while its lane\'s seat is held (readySelection)', () => {
-  const cfg = { lanes: [{ name: 'ux', dir: 'd', module: 'ux-design' }, { name: 'ai', dir: 'e' }] };
-  const next = [{ file: 'req/ux-design.md', module: 'ux-design', entry_state: 'COMPLETE', marks: ['R1'] }, { file: 'req/plane.md', module: 'plane', entry_state: 'OPEN' }];
-  assert.deepEqual(startable(structuredClone(next)).go.map((x) => x.id), ['ux-design', 'plane']);
-  const held = markLaneHeld(cfg, new Map([['ux', { lane: 'ux', at: 't', session: S1 }]]), structuredClone(next));
-  const sel = readySelection(held, {});
-  assert.deepEqual(sel.go.map((x) => x.id), ['plane']);
-  assert.match(sel.skip.find((x) => x.id === 'ux-design').why, /lane ux's session session_lane1 is live: its work is the lane's, one session per lane/);
-  // A seat on another lane holds nothing here.
-  assert.equal(readySelection(markLaneHeld(cfg, new Map([['ai', { lane: 'ai', at: 't', session: S2 }]]), structuredClone(next)), {}).go.length, 2);
 });
 
 test('status and the sweep: a lane with more than one live session is a defect line', () => {

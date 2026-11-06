@@ -2,7 +2,7 @@
 // only from its result (REC-5): callers use the returned objects, never their own intent.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fail, gh, ghMany, git, isShallow, run, withTemp } from './util.mjs';
+import { fail, gh, git, isShallow, run, withTemp } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -80,8 +80,6 @@ export function comments(slug, n) {
   const pages = gh(commentsArgs(slug, n));
   return Array.isArray(pages) ? pages.flat() : [];
 }
-// Several pull requests' comments at once (the merge train's scan): null for one unread.
-export const commentsMany = (slug, ns) => ghMany(ns.map((n) => commentsArgs(slug, n))).map((p) => (Array.isArray(p) ? p.flat() : null));
 
 export function addComment(slug, n, body) {
   const c = gh(['api', '-X', 'POST', `repos/${slug}/issues/${n}/comments`, '--input', '-'], { input: JSON.stringify({ body }) });
@@ -183,8 +181,6 @@ const newestRun = (r) => (r?.check_runs || []).sort((a, b) => String(b.started_a
 export function checkRun(slug, sha, name) {
   return newestRun(gh(checkRunArgs(slug, sha, name), { allowFail: true }));
 }
-// checkRun for several [sha, name] pairs at once, in order (the merge train's scan).
-export const checkRunMany = (slug, pairs) => ghMany(pairs.map(([sha, name]) => checkRunArgs(slug, sha, name))).map(newestRun);
 
 // The checks a branch's rulesets require (merge --plain), by name; null when the rules cannot
 // be read. Read from the rulesets, not classic branch protection.
@@ -202,8 +198,6 @@ const allRuns = (r) => (!r || !Array.isArray(r.check_runs) ? null : [...r.check_
 export function checkRuns(slug, sha, name, { read = (args) => gh(args, { allowFail: true }) } = {}) {
   return allRuns(read(checkRunsArgs(slug, sha, name)));
 }
-// checkRuns for several [sha, name] pairs at once, in order.
-export const checkRunsMany = (slug, pairs) => ghMany(pairs.map(([sha, name]) => checkRunsArgs(slug, sha, name))).map(allRuns);
 
 // GitHub's comparison of two refs or commits: ahead_by, behind_by, merge_base_commit; null when
 // unreadable.

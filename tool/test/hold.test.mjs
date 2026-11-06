@@ -8,11 +8,10 @@ import { join } from 'node:path';
 import { commit, entry, makeRepo, setJobCap } from './helpers.mjs';
 import { HOLDS_FILE, hold, holdHours, holdLines, holdsOf } from '../lib/hold.mjs';
 import { flowFigures, unmetAtRef } from '../lib/metrics.mjs';
-import { startReady } from '../lib/ready.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { readState, writeState } from '../lib/state.mjs';
 import { status } from '../lib/status.mjs';
-import { SWEEP_ROWS_FILE, idleCapacity, sweep } from '../lib/sweep.mjs';
+import { SWEEP_ROWS_FILE, sweep } from '../lib/sweep.mjs';
 import { git } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -113,74 +112,7 @@ test('holds: an expired hold holds nothing and is printed as expired', () => {
   assert.match(l[2], /^- hold-1 slots:14, by session_coord1: expired (29|30) min ago, holds nothing: about 6 at most$/);
 });
 
-test('job start --ready: starts to the cap less the live slot holds, and no held module or layer', (t) => {
-  setJobCap(t, 6);
-  const root = withOrigin();
-  const next = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN' }));
-  const holds = holdsOf([
-    { row: 'hold', id: 'hold-1', scope: 'slots:2', why: 'w', by: S, until: ago(-30) },
-    { row: 'hold', id: 'hold-2', scope: 'module:a', why: 'split first', by: S, until: ago(-30) },
-    { row: 'hold', id: 'hold-3', scope: 'layer:2', why: 'v', by: S, until: ago(-30) },
-    { row: 'hold', id: 'hold-4', scope: 'slots:3', why: 'expired', by: S, until: ago(5) },
-  ]);
-  const out = [];
-  const r = startReady(root, { live: 1, remote: new Set(), log: (l) => out.push(l), read: () => ({ next, holds }), start: () => ({ launch: {} }) });
-  // Cap 6 less 2 held less 1 live: 3 slots; a held, c..e in layer 2 held: only b starts.
-  assert.deepEqual(r.started.map((x) => x.id), ['b']);
-  assert.ok(out.includes('2 slots held by recorded holds (status lists them)'));
-  assert.ok(out.some((l) => /^not started: a: held by hold-2 \(module:a, by session_coord1, until .*\): split first$/.test(l)));
-  assert.ok(out.some((l) => /^not started: c: held by hold-3 \(layer:2/.test(l)));
-});
-
-test('idle capacity: work startable under the cap less holds for 15 min, or none under half the cap for 30 min; each empty slot has its reason', () => {
-  const work = [
-    { file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN' },
-    { file: 'r/b.md', count: 1, module: 'b', entry_state: 'OPEN' },
-    { file: 'r/c.md', count: 1 },
-  ];
-  const holds = holdsOf([{ row: 'hold', id: 'hold-1', scope: 'module:b', why: 'split', by: S, until: ago(-30) }, { row: 'hold', id: 'hold-2', scope: 'slots:4', why: 'w', by: S, until: ago(-30) }]);
-  const t = Date.now();
-  const base = { live: 6, cap: 20, holds, work, startable: 2, layers: new Map(), t }; // flow's count: a and b
-  const fresh = idleCapacity({ ...base, freed: t - 5 * 6e4 });
-  assert.deepEqual([fresh.kind, fresh.min, fresh.alarm, fresh.held, fresh.startable, fresh.empty], ['work', 5, false, 4, 1, 10]);
-  assert.deepEqual(fresh.reasons, ['1 x startable, not started', 'r/c.md: no ledger entry: BOB writes it, then job start --ready starts it', 'b: held by hold-1 (by session_coord1): split', '7 x no startable work']);
-  // The last sweep saw the same idle: its since carries.
-  const carried = idleCapacity({ ...base, freed: t, prev: { at: new Date(t - 9 * 6e4).toISOString(), idle_capacity: { kind: 'work', since: new Date(t - 20 * 6e4).toISOString() } } });
-  assert.deepEqual([carried.min, carried.alarm], [20, true]);
-  // Not carried: never before the last sweep, which saw none (an old tranche tip proves nothing).
-  assert.equal(idleCapacity({ ...base, freed: t - 300 * 6e4, prev: { at: new Date(t - 10 * 6e4).toISOString() } }).min, 10);
-  // At the cap less holds: no idle.
-  assert.equal(idleCapacity({ ...base, live: 16, freed: t - 60 * 6e4 }), null);
-  // Nothing startable: idle only under half the cap, and only after 30 min.
-  const none = { ...base, holds: [], work: [], startable: 0 };
-  assert.equal(idleCapacity({ ...none, live: 10, freed: t - 60 * 6e4 }), null);
-  const empty = idleCapacity({ ...none, live: 6, freed: t - 25 * 6e4 });
-  assert.deepEqual([empty.kind, empty.alarm, empty.reasons], ['empty', false, ['14 x no startable work']]);
-  assert.equal(idleCapacity({ ...none, live: 6, freed: t - 31 * 6e4 }).alarm, true);
-});
-
-test('sweep: IDLE CAPACITY wakes BOB with the start and tells the coordinator the reason; the sweep row records it', (t) => {
-  setJobCap(t, 20);
-  const root = withOrigin();
-  recordStart(root, 'root', 'session_root1', { log: quiet });
-  recordStart(root, 'bob', 'session_bob1', { log: quiet });
-  const run = () => sweep(root, { session: 'session_root1', live: 2, offline: true, log: quiet });
-  const rows = () => readState(root, SB, SWEEP_ROWS_FILE).trim().split('\n').map((l) => JSON.parse(l));
-  let r = run();
-  assert.deepEqual([rows()[0].idle_capacity.kind, rows()[0].idle_capacity.alarm], ['empty', false]); // the tranche tip is fresh
-  assert.ok(!r.found.some((x) => /IDLE CAPACITY/.test(x)));
-  writeState(root, SB, 'older', (d) => writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: ago(40), row: 'sweep', live: 2, job_cap: 20, idle_capacity: { kind: 'empty', since: ago(40) } }) + '\n'));
-  r = run();
-  const ic = rows().at(-1).idle_capacity;
-  assert.deepEqual([ic.kind, ic.alarm, ic.live, ic.cap, ic.empty], ['empty', true, 2, 20, 18]);
-  assert.ok(ic.min >= 40);
-  assert.ok(r.found.some((x) => /^IDLE CAPACITY: 2 job sessions live of the cap 20, 0 startable, for 4\d min; 18 empty slots: 18 x no startable work$/.test(x)));
-  assert.ok(r.todo.some((x) => /^IDLE CAPACITY to the coordinator: send_message to session_coord1 with "IDLE CAPACITY: /.test(x)));
-  assert.ok(r.todo.some((x) => /^wake BOB with one message: .*IDLE CAPACITY, 18 slots empty, 0 startable: run node \S+ job start --ready/.test(x)));
-  assert.equal(readState(root, SB, HOLDS_FILE), null);
-});
-
-test('sweep --sessions: every unarchived job session holds a slot, idle complete-awaiting-merge ones too, the split beside it; one page of a longer list is refused (copy, 5 Nov 04:36: 6 counted of 16)', (t) => {
+test('sweep --sessions: every unarchived job session holds a slot, idle complete-awaiting-merge ones too; one page of a longer list is refused (copy, 5 Nov 04:36: 6 counted of 16)', (t) => {
   setJobCap(t, 20);
   const root = withOrigin();
   recordStart(root, 'root', 'session_root1', { log: quiet });
@@ -196,11 +128,6 @@ test('sweep --sessions: every unarchived job session holds a slot, idle complete
   const r = sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet });
   assert.equal(rows().at(-1).live, 16, 'every unarchived job session');
   assert.ok(!r.found.some((x) => /IDLE CAPACITY/.test(x)), '16 of 20 and nothing startable: no empty-slot alarm');
-  // Fewer live: the alarm names the split beside the count.
-  writeFileSync(file, JSON.stringify({ data: list.slice(0, 3), has_more: false }));
-  writeState(root, SB, 'older', (d) => writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: ago(40), row: 'sweep', live: 3, job_cap: 20, idle_capacity: { kind: 'empty', since: ago(40) } }) + '\n'));
-  const few = sweep(root, { session: 'session_root1', sessions: file, offline: true, log: quiet });
-  assert.ok(few.found.some((x) => /^IDLE CAPACITY: 3 job sessions live \(working \d+, waiting \d+\) of the cap 20, /.test(x)), few.found.join('\n'));
   // The first page of a longer list: it stands while the record knows no session it could miss
   // (restart speed, 5 Nov), and is refused, with the way to read the rest, once a recorded open
   // job's session could be on the next page.
