@@ -80,7 +80,8 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 export function layerIdle({ live, cap, holds = [], view, layers = new Map(), prev, freed, t = Date.now() }) {
   const held = slotsHeld(holds);
   const open = view?.kind === 'open';
-  const st = open ? view.startable : [];
+  // The open layer's own starts first, then its early starts into the next layer (R14): idle capacity.
+  const st = open ? [...view.startable, ...(view.early || [])] : [];
   const inWork = st.map((j) => ({ j, h: heldBy(holds, j.id, layers) })).filter((x) => x.h);
   const go = st.filter((j) => !inWork.some((x) => x.j === j));
   const n = go.length;
@@ -93,7 +94,10 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
   const empty = Math.max(0, cap - held - live);
   const k = Math.min(n, empty);
   const why = [];
-  if (k) why.push(`${k} x startable from ${P3} layer jobs ${view.n}, not started`);
+  // The layer's own starts first, then its early starts (R14), as the fill takes them.
+  const own = go.filter((j) => !(view.early || []).includes(j)).length;
+  if (Math.min(k, own)) why.push(`${Math.min(k, own)} x startable from ${P3} layer jobs ${view.n}, not started`);
+  if (k > own) why.push(`${k - own} x early starts into layer ${view.early_next} listed by ${P3} layer jobs ${view.n}, not started`);
   for (const y of inWork.slice(0, empty - k)) why.push(`${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`);
   const rest = empty - k - Math.min(inWork.length, empty - k);
   if (rest > 0) {
@@ -256,7 +260,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         // unmet work still wakes BOB, its act then status's.
         // With the layer read: its jobs, its merge or the next layer's open; every layer merged, no
         // layer map, or unread: next work (found, notice and entered work) is BOB's act.
-        next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after && !x.owed_layer); // unmet after its job, or owed to a later layer: no act
+        next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready || view.early?.length > 0)) || view.kind === 'next' : work.some((x) => !x.after && !x.owed_layer); // unmet after its job, or owed to a later layer: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view });
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
