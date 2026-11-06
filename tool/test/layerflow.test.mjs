@@ -1046,7 +1046,7 @@ test('layer retest refuses a module owed a job for a breaking change, even when 
 
 // R11 (copy, 6 Nov): layer/8 was cut at a tranche pinned at 4a85f26; the pin moved to 0635b64 on the
 // tranche, and layer/8's gate, run with the base's own tool, still refused R4's carried entries.
-// SLB-8 (Bob, 6 Nov): a pin move while a layer is open is followed by layer sync before any job lands.
+// SLB-12 (Bob, 6 Nov): a pin move while a layer is open is followed by layer sync before any job lands.
 // An empty .process stands for the submodule, so `git add -A` keeps the pointer.
 const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive: true }); git(['update-index', '--add', '--cacheinfo', `160000,${sha},.process`], { cwd: dir }); git(['commit', '-q', '-m', msg], { cwd: dir }); return git(['rev-parse', 'HEAD'], { cwd: dir }); };
 const syncIO = (bare, made) => ({
@@ -1055,7 +1055,7 @@ const syncIO = (bare, made) => ({
   waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
   merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
 });
-test('layer sync (R11, SLB-8): a pin moved on the tranche while the layer is open leads layer jobs and status, holds the merge, and layer sync lands the tranche by a gated PR, the pin and shims the tranche\'s, a ledger entry the layer\'s', async () => {
+test('layer sync (R11, SLB-12): a pin moved on the tranche while the layer is open leads layer jobs and status, holds the merge, and layer sync lands the tranche by a gated PR, the pin and shims the tranche\'s, a ledger entry the layer\'s', async () => {
   const { root, bare } = product({ done: true });
   const p1 = git(['rev-parse', 'HEAD'], { cwd: root });
   setPin(root, p1, 'pin 1');
@@ -1086,7 +1086,7 @@ test('layer sync (R11, SLB-8): a pin moved on the tranche while the layer is ope
   await layerLand(root, 7, { io: landIO(bare, { 7: prOf(7, 'c', hc2) }), log: quiet });
   const lines = [];
   const j = layerJobs(root, 1, { io: openIO, log: (l) => lines.push(l) });
-  assert.match(j.sync.line, /^run node \.process\/tool\/p3\.mjs layer sync 1 first: layer\/1's process pin .* differs from tranche's .*\(SLB-8\)$/);
+  assert.match(j.sync.line, /^run node \.process\/tool\/p3\.mjs layer sync 1 first: layer\/1's process pin .* differs from tranche's .*\(SLB-12\)$/);
   assert.equal(lines[0], j.sync.line, 'layer jobs leads with it');
   const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
   assert.equal(st[0], j.sync.line, 'status leads with it');

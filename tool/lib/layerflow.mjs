@@ -744,7 +744,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
 
 // ---- layer sync (R11) -----------------------------------------------------------------------
 
-// Bob, 6 Nov ~16:15 (SLB-8): every pin move made while a layer is open is followed by layer sync <n>
+// Bob, 6 Nov ~16:15 (SLB-12): every pin move made while a layer is open is followed by layer sync <n>
 // before any job in it lands. A pin move reaches no open layer branch by itself: the gate and the
 // record check run the base's own tool, so layer/<n> kept the tool it was cut with (copy, 6 Nov:
 // layer/8 at 4a85f26 refused R4's carried entries after the tranche moved to 0635b64).
@@ -758,7 +758,7 @@ export function syncOwed(root, cfg, n) {
   const moved = git(['log', '-1', '--format=%cI', tr, '--', '.process'], { cwd: root, allowFail: true }).stdout.trim();
   const lands = flowRows(root, cfg.state_branch, n).lands;
   const lastLand = lands.map((l) => l.at).sort().at(-1) || null;
-  return { why, lastLand, afterLastLand: !!moved && (!lastLand || Date.parse(moved) > Date.parse(lastLand)), line: `run ${P3} layer sync ${n} first: ${why}; a pin move while a layer is open is followed by layer sync before any job in it lands (SLB-8)` };
+  return { why, lastLand, afterLastLand: !!moved && (!lastLand || Date.parse(moved) > Date.parse(lastLand)), line: `run ${P3} layer sync ${n} first: ${why}; a pin move while a layer is open is followed by layer sync before any job in it lands (SLB-12)` };
 }
 const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
 // The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
@@ -809,7 +809,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
         return { head: h, resolved: conflicted };
       } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
     }, { root }));
-    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (SLB-8: a pin move while a layer is open is followed by layer sync before any job in it lands).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
+    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (SLB-12: a pin move while a layer is open is followed by layer sync before any job in it lands).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
     pr = x.createPR(slug, { head: branch, base: b0, title: `layer sync ${n}: ${cfg.tranche} ${short(ttip)}`, body, draft: false });
     log(`layer sync ${n}: PR ${pr.number} from ${branch} into ${b0}${resolved.length ? `, resolved ${resolved.join(', ')}` : ''}`);
   } else log(`layer sync ${n}: PR ${pr.number} from ${branch} is open already`);

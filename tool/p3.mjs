@@ -147,7 +147,7 @@ const commands = {
   // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
   // layer retest <id>: a rescheduled module with no work on the layer re-tested by CI on a ready PR, no job session.
   // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
-  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (SLB-8: after a pin move).
+  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (SLB-12: after a pin move).
   // layer merge <n> [--no-wait]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
   'layer open': (a, root) => (layerOpen(root, one(a, 'layer number'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
