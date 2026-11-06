@@ -27,10 +27,11 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
-import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, openPRs, prsFromBranch } from './github.mjs';
+import { assertionChange } from './testdiff.mjs';
+import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated } from './checks.mjs';
-import { branchModule, entryFile, ledgerIds, startBranch } from './ledger.mjs';
+import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
@@ -87,13 +88,20 @@ function providesRaw(md, norm = false) {
 const entryAt = (root, ref, id) => { const t = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true }); try { return t.code === 0 ? JSON.parse(t.stdout) : null; } catch { return null; } };
 const textAt = (root, ref, f) => (f && exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null);
 
-// Whether a module's interface changed from `before` to `after`: its exports as its users import
-// them (exports.mjs exportChanges) and its Public / Provides. Nothing of its own source and not its
-// requirements file changed: unchanged, read no further. An export surface that cannot be read
-// counts as changed, so a user is never left unwarned by a bad read (unread says why).
+// Whether a module's interface changed from `before` to `after` (Bob, 6 Nov, R8: only real interface
+// changes reschedule; publication's land in layer 8 rescheduled 12 users, most COMPLETE). triggers,
+// each a reschedule of the users in the layer:
+//   exports       an exported name added, removed or renamed, or an export's kind changed (function,
+//                 class, value...); a changed parameter list alone is recorded, not a trigger;
+//   provides-test a test naming a Public / Provides requirement changed what it asserts (testdiff.mjs);
+// provides (a changed Public / Provides text) is a notice to the users, never a reschedule; unread
+// (the exports could not be read) refuses the land (layerLand), never reschedules. triggers_old:
+// what the rule before R8 fired (exports with any signature change, provides-text, a provides test
+// that names an id, exports-unread), kept so the trial counts the re-tests avoided.
+// Nothing of its own source and not its requirements file changed: unchanged, read no further.
 export function interfaceChange(root, cfg, id, before, after) {
   const e = entryAt(root, after, id) || entryAt(root, before, id);
-  if (!e) return { changed: false, exports: null, provides: null, triggers: [], why: `no ledger entry for ${id}` };
+  if (!e) return { changed: false, exports: null, provides: null, triggers: [], triggers_old: [], why: `no ledger entry for ${id}` };
   const files = diffNames(root, before, after);
   const src = files.filter((f) => isSource(cfg, e, f));
   const req = !!e.requirements && files.includes(e.requirements);
@@ -102,26 +110,38 @@ export function interfaceChange(root, cfg, id, before, after) {
     const [a, b] = [providesText(textAt(root, before, e.requirements)), providesText(textAt(root, after, e.requirements))];
     if (a !== b) out.provides = { before: a, after: b };
   }
+  let anyExport = false;
   if (src.length) {
     try {
       const x = exportChanges(root, before, after, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
-      if (anyExportChange(x)) out.exports = x;
-    } catch (err) { out.unread = String(err.message || err).slice(0, 200); }
+      anyExport = anyExportChange(x);
+      if (anyExport) out.exports = { ...x, kinds: x.changed.filter((c) => kindOf(c.before) !== kindOf(c.after)).map((c) => c.name), signatures: x.changed.filter((c) => kindOf(c.before) === kindOf(c.after)).map((c) => c.name) };
+    } catch (err) { out.unread = String(err.message || err).slice(0, 300); }
   }
   // A return shape is not in the exports (Bob, 5 Nov: a provider answered {materials: [...]} for a
-  // list, its exports unchanged, and screens-publish read it wrongly). A changed test of the
-  // provider that names one of its Public / Provides requirements (a word R<id> the section holds,
-  // read at after, else before) counts too: it reschedules, it refuses nothing.
+  // list, its exports unchanged, and screens-publish read it wrongly): a changed test of the provider
+  // that names one of its Public / Provides requirements (read at after, else before) counts when
+  // what it asserts changed.
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
     const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
     const hit = ids.length ? tests.filter((f) => { const t = `${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`; return ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t)); }) : [];
-    if (hit.length) out.provides_tests = hit.sort();
+    if (hit.length) {
+      out.provides_tests_named = hit.sort();
+      const asserted = hit.map((f) => ({ file: f, ...assertionChange(textAt(root, before, f), textAt(root, after, f), ids) }));
+      out.provides_test_changes = asserted;
+      const real = asserted.filter((x) => x.changed).map((x) => x.file);
+      if (real.length) out.provides_tests = real;
+    }
   }
-  out.triggers = [...(out.exports ? ['exports'] : []), ...(out.provides ? ['provides-text'] : []), ...(out.provides_tests ? ['provides-test'] : []), ...(out.unread ? ['exports-unread'] : [])];
+  const realExports = !!out.exports && (out.exports.added.length || out.exports.removed.length || out.exports.kinds.length) > 0;
+  out.triggers = [...(realExports ? ['exports'] : []), ...(out.provides_tests ? ['provides-test'] : [])];
+  out.triggers_old = [...(anyExport ? ['exports'] : []), ...(out.provides ? ['provides-text'] : []), ...(out.provides_tests_named ? ['provides-test'] : []), ...(out.unread ? ['exports-unread'] : [])];
   out.changed = out.triggers.length > 0;
   return out;
 }
+// An export's kind from its signature (exports.mjs): function, class, value, external, method, getter...
+export const kindOf = (sig) => { const t = String(sig ?? ''); return /^function\b/.test(t) ? 'function' : /^static /.test(t) ? 'static method' : /^\(/.test(t) ? 'method' : t; };
 // The requirement ids the Public / Provides section names (**R<id>**), or null without a section.
 export function providesIds(md) {
   const t = providesRaw(md);
@@ -131,13 +151,15 @@ export function interfaceText(ic) {
   const parts = [];
   if (ic.exports) {
     const x = ic.exports;
+    const kinds = new Set(x.kinds || x.changed.map((c) => c.name));
     if (x.removed.length) parts.push(`removed ${x.removed.join(', ')}`);
-    if (x.changed.length) parts.push(`changed ${x.changed.map((c) => `${c.name} ${c.before} -> ${c.after}`).join(', ')}`);
+    if (x.changed.some((c) => kinds.has(c.name))) parts.push(`changed the kind of ${x.changed.filter((c) => kinds.has(c.name)).map((c) => `${c.name} ${c.before} -> ${c.after}`).join(', ')}`);
     if (x.added.length) parts.push(`added ${x.added.join(', ')}`);
+    if (x.changed.some((c) => !kinds.has(c.name))) parts.push(`changed the parameters of ${x.changed.filter((c) => !kinds.has(c.name)).map((c) => `${c.name} ${c.before} -> ${c.after}`).join(', ')} (not a trigger)`);
   }
-  if (ic.provides) parts.push('its Public / Provides section changed');
-  if (ic.provides_tests) parts.push(`its tests of Public / Provides requirements changed (${ic.provides_tests.join(', ')}), which may mean a changed answer shape`);
-  if (ic.unread) parts.push(`its exports could not be read (${ic.unread}), counted as changed`);
+  if (ic.provides) parts.push('its Public / Provides text changed (a notice, not a trigger)');
+  if (ic.provides_tests) parts.push(`its tests of Public / Provides requirements changed what they assert (${(ic.provides_test_changes || []).filter((x) => x.changed).map((x) => `${x.file}: ${x.why}`).join(', ') || ic.provides_tests.join(', ')}), which may mean a changed answer shape`);
+  if (ic.unread) parts.push(`its exports could not be read (${ic.unread})`);
   return parts.join('; ') || 'no change';
 }
 
@@ -203,7 +225,7 @@ export function startable(states) {
     if (s.state === 'rescheduled' && s.pr === null) {
       const why = [...new Set(s.outstanding.map((r) => `${r.provider} (land ${short(r.provider_land)})`))].join(', ');
       // With no land of its own on the layer, CI can re-test it with no job session (layer retest).
-      return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`, ...(s.lands === 0 ? { retest: `${P3} layer retest ${s.id}` } : {}) }];
+      return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`, ...(s.lands === 0 && !s.marks.length ? { retest: `${P3} layer retest ${s.id}` } : {}) }];
     }
     return [];
   });
@@ -501,7 +523,7 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob' }
   const cfg0 = loadConfig(root);
   needLayerMode(cfg0, 'layer retest');
   const slug = io.slug || repoSlug(root);
-  const x = { openPRs, createPR, addComment, prsFromBranch, comments: ghComments, ...io };
+  const x = { openPRs, createPR, addComment, markReady, prsFromBranch, comments: ghComments, jobHeads: originJobs, ...io };
   const cfg = jobCfg(root, cfg0, id);
   if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged)`);
   const { n } = cfg.layer;
@@ -511,23 +533,36 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob' }
   const s = L.states.find((m) => m.id === id) || fail(`${id} is not a module of layer ${n}`);
   const reopen = `${P3} job start ${id} --live <n> --reopen "re-test against the new interface of ${[...new Set(s.outstanding.map((r) => r.provider))].join(', ') || 'its providers'}"`;
   if (s.state !== 'rescheduled' || s.pr !== null) fail(`${id} is ${s.state}${s.pr !== null ? ` with PR ${s.pr} open` : ''}: layer retest is for a rescheduled module with no pull request open`);
+  // Unmet requirement marks are a job's to meet: a retest would land it with them still unmet.
+  if (s.marks.length) fail(`${id} has unmet requirement marks (${s.marks.join(', ')}): a job meets them: ${P3} job start ${id} --live <n> --reopen "meet the unmet requirement marks ${s.marks.join(', ')} and re-test against the new interface"`);
   const tip = rev(root, L.ref);
   const e = L.entries.get(id) || fail(`no ledger entry for ${id}`);
-  // No commit of its own on the layer since the open: no land, and none of its files changed.
-  const mine = L.rows.lands.filter((l) => l.module === id);
-  const touched = L.rows.open ? diffNames(root, L.rows.open.from, tip).filter((f) => ownPaths(e).some((p) => underPath(f, p))) : ['(no open row)'];
+  // No commit of its own on the layer since the open: no land but a retest's, and none of its files
+  // changed but its records (a retest's row).
+  const mine = L.rows.lands.filter((l) => l.module === id && !l.retest);
+  const touched = L.rows.open ? diffNames(root, L.rows.open.from, tip).filter((f) => f !== metricsFile(id) && ownPaths(e).some((p) => underPath(f, p))) : ['(no open row)'];
   if (mine.length || touched.length) fail(`${id} has work on ${b0} since the open (${mine.length ? `${mine.length} land(s)` : touched.slice(0, 3).join(', ')}): a job re-tests it: ${reopen}`);
-  // Its job branch, as its last start row names it, already in the layer.
+  // Its job branch, as its last start row names it. It holds nothing the layer lacks but earlier
+  // retests (a red one, or one a later provider land overtook), and no other job branch of it holds
+  // work the layer lacks (a fresh start whose pull request never opened: cold review of PR 193).
   const branch = startBranch(rowsAt(root, tip, id), id);
-  const at = git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.split('\t')[0].trim();
-  if (at) {
-    fetchBranch(root, branch, { allowFail: true });
-    if (!isAnc(root, at, tip)) fail(`origin's ${branch} at ${short(at)} has commits ${b0} lacks: a job re-tests it: ${reopen}`);
+  const ids = new Set([...ledgerIds(root, L.ref), ...ledgerIds(root, `refs/remotes/origin/${cfg0.tranche}`)]);
+  const heads = x.jobHeads(root);
+  if (heads === null) fail('origin\'s job branches could not be read; nothing was done');
+  let at = '';
+  for (const h of [...heads].filter((q) => branchModule(q, ids) === id)) {
+    fetchBranch(root, h, { allowFail: true });
+    const t = rev(root, `refs/remotes/origin/${h}`);
+    if (h === branch) at = t;
+    const extra = isAnc(root, t, tip) ? [] : git(['rev-list', '--no-merges', '--format=%s', t, `^${tip}`], { cwd: root }).split('\n').filter((l) => l && !l.startsWith('commit '));
+    if (extra.length && (h !== branch || extra.some((l) => !l.startsWith(`layer retest ${id} `)) || diffNames(root, git(['merge-base', t, tip], { cwd: root }), t).some((f) => f !== metricsFile(id)))) {
+      fail(`origin's ${h} at ${short(t)} has work ${b0} lacks: a job re-tests it: ${reopen}`);
+    }
   }
   const prs = x.prsFromBranch(slug, branch);
   if (prs === null) fail(`GitHub unreadable: the pull requests from ${branch} are not known; nothing was done`);
   const open = prs.find((p) => p.state === 'open');
-  if (open) fail(`${branch} has pull request ${open.number} open: nothing to re-test; land or close it`);
+  if (open) fail(`${branch} has pull request ${open.number} open: land or close it first`);
   // Its last receipt, from its newest merged pull request that has one, on a commit in the layer.
   let receipt = null;
   for (const p of prs.filter((q) => q.merged_at).sort((a, c) => c.number - a.number)) {
@@ -538,8 +573,11 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob' }
   const providers = [...new Set(s.outstanding.map((r) => r.provider))];
   const sha = withTemp('p3-layer-', (tmp) => {
     const w = join(tmp, 'w');
-    git(['worktree', 'add', '-q', '--detach', w, tip], { cwd: root });
+    // On the layer tip; a branch holding an earlier retest takes the layer in by a merge (no rewrite).
+    const from = at && !isAnc(root, at, tip) ? at : tip;
+    git(['worktree', 'add', '-q', '--detach', w, from], { cwd: root });
     try {
+      if (from !== tip) git(['merge', '-q', '--no-edit', '-m', `Merge ${b0} into ${branch}`, tip], { cwd: w });
       appendRow(w, id, { row: 'retest', event: 'retest', layer: n, tested_on: tip, against: providers, receipt_attempt: receipt.attempt ?? null, by });
       git(['add', '--', metricsFile(id)], { cwd: w });
       git(['commit', '-q', '-m', `layer retest ${id} on ${b0} ${short(tip)}`, '--', metricsFile(id)], { cwd: w });
@@ -550,10 +588,13 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob' }
     } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
   }, { root });
   const body = [`layer retest of ${id} on ${b0} ${short(tip)}, against ${providers.join(', ')}'s new interface: one records-only commit, no job session.`, '', `CI's gate runs ${id}'s whole suite on this head; green, the merge tool lands it (${P3} layer land <this PR>). Red: ${reopen}.`, '', `The receipt is ${id}'s last, from PR ${receipt.retest.from_pr}.`].join('\n');
-  const pr = x.createPR(slug, { head: branch, base: b0, title: `layer retest: ${id}`, body, draft: false });
+  // A draft first, the receipt on it, then ready: the gate's run on ready reads the receipt (cold
+  // review of PR 193; job complete posts its receipt before markReady too).
+  const pr = x.createPR(slug, { head: branch, base: b0, title: `layer retest: ${id}`, body, draft: true });
   x.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt of ${id} (attempt ${receipt.attempt}), carried from PR ${receipt.retest.from_pr} for this retest.`));
   writeRows(root, cfg0.state_branch, `layer ${n}: ${id} retest PR ${pr.number}`, [[flowFile(n, 'retest', `${safeName(id)}-${pr.number}`), { row: 'retest', layer: n, module: id, pr: pr.number, head: sha, tested_on: tip, against: providers, at: now(), by }]]);
-  log(`layer retest: ${id} on ${b0} ${short(tip)}: PR ${pr.number} from ${branch}, ready; the gate runs its whole suite. Green: ${P3} layer land ${pr.number}. Red: close it and ${reopen}`);
+  x.markReady(slug, pr.number);
+  log(`layer retest: ${id} on ${b0} ${short(tip)}: PR ${pr.number} from ${branch}, ready; the gate runs its whole suite. Green: ${P3} layer land ${pr.number}. Red: close it and run ${P3} layer retest ${id} again, or ${reopen}`);
   return { ok: true, pr, branch, head: sha, tested_on: tip };
 }
 
@@ -609,6 +650,9 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   // A run that started before a provider's newest interface change never counts (Bob, 5 Nov).
   const late = outstanding(rows.reschedules, [], id, () => false).filter((r) => !isAnc(root, r.provider_land, head));
   if (late.length) fail(`refused: ${id}'s run on ${short(head)} started before ${late.map((r) => `${r.provider}'s interface change (land ${short(r.provider_land)})`).join(', ')}: it never counts; the job runs ${P3} layer publish ${id} again`);
+  // Exports that cannot be read refuse the land (Bob, 6 Nov, R8): never a reschedule of every user.
+  const pre = (x.interfaceChange || interfaceChange)(root, cfg, id, before, head);
+  if (pre.unread) fail(`refused: ${id}'s exports could not be read at ${short(head)} (${pre.unread}); the job fixes what cannot be read and publishes again; nothing was merged`);
   const r = await x.merge(slug, n0, head, landTitle(n0));
   if (!r?.merged && !r?.sha) fail(`GitHub did not merge pull request ${n0}: ${JSON.stringify(r).slice(0, 200)}`);
   fetchBranch(root, layerBranch(n));
@@ -621,14 +665,17 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const later = users.filter((u) => { const k = layerOf(layers, u); return k === null || k > n; });
   const runs = gateRuns(x.comments(slug, n0)).filter((q) => q?.sha);
   const at = now();
-  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_noticed: ic.changed ? later : [] };
+  // A changed Public / Provides text alone is a notice to every user, in this layer and later ones.
+  const noticed = ic.changed ? later : ic.provides ? users.filter((u) => same.includes(u) || later.includes(u)) : [];
+  if (ic.unread) log(`warning: ${id}'s exports could not be read on the land ${short(after)} (${ic.unread}); nothing rescheduled for it; read them before the layer merges`);
+  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? same : [], users_noticed: noticed };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land]];
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers }]);
-    if (later.length) {
-      const key = noticeKey(id, n0);
-      files.push([noticeFile(key), { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: later, source: 1, ...(ic.exports ? { exports: ic.exports } : {}), layer_flow: { layer: n, provides: !!ic.provides } }]);
-    }
+  }
+  if (noticed.length) {
+    const key = noticeKey(id, n0);
+    files.push([noticeFile(key), { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: noticed, source: 1, ...(ic.exports ? { exports: ic.exports } : {}), layer_flow: { layer: n, provides: !!ic.provides, rescheduled: ic.changed } }]);
   }
   // The notices this module owed (from earlier layers' providers) are answered by its land.
   try { for (const k of noticeRecords(root, cfg.state_branch).filter((q) => !q.withdrawn && q.open.includes(id))) files.push([answerFile(id, k.key), { row: 'answered', at, key: k.key, user: id, pr: n0, by: 'layer land' }]); } catch { /* none read: none answered */ }
@@ -643,8 +690,8 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
       const text = `layer ${n}: ${id} changed its interface (land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and its gate re-runs your suite against ${id}'s new version. A run started before this never counts.`;
       if (p) { msgs.push({ user: u, pr: p.number, text }); log(`BOB delivers to job ${u}'s session (PR ${p.number}), with send_message priority now: ${text}`); } else log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`);
     }
-    if (later.length) log(`provider notice ${noticeKey(id, n0)} for ${later.length} user(s) in later layers: ${later.join(', ')}`);
   }
+  if (noticed.length) log(`provider notice ${noticeKey(id, n0)} for ${noticed.length} user(s)${ic.changed ? ' in later layers' : ', its Public / Provides text changed (no reschedule)'}: ${noticed.join(', ')}`);
   return { ok: true, land, messages: msgs };
 }
 
@@ -857,6 +904,8 @@ export function resultChanges(reschedules, runs, anc = () => true) {
   return out;
 }
 
+const TRIGGERS = ['exports', 'provides-text', 'provides-test', 'exports-unread'];
+const countTriggers = (lands, k) => Object.fromEntries(TRIGGERS.map((t) => [t, lands.filter((l) => (l.interface?.[k] || (k === 'triggers_old' ? l.interface?.triggers : null) || []).includes(t)).length]));
 export function trialMeasures(rows, { anc = () => true } = {}) {
   const mods = new Set([...rows.runs.map((r) => r.module), ...rows.lands.map((l) => l.module), ...rows.reschedules.map((r) => r.user)]);
   const per = [...mods].sort().map((id) => {
@@ -876,6 +925,11 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
     gate_runs: per.reduce((s, x) => s + x.gate_runs, 0), lands: rows.lands.length,
     interface_changes: rows.lands.filter((l) => l.interface?.changed).length,
     reschedules: rows.reschedules.length,
+    // R8 (Bob, 6 Nov): the triggers each land fired under the rule before R8 and under R8's, and the
+    // reschedules the old rule would have made; the difference is the false re-tests avoided.
+    triggers_old_rule: countTriggers(rows.lands, 'triggers_old'), triggers_new_rule: countTriggers(rows.lands, 'triggers'),
+    reschedules_old_rule: rows.lands.reduce((t, l) => t + (l.users_rescheduled_old_rule || l.users_rescheduled || []).length, 0),
+    reschedules_avoided: rows.lands.reduce((t, l) => t + Math.max(0, (l.users_rescheduled_old_rule || l.users_rescheduled || []).length - (l.users_rescheduled || []).length), 0),
     // Retests (layer retest): opened, and those landed (no job session; a CI suite run each).
     retests: (rows.retests || []).length, retest_lands: rows.lands.filter((l) => l.retest).length,
     // Which trigger fired, per reschedule (Bob, 5 Nov): exports, Provides text, or a Provides test.
@@ -900,7 +954,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
     m.tool_lines = { from: toolFrom, to: toolTo, added: ins, removed: del };
   }
   const c = m.reschedule_changed_result;
-  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.retests} retest(s), ${m.retest_lands} landed; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
+  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests} retest(s), ${m.retest_lands} landed; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
   log('the baseline: the same layer\'s history under the serial train (merge train report, and the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));
   return { ok: true, measures: m };
