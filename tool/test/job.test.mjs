@@ -309,6 +309,17 @@ test('block, pushed, ends with the wake of BOB from the job', () => {
   assert.equal(jobSender('a'.repeat(50)).length, 40);
 });
 
+test('a job push refuses a commit that adds a dist/ file, before anything is pushed (agent-runner 3ee34e5, 6 Nov)', () => {
+  const root = withOrigin();
+  const f = fakeGitHub();
+  jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
+  git(['checkout', '-q', 'job/alpha'], { cwd: root });
+  const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+  commit(root, { 'src/alpha/dist/alpha.bundled.mjs': 'export {};\n' });
+  assert.throws(() => jobBlock(root, 'alpha', { reason: 'x', log: quiet }), /nothing was pushed: commit \w+ adds src\/alpha\/dist\/alpha\.bundled\.mjs \(under a dist\/ directory/);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'not pushed');
+});
+
 test('after a failed push, a rerun posts the saved receipt for the COMPLETE commit', () => {
   const root = withOrigin();
   const f = fakeGitHub();

@@ -89,6 +89,7 @@ export const ownOf = (entries, id) => { const e = entries.find((x) => x.id === i
 const entryOf = (root, ref, f) => git(['ls-tree', ref, '--', f], { cwd: root, allowFail: true }).stdout?.split('\t')[0] || '';
 export const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
+export const PASS_BRANCH = /^pass\/[A-Za-z0-9._-]+$/;
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
 // A job strikes the marks it meets in its requirements file, so that file is its own too.
 export const ownPaths = (e) => [...e.paths, ...e.tests, ...(e.requirements ? [e.requirements] : []), entryFile(e.id), metricsFile(e.id)];
@@ -241,6 +242,12 @@ export function gate(root, opts) {
   // is built and verified, not compared; the .gitignore lines added for it are not other files.
   const untracked = plain?.length ? removedGenerated(root, gen.rows, plain, head).filter((f) => ignoredHere(root, f)) : [];
   const ignores = untracked.length ? ignoreLines(root, mb, head, changed, untracked) : [];
+  // A pass (P7, Bob's Keep and Drop, 3 Nov: a no-judgment change across many modules is one
+  // mechanical pass while no job runs, with one full test run), from a pass/<name> branch, which
+  // only merge --plain --pass lands: each module it touches runs its whole suite, and its refresh
+  // may change other files.
+  const passPR = !job && PASS_BRANCH.test(branch || '');
+  if (passPR) runRow.pass = true;
   // A lane's pull request (lane.mjs; Bob, 5 Nov): every file inside one lane's folder, records
   // aside, and not a job's nor the tranche's: the records-only path, no suite, no install or
   // build; the record checks above still run. A generated output is built, never committed.
@@ -331,7 +338,7 @@ export function gate(root, opts) {
     // to know whether a suite runs at all, and again once the generated files are built.
     // Not for a job PR into a layer branch: its land must carry a run of the whole suite, which
     // the layer's merge reads (confirming review N1).
-    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche && !layerJob ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
+    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche && !layerJob && !passPR ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
     // Only a suite whose failures can be read per test can be base-red.
     const mayBaseRed = scope.some((e) => reportsEvents(e.suite.command) && (onlyAt(e) === null || onlyAt(e).length));
     const prepared = mayBaseRed && branch !== cfg.tranche && !exec && opts.prepareBase !== false
@@ -428,7 +435,7 @@ export function gate(root, opts) {
     // --plain reads it.
     if (plain) {
       if (untracked.length && runRow.generated) findings.push(...verifyUntracked(root, gen.rows, untracked, { timeout, log, ...(exec ? { exec } : {}) }));
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores), untracked });
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: passPR ? [] : refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores), untracked });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }
