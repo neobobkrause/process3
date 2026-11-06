@@ -87,7 +87,7 @@ const landIO = (bare, prs, { gate = 'success', open = [], comments = () => [] } 
   // An additive change's retests (layer retest) are their own tests'.
   retest: () => { throw new Error('no retest in this test'); },
 });
-const openIO = { slug: 'o/p', openPRs: () => [] };
+const openIO = { slug: 'o/p', openPRs: () => [], comments: () => [] };
 
 test('config: merge_strategy is "layer", the only flow: absent reads as layer; "train" or any other value is refused', () => {
   assert.equal(configOf({}).merge_strategy, 'layer');
@@ -846,7 +846,7 @@ test('a module BLOCKED at its open job PR\'s head is deferred, and that PR no lo
   const working = jobWork(bare, 'b', { 'process/ledger/b.json': entry('b', { layer: 1, status: { state: 'WORKING' } }) });
   const held = layerStatus(root, 1, { io: { ...openIO, openPRs: () => [{ number: 62, draft: true, head: { ref: 'job/b', sha: working } }] }, log: quiet });
   assert.deepEqual([held.states.find((s) => s.id === 'b').state, held.ready], ['working', false]);
-  const mio = { slug: 'o/p', openPRs: () => pr(blocked), findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  const mio = { slug: 'o/p', openPRs: () => pr(blocked), comments: () => [], findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
   const m = await layerMerge(root, 1, { io: mio, wait: false, log: quiet });
   assert.equal(m.ok, true);
   assert.deepEqual(m.closed.deferred.c.reason, "BLOCKED: rows owed to layer 2 (on PR 61's head)");
@@ -1372,4 +1372,54 @@ test('layer sync (layer 8): each open job PR branch takes the synced layer when 
   // Run again: nothing more to do.
   const again = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: quiet });
   assert.deepEqual([again.synced, again.jobs.merged.length], [false, 0]);
+});
+
+// Coordinator, 6 Nov 17:28: layer status said "layer 8 can merge" while four BLOCKED jobs had their
+// work done and owed only a publish (R4b counts them deferred); a merge would drop finished work.
+test('a module deferred at its PR head with a green suite there is deferred with work done: layer status says restart to publish, and layer merge refuses unless --defer-done "<why>"', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 7;\n', 'process/ledger/c.json': entry('c', { layer: 1, status: { state: 'BLOCKED', reason: 'gate red on the ledger finding only' } }) });
+  const pr = [{ number: 658, draft: false, head: { ref: 'job/c', sha: h } }];
+  // A whole-suite green run on its head, then a later red row of another kind: still work done.
+  const comments = (s, k) => (k === 658 ? [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: false, trigger: 'code', suite: 'pass', scope: ['c'], findings: 1 }] }, 'gate') }, { user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: false, trigger: 'record', suite: 'skipped' }] }, 'gate') }] : []);
+  const lines = [];
+  const st = layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr, comments }, log: (l) => lines.push(l) });
+  assert.deepEqual(st.deferred_done, ['c']);
+  assert.ok(lines.some((l) => /^1 deferred with work done \(suite green, BLOCKED only on a process finding\): restart to publish/.test(l)));
+  assert.ok(lines.some((l) => /job start c --live <n> --restart ".*"\s+\(PR 658\)/.test(l)));
+  const mio = { slug: 'o/p', openPRs: () => pr, comments, findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: c \(PR 658\) is deferred with work done .*restart it to publish .*or merge with --defer-done "<why>"/);
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet, deferDone: true }), /--defer-done needs why/);
+  // GitHub unreadable: counted as work done until read, the merge held.
+  await assert.rejects(layerMerge(root, 1, { io: { ...mio, comments: () => { throw new Error('gh: 502'); } }, wait: false, log: quiet }), /c \(PR 658\) is deferred with work done/);
+  // A green row narrowed to requirements tests is not the whole suite.
+  const narrow = (s, k) => (k === 658 ? [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: true, trigger: 'code', suite: 'pass', scope: ['c'], requirements_only: [{ module: 'c' }] }] }, 'gate') }] : []);
+  assert.deepEqual(layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr, comments: narrow }, log: quiet }).deferred_done, []);
+  const m = await layerMerge(root, 1, { io: mio, wait: false, log: quiet, deferDone: 'c waits for layer 2 by Bob\'s word' });
+  assert.deepEqual(m.merged.deferred_done, { modules: ['c'], why: 'c waits for layer 2 by Bob\'s word' });
+  // A suite that failed on its head is no work done: deferred as before, the merge not held for it.
+  const red = (s, k) => (k === 658 ? [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: h, ok: false, trigger: 'code', suite: 'fail' }] }, 'gate') }] : []);
+  const p2 = product({ done: true });
+  layerOpen(p2.root, 1, { io: openIO, log: quiet });
+  const h2 = jobWork(p2.bare, 'c', { 'process/ledger/c.json': entry('c', { layer: 1, status: { state: 'BLOCKED', reason: 'x' } }) });
+  assert.deepEqual(layerStatus(p2.root, 1, { io: { ...openIO, openPRs: () => [{ number: 658, draft: true, head: { ref: 'job/c', sha: h2 } }], comments: red }, log: quiet }).deferred_done, []);
+});
+
+test('layer sync names a job BLOCKED only on the ledger-carry finding it just cleared, with its --restart line', async () => {
+  const { root, bare } = product({ done: true });
+  commit(root, { 'build/layers.md': layers.replace('| 1 | One | a, b, c |', '| 1 | One | a, b, c, e |'), 'req/e.md': req('e') }, 'e joins layer 1');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche:layer/1'], { cwd: root });
+  writeRows(root, SB, 'open', [[flowFile(1, 'open'), { row: 'open', layer: 1, branch: 'layer/1', tranche: 'tranche', from: git(['rev-parse', 'tranche'], { cwd: root }), at: new Date().toISOString(), by: 'bob' }]]);
+  jobWork(bare, 'e', { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'BLOCKED', reason: 'the gate refuses my carried entry' } }), 'src/e/index.mjs': 'export const e = 1;\n' });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1 }) }, 'Merge PR 638');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin move 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const open = [{ number: 658, draft: true, head: { ref: 'job/e', sha: null } }];
+  const r = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: quiet });
+  assert.equal(r.jobs.left.length, 1);
+  assert.match(r.jobs.left[0].why, /^BLOCKED only on the ledger-carry finding this sync cleared \(process\/ledger\/e\.json is on layer\/1 now\): restart it to publish: .*job start e --live <n> --restart "/);
 });
