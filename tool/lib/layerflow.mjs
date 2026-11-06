@@ -275,8 +275,10 @@ export function layerLines(root, cfg, { slug, io = {} } = {}) {
   for (const layer of layers) {
     const { n } = layer;
     const r = flowRows(root, cfg.state_branch, n);
+    // A layer behind us (closed, or with nothing left) is passed over first, stale rows or not,
+    // as layer open passes it (third confirming review, minor 1).
+    if ((!r.open || staleFlow(root, r)) && layerBehind(root, cfg, layer, closed, tr)) continue;
     if (staleFlow(root, r)) { L.push(`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`); return L; }
-    if (!r.open && layerBehind(root, cfg, layer, closed, tr)) continue;
     if (r.merged) continue;
     if (!r.open) { L.push(`layer flow: layer ${n} is next and not open: \`${P3} layer open ${n}\``); return L; }
     fetchBranch(root, layerBranch(n), { allowFail: true });

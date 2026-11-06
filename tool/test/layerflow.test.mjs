@@ -644,4 +644,9 @@ test('an earlier tranche\'s flow rows (their merge on main) count for nothing: t
   await assert.rejects(async () => layerOpen(root, 2, { io: openIO, log: quiet }), /layer 1 is not closed/);
   fetchState(root, SB, { fresh: true });
   assert.match(layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO })[0], /earlier tranche's/);
+  // Closed in this tranche by the train, the stale layer is passed over: status shows layer 2.
+  const { writeState } = await import('../lib/state.mjs');
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  writeState(root, SB, 'layer 1 closed', (w) => { mkdirSync(join(w, 'layers'), { recursive: true }); writeFileSync(join(w, 'layers/closed.jsonl'), JSON.stringify({ row: 'closed', layer: 1, tranche: 'tranche' }) + '\n'); return {}; });
+  assert.match(layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO })[0], /layer 2 is next and not open/);
 });
