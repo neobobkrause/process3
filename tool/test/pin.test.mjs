@@ -111,7 +111,7 @@ test('the pin-move session checks for an open pin move right before it pushes, a
   const { prompt } = pinMove(makeRepo({ 'README.md': 'x' }), 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet });
   const lines = prompt.split('\n');
   const at = (re) => lines.findIndex((l) => re.test(l));
-  const push = at(/git push -u origin p3\/pin-/);
+  const push = at(/github push origin p3\/pin-\S+ --set-upstream/);
   const check = at(/p3\.mjs pin check o\/r`/);
   const branch = at(new RegExp(`git checkout -q -b p3/pin-${PIN.slice(0, 10)} FETCH_HEAD`));
   assert.ok(check > 0 && branch > 0 && push > 0);

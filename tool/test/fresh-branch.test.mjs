@@ -55,7 +55,7 @@ test('job start --fresh-branch cuts the next free job/<id>-<n> from the tranche,
   const r = jobStart(root, 'alpha', { coordinator: 's', fresh: 'job/alpha holds a 7 MB file', push: false, log: quiet });
   assert.equal(r.attempt, 2);
   assert.match(r.start, /Your branch is `job\/alpha-3`/, 'alpha-2 is a module: its suffix is skipped');
-  assert.match(r.start, /git push to job\/alpha-3 only/);
+  assert.match(r.start, /git commit; push job\/alpha-3/);
   assert.equal(git(['rev-parse', 'job/alpha'], { cwd: root }), old, 'the old branch is left as it was');
   assert.equal(git(['merge-base', '--is-ancestor', old, 'job/alpha-3'], { cwd: root, allowFail: true }).code, 1, 'the new branch holds none of it');
   git(['checkout', '-q', 'job/alpha-3'], { cwd: root });

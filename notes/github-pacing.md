@@ -95,3 +95,31 @@ Open:
 - Sessions working on process3 itself, and on process3-probes, have no product state branch, so they do not share use or see the account's pause. GitHub's own primary count still covers them, each clone obeys its own refusals, and their volume is small. Giving them the copy's store, or a state branch of their own, is the coordinator's choice: process3's record workflow runs on every push.
 - Another session's use reaches this one up to 5 min late.
 - The concurrent-request and CPU limits are not metered.
+
+## R17b: the whole account in the ledger (coordinator's rulings, 6 Nov)
+
+- **Sessions' own writes are counted.**
+  - `p3 github push <remote> <refspec>` is the only way a session pushes: it waits its turn and is logged and shared. It refuses a force or a delete.
+  - Before each GitHub-connector write (a PR created, edited or marked ready, a comment, a review), the session runs `p3 github note --content <n>`, which reserves n content-creating requests at 5 points each and waits or refuses like a gh call.
+  - Connector reads stay on GitHub's primary count, which sees them.
+  - Where it is said: the lane START (push and note), the job START and rulebook (push only: a job's pull request writes are the tool's own gh calls), BOB's, ROOT's, the watcher's and the review worker's rulebooks, the pin-move and tranche steps, `found`'s steps, and job sync's hint.
+  - ROOT's and BOB's STARTs are at their one-screen cap, so for those roles the line is in the rulebook each reads at start. ROOT and the watcher push nothing by hand: their acts are tool commands, which the tool paces.
+- **One ledger per account.** It is the product's state branch (neobobkrause/civicsmith-copy process-state, `github/`). A clone finds it in its config's `pacing.ledger`, else in the pinned process3's `pacing.json`, else in its own `pacing.json`. So process3's clones and every product (process3-probes among them) share it once their pin holds this change, and before that the probe keeps its own. The ledger is read fresh before every content-creating call and every push.
+- **The push ceiling, PD-3 in DECISIONS.md.**
+  - `pacing.pushes_per_hour` is 120, account-wide, applied like a window. It covers every push the tool makes (gated in `git()`) and `p3 github push`.
+  - State-branch pushes are held like any push (coordinator's ruling on PR 206: they were most of 6 Nov's volume). Only the ledger's pause, stop and resume writes pass while the account is paused, stopped or at the ceiling. A command whose state push would wait past 15 min keeps its writes under `refs/p3/unpushed/` for `state replay`, and says so. The usage share is gated but never waits.
+  - `github budget` shows the hour's pushes against the ceiling, and `job start` and `lane start` wait while it is full.
+
+### R17b's cold review, fixed
+
+- **`github push` could force or delete through the clone's git config.** A bare remote pushes what `remote.<r>.mirror` or `remote.<r>.push` say. Fixed: an explicit refspec is required; no wildcard, no empty destination, never main; a remote with either setting is refused; the flags take no value.
+- **The pin-move and tranche steps still said `git push` and made connector writes with no note.** Fixed: they use `github push` and `github note`.
+- **The share's own push was never shared.** Fixed: the mark is the last row shared, taken before the write.
+- **process3-probes kept a ledger of its own.** Fixed: the pinned process3's `pacing.json` names the account's ledger.
+- **A session's use from its other clone was skipped.** Fixed: shared rows carry their clone, and only this clone's own are skipped.
+- **The remote ledger retried any refusal at once.** Fixed: only a moved tip is retried, after 2, 4 and 8 s; any other refusal fails at once.
+
+Left as they are:
+- a gated push made while the state lock is held can wait inside it, up to 15 min;
+- every gated push reads the ledger fresh;
+- sessions with no session id share one use file (conservative).
