@@ -223,7 +223,7 @@ const put = (dir, row) => { mkdirSync(join(dir, 'holds'), { recursive: true }); 
 // startable or free a slot writes flow/owed.json (p3.mjs after the act: a merge, job complete,
 // block, a hold ended, a triage recorded; the sweep for a job session archived). status and every
 // act of BOB's print startsOwedLine first, exit unchanged; a module's own acts are paid when its job
-// lands on its layer (paidFor, layer land; R10). The starter and job start --ready are removed.
+// lands on its layer (paidFor, layer land; R10), the rest by paidUpTo. The starter and job start --ready are removed.
 export const OWED_FILE = 'flow/owed.json';
 export function owes(name, a) {
   if (['merge', 'job complete', 'block'].includes(name)) return `${name} ${a._[0] ?? ''}`.trim();
@@ -243,6 +243,20 @@ export function owe(dir, act) {
   mkdirSync(join(dir, 'flow'), { recursive: true });
   writeFileSync(f, JSON.stringify({ since: o?.since || now(), acts: [...(o?.acts || []).slice(-9), { at: now(), act }] }) + '\n');
 }
+// What BOB has acted on: a job start or a layer open pays the acts owed before it began; the
+// sweep pays all when the open layer lists nothing to start, or no layer is left (cold review of
+// PR 191: hold ended, triage recorded, merge and an archived session were never paid otherwise).
+export function paidUpTo(dir, begun) {
+  const f = join(dir, OWED_FILE);
+  let o = null;
+  try { o = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { o = null; }
+  if (!o) return false;
+  const later = (o.acts || []).filter((x) => Date.parse(x.at) > Date.parse(begun));
+  if (later.length) writeFileSync(f, JSON.stringify({ since: later[0].at, acts: later }) + '\n');
+  else rmSync(f, { force: true });
+  return true;
+}
+export const paysOwed = (name) => ['job start', 'layer open'].includes(name);
 // The layer flow (coordinator, 6 Nov 16:03: "starts owed since 05:29Z (network-notices, case-checker,
 // case-inputs)" stood after their re-tests landed): job start --ready never runs there, so a module's
 // own acts (its job complete, its block) are paid when its job or retest lands on the layer.

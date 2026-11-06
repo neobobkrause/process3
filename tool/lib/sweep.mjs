@@ -10,7 +10,7 @@ import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
 import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
-import { bobAct, heldBy, layersAt, owe, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
+import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, laneDefects, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
@@ -218,6 +218,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     if (n > cap) owed.push(`${n} job sessions, over the job cap of ${cap}: archive finished ones before starting more`);
   }
   const plan = cfg.plan;
+  let nothingToStart = false;
   if (plan === 'pause' || plan === 'stop') {
     found.push(`plan ${plan}`, ...owed);
     owed.length = 0; // heartbeat only
@@ -243,6 +244,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       let view = null;
       if (!offline) { try { view = readOpenLayer(root, cfg, { io: io || {} }); } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`layer flow: unread (${e.message})`); } }
       startAct = layerStartAct(view);
+      // Nothing to start (the open layer lists none, or every layer merged): the starts owed are paid.
+      nothingToStart = (view?.kind === 'open' && !view.startable.length) || view?.kind === 'done';
       try {
         const ls = layerState(root, cfg, rows, tranche);
         const mergeLine = layerMergeLine(view);
@@ -344,6 +347,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     mkdirSync(join(dir, 'metrics'), { recursive: true });
     appendFileSync(join(dir, SWEEP_ROWS_FILE), JSON.stringify({ at: beat.at, row: 'sweep', session, ...idle, root_context: pct, ...liveRow }) + '\n');
     if (archived) owe(dir, 'a job session archived');
+    if (nothingToStart) paidUpTo(dir, beat.at);
   });
   log(`found: ${beat.found.join('; ')}`);
   log(todo.length ? `do, each its own command:\n${todo.map((x, i) => `${i + 1}. ${x}`).join('\n')}` : 'nothing to do');

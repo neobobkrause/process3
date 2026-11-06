@@ -594,7 +594,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
     let at = null;
     try { at = layerPlace(root, cfg, r.id); } catch { at = null; }
     if (!at) return null;
-    const n = at.behind ? at.target : at.own;
+    const n = at.joined ?? (at.behind ? at.target : at.own);
     return `train-era job PR #${p.number} into ${cfg.tranche}: close it unmerged (never deleting its branch) and restart in layer ${n ?? '<none left: ask the coordinator>'}${at.behind && n !== null ? ` (${joinAct(r.id, `its job PR #${p.number} was the train's`, n)})` : n !== null ? ` (${P3} layer jobs ${n} once it opens)` : ''}`;
   };
   for (const r of [...rows].sort((a, b) => (waits.get(a.id)?.i ?? 1e9) - (waits.get(b.id)?.i ?? 1e9))) {

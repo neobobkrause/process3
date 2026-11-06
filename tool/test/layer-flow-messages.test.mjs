@@ -5,16 +5,17 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { layerLines, layerMergeLine, layerOpen, layerStartAct, openLayer } from '../lib/layerflow.mjs';
+import { layerLines, layerMergeLine, layerOpen, layerStartAct, openLayer, writeRows } from '../lib/layerflow.mjs';
+import { flowFile } from '../lib/layerbase.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { laneModuleCheck, setupCheck, strategyCheck } from '../lib/setup.mjs';
 import { fetchState, readState, writeState } from '../lib/state.mjs';
 import { nextWork, status } from '../lib/status.mjs';
-import { owe, owes } from '../lib/hold.mjs';
+import { OWED_FILE, owe, owes, paidUpTo, paysOwed, readOwed } from '../lib/hold.mjs';
 import { layerIdle, sweep } from '../lib/sweep.mjs';
 import { configOf, git } from '../lib/util.mjs';
 import { checkRow } from '../lib/gate.mjs';
-import { entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const SB = 'process-state';
@@ -241,4 +242,34 @@ test('starts owed (kept for the layer flow, R10): an owing act writes it, status
   assert.doesNotMatch(out.join('\n'), /job start --ready|starter/);
   assert.equal(owes('job complete', { _: ['a'] }), 'job complete a');
   assert.equal(owes('layer close', { _: ['1'] }), null);
+});
+
+test('starts owed are paid: a job start or layer open pays what was owed before it began; the sweep pays all when nothing is left to start (cold review of PR 191)', () => {
+  assert.equal(paysOwed('job start'), true);
+  assert.equal(paysOwed('layer open'), true);
+  assert.equal(paysOwed('merge'), false);
+  const dir = mkdtempSync(join(tmpdir(), 'p3-owed-'));
+  owe(dir, 'hold ended h1');
+  const begun = new Date(Date.now() + 1000).toISOString();
+  assert.equal(paidUpTo(dir, begun), true);
+  assert.equal(paidUpTo(dir, begun), false, 'nothing left');
+  // The sweep: the open layer lists starts, so the owed stands; every layer merged, it is paid.
+  const root = product({ complete: true });
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  writeState(root, SB, 'owe', (d) => { owe(d, 'triage recorded x:1'); return {}; });
+  run(root, { offline: false, io: IO, live: 0 });
+  fetchState(root, SB, { fresh: true });
+  assert.ok(readOwed(root, SB), 'starts listed: still owed');
+  // The layers' merge on the tranche, not on main (an earlier tranche's rows are stale, not done).
+  commit(root, { 'src/x.txt': 'layers merged' }, 'layers merged');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  const at = new Date().toISOString();
+  writeRows(root, SB, 'merged', [[flowFile(1, 'merged'), { row: 'merged', layer: 1, commit: tip, at }], [flowFile(2, 'open'), { row: 'open', layer: 2, at }], [flowFile(2, 'merged'), { row: 'merged', layer: 2, commit: tip, at }]]);
+  run(root, { offline: false, io: IO, live: 0 });
+  fetchState(root, SB, { fresh: true });
+  assert.equal(readState(root, SB, OWED_FILE), null, 'every layer merged: paid');
 });

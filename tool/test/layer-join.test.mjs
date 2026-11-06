@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
 import { jobCfg, flowFile } from '../lib/layerbase.mjs';
-import { layerJoin, layerOpen, layerPlace, writeRows } from '../lib/layerflow.mjs';
+import { layerJoin, layerOpen, layerPlace, openLayer, writeRows } from '../lib/layerflow.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { bobStatus, noticeSlots, status } from '../lib/status.mjs';
 import { noticeFile } from '../lib/notice.mjs';
@@ -49,7 +49,7 @@ const cfgOf = () => configOf({ tranche: 'tranche' });
 
 test('layerPlace: a module of a merged layer is behind and joins the layer after the open one; the open and later layers\' are not', () => {
   const { root } = product();
-  assert.deepEqual(layerPlace(root, cfgOf(), 'a'), { own: 1, open: 2, cur: 2, target: 3, behind: true });
+  assert.deepEqual(layerPlace(root, cfgOf(), 'a'), { own: 1, open: 2, cur: 2, target: 3, behind: true, joined: null });
   assert.equal(layerPlace(root, cfgOf(), 'b').behind, false);
   assert.equal(layerPlace(root, cfgOf(), 'c').behind, false);
   assert.equal(layerPlace(root, cfgOf(), 'zz').behind, true, 'no layer: behind');
@@ -127,4 +127,36 @@ test('open_by uses: a later layer\'s module ready by its uses is owed to its lay
   assert.match(t, /owed to their own layers .*:\n- build\/requirements\/c\.md: 1 \(layer 3\): owed to layer 3/, t);
   assert.doesNotMatch(t, /next work[^\n]*\n(- [^\n]*\n)*- build\/requirements\/c\.md: 1 \(layer 3\)(?!: owed)/);
   assert.equal(r.next.find((x) => x.file === 'build/requirements/c.md').owed_layer, 3, 'kept, marked owed');
+});
+
+test('joined already: layerPlace names the joined layer, not behind, before and after it opens; a second join records nothing (cold review of PR 191)', () => {
+  const { root, tip } = product();
+  layerJoin(root, 'a', { why: 'found marks F1', log: quiet });
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(layerPlace(root, cfgOf(), 'a'), { own: 1, open: 2, cur: 2, target: 3, behind: false, joined: 3 });
+  const out = [];
+  assert.deepEqual(layerJoin(root, 'a', { why: 'again', log: (l) => out.push(l) }), { ok: true, layer: 3, recorded: false });
+  assert.match(out[0], /a joined layer 3 already/);
+  writeRows(root, SB, 'layer 2 merged', [[flowFile(2, 'merged'), { row: 'merged', layer: 2, commit: tip, at: new Date().toISOString() }]]);
+  layerOpen(root, 3, { io: openIO, log: quiet });
+  fetchState(root, SB, { fresh: true });
+  const p = layerPlace(root, cfgOf(), 'a');
+  assert.deepEqual([p.open, p.joined, p.behind, p.target], [3, 3, false, 3], 'never pointed past the layer it joined');
+});
+
+test('a layer whose own modules are all complete is not passed over once a module joined it (cold review of PR 191)', () => {
+  const done = { 'process/ledger/c.json': entry('c', { requirements: 'build/requirements/c.md', status: { state: 'COMPLETE' } }), 'build/requirements/c.md': req() };
+  const { root, tip } = product({ extra: done });
+  layerJoin(root, 'a', { why: 'notice x:1', log: quiet });
+  writeRows(root, SB, 'layer 2 merged', [[flowFile(2, 'merged'), { row: 'merged', layer: 2, commit: tip, at: new Date().toISOString() }]]);
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(openLayer(root, cfgOf(), { slug: 'o/p', io: openIO }), { kind: 'next', n: 3 });
+});
+
+test('layer join with every layer merged says so (cold review of PR 191)', () => {
+  const { root, tip } = product();
+  const at = new Date().toISOString();
+  writeRows(root, SB, 'layers merged', [[flowFile(2, 'merged'), { row: 'merged', layer: 2, commit: tip, at }], [flowFile(3, 'open'), { row: 'open', layer: 3, at }], [flowFile(3, 'merged'), { row: 'merged', layer: 3, commit: tip, at }]]);
+  fetchState(root, SB, { fresh: true });
+  assert.throws(() => layerJoin(root, 'a', { why: 'x', log: quiet }), /every layer in .* has merged or closed: a has no layer to join/);
 });

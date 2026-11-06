@@ -272,9 +272,12 @@ export const landedProvider = (p, lands, entries, marks = new Map()) => lands.so
 export function earlyProviders(root, cfg, n, id, ref) {
   const L = layersAt(root, cfg, ref).find((x) => x.n === n);
   if (!L) return [];
-  const entries = new Map(L.mods.map((m) => [m, entryAt(root, ref, m) || entryAt(root, `refs/remotes/origin/${cfg.tranche}`, m)]));
-  const prov = layerProviders(L.mods, readModules(root, cfg, ref), entries);
-  const lands = flowRows(root, cfg.state_branch, n).lands;
+  const fr = flowRows(root, cfg.state_branch, n);
+  // Joined modules count, as readLayer counts them (R12; cold review of PR 191).
+  const mods = [...new Set([...L.mods, ...fr.joins.map((j) => j.module)])];
+  const entries = new Map(mods.map((m) => [m, entryAt(root, ref, m) || entryAt(root, `refs/remotes/origin/${cfg.tranche}`, m)]));
+  const prov = layerProviders(mods, readModules(root, cfg, ref), entries);
+  const lands = fr.lands;
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const marksOf = (p) => unmetIds(textAt(root, ref, entries.get(p)?.requirements || `${dir}/${p}.md`) || '').filter((x) => !isFound(x));
   // As layer jobs reads it: a provider BLOCKED at its job branch's head is deferred (readLayer's PR-head read).
@@ -400,14 +403,20 @@ export function closedLayers(root, sb, cfg) {
 const mergedHere = (root, rows) => !!rows.merged && !staleFlow(root, rows);
 // A layer whose flow rows are an earlier tranche's: its merge reached main. The flow's rows and
 // branch for a second tranche are not built (the trial is one layer); refused, never reused.
+// main fetched at most once a minute per clone (status reads layerPlace per user and per PR row:
+// cold review of PR 191).
+const mainFetched = new Map();
 function staleFlow(root, rows) {
   const c = rows.merged?.commit;
   if (!c || !hasCommit(root, c)) return false;
-  fetchBranch(root, 'main', { allowFail: true });
+  if (Date.now() - (mainFetched.get(root) || 0) > 60000) { fetchBranch(root, 'main', { allowFail: true }); mainFetched.set(root, Date.now()); }
   return git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 && isAnc(root, c, 'refs/remotes/origin/main');
 }
 function layerBehind(root, cfg, L, closed, ref) {
-  if (closed.has(L.n) || mergedHere(root, flowRows(root, cfg.state_branch, L.n))) return true;
+  const rows = flowRows(root, cfg.state_branch, L.n);
+  if (closed.has(L.n) || mergedHere(root, rows)) return true;
+  // A module joined it (R12): the layer has work, whatever its own modules' states (cold review of PR 191).
+  if (rows.joins.length) return false;
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   return L.mods.every((id) => {
     const e = entryAt(root, ref, id);
@@ -507,9 +516,13 @@ export function layerPlace(root, cfg, id) {
     break;
   }
   const cur = open ?? next;
-  const target = open !== null ? (layers.find((L) => L.n > open)?.n ?? null) : next;
+  // Joined already (a join row on a layer not merged, from the open one on): it starts there, and
+  // is not behind (cold review of PR 191: status kept printing the join, then pointed past it).
+  const joined = layers.find((L) => L.n !== own && (cur === null || L.n >= cur) && (() => { const r = flowRows(root, cfg.state_branch, L.n); return !r.merged && r.joins.some((j) => j.module === id); })())?.n ?? null;
+  if (joined !== null) return { own, open, cur, target: joined, behind: false, joined };
+  const target = open !== null ? (layers.find((L) => L.n > open && !closed.has(L.n) && !flowRows(root, cfg.state_branch, L.n).merged)?.n ?? null) : next;
   const behind = own === null || (cur !== null && own < cur) || (cur === null);
-  return { own, open, cur, target, behind };
+  return { own, open, cur, target, behind, joined: null };
 }
 export const joinAct = (id, why, t) => `${P3} layer join ${id} --why ${JSON.stringify(why)} (it joins layer ${t}, and starts from ${P3} layer jobs ${t} once that layer opens)`;
 
@@ -525,8 +538,9 @@ export function layerJoin(root, id, { why, by = 'bob', log = console.log } = {})
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   if (!ledgerIds(root, tr).has(id)) fail(`${id} has no ledger entry on ${cfg.tranche}`);
   const at = layerPlace(root, cfg, id) || fail(`no layer map (${cfg.layers_file}): jobs start on the tranche; there is no layer to join`);
+  if (at.joined !== null) { log(`${id} joined layer ${at.joined} already; it starts from ${P3} layer jobs ${at.joined}${at.joined === at.open ? '' : ` once layer ${at.joined} opens (${P3} layer open ${at.joined})`}; nothing recorded`); return { ok: true, layer: at.joined, recorded: false }; }
   if (!at.behind) fail(`${id} is in layer ${at.own}, ${at.own === at.open ? 'the open layer' : 'not yet open'}: it starts from ${P3} layer jobs ${at.own}; nothing recorded`);
-  if (at.target === null) fail(`no layer follows layer ${at.open} in ${cfg.layers_file}: ${id} has no next layer to join; ask the coordinator`);
+  if (at.target === null) fail(at.open === null ? `every layer in ${cfg.layers_file} has merged or closed: ${id} has no layer to join; ask the coordinator` : `no layer follows layer ${at.open} in ${cfg.layers_file}: ${id} has no next layer to join; ask the coordinator`);
   const t = at.target;
   const f = flowFile(t, 'join', safeName(id));
   const had = flowRows(root, cfg.state_branch, t).joins.find((j) => j.module === id);
@@ -558,7 +572,8 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   }
   const into = (io.openPRs || openPRs)(slug, cfg.tranche);
   if (into === null) fail(`GitHub unreadable: the open pull requests into ${cfg.tranche} are not known; nothing was opened`);
-  const mine = new Set(layers.find((L) => L.n === n).mods);
+  // The layer's own modules and those joined to it (R12): their train PRs, ledger entries and holds.
+  const mine = new Set([...layers.find((L) => L.n === n).mods, ...flowRows(root, cfg.state_branch, n).joins.map((j) => j.module)]);
   const ids = ledgerIds(root, tr);
   const held = into.filter((p) => mine.has(branchModule(p.head?.ref, ids)));
   if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (merged by merge, or closed) before the layer opens`);
@@ -867,8 +882,16 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const ic = interfaceChange(root, cfg, id, before, after);
   const users = usersOf(root, cfg, id, after);
   const layers = layersAt(root, cfg, after);
-  const same = users.filter((u) => layerOf(layers, u) === n);
-  const later = users.filter((u) => { const k = layerOf(layers, u); return k === null || k > n; });
+  // Where each user's work is (R12; cold review of PR 191): joined to this layer, or to a later one
+  // not merged, else its map layer. A joined provider's users from its own map layer on are noticed
+  // (those in layers merged since come back through the notice and a join).
+  const joinedTo = new Map();
+  for (const L of layers) if (L.n > n) { const r = flowRows(root, cfg.state_branch, L.n); if (!r.merged) for (const j of r.joins) joinedTo.set(j.module, L.n); }
+  for (const j of rows.joins) joinedTo.set(j.module, n);
+  const home = (u) => joinedTo.get(u) ?? layerOf(layers, u);
+  const floor = joinedTo.get(id) === n ? (layerOf(layers, id) ?? n) : n;
+  const same = users.filter((u) => home(u) === n);
+  const later = users.filter((u) => { const k = home(u); return k !== n && (k === null || k > floor); });
   const runs = gateRuns(x.comments(slug, n0)).filter((q) => q?.sha);
   const at = now();
   // A changed Public / Provides text alone is a notice to every user, in this layer and later ones.

@@ -20,7 +20,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { capCheck } from './lib/cap.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { hold, owe, owes } from './lib/hold.mjs';
+import { hold, owe, owes, paidUpTo, paysOwed } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -592,7 +592,10 @@ export async function main(argv) {
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
+    const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
+    // BOB acted on the start list: the acts owed before this began are paid (hold.mjs).
+    if (cfg && code === 0 && paysOwed(name)) { try { writeState(root, cfg.state_branch, `starts owed: paid by ${name}`, (dir) => { paidUpTo(dir, begun); return {}; }); } catch (e) { console.error(`starts owed not updated: ${e.message}`); } }
     const act = cfg && code === 0 ? owes(name, a) : null;
     if (act) { try { writeState(root, cfg.state_branch, `starts owed: ${act}`, (dir) => owe(dir, act)); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); } }
     // Records whose condition is met end at the tool's writes (R13, expire.mjs): after each act

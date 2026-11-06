@@ -1423,3 +1423,14 @@ test('layer sync names a job BLOCKED only on the ledger-carry finding it just cl
   assert.equal(r.jobs.left.length, 1);
   assert.match(r.jobs.left[0].why, /^BLOCKED only on the ledger-carry finding this sync cleared \(process\/ledger\/e\.json is on layer\/1 now\): restart it to publish: .*job start e --live <n> --restart "/);
 });
+
+test('land: a user joined to this layer (R12) is rescheduled with the layer\'s own, not noticed as a later layer\'s (cold review of PR 191)', async () => {
+  const { root, bare } = await opened();
+  writeRows(root, SB, 'd joins layer 1', [[flowFile(1, 'join', 'd'), { row: 'join', layer: 1, module: 'd', from: 2, why: 'test', at: new Date().toISOString(), by: 'bob' }]]);
+  fetchState(root, SB, { fresh: true });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
+  const ra = await layerLand(root, 2, { io: landIO(bare, { 2: prOf(2, 'a', ha) }), log: quiet });
+  assert.equal(ra.land.interface.changed, true);
+  assert.deepEqual([...ra.land.users_rescheduled].sort(), ['b', 'd']);
+  assert.deepEqual(ra.land.users_noticed, []);
+});
