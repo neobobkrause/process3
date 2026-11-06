@@ -95,3 +95,17 @@ Open:
 - Sessions working on process3 itself, and on process3-probes, have no product state branch, so they do not share use or see the account's pause. GitHub's own primary count still covers them, each clone obeys its own refusals, and their volume is small. Giving them the copy's store, or a state branch of their own, is the coordinator's choice: process3's record workflow runs on every push.
 - Another session's use reaches this one up to 5 min late.
 - The concurrent-request and CPU limits are not metered.
+
+## R17b: the whole account in the ledger (coordinator's rulings, 6 Nov)
+
+- **Sessions' own writes are counted.**
+  - `p3 github push <remote> <refspec>` is the only way a session pushes: it waits its turn and is logged and shared. It refuses a force or a delete.
+  - Before each GitHub-connector write (a PR created, edited or marked ready, a comment, a review), the session runs `p3 github note --content <n>`, which reserves n content-creating requests at 5 points each and waits or refuses like a gh call.
+  - Connector reads stay on GitHub's primary count, which sees them.
+  - Where it is said: the job and lane STARTs; BOB's, ROOT's, the job's, the watcher's and the review worker's rulebooks; `found`'s steps; job sync's hint.
+  - ROOT's and BOB's STARTs are at their one-screen cap, so for those roles the line is in the rulebook each reads at start. ROOT and the watcher push nothing by hand: their acts are tool commands, which the tool paces.
+- **One ledger per account.** It is the product's state branch (neobobkrause/civicsmith-copy process-state, `github/`). A clone with no state branch of its own names it: process3 in its root `pacing.json`, a product in `pacing.ledger` (process3-probes' config needs `"pacing": { "ledger": "neobobkrause/civicsmith-copy" }`). The ledger is read fresh before every content-creating call and every push.
+- **The push ceiling, PD-3 in DECISIONS.md.**
+  - `pacing.pushes_per_hour` is 120, account-wide, applied like a window. It covers every push the tool makes (gated in `git()`) and `p3 github push`.
+  - State-branch pushes, the ledger's own writes among them, are counted but never held, so the pause can always be written.
+  - `github budget` shows the hour's pushes against the ceiling, and `job start` and `lane start` wait while it is full.

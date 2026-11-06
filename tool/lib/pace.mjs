@@ -35,7 +35,11 @@ export const GITHUB_LIMITS = {
   content_per_hour: 500,
   cpu_seconds_per_minute: 90,
 };
-export const PACING_DEFAULTS = { target: 0.85, jobs: null, lanes: null, gh_interval_ms: 1000, poll_first_s: 30, poll_most_s: 300, share_s: 300, github_limits: GITHUB_LIMITS };
+// pushes_per_hour: the process's own account-wide push ceiling (decision PD-3, coordinator, 6 Nov):
+// GitHub publishes none, and push volume is the likely cause of the suspension (1,387 in 19 h).
+// ledger: the repository whose state branch holds the account's ledger (github/), "<owner>/<repo>";
+// null is this product's own (ghshare.mjs).
+export const PACING_DEFAULTS = { target: 0.85, jobs: null, lanes: null, gh_interval_ms: 1000, poll_first_s: 30, poll_most_s: 300, share_s: 300, pushes_per_hour: 120, ledger: null, github_limits: GITHUB_LIMITS };
 export const TARGET_RANGE = [0.8, 0.9];
 export const POLL_FLOOR_S = 30;
 export const GH_FLOOR_MS = 1000;
@@ -62,6 +66,8 @@ export function pacingProblem(p) {
   for (const k of Object.keys(p)) if (!(k in PACING_DEFAULTS)) return `pacing.${k} is not a pacing key (${Object.keys(PACING_DEFAULTS).join(', ')})`;
   if (p.target !== undefined && !(typeof p.target === 'number' && p.target >= TARGET_RANGE[0] && p.target <= TARGET_RANGE[1])) return `pacing.target is between ${TARGET_RANGE[0]} and ${TARGET_RANGE[1]}: the share of GitHub's published limits the tool uses (Bob, 6 Nov: "80% or 90%")`;
   for (const k of ['jobs', 'lanes']) if (p[k] !== undefined && p[k] !== null && !(Number.isInteger(p[k]) && p[k] >= 1)) return `pacing.${k} is a whole number, 1 or more, or null (no cap)`;
+  if (p.ledger !== undefined && p.ledger !== null && !(typeof p.ledger === 'string' && /^[\w.-]+\/[\w.-]+$/.test(p.ledger))) return 'pacing.ledger is "<owner>/<repo>": the repository whose state branch holds the account\'s GitHub ledger';
+  if (p.pushes_per_hour !== undefined && !(Number.isInteger(p.pushes_per_hour) && p.pushes_per_hour >= 1)) return 'pacing.pushes_per_hour is a whole number, 1 or more';
   for (const k of ['gh_interval_ms', 'poll_first_s', 'poll_most_s', 'share_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= 0)) return `pacing.${k} is a whole number`;
   if (p.gh_interval_ms !== undefined && p.gh_interval_ms < GH_FLOOR_MS) return `pacing.gh_interval_ms is ${GH_FLOOR_MS} or more: no more than one gh call a second per clone`;
   if (p.poll_first_s !== undefined && p.poll_first_s < POLL_FLOOR_S) return `pacing.poll_first_s is ${POLL_FLOOR_S} or more: no wait on GitHub polls tighter than ${POLL_FLOOR_S} s`;
@@ -124,6 +130,8 @@ export function logEvent(kind, what, cwd, extra = {}, at = Date.now()) {
   if (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG === '0') return;
   try { appendFileSync(githubLog(cwd), JSON.stringify({ at: new Date(at).toISOString(), kind, session: sessionId(), what: String(what).slice(0, 120), ...extra }) + '\n'); } catch { /* the log is a record, not a gate */ }
 }
+// A row's content-creating requests: a gh call's flag, or a note's count.
+const contentOf = (r) => (r.content === true ? 1 : Number(r.content) || 0);
 export function readLog(cwd) {
   try { return readFileSync(githubLog(cwd), 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }); } catch { return []; }
 }
@@ -142,7 +150,7 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
   const out = { calls: 0, points: 0, content: 0, pushes: 0 };
   for (const r of rows) {
     if (!(Date.parse(r.at) > since)) continue;
-    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += r.content ? 1 : 0; }
+    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); }
     if (r.kind === 'push') out.pushes++;
   }
   for (const u of others) {
@@ -157,7 +165,7 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
 function freedAt(cwd, { t, seconds, field, need, rows, others }) {
   const me = sessionId();
   const times = [];
-  for (const r of rows) if (r.kind === 'gh' && Date.parse(r.at) > t - seconds * 1000) times.push([Date.parse(r.at), field === 'points' ? (r.points ?? 1) : r.content ? 1 : 0]);
+  for (const r of rows) if (Date.parse(r.at) > t - seconds * 1000 && (field === 'pushes' ? r.kind === 'push' : r.kind === 'gh')) times.push([Date.parse(r.at), field === 'points' ? (r.points ?? 1) : field === 'pushes' ? 1 : contentOf(r)]);
   for (const u of others) if (!(u.session && u.session === me) && Date.parse(u.minute) + 60e3 > t - seconds * 1000) times.push([Date.parse(u.minute) + 59e3, u[field] || 0]);
   times.sort((a, b) => a[0] - b[0]);
   let freed = 0;
@@ -227,20 +235,28 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 function waitUntil(until, why, { now, sleep }) {
   const ms = until - now();
   if (ms <= 0) return;
-  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: GitHub calls wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
+  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: acts on GitHub wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
   sleep(ms);
 }
 
 // Before a gh call: the stop, the pause, the primary limit at target, each secondary window at
 // target, then the per-clone floor; logs the call with its cost. Throws Paced to refuse.
-export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit } = {}) {
-  const cost = classify(args);
+// Paced acts (pushes, notes) run with no gate while exempt: the ledger's own pause and resume
+// writes, which must go through even while the account is paused or stopped.
+let exempting = 0;
+export function exempt(fn) { exempting++; try { return fn(); } finally { exempting--; } }
+
+// Before any act on GitHub: the stop, the pause, the primary limit, each window at target (and the
+// push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The pause
+// is read fresh before a write (content-creating or a push), within READ_S otherwise.
+export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit, kind = 'gh' } = {}) {
+  const content = cost.content === true ? 1 : Number(cost.content) || 0;
   const lim = p.github_limits || GITHUB_LIMITS;
   const target = p.target;
   // Every check again after each wait (cold review of R17): a pause or stop another session wrote
   // while this one slept is obeyed. Four waits at most, then the call is refused.
   for (let round = 0; ; round++) {
-    const s = shared.read({ fresh: round > 0 });
+    const s = shared.read({ fresh: round > 0 || content > 0 || !!cost.push });
     const pause = pauseOf(cwd, s);
     if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume --by <its session>\` once the account is in good standing`);
     let wait = null;
@@ -253,14 +269,15 @@ export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap, r
       const rows = readLog(cwd);
       const others = s.use || [];
       for (const [seconds, field, cap, add, name] of [
-        [60, 'points', lim.rest_points_per_minute, cost.points, 'REST points a minute'],
-        [60, 'content', lim.content_per_minute, cost.content ? 1 : 0, 'content-creating requests a minute'],
-        [3600, 'content', lim.content_per_hour, cost.content ? 1 : 0, 'content-creating requests an hour'],
+        [60, 'points', lim.rest_points_per_minute, cost.points || 0, 'REST points a minute'],
+        [60, 'content', lim.content_per_minute, content, 'content-creating requests a minute'],
+        [3600, 'content', lim.content_per_hour, content, 'content-creating requests an hour'],
+        [3600, 'pushes', p.pushes_per_hour, cost.push ? 1 : 0, 'pushes an hour (the process\'s own ceiling, PD-3: GitHub publishes none)'],
       ]) {
         if (!add || wait) continue;
-        const max = Math.floor(target * cap);
+        const max = field === 'pushes' ? cap : Math.floor(target * cap);
         const used = usage(cwd, { t: now(), seconds, rows, others })[field];
-        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, others }), `${used} of the ${cap} ${name} used account-wide, the target ${Math.round(target * 100)}% (${max})`];
+        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, others }), `${used} of the ${cap} ${name} used account-wide, ${field === 'pushes' ? 'the ceiling' : `the target ${Math.round(target * 100)}%`} (${max})`];
       }
     }
     if (!wait) break;
@@ -277,11 +294,30 @@ export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap, r
     if (wait > 0) sleep(Math.min(wait, ms));
     try { writeFileSync(f, String(now())); } catch { /* best effort */ }
   }
-  const a = args.map(String);
-  logEvent('gh', a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd, { points: cost.points, ...(cost.content ? { content: true } : {}), ...(cost.actions ? { actions: true } : {}) }, now());
+  logEvent(kind, label, cwd, kind === 'push' ? {} : { points: cost.points || 0, ...(content ? { content } : {}), ...(cost.actions ? { actions: true } : {}), ...(cost.note ? { note: true } : {}) }, now());
   // This clone's use reaches the other sessions during a long command too (cold review of R17).
   try { shared.share?.(); } catch { /* the budget's record; never the call's failure */ }
   return cost;
+}
+export function ghTurn(args, cwd, opts = {}) {
+  const a = args.map(String);
+  return reserve(classify(args), a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd, opts);
+}
+// Before a git push (every one the tool makes, and \`p3 github push\`): the pause, the stop and the
+// push ceiling; logged. A --dry-run is no push. While exempt, logged only.
+export function pushTurn(args, cwd, opts = {}) {
+  if (args[0] !== 'push' || args.includes('--dry-run') || args.includes('-n')) return null;
+  const label = args.filter((x) => !String(x).startsWith('-')).slice(1).join(' ');
+  if (exempting) { logEvent('push', label, cwd); return null; }
+  return reserve({ push: true, points: 0, content: 0, primary: false }, label, cwd, { ...opts, kind: 'push' });
+}
+// p3 github note --content <n> [--points <n>]: a session's own connector writes, recorded and
+// reserved before it makes them, as a gh call would be.
+export function noteTurn(cwd, { content = 0, points, what = 'connector writes' } = {}, opts = {}) {
+  const n = Number(content);
+  const pts = points === undefined ? 5 * n : Number(points);
+  if (!(Number.isInteger(n) && n >= 0) || !(Number.isInteger(pts) && pts >= 0) || n + pts === 0) throw new Paced('GitHub budget: github note --content <n> [--points <n>]: whole numbers, not both 0 (each connector write is content-creating and costs 5 points)');
+  return reserve({ points: pts, content: n, primary: false, note: true }, `note: ${what}`, cwd, opts);
 }
 
 // A rate-limit refusal in a gh call's output: GitHub's words for the primary and secondary limits,
@@ -342,13 +378,14 @@ export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = 
   if (pause?.stopped) return `GitHub refused this account again within an hour of an earlier refusal (${pause.why}): the tool is stopped until the coordinator runs github resume`;
   if (pause?.until && Date.parse(pause.until) > now) return `GitHub rate-limited this account until ${pause.until} (${pause.why})`;
   const h = usage(cwd, { t: now, seconds: 3600, others: s.use || [] });
+  if (h.pushes >= p.pushes_per_hour) return `${h.pushes} pushes in the last hour account-wide, the process's own ceiling ${p.pushes_per_hour} (PD-3): a new session waits for the window`;
   if (h.content >= Math.floor(p.target * lim.content_per_hour)) return `${h.content} of GitHub's ${lim.content_per_hour} content-creating requests an hour used account-wide, the target ${Math.round(p.target * 100)}%: a new session waits for the window`;
   const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
   if (pr && pr.limit - pr.remaining >= Math.floor(p.target * pr.limit) && pr.reset > now) return `${pr.limit - pr.remaining} of the primary limit's ${pr.limit} an hour used, the target ${Math.round(p.target * 100)}%, until ${iso(pr.reset)}`;
   return null;
 }
 
-// git push (not --dry-run): logged.
+// git push (not --dry-run): logged with no gate (the tests' record of a push made elsewhere).
 export function pushSeen(args, cwd) {
   if (args[0] !== 'push' || args.includes('--dry-run') || args.includes('-n')) return;
   logEvent('push', args.filter((x) => !x.startsWith('-')).slice(1).join(' '), cwd);
@@ -363,7 +400,7 @@ export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
     const minute = iso(Math.floor(at / 60e3) * 60e3);
     const k = `${r.session}\0${minute}`;
     const x = by.get(k) || { session: r.session || null, minute, calls: 0, points: 0, content: 0, pushes: 0 };
-    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += r.content ? 1 : 0; } else x.pushes++;
+    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); } else x.pushes++;
     by.set(k, x);
   }
   return [...by.values()];
@@ -384,13 +421,13 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   log(`- REST points, the last minute: ${pct(m.points, lim.rest_points_per_minute)}`);
   log(`- content-creating requests, the last minute: ${pct(m.content, lim.content_per_minute)}`);
   log(`- content-creating requests, the last hour: ${pct(h.content, lim.content_per_hour)}`);
-  log(`- pushes, the last hour: ${h.pushes} (git, outside the REST limits; each starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
+  log(`- pushes, the last hour: ${pct(h.pushes, p.pushes_per_hour)} of the process's own ceiling (PD-3; GitHub publishes none; each push starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
   log(`- not counted here: ${lim.concurrent} concurrent requests (each session calls one at a time) and ${lim.cpu_seconds_per_minute} s of CPU a minute (GitHub's side)`);
   const pause = pauseOf(cwd, s);
   log(pause?.stopped ? `STOPPED: ${pause.why} at ${pause.at}, a refusal within an hour of an earlier one; the coordinator runs github resume` : pause && Date.parse(pause.until) > now ? `PAUSED until ${pause.until}: ${pause.why}` : 'no pause');
   const by = new Map();
   const since = now - 3600e3;
-  for (const r of rows) if (Date.parse(r.at) > since && ['gh', 'push'].includes(r.kind)) { const k = r.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; if (r.kind === 'gh') { x.calls++; x.content += r.content ? 1 : 0; } else x.pushes++; by.set(k, x); }
+  for (const r of rows) if (Date.parse(r.at) > since && ['gh', 'push'].includes(r.kind)) { const k = r.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; if (r.kind === 'gh') { x.calls++; x.content += contentOf(r); } else x.pushes++; by.set(k, x); }
   for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since && u.session !== sessionId()) { const k = u.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += u.pushes || 0; by.set(k, x); }
   for (const x of [...by.values()].sort((a, b) => b.calls - a.calls)) log(`  ${x.session}: ${x.calls} gh call(s), ${x.content} content-creating, ${x.pushes} push(es) in the hour`);
   return { minute: m, hour: h, primary: pr, pause: pause || null };

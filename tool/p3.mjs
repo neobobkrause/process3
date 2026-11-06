@@ -30,8 +30,8 @@ import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mj
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
-import { clearLocalPause, githubBudget, useShared } from './lib/pace.mjs';
-import { shareUsage, stateShare } from './lib/ghshare.mjs';
+import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
+import { stateShare } from './lib/ghshare.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -495,12 +495,33 @@ const commands = {
   // github budget (R17): use against each of GitHub's published limits, per window, account-wide
   // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
   'github budget': (a, root) => { githubBudget(root); return 0; },
+  // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
+  // through this: it waits its turn against the pause, the stop and the account's push ceiling,
+  // and is logged and shared. Never a force or a delete (Bob's standing approvals).
+  'github push': (a, root) => {
+    if (Object.keys(a).some((k) => k !== '_' && !['set-upstream', 'quiet'].includes(k))) fail('github push <remote> <refspec>... [--set-upstream] [--quiet]: no other flag (never --force, --delete, --mirror or --all)');
+    if (!a._.length || a._.some((x) => /^[+:]|^-/.test(x))) fail('github push <remote> <refspec>...: a refspec never starts with + (a force) or : (a delete)');
+    const r = git(['push', ...(a['set-upstream'] ? ['-u'] : []), ...(a.quiet ? ['-q'] : []), ...a._], { cwd: root, allowFail: true });
+    if (r.stdout.trim()) console.log(r.stdout.trim());
+    if (r.stderr.trim()) console.error(r.stderr.trim());
+    return r.code === 0 ? 0 : 1;
+  },
+  // github note --content <n> [--points <n>] [--what <text>] (R17b): a session records the
+  // connector writes it is about to make (a PR created, edited or marked ready, a comment, a
+  // review: each one content-creating request, 5 points), before making them; it waits or refuses
+  // as a gh call would. Connector reads stay on GitHub's primary count, which sees them.
+  'github note': (a, root) => {
+    try { noteTurn(root, { content: a.content ?? 0, ...(a.points !== undefined ? { points: a.points } : {}), ...(typeof a.what === 'string' ? { what: a.what } : {}) }); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
+    console.log(`github: ${a.content ?? 0} connector write(s) recorded; make them now`);
+    return 0;
+  },
   // github resume --by <session> (R17): the coordinator clears a stop (two refusals within an
   // hour) once the account is in good standing; every session may call GitHub again.
   'github resume': (a, root) => {
     const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
-    const cfg = loadConfig(root);
-    stateShare(root, cfg).resume(by);
+    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
+    const sh = stateShare(root, cfg) || fail('no GitHub ledger here: a product\'s clone, or a clone whose pacing.json names one');
+    sh.resume(by);
     clearLocalPause(root);
     console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
     return 0;
@@ -612,6 +633,7 @@ export async function main(argv) {
   a._ = a._.slice(name.split(' ').length);
   let root = null;
   let cfg = null;
+  let ledger = null;
   // One state push per command (R17, GitHub pacing): the writes are coalesced and pushed at its
   // end. Not the commands whose write reserves a session they then hand out (a seat, a start, a
   // handover) or that replay kept writes: theirs push at once, as before (cold review of R17).
@@ -622,7 +644,7 @@ export async function main(argv) {
     if (flushed || !batched) return null;
     flushed = true;
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
-    if (cfg && root && !process.env.NODE_TEST_CONTEXT) { try { shareUsage(root, cfg, { pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    if (ledger) { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -644,8 +666,9 @@ export async function main(argv) {
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
-    // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else.
-    if (cfg && !process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') useShared(stateShare(root, cfg));
+    // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else. A
+    // clone with no product config (process3) uses the ledger its pacing.json names (R17b).
+    if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch { ledger = null; } }
     if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
