@@ -10,12 +10,11 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { buildGenerated, oversizeGenerated } from '../lib/checks.mjs';
 import { DEPLOYS_FILE, deployDev } from '../lib/deploy.mjs';
-import { layerClose } from '../lib/layer.mjs';
+import { layerChecks } from '../lib/layer.mjs';
 import { releaseRun } from '../lib/release.mjs';
 import { setupCheck } from '../lib/setup.mjs';
-import { CLOSED_FILE } from '../lib/status.mjs';
-import { git, run } from '../lib/util.mjs';
-import { entry, makeRepo } from './helpers.mjs';
+import { git, loadConfig, run } from '../lib/util.mjs';
+import { entry, makeRepo, closeLayer } from './helpers.mjs';
 
 const quiet = () => {};
 const PASS = "import test from 'node:test';\ntest('ok', () => {});\n";
@@ -48,21 +47,18 @@ function withOrigin(files) {
 }
 const io = { openPRs: () => [], checkRun: () => null, compare: () => null };
 
-test('layer close: a generated path the tranche does not commit is built and verified, never "differs"; a committed one still differs', () => {
-  const { root, bare } = withOrigin(product());
+test('layer checks: a generated path the tranche does not commit is built and verified, never "differs"; a committed one still differs', () => {
+  const { root } = withOrigin(product());
+  const cfg = loadConfig(root);
   const out = [];
-  const r = layerClose(root, '1', { io, log: (m) => out.push(m) });
-  assert.equal(r.ok, true, out.join('\n'));
-  const row = JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare }));
-  assert.deepEqual(row.generated_changed, ['gen/small.txt'], 'only the committed path is compared');
-  const t = out.join('\n');
-  assert.match(t, /generated, built and verified, not committed \(deploy dev and release run build them\): gen\/big\.txt/);
-  assert.match(t, /regenerated files differ from the tranche \(gen\/small\.txt\)/);
-  // A built file whose verify fails stops the close, even when .gitignore hides it from git.
+  const r = layerChecks(root, cfg, git(['rev-parse', 'HEAD'], { cwd: root }), [{ id: 'a' }], { timeout: 60000, log: (m) => out.push(m) });
+  assert.deepEqual(r.findings, [], out.join('\n'));
+  assert.deepEqual(r.changed, ['gen/small.txt'], 'only the committed path is compared');
+  assert.deepEqual(r.built, ['gen/big.txt']);
+  // A built file whose verify fails is a finding, even when .gitignore hides it from git.
   const bad = withOrigin(product({ generated: [{ ...ROWS[0], verify: ['node', '-e', 'process.exit(4)'] }] }, { '.gitignore': 'gen/big.txt\n' }));
-  const o2 = [];
-  assert.equal(layerClose(bad.root, '1', { io, log: (m) => o2.push(m) }).ok, false);
-  assert.match(o2.join('\n'), /generated: gen\/big\.txt: .*failed \(exit 4\) after building/);
+  const f = layerChecks(bad.root, loadConfig(bad.root), git(['rev-parse', 'HEAD'], { cwd: bad.root }), [{ id: 'a' }], { timeout: 60000, log: quiet }).findings;
+  assert.match(f.map((x) => `${x.check}: ${x.file}: ${x.message}`).join('\n'), /generated: gen\/big\.txt: .*failed \(exit 4\) after building/);
 });
 
 test('buildGenerated: only rows with a path the commit does not track are built; a failure is a finding', () => {
@@ -96,7 +92,7 @@ test('deploy dev and release run build the uncommitted generated files before th
   const node = (code) => ['node', '-e', code];
   const deploy = { slug_prefix: 'p3dev-', dry_run: node(`console.log(${JSON.stringify(GUARD)})`), deploy: node("if (!require('fs').existsSync('gen/big.txt')) process.exit(5)"), walk: node('0'), guard_line: GUARD };
   const { root, bare } = withOrigin(product({ deploy, plan: 'close' }));
-  assert.equal(layerClose(root, '1', { io, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   git(['clean', '-qfd', 'gen'], { cwd: root });
   const out = [];
   const r = deployDev(root, { io: { compare: () => null }, repo: 'o/p', log: (m) => out.push(m) });
@@ -111,17 +107,6 @@ test('deploy dev and release run build the uncommitted generated files before th
   assert.deepEqual(c.results.map((x) => [x.name, x.exit]), [['build generated gen/big.txt', 0], ["node -e if (!require('fs').existsSync('gen/big.txt')) process.exit(6)", 0]]);
   assert.ok(existsSync(join(rel, 'gen/big.txt')));
   assert.equal(readFileSync(join(rel, 'gen/big.txt'), 'utf8').length, 4096);
-});
-
-// Copy, 4 Nov: `layer close 2` refused on membership 37/37 and credentials 33/33 failing with
-// ERR_MODULE_NOT_FOUND rows.mjs: layer close ran the suites before building the untracked file.
-test('layer close builds untracked generated files before the suites that import them', () => {
-  const uses = "import test from 'node:test'; import a from 'node:assert'; import { readFileSync } from 'node:fs';\ntest('big is built', () => a.equal(readFileSync('gen/big.txt', 'utf8').length, 4096));\n";
-  const { root } = withOrigin(product({}, { 'test/a/x.test.mjs': uses, '.gitignore': 'gen/big.txt\n' }));
-  const out = [];
-  const r = layerClose(root, '1', { io, log: (m) => out.push(m) });
-  assert.equal(r.ok, true, out.join('\n'));
-  assert.match(out.join('\n'), /a: suite exit 0/);
 });
 
 test('deploy dev installs the lock files before it builds the generated files (copy, 4 Nov: esbuild not found on a fresh checkout)', () => {
@@ -141,7 +126,7 @@ test('deploy dev installs the lock files before it builds the generated files (c
     return { code: 0, stdout: '', stderr: '', seconds: 0 };
   };
   const { root } = withOrigin(product({ deploy, plan: 'close', generated: rows, lockfiles: ['dep/package-lock.json'] }, { 'dep/package.json': '{"name":"dep"}', 'dep/package-lock.json': lock }));
-  assert.equal(layerClose(root, '1', { io, exec, log: quiet }).ok, true);
+  assert.equal(closeLayer(root, '1').ok, true);
   git(['clean', '-qfdx', 'gen', 'dep'], { cwd: root });
   calls.length = 0;
   const out = [];

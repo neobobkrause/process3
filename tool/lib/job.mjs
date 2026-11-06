@@ -52,10 +52,11 @@ export function costDelta(rows, sid, cost) {
 export const jobCostCall = (sid) => `get_session {"session_id": "${sid || '<the job\'s session id>'}"}, the field external_metadata.usage.cost_usd`;
 // A session id in get_session's form: the environment's cse_<id> is the record's session_<id>.
 export const sessionForm = (id) => (typeof id === 'string' && id ? id.replace(/^cse_/, 'session_') : id || null);
-export const READY_START = `${P3} job start --ready --live <n>`;
-export const READY_NEXT = `next act: ${READY_START} (n: the job sessions list_sessions shows), then create_session with each launch it prints`;
+// BOB starts the open layer's jobs from its list (layerflow.mjs layer jobs; Bob, 5 Nov).
+export const START_ACT = `${P3} status --role bob, then each \`job start\` its \`jobs to start\` lists (${P3} layer jobs <n>)`;
+export const START_NEXT = `next act: ${START_ACT}`;
 // The line a merge prints first, before its other output (coordinator, 4 Nov).
-export const READY_FIRST = `first: ${READY_START} (n: the job sessions list_sessions shows), then create_session with each launch it prints; the lines below after`;
+export const START_FIRST = `first: ${START_ACT}; the lines below after`;
 const SENDER = /^[a-z][a-z0-9-]{0,39}$/;
 export const bobWake = (what, from) => {
   if (!SENDER.test(String(from))) throw new Error(`a wake needs its sender's role name, not ${JSON.stringify(from)}`);
@@ -69,7 +70,7 @@ export const wakeLine = (what, from) => (from === 'bob' ? null : `next act: wake
 
 // TXT-3, TXT-5: each role's rulebook, in the pinned process. The platform loads a skill by its
 // description, not by role, and ENF-1 allows no new hook, so the prompt names the file to read.
-export const RULEBOOKS = ['bob', 'root', 'watcher', 'merger', 'job', 'worker'];
+export const RULEBOOKS = ['bob', 'root', 'watcher', 'job', 'worker'];
 export const rulebook = (role) => `.process/rulebooks/${role}.md`;
 export const rulebookLine = (role, who = 'your prompt') => `Your rulebook is \`${rulebook(role)}\`: read it once, after \`git submodule update --init .process\` fills the pin; ${who} wins where they differ.`;
 
@@ -315,8 +316,9 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
     // The anchored checkout's; in the layer flow, the open layer's branch is the job's base.
     const c = jobCfg(root, loadConfig(root), id, { push });
-    // In the layer flow a job starts only in its layer, once that layer is open (layer open <n>).
-    if (layerMode(c) && !c.layer) fail(`merge_strategy is "layer" and ${id}'s layer has no open branch (layer/<n> on origin, not merged): open the layer first (${P3} layer open <n>), then start it from ${P3} layer jobs <n>; nothing was started`);
+    // A job starts only in its layer, once that layer is open (layer open <n>); a product with no
+    // layer map (layers_file) has no layer, and its jobs keep the tranche.
+    if (layerMode(c) && !c.layer && !c.noLayers) fail(`${id}'s layer has no open branch (layer/<n> on origin, not merged), and it joined no open layer: a layer not yet open opens first (${P3} layer open <n>) and lists it (${P3} layer jobs <n>); a module whose layer is behind the open one joins the next to open (${P3} layer join ${id} --why "<the work>"), then starts from that layer's list once it opens; nothing was started`);
     const a = push ? anchoredTip(root, c) : null;
     if (push && (c.plan === 'pause' || c.plan === 'stop')) fail(`plan ${c.plan} at the tip of ${c.tranche}: take no new step; nothing was started`);
     const m = still?.(a || `origin/${c.tranche}`);

@@ -4,7 +4,6 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { layerClose } from '../lib/layer.mjs';
 import { CLOSED_FILE, status } from '../lib/status.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
@@ -32,7 +31,7 @@ function closedOn(root, rows) {
   git(['branch', '-D', 's'], { cwd: root });
 }
 
-test('layer ready to close with marks left: no next work in it, BOB\'s act is layer close', () => {
+test('layer ready to close with marks left: no next work in it, and no train-era close line (layer merge closes a layer)', () => {
   const root = makeRepo(base);
   openPassed(root);
   const out = [];
@@ -40,7 +39,7 @@ test('layer ready to close with marks left: no next work in it, BOB\'s act is la
   assert.equal(r.layer.cur.n, 1);
   assert.equal(r.layer.ready, true);
   assert.deepEqual(r.next, []);
-  assert.match(out.join('\n'), /^layer 1 ready to close: node \.process\/tool\/p3\.mjs job start --ready --live <n> closes it, then starts the next layer's jobs \(or node \.process\/tool\/p3\.mjs layer close 1\)$/m);
+  assert.doesNotMatch(out.join('\n'), /ready to close|job start --ready|layer close/);
   assert.doesNotMatch(out.join('\n'), /next work/);
 });
 
@@ -91,75 +90,9 @@ const io = { openPRs: () => [], checkRun: () => null, compare: () => null };
 const PASS = "import test from 'node:test';\ntest('ok', () => {});\n";
 const FAIL = "import test from 'node:test';\ntest('no', () => { throw new Error('x'); });\n";
 
-// Coordinator, 5 Nov: a module reopened for its marks in this tranche whose job left them is
-// deferred with that reason, never reopened again.
-test('layer close: marks a reopen in this tranche left unmet are deferred as unmet after its job', () => {
-  const reopened = `${JSON.stringify({ row: 'attempt', event: 'start', role: 'job', attempt: 2, reopen: 'meet the unmet requirement marks R1, R2' })}\n`;
-  const { root, bare } = withOrigin({ ...base, 'process/metrics/a.jsonl': reopened, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
-  const out = [];
-  assert.equal(layerClose(root, '1', { io, log: (m) => out.push(m) }).ok, true);
-  assert.deepEqual(JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare })).deferred, { a: { why: 'unmet after its job', marks: ['R1', 'R2'] } });
-  assert.match(out.join('\n'), /deferred: a 2 \(unmet after its job\)/);
-});
-
-test('layer close: runs the suites on the tranche tip, records the close with its deferred marks, prints the next layer', () => {
-  const { root, bare } = withOrigin({ ...base, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
-  const out = [];
-  const r = layerClose(root, '1', { io, log: (m) => out.push(m) });
-  assert.equal(r.ok, true);
-  assert.match(out.at(-1), /^next act: node \.process\/tool\/p3\.mjs job start --ready --live <n>/, 'BOB closing the layer starts its ready jobs next');
-  const row = JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare }));
-  assert.equal(row.layer, 1);
-  assert.equal(row.commit, git(['rev-parse', 'tranche'], { cwd: bare }));
-  assert.deepEqual(row.deferred, { a: ['R1', 'R2'] });
-  assert.match(out.join('\n'), /layer 1 closed at tranche .*; deferred: a 2[\s\S]*next work, layer 2[\s\S]*- build\/requirements\/d\.md: 1/);
-  // BOB closing (the default sender) is awake: no wake line.
-  assert.equal(r.wake, null);
-  assert.doesNotMatch(out.join('\n'), /wake BOB/);
-  // Another session's close gives BOB new work (measured 3-4 Nov: BOB idles until woken): its last
-  // line is the wake, runnable as printed, from --as.
-  const { root: other } = withOrigin({ ...base, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
-  const said = [];
-  const w = layerClose(other, '1', { io, as: 'coordinator', log: (m) => said.push(m) });
-  assert.equal(said.at(-1), 'next act: wake BOB with `node .process/tool/p3.mjs send bob "layer 1 closed: node .process/tool/p3.mjs job start --ready --live <n>, then status" --from coordinator`, delivered with send_message to the address it prints');
-  assert.equal(w.wake, said.at(-1));
-  // Closed, it is no longer the open layer.
-  assert.throws(() => layerClose(root, '1', { io, log: quiet }), /layer 1 is not the open layer; the open layer is 2/);
-});
-
-test('layer close: a red suite records nothing; a layer with an open job is refused', () => {
-  const { root, bare } = withOrigin({ ...base, 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': FAIL, 'process/ledger/b.json': { ...done('b'), tests: ['test/b/'] }, 'test/b/x.test.mjs': PASS });
-  const out = [];
-  assert.equal(layerClose(root, '1', { io, log: (m) => out.push(m) }).ok, false);
-  assert.match(out.join('\n'), /the a suite failed[\s\S]*layer 1 not closed/);
-  assert.equal(git(['ls-remote', bare, 'process-state'], { cwd: root }), '');
-  const open = withOrigin({ ...base, 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md' }) });
-  assert.throws(() => layerClose(open.root, '1', { io, log: quiet }), /layer 1 is not ready to close: b has an open job/);
-});
-
 // Measured 3 Nov on the copy: a layer-1 job BLOCKED by `job block` with a reason, its PR open.
 const blocked = (reason) => ({ ...base, 'build/requirements/b.md': unmet(1), 'process/ledger/b.json': entry('b', { requirements: 'build/requirements/b.md', status: { state: 'BLOCKED', ...(reason ? { reason } : {}) } }) });
 const prOpen = { openPRs: () => [{ number: 38, draft: false, head: { ref: 'job/b', sha: 'x' }, updated_at: '2026-11-03T00:00:00Z' }], checkRun: () => null, compare: () => null };
-
-test('a module BLOCKED with a reason: BOB closes its PR unmerged, then the layer closes with it deferred', () => {
-  const { root, bare } = withOrigin({ ...blocked('R47 rests on measure M-R7, recorded nowhere'), 'process/ledger/a.json': { ...done('a'), tests: ['test/a/'] }, 'test/a/x.test.mjs': PASS });
-  openPassed(root);
-  git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root });
-  const out = [];
-  const r = status(root, { role: 'bob', log: (m) => out.push(m), io: prOpen });
-  assert.equal(r.layer.ready, false);
-  assert.equal(r.layer.pending, true);
-  assert.deepEqual(r.next, []);
-  assert.match(out.join('\n'), /layer 1 ready to close once BOB closes these unmerged \(never deleting the branch\):\n- close PR #38 unmerged: R47 rests on measure M-R7, recorded nowhere\nthen: node \.process\/tool\/p3\.mjs layer close 1/);
-  assert.throws(() => layerClose(root, '1', { io: prOpen, log: quiet }), /b is BLOCKED \(R47 rests on measure M-R7, recorded nowhere\) with PR #38 still open: BOB closes it unmerged first/);
-  // PR 38 closed: ready, and the close records b deferred with its reason and marks.
-  assert.equal(status(root, { role: 'bob', log: quiet, io }).layer.ready, true);
-  const out2 = [];
-  assert.equal(layerClose(root, '1', { io, log: (m) => out2.push(m) }).ok, true);
-  const row = JSON.parse(git(['show', `process-state:${CLOSED_FILE}`], { cwd: bare }));
-  assert.deepEqual(row.deferred, { a: ['R1', 'R2'], b: { reason: 'R47 rests on measure M-R7, recorded nowhere', marks: ['R1'] } });
-  assert.match(out2.join('\n'), /b: deferred, BLOCKED[\s\S]*deferred: a 2, b 1 \(BLOCKED: R47/);
-});
 
 test('a module BLOCKED with no reason holds the layer, its PR closed or not', () => {
   const { root } = withOrigin(blocked(null));

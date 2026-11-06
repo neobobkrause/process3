@@ -10,7 +10,9 @@ import { laneModuleGaps } from './ledger.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
-import { DEFAULTS, OPEN_BY, exists, fail, fetchBranch, gh, git, isShallow, loadConfig, run } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
+import { readLedgerTexts } from './ledger.mjs';
+import { address, fetchState } from './state.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
 export const loadConditions = (file = CONDITIONS) => JSON.parse(readFileSync(file, 'utf8')).conditions;
@@ -314,12 +316,18 @@ export const readers = {
     return gaps.length ? missing(gaps.join('; ')) : set(`${named} lane module(s), each with its ledger entry, modules row and requirements file`);
   },
 
+  // The state branch's address (`address coordinator`) is newer than the config's value when
+  // set (withCoordinator reads it first): shown, the config's flagged stale when they differ.
   coordinator: (c, x) => {
     const text = x.file('process/config.json');
-    if (text === null) return missing(`no process/config.json on ${x.where}`);
+    let at = null;
+    try { at = x.address ? x.address('coordinator') : null; } catch { at = null; }
+    if (text === null) return at ? set(`${at} (the state branch's address; no process/config.json on ${x.where})`) : missing(`no process/config.json on ${x.where}`);
     let coord;
     try { coord = JSON.parse(text).coordinator; } catch { return missing(`process/config.json on ${x.where} is not JSON`); }
-    return typeof coord === 'string' && coord.trim() ? set(coord) : missing(`process/config.json on ${x.where} names no coordinator`);
+    const named = typeof coord === 'string' && coord.trim() ? coord.trim() : null;
+    if (at) return set(named && named !== at ? `${at} (the state branch's address); process/config.json's coordinator ${named} is stale` : `${at} (the state branch's address${named ? ', as process/config.json names' : '; process/config.json names none'})`);
+    return named ? set(named) : missing(`process/config.json on ${x.where} names no coordinator`);
   },
 };
 export const READERS = Object.keys(readers);
@@ -346,7 +354,13 @@ export function fileLog(x, ref, file, root) {
 // --at HEAD, before a pin-move pull request merges), that commit's pin and files are judged
 // instead of the tranche tip's, and session-branch is skipped.
 export function setupCheck(root, { slug, at = null, anchor = false, conditions = loadConditions(), io = {}, log = console.log } = {}) {
-  const local = loadConfig(root);
+  // A checkout still naming the removed merge train is read as the layer flow here, so setup check
+  // can name the blocker (strategyCheck) instead of refusing before it prints anything.
+  let local;
+  try { local = loadConfig(root); } catch (e) {
+    if (!/merge_strategy/.test(e.message)) throw e;
+    local = configOf({ ...JSON.parse(readFileSync(join(root, CONFIG_FILE), 'utf8')), merge_strategy: 'layer' });
+  }
   let sha = null;
   if (at) {
     const r = git(['rev-parse', '-q', '--verify', `${at}^{commit}`], { cwd: root, allowFail: true });
@@ -382,6 +396,7 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
   let pinned;
   x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche, io.toolRoot || TOOL, sha || `origin/${x.cfg.tranche}`)) : pinned);
   x.cf = io.cf || ((path) => cloudflareRead(path, x.env));
+  x.address = 'address' in io ? io.address : (role) => (fetchState(root, local.state_branch) ? address(root, local.state_branch, role) : null);
   x.required = [].concat(x.cfg.required_check || 'gate');
   const cache = new Map();
   x.ruleset = (id) => { if (!cache.has(id)) cache.set(id, x.api(`repos/${slug}/rulesets/${id}?includes_parents=true`)); return cache.get(id); };
@@ -402,9 +417,14 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
   log(gaps.length ? `${gaps.length} condition(s) missing: ${gaps.map((r) => r.id).join(', ')}` : 'every condition that can be read is set');
   const openByLine = openByCheck(x.cfg);
   log(openByLine);
+  // The merge train was removed (Bob, 6 Nov): a tranche config still naming another strategy makes
+  // every command, the gate included, refuse once the pin moves to this tool (cold review of PR 191).
+  const strategy = strategyCheck(tcfg);
+  if (strategy) log(strategy);
   const size = sizeCheck(root, x, sha, { io, log });
   const carry = takeInCheck(root, x, { io, log });
   const generated = generatedCheck(root, x, sha, { log });
+  const lanes = laneModuleCheck(x.cfg, io.entries || ledgerEntries(root, sha || `origin/${x.cfg.tranche}`), { log });
   // The census (R15): every module's entry, row, requirements and layer line at the checked tip;
   // a report, never a refusal (status --role bob names the open layer's, layer open refuses on its own).
   let gapsFound = null;
@@ -417,7 +437,38 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
       if (!c.skipped) log(c.gaps.length ? `census: ${c.gaps.length} gap(s) at ${sha ? sha.slice(0, 10) : ref} (${[...new Set(c.gaps.map((g) => g.kind))].join(', ')}); status --role bob lists the open layer's with their fixes` : 'census: every module has its entry, modules row, requirements file and layer line');
     } catch (e) { log(`census: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   }
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, census: gapsFound };
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, lanes, census: gapsFound, ...(strategy ? { strategy } : {}) };
+}
+
+const ledgerEntries = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { return [JSON.parse(t)]; } catch { return []; } });
+// A lane whose folder lies under a ledger module's paths and that names no module (or another):
+// the gate counts its files as that module's (util.mjs laneOfPath), so a lane-only pull request is
+// refused as module files (copy, 6 Nov: ux's PR 620, until PR 629 added "module": "ux-design").
+// Informational: a warning line each, never a missing condition. Returns the warnings.
+export function laneModuleCheck(cfg, entries, { log = console.log } = {}) {
+  const lanes = laneDirs(cfg);
+  if (!lanes.length) return [];
+  const out = [];
+  for (const l of lanes) {
+    for (const e of entries) {
+      const p = (e?.paths || []).find((q) => underPath(l.dir, String(q).replace(/\/+$/, '')));
+      const t = (e?.tests || []).find((q) => underPath(l.dir, String(q).replace(/\/+$/, '')));
+      if (t) { out.push(`lane ${l.name}: its folder ${l.dir} lies under module ${e.id}'s tests ${t}: the gate counts its files as ${e.id}'s tests whatever the lane's module; move the lane's folder`); continue; }
+      if (!p || e.id === l.module) continue;
+      out.push(`lane ${l.name}: its folder ${l.dir} lies under module ${e.id}'s path ${p}, and its row in process/config.json names ${l.module ? `module ${l.module}` : 'no module'}: the gate counts its files as ${e.id}'s and refuses a lane-only pull request; add "module": "${e.id}" to the lane's row`);
+    }
+  }
+  for (const w of out) log(`warning: ${w}`);
+  if (!out.length) log(`lanes: ${lanes.length}, each folder outside other modules' paths`);
+  return out;
+}
+
+// A blocker before a pin move: process/config.json on the tranche naming a merge_strategy other
+// than "layer" (or the key absent). Informational here; loadConfig refuses it once the pin moves.
+export function strategyCheck(cfg) {
+  const ms = cfg?.merge_strategy;
+  if (ms === undefined || ms === 'layer') return null;
+  return `BLOCKER before a pin move: process/config.json on the tranche says "merge_strategy": ${JSON.stringify(ms)}; the merge train was removed and every command (the gate included) refuses it at the new pin. First a plain pull request setting "merge_strategy": "layer" (or removing the key), merged under the current pin`;
 }
 
 // Which opening of next work is in force (open_by in process/config.json; status --role bob).

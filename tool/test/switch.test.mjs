@@ -10,13 +10,12 @@ import { recordStart } from '../lib/roles.mjs';
 import { approvalsHash } from '../lib/start.mjs';
 import { fetchState, readState, writeState } from '../lib/state.mjs';
 import { MANIFEST_FILE, readTasks, switchIn, switchOut, switchQuiet } from '../lib/switch.mjs';
-import { LEASE_FILE, MERGER_FILE, releaseSessionLease, takeLease } from '../lib/train.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
 const quiet = () => {};
 const COORD = 'session_coordold';
 const NEW = 'session_coordnew';
-const ID = { root: 'session_rootold', bob: 'session_bobold', merger: 'session_mergerold', watcher: 'session_watcherold' };
+const ID = { root: 'session_rootold', bob: 'session_bobold', watcher: 'session_watcherold' };
 const APPROVALS = '# CLAUDE\n\n## Standing approvals from Bob\n\nSessions may push.\n';
 
 function product() {
@@ -117,8 +116,8 @@ test('switch out writes the manifest, and only it, and prints the stop acts in o
   assert.deepEqual(m.messages.map((x) => `${x.from}-${x.n}`), ['root-2']);
   const text = out.join('\n');
   const at = (re) => { const i = out.findIndex((l) => re.test(l)); assert.ok(i >= 0, String(re)); return i; };
-  assert.ok(at(/^1\. MERGER session_mergerold.*merge train release --session session_mergerold/) < at(/^2\. Each live job.*push your work in progress/));
-  assert.ok(at(/^2\./) < at(/^3\. Switch off each task with update_trigger enabled false/));
+  assert.ok(!out.some((l) => /MERGER|merge train/.test(l)), 'no MERGER to stop');
+  assert.ok(at(/^1\. Each live job.*push your work in progress/) < at(/^2\. Switch off each task with update_trigger enabled false/));
   assert.match(text, /- job alpha: session_jobalpha \(job\/alpha, PR #445 draft\)/);
   assert.match(text, /- trig_flow hourly flow \(coordinator\)/);
   assert.doesNotMatch(text, /trig_off/);
@@ -158,7 +157,7 @@ test('switch in, preflight held: the restart\'s acts (a) to (g) in order, tasks 
   assert.match(text, /\(a\) The coordinator records its id: .*"coordinator": "session_coordnew"/);
   assert.match(text, /\(b\) .*switch quiet/);
   assert.match(text, /handover begin` \(old BOB session_bobold\)/);
-  assert.match(text, /start merger --replace session_mergerold/);
+  assert.doesNotMatch(text, /start merger/);
   assert.match(text, /start watcher --replace session_watcherold/);
   // The coordinator's task, from this session; the old ids in its prompt named as the new role's.
   const flow = out.find((l) => l.includes('hourly flow'));
@@ -177,7 +176,7 @@ test('switch in, preflight held: the restart\'s acts (a) to (g) in order, tasks 
   assert.match(text, /job start eps --restart "account switch/);
   assert.match(text, /`node .process\/tool\/p3.mjs job start eta --sessions <list_sessions saved now>` \(an unfinished start resumes\)/);
   assert.match(text, /zeta: WORKING: its work never merged and no pull request is open: job start zeta --live <n> --reopen/);
-  assert.match(text, /\(f\) BOB: `node .process\/tool\/p3.mjs job start --ready --sessions/);
+  assert.match(text, /\(f\) BOB: `node .process\/tool\/p3.mjs status --role bob --sessions <list_sessions saved now>`, then each `job start` its `jobs to start` lists/);
   // A message to BOB stays in the record for the new BOB's status (the copy's dry run held 201).
   assert.match(text, /\(g\) 1 unanswered message\(s\) to BOB stay in the record: .*status --role bob.*resend none/);
   assert.ok(!/MSG root-2 to bob/.test(text));
@@ -229,25 +228,6 @@ test('switch quiet exits 0 only once the tranche tip has not moved for two minut
   assert.throws(() => switchQuiet(root, { minutes: 'x', log: quiet }), /--minutes/);
 });
 
-test('merge train release: the session\'s own lease given back at once; another session\'s refused', () => {
-  const root = product();
-  const cfg = loadConfig(root);
-  const lease = () => { fetchState(root, cfg.state_branch, { fresh: true }); return JSON.parse(readState(root, cfg.state_branch, LEASE_FILE)); };
-  assert.deepEqual(releaseSessionLease(root, cfg, ID.merger, { log: quiet }), { released: false });
-  takeLease(root, cfg, ID.merger, 'tok-killed', { take: true });
-  assert.throws(() => releaseSessionLease(root, cfg, 'session_other', { log: quiet }), /lease is session_mergerold's.*nothing was changed/);
-  assert.ok(Date.parse(lease().expires) > Date.now());
-  assert.deepEqual(releaseSessionLease(root, cfg, ID.merger, { log: quiet }), { released: true });
-  assert.ok(Date.parse(lease().expires) <= Date.now());
-  assert.ok(lease().released);
-  assert.match(readState(root, cfg.state_branch, MERGER_FILE), /"row":"release","session":"session_mergerold"/);
-  // The released train, still running, cannot renew it back.
-  assert.throws(() => takeLease(root, cfg, ID.merger, 'tok-killed'), /released by merge train release/);
-  // A new train takes it at once, not after LEASE.expire.
-  assert.deepEqual(takeLease(root, cfg, 'session_mergernew', 'tok-new', { take: true }).takeover, true);
-  assert.throws(() => releaseSessionLease(root, cfg, 'nope', { log: quiet }), /--session/);
-});
-
 // R16 (Bob, 6 Nov: "anticipate or test for issues related to account switching now"): the dry run,
 // the read-only preflight, the layer flow and lanes in the restart, and the old sessions retired.
 import { DRY_RUN_DIR, RETIRED_FILE, SESSION_CHECKS } from '../lib/switch.mjs';
@@ -295,7 +275,7 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   assert.ok(out.some((l) => /trig_lane ux check-in \(lane ux\)/.test(l)));
   assert.ok(out.some((l) => /not the process's, left as it is.*trig_bobs/.test(l)));
   assert.ok(!out.some((l) => /^   - trig_bobs/.test(l)), 'never switched off');
-  assert.ok(out.some((l) => /3b\. Each lane's session.*lane ux: session_uxold; lane triage: session_triageold/.test(l)));
+  assert.ok(out.some((l) => /2b\. Each lane's session.*lane ux: session_uxold; lane triage: session_triageold/.test(l)));
 });
 
 test('switch in --preflight: read-only, with or without a manifest, the process repository checked, the session checks listed', () => {

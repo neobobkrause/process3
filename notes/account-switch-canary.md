@@ -9,8 +9,8 @@ All tests were run on 6 Nov from a builder session on the current account (creat
 | Item | Test now | Result 6 Nov | Switch step | Who |
 |---|---|---|---|---|
 | Scheduled tasks | list_triggers, enabled only | 7 enabled: the hourly flow check, the Phase 1 and 2 survival reads (all three the coordinator's), BOB's layer 9 check-in, sweep (ROOT), watcher; plus Bob's alpha-pipeline-runner, which is not the process's | Switch out step 3 switches them off; switch in (d) recreates them | Coordinator; alpha-pipeline-runner is Bob's |
-| Role, job and lane sessions | `switch out --dry-run` on the copy | MERGER, BOB, ROOT and the watcher; 8 live jobs; 3 lane seats (investigation, publication, ux) and 1 open ask; layer 9 open; 16 old sessions named | Switch out stop acts; switch in (c), (e), (f), (h); `switch/retired.json` ends their seats | Coordinator, ROOT, BOB |
-| Unanswered messages | The same dry run | 211 in all. 201 are to BOB: 147 MERGER refusals and job reports back to 3 Nov | Switch in (g): those to BOB stay in the record for `status --role bob`; about 10 others are resent | Coordinator |
+| Role, job and lane sessions | `switch out --dry-run` on the copy | BOB, ROOT and the watcher (the MERGER then, gone with PR 191); 8 live jobs; 3 lane seats (investigation, publication, ux) and 1 open ask; layer 9 open; 16 old sessions named | Switch out stop acts; switch in (c), (e), (f), (h); `switch/retired.json` ends their seats | Coordinator, ROOT, BOB |
+| Unanswered messages | The same dry run | 211 in all. 201 are to BOB: 147 refusals from the former MERGER and job reports back to 3 Nov | Switch in (g): those to BOB stay in the record for `status --role bob`; about 10 others are resent | Coordinator |
 | GitHub identity | `switch in --preflight` on the copy, the probe and process3 | ok: acting as civicsmith; push true, admin false on all three; push dry run ok | Bob connects GitHub as civicsmith on the new account | Bob |
 | Claude GitHub App | The same preflight (its push dry run) | ok on this account | Bob installs it for the three repositories | Bob |
 | Cloud environment | get_environment | BioDefault (personal): unrestricted network; walk-certificate setup script; 1 network secret (api.cloudflare.com); variables BIO_*, CF_*, CLOUDFLARE_*, GITHUB_TOKEN, JOURNEY_*. A personal environment does not move with the account | Bob recreates it with the values only he holds | Bob |
@@ -64,7 +64,7 @@ Downtime runs from the stop acts to jobs working again on the new account. The f
 | Switch in and session checks | 3 min | 10 min |
 | (a) The coordinator's id: one gate run per product | 15 min | 25 min |
 | (b) Quiet tranche | 2 min | 5 min |
-| (c) ROOT, BOB, the watcher, the MERGER (serial, about 1–2.5 min each) | 6 min | 12 min |
+| (c) ROOT, BOB, the watcher (serial, about 1–2.5 min each) | 5 min | 10 min |
 | (d)–(h) Tasks, 8 jobs, 3 lanes, about 10 messages (BOB and the coordinator in parallel) | 10 min | 20 min |
 | **Total** | **about 1 h** | **about 2¼ h** |
 

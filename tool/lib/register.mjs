@@ -27,9 +27,9 @@ export const CLOSED = 'closed.jsonl';
 export const KINDS = ['short-term', 'long-term'];
 // The roles whose starting prompts print a chosen short-term response (AUD-8: "later sessions").
 // The watcher and the lanes' own sessions are not among them: their STARTs carry no register block.
-export const AFFECTS = ['bob', 'root', 'merger', 'coordinator', 'job'];
+export const AFFECTS = ['bob', 'root', 'coordinator', 'job'];
 // The printed block's cap. Measured 5 Nov: each role prompt is at most one screen, 4096 bytes
-// (prompt-caps.test.mjs; BOB's 3789, the MERGER's 4072, on the copy's slug), and the seed entry's
+// (prompt-caps.test.mjs; BOB's 3789 on the copy's slug), and the seed entry's
 // block, its heading included, is 880 bytes. Half a screen holds the heading and about two and a
 // half entries of the seed's size, so a prompt with its block stays within a screen and a half and
 // is read whole. Over it the tool still prints every entry, and says the set is over its cap (in

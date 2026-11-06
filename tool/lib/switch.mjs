@@ -24,7 +24,7 @@ export const DRY_RUN_DIR = 'switch/dry-run';
 // session_gone holds for each (ends.mjs readFacts), as the new account's list_sessions never lists them.
 export const RETIRED_FILE = 'switch/retired.json';
 export const QUIET_MIN = 2;
-const ROLES = ['root', 'bob', 'merger', 'watcher'];
+const ROLES = ['root', 'bob', 'watcher'];
 const SESSION = /^session_[A-Za-z0-9]+$/;
 const by_ = (by) => (SESSION.test(String(by)) ? String(by) : fail('--by <session>: the session running this (the coordinator or ROOT)'));
 
@@ -96,20 +96,16 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
 
 const stopActs = (m) => {
   const L = [];
-  const merger = m.addresses.merger?.session;
-  L.push(merger
-    ? `1. MERGER ${merger}, send_message priority now: "STOP for the account switch: stop your train's background task, then run \`${P3} merge train release --session ${merger}\`, then end your turn." Wait for its reply.`
-    : '1. No MERGER is addressed: no train to stop.');
-  L.push(m.jobs.length ? `2. Each live job, send_message priority now: "STOP for the account switch: commit and push your work in progress to your branch, then end your turn."` : '2. No live job sessions.');
+  L.push(m.jobs.length ? `1. Each live job, send_message priority now: "STOP for the account switch: commit and push your work in progress to your branch, then end your turn."` : '1. No live job sessions.');
   for (const j of m.jobs) L.push(`   - job ${j.module}: ${j.session} (${j.branch}${j.pr ? `, PR ${j.pr}` : ''})`);
   const own = m.tasks.filter((t) => t.role !== 'not the process');
-  L.push(own.length ? '3. Switch off each task with update_trigger enabled false (switched off, never deleted):' : '3. No enabled scheduled tasks of the process.');
+  L.push(own.length ? '2. Switch off each task with update_trigger enabled false (switched off, never deleted):' : '2. No enabled scheduled tasks of the process.');
   for (const t of own) L.push(`   - ${t.id} ${t.name || ''} (${t.role})`);
   for (const t of m.tasks.filter((x) => x.role === 'not the process')) L.push(`   - not the process's, left as it is (Bob's to move): ${t.id} ${t.name || ''}`);
-  if ((m.lanes || []).some((x) => x.session)) L.push(`3b. Each lane's session (the triage lane's too), send_message priority now: "STOP for the account switch: commit and push your folder's work, then end your turn." ${m.lanes.filter((x) => x.session).map((x) => `lane ${x.lane}: ${x.session}`).join('; ')}`);
+  if ((m.lanes || []).some((x) => x.session)) L.push(`2b. Each lane's session (the triage lane's too), send_message priority now: "STOP for the account switch: commit and push your folder's work, then end your turn." ${m.lanes.filter((x) => x.session).map((x) => `lane ${x.lane}: ${x.session}`).join('; ')}`);
   const roles = ['bob', 'root', 'watcher'].filter((r) => m.addresses[r]).map((r) => `${r.toUpperCase()} ${m.addresses[r].session}`);
-  L.push(`4. ${roles.length ? `${roles.join(', ')}, send_message priority now: "STOP for the account switch: finish nothing new, end your turn."` : 'No role sessions are addressed.'}`);
-  L.push('5. Bob: connect GitHub on the new account as the collaborator, install the Claude GitHub App, add the account to the approvals if needed; then the new account\'s first act is switch in (rulebooks/account-switch.md).');
+  L.push(`3. ${roles.length ? `${roles.join(', ')}, send_message priority now: "STOP for the account switch: finish nothing new, end your turn."` : 'No role sessions are addressed.'}`);
+  L.push('4. Bob: connect GitHub on the new account as the collaborator, install the Claude GitHub App, add the account to the approvals if needed; then the new account\'s first act is switch in (rulebooks/account-switch.md).');
   return L;
 };
 
@@ -216,7 +212,6 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   L.push(`(b) Wait for a quiet tranche: \`${P3} switch quiet\`, again until it exits 0 (the tip unmoved ${QUIET_MIN} min). Start nothing before.`);
   L.push(`(c) \`${P3} start root\`, then create_session with the call it prints; ROOT records its own address. Then send ROOT, each its own command for it:`);
   L.push(old('bob') ? `    - \`${P3} handover begin\` (old BOB ${old('bob')}), its create_session and \`handover confirm <new id>\`; skip the message to the old BOB and its archive: it is on the old account` : `    - \`${P3} start bob\`, its create_session and \`start record bob <new id>\``);
-  if (old('merger')) L.push(`    - \`${P3} start merger --replace ${old('merger')}\`, its create_session and \`start record merger <new id>\`; its train takes the lease at once if the old MERGER ran \`merge train release\`, else within 15 min`);
   L.push(old('watcher') ? `    - \`${P3} start watcher --replace ${old('watcher')}\`, its create_session, \`start record watcher <new id>\` and the daily task it prints` : `    - \`${P3} start watcher\`, its create_session, \`start record watcher <new id>\` and the daily task it prints`);
   L.push(m.tasks.length ? '(d) The scheduled tasks, after the starts, each a create_trigger call (the new ids from `address <role>`):' : '(d) No scheduled tasks to recreate.');
   for (const k of m.tasks) {
@@ -239,10 +234,10 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   for (const j of restart) L.push(`    - \`${P3} job start ${j.module} --restart "account switch: its session ${j.session} was on the old Claude account" --stop idle\`${rel(j)}`);
   for (const j of resume) L.push(`    - \`${P3} job start ${j.module} --sessions <list_sessions saved now>\` (an unfinished start resumes)${rel(j)}`);
   for (const j of other) L.push(`    - ${j.module}: ${j.state}${j.pr ? `, PR ${j.pr}` : ''}: ${['WORKING', 'COMPLETE'].includes(state(j)) ? routeFor(j.module, { state: state(j), ahead: j.ahead, open: open(j) }) : 'nothing to restart'}${rel(j)}`);
-  // The layer flow (R16): BOB starts each open layer's jobs from layer jobs; --ready is the train's.
+  // The layer flow (R16): BOB starts each open layer's jobs from layer jobs.
   L.push((m.layers || []).length
     ? `(f) BOB, for each open layer (${m.layers.join(', ')}): \`${P3} layer jobs <n>\`, then each start it lists, each its own command (\`${P3} layer sync <n>\` first if it says the pin moved).`
-    : `(f) BOB: \`${P3} job start --ready --sessions <list_sessions saved now>\`.`);
+    : `(f) BOB: \`${P3} status --role bob --sessions <list_sessions saved now>\`, then each \`job start\` its \`jobs to start\` lists.`);
   // Those to BOB stay in the record, where the new BOB's \`status --role bob\` lists them: the copy's
   // dry run (6 Nov) held 211, 201 of them to BOB (147 MERGER refusals), a resend each.
   const toBob = messages.filter((x) => x.to === 'bob'), rest = messages.filter((x) => x.to !== 'bob');

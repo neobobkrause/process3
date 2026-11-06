@@ -141,17 +141,3 @@ test('send: unquoted text is refused, not cut to its first word', async () => {
   try { process.chdir(root); assert.equal(await main(['send', 'job-x', 'merge', 'your', 'PR', '--from', 'bob']), 1); } finally { process.chdir(cwd); console.error = err; }
   assert.match(errs.join('\n'), /the text in quotes/);
 });
-
-test('send to bob leads with job start --ready when jobs are ready, so BOB starts them on whatever wake comes first; a count unread or zero leaves the text', () => {
-  const { root, bare } = withOrigin();
-  const out = [];
-  send(root, SB, { from: 'job-x', to: 'bob', text: 'job x complete, PR #3 ready: run status', ready: () => 2, log: (l) => out.push(l) });
-  assert.match(out[0], /^MSG job-x-1 to bob: first: node \.process\/tool\/p3\.mjs job start --ready --live <n> \(2 jobs ready\)\. Then: job x complete, PR #3 ready: run status/);
-  assert.match(git(['show', `${SB}:messages/job-x.jsonl`], { cwd: bare }), /"text":"first: node \.process\/tool\/p3\.mjs job start --ready/);
-  const o2 = [];
-  send(root, SB, { from: 'job-x', to: 'bob', text: 'two', ready: () => 0, log: (l) => o2.push(l) });
-  assert.match(o2[0], /^MSG job-x-2 to bob: two$/m);
-  const o3 = [];
-  send(root, SB, { from: 'job-x', to: 'bob', text: 'three', ready: () => { throw new Error('offline'); }, log: (l) => o3.push(l) });
-  assert.match(o3[0], /^MSG job-x-3 to bob: three$/m);
-});

@@ -1,19 +1,17 @@
 // Flow control (Bob, 5 Nov, Build Plan R10; as the coordinator's audit of PR 140 set it): the cap
-// checked on a single start; starts owed a printed marker, never a refusal, feeding the idle alarm
-// at 15 min; idle capacity judged on tool runs between sweeps; working against waiting sessions;
-// the release path first in start order. And the fault injections, each found by the first tool run
-// after it (CHECK_MIN, 5 minutes, within the 15 asked) and cleared.
+// checked on a single start; working against waiting sessions; the release path tagged in next
+// work; and a fault injection found by the next tool run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { entry, makeRepo, openPassed, setJobCap } from './helpers.mjs';
-import { OWED_FILE, bobAct, hold, owe, owes, paid, readOwed } from '../lib/hold.mjs';
-import { capCheck, startReady, startable } from '../lib/ready.mjs';
+import { capCheck } from '../lib/cap.mjs';
+import { hold } from '../lib/hold.mjs';
 import { fetchState, jsonl, readState, writeState } from '../lib/state.mjs';
 import { flow, status } from '../lib/status.mjs';
-import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCapacity, idleCheck, senderFor } from '../lib/sweep.mjs';
+import { CHECK_MIN, SWEEP_ROWS_FILE, beforeAct, idleCheck, senderFor } from '../lib/sweep.mjs';
 import { main } from '../p3.mjs';
 import { git, loadConfig as loadCfg } from '../lib/util.mjs';
 
@@ -49,7 +47,7 @@ function product(files = {}) {
 const sweepRows = (root) => { fetchState(root, SB, { fresh: true }); return jsonl(readState(root, SB, SWEEP_ROWS_FILE)); };
 const addRow = (root, row) => writeState(root, SB, 'row', (dir) => { git(['-C', dir, 'status'], { allowFail: true }); writeFileSync(join(dir, SWEEP_ROWS_FILE), (readState(root, SB, SWEEP_ROWS_FILE) || '') + JSON.stringify(row) + '\n'); });
 
-test('job start <id> checks the cap as job start --ready does: --live or --sessions required, the cap less slot holds', (t) => {
+test('job start <id> checks the cap: --live or --sessions required, the cap less slot holds', (t) => {
   setJobCap(t, 4);
   const root = product();
   assert.throws(() => capCheck(root, {}), /job start <id> --live <n> \(or --sessions <file>\)/);
@@ -59,30 +57,15 @@ test('job start <id> checks the cap as job start --ready does: --live or --sessi
   assert.throws(() => capCheck(root, { live: '3' }), /3 job sessions live of the cap 4 less 1 held/);
 });
 
-test('start order: the release path first; debt (base-red found marks only) fills every slot left free after it, waiting only for the cap', (t) => {
-  const x = (id, tag = {}) => ({ file: `r/${id}.md`, count: 1, module: id, entry_state: 'OPEN', ...tag });
-  const r = startable([x('d1', { debt: true }), x('n1'), x('l1', { release: true }), x('l2', { release: true })]);
-  assert.deepEqual(r.go.map((j) => j.id), ['l1', 'l2', 'n1', 'd1']);
-  assert.deepEqual(startable([x('d1', { debt: true }), x('n1')]).go.map((j) => j.id), ['n1', 'd1'], 'no release work: debt last, not held');
-  // Coordinator, 5 Nov: cap 20, 6 live, 1 release and 3 debt startable: all 4 start.
-  const root = makeRepo({ 'README.md': 'x' });
-  const next = [x('d1', { debt: true }), x('d2', { debt: true }), x('l1', { release: true }), x('d3', { debt: true })];
-  setJobCap(t, 20);
-  const go = (cap, live) => { process.env.P3_JOB_CAP = String(cap); const calls = []; startReady(root, { live, remote: new Set(), read: () => ({ next, rows: [] }), start: (_, id) => { calls.push(id); return {}; }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: quiet }); return calls; };
-  assert.deepEqual(go(20, 6), ['l1', 'd1', 'd2', 'd3']);
-  // Debt waits only when release work would otherwise lack a slot.
-  assert.deepEqual(go(7, 6), ['l1']);
-  assert.deepEqual(go(8, 6), ['l1', 'd1']);
-});
-
 test('flow: with slots free, the requirement files over the cap are named as BOB\'s split acts that would open them', (t) => {
   setJobCap(t, 20);
   const over = { file: 'r/big.md', count: 9, over: 'split or consolidate before its job: r/big.md 90000 over 70000' };
   const one = { file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN' };
-  const f = flow({}, [], [one, over], 6);
+  const view = { kind: 'open', n: 2, startable: [{ id: 'a' }] };
+  const f = flow({}, [], [one, over], 6, null, [], { view });
   assert.deepEqual(f.splits_owed, ['r/big.md']);
   assert.match(f.line, /startable 1, blocked 0; \d+ slots free: BOB's split acts would open them \(split or consolidate: r\/big\.md\)$/);
-  const full = flow({}, [], [one, over], 19);
+  const full = flow({}, [], [one, over], 19, null, [], { view });
   assert.equal(full.splits_owed, undefined, 'no free slot: no split line');
   assert.doesNotMatch(full.line, /split/);
 });
@@ -105,50 +88,6 @@ test('next work tags the release path (layer work, release_path) and debt (every
   const out = status(root, { role: 'bob', offline: true, heads: new Set(), log: quiet });
   const by = Object.fromEntries(out.next.filter((y) => y.module).map((y) => [y.module, [!!y.release, !!y.debt]]));
   assert.deepEqual([by.a, by.b, by.c], [[true, false], [true, false], [false, true]]);
-  assert.deepEqual(startable(out.next).go.map((j) => j.id), ['a', 'b', 'c'], 'debt last, in the slots left free');
-});
-
-test('starts owed: a marker the owing acts write and job start --ready pays up to its start; printed first, never a refusal', async () => {
-  assert.equal(owes('merge', { _: ['12'] }), 'merge 12');
-  assert.equal(owes('notice triage', { _: ['p:1'], record: 'f' }), 'triage recorded p:1');
-  assert.equal(owes('status', { _: [] }), null);
-  assert.deepEqual(['merge', 'handoff', 'layer close'].map((n) => bobAct(n, { _: [] })), [true, true, true]);
-  assert.deepEqual([bobAct('job start', { ready: true }), bobAct('send', { from: 'job-a' }), bobAct('status', {}), bobAct('job complete', {})], [false, false, false, false]);
-  const dir = mkdtempSync(join(tmpdir(), 'p3-owed-'));
-  owe(dir, 'merge 1');
-  const begun = new Date(Date.now() + 1000).toISOString();
-  writeFileSync(join(dir, OWED_FILE), JSON.stringify({ since: ago(20), acts: [{ at: ago(20), act: 'merge 1' }, { at: new Date(Date.now() + 5000).toISOString(), act: 'block b' }] }));
-  paid(dir, begun);
-  assert.deepEqual(JSON.parse(readFileSync(join(dir, OWED_FILE), 'utf8')).acts.map((x) => x.act), ['block b'], 'a later act stands');
-  // In a product: status prints it first; a BOB act prints it first and keeps its own exit.
-  const root = product();
-  writeState(root, SB, 'owed', (d) => owe(d, 'merge 7'));
-  const s = [];
-  status(root, { role: 'bob', offline: true, log: (l) => s.push(l) });
-  assert.match(s[0], /^starts owed since \S+ \(merge 7\): run job start --ready$/);
-  const cwd = process.cwd();
-  const said = [];
-  const [l, e] = [console.log, console.error];
-  console.log = (m) => said.push(String(m));
-  console.error = (m) => said.push(String(m));
-  let code;
-  try { process.chdir(root); code = await main(['merge']); } finally { process.chdir(cwd); console.log = l; console.error = e; }
-  assert.equal(code, 1, 'merge with no number fails as before: never refused');
-  assert.match(said.join('\n'), /p3 merge: name the pull request number/);
-  assert.ok(readOwed(root, SB), 'a failed act owes nothing and clears nothing');
-});
-
-test('idle capacity: starts owed 15 min or more with startable work alarms at once; dead ends listed first', () => {
-  const work = [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'OPEN' }, { file: 'r/w.md', count: 1, module: 'w', entry_state: 'WORKING' }];
-  const t = Date.now();
-  const base = { live: 2, cap: 6, holds: [], work, startable: 1, layers: new Map(), prev: { at: ago(1, t) }, t };
-  assert.equal(idleCapacity(base).alarm, false);
-  const ic = idleCapacity({ ...base, owed: { since: ago(16, t) } });
-  assert.equal(ic.alarm, true);
-  assert.equal(ic.owed_since, ago(16, t));
-  assert.equal(idleCapacity({ ...base, owed: { since: ago(10, t) } }).alarm, false);
-  assert.deepEqual(ic.dead, ["dead end w: entry WORKING: BOB's judgment"]);
-  assert.deepEqual(ic.reasons.slice(0, 2), ["dead end w: entry WORKING: BOB's judgment", '1 x startable, not started']);
 });
 
 test('working against waiting: each open job\'s session running or idle, and what an idle one waits on', (t) => {
@@ -163,62 +102,6 @@ test('working against waiting: each open job\'s session running or idle, and wha
   assert.match(f.line, /^flow: live 5\/20 \((default|P3_JOB_CAP)\) \(working 1, waiting 4: b gate, c merge, d block, e BOB\), startable 0/);
 });
 
-// Fault injection 1: a spoken limit. BOB, told "only 1", measured 1 live at job start --ready,
-// started nothing, recorded no hold; a merge since owes starts. The first command any role runs
-// CHECK_MIN on records the idle; once the idle (or the starts owed) reaches 15 min the next check
-// alarms and prints the wakes; job start --ready's starts clear it.
-test('fault injection: a spoken limit is found by tool runs between sweeps and cleared by job start --ready', (t) => {
-  setJobCap(t, 4);
-  const root = product();
-  const cfg = JSON.parse(readFileSync(join(root, 'process/config.json'), 'utf8'));
-  const c = { ...cfg, state_branch: SB, tranche: 'tranche', plan: 'run', requirements_dir: 'build/requirements', layers_file: 'build/layers.md' };
-  const t0 = Date.now();
-  addRow(root, { at: ago(6, t0), row: 'ready', live: 1, job_cap: 4, started: [] });
-  writeState(root, SB, 'owed', (d) => owe(d, 'merge 9'));
-  const said = [];
-  const first = idleCheck(root, c, { io: GH, by: 'job complete', from: 'job-a', t: t0, log: (l) => said.push(l)});
-  assert.equal(first.idle_capacity.kind, 'work');
-  assert.equal(first.idle_capacity.alarm, false);
-  assert.equal(idleCheck(root, c, { io: GH, by: 'status', t: t0 + 60e3, log: quiet }), null, 'within CHECK_MIN no second check');
-  // 16 minutes on: the starts owed is over 15 min old, the check alarms, BOB and the coordinator woken.
-  const later = t0 + 16 * 6e4;
-  addRow(root, { at: ago(30, later), row: 'ready', live: 1, job_cap: 4, started: [] });
-  writeState(root, SB, 'owed old', (d) => writeFileSync(join(d, OWED_FILE), JSON.stringify({ since: ago(16, later), acts: [{ at: ago(16, later), act: 'merge 9' }] })));
-  const out = [];
-  const alarm = idleCheck(root, c, { io: GH, by: 'job complete', from: 'job-a', t: later, log: (l) => out.push(l) });
-  assert.equal(alarm.idle_capacity.alarm, true);
-  assert.match(out.join('\n'), /^IDLE CAPACITY: 1 job sessions live of the cap 4, 3 startable, for \d+ min \(starts owed since \S+\); 3 x startable, not started/m);
-  assert.match(out.join('\n'), /next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "IDLE CAPACITY.*job start --ready --live <n>: run status" --from job-a`/);
-  assert.match(out.join('\n'), /tell the coordinator: send_message to session_coord1/);
-  assert.equal(sweepRows(root).at(-1).row, 'check');
-  // job start --ready filled the cap: measured 4 live; the next check finds nothing idle.
-  addRow(root, { at: new Date(later + 6e4).toISOString(), row: 'ready', live: 4, job_cap: 4, started: ['a', 'b', 'c'] });
-  writeState(root, SB, 'paid', (d) => paid(d, new Date(later + 6e5).toISOString()));
-  const cleared = idleCheck(root, c, { io: GH, by: 'status', t: later + (CHECK_MIN + 1) * 6e4, log: quiet });
-  assert.equal(cleared.idle_capacity, undefined);
-  // No measured live count (none within LIVE_MIN): no judgment.
-  assert.equal(idleCheck(root, c, { io: GH, by: 'status', t: later + 200 * 6e4, log: quiet }).live, 'unmeasured');
-});
-
-// Fault injection 2: a dead end, next work that job start --ready skips as BOB's judgment (an
-// entry in a state no start takes; status itself no longer lists one, so the read injects it). The
-// first check lists it first and prints it for the coordinator; gone, the next check has none.
-test('fault injection: a dead end is listed first by the next tool run and sent to the coordinator; cleared when gone', (t) => {
-  setJobCap(t, 6);
-  const root = product();
-  const c = { coordinator: 'session_coord1', state_branch: SB, tranche: 'tranche', plan: 'run', requirements_dir: 'build/requirements', layers_file: 'build/layers.md', targets: {} };
-  const t0 = Date.now();
-  addRow(root, { at: ago(6, t0), row: 'ready', live: 1, job_cap: 6, started: [] });
-  const stuck = { file: 'build/requirements/z.md', count: 2, module: 'z', entry_state: 'DEFERRED' };
-  const read = (extra) => (r, o) => { const x = status(r, o); return { ...x, next: [...x.next, ...extra] }; };
-  const out = [];
-  const row = idleCheck(root, c, { io: GH, by: 'test', t: t0, read: read([stuck]), log: (l) => out.push(l) });
-  assert.deepEqual(row.idle_capacity.dead, ["dead end z: entry DEFERRED: BOB's judgment"]);
-  assert.match(out.join('\n'), /^dead ends \(a Process3 defect\), to the coordinator: dead end z: entry DEFERRED: BOB's judgment$/m);
-  const after = idleCheck(root, c, { io: GH, by: 'test', t: t0 + (CHECK_MIN + 1) * 6e4, read: read([]), log: quiet });
-  assert.equal(after.idle_capacity.dead, undefined);
-});
-
 // Fault injection 3: an unanswered BLOCKED job: its idle session is counted waiting on its block in
 // the flow line (and the sweep's ruling owed stands as before); ruled, it waits no more.
 test('fault injection: an unanswered BLOCKED job shows as a session waiting on its block, and no more once ruled', (t) => {
@@ -228,119 +111,4 @@ test('fault injection: an unanswered BLOCKED job shows as a session waiting on i
   assert.match(blocked.line, /waiting 1: q block\), startable 0, blocked 1 \(oldest 40 min\)/);
   const ruled = flow({ targets: { decision_minutes: 30 } }, [{ id: 'q', tranche: 'OPEN', branch: 'WORKING' }], [], 1, [{ ...s, session_status: 'SESSION_STATUS_RUNNING' }]);
   assert.match(ruled.line, /working 1, waiting 0\), startable 0, blocked 0/);
-});
-
-test('before each command: starts owed printed first for BOB\'s acts; the idle check\'s wake names the job that ran it; nothing in GitHub Actions', (t) => {
-  setJobCap(t, 4);
-  const root = product();
-  const c = { coordinator: 'session_coord1', state_branch: SB, tranche: 'tranche', plan: 'run', requirements_dir: 'build/requirements', layers_file: 'build/layers.md', targets: {} };
-  addRow(root, { at: ago(10), row: 'ready', live: 1, job_cap: 4, started: [] });
-  writeState(root, SB, 'owed', (d) => { mkdirSync(join(d, 'flow'), { recursive: true }); writeFileSync(join(d, OWED_FILE), JSON.stringify({ since: ago(16), acts: [{ at: ago(16), act: 'merge 9' }] })); });
-  assert.equal(beforeAct(root, c, 'job complete', { _: ['a'] }, { env: { GITHUB_ACTIONS: 'true' }, log: quiet }), null);
-  const out = [];
-  beforeAct(root, c, 'merge', { _: ['5'] }, { env: { GITHUB_ACTIONS: 'true' }, log: (l) => out.push(l) });
-  assert.match(out[0], /^starts owed since/);
-  const said = [];
-  const row = beforeAct(root, c, 'job complete', { _: ['a'] }, { env: {}, io: GH, log: (l) => said.push(l) });
-  assert.equal(row.idle_capacity.alarm, true);
-  assert.match(said.join('\n'), /next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "IDLE CAPACITY.*" --from job-a`/);
-  // Another session within CHECK_MIN: no second row, no second wake.
-  const again = [];
-  assert.equal(beforeAct(root, c, 'block', { _: ['b'] }, { env: {}, io: GH, log: (l) => again.push(l) }), null);
-  assert.deepEqual(again, []);
-  // A race: this clone's state branch is stale (its last row old), origin's has a fresh row; the
-  // re-read in the worktree finds it, and nothing is pushed or printed.
-  const t1 = Date.now() + (CHECK_MIN + 1) * 6e4;
-  const tip = git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root });
-  addRow(root, { at: new Date(t1 - 6e4).toISOString(), row: 'check', live: 1, job_cap: 4 });
-  const pushed = git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root });
-  git(['update-ref', `refs/remotes/origin/${SB}`, tip], { cwd: root });
-  const raced = [];
-  assert.equal(idleCheck(root, c, { io: GH, by: 'block', from: 'job-b', t: t1, log: (l) => raced.push(l) }), null);
-  assert.deepEqual(raced, []);
-  fetchState(root, SB, { fresh: true });
-  assert.equal(git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root }), pushed, 'no commit pushed by the loser');
-  // A job's own status and send name it as the sender; job start --ready and the sweep check nothing.
-  assert.equal(senderFor(root, 'status', { role: 'job', module: 'q' }), 'job-q');
-  assert.equal(senderFor(root, 'send', { from: 'job-q' }), 'job-q');
-  assert.equal(beforeAct(root, c, 'job start', { _: [], ready: true }, { env: {}, log: quiet }), null);
-});
-
-// The copy, 5 Nov 15:47: the idle check counted 26 startable against job start --ready's 2, and
-// its count depended on whose clone ran it. A clone holding no job/* refs (cloned with the tranche
-// only): module a, COMPLETE on the tranche with unmet marks, has its reopen pushed (job/a on origin,
-// commits the tranche lacks) and its pull request open. --ready skips it; the idle check, offline
-// on this clone, counted it. Both now count from one read and one selection, and agree.
-test('the idle check counts startable work exactly as job start --ready does, in a clone without origin\'s job refs', (t) => {
-  setJobCap(t, 6);
-  const root = product({ 'process/ledger/a.json': entry('a', { requirements: 'build/requirements/a.md', layer: 2, status: { state: 'COMPLETE' } }) });
-  git(['push', '-q', 'origin', 'tranche:refs/heads/tranche'], { cwd: root });
-  git(['checkout', '-q', '-b', 'job/a', 'tranche'], { cwd: root });
-  writeFileSync(join(root, 'a.txt'), 'reopened\n');
-  git(['add', 'a.txt'], { cwd: root });
-  git(['commit', '-q', '-m', 'job start a (reopen)'], { cwd: root });
-  git(['push', '-q', 'origin', 'job/a'], { cwd: root });
-  const origin = git(['remote', 'get-url', 'origin'], { cwd: root });
-  // Each side in its own fresh clone holding the tranche only: neither sees the other's fetches.
-  const fresh = () => {
-    const dir = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'c');
-    git(['clone', '-q', '--single-branch', '--branch', 'tranche', origin, dir], { cwd: root });
-    git(['config', 'user.email', 't@t'], { cwd: dir });
-    git(['config', 'user.name', 't'], { cwd: dir });
-    assert.equal(git(['for-each-ref', 'refs/remotes/origin/job/'], { cwd: dir }), '', 'the clone holds no job refs');
-    fetchState(dir, SB, { fresh: true });
-    return dir;
-  };
-  const io = { slug: 'o/r', openPRs: () => [{ number: 5, draft: true, head: { ref: 'job/a', sha: 'a1' }, base: { ref: 'tranche' } }], checkRun: () => null, comments: () => [], prFiles: () => [], compare: () => null };
-  const clone = fresh();
-  const c = { ...loadCfg(clone), coordinator: 'session_coord1', state_branch: SB, tranche: 'tranche', plan: 'run' };
-  addRow(clone, { at: ago(30), row: 'ready', live: 1, job_cap: 6, started: [] });
-  const out = [];
-  const row = idleCheck(clone, c, { by: 'status', t: Date.now(), io, log: (l) => out.push(l) });
-  const other = fresh();
-  const lines = [];
-  startReady(other, { live: '1', read: (r, o) => status(r, { ...o, io }), start: () => { throw new Error('not in this test'); }, setup: () => ({ ok: true, missing: [] }), fetch: () => {}, log: (l) => lines.push(l) });
-  const ready = Number(lines.find((l) => /^ready: \d+ startable/.test(l))?.match(/^ready: (\d+)/)[1]);
-  assert.equal(ready, 2, lines.join('\n'));
-  assert.equal(row.startable, ready, 'the idle check\'s count is --ready\'s');
-  assert.equal(row.idle_capacity.startable, ready);
-  // The old offline read, on a third fresh clone, counted a as startable: the defect this fixes.
-  const old = status(fresh(), { role: 'bob', offline: true, heads: new Set(['a']), log: quiet });
-  assert.equal(startable(old.next, { onOrigin: (id) => id === 'a' }).go.length, 3);
-  // job/b started (OPEN, its branch on origin, so wanted) and its fetch fails in this clone (a ref
-  // in the way): status marks the row unread, its pull request unknown; it is not startable.
-  git(['push', '-q', 'origin', 'tranche:refs/heads/job/b'], { cwd: root });
-  const blocked = fresh();
-  git(['update-ref', 'refs/remotes/origin/job/b/x', 'HEAD'], { cwd: blocked });
-  const seen = status(blocked, { role: 'bob', offline: true, jobRefs: true, io: { ...io, openPRs: () => [] }, log: quiet });
-  const b = seen.rows.find((r) => r.id === 'b');
-  assert.equal(b.unread, true, JSON.stringify(b));
-  assert.equal(b.pr, 'unknown (job/b unread)');
-  assert.ok(!startable(seen.next, { onOrigin: (id) => seen.heads.has(id) }).go.some((x) => x.id === 'b'));
-  // A merged module (COMPLETE, no pull request, no notice) whose branch is on origin is not wanted: never unread.
-  const merged = status(fresh(), { role: 'bob', offline: true, jobRefs: true, io: { ...io, openPRs: () => [] }, log: quiet });
-  assert.equal(merged.rows.find((r) => r.id === 'a').unread, undefined);
-  // GitHub unread: no count and no judgment, said in the row.
-  const later = Date.now() + (CHECK_MIN + 1) * 6e4;
-  const blind = idleCheck(clone, c, { by: 'status', t: later, io: { ...io, openPRs: () => { throw new Error('offline'); } }, log: quiet });
-  assert.equal(blind.unread, 'GitHub');
-  assert.equal(blind.startable, null);
-  assert.equal(blind.idle_capacity, undefined);
-});
-
-test('a module whose job branch could not be read is unknown: not startable, not merged, named in the idle line', () => {
-  const next = [{ file: 'r/a.md', count: 1, module: 'a', entry_state: 'COMPLETE', marks: ['R1'], unknown: true }, { file: 'r/b.md', count: 1, module: 'b', entry_state: 'OPEN' }];
-  assert.deepEqual(startable(next).go.map((x) => x.id), ['b']);
-  const ic = idleCapacity({ live: 1, cap: 10, holds: [], work: next, layers: new Map(), freed: Date.now() - 60 * 6e4 });
-  assert.equal(ic.startable, 1);
-  assert.deepEqual(ic.unknown, ['a']);
-  assert.ok(ic.reasons.includes('unknown, job branch unread, not counted: a'), ic.reasons.join(' | '));
-});
-
-test('a layer ready to close: the idle check says --ready closes it, never "no startable work"', () => {
-  const ic = idleCapacity({ live: 1, cap: 10, holds: [], work: [], layers: new Map(), closable: 3, freed: Date.now() - 60 * 6e4 });
-  assert.equal(ic.kind, 'work');
-  assert.equal(ic.layer_ready, 3);
-  assert.equal(ic.reasons[0], "layer 3 ready to close: job start --ready closes it, then starts the next layer's work");
-  assert.ok(!ic.reasons.some((l) => /no startable work/.test(l)), ic.reasons.join(' | '));
 });

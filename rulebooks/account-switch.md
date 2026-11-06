@@ -20,11 +20,10 @@ For the coordinator, or ROOT, when Bob moves Process3 to another Claude account.
    - the unanswered messages;
    - every old session id it names.
 3. Do the stop acts it prints, in their order, each its own call:
-   1. the MERGER stops its train and runs `merge train release --session <its id>` (only while a MERGER is addressed; the train goes away with process3 PR 191);
-   2. each job pushes its work in progress and ends;
-   3. each process task is switched off with update_trigger, never deleted;
-   4. each lane (the triage seat among them) pushes its folder's work and ends;
-   5. BOB, ROOT and the watcher end their turns.
+   1. each job pushes its work in progress and ends;
+   2. each process task is switched off with update_trigger, never deleted;
+   3. each lane (the triage seat among them) pushes its folder's work and ends;
+   4. BOB, ROOT and the watcher end their turns.
 4. Tell Bob it is done, with the manifest's commit.
 
 ## 2. Bob, between the accounts
@@ -45,10 +44,10 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
 3. Once it passes, do its acts in order, each its own command:
    - (a) The coordinator's id merged into process/config.json, on the copy and on the probe.
    - (b) `switch quiet`, until it exits 0.
-   - (c) ROOT, then from ROOT: the handover for BOB, `start merger --replace` while a MERGER exists, and `start watcher --replace`, with the old ids.
+   - (c) ROOT, then from ROOT: the handover for BOB and `start watcher --replace`, with the old ids.
    - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins. ROOT's sweep and the watcher's daily task are made by their own starts.
    - (e) BOB restarts every recorded job, the release path first.
-   - (f) In the layer flow, `layer jobs <n>` for each open layer, with `layer sync <n>` first if the pin moved (SLB-12). Without it, `job start --ready`.
+   - (f) In the layer flow, `layer jobs <n>` for each open layer, with `layer sync <n>` first if the pin moved (SLB-12). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
    - (g) Messages to BOB stay in the record, where `status --role bob` lists them. The others are delivered to the new sessions.
    - (h) Each lane with a seat (the triage seat too): `lane start <lane> --replace <old id>`, then `--record <new id>`, then its open asks.
 4. Old sessions cannot be messaged or archived from the new account. Bob archives them on the old account once the new ones run, and deletes the switched-off tasks there.
