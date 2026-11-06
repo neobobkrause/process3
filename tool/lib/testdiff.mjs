@@ -120,7 +120,11 @@ function addsProperties(b, run) {
   if (b[obj] !== '{') return false;
   // The chain of '{' and '[' it sits in, up to what holds it.
   let i = stack.length - 1;
-  while (i > 0 && '{['.includes(b[stack[i - 1]])) {
+  // A fixture (`const x = {` or `= [{`) is a root wherever it stands: inside a test's body the
+  // climb stops there, never into the function or try block around it (copy PR 632, 6 Nov:
+  // `pixels_sha256: null` added to a fixture in a test body read as "not an object property").
+  const fixtureRoot = (k) => b[k - 1] === '=' && ['const', 'let', 'var'].includes(b[k - 3]);
+  while (i > 0 && '{['.includes(b[stack[i - 1]]) && !fixtureRoot(stack[i])) {
     // inside a '{', the container must be a value (`key: {`), not a block
     if (b[stack[i - 1]] === '{' && b[stack[i] - 1] !== ':') return false;
     i--;

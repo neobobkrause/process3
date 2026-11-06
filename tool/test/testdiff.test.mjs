@@ -76,3 +76,13 @@ test('additive: an assertion\'s expected object, an expect().toEqual, a fixture\
   ];
   for (const [a, b] of pairs) assert.equal(cls(a, b), 'additive', b);
 });
+
+// Copy PR 632 (publication): `pixels_sha256: null` added to a fixture inside a test's body read as
+// "added code that is not an object property": the climb went into the try block around it.
+test('a key added to a fixture inside a test body is additive; an override or a key in a block is not', () => {
+  const t = (x) => `test('R3', async () => {\n  try {\n    const old = { sha256: "t", capture_sha: null${x} };\n    assert.deepEqual(f(), [old]);\n  } finally {}\n});\n`;
+  assert.deepEqual(classifyTestChange(t(''), t(', pixels_sha256: null'), ['R3']), { class: 'additive', why: 'added pixels_sha256' });
+  assert.equal(cls(t(''), t(', sha256: "u"')), 'breaking', 'an override');
+  const blk = "test('R3', () => {\n  if (x) {\n    run(1);\n  }\n});\n";
+  assert.equal(cls(blk, blk.replace('run(1);', 'run(1);\n    q: 1,')), 'breaking', 'a label in a block is no property');
+});
