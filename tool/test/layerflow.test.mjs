@@ -1451,7 +1451,7 @@ test('job sync joins a conflict on the job\'s own entry: the layer\'s entry, the
   assert.deepEqual(r.merged, ['layer/1']);
   const e = JSON.parse(git(['show', 'HEAD:process/ledger/e.json'], { cwd: root }));
   assert.deepEqual([e.status.state, e.paths], ['BLOCKED', ['src/e/', 'lib/e/']]);
-  assert.ok(lines.some((l) => /process\/ledger\/e\.json: layer\/1's entry, with e's own status \(BLOCKED\)/.test(l)));
+  assert.ok(lines.some((l) => /process\/ledger\/e\.json: layer\/1's entry, with e's own status \(BLOCKED\); the branch's own paths not kept/.test(l)), lines.join('\n'));
   assert.equal(git(['status', '--porcelain'], { cwd: root }), '', 'merged and committed');
   // Both sides change the same fixed field, differently: refused, the merge left for the job.
   commit(root, { 'process/ledger/e.json': { ...e, paths: ['src/e/'], status: { state: 'WORKING' } } }, 'job narrows its paths');

@@ -24,7 +24,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { P3, rulebook } from './job.mjs';
-import { entryFile, jobBranch, ledgerIds, originJobs } from './ledger.mjs';
+import { entryFile, jobBranch, laneModuleGaps, ledgerIds, originJobs } from './ledger.mjs';
 import { PROCESS_ROOT, PROCESS_TRIAGE, REGISTER, productTriageLane } from './register.mjs';
 import { addressFile, fetchState, jsonl, readState, writeState } from './state.mjs';
 import { fail, fetchBranch, git, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
@@ -367,6 +367,9 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
     log(`lane ${l.name} is ${sid}`);
     return { session: sid };
   }
+  // A lane's module, when named, has its entry, its modules row and its requirements file (ruling, 6 Nov).
+  const gaps = laneModuleGaps((f) => { try { return readFileSync(join(root, f), 'utf8'); } catch { return null; } }, { ...cfg, lanes: [l] });
+  if (gaps.length) fail(`${gaps.join('; ')}; nothing was started`);
   // The lane's module's job at work is the lane's one session until it ends (job start, the other way in).
   if (l.module && !seat) {
     const j = jobOpen(root, cfg, l.module);
@@ -377,8 +380,7 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   // A new lane's folder not yet in the product (coordinator, 6 Nov: lane investigation was refused and
   // BOB seeded its README by hand, copy 668, 669): the seeding step is printed and the lane starts,
   // its session's first pull request the seed. The pinned process3 is never seeded from here.
-  const seed = !existsSync(join(home, l.dir)) ? (l.repo === 'process' ? fail(`lane ${l.name}'s directory ${l.dir}/ is not in the pinned process3`) : seedFiles(l)) : null;
-  if (seed) log(seedText(l, seed, cfg.tranche));
+  const seed = !existsSync(join(home, l.dir)) ? (l.repo === 'process' ? fail(`lane ${l.name}'s directory ${l.dir}/ is not in the pinned process3`) : seedFiles(l).filter((f) => !existsSync(join(root, f.file)))) : null;
   if (seat && replace === undefined) fail(busy(l, seat));
   // A folder already there under the research area's name, holding files but no index.md, is not
   // the lane's research: the gate would let its changes skip the suite (review), so name it.
