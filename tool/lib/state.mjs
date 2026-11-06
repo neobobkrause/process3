@@ -71,10 +71,44 @@ function writeStateNow(root, sb, msg, change) {
       git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
     };
     make();
-    const tip = pushRetry(wt, sb, { redo: make });
+    // 2s, 4s, 8s, 16s between tries (coordinator, 6 Nov: copy PR 678's publish lost its starts owed to
+    // one "fatal error in commit_refs"). Given up, the commit is kept under refs/p3/unpushed/ and the
+    // refusal names the command that replays it.
+    let tip;
+    try { tip = pushRetry(wt, sb, { redo: make, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
+      if (!(e instanceof Fail)) throw e;
+      const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;
+      git(['update-ref', name, 'HEAD'], { cwd: wt });
+      fail(`${e.message}. The write is kept: replay it with \`node .process/tool/p3.mjs state replay ${name}\``);
+    }
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     return { ...out, tip };
   }, { root });
+}
+
+// For the tests: a stand-in for the state push.
+export const stateIO = { push: null, wait: null };
+
+// p3 state replay [<ref>...]: each kept write (refs/p3/unpushed/*, all when none is named) made again
+// on the state branch's fresh tip (its own commit picked onto it) and pushed; its ref then dropped.
+export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
+  const all = refs.length ? refs : git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
+  if (!all.length) { log('no kept state writes to replay'); return []; }
+  const done = [];
+  for (const r of all) {
+    const c = git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || fail(`no kept write ${r}`);
+    const msg = git(['log', '-1', '--format=%s', c], { cwd: root });
+    // The kept commit's own change, as a function of the fresh worktree: picked onto it.
+    writeState(root, sb, msg, (wt) => {
+      const p = git(['cherry-pick', '--no-commit', '--allow-empty', c], { cwd: wt, allowFail: true });
+      if (p.code !== 0) fail(`${r} does not apply to ${sb} as it stands now (${(p.stderr || p.stdout).trim().split('\n').pop()}); it is kept`);
+      return {};
+    });
+    git(['update-ref', '-d', r], { cwd: root });
+    log(`replayed ${r} (${msg})`);
+    done.push(r);
+  }
+  return done;
 }
 
 const put = (wt, path, text, append = false) => {

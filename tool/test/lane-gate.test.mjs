@@ -155,4 +155,22 @@ test('a lane\'s declared checks run on its lane-only pull request in place of th
   const ai = onBranch(s, 'lane/ai', { 'design/ai/notes.md': 'b\n' });
   const a = run(s, ai, 'lane/ai');
   assert.deepEqual([a.run.trigger, a.run.lane, a.run.lane_checks, a.findings.length], ['record', 'ai', undefined, 0]);
+  // Cold review of PR 203: a lane pull request that edits the config (dropping its own checks, say)
+  // is not lane-only; and a pull request touching the lane's folder and any other file runs its checks too.
+  git(['checkout', '-q', 'main'], { cwd: s.root });
+  const drop = onBranch(s, 'lane/ux-2', { 'design/ux/words.json': '{"broken":true}\n', 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }, { name: 'ai', dir: 'design/ai' }] } });
+  const d = run(s, drop, 'lane/ux-2');
+  assert.equal(d.run.lane, undefined, 'not lane-only');
+  assert.equal(d.run.ok, false, 'the base\'s checks still run on the lane\'s folder');
+  assert.ok(d.findings.some((f) => f.check === 'lane-checks'));
+  git(['checkout', '-q', 'main'], { cwd: s.root });
+  const mixed = onBranch(s, 'plain/x', { 'design/ux/words.json': '{"broken":true}\n', 'notes.md': 'x\n' });
+  const m = run(s, mixed, 'plain/x');
+  assert.deepEqual([m.run.lane, m.run.ok, m.run.lane_checks.map((x) => [x.lane, x.exit])], [undefined, false, [['ux', 0], ['ux', 3]]]);
+});
+
+test('a lane check is words as a shell would split them, quotes kept whole; an open quote is refused', async () => {
+  const { laneChecks } = await import('../lib/util.mjs');
+  assert.deepEqual(laneChecks({ lanes: [{ name: 'ux', checks: ['node -e "process.exit(0)"', "node tools/build_words.mjs --check 'a b'"] }] }, 'ux'), [['node', '-e', 'process.exit(0)'], ['node', 'tools/build_words.mjs', '--check', 'a b']]);
+  assert.equal(laneChecks({ lanes: [{ name: 'ux', checks: ['node -e "x'] }] }, 'ux'), null);
 });
