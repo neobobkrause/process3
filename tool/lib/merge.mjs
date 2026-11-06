@@ -54,7 +54,10 @@ export const TRANSIENT = (msg) => SERVER_ERROR.test(String(msg)) || /rate limit|
 export const TRANSIENT_WAIT = { first: 30000, most: 300000 };
 // Runs f; a transient Fail is returned as { err } for the caller's loop to read again, anything
 // else is thrown.
-const guarded = (f) => { try { return { v: f() }; } catch (e) { if (e instanceof Fail && TRANSIENT(e.message)) return { err: e }; throw e; } };
+// The budget's own refusals (pace.mjs) and GitHub's rate-limit refusals are never read again here:
+// every later call waits for GitHub's reset itself, and a stop must show at once (cold review of R17).
+const BUDGET = /^GitHub budget:|GitHub refused gh .* with a rate limit/;
+const guarded = (f) => { try { return { v: f() }; } catch (e) { if (e instanceof Fail && TRANSIENT(e.message) && !BUDGET.test(e.message)) return { err: e }; throw e; } };
 // The pause before the k-th read again in a row (15 s, 30 s, 60 s, then every 2 min by default),
 // and the end: past the wait and the gate's own cap after it, the last error stands.
 function transientPause(e, k, { until, log, wait = TRANSIENT_WAIT }) {

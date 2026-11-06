@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { laneStart } from '../lib/lane.mjs';
-import { budgetGate, classify, ghAfter, ghTurn, githubBudget, GITHUB_LIMITS, limitSignal, Paced, pacing, pacingProblem, pollMs, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
+import { budgetGate, classify, ghAfter, ghTurn, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
 import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
 import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, strandedWrites, writeState } from '../lib/state.mjs';
 import { configOf, git, jobCap } from '../lib/util.mjs';
@@ -79,7 +79,8 @@ test('session caps are derived: no fixed job or lane cap unless pacing sets one'
 });
 
 test('each call is costed: REST points (a read 1, a write 5) and content-creating requests', () => {
-  assert.deepEqual(classify(['api', 'repos/o/p/pulls/1']), { points: 1, content: false, actions: false, primary: true });
+  assert.deepEqual(classify(['api', 'repos/o/p/pulls/1']), { points: 1, content: false, actions: false, primary: true, graphql: false });
+  assert.equal(classify(['pr', 'view', '1']).graphql, true, 'gh pr commands are GraphQL requests');
   assert.deepEqual(classify(['api', '-X', 'POST', 'repos/o/p/issues/1/comments', '-f', 'body=x']).points, 5);
   assert.equal(classify(['api', 'repos/o/p/issues/1/comments', '-f', 'body=x']).content, true, 'fields without a method are a POST');
   assert.equal(classify(['api', 'repos/o/p/pulls/1', '--method', 'GET', '-f', 'x=1']).content, false);
@@ -145,13 +146,63 @@ test('a 403 with Retry-After pauses every session until it passes, never a retry
   ghAfter(['api', 'repos/o/p'], { code: 1, stderr: 'HTTP 429: Too Many Requests' }, b, { now: c.now });
   process.env.CLAUDE_CODE_SESSION_ID = 'cse_a';
   useShared(stateShare(a, cfg, { now: c.now }));
-  assert.throws(() => ghTurn(['pr', 'view', '1'], a, { p: P, now: c.now, sleep: c.sleep }), (e) => e instanceof Paced && /twice within an hour.*Tell the coordinator.*github resume/.test(e.message));
+  assert.throws(() => ghTurn(['pr', 'view', '1'], a, { p: P, now: c.now, sleep: c.sleep }), (e) => e instanceof Paced && /^GitHub budget: GitHub refused this account again within an hour of an earlier refusal.*Tell the coordinator.*github resume/.test(e.message));
   assert.match(budgetGate(a, { p: P, now: c.t }) || '', /stopped until the coordinator runs github resume/);
   // The coordinator resumes it.
   stateShare(a, cfg, { now: c.now }).resume('session_coord');
   useShared(stateShare(b, cfg, { now: c.now }));
   ghTurn(['pr', 'view', '1'], b, { p: P, now: c.now, sleep: c.sleep });
   assert.equal(c.slept.length, 1);
+});
+
+test('a burst of refusals across sessions lengthens one pause, never stops the tool; a pause the state branch refuses is still obeyed by its clone', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_a' });
+  const t0 = Date.parse('2026-11-06T22:00:00Z');
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  const first = nextPause(null, { at: iso(t0), until: iso(t0 + 60e3), why: 'x' }, t0);
+  // B's call was in flight: refused 5 s later, while A's pause runs.
+  const burst = nextPause(first, { at: iso(t0 + 5e3), until: iso(t0 + 125e3), why: 'y' }, t0 + 5e3);
+  assert.deepEqual([burst.stopped, burst.at, burst.until, burst.also], [false, iso(t0), iso(t0 + 125e3), 1]);
+  // After the pause ended, within the hour: a second refusal stops the tool.
+  assert.equal(nextPause(burst, { at: iso(t0 + 600e3), until: iso(t0 + 660e3), why: 'z' }, t0 + 600e3).stopped, true);
+  // Past the hour: a fresh first refusal.
+  assert.equal(nextPause(burst, { at: iso(t0 + 4000e3), until: iso(t0 + 4060e3), why: 'z' }, t0 + 4000e3).stopped, false);
+  // The shared store refuses the write: the refused clone obeys its own record anyway.
+  const root = makeRepo({ 'README.md': 'x\n' });
+  useShared({ read: () => ({ pause: null, use: [] }), pause: () => { throw new Error('the push of process-state failed: HTTP 403'); } });
+  const c = clock(t0);
+  const r = ghAfter(['pr', 'comment'], { code: 1, stderr: 'HTTP 403: You have exceeded a secondary rate limit' }, root, { now: c.now });
+  assert.match(r.unshared, /HTTP 403/);
+  assert.equal(localPause(root).until, iso(t0 + 60e3), 'at least one minute, as GitHub\'s docs say');
+  ghTurn(['pr', 'view', '1'], root, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, [60e3]);
+  // A refusal is read from gh's stderr only: a check named "rate limit" in stdout is no refusal.
+  assert.equal(ghAfter(['pr', 'checks'], { code: 1, stdout: 'rate limit test\tfail', stderr: 'some checks failed' }, root, { now: c.now }), null);
+});
+
+test('a --paginate call logs one request a page; a failing rate_limit read is not repeated within the minute; GraphQL calls check GraphQL\'s own budget', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_a' });
+  const root = makeRepo({ 'README.md': 'x\n' });
+  ghAfter(['api', '--paginate', 'repos/o/p/pulls?state=all&per_page=100'], { code: 0, stdout: JSON.stringify(Array.from({ length: 250 }, (_, i) => i)) }, root);
+  ghAfter(['api', '--paginate', '--slurp', 'repos/o/p/pulls/1/files?per_page=100'], { code: 0, stdout: JSON.stringify([[1], [2], [3], [4]]) }, root);
+  const pages = readFileSync(f, 'utf8').trim().split('\n').map((l) => JSON.parse(l)).map((r) => r.points);
+  assert.deepEqual(pages, [2, 3]);
+  let reads = 0;
+  const failing = () => { reads++; return null; };
+  const t0 = Date.parse('2026-11-06T22:00:00Z');
+  assert.equal(primaryState(root, { t: t0, read: failing }), null);
+  assert.equal(primaryState(root, { t: t0 + 30e3, read: failing }), null);
+  assert.equal(reads, 1, 'remembered for the minute');
+  // REST has room; GraphQL is at 90%: a gh pr command waits for GraphQL's reset, a REST call does not.
+  const c = clock(t0 + 120e3);
+  const [coreReset, gqlReset] = [c.t + 600e3, c.t + 300e3];
+  const rl = () => (c.t < gqlReset ? { limit: 5000, remaining: 4000, reset: coreReset, graphql: { limit: 5000, remaining: 500, reset: gqlReset } } : { limit: 5000, remaining: 4000, reset: coreReset, graphql: { limit: 5000, remaining: 5000, reset: gqlReset + 3600e3 } });
+  ghTurn(['api', 'repos/o/p'], root, { p: P, now: c.now, sleep: c.sleep, rateLimit: rl });
+  assert.deepEqual(c.slept, []);
+  ghTurn(['pr', 'view', '1'], root, { p: P, now: c.now, sleep: c.sleep, rateLimit: rl });
+  assert.deepEqual(c.slept, [300e3]);
 });
 
 test('github budget: use against each published limit, per window, as a percentage, account-wide; usage rows shared with the command\'s push', (t) => {

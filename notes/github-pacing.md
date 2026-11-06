@@ -77,3 +77,21 @@ Left as they are:
 - the burst stamp is not locked, so two processes in one clone can call gh in the same second (the account-wide windows still hold);
 - the last config read sets the pacing in force;
 - state-push retries still wait 2–16 s, which is bounded.
+
+## The conformance revision's cold review, fixed
+
+- **A burst of refusals across sessions would stop the tool.** Fixed: the stop is decided inside the state write, against the record as it stands. A refusal while a pause still runs lengthens that pause. Only a refusal after a pause has ended, within an hour of it, stops the tool.
+- **A pause the state branch could not take was obeyed by nobody.** Fixed: the refused clone writes its own record first and obeys it.
+- **Usage from long or unbatched commands was shared late or never.** Fixed: any gh call shares the clone's use once it is `share_s` old (never inside a state write), and a wait flushes the command's state writes first.
+- **Waking from a wait reused the old reading.** Fixed: every check runs again after each wait, on a fresh read. After four waits the call is refused.
+- **`--paginate` counted as one request.** Fixed: the further pages are logged from what came back (per_page, or `--slurp`'s page count).
+- **`rate_limit` reads were uncounted, and repeated on failure.** Fixed: each read is logged, and a failed read is remembered for the minute.
+- **The GraphQL budget was unchecked.** Fixed: gh's pr and issue commands and `api graphql` check GraphQL's own primary budget.
+- **merge's transient retry loop treated the budget's own refusals as transient.** Fixed: they surface at once.
+- **A gate run in Actions could pause the account.** Fixed: it uses the local store only, since its GITHUB_TOKEN has a limit of its own.
+- **A refusal was read from stdout too.** Fixed: stderr only.
+
+Open:
+- Sessions working on process3 itself, and on process3-probes, have no product state branch, so they do not share use or see the account's pause. GitHub's own primary count still covers them, each clone obeys its own refusals, and their volume is small. Giving them the copy's store, or a state branch of their own, is the coordinator's choice: process3's record workflow runs on every push.
+- Another session's use reaches this one up to 5 min late.
+- The concurrent-request and CPU limits are not metered.

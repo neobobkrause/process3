@@ -111,11 +111,12 @@ export function classify(args) {
     const graphql = a[1] === 'graphql';
     const write = graphql ? a.some((x) => /^\s*(query=)?\s*mutation\b/.test(x)) : (m ? !['GET', 'HEAD', 'OPTIONS'].includes(m) : fields);
     const free = !graphql && /^\/?rate_limit$/.test(a[1] || '');
-    return { points: write ? 5 : 1, content: write, actions: a.some((x) => /\/actions\/(workflows\/[^/]+\/dispatches|runs\/\d+\/rerun)/.test(x)), primary: !free };
+    return { points: write ? 5 : 1, content: write, actions: a.some((x) => /\/actions\/(workflows\/[^/]+\/dispatches|runs\/\d+\/rerun)/.test(x)), primary: !free, graphql };
   }
   const write = WRITE_VERBS.has(a[1]) && !(a[0] === 'run' && a[1] === 'run');
   const actions = (a[0] === 'workflow' && a[1] === 'run') || (a[0] === 'run' && (a[1] === 'rerun' || a[1] === 'cancel'));
-  return { points: write ? 5 : 1, content: write, actions, primary: true };
+  // gh's pr and issue commands are GraphQL requests: they draw on GraphQL's own primary budget.
+  return { points: write ? 5 : 1, content: write, actions, primary: true, graphql: a[0] === 'pr' || a[0] === 'issue' };
 }
 
 // One event in this clone's log: a gh call (with its cost), a push, a refusal. Never fails the act.
@@ -129,7 +130,7 @@ export function readLog(cwd) {
 
 // The shared store (useShared): read() → { pause, use } with use the other sessions' rows
 // ({ session, minute, calls, points, content, pushes }); pause(rec) writes at once; resume(by).
-const LOCAL = { read: () => ({ pause: null, use: [] }), pause: () => {}, resume: () => {} };
+const LOCAL = { read: () => ({ pause: null, use: [] }), pause: () => null, resume: () => {} };
 let shared = LOCAL;
 export function useShared(s) { shared = s || LOCAL; }
 
@@ -166,21 +167,57 @@ function freedAt(cwd, { t, seconds, field, need, rows, others }) {
 
 // GitHub's own count of the primary limit (rate_limit: free against it), at most once a minute per
 // clone; null when it cannot be read (the tests read none unless given).
+// A read that fails is remembered too (read_at moves), so a failing rate_limit is not called again
+// on every gh call (cold review of R17); it is logged as a call, since it counts against the
+// secondary limits. graphql: GraphQL's own primary budget, when GitHub gives it.
 export function primaryState(cwd, { t = Date.now(), read = defaultRateLimit } = {}) {
   const f = join(commonDir(cwd), PRIMARY);
   const was = readJSON(f);
-  if (was && t - was.read_at < 60e3) return was;
+  if (was && t - was.read_at < 60e3) return was.unread ? null : was;
   const r = read(cwd);
-  if (!r) return was;
-  const s = { ...r, read_at: t };
+  if (r === undefined) return was && !was.unread ? was : null; // not read at all (the tests)
+  const s = r ? { ...r, read_at: t } : { read_at: t, unread: true };
   try { writeFileSync(f, JSON.stringify(s)); } catch { /* best effort */ }
-  return s;
+  return r ? s : null;
 }
 function defaultRateLimit(cwd) {
-  if (process.env.NODE_TEST_CONTEXT) return null;
+  if (process.env.NODE_TEST_CONTEXT) return undefined;
+  logEvent('gh', 'api rate_limit', cwd, { points: 1, free: true });
   const r = spawnSync('gh', ['api', 'rate_limit'], { cwd, encoding: 'utf8' });
   if (r.status !== 0) return null;
-  try { const c = JSON.parse(r.stdout).resources.core; return { limit: c.limit, remaining: c.remaining, reset: c.reset * 1000 }; } catch { return null; }
+  try {
+    const { core: c, graphql: g } = JSON.parse(r.stdout).resources;
+    return { limit: c.limit, remaining: c.remaining, reset: c.reset * 1000, ...(g ? { graphql: { limit: g.limit, remaining: g.remaining, reset: g.reset * 1000 } } : {}) };
+  } catch { return null; }
+}
+// The bucket a call draws on: GraphQL's for gh's pr and issue commands and api graphql, else core.
+const bucket = (pr, cost) => (pr && cost.graphql && pr.graphql ? pr.graphql : pr);
+
+// This clone's own pause record: written first, before the shared one, so the session that was
+// refused obeys it even when the state branch cannot be pushed.
+const PAUSE_LOCAL = 'p3-gh-pause.json';
+export const localPause = (cwd) => readJSON(join(commonDir(cwd), PAUSE_LOCAL));
+export function clearLocalPause(cwd) { try { writeFileSync(join(commonDir(cwd), PAUSE_LOCAL), 'null'); } catch { /* none */ } }
+// The pause in force: the later of the clone's and the account's; stopped when either is.
+function pauseOf(cwd, s) {
+  let l = localPause(cwd);
+  // A clone's record from before the coordinator's last resume is spent.
+  if (l && s.resumed && Date.parse(l.at) <= Date.parse(s.resumed)) l = null;
+  const a = s.pause;
+  if (!l) return a || null;
+  if (!a) return l;
+  const later = Date.parse(l.until) > Date.parse(a.until) ? l : a;
+  return { ...later, stopped: !!(l.stopped || a.stopped) };
+}
+// The second-refusal rule (cold review of R17): a refusal is a second one only when it comes after
+// an earlier pause had ended, within an hour of that earlier refusal. Refusals while a pause still
+// runs (calls in flight across sessions) lengthen it, never stop the tool.
+export function nextPause(prev, rec, t) {
+  if (prev?.stopped) return { ...rec, stopped: true, first: prev.first || prev.at };
+  if (!prev) return { ...rec, stopped: false };
+  if (Date.parse(prev.until) > t) return { ...rec, at: prev.at, until: Date.parse(prev.until) > Date.parse(rec.until) ? prev.until : rec.until, stopped: false, also: (prev.also || 0) + 1 };
+  const second = t - Date.parse(prev.at) < 3600e3;
+  return { ...rec, stopped: second, ...(second ? { first: prev.at } : {}) };
 }
 
 export class Paced extends Error {}
@@ -190,7 +227,7 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 function waitUntil(until, why, { now, sleep }) {
   const ms = until - now();
   if (ms <= 0) return;
-  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`${why}: GitHub calls wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
+  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: GitHub calls wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
   sleep(ms);
 }
 
@@ -200,24 +237,36 @@ export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap, r
   const cost = classify(args);
   const lim = p.github_limits || GITHUB_LIMITS;
   const target = p.target;
-  const s = shared.read();
-  if (s.pause?.stopped) throw new Paced(`GitHub refused this account twice within an hour (${s.pause.why}; the second at ${s.pause.at} by ${s.pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume\` once the account is in good standing`);
-  if (s.pause?.until && Date.parse(s.pause.until) > now()) waitUntil(Date.parse(s.pause.until), `GitHub rate-limited this account (${s.pause.why})`, { now, sleep });
-  if (cost.primary) {
-    const pr = primaryState(cwd, { t: now(), ...(rateLimit ? { read: rateLimit } : {}) });
-    if (pr && pr.limit > 0 && pr.limit - pr.remaining >= Math.floor(target * pr.limit) && pr.reset > now()) waitUntil(pr.reset, `${pr.limit - pr.remaining} of the primary limit's ${pr.limit} an hour used, the target ${Math.round(target * 100)}%`, { now, sleep });
-  }
-  const rows = readLog(cwd);
-  const others = s.use || [];
-  for (const [seconds, field, cap, add, name] of [
-    [60, 'points', lim.rest_points_per_minute, cost.points, 'REST points a minute'],
-    [60, 'content', lim.content_per_minute, cost.content ? 1 : 0, 'content-creating requests a minute'],
-    [3600, 'content', lim.content_per_hour, cost.content ? 1 : 0, 'content-creating requests an hour'],
-  ]) {
-    if (!add) continue;
-    const max = Math.floor(target * cap);
-    const used = usage(cwd, { t: now(), seconds, rows, others })[field];
-    if (used + add > max) waitUntil(freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, others }), `${used} of the ${cap} ${name} used account-wide, the target ${Math.round(target * 100)}% (${max})`, { now, sleep });
+  // Every check again after each wait (cold review of R17): a pause or stop another session wrote
+  // while this one slept is obeyed. Four waits at most, then the call is refused.
+  for (let round = 0; ; round++) {
+    const s = shared.read({ fresh: round > 0 });
+    const pause = pauseOf(cwd, s);
+    if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume --by <its session>\` once the account is in good standing`);
+    let wait = null;
+    if (pause?.until && Date.parse(pause.until) > now()) wait = [Date.parse(pause.until), `GitHub rate-limited this account (${pause.why})`];
+    if (!wait && cost.primary) {
+      const pr = bucket(primaryState(cwd, { t: now(), ...(rateLimit ? { read: rateLimit } : {}) }), cost);
+      if (pr && pr.limit > 0 && pr.limit - pr.remaining >= Math.floor(target * pr.limit) && pr.reset > now()) wait = [pr.reset, `${pr.limit - pr.remaining} of the ${cost.graphql ? 'GraphQL ' : ''}primary limit's ${pr.limit} an hour used, the target ${Math.round(target * 100)}%`];
+    }
+    if (!wait) {
+      const rows = readLog(cwd);
+      const others = s.use || [];
+      for (const [seconds, field, cap, add, name] of [
+        [60, 'points', lim.rest_points_per_minute, cost.points, 'REST points a minute'],
+        [60, 'content', lim.content_per_minute, cost.content ? 1 : 0, 'content-creating requests a minute'],
+        [3600, 'content', lim.content_per_hour, cost.content ? 1 : 0, 'content-creating requests an hour'],
+      ]) {
+        if (!add || wait) continue;
+        const max = Math.floor(target * cap);
+        const used = usage(cwd, { t: now(), seconds, rows, others })[field];
+        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, others }), `${used} of the ${cap} ${name} used account-wide, the target ${Math.round(target * 100)}% (${max})`];
+      }
+    }
+    if (!wait) break;
+    if (round >= 4) throw new Paced(`GitHub budget: still waiting after four waits (${wait[1]}); run this again later`);
+    shared.beforeWait?.();
+    waitUntil(wait[0], wait[1], { now, sleep });
   }
   const ms = p.gh_interval_ms;
   if (ms > 0) {
@@ -230,6 +279,8 @@ export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap, r
   }
   const a = args.map(String);
   logEvent('gh', a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd, { points: cost.points, ...(cost.content ? { content: true } : {}), ...(cost.actions ? { actions: true } : {}) }, now());
+  // This clone's use reaches the other sessions during a long command too (cold review of R17).
+  try { shared.share?.(); } catch { /* the budget's record; never the call's failure */ }
   return cost;
 }
 
@@ -245,23 +296,40 @@ export function limitSignal(text) {
   const reset = t.match(/x-ratelimit-reset:\s*(\d+)/i);
   return { kind: primary ? 'primary' : 'secondary', retryAfter: ra ? Number(ra[1]) : null, reset: reset ? Number(reset[1]) * 1000 : null };
 }
-// After a gh call: a refusal pauses every session until GitHub's reset (Retry-After, else
-// x-ratelimit-reset, else for the primary limit rate_limit's reset, else one minute, as GitHub's
-// docs say); a second within an hour stops the tool. Returns the pause written, or null.
+// After a gh call: a --paginate call's further pages logged (one request a page, estimated from
+// what came back); a refusal (read from stderr only) pauses every session until GitHub's reset
+// (Retry-After, else x-ratelimit-reset, else for the primary limit rate_limit's reset, else one
+// minute, as GitHub's docs say), this clone's own record first; a refusal after a pause had ended,
+// within an hour of it, stops the tool (nextPause). Returns the pause in force, or null.
 export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
-  const sig = limitSignal(`${result?.stderr || ''}\n${result?.stdout || ''}`);
-  if (!sig || result?.code === 0) return null;
+  const a = args.map(String);
+  if (result?.code === 0) {
+    if (a.includes('--paginate')) {
+      const per = Number((a.join(' ').match(/per_page=(\d+)/) || [])[1]) || 30;
+      let pages = 1;
+      try { const j = JSON.parse(result.stdout); pages = a.includes('--slurp') && Array.isArray(j) ? j.length : Array.isArray(j) ? Math.ceil(j.length / per) : 1; } catch { pages = Math.ceil(String(result.stdout || '').split('\n').filter(Boolean).length / per); }
+      if (pages > 1) logEvent('gh', `${a.filter((x) => !x.startsWith('-')).slice(0, 2).join(' ')} (${pages - 1} more page(s))`, cwd, { points: pages - 1, pages: pages - 1 }, now());
+    }
+    return null;
+  }
+  const sig = limitSignal(result?.stderr || '');
+  if (!sig) return null;
   const t = now();
   let until = sig.retryAfter !== null ? t + sig.retryAfter * 1000 : sig.reset;
   if (!until && sig.kind === 'primary') { const pr = (rateLimit || defaultRateLimit)(cwd); until = pr?.reset || null; }
   if (!until || until <= t) until = t + 60e3;
-  const s = shared.read();
-  const prev = s.pause;
-  const second = !!prev && t - Date.parse(prev.at) < 3600e3;
-  const rec = { at: iso(t), until: iso(until), why: `${sig.kind} rate limit on gh ${args.slice(0, 2).join(' ')}${sig.retryAfter !== null ? `, Retry-After ${sig.retryAfter} s` : ''}`, session: sessionId(), stopped: second, ...(second ? { first: prev.at } : {}) };
-  logEvent('refused', rec.why, cwd, { until: rec.until, stopped: second }, t);
-  shared.pause(rec);
-  return rec;
+  const rec = { at: iso(t), until: iso(until), why: `${sig.kind} rate limit on gh ${a.slice(0, 2).join(' ')}${sig.retryAfter !== null ? `, Retry-After ${sig.retryAfter} s` : ''}`, session: sessionId() };
+  // This clone's own record first: obeyed here whatever happens to the shared one.
+  const mine = nextPause(localPause(cwd), rec, t);
+  const writeMine = (x) => { try { writeFileSync(join(commonDir(cwd), PAUSE_LOCAL), JSON.stringify(x)); } catch { /* best effort */ } };
+  writeMine(mine);
+  logEvent('refused', rec.why, cwd, { until: mine.until, stopped: mine.stopped }, t);
+  let account = null;
+  try { account = shared.pause(rec, t); } catch (e) { return { ...mine, unshared: e.message }; }
+  if (!account) return mine;
+  const both = { ...mine, until: Date.parse(account.until) > Date.parse(mine.until) ? account.until : mine.until, stopped: !!(account.stopped || mine.stopped) };
+  writeMine(both);
+  return both;
 }
 
 // Whether a new session may start (job start, lane start): not while GitHub is paused or the tool
@@ -270,8 +338,9 @@ export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
 export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = {}) {
   const lim = p.github_limits || GITHUB_LIMITS;
   const s = shared.read();
-  if (s.pause?.stopped) return `GitHub refused this account twice within an hour (${s.pause.why}): the tool is stopped until the coordinator runs github resume`;
-  if (s.pause?.until && Date.parse(s.pause.until) > now) return `GitHub rate-limited this account until ${s.pause.until} (${s.pause.why})`;
+  const pause = pauseOf(cwd, s);
+  if (pause?.stopped) return `GitHub refused this account again within an hour of an earlier refusal (${pause.why}): the tool is stopped until the coordinator runs github resume`;
+  if (pause?.until && Date.parse(pause.until) > now) return `GitHub rate-limited this account until ${pause.until} (${pause.why})`;
   const h = usage(cwd, { t: now, seconds: 3600, others: s.use || [] });
   if (h.content >= Math.floor(p.target * lim.content_per_hour)) return `${h.content} of GitHub's ${lim.content_per_hour} content-creating requests an hour used account-wide, the target ${Math.round(p.target * 100)}%: a new session waits for the window`;
   const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
@@ -317,11 +386,12 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   log(`- content-creating requests, the last hour: ${pct(h.content, lim.content_per_hour)}`);
   log(`- pushes, the last hour: ${h.pushes} (git, outside the REST limits; each starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
   log(`- not counted here: ${lim.concurrent} concurrent requests (each session calls one at a time) and ${lim.cpu_seconds_per_minute} s of CPU a minute (GitHub's side)`);
-  log(s.pause?.stopped ? `STOPPED: ${s.pause.why} at ${s.pause.at}, a second refusal within an hour; the coordinator runs github resume` : s.pause && Date.parse(s.pause.until) > now ? `PAUSED until ${s.pause.until}: ${s.pause.why}` : 'no pause');
+  const pause = pauseOf(cwd, s);
+  log(pause?.stopped ? `STOPPED: ${pause.why} at ${pause.at}, a refusal within an hour of an earlier one; the coordinator runs github resume` : pause && Date.parse(pause.until) > now ? `PAUSED until ${pause.until}: ${pause.why}` : 'no pause');
   const by = new Map();
   const since = now - 3600e3;
   for (const r of rows) if (Date.parse(r.at) > since && ['gh', 'push'].includes(r.kind)) { const k = r.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; if (r.kind === 'gh') { x.calls++; x.content += r.content ? 1 : 0; } else x.pushes++; by.set(k, x); }
   for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since && u.session !== sessionId()) { const k = u.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += u.pushes || 0; by.set(k, x); }
   for (const x of [...by.values()].sort((a, b) => b.calls - a.calls)) log(`  ${x.session}: ${x.calls} gh call(s), ${x.content} content-creating, ${x.pushes} push(es) in the hour`);
-  return { minute: m, hour: h, primary: pr, pause: s.pause || null };
+  return { minute: m, hour: h, primary: pr, pause: pause || null };
 }

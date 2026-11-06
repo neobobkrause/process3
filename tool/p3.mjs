@@ -30,7 +30,7 @@ import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mj
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
-import { githubBudget, useShared } from './lib/pace.mjs';
+import { clearLocalPause, githubBudget, useShared } from './lib/pace.mjs';
 import { shareUsage, stateShare } from './lib/ghshare.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
@@ -501,6 +501,7 @@ const commands = {
     const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
     const cfg = loadConfig(root);
     stateShare(root, cfg).resume(by);
+    clearLocalPause(root);
     console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
     return 0;
   },
@@ -643,7 +644,8 @@ export async function main(argv) {
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
-    if (cfg && !process.env.NODE_TEST_CONTEXT) useShared(stateShare(root, cfg));
+    // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else.
+    if (cfg && !process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') useShared(stateShare(root, cfg));
     if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;

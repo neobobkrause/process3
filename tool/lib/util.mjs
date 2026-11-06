@@ -93,7 +93,7 @@ export function ghRun(args, opts = {}) {
   try { ghTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
   const r = run('gh', args, opts);
   const p = ghAfter(args, r, opts.cwd);
-  if (p) fail(`GitHub refused gh ${args.slice(0, 2).join(' ')} with a rate limit; ${p.stopped ? 'a second refusal within an hour: every GitHub call is stopped until the coordinator runs `node .process/tool/p3.mjs github resume`; tell the coordinator' : `every session waits until ${p.until}; run this again after it, never inside it`}`);
+  if (p) fail(`GitHub refused gh ${args.slice(0, 2).join(' ')} with a rate limit${p.unshared ? ` (the pause is recorded in this clone only: the state branch refused it, ${p.unshared.split('\n')[0]})` : ''}; ${p.stopped ? 'a refusal within an hour of an earlier one: every GitHub call is stopped until the coordinator runs `node .process/tool/p3.mjs github resume --by <its session>`; tell the coordinator' : `every session waits until ${p.until}; run this again after it, never inside it`}`);
   return r;
 }
 export function gh(args, opts = {}) {
@@ -575,6 +575,8 @@ export function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'ESRCH' ? false : e.code === 'EPERM' ? true : null; }
 }
+// Whether this process holds the clone's state lock now (a write is under way).
+export const stateLockHeld = (root) => (lockDepth.get(stateLockPath(root)) || 0) > 0;
 export function stateLockPath(root) {
   if (!lockPaths.has(root)) {
     const r = run('git', ['rev-parse', '--git-common-dir'], { cwd: root });

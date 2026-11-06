@@ -11,9 +11,9 @@
 // for the primary limit (pace.mjs primaryState), so only the secondary windows rest on this.
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { fetchState, readState, unbatched, writeState } from './state.mjs';
-import { git } from './util.mjs';
-import { pacing, sessionId, usageRows } from './pace.mjs';
+import { fetchState, flushState, pendingWrites, readState, unbatched, writeState } from './state.mjs';
+import { git, stateLockHeld } from './util.mjs';
+import { nextPause, pacing, sessionId, usageRows } from './pace.mjs';
 
 export const PAUSE_FILE = 'github/pause.json';
 export const USE_DIR = 'github/use';
@@ -31,23 +31,33 @@ export function stateShare(root, cfg, { now = Date.now } = {}) {
     const files = git(['ls-tree', '--name-only', `refs/remotes/origin/${sb}`, `${USE_DIR}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
     const since = now() - 2 * 3600e3;
     const use = files.flatMap((f) => (readState(root, sb, f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
-    cache = { at: now(), pause, use };
+    const resumed = (readState(root, sb, 'github/resumed.jsonl') || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
+    cache = { at: now(), pause, use, resumed };
     return cache;
   };
   return {
-    read: () => (cache && now() - cache.at < READ_S * 1000 ? cache : load()),
-    pause: (rec) => {
-      unbatched(() => writeState(root, sb, `github: ${rec.stopped ? 'stopped' : 'paused'} until ${rec.until} (${rec.why})`, (wt) => {
+    read: ({ fresh = false } = {}) => (!fresh && cache && now() - cache.at < READ_S * 1000 ? cache : load()),
+    // The account's pause, decided against the record as it stands on the tip written to (a burst
+    // of refusals across sessions lengthens one pause; a refusal after it ended stops the tool:
+    // pace.mjs nextPause). Pushed at once. Returns the pause written.
+    pause: (rec, t = now()) => {
+      let out = null;
+      unbatched(() => writeState(root, sb, `github: refused (${rec.why})`, (wt) => {
         mkdirSync(join(wt, 'github'), { recursive: true });
-        // A pause already there and later than this one stands.
         let was = null;
         try { was = JSON.parse(readFileSync(join(wt, PAUSE_FILE), 'utf8')); } catch { was = null; }
-        const keep = was && Date.parse(was.until) > Date.parse(rec.until) ? { ...rec, until: was.until } : rec;
-        writeFileSync(join(wt, PAUSE_FILE), JSON.stringify({ ...keep, stopped: !!(rec.stopped || was?.stopped) }, null, 2) + '\n');
+        out = nextPause(was, rec, t);
+        writeFileSync(join(wt, PAUSE_FILE), JSON.stringify(out, null, 2) + '\n');
         return {};
       }));
       cache = null;
+      return out;
     },
+    // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
+    beforeWait: () => { if (pendingWrites()) flushState(); },
+    // This clone's use shared at most every pacing.share_s during a long command.
+    // Never inside a state write (a gh call in a change): the next call shares it.
+    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now })),
     resume: (by) => {
       unbatched(() => writeState(root, sb, `github: resumed by ${by}`, (wt) => {
         if (existsSync(join(wt, PAUSE_FILE))) rmSync(join(wt, PAUSE_FILE));
@@ -68,9 +78,9 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   const mark = dir ? join(dir.startsWith('/') ? dir : join(root, dir), MARK) : null;
   let after = 0;
   try { after = Number(readFileSync(mark, 'utf8')) || 0; } catch { after = 0; }
+  if (!force && !pending && now() - after < pacing().share_s * 1000) return 0;
   const rows = usageRows(root, { after });
   if (!rows.length) return 0;
-  if (!force && !pending && now() - after < pacing().share_s * 1000) return 0;
   const sb = cfg.state_branch;
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
   writeState(root, sb, `github: ${rows.length} minute(s) of use`, (wt) => {
