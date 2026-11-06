@@ -151,16 +151,22 @@ export function useShared(s) { shared = s || LOCAL; }
 export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), others = shared.read().use || [] } = {}) {
   const since = t - seconds * 1000;
   const me = cloneId(cwd);
-  const out = { calls: 0, points: 0, content: 0, pushes: 0 };
+  // free: rate_limit reads (not counted by GitHub's primary limit); pushes_by: per repository,
+  // '?' for pushes logged before R17c named theirs.
+  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, pushes_by: {} };
+  const add = (repo, n) => { if (n) out.pushes_by[repo || '?'] = (out.pushes_by[repo || '?'] || 0) + n; };
   for (const r of rows) {
     if (!(Date.parse(r.at) > since)) continue;
-    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); }
-    if (r.kind === 'push') out.pushes++;
+    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); if (r.free) out.free++; }
+    if (r.kind === 'push') { out.pushes++; add(r.repo, 1); }
   }
   for (const u of others) {
     if (u.clone && u.clone === me) continue; // this clone's own are in its log
     if (!(Date.parse(u.minute) + 60e3 > since)) continue;
-    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0;
+    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0; out.free += u.free || 0;
+    const named = Object.entries(u.pushes_by || {});
+    for (const [repo, n] of named) add(repo, n);
+    add('?', (u.pushes || 0) - named.reduce((s, [, n]) => s + n, 0));
   }
   return out;
 }
@@ -258,7 +264,7 @@ export function withoutWaiting(fn) { noWait++; try { return fn(); } finally { no
 // Before any act on GitHub: the stop, the pause, the primary limit, each window at target (and the
 // push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The pause
 // is read fresh before a write (content-creating or a push), within READ_S otherwise.
-export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit, kind = 'gh' } = {}) {
+export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit, kind = 'gh', extra = {} } = {}) {
   const content = cost.content === true ? 1 : Number(cost.content) || 0;
   const lim = p.github_limits || GITHUB_LIMITS;
   const target = p.target;
@@ -303,7 +309,7 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
     if (wait > 0) sleep(Math.min(wait, ms));
     try { writeFileSync(f, String(now())); } catch { /* best effort */ }
   }
-  logEvent(kind, label, cwd, kind === 'push' ? {} : { points: cost.points || 0, ...(content ? { content } : {}), ...(cost.actions ? { actions: true } : {}), ...(cost.note ? { note: true } : {}) }, now());
+  logEvent(kind, label, cwd, kind === 'push' ? extra : { points: cost.points || 0, ...(content ? { content } : {}), ...(cost.actions ? { actions: true } : {}), ...(cost.note ? { note: true } : {}) }, now());
   // This clone's use reaches the other sessions during a long command too (cold review of R17).
   try { shared.share?.(); } catch { /* the budget's record; never the call's failure */ }
   return cost;
@@ -317,8 +323,19 @@ export function ghTurn(args, cwd, opts = {}) {
 export function pushTurn(args, cwd, opts = {}) {
   if (args[0] !== 'push' || args.includes('--dry-run') || args.includes('-n')) return null;
   const label = args.filter((x) => !String(x).startsWith('-')).slice(1).join(' ');
-  if (exempting) { logEvent('push', label, cwd); return null; }
-  return reserve({ push: true, points: 0, content: 0, primary: false }, label, cwd, { ...opts, kind: 'push' });
+  const repo = pushRepo(args, cwd);
+  if (exempting) { logEvent('push', label, cwd, repo ? { repo } : {}); return null; }
+  return reserve({ push: true, points: 0, content: 0, primary: false }, label, cwd, { ...opts, kind: 'push', extra: repo ? { repo } : {} });
+}
+// The "<owner>/<repo>" a push goes to (R17c, the audit's per-repository count): its remote's URL,
+// or the URL or path given; null when it cannot be read.
+export const slugOf = (url) => { const m = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, '').match(/([^/:]+)\/([^/:]+)$/); return m ? `${m[1]}/${m[2]}` : null; };
+export function pushRepo(args, cwd) {
+  const remote = args.slice(1).find((x) => !String(x).startsWith('-'));
+  if (!remote) return null;
+  if (/[/:]/.test(remote)) return slugOf(remote);
+  const r = spawnSync('git', ['config', '--get', `remote.${remote}.url`], { cwd: cwd || process.cwd(), encoding: 'utf8' });
+  return r.status === 0 ? slugOf(r.stdout) : null;
 }
 // p3 github note --content <n> [--points <n>]: a session's own connector writes, recorded and
 // reserved before it makes them, as a gh call would be.
@@ -408,8 +425,8 @@ export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
     if (!(at > after) || !['gh', 'push'].includes(r.kind)) continue;
     const minute = iso(Math.floor(at / 60e3) * 60e3);
     const k = `${r.session}\0${minute}`;
-    const x = by.get(k) || { session: r.session || null, clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0 };
-    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); } else x.pushes++;
+    const x = by.get(k) || { session: r.session || null, clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0, pushes_by: {} };
+    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); if (r.free) x.free = (x.free || 0) + 1; } else { x.pushes++; if (r.repo) x.pushes_by[r.repo] = (x.pushes_by[r.repo] || 0) + 1; }
     by.set(k, x);
   }
   return [...by.values()];

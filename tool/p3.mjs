@@ -32,9 +32,10 @@ import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, pro
 import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
 import { stateShare } from './lib/ghshare.mjs';
+import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
-import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
+import { PROCESS_ROOT, triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
@@ -495,6 +496,16 @@ const commands = {
   // github budget (R17): use against each of GitHub's published limits, per window, account-wide
   // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
   'github budget': (a, root) => { githubBudget(root); return 0; },
+  // github audit [--since <iso>] [--repo <owner/repo>]... (R17c): GitHub's own evidence of calls,
+  // pushes and writes against the account's ledger; exit 1 on an unexplained push or write gap.
+  'github audit': (a, root) => {
+    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
+    let slug = null;
+    try { slug = repoSlug(root); } catch { slug = null; }
+    const processOrigin = git(['config', '--get', 'remote.origin.url'], { cwd: PROCESS_ROOT, allowFail: true }).stdout.trim();
+    const repos = [...auditRepos({ slug, cfg, processOrigin }), ...list(a.repo).filter((x) => typeof x === 'string')];
+    try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
+  },
   // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
   // through this: it waits its turn against the pause, the stop and the account's push ceiling,
   // and is logged and shared. Never a force or a delete (Bob's standing approvals).
