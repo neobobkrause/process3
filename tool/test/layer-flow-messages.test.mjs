@@ -9,7 +9,8 @@ import { layerLines, layerMergeLine, layerOpen, layerStartAct, openLayer } from 
 import { recordStart } from '../lib/roles.mjs';
 import { laneModuleCheck, setupCheck, strategyCheck } from '../lib/setup.mjs';
 import { fetchState, readState, writeState } from '../lib/state.mjs';
-import { nextWork } from '../lib/status.mjs';
+import { nextWork, status } from '../lib/status.mjs';
+import { owe, owes } from '../lib/hold.mjs';
 import { layerIdle, sweep } from '../lib/sweep.mjs';
 import { configOf, git } from '../lib/util.mjs';
 import { checkRow } from '../lib/gate.mjs';
@@ -228,4 +229,16 @@ test('setup check names merge_strategy "train" as a blocker before a pin move, e
   const r = setupCheck(root, { slug: 'o/r', conditions: [], io: { file: (f) => (f === 'process/config.json' ? JSON.stringify({ merge_strategy: 'train' }) : null), address: null, pin: null, entries: [], api: () => null, openPRs: () => [], prFiles: () => [] }, log: (l) => out.push(l) });
   assert.match(r.strategy, /BLOCKER before a pin move/);
   assert.ok(out.some((l) => /^BLOCKER before a pin move/.test(l)), out.join('\n'));
+});
+
+test('starts owed (kept for the layer flow, R10): an owing act writes it, status prints it first with the layer flow\'s act, never job start --ready', () => {
+  const root = product();
+  writeState(root, SB, 'owe', (d) => { owe(d, 'job complete a'); return {}; });
+  fetchState(root, SB, { fresh: true });
+  const out = [];
+  status(root, { role: 'bob', offline: true, log: (l) => out.push(l) });
+  assert.match(out[0], /^starts owed since \S+ \(job complete a\): run status --role bob, then each `job start` its `jobs to start` lists \(layer jobs <n>\)$/);
+  assert.doesNotMatch(out.join('\n'), /job start --ready|starter/);
+  assert.equal(owes('job complete', { _: ['a'] }), 'job complete a');
+  assert.equal(owes('layer close', { _: ['1'] }), null);
 });

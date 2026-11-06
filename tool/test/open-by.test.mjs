@@ -50,13 +50,16 @@ const repo = (config = {}, files = {}) => {
   return root;
 };
 
-test('open_by uses (the default): past the open layer, each module whose providers are done is next work, after the open layer, with its layer', () => {
+test('open_by uses (the default): past the open layer, each module whose providers are done is read as ready, owed to its own layer (never started early), with its layer', () => {
   const root = repo();
   const out = [];
   const r = status(root, { role: 'bob', offline: true, log: (m) => out.push(m) });
   assert.deepEqual(r.next.map((x) => x.file.replace('build/requirements/', '')), ['p2.md', 'u3.md', 'n3.md', 'e3.md']);
   const t = out.join('\n');
-  assert.match(t, /next work, layer 2 .*\n- build\/requirements\/p2\.md: 3 \(layer 2\)\n- build\/requirements\/u3\.md: 2 \(layer 3\)\n- build\/requirements\/n3\.md: 4 \(layer 3\)\n- build\/requirements\/e3\.md: 5 \(layer 3\)$/m);
+  assert.deepEqual(r.next.filter((x) => x.owed_layer).map((x) => [x.file.replace('build/requirements/', ''), x.owed_layer]), [['u3.md', 3], ['n3.md', 3], ['e3.md', 3]]);
+  assert.match(t, /next work, layer 2 .*\n- build\/requirements\/p2\.md: 3 \(layer 2\)$/m);
+  // The layer flow starts them from layer 3's list once it opens (the coordinator's ruling, 6 Nov).
+  assert.match(t, /owed to their own layers [^\n]*:\n- build\/requirements\/u3\.md: 2 \(layer 3\): owed to layer 3\n- build\/requirements\/n3\.md: 4 \(layer 3\): owed to layer 3\n- build\/requirements\/e3\.md: 5 \(layer 3\): owed to layer 3$/m);
   // A module whose uses names a module missing from the map is not ready, and the gap is named.
   assert.match(t, /not ready, its uses not in build\/layers\.md: z3 \(layer 3\) uses ghost/);
   assert.doesNotMatch(t, /(w3|x3|v3|z3|u4)\.md: /);

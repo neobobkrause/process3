@@ -253,7 +253,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         // unmet work still wakes BOB, its act then status's.
         // With the layer read: its jobs, its merge or the next layer's open; every layer merged, no
         // layer map, or unread: next work (found, notice and entered work) is BOB's act.
-        next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after); // unmet after its job: no act
+        next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after && !x.owed_layer); // unmet after its job, or owed to a later layer: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view });
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };

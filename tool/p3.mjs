@@ -8,7 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
-import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
+import { layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
 import { layerMode } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
@@ -130,6 +130,9 @@ const commands = {
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
   'layer open': (a, root) => (layerOpen(root, one(a, 'layer number'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer jobs': (a, root) => (layerJobs(root, one(a, 'layer number')).ok ? 0 : 1),
+  // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next
+  // layer to open (the coordinator's ruling, 6 Nov): layer open lists it in that layer's jobs.
+  'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
   'layer publish': async (a, root) => {
     const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];

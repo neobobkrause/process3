@@ -318,7 +318,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const c = jobCfg(root, loadConfig(root), id, { push });
     // A job starts only in its layer, once that layer is open (layer open <n>); a product with no
     // layer map (layers_file) has no layer, and its jobs keep the tranche.
-    if (layerMode(c) && !c.layer && !c.noLayers) fail(`${id}'s layer has no open branch (layer/<n> on origin, not merged): open the layer first (${P3} layer open <n>), then start it from ${P3} layer jobs <n>; nothing was started`);
+    if (layerMode(c) && !c.layer && !c.noLayers) fail(`${id}'s layer has no open branch (layer/<n> on origin, not merged), and it joined no open layer: a layer not yet open opens first (${P3} layer open <n>) and lists it (${P3} layer jobs <n>); a module whose layer is behind the open one joins the next to open (${P3} layer join ${id} --why "<the work>"), then starts from that layer's list once it opens; nothing was started`);
     const a = push ? anchoredTip(root, c) : null;
     if (push && (c.plan === 'pause' || c.plan === 'stop')) fail(`plan ${c.plan} at the tip of ${c.tranche}: take no new step; nothing was started`);
     const m = still?.(a || `origin/${c.tranche}`);
