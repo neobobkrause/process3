@@ -747,3 +747,4 @@
 - Roles: BOB answering (bob-253, 00:43), MERGER alive (00:22 alarm), ROOT alive (00:01). Watcher not checked this hour.
 - Bob's Keep and Drop answers are all in (00:27-00:30Z). Documents updated; builds 183, 181, audit-restores and 184 are converging for the pin move at the pause.
 - Release path: none until layers 6-11 close (unchanged). UX lane: not checked this hour.
+- 00:56 PR 184 (citations) at eddf0aa, 1036/1036: 6 sites cite the 19:05 record as mine; 2 cite ENF-1; 2 Nov: 5 tied to the CLAUDE.md approvals, 22 marked unverified; DECISIONS.md holds PD-1 and PD-2. BOB's rulebook is at 4088 of 4096 bytes. Accepted with no review round (text only); merges at the pause. ROOT sweep 00:48 archived 5 orphaned idle sessions; audit 2 session_018Bhced5SCACwF5S3dkLLft kept on my word, since Bob may go back to it.
