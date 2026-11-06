@@ -118,10 +118,10 @@ export function interfaceChange(root, cfg, id, before, after) {
       if (anyExport) out.exports = { ...x, kinds: x.changed.filter((c) => kindOf(c.before) !== kindOf(c.after)).map((c) => c.name), signatures: x.changed.filter((c) => kindOf(c.before) === kindOf(c.after)).map((c) => c.name) };
     } catch (err) { out.unread = String(err.message || err).slice(0, 300); }
   }
-  // A return shape is not in the exports (Bob, 5 Nov: a provider answered {materials: [...]} for a
-  // list, its exports unchanged, and screens-publish read it wrongly): a changed test of the provider
-  // that names one of its Public / Provides requirements (read at after, else before) counts when
-  // what it asserts changed.
+  // A return shape is not in the exports (BOB's finding, bob-249, 6 Nov: a provider answered
+  // {materials: [...]} for a list, its exports unchanged, and screens-publish read it wrongly): a
+  // changed test of the provider that names one of its Public / Provides requirements (read at
+  // after, else before) counts when what it asserts changed.
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
     const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
@@ -932,7 +932,9 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
     reschedules_avoided: rows.lands.reduce((t, l) => t + Math.max(0, (l.users_rescheduled_old_rule || l.users_rescheduled || []).length - (l.users_rescheduled || []).length), 0),
     // Retests (layer retest): opened, and those landed (no job session; a CI suite run each).
     retests: (rows.retests || []).length, retest_lands: rows.lands.filter((l) => l.retest).length,
-    // Which trigger fired, per reschedule (Bob, 5 Nov): exports, Provides text, or a Provides test.
+    // Which trigger fired, per reschedule (Bob, 5 Nov, as relayed in the coordinator's handoff: "the
+    // interface signal is exports + Provides text + tests of Provides requirements"); exports-unread
+    // is the tool's own addition.
     reschedule_triggers: Object.fromEntries(['exports', 'provides-text', 'provides-test', 'exports-unread'].map((k) => [k, rows.reschedules.filter((r) => (r.triggers || []).includes(k)).length])),
     reschedule_changed_result: resultChanges(rows.reschedules, rows.runs, anc),
     halted_runs: halted.length, minutes_lost_to_halts: Math.round(halted.reduce((s, r) => s + (r.minutes_lost || 0), 0) * 10) / 10,

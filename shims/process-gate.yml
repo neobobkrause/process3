@@ -39,7 +39,7 @@ jobs:
       - name: start the clock
         run: echo "STARTED=$(date +%s)" >> "$GITHUB_ENV"
       # Full history, but file contents only for the checkout; any other file the checks read
-      # is fetched when read (Bob's decision 3A, 2 Nov 2026: the full checkout of a large
+      # is fetched when read (decision 3A, Bob, 2 Nov, before the log; unverified: the full checkout of a large
       # product took up to 4 minutes). A private repository keeps the full fetch: the token is
       # not kept, so a later fetch of a file there could not authenticate.
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

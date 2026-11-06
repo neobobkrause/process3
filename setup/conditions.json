@@ -75,7 +75,7 @@
     {
       "id": "deny-list",
       "what": "The tranche's .claude/settings.json denies force-push, branch deletion, writing files through GitHub, and every merge route but the tool; and no rule in it blocks a session's push of its own branch.",
-      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob, 2 Nov). A rule such as Bash(git push origin :*) matches every push, so sessions could not push their own branches; each Bash rule is matched against the START's push as Claude Code matches it. Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
+      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob's CLAUDE.md approvals, 2 Nov). A rule such as Bash(git push origin :*) matches every push, so sessions could not push their own branches; each Bash rule is matched against the START's push as Claude Code matches it. Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
       "value": {
         "deny": [
           "Bash(git push --force *)",
@@ -101,7 +101,7 @@
     {
       "id": "approvals",
       "what": "CLAUDE.md on the tranche holds one approvals block, under the heading process/config.json names, the one the owner's own commit through GitHub's website last set on the tranche or main.",
-      "why": "A session acts on the owner's standing approvals only when CLAUDE.md holding them is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). Only the owner's own website commit may set them, so a session cannot widen its own approvals.",
+      "why": "A session acts on the owner's standing approvals only when CLAUDE.md holding them is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov, before the log; unverified). Only the owner's own website commit may set them, so a session cannot widen its own approvals.",
       "value": {
         "file": "process/config.json approvals.file, default CLAUDE.md",
         "heading": "process/config.json approvals.heading, default ## Standing approvals from Bob",
@@ -144,7 +144,7 @@
     {
       "id": "shim-drift",
       "what": "Each workflow under .github/workflows named like a shim of the pin equals that shim, and .claude/settings.json carries only the hooks the pin's shims/settings.hooks.json allows (SHM-1, ENF-1).",
-      "why": "The gate and record shims are what make a merge trustworthy; a copy that drifted from the pin, or another hook, runs what the process did not review (Bob's question 4).",
+      "why": "The gate and record shims are what make a merge trustworthy; a copy that drifted from the pin, or another hook, runs what the process did not review (ENF-1).",
       "value": {
         "workflows": "every shims/*.yml at the pin, as .github/workflows/<name>",
         "hooks": "shims/settings.hooks.json at the pin"
@@ -155,7 +155,7 @@
     {
       "id": "session-branch",
       "what": "The checkout of the session running the check is the tranche's tip, with its approvals block: start check's own test.",
-      "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
+      "why": "A session acts on the owner's approvals only when CLAUDE.md is on the branch it starts from (10 of 10 with it, 2 of 10 without; Bob, 2 Nov, before the log; unverified). A runner started by hand from main held no approvals and was refused session starts. job start runs this check, so a session started from the wrong branch stops with a plain message.",
       "value": "HEAD is origin/<tranche>'s tip, and the approvals block in the checkout's file is the tip's",
       "who": "BOB and every session it starts: start from the tranche",
       "read": "start check (tool/lib/start.mjs) against the tranche: it fetches origin/<tranche> and compares HEAD and the approvals block with its tip; a checkout behind it says to pull the tranche or start from it"
@@ -163,7 +163,7 @@
     {
       "id": "environment",
       "what": "Every variable the product's process/config.json lists under \"environment\" (for example CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID) is present in the environment of the session running the check.",
-      "why": "The process deploys the product so walkers can run and each round can find and fix flaws, unattended; deploy tokens in the session environment are a standard condition (Bob, 2 Nov).",
+      "why": "The process deploys the product so walkers can run and each round can find and fix flaws, unattended; deploy tokens in the session environment are a standard condition (Bob, 2 Nov, before the log; unverified).",
       "value": "the names in process/config.json \"environment\"; not configured when the config lists none",
       "who": "the developer (the Claude cloud environment's settings)",
       "read": "the environment of the session running the check: names only, never a value, a length or a prefix"
@@ -216,7 +216,7 @@
     {
       "id": "secrets",
       "what": "No Actions secret is given to the process workflows; the Cloudflare and release keys live in the jobs' cloud environment only.",
-      "why": "The gate runs product code from any pull request; a secret it could read would leave with that code (Bob's decision 14, 2 Nov: jobs stay in the environment that holds the keys).",
+      "why": "The gate runs product code from any pull request; a secret it could read would leave with that code (decision 14, Bob, 2 Nov, before the log; unverified: jobs stay in the environment that holds the keys).",
       "value": "no repository or organization Actions secret used by process-gate or process-record",
       "who": "the developer (Settings, Secrets and variables)",
       "read": "confirmed once on the onboarding page"
