@@ -705,6 +705,8 @@ test('a module whose entry is only on the tranche: layer jobs lists it as starta
   assert.equal(carried.status.state, 'WORKING');
   assert.deepEqual({ ...carried, status: null }, { ...JSON.parse(git(['show', 'tranche:process/ledger/e.json'], { cwd: root })), status: null });
   assert.equal(git(['rev-list', '--count', 'layer/1..job/e'], { cwd: root }), '1', 'one start commit on the layer');
+  assert.equal(git(['show', 'job/e:req/e.md'], { cwd: root }), git(['show', 'tranche:req/e.md'], { cwd: root }), 'its requirements file carried with it');
+  assert.ok(lines.some((l) => l === 'req/e.md is carried from tranche with it'));
   // The job rule: the job adds only its own entry, as the tranche holds it, the status aside.
   const base = git(['merge-base', 'layer/1', 'job/e'], { cwd: root });
   assert.deepEqual(checkLedger(root, { ref: 'job/e', base, branch: 'job/e', home: 'tranche' }), []);
@@ -759,4 +761,72 @@ test('the gate: a job PR into a layer branch may add its own entry as the tranch
   assert.deepEqual(ledger('tranche'), ['a job may not add a ledger entry']);
   const wide = commit(root, { 'process/ledger/beta.json': entry('beta', { status: { state: 'WORKING' }, paths: ['src/'] }) }, 'widen');
   assert.match(ledger('layer/1', wide)[0], /a job may not add a ledger entry \(its own is added only as refs\/heads\/tranche holds it/);
+});
+
+// Copy, 6 Nov: corpus-export committed BLOCKED (rows owed to layer 11) on its job branch, not on
+// layer/8, so it showed as working and its draft PR held the layer merge.
+test('a module BLOCKED at its open job PR\'s head is deferred, and that PR no longer holds the layer merge; a WORKING head still does', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const blocked = jobWork(bare, 'c', { 'process/ledger/c.json': entry('c', { layer: 1, status: { state: 'BLOCKED', reason: 'rows owed to layer 2' } }) });
+  const pr = (head) => [{ number: 61, draft: true, head: { ref: 'job/c', sha: head } }];
+  const st = layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr(blocked) }, log: quiet });
+  const c = st.states.find((s) => s.id === 'c');
+  assert.deepEqual([c.state, c.why], ['deferred', "BLOCKED: rows owed to layer 2 (on PR 61's head)"]);
+  assert.equal(st.ready, true);
+  // A head that reads WORKING holds the merge as before.
+  const working = jobWork(bare, 'b', { 'process/ledger/b.json': entry('b', { layer: 1, status: { state: 'WORKING' } }) });
+  const held = layerStatus(root, 1, { io: { ...openIO, openPRs: () => [{ number: 62, draft: true, head: { ref: 'job/b', sha: working } }] }, log: quiet });
+  assert.deepEqual([held.states.find((s) => s.id === 'b').state, held.ready], ['working', false]);
+  const mio = { slug: 'o/p', openPRs: () => pr(blocked), findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  const m = await layerMerge(root, 1, { io: mio, wait: false, log: quiet });
+  assert.equal(m.ok, true);
+  assert.deepEqual(m.closed.deferred.c.reason, "BLOCKED: rows owed to layer 2 (on PR 61's head)");
+});
+
+test('a module whose entry only the tranche holds has its job PR named: it shows as working', () => {
+  const { root, bare } = lateEntry();
+  const h = jobWork(bare, 'e', { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'WORKING' } }) });
+  const r = layerJobs(root, 1, { io: { ...openIO, openPRs: () => [{ number: 63, draft: true, head: { ref: 'job/e', sha: h } }] }, log: quiet });
+  assert.deepEqual(r.states.find((s) => s.id === 'e').state, 'working');
+  assert.ok(!r.startable.some((x) => x.id === 'e'));
+  // A fresh branch of it (job/e-2) is named for e too.
+  const f = layerJobs(root, 1, { io: { ...openIO, openPRs: () => [{ number: 64, draft: true, head: { ref: 'job/e-2', sha: h } }] }, log: quiet });
+  assert.deepEqual(f.states.find((s) => s.id === 'e').pr, 64);
+});
+
+// Cold review of PR 190: the carried entry and requirements are added on both sides after the cut
+// (OPEN on the tranche, the job's on the layer), an add/add conflict GitHub cannot merge.
+test('layer merge: a carried entry\'s add/add conflict with the tranche is merged into the layer, keeping the layer\'s; any other conflict refuses', async () => {
+  const { carriedSync, readLayer: rl } = await import('../lib/layerflow.mjs');
+  const { root, bare } = lateEntry();
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', requirements_dir: 'req/' });
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'l', 'origin/layer/1'], { cwd: d });
+  commit(d, { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'COMPLETE' } }), 'req/e.md': req('e').replace(' *(not yet met: T1)*', '') }, 'Merge layer PR 9');
+  git(['push', '-q', 'origin', 'l:layer/1'], { cwd: d });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const L = rl(root, cfg, 1, { io: openIO, slug: 'o/p' });
+  const lines = [];
+  const sha = carriedSync(root, cfg, 1, L, (l) => lines.push(l));
+  assert.ok(sha);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], sha);
+  assert.equal(JSON.parse(git(['show', `${sha}:process/ledger/e.json`], { cwd: root })).status.state, 'COMPLETE', 'the layer\'s kept');
+  assert.equal(git(['merge-base', '--is-ancestor', 'origin/tranche', sha], { cwd: root, allowFail: true }).code, 0);
+  assert.match(lines[0], /tranche merged in at .*the layer's version kept of process\/ledger\/e\.json, req\/e\.md/);
+  // Clean now: nothing more to merge.
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.equal(carriedSync(root, cfg, 1, rl(root, cfg, 1, { io: openIO, slug: 'o/p' }), quiet), null);
+  // A conflict in any other file refuses, naming it; nothing pushed.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  commit(root, { 'src/c/index.mjs': 'export const c = 7;\n' }, 'tranche edits c');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const d2 = clone(bare);
+  git(['checkout', '-q', '-B', 'l', 'origin/layer/1'], { cwd: d2 });
+  commit(d2, { 'src/c/index.mjs': 'export const c = 8;\n' }, 'Merge layer PR 10');
+  git(['push', '-q', 'origin', 'l:layer/1'], { cwd: d2 });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.throws(() => carriedSync(root, cfg, 1, rl(root, cfg, 1, { io: openIO, slug: 'o/p' }), quiet), /layer\/1 and tranche conflict in src\/c\/index\.mjs.*nothing was opened/);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], tip);
 });

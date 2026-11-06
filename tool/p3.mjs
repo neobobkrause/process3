@@ -548,10 +548,11 @@ const commands = {
     fail('handover begin | handover confirm <new BOB session id>');
   },
 
-  // ledger check [--base <ref> --branch <name>]: schema; on a job branch, own status only.
+  // ledger check [--base <ref> --branch <name> [--home <tranche ref>]]: schema; on a job branch, own
+  // status only; with --home (the layer flow), its own entry may be added as the tranche holds it.
   'ledger check': (a, root) => {
     const base = a.base ? git(['merge-base', 'HEAD', a.base], { cwd: root }) : undefined;
-    return report(checkLedger(root, { base, branch: a.branch }), a.out);
+    return report(checkLedger(root, { base, branch: a.branch, home: typeof a.home === 'string' ? a.home : undefined }), a.out);
   },
 
   // record-check --base <sha> --head <sha> [--branch <head branch>] [--onto <ref>]... [--out f]
