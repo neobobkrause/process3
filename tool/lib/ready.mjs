@@ -9,6 +9,7 @@
 // provider notice (job start reopens it itself) or for unmet or found marks (reopened to meet them).
 // A file with no ledger entry is named, not started: its entry is BOB's to write.
 import { layerMode } from './layerbase.mjs';
+import { layerLead, readOpenLayer } from './layerflow.mjs';
 import { P3, READY_NEXT, jobStart } from './job.mjs';
 import { layerClose } from './layer.mjs';
 import { heldBy, layersAt, paid, readHolds, slotsHeld } from './hold.mjs';
@@ -92,7 +93,11 @@ export function archivable(rows, listed) {
 }
 
 // Whether status lists startable jobs: the wake BOB receives leads with the start when so.
-export function readyCount(root, { read = status } = {}) {
+// Under merge_strategy "layer" no `job start --ready` runs: the lead itself, from the open layer's
+// `layer jobs <n>` (layerflow.mjs layerLead), '' when it lists none; send leads with it as given.
+export function readyCount(root, { read = status, layer = readOpenLayer } = {}) {
+  const cfg = loadConfig(root);
+  if (layerMode(cfg)) return layerLead(layer(root, cfg));
   // Offline: the wake is not held for GitHub or for fetches into the sender's clone (review of
   // PR 104); the refs this clone has and one ls-remote give the count.
   // The one ls-remote also marks an OPEN entry with no job branch unstarted (offline status read

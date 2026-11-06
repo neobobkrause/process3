@@ -2,7 +2,7 @@
 // its job branch hold it, its pull request and gate, and the role's reading set with sizes.
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { layerMode } from './layerbase.mjs';
-import { layerLines } from './layerflow.mjs';
+import { layerLines, layerMergeLine, openLayer } from './layerflow.mjs';
 import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_START, readingSet } from './job.mjs';
@@ -486,7 +486,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
     out.parked = listed ? parkedSessions(listed, rows) : [];
     if (out.parked.length) { live = Number(live) - out.parked.length; log(parkedLine(out.parked)); }
     out.live = live;
-    out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices });
+    out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices, view: out.flow_layer });
     markLaneHeld(cfg, seats, out.next);
     out.seats = seats;
     out.lane_defects = laneDefects(cfg, seats, { rows, listed });
@@ -610,7 +610,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   const owedMsgs = haveState ? undelivered(root, sb) : [];
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
   const reports = haveState ? toRoute(root, sb) : [];
-  if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.replace(/^first: .*? job start --ready --live <n> \(\d+ jobs? ready\)\. Then: /, '').slice(0, 100)}`));
+  if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.replace(/^first: .*? job start --ready --live <n> \(\d+ jobs? ready\)\. Then: /, '').replace(/^first: start layer \d+'s jobs \(.*?\. Then: /, '').slice(0, 100)}`));
   // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
   const target = decisionMinutes(cfg);
   for (const m of reports) {
@@ -621,7 +621,9 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   if (pct !== null && !Number.isFinite(pct)) fail(`--context takes the percent of the window used, a number, not ${JSON.stringify(context)}`);
   if (pct !== null) L.push(`context ${pct}% of the window${pct >= cfg.refresh_context ? `: REFRESH (threshold ${cfg.refresh_context}%)` : ` (REFRESH at ${cfg.refresh_context}%)`}`);
   // The shared layer branch (layerflow.mjs): the open layer and the jobs BOB starts from it.
-  if (layerMode(cfg) && !offline && haveState && slug) { try { L.push(...layerLines(root, cfg, { slug })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
+  // Its read (view) is returned: next work takes the layer's merge line from it.
+  let view = null;
+  if (layerMode(cfg) && !offline && haveState && slug) { try { view = openLayer(root, cfg, { slug }); L.push(...layerLines(root, cfg, { view })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
@@ -630,7 +632,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   if (asked.length) L.push('open lane questions (record each decision with lane ask ... --record):', ...asked.map((a) => `- ${a.lane}: "${a.question.slice(0, 100)}", asked ${age(a.at)}`));
   L.push(`reading set for bob: ${files.reduce((s, x) => s + x.b, 0)} bytes; ${files.map((x) => `${x.f} ${x.b}`).join(', ')}`);
   for (const l of L) log(l);
-  return { rows, undelivered: owedMsgs };
+  return { rows, undelivered: owedMsgs, flow_layer: view };
 }
 
 // The tranche's base-red tests (baseRedOwed over its merge rows since its opening), each once by
@@ -953,7 +955,9 @@ export function releaseModules(root, cfg, ref, open = new Set()) {
 // provider change is not layer work), under its own heading; a notice not yet triaged is BOB's act
 // `notice triage`, and none of its modules is listed. A notice module of the open layer with unmet
 // marks stays in the layer's list, its one job answering both.
-export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {} } = {}) {
+// Under merge_strategy "layer" the train's close lines are not said: view (layerflow.mjs openLayer,
+// read online) gives the layer's merge line when every module is complete or deferred, else nothing.
+export function nextWork(root, cfg, rows, ref, { live, log = console.log, state, notices: owed = {}, view = null } = {}) {
   // An entry written on the tranche and never started (OPEN, no job branch, no pull request) has
   // no open job: it is next work, which `job start --ready` starts (copy, 4 Nov: four such
   // entries were listed nowhere, so each waited for BOB to remember it).
@@ -991,8 +995,8 @@ export function nextWork(root, cfg, rows, ref, { live, log = console.log, state,
       log('deferred at layer close (not work):');
       for (const d of ls.deferred) log(`- ${d.id} (layer ${d.layer}): ${d.count}`);
     }
-    if (ls.ready) log(`layer ${layer} ready to close: ${READY_START} closes it, then starts the next layer's jobs (or ${P3} layer close ${layer})`);
-    if (ls.pending) {
+    if (layerMode(cfg)) { const m = layerMergeLine(view); if (m) log(m); } else if (ls.ready) log(`layer ${layer} ready to close: ${READY_START} closes it, then starts the next layer's jobs (or ${P3} layer close ${layer})`);
+    if (ls.pending && !layerMode(cfg)) {
       log(`layer ${layer} ready to close once BOB closes these unmerged (never deleting the branch):`);
       for (const m of ls.owed) log(`- close PR #${m.pr} unmerged: ${m.blocked}`);
       log(`then: ${P3} layer close ${layer}`);

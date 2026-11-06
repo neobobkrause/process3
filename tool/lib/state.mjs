@@ -181,16 +181,19 @@ function unpushed(root) {
 // ready, for a message to BOB: the count of startable jobs. When any, the text leads with their
 // start, so BOB starts them on whatever wake comes first (coordinator, 4 Nov). A count that cannot
 // be read leaves the text as it is: the wake is never held back for it.
+// Under merge_strategy "layer" no `job start --ready` runs: ready returns the lead itself, a string
+// (layerflow.mjs layerLead: the open layer's `layer jobs <n>` lines), '' when there are none.
 export const READY_LEAD = (n) => `first: node .process/tool/p3.mjs job start --ready --live <n> (${n} job${n === 1 ? '' : 's'} ready). Then: `;
+export const LED = /^first: (\S+ \S+ job start --ready|start layer \d+'s jobs \()/;
 export function send(root, sb, { from, to, text, ready, log = console.log }) {
   roleName(from, '--from');
   roleName(to, 'the role sent to');
   if (typeof text !== 'string' || !text.trim()) fail('send <to-role> "<text>"');
   unpushed(root);
-  if (typeof ready === 'function' && !/^first: \S+ \S+ job start --ready/.test(text.trim())) {
+  if (typeof ready === 'function' && !LED.test(text.trim())) {
     let k = 0;
-    try { k = Number(ready()) || 0; } catch { k = 0; }
-    if (k > 0) text = READY_LEAD(k) + text.trim();
+    try { k = ready(); } catch { k = 0; }
+    if (typeof k === 'string') { if (k) text = k + text.trim(); } else if (Number(k) > 0) text = READY_LEAD(Number(k)) + text.trim();
   }
   const { n } = writeState(root, sb, `message from ${from} to ${to}`, (wt) => {
     const file = join(wt, messagesFile(from));
