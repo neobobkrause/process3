@@ -22,10 +22,13 @@ const EXTS = ['.mjs', '.js', '.cjs', '.ts', '.mts', '.jsx', '.tsx'];
 // else it divides (copy, 6 Nov: PR 696's `#ambiguousLaw` held /[^']+/, read as a string that ran
 // on, and every later member of the class, lawEntries among them, was lost).
 const REGEX_AFTER = new Set('(,=:[!&|?{};+-*%<>~^'.split(''));
-const REGEX_WORDS = /(?:^|[^\w$])(?:return|typeof|case|do|else|in|of|new|delete|void|throw|instanceof|yield|await)$/;
+const REGEX_WORDS = /(?:^|[^\w$.])(?:return|typeof|case|do|else|in|of|new|delete|void|throw|instanceof|yield|await)$/;
 function regexStarts(out) {
   const t = out.replace(/\s+$/, '');
   if (!t) return true;
+  // A postfix ++ or --, and TypeScript's non-null ! after a value, end a value: a slash divides
+  // (cold review of R8: `i-- / n + '/'` lost the members after it).
+  if (/(\+\+|--)$/.test(t) || /[\w$)\]]!$/.test(t)) return false;
   return REGEX_AFTER.has(t[t.length - 1]) || REGEX_WORDS.test(t);
 }
 export function blank(text) {
@@ -97,7 +100,9 @@ function methods(raw, b, open) {
       for (; k < end; k++) {
         const x = b[k];
         if (x === '{' || x === '(' || x === '[') dd++;
-        else if (x === '}' || x === ')' || x === ']') { if (dd === 0) break; dd--; } else if (dd === 0 && (x === ';' || x === '\n')) break;
+        else if (x === '}' || x === ')' || x === ']') { if (dd === 0) break; dd--; } else if (dd === 0 && x === ';') break;
+        // A line break ends it unless the line ends on an operator (`x = 1 +` then `foo()`).
+        else if (dd === 0 && x === '\n' && !/[-+*/%&|^=<>?:,.!~]\s*$/.test(b.slice(j + 1, k))) break;
       }
       j = k - 1;
       continue;

@@ -50,3 +50,10 @@ test('private #methods, a regular expression holding a quote or brace, accessors
   const more = surface({ 'p/a.mjs': 'export class A {\n  #cache = new Map();\n  static #count = 0;\n  count = 0;\n  handler = (x) => {\n    return x;\n  };\n  static { A.ready = true; }\n  get #size() { return 1; }\n  set #size(v) {}\n  static #make() {}\n  async #load() {}\n  *#gen() {}\n  run() { return this.#helper(); }\n  #helper() { return 1; }\n  get size() { return 1; }\n  later(x) { return x; }\n}\n' }, 'p/a.mjs');
   assert.deepEqual(more, { A: 'class', 'A.run': '()', 'A.size': 'get', 'A.later': '(x)' });
 });
+
+// Cold review of R8: a slash after a postfix ++/--, a TypeScript non-null !, or a property named like
+// a keyword (`.of`) divides; a field's initializer continued on the next line is no member.
+test('a division after a postfix, a non-null ! or a keyword-named property, and a field continued on the next line, lose no member', () => {
+  const s = surface({ 'p/a.mjs': "export class A {\n  f(i, n) { return i-- / n + '/'; }\n  g(x, n) { return x! / n + `/${n}`; }\n  h(s) { return s.of / 2 + `/x`; }\n  total = 1 +\n    base();\n  pub() {}\n}\nexport function z(q) {}\n" }, 'p/a.mjs');
+  assert.deepEqual(s, { A: 'class', 'A.f': '(i, n)', 'A.g': '(x, n)', 'A.h': '(s)', 'A.pub': '()', z: 'function(q)' });
+});

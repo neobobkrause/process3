@@ -263,7 +263,13 @@ test('interface signal (R8): a new test file naming a Provides requirement is ad
   const y = interfaceChange(root, cfg, 'a', added, moved);
   assert.deepEqual(y.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r2-list.test.mjs', 'breaking'], ['test/a/r2.test.mjs', 'none']]);
   assert.match(y.provides_test_changes[0].why, /^replaces test\/a\/r2\.test\.mjs: /);
-  assert.equal(y.class, 'breaking');
+  assert.equal(y.class, 'breaking');  // A Provides requirement renamed (R2 to R5), its test deleted and a new one added: the deleted test
+  // is examined by the ids before, so the change is breaking, never additive (cold review of R8).
+  git(['rm', '-q', 'test/a/r2-list.test.mjs'], { cwd: root });
+  const renamed = commit(root, { 'req/a.md': req('a', '- **R5** `a(x)` answers the materials\n- **R3** more'), 'test/a/r5.test.mjs': t('R5 answers', '{ materials: [1] }') }, 'R2 renamed R5');
+  const z = interfaceChange(root, cfg, 'a', moved, renamed);
+  assert.deepEqual(z.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r2-list.test.mjs', 'breaking'], ['test/a/r5.test.mjs', 'additive']]);
+  assert.equal(z.class, 'breaking');
 });
 
 test('module states: rescheduled until a land holds the provider\'s land; deferred when BLOCKED; complete after a land', () => {

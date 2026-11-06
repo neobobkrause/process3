@@ -131,7 +131,9 @@ export function interfaceChange(root, cfg, id, before, after) {
   // after, else before) counts when what it asserts changed.
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
-    const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
+    // The ids of both sides: a test of a Provides requirement renamed or dropped is examined too
+    // (cold review of R8: R2 renamed R4 with r2.test.mjs deleted read as additive).
+    const ids = [...new Set([...(providesIds(textAt(root, after, e.requirements)) || []), ...(providesIds(textAt(root, before, e.requirements)) || [])])];
     const names = (t) => ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t));
     const hit = ids.length ? tests.filter((f) => names(`${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`)) : [];
     // A fixture (a file under its tests that is not itself a test: rows, JSON, a snapshot) that a test
