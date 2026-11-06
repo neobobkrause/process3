@@ -64,7 +64,8 @@ export function expireRecords(root, cfg, { listed = null, log = console.log, t =
   try { f = readFacts(root, cfg, { listed, t }); } catch { f = null; }
   if (!f) return out;
   try { out.holds = expireHolds(root, sb, { facts: f, log, t }); } catch (e) { log(`holds whose condition is met were not ended (${String(e.message).split('\n')[0].slice(0, 160)}); the next write tries again`); }
-  if (listed) {
+  // With list_sessions, or for a session an account switch retired (R16), list or not.
+  {
     let seats = [];
     try { seats = [...readSeats(root, cfg).values()].filter((s) => s.session && f.sessionGone(s.session) === true); } catch { seats = []; }
     if (seats.length) {

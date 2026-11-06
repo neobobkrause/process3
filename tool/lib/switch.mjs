@@ -12,8 +12,17 @@ import { accountCheck } from './setup.mjs';
 import { fetchState, readState, toRoute, undelivered, writeState } from './state.mjs';
 import { isArchived, jobSession, readSessions, refOf, releaseModules, sessionId, status } from './status.mjs';
 import { fail, fetchBranch, gh, git, loadConfig, now, repoSlug } from './util.mjs';
+import { layerMode } from './layerbase.mjs';
+import { openAsks, readSeats } from './lane.mjs';
+import { openLayers } from './census.mjs';
 
 export const MANIFEST_FILE = 'switch/manifest.json';
+// switch out --dry-run writes here instead, one file per run; nothing reads it as the manifest
+// (R16; Bob, 6 Nov: anticipate and test the account switch before it is needed).
+export const DRY_RUN_DIR = 'switch/dry-run';
+// The old account's session ids, written by switch in once its preflight holds: R13's
+// session_gone holds for each (ends.mjs readFacts), as the new account's list_sessions never lists them.
+export const RETIRED_FILE = 'switch/retired.json';
 export const QUIET_MIN = 2;
 const ROLES = ['root', 'bob', 'merger', 'watcher'];
 const SESSION = /^session_[A-Za-z0-9]+$/;
@@ -31,7 +40,7 @@ export function readTasks(file) {
 
 // The role a session id holds: an addressed role, the coordinator (config's, or --by when it is
 // no role), or unknown.
-const roleOf = (id, addresses, coordinators) => ROLES.find((r) => addresses[r]?.session === id) || (id && coordinators.includes(id) ? 'coordinator' : 'unknown');
+const roleOf = (id, addresses, coordinators, seats = []) => ROLES.find((r) => addresses[r]?.session === id) || (id && coordinators.includes(id) ? 'coordinator' : seats.find((x) => x.session === id) ? `lane ${seats.find((x) => x.session === id).lane}` : 'unknown');
 
 // Every unanswered message the record holds: sent and not recorded delivered, and job reports to
 // BOB that no later BOB message names. One row per <from>-<n>.
@@ -48,12 +57,25 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
   const addresses = readAddress(root, { fetch: false });
   const coordinators = [addresses.coordinator?.session, cfg.coordinator, ...(ROLES.some((r) => addresses[r]?.session === by) ? [] : [by])].filter(Boolean);
   const out = { at, by, tranche: cfg.tranche, ...tipApprovals(root, cfg), coordinator: coordinatorOf(cfg, addresses), addresses };
+  let seats0 = [];
+  try { seats0 = [...readSeats(root, cfg).values()]; } catch { seats0 = []; }
   out.tasks = tasks.filter((t) => t.enabled !== false && !t.ended_reason).map((t) => {
+    // list_triggers keeps the prompt under derived_state and marks a new-session-per-fire task
+    // persist_session false (this account, 6 Nov). A task bound to no session that names no
+    // process role is not the process's (Bob's own, such as alpha-pipeline-runner): listed, never
+    // switched off or recreated by the switch.
     const session = t.persistent_session_id || null;
-    return { id: t.id, name: t.name || null, ...(t.cron_expression ? { cron_expression: t.cron_expression } : {}), ...(t.run_once_at ? { run_once_at: t.run_once_at } : {}), prompt: t.prompt || '', session, role: roleOf(session, addresses, coordinators) };
+    const fresh = t.create_new_session_on_fire === true || t.persist_session === false;
+    const role = roleOf(session, addresses, coordinators, seats0);
+    return { id: t.id, name: t.name || null, ...(t.cron_expression ? { cron_expression: t.cron_expression } : {}), ...(t.run_once_at ? { run_once_at: t.run_once_at } : {}), prompt: t.prompt || t.derived_state?.prompt || '', session, role: !session && role === 'unknown' ? 'not the process' : role, ...(fresh ? { fresh: true } : {}) };
   });
-  // The live job sessions: each unarchived session titled job <id>, the newest per module.
-  const ids = [...new Set(sessions.filter((x) => !isArchived(x)).map((x) => String(x.title || '').trim().match(/^job (\S+)( \(restart\))?$/)?.[1]).filter(Boolean))];
+  // The live job sessions: each unarchived session titled job <id>, the newest per module, whose
+  // module is in this product's ledger or has a job branch on its origin. One account holds every
+  // product's jobs: the probe's dry run (6 Nov) listed the copy's eight.
+  const all = [...new Set(sessions.filter((x) => !isArchived(x)).map((x) => String(x.title || '').trim().match(/^job (\S+)( \(restart\))?$/)?.[1]).filter(Boolean))];
+  let branches = null;
+  try { branches = new Set(git(['ls-remote', '--heads', 'origin', 'job/*'], { cwd: root }).split('\n').map((l) => l.split('refs/heads/job/')[1]).filter(Boolean)); } catch { branches = null; }
+  const ids = all.filter((id) => rows.some((r) => r.id === id) || !branches || branches.has(id));
   let release = new Set();
   try { release = releaseModules(root, cfg, `origin/${cfg.tranche}`, new Set(rows.filter((r) => String(r.pr || '').startsWith('#')).map((r) => r.id))); } catch { release = new Set(); }
   out.jobs = ids.map((id) => {
@@ -62,6 +84,13 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
     return { module: id, session: sessionId(s), branch: refOf({ id, ...r }), pr: r.pr || null, state: r.branch || r.tranche || 'not in the ledger', ahead: r.ahead ?? null, release: release.has(id) };
   }).sort((a, b) => (b.release - a.release) || a.module.localeCompare(b.module));
   out.messages = unanswered(root, sb);
+  // The layer flow (the open layers), the lane seats (the triage lane's among them) and their open
+  // asks, which the new account restarts from git.
+  try { out.layers = layerMode(cfg) ? openLayers(root, cfg, (p) => readState(root, sb, p)) : []; } catch { out.layers = []; }
+  try { out.lanes = [...readSeats(root, cfg).values()].map((x) => ({ lane: x.lane, session: x.session || null, at: x.at })); } catch { out.lanes = []; }
+  try { out.asks = openAsks(root, cfg).map((a) => ({ lane: a.lane, question: a.question, at: a.at })); } catch { out.asks = []; }
+  // Every session of the old account the record names: on the new account each is gone (R13).
+  out.sessions = [...new Set([...ROLES.map((r) => addresses[r]?.session), addresses.coordinator?.session, cfg.coordinator, by, ...out.tasks.map((t) => t.session), ...out.jobs.map((j) => j.session), ...out.lanes.map((x) => x.session)].filter((x) => SESSION.test(String(x))))];
   return out;
 }
 
@@ -73,8 +102,11 @@ const stopActs = (m) => {
     : '1. No MERGER is addressed: no train to stop.');
   L.push(m.jobs.length ? `2. Each live job, send_message priority now: "STOP for the account switch: commit and push your work in progress to your branch, then end your turn."` : '2. No live job sessions.');
   for (const j of m.jobs) L.push(`   - job ${j.module}: ${j.session} (${j.branch}${j.pr ? `, PR ${j.pr}` : ''})`);
-  L.push(m.tasks.length ? '3. Switch off each task with update_trigger enabled false (switched off, never deleted):' : '3. No enabled scheduled tasks.');
-  for (const t of m.tasks) L.push(`   - ${t.id} ${t.name || ''} (${t.role})`);
+  const own = m.tasks.filter((t) => t.role !== 'not the process');
+  L.push(own.length ? '3. Switch off each task with update_trigger enabled false (switched off, never deleted):' : '3. No enabled scheduled tasks of the process.');
+  for (const t of own) L.push(`   - ${t.id} ${t.name || ''} (${t.role})`);
+  for (const t of m.tasks.filter((x) => x.role === 'not the process')) L.push(`   - not the process's, left as it is (Bob's to move): ${t.id} ${t.name || ''}`);
+  if ((m.lanes || []).some((x) => x.session)) L.push(`3b. Each lane's session (the triage lane's too), send_message priority now: "STOP for the account switch: commit and push your folder's work, then end your turn." ${m.lanes.filter((x) => x.session).map((x) => `lane ${x.lane}: ${x.session}`).join('; ')}`);
   const roles = ['bob', 'root', 'watcher'].filter((r) => m.addresses[r]).map((r) => `${r.toUpperCase()} ${m.addresses[r].session}`);
   L.push(`4. ${roles.length ? `${roles.join(', ')}, send_message priority now: "STOP for the account switch: finish nothing new, end your turn."` : 'No role sessions are addressed.'}`);
   L.push('5. Bob: connect GitHub on the new account as the collaborator, install the Claude GitHub App, add the account to the approvals if needed; then the new account\'s first act is switch in (rulebooks/account-switch.md).');
@@ -82,22 +114,32 @@ const stopActs = (m) => {
 };
 
 // switch out --tasks <list_triggers file> --sessions <list_sessions file> --by <session>
-export function switchOut(root, { tasks, sessions, by, read = status, log = console.log } = {}) {
+export function switchOut(root, { tasks, sessions, by, dryRun = false, read = status, log = console.log } = {}) {
   by_(by);
   if (typeof tasks !== 'string') fail('--tasks <file>: your list_triggers result on this account, saved as JSON');
   if (typeof sessions !== 'string') fail('--sessions <file>: your list_sessions result on this account, saved as JSON');
   const cfg = loadConfig(root);
   const t = readTasks(tasks);
-  const s = readSessions(sessions);
+  // One page stands when it reaches as far back as the record needs (status's rule, readSessions):
+  // this account held 1,800+ sessions, and paging them all took about 5 min (copy, 5 Nov).
+  const s = readSessions(sessions, { root });
   const { rows } = read(root, { log: () => {} });
   const m = manifest(root, { tasks: t, sessions: s, by, rows, cfg });
   // A job whose pull request GitHub did not answer for would be restarted by the wrong route (review of PR 149).
   const unread = m.jobs.filter((j) => /^unknown/.test(String(j.pr)));
   if (unread.length) fail(`GitHub was not read for the pull requests of ${unread.map((j) => j.module).join(', ')}; nothing was written. Run switch out again once gh api user works on this account`);
-  const w = writeState(root, cfg.state_branch, `switch out: manifest by ${by}`, (wt) => {
-    mkdirSync(dirname(join(wt, MANIFEST_FILE)), { recursive: true });
-    writeFileSync(join(wt, MANIFEST_FILE), JSON.stringify(m, null, 2) + '\n');
+  // A dry run writes its manifest beside the real one, never over it, and stops nothing (R16).
+  const file = dryRun ? `${DRY_RUN_DIR}/manifest-${m.at.replace(/[:.]/g, '-')}.json` : MANIFEST_FILE;
+  const w = writeState(root, cfg.state_branch, `switch out${dryRun ? ' --dry-run' : ''}: manifest by ${by}`, (wt) => {
+    mkdirSync(dirname(join(wt, file)), { recursive: true });
+    writeFileSync(join(wt, file), JSON.stringify({ ...m, ...(dryRun ? { dry_run: true } : {}) }, null, 2) + '\n');
   });
+  if (dryRun) {
+    log(`switch out --dry-run: ${cfg.state_branch}:${file} at ${w.tip.slice(0, 10)}: ${m.tasks.length} task(s), ${m.jobs.length} live job(s), ${(m.lanes || []).length} lane seat(s), ${(m.asks || []).length} open ask(s), ${m.layers.length ? `layer(s) ${m.layers.join(', ')} open, ` : ''}${m.messages.length} unanswered message(s), ${m.sessions.length} session(s) of this account named; nothing was stopped`);
+    log('The stop acts a real switch out would print (dry run: do none of them):');
+    for (const l of stopActs(m)) log(`  ${l}`);
+    return { manifest: m, tip: w.tip, file };
+  }
   log(`switch out: ${cfg.state_branch}:${MANIFEST_FILE} at ${w.tip.slice(0, 10)}: ${m.tasks.length} task(s), ${m.jobs.length} live job(s), ${m.messages.length} unanswered message(s); addresses ${ROLES.filter((r) => m.addresses[r]).map((r) => `${r} ${m.addresses[r].session}`).join(', ') || 'none'}`);
   log('Stop acts, in order, each its own call:');
   for (const l of stopActs(m)) log(l);
@@ -134,6 +176,15 @@ export function preflight(root, m, { slug, approvals, api = (p) => gh(['api', p]
   out.push(p.code === 0
     ? { ok: true, line: `push reachable on origin (${slug}), dry run` }
     : { ok: false, line: `push not reachable on origin (${slug}): ${String(p.stderr || p.stdout || '').trim().split('\n').pop()}`, fix: `Bob: install the Claude GitHub App on ${slug} for the collaborator account and attach the repository to this session with push access` });
+  // The process repository (process3): the coordinator pushes to it.
+  const proc = String(cfg.process_repo || '').match(/github\.com[/:]([^/]+\/[^/.]+)/)?.[1];
+  if (proc && proc !== slug) {
+    const pr = me?.login ? api(`repos/${proc}`) : null;
+    out.push(pr?.permissions?.push && !pr?.permissions?.admin
+      ? { ok: true, line: `${proc}: push, not admin` }
+      : { ok: false, line: `${proc}: ${pr ? `push ${!!pr.permissions?.push}, admin ${!!pr.permissions?.admin}` : 'unread'} (push true, admin false needed)`, fix: `Bob: install the Claude GitHub App on ${proc} for the collaborator account, and attach the repository to the coordinator's session with push access` });
+  }
+  if (!m) return out;
   const tip = tipApprovals(root, cfg).approvals;
   const want = approvals === undefined ? m.approvals : String(approvals);
   out.push(tip === want
@@ -170,9 +221,10 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   L.push(m.tasks.length ? '(d) The scheduled tasks, after the starts, each a create_trigger call (the new ids from `address <role>`):' : '(d) No scheduled tasks to recreate.');
   for (const k of m.tasks) {
     const when = k.cron_expression ? { cron_expression: k.cron_expression } : k.run_once_at ? { run_once_at: k.run_once_at } : {};
+    if (k.role === 'not the process') { L.push(`    - ${k.name || k.id}: not the process's; Bob moves it himself if he wants it`); continue; }
     if (k.role === 'root' || k.role === 'watcher') { L.push(`    - ${k.name || k.id} (${k.role}): made by ${k.role === 'root' ? 'ROOT from its own prompt (sweep task)' : 'start watcher\'s output'}, with the current approvals; nothing to do here`); continue; }
     if (k.run_once_at && Date.parse(k.run_once_at) <= t) { L.push(`    - ${k.name || k.id}: its one time (${k.run_once_at}) has passed; recreate it only if it is still wanted`); continue; }
-    const bound = k.role === 'coordinator' ? {} : ROLES.includes(k.role) ? { persistent_session_id: `<the new ${k.role} id: ${P3} address ${k.role}>` } : { persistent_session_id: `<unknown: it was bound to ${k.session || 'no session'}; the coordinator decides>` };
+    const bound = k.fresh ? { create_new_session_on_fire: true } : k.role === 'coordinator' ? {} : k.role.startsWith('lane ') ? { persistent_session_id: `<the new ${k.role} session, recorded at (h)>` } : ROLES.includes(k.role) ? { persistent_session_id: `<the new ${k.role} id: ${P3} address ${k.role}>` } : { persistent_session_id: `<unknown: it was bound to ${k.session || 'no session'}; the coordinator decides>` };
     L.push(`    - ${k.name || k.id} (${k.role}${k.role === 'coordinator' ? ', created from the coordinator session itself' : ''}): ${JSON.stringify({ name: k.name, ...when, ...bound, prompt: freshPrompt(m, k.prompt, approvals) })}`);
   }
   // Each job by routeFor's route (job.mjs): an open pull request, or BLOCKED, is a --restart; a
@@ -187,21 +239,60 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   for (const j of restart) L.push(`    - \`${P3} job start ${j.module} --restart "account switch: its session ${j.session} was on the old Claude account" --stop idle\`${rel(j)}`);
   for (const j of resume) L.push(`    - \`${P3} job start ${j.module} --sessions <list_sessions saved now>\` (an unfinished start resumes)${rel(j)}`);
   for (const j of other) L.push(`    - ${j.module}: ${j.state}${j.pr ? `, PR ${j.pr}` : ''}: ${['WORKING', 'COMPLETE'].includes(state(j)) ? routeFor(j.module, { state: state(j), ahead: j.ahead, open: open(j) }) : 'nothing to restart'}${rel(j)}`);
-  L.push(`(f) BOB: \`${P3} job start --ready --sessions <list_sessions saved now>\`.`);
-  L.push(messages.length ? `(g) The unanswered messages, re-addressed: deliver each with send_message to the new session (\`${P3} address <role>\`, or the new job <id> session), then \`${P3} send delivered <n> --from <sender>\`:` : '(g) No unanswered messages.');
-  for (const x of messages) L.push(`    - ${x.from}-${x.n} to ${x.to}${ROLES.includes(x.to) ? '' : ' (the new job session)'}: "MSG ${x.from}-${x.n} to ${x.to}: ${x.text}"`);
+  // The layer flow (R16): BOB starts each open layer's jobs from layer jobs; --ready is the train's.
+  L.push((m.layers || []).length
+    ? `(f) BOB, for each open layer (${m.layers.join(', ')}): \`${P3} layer jobs <n>\`, then each start it lists, each its own command (\`${P3} layer sync <n>\` first if it says the pin moved).`
+    : `(f) BOB: \`${P3} job start --ready --sessions <list_sessions saved now>\`.`);
+  // Those to BOB stay in the record, where the new BOB's \`status --role bob\` lists them: the copy's
+  // dry run (6 Nov) held 211, 201 of them to BOB (147 MERGER refusals), a resend each.
+  const toBob = messages.filter((x) => x.to === 'bob'), rest = messages.filter((x) => x.to !== 'bob');
+  if (toBob.length) L.push(`(g) ${toBob.length} unanswered message(s) to BOB stay in the record: the new BOB reads them with \`${P3} status --role bob\`; resend none.`);
+  L.push(rest.length ? `(g) The other unanswered messages, re-addressed: deliver each with send_message to the new session (\`${P3} address <role>\`, or the new job <id> session), then \`${P3} send delivered <n> --from <sender>\`:` : `(g) No other unanswered messages.`);
+  for (const x of rest) L.push(`    - ${x.from}-${x.n} to ${x.to}${ROLES.includes(x.to) ? '' : ' (the new job session)'}: "MSG ${x.from}-${x.n} to ${x.to}: ${x.text}"`);
+  // The lanes (R16): each seat the old account held restarts from git; its open asks stay recorded
+  // and go to the new session. The old seat's session is retired, so R13 ends it at the sweep.
+  const seats = (m.lanes || []).filter((x) => x.session);
+  L.push(seats.length ? '(h) BOB restarts each lane that had a session, each its own command, then the create_session it prints and its --record:' : '(h) No lane had a session.');
+  for (const x of seats) {
+    const asks = (m.asks || []).filter((a) => a.lane === x.lane).length;
+    L.push(`    - \`${P3} lane start ${x.lane} --replace ${x.session}\`, then \`${P3} lane start ${x.lane} --record <new id>\`${asks ? `; then send it its ${asks} open ask(s) (\`${P3} lane ask ${x.lane} "<question>"\` prints each brief)` : ''}`);
+  }
   return L;
 }
 
 // switch in --sessions <list_sessions file> --by <session> [--approvals <hash>]: the first act on
 // the new account. Refuses, starting nothing, unless every preflight check holds.
-export function switchIn(root, { sessions, by, approvals, slug = repoSlug(root), io = {}, log = console.log } = {}) {
+// The checks only a session can run (the tool cannot call Claude's tools): what the old account holds
+// that git does not, each with the step that moves it and who takes it (R16, the inventory).
+export const SESSION_CHECKS = [
+  ['claude.ai documents', 'read the Foundations and the Ledger map with the docs connector (read of each link), then write: create a comment "switch canary <date>" on the Foundations and delete it', 'Bob, on the old account: share each process document (Foundations, Ledger map, Keep and Drop Ledger, the lanes\' design documents, the review standard) with the new account with edit access'],
+  ['cloud environment', 'get_environment: network access, the network secret for api.cloudflare.com, the variables BIO_*, CLOUDFLARE_*, JOURNEY_* and GITHUB_TOKEN, and the walks\' setup script', 'Bob: recreate the environment on the new account (its values are not readable here; he re-enters them) and start the coordinator in it'],
+  ['Cloudflare', 'an HTTPS GET of https://api.cloudflare.com/client/v4/user/tokens/verify answers 200', 'Bob: the Cloudflare connector on the new account, or the environment\'s network secret'],
+  ['Google Drive', 'list_recent_files with pageSize 1 answers', 'Bob: connect Google Drive on the new account (claude.ai, Settings, Connectors)'],
+  ['scheduled tasks', 'list_triggers answers (create none)', 'the coordinator, after switch in: the tasks from the manifest, act (d)'],
+];
+export const sessionCheckLines = () => ['Session checks (run each with your own tools; report each result to the coordinator, ok or failed with its words):', ...SESSION_CHECKS.map(([what, how, fix], i) => `  ${i + 1}. ${what}: ${how}. Failed: ${fix}.`)];
+
+export function switchIn(root, { sessions, by, approvals, preflight: only = false, slug = repoSlug(root), io = {}, log = console.log } = {}) {
   by_(by);
-  if (typeof sessions !== 'string') fail('--sessions <file>: your list_sessions result on this account, saved as JSON');
+  if (!only && typeof sessions !== 'string') fail('--sessions <file>: your list_sessions result on this account, saved as JSON');
   if (approvals !== undefined && !/^[0-9a-f]{64}$/.test(String(approvals))) fail('--approvals <hash>: the 64-hex hash of the tranche tip\'s approvals switch in printed');
-  readSessions(sessions);
+  if (typeof sessions === 'string') readSessions(sessions);
   const cfg = loadConfig(root);
   if (!fetchState(root, cfg.state_branch)) fail(`no ${cfg.state_branch} on origin: nothing to switch in`);
+  // --preflight (R16): every check, read-only, from any session on either account, before anything
+  // stops; against the real manifest if there is one, else none (the approvals are not compared).
+  if (only) {
+    let m0 = null;
+    try { m0 = JSON.parse(readState(root, cfg.state_branch, MANIFEST_FILE) || 'null'); } catch { m0 = null; }
+    log(`switch in --preflight: read-only; ${m0 ? `the manifest by ${m0.by} at ${m0.at}` : 'no manifest yet (the approvals are not compared)'}`);
+    const checks = preflight(root, m0, { slug, approvals, cfg, ...io });
+    for (const c of checks) log(`- ${c.ok ? 'ok' : 'FAILED'}: ${c.line}${c.ok ? '' : `. Fixes it: ${c.fix}`}`);
+    for (const l of sessionCheckLines()) log(l);
+    const bad = checks.filter((c) => !c.ok);
+    log(bad.length ? `preflight: ${bad.length} check(s) failed; fix them before the switch` : 'preflight: every tool check holds; now the session checks above');
+    return { ok: !bad.length, checks };
+  }
   const text = readState(root, cfg.state_branch, MANIFEST_FILE);
   if (text === null) fail(`no ${MANIFEST_FILE} on ${cfg.state_branch}: the old account runs switch out first`);
   let m;
@@ -216,6 +307,18 @@ export function switchIn(root, { sessions, by, approvals, slug = repoSlug(root),
   const addresses = readAddress(root, { fetch: false });
   // The manifest's unanswered messages and any the record has gained since, once each.
   const seen = new Map([...m.messages, ...unanswered(root, cfg.state_branch)].map((x) => [`${x.from}-${x.n}`, x]));
+  // The old account's sessions, retired: R13's session_gone holds for each from now (ends.mjs),
+  // so a lane seat or anything else bound to one is ended by the tool, not by hand.
+  const retired = (m.sessions || []).filter((x) => x !== by);
+  if (retired.length) {
+    writeState(root, cfg.state_branch, `switch in: ${retired.length} session(s) of the old account retired`, (wt) => {
+      mkdirSync(dirname(join(wt, RETIRED_FILE)), { recursive: true });
+      let prev = [];
+      try { prev = JSON.parse(readFileSync(join(wt, RETIRED_FILE), 'utf8')).sessions || []; } catch { prev = []; }
+      writeFileSync(join(wt, RETIRED_FILE), JSON.stringify({ at: now(), by, manifest_at: m.at, sessions: [...new Set([...prev, ...retired])] }, null, 2) + '\n');
+    });
+    log(`retired ${retired.length} session(s) of the old account (${RETIRED_FILE}): what is bound to them ends by R13's session_gone at the tool's next write`);
+  }
   log('Restart, in order, each act its own command:');
   for (const l of restartActs(m, { by, cfg: { ...tranche, tranche: cfg.tranche }, approvals: tipApprovals(root, cfg).approvals, addresses, messages: [...seen.values()] })) log(l);
   return { ok: true, manifest: m };

@@ -151,6 +151,10 @@ export function readFacts(root, cfg, { listed = null, t = Date.now(), landed } =
     return land;
   };
   const sessions = Array.isArray(listed) ? new Map(listed.map((x) => [x.id, x])) : null;
+  // The old account's sessions an account switch retired (switch.mjs RETIRED_FILE): gone, list or
+  // no list, since the new account's list_sessions never holds them (R16).
+  let retired = new Set();
+  try { retired = new Set(JSON.parse(readState(root, sb, 'switch/retired.json') || '{}').sessions || []); } catch { retired = new Set(); }
   const archived = (x) => String(x.session_status || x.status || '').toLowerCase().replace(/^session_status_/, '') === 'archived';
   return {
     t,
@@ -160,7 +164,7 @@ export function readFacts(root, cfg, { listed = null, t = Date.now(), landed } =
     moduleComplete: (id) => { const e = entry(id); return e === null ? null : e === undefined ? false : e.status?.state === 'COMPLETE'; },
     // Archived in the list. A session the list does not hold is unknown, not gone: list_sessions
     // pages, and a short list is no proof an id is gone.
-    sessionGone: (id) => { if (!sessions) return null; const x = sessions.get(id); return x ? archived(x) : null; },
+    sessionGone: (id) => { if (retired.has(id)) return true; if (!sessions) return null; const x = sessions.get(id); return x ? archived(x) : null; },
   };
 }
 
