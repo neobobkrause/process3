@@ -725,3 +725,4 @@
 - Keep and Drop page: 159 earlier answers seeded; SLB-1..11 and AUD-1..9 undecided. Bob asked about SLB-2: explained that it adds no layer job; one job per module still, which publishes to layer/<n>, possibly more than once; the layer is a branch that merges once at close.
 - Predecessor's last notes: PR 183 commit 2 carries Bob's three later rulings with tests, cold review extending to commit 2; screens-publish EVIDENCE fix is job PR 607 (session_018BhcegD4AUbhnEjj4C4stE).
 - Copy at 23:57: 379, 380 (drafts), 606, 411, 484, 485, 394 all open.
+- 00:09 BOB (bob-248): close ~02:30Z unchanged. 394 complete and ready 00:01; 411, 484 then 485 queued (window 1, ~6.5 min a merge). 606 gate red: once the bundle is untracked, newgroup's build writes into a dist/ that no longer exists; BOB pushed newgroup/dist/.gitkeep (56561521) and requeued it. 379/380 close just before layer close; layer 7 stays shut.
