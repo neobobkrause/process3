@@ -27,10 +27,11 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
-import { checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, openPRs } from './github.mjs';
+import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, openPRs, prsFromBranch } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated } from './checks.mjs';
-import { branchModule, entryFile, ledgerIds } from './ledger.mjs';
+import { branchModule, entryFile, ledgerIds, startBranch } from './ledger.mjs';
+import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
@@ -148,7 +149,7 @@ export function flowRows(root, sb, n) {
   const files = r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
   const rows = files.flatMap((f) => { try { return [JSON.parse(readState(root, sb, f))]; } catch { return []; } });
   const by = (k) => rows.filter((x) => x.row === k).sort((a, b) => String(a.at).localeCompare(String(b.at)));
-  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule') };
+  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule'), retests: by('retest') };
 }
 // One file per event, added and never edited: an existing file is the same event, kept.
 function addFiles(w, files) {
@@ -201,7 +202,8 @@ export function startable(states) {
     if (s.state === 'not started') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.marks.length && s.why.startsWith('COMPLETE') ? ` --reopen "meet the unmet requirement marks ${s.marks.join(', ')}"` : ''}` }];
     if (s.state === 'rescheduled' && s.pr === null) {
       const why = [...new Set(s.outstanding.map((r) => `${r.provider} (land ${short(r.provider_land)})`))].join(', ');
-      return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"` }];
+      // With no land of its own on the layer, CI can re-test it with no job session (layer retest).
+      return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`, ...(s.lands === 0 ? { retest: `${P3} layer retest ${s.id}` } : {}) }];
     }
     return [];
   });
@@ -365,7 +367,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
-  for (const x of s) log(`  ${x.cmd}`);
+  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
 }
 
@@ -377,7 +379,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
-  for (const x of s) log(`  ${x.cmd}`);
+  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}`);
   return { ok: true, startable: s, states: L.states };
 }
 
@@ -485,6 +487,76 @@ export async function layerPublish(root, id, { push = true, every = 30000, round
   return { ok: false, halted: true, round: rounds };
 }
 
+// ---- layer retest ---------------------------------------------------------------------------
+
+// layer retest <id> (coordinator, 6 Nov: a provider's land rescheduled 12 users, most COMPLETE before
+// the layer opened with no code on it, each re-test a whole job session): for a rescheduled module
+// with no commit of its own on the layer since the open, its job branch (the one its last start row
+// names, already in the layer) moves to the layer tip with one records-only retest row, and a ready
+// pull request into the layer carries its last receipt again. CI's gate runs its whole suite on the
+// layer tip, against its providers' current versions, as on any ready layer job PR; green, the merge
+// tool lands it (layer land), and that land clears the reschedule. The gate's trust stays with a CI
+// run, never a state row (coordinator, 6 Nov). Red: a job starts (job start --reopen). No session.
+export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob' } = {}) {
+  const cfg0 = loadConfig(root);
+  needLayerMode(cfg0, 'layer retest');
+  const slug = io.slug || repoSlug(root);
+  const x = { openPRs, createPR, addComment, prsFromBranch, comments: ghComments, ...io };
+  const cfg = jobCfg(root, cfg0, id);
+  if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged)`);
+  const { n } = cfg.layer;
+  const b0 = layerBranch(n);
+  fetchLayer(root, cfg0, n);
+  const L = readLayer(root, cfg0, n, { io: { openPRs: x.openPRs }, slug });
+  const s = L.states.find((m) => m.id === id) || fail(`${id} is not a module of layer ${n}`);
+  const reopen = `${P3} job start ${id} --live <n> --reopen "re-test against the new interface of ${[...new Set(s.outstanding.map((r) => r.provider))].join(', ') || 'its providers'}"`;
+  if (s.state !== 'rescheduled' || s.pr !== null) fail(`${id} is ${s.state}${s.pr !== null ? ` with PR ${s.pr} open` : ''}: layer retest is for a rescheduled module with no pull request open`);
+  const tip = rev(root, L.ref);
+  const e = L.entries.get(id) || fail(`no ledger entry for ${id}`);
+  // No commit of its own on the layer since the open: no land, and none of its files changed.
+  const mine = L.rows.lands.filter((l) => l.module === id);
+  const touched = L.rows.open ? diffNames(root, L.rows.open.from, tip).filter((f) => ownPaths(e).some((p) => underPath(f, p))) : ['(no open row)'];
+  if (mine.length || touched.length) fail(`${id} has work on ${b0} since the open (${mine.length ? `${mine.length} land(s)` : touched.slice(0, 3).join(', ')}): a job re-tests it: ${reopen}`);
+  // Its job branch, as its last start row names it, already in the layer.
+  const branch = startBranch(rowsAt(root, tip, id), id);
+  const at = git(['ls-remote', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.split('\t')[0].trim();
+  if (at) {
+    fetchBranch(root, branch, { allowFail: true });
+    if (!isAnc(root, at, tip)) fail(`origin's ${branch} at ${short(at)} has commits ${b0} lacks: a job re-tests it: ${reopen}`);
+  }
+  const prs = x.prsFromBranch(slug, branch);
+  if (prs === null) fail(`GitHub unreadable: the pull requests from ${branch} are not known; nothing was done`);
+  const open = prs.find((p) => p.state === 'open');
+  if (open) fail(`${branch} has pull request ${open.number} open: nothing to re-test; land or close it`);
+  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer.
+  let receipt = null;
+  for (const p of prs.filter((q) => q.merged_at).sort((a, c) => c.number - a.number)) {
+    const r = latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
+    if (r?.module === id && r.sha && hasCommit(root, r.sha) && isAnc(root, r.sha, tip)) { receipt = { ...r, retest: { from_pr: p.number } }; break; }
+  }
+  if (!receipt) fail(`no receipt of ${id} on a merged pull request from ${branch} that ${b0} holds: a job re-tests it: ${reopen}`);
+  const providers = [...new Set(s.outstanding.map((r) => r.provider))];
+  const sha = withTemp('p3-layer-', (tmp) => {
+    const w = join(tmp, 'w');
+    git(['worktree', 'add', '-q', '--detach', w, tip], { cwd: root });
+    try {
+      appendRow(w, id, { row: 'retest', event: 'retest', layer: n, tested_on: tip, against: providers, receipt_attempt: receipt.attempt ?? null, by });
+      git(['add', '--', metricsFile(id)], { cwd: w });
+      git(['commit', '-q', '-m', `layer retest ${id} on ${b0} ${short(tip)}`, '--', metricsFile(id)], { cwd: w });
+      const h = git(['rev-parse', 'HEAD'], { cwd: w });
+      const p = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });
+      if (p.code !== 0) fail(`the push of ${branch} failed (${p.stderr.trim()}); nothing was opened`);
+      return h;
+    } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+  }, { root });
+  const body = [`layer retest of ${id} on ${b0} ${short(tip)}, against ${providers.join(', ')}'s new interface: one records-only commit, no job session.`, '', `CI's gate runs ${id}'s whole suite on this head; green, the merge tool lands it (${P3} layer land <this PR>). Red: ${reopen}.`, '', `The receipt is ${id}'s last, from PR ${receipt.retest.from_pr}.`].join('\n');
+  const pr = x.createPR(slug, { head: branch, base: b0, title: `layer retest: ${id}`, body, draft: false });
+  x.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt of ${id} (attempt ${receipt.attempt}), carried from PR ${receipt.retest.from_pr} for this retest.`));
+  writeRows(root, cfg0.state_branch, `layer ${n}: ${id} retest PR ${pr.number}`, [[flowFile(n, 'retest', `${safeName(id)}-${pr.number}`), { row: 'retest', layer: n, module: id, pr: pr.number, head: sha, tested_on: tip, against: providers, at: now(), by }]]);
+  log(`layer retest: ${id} on ${b0} ${short(tip)}: PR ${pr.number} from ${branch}, ready; the gate runs its whole suite. Green: ${P3} layer land ${pr.number}. Red: close it and ${reopen}`);
+  return { ok: true, pr, branch, head: sha, tested_on: tip };
+}
+
 // ---- layer land -----------------------------------------------------------------------------
 
 export function mergeVia(slug, n, sha, title) {
@@ -549,7 +621,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const later = users.filter((u) => { const k = layerOf(layers, u); return k === null || k > n; });
   const runs = gateRuns(x.comments(slug, n0)).filter((q) => q?.sha);
   const at = now();
-  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_noticed: ic.changed ? later : [] };
+  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_noticed: ic.changed ? later : [] };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land]];
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers }]);
@@ -794,6 +866,7 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
       halted: runs.filter((r) => r.result === 'halted').length, lands: rows.lands.filter((l) => l.module === id).length,
       gate_runs: rows.lands.filter((l) => l.module === id).reduce((s, l) => s + (l.gate_runs || 0), 0),
       reschedules: rows.reschedules.filter((r) => r.user === id).length,
+      retests: (rows.retests || []).filter((r) => r.module === id).length,
     };
   });
   const halted = rows.runs.filter((r) => r.result === 'halted');
@@ -803,6 +876,8 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
     gate_runs: per.reduce((s, x) => s + x.gate_runs, 0), lands: rows.lands.length,
     interface_changes: rows.lands.filter((l) => l.interface?.changed).length,
     reschedules: rows.reschedules.length,
+    // Retests (layer retest): opened, and those landed (no job session; a CI suite run each).
+    retests: (rows.retests || []).length, retest_lands: rows.lands.filter((l) => l.retest).length,
     // Which trigger fired, per reschedule (Bob, 5 Nov): exports, Provides text, or a Provides test.
     reschedule_triggers: Object.fromEntries(['exports', 'provides-text', 'provides-test', 'exports-unread'].map((k) => [k, rows.reschedules.filter((r) => (r.triggers || []).includes(k)).length])),
     reschedule_changed_result: resultChanges(rows.reschedules, rows.runs, anc),
@@ -825,7 +900,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
     m.tool_lines = { from: toolFrom, to: toolTo, added: ins, removed: del };
   }
   const c = m.reschedule_changed_result;
-  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
+  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.retests} retest(s), ${m.retest_lands} landed; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
   log('the baseline: the same layer\'s history under the serial train (merge train report, and the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));
   return { ok: true, measures: m };

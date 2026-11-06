@@ -5,14 +5,14 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, block } from '../lib/github.mjs';
+import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { jobStart, jobSync, startText } from '../lib/job.mjs';
 import { startReady } from '../lib/ready.mjs';
 import { bobPrompt } from '../lib/roles.mjs';
 import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
 import {
-  flowRows, interfaceChange, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport,
+  flowRows, interfaceChange, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
   layerStatus, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
@@ -829,4 +829,65 @@ test('layer merge: a carried entry\'s add/add conflict with the tranche is merge
   const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
   assert.throws(() => carriedSync(root, cfg, 1, rl(root, cfg, 1, { io: openIO, slug: 'o/p' }), quiet), /layer\/1 and tranche conflict in src\/c\/index\.mjs.*nothing was opened/);
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], tip);
+});
+
+// Coordinator, 6 Nov (R7): a provider's land rescheduled 12 users, most COMPLETE before the layer
+// opened with no code on it, each re-test a whole job session. The gate's trust stays with CI.
+test('layer retest: a rescheduled module with no work on the layer gets a records-only ready PR carrying its last receipt; its land clears the reschedule, and the report counts it', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  const jl = [];
+  const j = layerJobs(root, 1, { io: openIO, log: (l) => jl.push(l) });
+  assert.deepEqual(j.states.find((s) => s.id === 'b').state, 'rescheduled');
+  assert.equal(j.startable.find((x) => x.id === 'b').retest, 'node .process/tool/p3.mjs layer retest b');
+  assert.ok(jl.some((l) => /or, with no job session .*layer retest b/.test(l)));
+  const first = git(['rev-list', '--max-parents=0', 'origin/tranche'], { cwd: root });
+  const receipt = { kind: 'receipt', module: 'b', attempt: 1, sha: first, commands: [], exempt: {} };
+  const made = [];
+  const posted = [];
+  const io = {
+    slug: 'o/p', openPRs: () => [],
+    prsFromBranch: () => [{ number: 40, state: 'closed', merged_at: '2026-11-05T00:00:00Z', user: { login: 'civicsmith' } }],
+    comments: (s, k) => (k === 40 ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : []),
+    createPR: (s, p) => { made.push(p); return { number: 41, ...p }; },
+    addComment: (s, k, body) => { posted.push([k, body]); return { id: 2 }; },
+  };
+  assert.throws(() => layerRetest(root, 'b', { io: { ...io, prsFromBranch: () => [] }, log: quiet }), /no receipt of b on a merged pull request from job\/b that layer\/1 holds: a job re-tests it/);
+  assert.equal(made.length, 0);
+  const lines = [];
+  const r = layerRetest(root, 'b', { io, log: (l) => lines.push(l) });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.equal(git(['rev-parse', 'origin/job/b'], { cwd: root }), r.head);
+  assert.equal(git(['rev-parse', `${r.head}^`], { cwd: root }), tip, 'one commit on the layer tip');
+  assert.deepEqual(git(['diff', '--name-only', tip, r.head], { cwd: root }), 'process/metrics/b.jsonl', 'records only');
+  assert.deepEqual([made[0].head, made[0].base, made[0].draft], ['job/b', 'layer/1', false]);
+  assert.equal(posted[0][0], 41);
+  assert.equal(parseBlock(posted[0][1], RECEIPT).sha, first, 'its last receipt carried');
+  assert.ok(lines.some((l) => /PR 41 from job\/b, ready; the gate runs its whole suite. Green: .*layer land 41/.test(l)));
+  // CI's gate is green on its head: the merge tool lands it, and b is complete.
+  prs[41] = prOf(41, 'b', r.head);
+  const land = await layerLand(root, 41, { io: landIO(bare, prs), log: quiet });
+  assert.equal(land.land.retest, true);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((s) => s.id === 'b').state, 'complete');
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  assert.deepEqual([m.retests, m.retest_lands], [1, 1]);
+  // Not rescheduled now: refused.
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /b is complete: layer retest is for a rescheduled module/);
+});
+
+test('layer retest refuses a rescheduled module with work on the layer, naming the job start', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const ha2 = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'a', ha), 3: prOf(3, 'c', ha2) };
+  for (const k of [1, 2]) await layerLand(root, k, { io: landIO(bare, prs), log: quiet });
+  const io = { slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: () => assert.fail('no PR'), addComment: () => assert.fail('no comment') };
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /b has work on layer\/1 since the open \(1 land\(s\)\): a job re-tests it: .*job start b --live <n> --reopen "re-test against the new interface of a"/);
+  assert.throws(() => layerRetest(root, 'c', { io, log: quiet }), /c is complete/);
 });
