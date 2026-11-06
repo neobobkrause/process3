@@ -269,7 +269,7 @@ test('DEVELOPER.md: every step complete, every developer condition covered, only
   assert.deepEqual(checkDeveloperSteps(readFileSync(DEVELOPER, 'utf8')), []);
 });
 
-// Deploy tokens are a standard condition (Bob, 2 Nov): present by name, the account matching.
+// Deploy tokens are a standard condition (Bob, 2 Nov, before the log; unverified): present by name, the account matching.
 test('environment: every listed variable is present, and only names are ever printed', () => {
   const w = world();
   const out = [];

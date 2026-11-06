@@ -82,7 +82,7 @@ const entryOf = (root, rev, file) => {
 // a link or a pin) and .mcp.json anywhere is the owner's: settings, hooks, agents, skills,
 // commands, output styles, any file (confirming review of PR 16). Like the approvals, only
 // the owner's own website commit may change them. A deny rule cannot stop an edit made
-// through the shell; this check holds every route (Bob's standing rule: sessions never
+// through the shell; this check holds every route (Bob's CLAUDE.md approvals: sessions never
 // change permission settings).
 // On process3 itself the required record check runs from main's copy of the tool
 // (pull_request_target runs from the default branch), so these rules judge process3's own
@@ -122,11 +122,11 @@ function introduced(root, sha, parents, { guarded = () => false, judged = () => 
   });
 }
 
-// record_since (decided by Bob, 2 Nov 2026): a product whose history predates Process3 names
+// record_since (Bob, 2 Nov, before the log; unverified): a product whose history predates Process3 names
 // the last commit before the process arrived; that commit and everything before it are not
 // checked. It is a key that weakens a check, so, like the approvals, only the owner's own
-// website commit may set or change it (recordCheck), with one exception (Bob's word on
-// question 16, 2 Nov 2026): any author may set it to the base's commit or an ancestor of it,
+// website commit may set or change it (recordCheck), with one exception (question 16,
+// Bob, 2 Nov, before the log; unverified): any author may set it to the base's commit or an ancestor of it,
 // since the base already leaves that history out and so it hides nothing the change brings
 // (onboarding). On a later range whose base does not hold it, the commit that set it needs
 // the owner's website commit again. It is used only while the base has no

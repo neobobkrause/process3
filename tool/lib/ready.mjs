@@ -182,7 +182,7 @@ export function startReady(root, { live, coordinator, model, sessions, archived,
   const parked = listed ? parkedSessions(listed, out.rows) : [];
   if (parked.length) { n -= parked.length; log(parkedLine(parked)); }
   const heads = remote || new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => l.split('\t')[1]?.replace(/^refs\/heads\/job\//, '')).filter(Boolean));
-  // The cap less the live holds only (Bob, 5 Nov): a held module is not started; slots held are not filled.
+  // The cap less the live holds only (coordinator's design, 5 Nov 01:13): a held module is not started; slots held are not filled.
   const holds = out.holds || [];
   const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
   const { go, skip: sk, held: kept } = readySelection(out.next, { onOrigin: (id) => heads.has(id), holds, layers });

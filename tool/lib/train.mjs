@@ -1,4 +1,5 @@
-// merge train (Bob, 5 Nov; design option F, notes/merge-train-trial.md): the MERGER's one
+// merge train (the coordinator's option F, 5 Nov 02:35, for the trial Bob began at 02:20:
+// "begin the merge train trial when ready"; notes/merge-train-trial.md): the MERGER's one
 // long-running act, in its own session. A serial loop over merge(): every open job pull request into
 // the tranche that is green on its head merges, in order.mjs's order (the release path, providers
 // holding users, the shortest expected gate, any green over 45 min first) and after the providers
@@ -333,7 +334,7 @@ function ready(root, ctx, skip = new Set()) {
 // The order and the provider hold (order.mjs), with what each reads cached by head or tranche tip.
 // Every read that fails holds nothing and orders as unknown: the train never stalls on a read.
 // A held PR gone from the queue because its own gate ended red, its providers still open: its
-// gate on the tranche without them went red (data only, Bob, 5 Nov).
+// gate on the tranche without them went red (data only, coordinator, 5 Nov).
 function leftHeld(ctx, c, cands, jobs) {
   const inQueue = new Set(cands.map((u) => u.n));
   for (const [n, why] of c?.heldBy || []) {
@@ -408,7 +409,7 @@ function order(root, ctx, cands, jobs) {
     const was = c.seen.get(u.n);
     if (why) {
       const l = holdLine(u, why);
-      // Data only, to judge provider holds later (Bob, 5 Nov): the held PR's own gate ran on the
+      // Data only, to judge provider holds later (coordinator, 5 Nov): the held PR's own gate ran on the
       // tranche without the provider (still open). Only a green PR is held, so this reads green;
       // one whose gate goes red while held leaves the queue, and that is logged below.
       const g = ctx.gates.get(u.head);
@@ -854,8 +855,8 @@ const ownFiles = (root, ctx) => (p) => {
   if (!p.base || !p.result) return null;
   try { return new Set(diffNames(root, p.base, p.result).filter((f) => !isRecordPath(ctx.cfg, f))); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; return null; }
 };
-// How much of the window stands when the tranche moves from the window's start to tip (Bob, 5
-// Nov; copy: two plain lands of generated files and .gitignore lines closed three green specs):
+// How much of the window stands when the tranche moves from the window's start to tip (coordinator,
+// 5 Nov; copy: two plain lands of generated files and .gitignore lines closed three green specs):
 // the files the move changes, records aside, against each position's own change (its base to its
 // result). The first position that shares a file with the move (0 when anything is not readable,
 // or the tip is not after the start; the window's length when none does).
