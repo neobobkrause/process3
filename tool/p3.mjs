@@ -116,7 +116,7 @@ const commands = {
   // updated to the branch's pin. From a clean checkout without job/<id>, it checks it out first.
   'job sync': (a, root) => (jobSync(root, one(a, 'module')).ok ? 0 : 1),
 
-  // The shared layer branch (layerflow.mjs), only with process/config.json "merge_strategy": "layer":
+  // The shared layer branch (layerflow.mjs), the only flow:
   // layer open <n>: cut layer/<n> from the tranche tip; lists the jobs that can start, which ROOT starts.
   // layer jobs <n>: the jobs that can start now (not started, or reopened by a reschedule).
   // layer status <n>: each module's state, and whether the layer can merge.

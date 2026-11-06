@@ -713,7 +713,7 @@ const HEX40 = /^[0-9a-f]{40}$/;
 const ROW = {
   sha: (v) => HEX40.test(v),
   run_id: (v) => Number.isSafeInteger(v) && v > 0,
-  trigger: (v) => ['record', 'draft', 'record-since-green', 'code'].includes(v),
+  trigger: (v) => ['record', 'draft', 'record-since-green', 'code', 'layer'].includes(v),
   findings: (v) => Number.isSafeInteger(v) && v >= 0,
   ok: (v) => typeof v === 'boolean',
   minutes: (v) => Number.isFinite(v) && v >= 0,

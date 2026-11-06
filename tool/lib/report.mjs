@@ -363,8 +363,8 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   else if (!opened) L.push(`Per job: ${U} (the tranche's opening not read).`, '');
 
   // Base-red (basered.mjs): failures a job's gate tolerated because the tranche had them too.
-  // Merged green, they are still owed: the layer close and the tranche into main run them again.
-  L.push('## Base-red tests owed', '', 'Failing tests a merged job\'s gate tolerated because they failed at the tranche tip it merged into too. The layer close and the tranche into main run them again with no tolerance.', '');
+  // Merged green, they are still owed: the tranche into main runs them again.
+  L.push('## Base-red tests owed', '', 'Failing tests a merged job\'s gate tolerated because they failed at the tranche tip it merged into too. The tranche into main runs them again with no tolerance.', '');
   const owed = baseRedOwed(mergeRows, (pr) => gateRuns(read.comments(pr) || []));
   L.push(...(owed === null ? [U] : owed.length ? table(['job', 'PR', 'test', 'base'], owed.map((o) => [o.module, `#${o.pr}`, o.test, String(o.base).slice(0, 10)])) : ['None.']), '');
   return L.join('\n');

@@ -1,5 +1,5 @@
-// The shared layer branch (design note "Shared Layer Branch", Bob, 5 Nov; trial first, then adopt),
-// behind process/config.json "merge_strategy": "layer" (default "train", today's flow, unchanged).
+// The shared layer branch (design note "Shared Layer Branch", Bob, 5 Nov), the only flow since the
+// merge train was removed (Bob, 6 Nov): process/config.json "merge_strategy" "layer" or absent.
 //
 // One layer's life:
 //   layer open <n>     cuts layer/<n> from the tranche tip and lists the jobs that can start; ROOT
@@ -269,10 +269,12 @@ function layerBehind(root, cfg, L, closed, ref) {
 // The open layer as the flow reads it (one read, shared by status, send's lead to BOB and the
 // sweep): { kind: 'open', n, states, prs, startable, ready } (ready: every module complete or
 // deferred, no PR open into the layer), { kind: 'next', n } (the next layer, not open),
-// { kind: 'stale', n } (its rows an earlier tranche's) or { kind: 'done' } (every layer merged).
+// { kind: 'stale', n } (its rows an earlier tranche's), { kind: 'done' } (every layer merged) or
+// { kind: 'none' } (no layer map: jobs keep the tranche, next work is the flow's).
 export function openLayer(root, cfg, { slug, io = {} } = {}) {
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
+  if (!layers.length) return { kind: 'none' };
   const closed = closedLayers(root, cfg.state_branch, cfg);
   for (const layer of layers) {
     const { n } = layer;
@@ -319,6 +321,7 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   const { n } = v;
   if (v.kind === 'stale') return [`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`];
   if (v.kind === 'next') return [`layer flow: layer ${n} is next and not open: \`${P3} layer open ${n}\``];
+  if (v.kind === 'none') return [`layer flow: no layer map (${cfg.layers_file}): jobs start on the tranche from next work`];
   if (v.kind === 'done') return ['layer flow: every layer has merged'];
   const L = [`layer flow: layer ${n} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);

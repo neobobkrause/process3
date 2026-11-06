@@ -154,7 +154,6 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
       appendFileSync(p, JSON.stringify(row) + '\n');
     });
   } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
-  if (ic?.dead) log(`dead ends (a Process3 defect), to the coordinator: ${ic.dead.join('; ')}`);
   if (ic?.alarm) {
     const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${reasons.join('; ')}`;
     log(line);
@@ -248,7 +247,9 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         markLaneHeld(cfg, seats, work);
         // Layer mode: the open layer's jobs or merge, or the next layer to open; unread (offline),
         // unmet work still wakes BOB, its act then status's.
-        next = view ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after); // unmet after its job: no act
+        // With the layer read: its jobs, its merge or the next layer's open; every layer merged, no
+        // layer map, or unread: next work (found, notice and entered work) is BOB's act.
+        next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready)) || view.kind === 'next' : work.some((x) => !x.after); // unmet after its job: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view });
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
@@ -260,7 +261,6 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
           if (ic) {
             const { reasons, ...rec } = ic;
             liveRow.idle_capacity = rec;
-            if (ic.dead) todo.push(`dead ends to the coordinator (a Process3 defect): ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'tell Bob by push notification'} with "${ic.dead.join('; ')}"`);
             if (ic.alarm) {
               const line = `IDLE CAPACITY: ${ic.live} job sessions live${listed ? ` (working ${f.working}, waiting ${f.waiting})` : ''} of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${ic.empty} empty slot${ic.empty === 1 ? '' : 's'}: ${reasons.join('; ')}`;
               found.push(line);

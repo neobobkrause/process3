@@ -12,6 +12,7 @@ import { fetchState, readState, writeState } from '../lib/state.mjs';
 import { nextWork } from '../lib/status.mjs';
 import { layerIdle, sweep } from '../lib/sweep.mjs';
 import { configOf, git } from '../lib/util.mjs';
+import { checkRow } from '../lib/gate.mjs';
 import { entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -196,4 +197,24 @@ test('sweep online: BOB is woken to open the next layer, then to start the open 
   assert.equal(last.startable, 2);
   assert.equal(last.idle_capacity.startable, 2);
   assert.equal(last.idle_capacity.layer, 1);
+});
+
+test('no layer map: openLayer says so, status names it, and the sweep still wakes BOB for next work', () => {
+  const root = withOrigin({ 'process/config.json': { tranche: 'tranche' }, 'build/requirements/a.md': REQ, 'process/ledger/a.json': entry('a', { requirements: 'build/requirements/a.md', status: { state: 'COMPLETE' } }) });
+  const cfg = configOf({ tranche: 'tranche' });
+  fetchState(root, SB, { fresh: true });
+  const v = openLayer(root, cfg, { slug: 'o/p', io: openIO });
+  assert.deepEqual(v, { kind: 'none' });
+  assert.match(layerLines(root, cfg, { view: v })[0], /no layer map .*jobs start on the tranche from next work/);
+  assert.equal(layerStartAct(v), `${P3} status --role bob (the layer flow's next act)`);
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const s = run(root, { offline: false, io: IO });
+  assert.ok(s.todo.some((x) => /wake BOB .*idle .*with next work: run node \.process\/tool\/p3\.mjs status --role bob/.test(x)), s.todo.join('\n'));
+});
+
+test('the gate row of a layer pull request (trigger layer) passes the post check', () => {
+  const row = { sha: 'a'.repeat(40), run_id: 1, trigger: 'layer', findings: 0, ok: true, minutes: 1 };
+  assert.doesNotThrow(() => checkRow(row));
+  assert.throws(() => checkRow({ ...row, trigger: 'spec-tested' }), /trigger/);
 });
