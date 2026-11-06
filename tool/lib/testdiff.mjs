@@ -113,6 +113,33 @@ const ASSERT_EXPECTED = (b, open) => {
   while (b[k - 1] === '.' && /^[\w$]+$/.test(b[k - 2] || '')) k -= 2;
   return b[k] === 'assert' && b[k - 1] !== '.' ? 'after-first' : null;
 };
+// Every use of name after its declaration at root, to the end of the enclosing block, is inside an
+// assertion's expected argument (assert.x(actual, <here>) or .toEqual(<here>)).
+function expectedOnly(b, name, root) {
+  if (!/^[A-Za-z_$][\w$]*$/.test(name || '')) return false;
+  const stack = [];
+  for (let k = 0; k < root; k++) { const t = b[k]; if ('([{'.includes(t)) stack.push(k); else if (')]}'.includes(t)) stack.pop(); }
+  let uses = 0;
+  for (let k = root, d = 0; k < b.length; k++) {
+    const t = b[k];
+    if ('([{'.includes(t)) { stack.push(k); d++; continue; }
+    if (')]}'.includes(t)) { stack.pop(); if (--d < 0) break; continue; }
+    if (t !== name || b[k - 1] === '.' || b[k + 1] === ':') continue;
+    if (k === root - 2) continue;
+    uses++;
+    const call = [...stack].reverse().find((q) => b[q] === '(');
+    if (call === undefined) return false;
+    const how = ASSERT_EXPECTED(b, call);
+    if (!how) return false;
+    if (how === 'after-first') {
+      let dd = 0;
+      let comma = false;
+      for (let q = call + 1; q < k; q++) { if ('([{'.includes(b[q])) dd++; else if (')]}'.includes(b[q])) dd--; else if (dd === 0 && b[q] === ',') comma = true; }
+      if (!comma) return false;
+    }
+  }
+  return uses > 0;
+}
 function addsProperties(b, run) {
   const stack = [];
   for (let k = 0; k < run.at; k++) { const t = b[k]; if ('([{'.includes(t)) stack.push(k); else if (')]}'.includes(t)) stack.pop(); }
@@ -143,7 +170,11 @@ function addsProperties(b, run) {
       if (!comma) return false;
     }
   } else if (!(before === '=' && ['const', 'let', 'var'].includes(b[root - 3]))) return false;
-  if (b[obj - 1] === '=' && ['const', 'let', 'var'].includes(b[obj - 2])) return false; // destructuring
+  // A fixture inside a test's body may be the input to the call under test: only one used solely as
+  // an assertion's expected value counts (cold review of the fixture-root fix: `const input = {`
+  // gaining `strict: true` before `f(input)` is a behaviour change).
+  else if (holder !== null && !expectedOnly(b, b[root - 2], root)) return false;
+  if (['const', 'let', 'var'].includes(b[obj - 1])) return false; // destructuring (`const {`)
   // The object's own keys (depth one), the run left out, and whether it holds a spread.
   const own = new Set();
   let d = 0;
@@ -156,6 +187,9 @@ function addsProperties(b, run) {
   }
   const t = run.toks;
   if (t.some((x) => x === ';' || x === '=>' || x === 'function' || x === '...')) return false;
+  // Plain data only: no call, construction, await or yield, and no assignment (cold review of the
+  // fixture-root fix: `b: await g(2)` or `c: assert.equal(f(), 3)` added a call, read as additive).
+  if (t.some((x, k) => ['new', 'await', 'yield', '='].includes(x) || (x === '(' && (k === 0 ? /^[\w$)\]]/.test(b[run.at - 1] || '') : /^[\w$)\]]/.test(t[k - 1]))))) return false;
   let k = 0;
   const lead = t[0] === ',';
   if (lead) k++;
