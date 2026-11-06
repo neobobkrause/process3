@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { jobComplete, jobStart } from '../lib/job.mjs';
@@ -116,6 +116,25 @@ test('a failed verify keeps its failure lines in the log and names the first in 
   const g = regenerate(root, [{ paths: ['gen/a.mjs'], regenerate: ['regen'], verify: ['verify'] }], { timeout: 60000, exec, log: (l) => log.push(l) });
   assert.match(log.join('\n'), /lines:\nnot ok 1 - bundles match program\.mjs\n# line 10\n/);
   assert.equal(g.findings[0].message, 'verify failed (exit 1) after regenerating: not ok 1 - bundles match program.mjs');
+});
+
+test('a committed generated file its regenerate changes is stale at the commit: a finding naming it and the command; a built one is not (copy, 6 Nov: order.mjs)', () => {
+  const root = makeRepo({ 'gen/order.mjs': 'old\n', 'gen/same.mjs': 'same\n', '.gitignore': '/built/\n' });
+  const exec = (cmd, args) => {
+    if (cmd === 'regen' && args[0] === 'order') writeFileSync(join(root, 'gen/order.mjs'), 'new\n');
+    if (cmd === 'regen' && args[0] === 'built') { mkdirSync(join(root, 'built'), { recursive: true }); writeFileSync(join(root, 'built/b.mjs'), 'b\n'); }
+    return { code: 0, stdout: '', stderr: '' };
+  };
+  const row = (x, p) => ({ paths: [p], regenerate: ['regen', x], verify: ['verify', x] });
+  const rows = [row('order', 'gen/order.mjs'), row('same', 'gen/same.mjs'), row('built', 'built/')];
+  const g = regenerate(root, rows, { timeout: 60000, exec, stale: true });
+  assert.deepEqual(g.findings.map((f) => [f.file, f.message]), [['gen/order.mjs', 'gen/order.mjs is stale at this commit: run regen order and commit it in this PR']]);
+  assert.deepEqual(g.ran.map((r) => r.stale || null), [['gen/order.mjs'], null, null]);
+  // A file another check names (a plain pull request's refreshed file, refreshCheck's) is not named stale too.
+  git(['checkout', '-q', '--', 'gen/order.mjs'], { cwd: root });
+  assert.deepEqual(regenerate(root, rows, { timeout: 60000, exec, stale: true, judged: ['gen/order.mjs'] }).findings, []);
+  // Layer checks (no stale option) report it as changed, as before.
+  assert.deepEqual(regenerate(root, rows, { timeout: 60000, exec }).findings, []);
 });
 
 test('regenerate runs in config order: a built row after a regenerated row is built again from its output', () => {
