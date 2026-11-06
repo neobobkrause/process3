@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseBlock, GATE, block } from '../lib/github.mjs';
-import { jobBlock, jobComplete, jobSender, jobStart, jobTest, startText } from '../lib/job.mjs';
+import { jobBlock, jobComplete, jobSender, jobStart, jobTest, recordTest, startText } from '../lib/job.mjs';
 import { merge } from '../lib/merge.mjs';
 import { status } from '../lib/status.mjs';
 import { checkLedger, readEntry } from '../lib/ledger.mjs';
@@ -851,6 +851,36 @@ test('freshness is the lock file\'s hash left by a good install; a lock with no 
   calls.length = 0;
   jobTest(root, 'alpha', { exec, log: quiet });
   assert.deepEqual(calls.map((c) => c.cwd), ['test']);
+});
+
+// The time budget (R9): every `p3 test` run is a row (module, session, minutes, result), red too.
+test('test writes a run row: module, session, minutes, result', () => {
+  const { root, exec } = locked(['test/package-lock.json'], { 'test/package-lock.json': lock(true) });
+  const rows = [];
+  const r = jobTest(root, 'alpha', { exec, log: quiet, session: 'session_abc', record: (x) => rows.push(x) });
+  assert.equal(r.ok, true);
+  assert.equal(rows.length, 1);
+  assert.deepEqual([rows[0].row, rows[0].module, rows[0].session, rows[0].result, rows[0].tests.pass], ['test', 'alpha', 'session_abc', 'pass', 1]);
+  assert.ok(Number.isFinite(rows[0].minutes) && rows[0].minutes >= 0);
+  assert.ok(rows[0].ended >= rows[0].started);
+  // A failed install is a row too.
+  jobTest(root, 'alpha', { exec: () => ({ code: 1, stdout: '', stderr: 'npm ERR!' }), log: quiet, session: 'session_abc', record: (x) => rows.push(x) });
+  writeFileSync(join(root, 'test/package-lock.json'), lock(true).replace('1.0.0', '3.0.0'));
+  jobTest(root, 'alpha', { exec: () => ({ code: 1, stdout: '', stderr: 'npm ERR!' }), log: quiet, record: (x) => rows.push(x) });
+  assert.equal(rows.at(-1).result, 'install failed');
+  // Recorded on the state branch: one file per run under tests/<module>/ outside a layer.
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-test-row-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const path = recordTest(root, { ...rows[0], state_branch: 'process-state' }, { log: quiet });
+  assert.match(path, /^tests\/alpha\/alpha-\d+-[0-9a-f]{8}\.json$/);
+  const kept = JSON.parse(git(['show', `refs/heads/process-state:${path}`], { cwd: bare }));
+  assert.deepEqual([kept.row, kept.module, kept.session, kept.result, kept.state_branch], ['test', 'alpha', 'session_abc', 'pass', undefined]);
+  // No origin to write to: said, never a refusal.
+  git(['remote', 'remove', 'origin'], { cwd: root });
+  const said = [];
+  assert.equal(recordTest(root, { ...rows[0], state_branch: 'process-state' }, { log: (m) => said.push(m) }), null);
+  assert.match(said.join('\n'), /the test row was not recorded/);
 });
 
 test('test stops, red, when a lock file it needs is missing', () => {

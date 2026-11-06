@@ -13,7 +13,7 @@ import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport,
-  layerStatus, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows,
+  layerStatus, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { configOf, git } from '../lib/util.mjs';
@@ -77,11 +77,11 @@ function jobWork(bare, id, files, { n = 1, from = `origin/layer/${n}` } = {}) {
   return h;
 }
 const prOf = (n, id, head, extra = {}) => ({ number: n, state: 'open', draft: false, base: { ref: 'layer/1' }, head: { ref: `job/${id}`, sha: head }, ...extra });
-const landIO = (bare, prs, { gate = 'success', open = [] } = {}) => ({
+const landIO = (bare, prs, { gate = 'success', open = [], comments = () => [] } = {}) => ({
   slug: 'o/p',
   getPR: (s, k) => prs[k],
   checkRun: () => ({ status: 'completed', conclusion: gate }),
-  comments: () => [],
+  comments,
   openPRs: () => open,
   merge: (s, k, sha, title) => ghMerge(bare, prs[k].base.ref, sha, title),
 });
@@ -407,6 +407,60 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   assert.equal(rep.lands, 4);
   assert.equal(rep.reschedules, 1);
   assert.equal(typeof rep.hours_open_to_merged, 'number');
+});
+
+// The time budget (R9): the land records the PR's gate runs as state rows (the gate's own token
+// only reads), and layer report sums each module's starts, wall, local test, gate and work minutes.
+test('time budget: a land writes its gate runs as rows; layer report sums them with the test and publish runs', async () => {
+  const { root, bare } = await opened();
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  const prs = { 1: prOf(1, 'c', hc) };
+  const gateRows = [
+    { sha: hc, run_id: 71, at: '2026-11-06T10:00:00Z', trigger: 'draft', suite: 'skipped', ok: true, minutes: 0.5 },
+    { sha: hc, run_id: 72, at: '2026-11-06T10:10:00Z', trigger: 'code', suite: 'pass', ok: true, minutes: 6, scope: ['c'], suite_seconds: 240, suite_by_module: { c: 240 } },
+  ];
+  const comments = () => [{ user: { login: BOT }, body: block(GATE, { runs: gateRows }) }];
+  await layerLand(root, 1, { io: landIO(bare, prs, { comments }), log: quiet });
+  // A second land of the same runs (a recovery, a re-read) would not add files: one file per run.
+  fetchState(root, SB, { fresh: true });
+  const rows = flowRows(root, SB, 1);
+  assert.deepEqual(rows.gates.map((g) => [g.module, g.pr, g.run_id, g.minutes, g.suite_minutes, g.record_only]), [['c', 1, 71, 0.5, null, true], ['c', 1, 72, 6, 4, false]]);
+  // A p3 test run and a publish run of c, after the opening.
+  const open = rows.open.at;
+  const later = (m) => new Date(Date.parse(open) + m * 60000).toISOString();
+  writeRows(root, SB, 'rows', [
+    [flowFile(1, 'test', 'c-1'), { row: 'test', layer: 1, module: 'c', session: 'session_x', started: later(1), ended: later(3), at: later(3), minutes: 2, result: 'pass' }],
+    [flowFile(1, 'run', 'c-1'), { row: 'run', layer: 1, module: 'c', round: 1, started: later(4), ended: later(7), at: later(7), minutes: 3, result: 'pass' }],
+  ]);
+  const rep = layerReport(root, 1, { log: quiet }).measures.time_budget;
+  const c = rep.per_module.find((x) => x.id === 'c');
+  assert.deepEqual([c.test_runs, c.local_test_minutes, c.gate_runs, c.gate_minutes, c.gate_suite_minutes, c.gate_record_only_minutes], [1, 5, 2, 6.5, 4, 0.5]);
+  assert.equal(rep.total.gate_minutes, 6.5);
+});
+
+test('time budget: wall from each start to its complete, work is wall minus local tests, null when unknown', () => {
+  const at = (m) => new Date(Date.UTC(2026, 10, 6, 10, m)).toISOString();
+  const attempts = {
+    a: [
+      { row: 'attempt', event: 'start', attempt: 1, at: at(0) }, { row: 'attempt', event: 'complete', attempt: 1, at: at(30) },
+      { row: 'attempt', event: 'start', attempt: 2, at: at(40) }, { row: 'attempt', event: 'complete', attempt: 2, at: at(50) },
+      { row: 'attempt', event: 'start', attempt: 0, at: '2026-11-05T00:00:00Z' }, // before the opening
+    ],
+    b: [{ row: 'attempt', event: 'start', attempt: 1, at: at(5) }], // still open: wall unknown
+  };
+  const tests = [{ module: 'a', minutes: 4, at: at(20) }, { module: 'b', minutes: 3, at: at(9) }];
+  const runs = [{ module: 'a', minutes: 6, at: at(29) }];
+  const gates = [{ module: 'a', minutes: 7, suite_minutes: 5, record_only: false }, { module: 'a', minutes: 1, suite_minutes: null, record_only: true }];
+  const b = timeBudget(['b', 'a'], { attempts, tests, runs, gates, since: '2026-11-06T09:00:00Z' });
+  assert.deepEqual(b.per_module.map((x) => [x.id, x.starts, x.open_attempts, x.wall_minutes, x.local_test_minutes, x.gate_minutes, x.gate_suite_minutes, x.gate_record_only_minutes, x.work_minutes]), [
+    ['a', 2, 0, 40, 10, 8, 5, 1, 30],
+    ['b', 1, 1, null, 3, 0, 0, 0, null],
+  ]);
+  assert.deepEqual(b.total, { starts: 3, wall_minutes: 40, wall_unknown_modules: 1, local_test_minutes: 13, gate_minutes: 8, gate_suite_minutes: 5, gate_record_only_minutes: 1, work_minutes: 30, test_share: 0.25, test_per_work: 0.33 });
+  assert.equal(budgetLine(b), 'time budget: 3 start(s); wall 40 min (1 module(s) unknown); local tests 13 min; gate 8 min (suites 5, record-only 1); work 30 min; tests 25% of wall, 0.33 per minute of work');
+  // Nothing known: nulls, never a guess.
+  const none = timeBudget(['b'], { attempts: { b: attempts.b } });
+  assert.deepEqual([none.total.wall_minutes, none.total.work_minutes, none.total.test_share, none.total.test_per_work], [null, null, null, null]);
 });
 
 test('layer merge runs the layer checks but no module suite: a red entry check refuses the merge; green, it merges and still no suite ran', async () => {

@@ -31,6 +31,7 @@ import { checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, op
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds } from './ledger.mjs';
+import { rowsAt } from './metrics.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
@@ -147,7 +148,7 @@ export function flowRows(root, sb, n) {
   const files = r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
   const rows = files.flatMap((f) => { try { return [JSON.parse(readState(root, sb, f))]; } catch { return []; } });
   const by = (k) => rows.filter((x) => x.row === k).sort((a, b) => String(a.at).localeCompare(String(b.at)));
-  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule') };
+  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule'), tests: by('test'), gates: by('gate') };
 }
 // One file per event, added and never edited: an existing file is the same event, kept.
 function addFiles(w, files) {
@@ -524,7 +525,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const runs = gateRuns(x.comments(slug, n0)).filter((q) => q?.sha);
   const at = now();
   const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_noticed: ic.changed ? later : [] };
-  const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land]];
+  const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land], ...gateFiles(n, id, n0, runs)];
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers }]);
     if (later.length) {
@@ -704,6 +705,26 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   return { findings, covered };
 }
 
+// The gate's minutes as state rows (R9, Bob, 6 Nov: the time budget). The gate's own token can
+// only read (shims/process-gate.yml: job gate reads, job post writes only the PR's comment), and
+// the owner's limits forbid widening it, so the land, which reads the PR's gate rows and writes
+// the state branch, records them: one row per gate run, its whole minutes, and its suite minutes
+// (this module's, or the run's when it ran this module alone), or record-only when no suite ran.
+// Keyed by the run (its run_id, else its head and time), so a run is one file however often seen.
+export const RECORD_ONLY = (r) => !['pass', 'fail', 'base-red'].includes(r.suite);
+export function gateRow(n, id, pr, r) {
+  const sec = Number.isFinite(r.suite_by_module?.[id]) ? r.suite_by_module[id]
+    : !r.suite_by_module && Array.isArray(r.scope) && r.scope.length === 1 && r.scope[0] === id && Number.isFinite(r.suite_seconds) ? r.suite_seconds : null;
+  const rec = RECORD_ONLY(r);
+  return {
+    row: 'gate', layer: n, module: id, pr, sha: r.sha, run_id: r.run_id ?? null, at: r.at ?? null, trigger: r.trigger ?? null, suite: r.suite ?? null, ok: r.ok ?? null,
+    minutes: Number.isFinite(r.minutes) ? r.minutes : null,
+    suite_minutes: rec || sec === null ? null : Math.round((sec / 60) * 100) / 100,
+    record_only: rec,
+  };
+}
+export const gateFiles = (n, id, pr, runs) => runs.map((r) => [flowFile(n, 'gate', `${safeName(id)}-${pr}-${r.run_id ?? `${short(r.sha)}-${Date.parse(r.at) || 0}`}`), gateRow(n, id, pr, r)]);
+
 // ---- layer report (the trial's measures) ----------------------------------------------------
 
 // How often a reschedule changed its user's result: the user's last finished run (pass or fail)
@@ -747,6 +768,56 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
   };
 }
 
+// The time budget (R9, Bob, 6 Nov: "how much time goes to tests versus real work"), per module of
+// the layer, from rows since the layer opened:
+//   starts               its job's start rows (metrics, on the layer branch);
+//   wall_minutes         each start to its complete (by attempt), summed; null when no attempt has
+//                        both (open_attempts counts those still without a complete);
+//   local_test_minutes   its `p3 test` rows and its layer publish runs (job complete's suite);
+//   gate_minutes         its gate runs' whole minutes (the land's gate rows), with suite_minutes
+//                        and record_only_minutes apart;
+//   work_minutes         wall minus local test; null when wall is null.
+// The layer total sums each; test_share is local test over wall, test_per_work local test over
+// work, both over the modules whose wall is known (null when none).
+const r2 = (x) => Math.round(x * 100) / 100;
+export function timeBudget(mods, { attempts = {}, tests = [], runs = [], gates = [], since = null } = {}) {
+  const after = (r) => !since || String(r.at ?? r.ended ?? '') >= String(since);
+  const sum = (xs) => r2(xs.reduce((t, x) => t + (Number.isFinite(x) ? x : 0), 0));
+  const per = [...mods].sort().map((id) => {
+    const rows = (attempts[id] || []).filter((r) => r.row === 'attempt' && after(r));
+    const starts = rows.filter((r) => r.event === 'start');
+    let wall = null;
+    let open = 0;
+    for (const st of starts) {
+      const c = rows.find((r) => r.event === 'complete' && (st.attempt === undefined || r.attempt === st.attempt) && String(r.at) >= String(st.at));
+      if (!c || !Number.isFinite(Date.parse(c.at)) || !Number.isFinite(Date.parse(st.at))) { open++; continue; }
+      wall = (wall ?? 0) + (Date.parse(c.at) - Date.parse(st.at)) / 60000;
+    }
+    const local = sum([...tests.filter((t) => t.module === id && after(t)).map((t) => t.minutes), ...runs.filter((t) => t.module === id && after(t)).map((t) => t.minutes)]);
+    const g = gates.filter((x) => x.module === id);
+    return {
+      id, starts: starts.length, open_attempts: open, wall_minutes: wall === null ? null : r2(wall),
+      test_runs: tests.filter((t) => t.module === id && after(t)).length, local_test_minutes: local,
+      gate_runs: g.length, gate_minutes: sum(g.map((x) => x.minutes)), gate_suite_minutes: sum(g.map((x) => x.suite_minutes)), gate_record_only_minutes: sum(g.filter((x) => x.record_only).map((x) => x.minutes)),
+      work_minutes: wall === null ? null : r2(wall - local),
+    };
+  });
+  const known = per.filter((x) => x.wall_minutes !== null);
+  const wall = sum(known.map((x) => x.wall_minutes));
+  const localKnown = sum(known.map((x) => x.local_test_minutes));
+  const work = sum(known.map((x) => x.work_minutes));
+  const total = {
+    starts: per.reduce((t, x) => t + x.starts, 0), wall_minutes: known.length ? wall : null, wall_unknown_modules: per.length - known.length,
+    local_test_minutes: sum(per.map((x) => x.local_test_minutes)), gate_minutes: sum(per.map((x) => x.gate_minutes)),
+    gate_suite_minutes: sum(per.map((x) => x.gate_suite_minutes)), gate_record_only_minutes: sum(per.map((x) => x.gate_record_only_minutes)),
+    work_minutes: known.length ? work : null,
+    test_share: known.length && wall > 0 ? r2(localKnown / wall) : null,
+    test_per_work: known.length && work > 0 ? r2(localKnown / work) : null,
+  };
+  return { per_module: per, total };
+}
+export const budgetLine = (b) => `time budget: ${b.total.starts} start(s); wall ${b.total.wall_minutes ?? 'unknown'} min${b.total.wall_unknown_modules ? ` (${b.total.wall_unknown_modules} module(s) unknown)` : ''}; local tests ${b.total.local_test_minutes} min; gate ${b.total.gate_minutes} min (suites ${b.total.gate_suite_minutes}, record-only ${b.total.gate_record_only_minutes}); work ${b.total.work_minutes ?? 'unknown'} min; tests ${b.total.test_share === null ? 'unknown' : `${Math.round(b.total.test_share * 100)}%`} of wall, ${b.total.test_per_work ?? 'unknown'} per minute of work`;
+
 export function layerReport(root, n, { log = console.log, toolFrom = null, toolTo = 'HEAD', toolRoot = null } = {}) {
   n = layerNum(n);
   const cfg = loadConfig(root);
@@ -754,6 +825,13 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
   fetchBranch(root, layerBranch(n), { allowFail: true });
   const rows = flowRows(root, cfg.state_branch, n);
   const m = trialMeasures(rows, { anc: (a, b) => isAnc(root, a, b) });
+  // The time budget: the layer's modules (its map, and every module its rows name), their start
+  // and complete rows as the layer branch holds them.
+  const lref = layerRef(n);
+  const mapped = layersAt(root, cfg, git(['rev-parse', '--verify', '-q', lref], { cwd: root, allowFail: true }).code === 0 ? lref : null).find((l) => l.n === n)?.mods || [];
+  const mods = new Set([...mapped, ...rows.runs.map((r) => r.module), ...rows.lands.map((l) => l.module), ...rows.tests.map((t) => t.module), ...rows.gates.map((g) => g.module)]);
+  const attempts = Object.fromEntries([...mods].map((id) => [id, rowsAt(root, lref, id)]));
+  m.time_budget = timeBudget(mods, { attempts, tests: rows.tests, runs: rows.runs, gates: rows.gates, since: rows.open?.at ?? null });
   if (toolFrom) {
     const st = git(['diff', '--shortstat', toolFrom, toolTo, '--', 'tool/'], { cwd: toolRoot || root, allowFail: true }).stdout.trim();
     const ins = Number(st.match(/(\d+) insertion/)?.[1] || 0);
@@ -762,6 +840,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
   }
   const c = m.reschedule_changed_result;
   log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
+  log(budgetLine(m.time_budget));
   log('the baseline: the same layer\'s history under the serial train (merge train report, and the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));
   return { ok: true, measures: m };

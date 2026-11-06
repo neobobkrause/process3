@@ -272,7 +272,7 @@ const commands = {
   hold: (a, root) => { hold(root, a._[0], { why: a.why, by: a.by, until: a.until, prs: a.prs, ...(a.end !== undefined ? { end: a.end } : {}) }); return 0; },
 
   // test <id>: the module's own suite, as the gate runs it.
-  test: (a, root) => (jobTest(root, one(a, 'module')).ok ? 0 : 1),
+  test: (a, root) => (jobTest(root, one(a, 'module'), { session: typeof a.session === 'string' ? a.session : null }).ok ? 0 : 1),
 
   // block <id> --reason "<why>" [--owner bob|coordinator]: who owes its ruling; bob only for a requirement question, what the product must do (rule 9)
   block: (a, root) => (jobBlock(root, one(a, 'module'), { reason: a.reason, owner: a.owner }).ok ? 0 : 1),
