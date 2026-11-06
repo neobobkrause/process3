@@ -806,3 +806,8 @@
 - 05:18 BOB: the ux lane's one-row PR 620 was refused as plain ('module files ... (ux-design)'): merge.mjs's plain check lacks the gate's lane-only exemption (isRecordOrLane), against Bob's approvals on lane-folder PRs. RULED: (1) reopen ux-design for the one row on today's pin (hold-22 lifted for it alone) and re-run close 6, so layer 6 closes on the old pin (SLB-10). The merge.mjs lane-only fix goes into PR 186 for the pin move.
 - 05:39 MERGER alarm: 'layer 6 ready to close: job start --ready closes it, then starts the next layer's work'. Told the MERGER not to run job start --ready or layer close and to start nothing for the next layer; BOB closes layer 6 by hand after the ux-design row lands; holds 18-22 stand. PR 186 now carries the lane-only plain merge (lane-plain.test.mjs, 1050/1050, ci green on 9ef1bb9).
 - 05:40 MERGER stopped its starter (auto start) at 05:39 so it cannot close layer 6 or start next-layer work; the train keeps merging. Agreed: the starter stays off through the pause (BOB starts by hand, e.g. the ux-design reopen); the layer branch retires it (SLB-8).
+
+## 05:51 hourly flow (6 Nov)
+- Lands 04:51-05:51: 622 (the ux-design row, after 620/621 were refused as plain; the merge.mjs lane-only fix is in PR 186) plus 619 if it has landed (unchecked). Layer close 6 is being re-run since 05:37 on the tip after 622.
+- Starter off since 05:39 (MERGER); nothing starts unless BOB starts it. Live jobs 3, all waiting; holds 18-23 stand.
+- Next: when close 6 passes, merge process3 183, 185, 186, 187, 181 and 184 (each brought up to tranche, green), then the copy pin move, the dist pass by --pass, and layer 7 opens as the trial (baseline recorded 05:10).
