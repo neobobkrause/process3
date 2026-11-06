@@ -950,3 +950,4 @@
 - process3 in the hour: 198, 195, 196 and 200 merged; 201 is on ci; 191 (c041b43) and 199 are clean drafts. ci times are 7-10 min, within R2.
 - Alive: BOB, the 3 lanes, builders etceetVvq (201 + follow-up) and ef7TXuV (191/199); ef1pxNY idle with an empty queue. Own context is 42%. The hourly prompt was updated to the current queue.
 - Moving with urgency: yes.
+- 18:02 Lanes: publication (671) and ux (672) QUALIFIED; investigation still qualifying. F1 answered by the publication lane and recorded: same-sitting NS_DOCKET filing via door op docketrecordedition, no ratification→docket edge, ratification F1 met by design, work moves to docket R33/R9(b)/R32 and screens-publish R13. F1(2), a scheduled edition's unattended signature, goes to Bob with A recommended. BD-3: screens and words stay with ux. ux Q1/Q2 go to Bob. Q3-Q10 RULED by me (see message). Lane checks on lane-only PRs to builder.
