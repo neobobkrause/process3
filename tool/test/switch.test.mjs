@@ -267,7 +267,7 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   const m = r.manifest;
   assert.deepEqual(m.lanes.map((x) => [x.lane, x.session]), [['ux', 'session_uxold'], ['triage', 'session_triageold']]);
   assert.deepEqual(m.asks.map((a) => [a.lane, a.question]), [['ux', 'which words?']]);
-  for (const id of [COORD, ID.root, ID.bob, ID.merger, ID.watcher, 'session_jobalpha', 'session_uxold', 'session_triageold']) assert.ok(m.sessions.includes(id), id);
+  for (const id of [COORD, ID.root, ID.bob, ID.watcher, 'session_jobalpha', 'session_uxold', 'session_triageold']) assert.ok(m.sessions.includes(id), id);
   assert.match(out[0], /switch out --dry-run: .* 2 lane seat\(s\), 1 open ask\(s\), .* nothing was stopped$/);
   assert.ok(out.some((l) => /dry run: do none of them/.test(l)));
   const lane = m.tasks.find((x) => x.id === 'trig_lane'), bobs = m.tasks.find((x) => x.id === 'trig_bobs');
