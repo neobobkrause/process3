@@ -5,14 +5,14 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, block } from '../lib/github.mjs';
+import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
 import { jobStart, jobSync, startText } from '../lib/job.mjs';
 import { startReady } from '../lib/ready.mjs';
 import { bobPrompt } from '../lib/roles.mjs';
 import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
 import {
-  flowRows, interfaceChange, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport,
+  flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
   layerStatus, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
@@ -85,6 +85,8 @@ const landIO = (bare, prs, { gate = 'success', open = [], comments = () => [] } 
   comments,
   openPRs: () => open,
   merge: (s, k, sha, title) => ghMerge(bare, prs[k].base.ref, sha, title),
+  // An additive change's retests (layer retest) are their own tests'.
+  retest: () => { throw new Error('no retest in this test'); },
 });
 const openIO = { slug: 'o/p', openPRs: () => [] };
 
@@ -194,35 +196,52 @@ test('Public / Provides: the section under ## Public, unmet marks and spacing le
   assert.equal(providesText(req('a', '- a(x)')), providesText(req('a', '-  a(x)  ')));
 });
 
-test('interface signal: an export change or a Provides change counts; a change inside the module does not', () => {
+test('interface signal (R8): an export added, removed or of another kind counts; a parameter change, a Provides rewording or an inner change does not, though the old rule fired', () => {
   const { root } = product();
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
   const inner = commit(root, { 'src/a/index.mjs': 'export function a(x) { const y = x; return y; }\n' }, 'inner');
   assert.equal(interfaceChange(root, cfg, 'a', base, inner).changed, false, 'implementation only');
-  const exp = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' }, 'signature');
-  const x = interfaceChange(root, cfg, 'a', inner, exp);
-  assert.equal(x.changed, true);
-  assert.deepEqual(x.exports.changed.map((c) => c.name), ['a']);
+  const sig = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' }, 'signature');
+  const s1 = interfaceChange(root, cfg, 'a', inner, sig);
+  assert.deepEqual([s1.changed, s1.triggers, s1.triggers_old], [false, [], ['exports']], 'a parameter change is recorded, not a trigger');
+  assert.match(interfaceText(s1), /changed the parameters of a function\(x\) -> function\(x, y\) \(not a trigger\)/);
+  const added = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' }, 'added');
+  const s2 = interfaceChange(root, cfg, 'a', sig, added);
+  assert.deepEqual([s2.changed, s2.triggers], [true, ['exports']]);
+  assert.deepEqual(s2.class, 'additive');
+  assert.match(interfaceText(s2), /^added a2; additive: each user is retested by its gate alone$/);
+  const kind = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport function a2() { return 1; }\n' }, 'kind');
+  const k = interfaceChange(root, cfg, 'a', added, kind);
+  assert.match(interfaceText(k), /changed the kind of a2 value -> function\(\).*breaking/);
+  const gone = commit(root, { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' }, 'removed');
+  const g = interfaceChange(root, cfg, 'a', kind, gone);
+  assert.deepEqual([g.exports.removed, g.class], [['a2'], 'breaking']);
   const marks = commit(root, { 'req/a.md': req('a').replace(' *(not yet met: T1)*', '') }, 'mark struck');
-  assert.equal(interfaceChange(root, cfg, 'a', exp, marks).changed, false, 'a struck mark outside Provides');
+  assert.equal(interfaceChange(root, cfg, 'a', gone, marks).changed, false, 'a struck mark outside Provides');
   const prov = commit(root, { 'req/a.md': req('a', '- a(x, y) returns their sum') }, 'provides');
   const p = interfaceChange(root, cfg, 'a', marks, prov);
-  assert.equal(p.changed, true);
+  assert.deepEqual([p.changed, p.triggers_old], [false, ['provides-text']], 'a Provides rewording is a notice, not a reschedule');
   assert.ok(p.provides);
 });
 
-test('interface signal: a changed provider test naming a Public / Provides requirement counts (a return shape the exports do not show); the trigger is named', () => {
+test('interface signal (R8): a provider test naming a Provides requirement counts only when what it asserts changes; its name or id label alone does not', () => {
   const { root } = product();
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
-  const base = commit(root, { 'req/a.md': req('a', '- **R2** `materials(x)` answers the list of materials'), 'test/a/r2.test.mjs': "import test from 'node:test'; test('R2 answers a list', () => {});\n", 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private', () => {});\n" }, 'R2 in Provides');
-  // The answer's shape changes ({materials: [...]}); the exports and the Provides text do not.
-  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r2.test.mjs': "import test from 'node:test'; test('R2 answers {materials: [...]}', () => {});\n" }, 'shape');
-  const x = interfaceChange(root, cfg, 'a', base, shape);
+  const t = (name, want) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../../src/a/index.mjs';\ntest('${name}', () => { assert.deepEqual(a(1), ${want}); });\n`;
+  const base = commit(root, { 'req/a.md': req('a', '- **R2** `a(x)` answers the list of materials\n- **R3** more'), 'test/a/r2.test.mjs': t('R2 answers a list', '[1]'), 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private', () => {});\n" }, 'R2 in Provides');
+  // Only its name and id label change: no trigger, though the old rule fired.
+  const label = commit(root, { 'test/a/r2.test.mjs': `// the list\n${t('R3 answers the list of materials', '[1]')}` }, 'label');
+  const l = interfaceChange(root, cfg, 'a', base, label);
+  assert.deepEqual([l.changed, l.triggers_old], [false, ['provides-test']]);
+  // The answer's shape changes ({materials: [...]}): the expected value changes, the exports do not.
+  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r2.test.mjs': t('R2 answers {materials: [...]}', '{ materials: [1] }') }, 'shape');
+  const x = interfaceChange(root, cfg, 'a', label, shape);
   assert.equal(x.exports, null);
   assert.equal(x.provides, null);
   assert.deepEqual(x.provides_tests, ['test/a/r2.test.mjs']);
   assert.deepEqual(x.triggers, ['provides-test']);
+  assert.match(interfaceText(x), /r2\.test\.mjs: breaking/);
   // A test of a requirement not in Provides changes nothing.
   const priv = commit(root, { 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private, again', () => {});\n" }, 'private test');
   assert.equal(interfaceChange(root, cfg, 'a', shape, priv).changed, false);
@@ -284,7 +303,7 @@ test('halt and restart: a reschedule mid-run kills the run at once, records the 
   git(['fetch', '-q', 'origin'], { cwd: root });
   git(['checkout', '-q', '-B', 'job/b', 'origin/job/b'], { cwd: root });
   // a lands on the layer while b's first run goes; the land's reschedule names b.
-  const aHead = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const aHead = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   let killed = 0;
   let round = 0;
   const tips = [];
@@ -329,7 +348,7 @@ test('land: no combined re-test; an interface change reschedules users in the la
   const { root, bare } = await opened();
   // c lands first; a's PR is behind the layer tip and lands anyway (disjoint files).
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'a', ha) };
   const lines = [];
   const rc = await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
@@ -352,7 +371,7 @@ test('land: no combined re-test; an interface change reschedules users in the la
 test('land: a run that started before a provider\'s newest interface change never counts', async () => {
   const { root, bare } = await opened();
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha), 2: prOf(2, 'b', hb) };
   await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
   await assert.rejects(layerLand(root, 2, { io: landIO(bare, prs), log: quiet }), /started before a's interface change .* it never counts/);
@@ -375,7 +394,7 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'c', hc) };
   await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
   await layerLand(root, 2, { io: landIO(bare, prs), log: quiet });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export class a { constructor(x, y) { this.v = x * y; } }\n' });
   prs[3] = prOf(3, 'a', ha);
   await layerLand(root, 3, { io: landIO(bare, prs), log: quiet });
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
@@ -492,7 +511,7 @@ test('the gate\'s layer trigger: each module covered by a verified green land; a
   const { root, bare } = await opened();
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(7);\n" });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x - y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x - y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'b', hb), 3: prOf(3, 'a', ha) };
   const mergedAs = {};
   const io0 = landIO(bare, prs);
@@ -573,7 +592,7 @@ test('the gate: a ready job PR into a layer branch runs its suite even when it c
 
 test('the gate\'s layer trigger: a user of the layer that never re-ran after its provider\'s interface change is a finding; a head whose newest run is red covers nothing', async () => {
   const { root, bare } = await opened();
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y + 1; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x * y + 1; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha) };
   let mergedAs = null;
   const io0 = landIO(bare, prs);
@@ -596,7 +615,7 @@ test('the gate\'s layer trigger: a user of the layer that never re-ran after its
 
 test('land: a merge GitHub made whose land was never recorded is recorded on a second run, reschedules included', async () => {
   const { root, bare } = await opened();
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return [x, y]; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return [x, y]; }\nexport const a2 = 1;\n' });
   const m = ghMerge(bare, 'layer/1', ha, 'Merge layer PR 8');
   const io = landIO(bare, { 8: prOf(8, 'a', ha, { state: 'closed', merged: true, merge_commit_sha: m.sha }) });
   const r = await layerLand(root, 8, { io: { ...io, merge: () => assert.fail('no second merge') }, log: quiet });
@@ -644,7 +663,7 @@ test('the gate: a job PR into a layer branch that changes only its requirements 
 
 test('the gate\'s layer trigger: a BLOCKED user is deferred, not a finding; a records-since-green newest row stands on the run it names', async () => {
   const { root, bare } = await opened();
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x % y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x % y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha) };
   let mergedAs = null;
   const io0 = landIO(bare, prs);
@@ -680,7 +699,7 @@ test('closed layers are this tranche\'s only: a close row of another tranche, or
 test('a BLOCKED module whose code is on the layer is judged as any: a provider\'s later interface change is still a finding', async () => {
   const { root, bare } = await opened();
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(8);\n" });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x ** y; }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x ** y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'a', ha) };
   const mergedAs = {};
   const io0 = landIO(bare, prs);
@@ -887,4 +906,198 @@ test('layer merge: a carried entry\'s add/add conflict with the tranche is merge
   const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
   assert.throws(() => carriedSync(root, cfg, 1, rl(root, cfg, 1, { io: openIO, slug: 'o/p' }), quiet), /layer\/1 and tranche conflict in src\/c\/index\.mjs.*nothing was opened/);
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], tip);
+});
+
+// Coordinator, 6 Nov (R7): a provider's land rescheduled 12 users, most COMPLETE before the layer
+// opened with no code on it, each re-test a whole job session. The gate's trust stays with CI.
+test('layer retest: a rescheduled module with no work on the layer gets a records-only ready PR carrying its last receipt; its land clears the reschedule, and the report counts it', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  // The land's own retest is left to this test (a stub that opens nothing and refuses nothing).
+  await layerLand(root, 1, { io: { ...landIO(bare, prs), retest: () => ({ pr: null }) }, log: quiet });
+  const jl = [];
+  const j = layerJobs(root, 1, { io: openIO, log: (l) => jl.push(l) });
+  assert.deepEqual(j.states.find((s) => s.id === 'b').state, 'rescheduled');
+  // a's change is additive (an added export): the retest is b's way, the job its fallback.
+  assert.equal(j.startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
+  assert.ok(jl.some((l) => /additive change: a red retest falls back to .*job start b/.test(l)));
+  const first = git(['rev-list', '--max-parents=0', 'origin/tranche'], { cwd: root });
+  const receipt = { kind: 'receipt', module: 'b', attempt: 1, sha: first, commands: [], exempt: {} };
+  const made = [];
+  const posted = [];
+  const io = {
+    slug: 'o/p', openPRs: () => [],
+    prsFromBranch: () => [{ number: 40, state: 'closed', merged_at: '2026-11-05T00:00:00Z', user: { login: 'civicsmith' } }],
+    comments: (s, k) => (k === 40 ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : []),
+    createPR: (s, p) => { made.push(p); return { number: 41 + made.length - 1, ...p }; },
+    addComment: (s, k, body) => { posted.push([k, body]); return { id: 2 }; },
+    markReady: (s, k) => { posted.push([k, 'ready']); },
+    jobHeads: () => new Set(git(['ls-remote', '--heads', 'origin', 'refs/heads/job/*'], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t')[1].replace('refs/heads/', ''))),
+  };
+  assert.throws(() => layerRetest(root, 'b', { io: { ...io, prsFromBranch: () => [] }, log: quiet }), /no receipt of b on a merged pull request from job\/b that layer\/1 holds: a job re-tests it/);
+  assert.equal(made.length, 0);
+  const lines = [];
+  const r = layerRetest(root, 'b', { io, log: (l) => lines.push(l) });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.equal(git(['rev-parse', 'origin/job/b'], { cwd: root }), r.head);
+  assert.equal(git(['rev-parse', `${r.head}^`], { cwd: root }), tip, 'one commit on the layer tip');
+  assert.deepEqual(git(['diff', '--name-only', tip, r.head], { cwd: root }), 'process/metrics/b.jsonl', 'records only');
+  assert.deepEqual([made[0].head, made[0].base, made[0].draft], ['job/b', 'layer/1', true]);
+  assert.equal(posted[0][0], 41);
+  assert.equal(parseBlock(posted[0][1], RECEIPT).sha, first, 'its last receipt carried');
+  assert.deepEqual(posted[1], [41, 'ready'], 'marked ready only after the receipt is on it');
+  // Red, say: PR 41 is closed; a second retest takes the layer into job/b by a merge, no rewrite.
+  const closed = { number: 41, state: 'closed', merged_at: null, user: { login: 'civicsmith' } };
+  const io2 = { ...io, prsFromBranch: () => [closed, ...io.prsFromBranch()] };
+  const r2 = layerRetest(root, 'b', { io: io2, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.equal(git(['merge-base', '--is-ancestor', r.head, r2.head], { cwd: root, allowFail: true }).code, 0, 'a fast-forward of job/b');
+  assert.deepEqual(git(['diff', '--name-only', tip, r2.head], { cwd: root }), 'process/metrics/b.jsonl', 'records only');
+  // A job branch of b holding work the layer lacks refuses (a fresh start whose PR never opened).
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/b-2', 'origin/layer/1'], { cwd: d });
+  commit(d, { 'src/b/index.mjs': 'export const b = 2;\n' }, 'job start b (attempt 2)');
+  git(['push', '-q', 'origin', 'job/b-2'], { cwd: d });
+  assert.throws(() => layerRetest(root, 'b', { io: { ...io2, prsFromBranch: () => [closed, { ...closed, number: 42 }, ...io.prsFromBranch()] }, log: quiet }), /origin's job\/b-2 at .* has work layer\/1 lacks: a job re-tests it/);
+  git(['push', '-q', 'origin', ':job/b-2'], { cwd: d });
+  prs[41] = prOf(41, 'b', r2.head);
+  assert.ok(lines.some((l) => /PR 41 from job\/b, ready; the gate runs its whole suite. Green: .*layer land 41/.test(l)));
+  // CI's gate is green on its head: the merge tool lands it, and b is complete.
+  const land = await layerLand(root, 41, { io: landIO(bare, prs), log: quiet });
+  assert.equal(land.land.retest, true);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((s) => s.id === 'b').state, 'complete');
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  assert.deepEqual([m.retests, m.retest_lands], [2, 1]);
+  // Not rescheduled now: refused.
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /b is complete: layer retest is for a rescheduled module/);
+});
+
+test('layer retest: a module whose own work landed on the layer is retested; one with work the layer lacks is refused, naming the job start', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' });
+  const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'a', ha) };
+  for (const k of [1, 2]) await layerLand(root, k, { io: landIO(bare, prs), log: quiet });
+  // Its land's retest was refused (the stub): layer jobs now leads with b's job.
+  assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
+  // b's job branch holds work the layer lacks (pushed, never landed).
+  jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
+  const io = { slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: () => assert.fail('no PR'), addComment: () => assert.fail('no comment') };
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /origin's job\/b at .* has work layer\/1 lacks: a job re-tests it: .*job start b --live <n> --reopen "re-test against the new interface of a"/);
+  assert.throws(() => layerRetest(root, 'c', { io, log: quiet }), /c is complete/);
+});
+
+// Bob, 6 Nov (R8): publication's land in layer 8 rescheduled 12 users, most COMPLETE.
+test('land (R8): a reworded Provides text reschedules no one and leaves a notice for the users; an added export retests them; the report counts both rules', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h1 = jobWork(bare, 'a', { 'req/a.md': req('a', '- a(x) returns x, unchanged').replace(' *(not yet met: T1)*', '') });
+  const prs = { 1: prOf(1, 'a', h1) };
+  const lines = [];
+  const r1 = await layerLand(root, 1, { io: landIO(bare, prs), log: (l) => lines.push(l) });
+  assert.deepEqual([r1.land.users_rescheduled, r1.land.users_rescheduled_old_rule, r1.land.users_noticed], [[], ['b'], ['b', 'd']]);
+  assert.ok(lines.some((l) => /provider notice a:1 for 2 user\(s\), its Public \/ Provides text changed \(no reschedule\): b, d/.test(l)));
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(JSON.parse(readState(root, SB, 'notices/a-1.json')).users, ['b', 'd']);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((s) => s.id === 'b').state, 'complete');
+  // An added export (additive): b is retested by its gate alone, not rescheduled for a job.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' }, 'a2');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[2] = prOf(2, 'a', h2);
+  const opened = [];
+  const r2 = await layerLand(root, 2, { io: { ...landIO(bare, prs), retest: (r, u) => { opened.push(u); return { pr: { number: 70 } }; } }, log: quiet });
+  assert.deepEqual([r2.land.users_rescheduled, r2.land.interface.triggers, r2.land.interface.class], [['b'], ['exports'], 'additive']);
+  assert.deepEqual([opened, r2.retests], [['b'], [{ user: 'b', pr: 70 }]]);
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  // The stub opened no retest row for b, so b's re-test is still counted as a job: 1 avoided (the Provides land's).
+  assert.deepEqual([m.reschedules, m.retests_owed, m.reschedules_old_rule, m.reschedules_avoided, m.lands_additive, m.lands_breaking], [0, 1, 2, 1, 1, 0]);
+  assert.deepEqual([m.triggers_old_rule['provides-text'], m.triggers_new_rule['provides-text'], m.triggers_new_rule.exports], [1, 0, 1]);
+  assert.equal(typeof m.reschedule_changed_result.unknown, 'number', 'reschedule_changed_result still counts');
+  assert.equal(m.reschedule_changed_result.rows.length, 1);
+});
+
+test('land (R8): exports that cannot be read refuse the land, naming what could not be read; nothing is merged', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  let merged = 0;
+  const io = { ...landIO(bare, { 1: prOf(1, 'a', h) }), merge: () => { merged++; return {}; }, interfaceChange: () => ({ unread: 'git show failed for src/a/index.mjs' }) };
+  await assert.rejects(layerLand(root, 1, { io, log: quiet }), /refused: a's exports could not be read at .* \(git show failed for src\/a\/index\.mjs\); the job fixes what cannot be read and publishes again; nothing was merged/);
+  assert.equal(merged, 0);
+});
+
+test('layer retest refuses a rescheduled module with unmet requirement marks: a job meets them', async () => {
+  const { root, bare } = product();
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', ha) }), log: quiet });
+  const j = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.equal(j.states.find((s) => s.id === 'b').state, 'rescheduled');
+  assert.equal(j.startable.find((x) => x.id === 'b').retest, undefined, 'not offered');
+  assert.throws(() => layerRetest(root, 'b', { io: { slug: 'o/p', openPRs: () => [] }, log: quiet }), /b has unmet requirement marks \(R1\): a job meets them: .*job start b --live <n> --reopen "meet the unmet requirement marks R1/);
+});
+
+// Bob's refinement "c" (6 Nov), on the copy's layer 8: publication 632 added the export
+// Publication.renderingsByPixels, and the expected rows of g47t-miniflare and g47t-registry gained
+// `pixels_sha256: null`. It rescheduled 12 users; 8 re-ran as job sessions and none changed a result.
+test('publication 632: an added export and expected rows that only gain a key are additive, so each user gets a gate-only retest; a changed expected value is breaking', async () => {
+  const pub = "export class Publication {\n  renderings(id) { return []; }\n}\n";
+  const rows = (extra) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { Publication } from '../../src/a/index.mjs';\nconst expected = [\n  { id: 'p1', status: 'published', pages: 3${extra} },\n  { id: 'p2', status: 'draft', pages: 1${extra} },\n];\ntest('R2 the registry lists the renderings', () => {\n  assert.deepEqual(new Publication().renderings('x'), expected);\n});\n`;
+  const { root, bare } = product({ done: true, over: {} });
+  const d0 = clone(bare);
+  git(['checkout', '-q', '-B', 't', 'origin/tranche'], { cwd: d0 });
+  commit(d0, { 'src/a/index.mjs': pub, 'req/a.md': req('a', '- **R2** the registry lists the renderings').replace(' *(not yet met: T1)*', ''), 'test/a/g47t-registry.test.mjs': rows(''), 'test/a/g47t-miniflare.test.mjs': rows('').replace('registry lists', 'miniflare lists') }, 'publication before 632');
+  git(['push', '-q', 'origin', 't:tranche'], { cwd: d0 });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h = jobWork(bare, 'a', {
+    'src/a/index.mjs': "export class Publication {\n  renderings(id) { return []; }\n  renderingsByPixels(sha) { return []; }\n}\n",
+    'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null'),
+    'test/a/g47t-miniflare.test.mjs': rows(', pixels_sha256: null').replace('registry lists', 'miniflare lists'),
+  });
+  const prs = { 632: prOf(632, 'a', h) };
+  const opened = [];
+  const r = await layerLand(root, 632, { io: { ...landIO(bare, prs), retest: (x, u) => { opened.push(u); return { pr: { number: 700 + opened.length } }; } }, log: quiet });
+  const ic = r.land.interface;
+  assert.equal(ic.class, 'additive');
+  assert.deepEqual(ic.exports.added, ['Publication.renderingsByPixels']);
+  assert.deepEqual(ic.provides_test_changes.map((x) => [x.file, x.class, x.why]), [['test/a/g47t-miniflare.test.mjs', 'additive', 'added pixels_sha256; pixels_sha256'], ['test/a/g47t-registry.test.mjs', 'additive', 'added pixels_sha256; pixels_sha256']]);
+  assert.deepEqual(opened, ['b'], 'each user in the layer retested by its gate alone');
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(flowRows(root, SB, 1).reschedules.map((x) => [x.user, x.class]), [['b', 'additive']]);
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
+  // A changed expected value is breaking: a job each, no retest opened.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null').replace("status: 'draft'", "status: 'withdrawn'") }, 'a value');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[633] = prOf(633, 'a', h2);
+  const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: () => assert.fail('no retest for a breaking change') }, log: quiet });
+  assert.deepEqual([r2.land.interface.class, r2.land.users_rescheduled], ['breaking', ['b']]);
+});
+
+test('layer retest refuses a module owed a job for a breaking change, even when an additive one followed (the retest\'s land would clear both)', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h1 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export class a { constructor(x) { this.v = x; } }\n' });
+  const prs = { 1: prOf(1, 'a', h1) };
+  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'src/a/index.mjs': 'export class a { constructor(x) { this.v = x; } }\nexport const a2 = 1;\n' }, 'additive');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[2] = prOf(2, 'a', h2);
+  const lines = [];
+  const r = await layerLand(root, 2, { io: { ...landIO(bare, prs), retest: undefined }, log: (l) => lines.push(l) });
+  assert.equal(r.land.interface.class, 'additive');
+  assert.match(r.retests[0].refused, /b owes a job for a's breaking change/);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 1).retest_refusals.length, 1, 'the refusal is kept');
+  assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
 });
