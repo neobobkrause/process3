@@ -764,3 +764,4 @@
 - Live jobs are few by design, with holds 18-22 on layers 7-11.
 - process3 PRs for the pause: 183 (1b114c4), 185 (c5469cd), 181 (0ad366e), 184 (eddf0aa), 186 (8f1f308, mechanical pass + push refusal; builder still to report). 178 and 158 untouched.
 - Bob's answers in; documents updated. UX lane: ux-design 538 landed 00:59.
+- 01:55 PR 186 (mechanical pass + push refusal) at 8f1f308: 1048/1048; cold review found no way around ARC-2 and 3 issues, all fixed (live jobs re-checked before merge, a failed fetch counts as unread, BLOCKED is not live). Accepted. Merge order at the pause: 183, 185, 186, 181, 184, each builder merging tranche in and going green before I merge.
