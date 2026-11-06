@@ -47,10 +47,12 @@ test('hold: a row on the state branch, printed first by status with who, why and
   hold(root, undefined, { end: 'hold-1', by: S, log: quiet });
   assert.throws(() => hold(root, undefined, { end: 'hold-1', by: S, log: quiet }), /holds nothing already \(ended\)/);
   assert.match(lines(root)[0], /^holds: 1 live/);
-  // Every hold expires within two hours, whoever sets it and however wide; no Bob path.
-  assert.throws(() => hold(root, 'slots:2', { why: 'x', by: S, until: '3h', log: quiet }), /refused: a hold expires within 2 hours; to hold longer, set a new hold with its reason/);
+  // No forced renewal: a hold may run as long as its setter says, whoever sets it; no Bob path.
+  assert.equal(hold(root, 'slots:2', { why: 'x', by: S, until: '30h', log: quiet }).id, 'hold-3');
   assert.throws(() => hold(root, 'slots:1', { why: 'x', by: 'bob', until: '10m', log: quiet }), /--by <your session id/);
-  assert.equal(hold(root, 'layer:2', { why: 'wide is fine', by: S, until: '2h', log: quiet }).id, 'hold-3');
+  assert.equal(hold(root, 'layer:2', { why: 'wide is fine', by: S, until: '2h', log: quiet }).id, 'hold-4');
+  assert.throws(() => hold(root, 'slots:1', { why: 'x', by: S, log: quiet }), /--prs <n>\[,<n>\.\.\.\] \(the pull requests whose land ends the hold\) or --until/);
+  assert.throws(() => hold(root, 'slots:1', { why: 'x', by: S, prs: '12,x', log: quiet }), /--prs <n>\[,<n>\.\.\.\]: the pull requests the hold waits on/);
   assert.throws(() => hold(root, 'room:1', { why: 'x', by: S, until: '10m' }), /module:<id>, layer:<n> or slots:<n>/);
   assert.throws(() => hold(root, 'slots:1', { why: 'x', by: S, until: ago(1) }), /a future time/);
   assert.throws(() => hold(root, 'slots:1', { why: 'x', by: 'me', until: '10m' }), /--by <your session id/);
@@ -74,6 +76,30 @@ test('hold: a longer hold is a visible chain of renewals, each with its reason; 
     { at: at(5.5), row: 'hold', id: 'hold-4', scope: 'module:a', why: 'split', by: 'session_x1', until: at(7.5), renews: 'hold-3' },
   ];
   assert.deepEqual(holdHours(rows, at(1), at(6)), [{ by: S, why: 'gate queue full', holds: 2, hours: 2 }, { by: 'session_x1', why: 'split', holds: 2, hours: 1 }]);
+});
+
+test('hold --prs: it lasts until each named pull request has landed on the tranche, with no time limit; or its --until, the first', (t) => {
+  setJobCap(t, 20);
+  const root = withOrigin();
+  const r = hold(root, 'module:a', { why: 'its provider PR 12 and 13 land first', by: S, prs: '12, 13', log: quiet });
+  assert.deepEqual([r.prs, r.until], [[12, 13], undefined]);
+  assert.match(lines(root)[1], /^- hold-1 module:a, by session_coord1, until PR 12, 13 land: its provider PR 12 and 13 land first$/);
+  const land = (subject) => { git(['checkout', '-q', 'tranche'], { cwd: root }); git(['commit', '-q', '--allow-empty', '-m', subject], { cwd: root }); git(['push', '-q', 'origin', 'tranche'], { cwd: root }); git(['fetch', '-q', 'origin'], { cwd: root }); };
+  land('Merge job PR 12');
+  assert.match(lines(root)[1], /^- hold-1 module:a, by session_coord1, until PR 13 lands: /);
+  land('Merge pull request #13 from o/build-x');
+  assert.match(lines(root)[0], /^holds: 0 live, 1 expired/);
+  assert.match(lines(root)[1], /^- hold-1 module:a, by session_coord1: its PRs landed \d+ min ago, holds nothing/);
+  // With both, the first ends it; PRs unread hold until the time.
+  const both = { row: 'hold', id: 'hold-2', scope: 'slots:1', why: 'w', by: S, prs: [99], until: ago(5) };
+  assert.equal(holdsOf([both]).at(0).live, false);
+  assert.equal(holdsOf([{ ...both, until: ago(-5) }], Date.now(), null).at(0).live, true);
+  assert.equal(holdsOf([{ ...both, until: undefined }], Date.now(), new Map([[99, Date.now() - 6e4]])).at(0).live, false);
+  // Hold-hours end at the land.
+  const at = (h) => new Date(Date.parse('2026-11-04T00:00:00Z') + h * 36e5).toISOString();
+  const rows = [{ at: at(0), row: 'hold', id: 'hold-1', scope: 'module:a', why: 'p', by: S, prs: [7] }];
+  assert.deepEqual(holdHours(rows, at(0), at(10), new Map([[7, Date.parse(at(3))]])), [{ by: S, why: 'p', holds: 1, hours: 3 }]);
+  assert.deepEqual(holdHours(rows, at(0), at(10), null), [{ by: S, why: 'p', holds: 1, hours: 10 }]);
 });
 
 test('holds: an expired hold holds nothing and is printed as expired', () => {

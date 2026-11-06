@@ -89,6 +89,16 @@ test('onTrancheMoved: closes all when the chain start is not the tip, nothing wh
   assert.deepEqual(onTrancheMoved([], 'x'), { close: [], keep: [] });
 });
 
+test('onTrancheMoved from a position: those ahead stand, marked moved with the tip, and the rest close; the same tip again closes nothing', () => {
+  const w = [P(1, { base: 'tip0' }), P(2, { base: 'r1' }), P(3, { base: 'r2' })];
+  const all = onTrancheMoved(w, 'abcdef0123456789', 3);
+  assert.deepEqual([all.close, all.keep.map((p) => [p.n, p.moved])], [[], [[1, 'abcdef0123456789'], [2, 'abcdef0123456789'], [3, 'abcdef0123456789']]]);
+  assert.deepEqual(onTrancheMoved(all.keep, 'abcdef0123456789'), { close: [], keep: all.keep });
+  const part = onTrancheMoved(w, 'abcdef0123456789', 1);
+  assert.deepEqual(part.keep.map((p) => [p.n, p.moved]), [[1, 'abcdef0123456789']]);
+  assert.deepEqual(part.close.map((p) => [p.n, p.cause]), [[2, 'tranche moved to abcdef0123, in a file PR 2 changes'], [3, 'tranche moved to abcdef0123, in a file PR 2 changes']]);
+});
+
 test('onLand: drops position 0 and sets start on the new first only', () => {
   const w = [P(1), P(2), P(3)];
   const { landed, keep } = onLand(w, 'merge1');

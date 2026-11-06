@@ -79,14 +79,6 @@ export function setJobCap(t, n) {
   t.after(() => { if (was === undefined) delete process.env.P3_JOB_CAP; else process.env.P3_JOB_CAP = was; });
 }
 
-// An honest branch history for a fake io (github.mjs unbound): pull requests ns from any branch,
-// each into base, none ever retargeted.
-// With branch, any other branch reads as unread (null), so a caller passing the wrong one fails.
-export const honestBranch = (ns, base = 'tranche', branch = null) => ({
-  prsFromBranch: (s, b) => (branch && b !== branch ? null : ns.map((number) => ({ number, head: { ref: b }, base: { ref: base } }))),
-  baseEverChanged: () => false,
-});
-
 // A process3 triage register fixture (register.mjs): the prompts read it in place of this
 // checkout's own, so the live register's entries never decide a test. Returns its root.
 export function processRegisterFixture(open) {
@@ -96,4 +88,5 @@ export function processRegisterFixture(open) {
   process.env.P3_PROCESS_ROOT = dir;
   return dir;
 }
-export const SEED_ENTRY = { id: 'P1', kind: 'short-term', problem: 'Process3 fixes and product job pull requests contend for the merge train.', evidence: 'test fixture', interim: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', decided_by: 'the coordinator', decided_at: '2026-11-05', end_condition: 'for 2 hours no position is re-gated.', affects: ['bob', 'merger', 'coordinator'], owner: 'the process-triage lane', state: 'interim in force' };
+// A chosen short-term response (AUD-8), as the prompts print it.
+export const SEED_ENTRY = { id: 'P1', kind: 'short-term', problem: 'Process3 fixes and product job pull requests contend for the merge train.', evidence: 'test fixture', options: [{ option: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', context: 'test fixture' }], response: 'process3 fixes that raise merge throughput go ahead of product job pull requests.', chosen_by: 'test fixture, 2026-11-05: "yes"', chosen_at: '2026-11-05', end_condition: 'for 2 hours no position is re-gated.', affects: ['bob', 'merger', 'coordinator'], owner: 'the process-triage lane', state: 'response chosen' };

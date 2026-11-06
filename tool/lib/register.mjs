@@ -1,19 +1,21 @@
-// Triage registers (Bob, 5 Nov: "there should be a lane whose job it is to study identified
-// problems to load-bearingly understand the proper way to fix them"). One triage lane per
-// repository: the process's in process3 (its folder `triage/`), each product's a lane of kind
-// "triage" in its process/config.json. Each keeps its register in its folder, so it survives every
-// session: `register.json` holds the open entries, `closed.jsonl` each closed one with how its end
-// condition was met. A short-term entry carries its interim measure word for word, who decided it
-// and its end condition; the pinned tool prints every open one, verbatim, into the initial prompt of
-// each role it names, so a refreshed session gets the measure exactly and no one retypes it ("care
-// must be taken that what gets conveyed to the refreshed session is the same as the original
-// determination"). A long-term entry is judged against a requirement, principle or foundation and
-// is printed into no prompt. Written only by `triage add` and `triage close`, as commits on the
-// current branch that land by pull request like any lane change.
+// Triage registers (AUD-8: "A process triage lane and a product triage lane study each identified
+// problem and bring you options with context before a response is chosen. A chosen short-term
+// response reaches later sessions in their starting prompt, with the condition that ends it.").
+// One triage lane per repository: the process's in process3 (its folder `triage/`), each product's
+// a lane of kind "triage" in its process/config.json. Each keeps its register in its folder, so it
+// survives every session: `register.json` holds the open entries, `closed.jsonl` each closed one
+// with how its end condition was met. An entry carries the problem, its evidence and the options,
+// each with its context, that its lane brings for a choice; once a response is chosen, the response
+// word for word, the dated words that chose it and, for a short-term one, its end condition and the
+// roles it reaches. The pinned tool prints each chosen short-term response, verbatim, into the
+// starting prompt of each role it names, so a refreshed session gets it exactly and no one retypes
+// it; nothing else in the register is printed. Temporary measures live here, never as rulebook
+// lines (AUD-9, TXT-3). Written only by `triage add`, `triage choose` and `triage close`, as commits
+// on the current branch that land by pull request like any lane change.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CONFIG_FILE, exists, fail, git, laneDirs, now } from './util.mjs';
+import { CONFIG_FILE, exists, fail, git, laneDirs, list, now } from './util.mjs';
 
 export const PROCESS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 // Tests' seam: under node --test, P3_PROCESS_ROOT names a fixture in place of this checkout's own
@@ -23,11 +25,8 @@ export const PROCESS_TRIAGE = { name: 'process-triage', dir: 'triage', module: n
 export const REGISTER = 'register.json';
 export const CLOSED = 'closed.jsonl';
 export const KINDS = ['short-term', 'long-term'];
-// The roles whose initial prompts print a short-term entry (Bob's list: BOB, ROOT, the MERGER, the
-// coordinator and job briefs).
+// The roles whose starting prompts print a chosen short-term response (AUD-8: "later sessions").
 export const AFFECTS = ['bob', 'root', 'merger', 'coordinator', 'job'];
-// Who may be named as deciding: Bob (the person), the coordinator, a role, or a lane (lane <name>).
-export const DECIDERS = ['Bob', 'the coordinator', 'BOB', 'ROOT', 'the MERGER'];
 // The printed block's cap. Measured 5 Nov: each role prompt is at most one screen, 4096 bytes
 // (prompt-caps.test.mjs; BOB's 3789, the MERGER's 4072, on the copy's slug), and the seed entry's
 // block, its heading included, is 880 bytes. Half a screen holds the heading and about two and a
@@ -54,13 +53,15 @@ export function checkEntry(e, where = 'the register') {
   if (!e || typeof e !== 'object' || !/^[A-Z]+\d+$/.test(String(e.id))) fail(`${at}: an entry needs an id such as P1`);
   for (const k of ['problem', 'evidence', 'owner', 'state']) if (!one(e[k])) fail(`${at}: no ${k}`);
   if (!KINDS.includes(e.kind)) fail(`${at}: kind is ${KINDS.join(' or ')}, not ${JSON.stringify(e.kind)}`);
+  // AUD-8: options with context come before any response is chosen.
+  if (!Array.isArray(e.options) || !e.options.length || e.options.some((o) => !one(o?.option) || !one(o?.context))) fail(`${at}: options lists each option with its context ({"option", "context"}), at least one`);
+  if (e.kind === 'long-term' && !one(e.judged_against)) fail(`${at}: a long-term entry needs judged_against (the requirement, principle or foundation)`);
+  if (e.response === undefined) return e;
+  for (const k of ['response', 'chosen_at', 'chosen_by']) if (!one(e[k])) fail(`${at}: a chosen response needs ${k}`);
   if (e.kind === 'short-term') {
-    for (const k of ['interim', 'decided_by', 'decided_at', 'end_condition']) if (!one(e[k])) fail(`${at}: a short-term entry needs ${k}`);
+    if (!one(e.end_condition)) fail(`${at}: a chosen short-term response needs end_condition (AUD-8: "with the condition that ends it")`);
     if (!Array.isArray(e.affects) || !e.affects.length || e.affects.some((r) => !AFFECTS.includes(r))) fail(`${at}: affects lists roles from ${AFFECTS.join(', ')}`);
-    if (!DECIDERS.includes(e.decided_by) && !/^lane [a-z0-9][a-z0-9-]*$/.test(e.decided_by)) fail(`${at}: decided_by is one of ${DECIDERS.join(', ')} or lane <name>, exactly, not ${JSON.stringify(e.decided_by)}`);
-    // Bob's words are printed as his only when the evidence carries them, word for word.
-    if (e.decided_by === 'Bob' && !e.evidence.includes(e.interim)) fail(`${at}: an interim measure decided by Bob is Bob's words, quoted word for word in its evidence`);
-  } else if (!one(e.judged_against)) fail(`${at}: a long-term entry needs judged_against (the requirement, principle or foundation)`);
+  }
   return e;
 }
 
@@ -73,22 +74,20 @@ export function parseRegister(text, where = REGISTER) {
   return r;
 }
 
-// Bob's words are quoted as his only when he decided; anyone else's ruling is named as theirs.
-const attribution = (e) => (e.decided_by === 'Bob'
-  ? `Decided by Bob, ${e.decided_at}, in Bob's own words: "${e.interim}"`
-  : `Decided by ${e.decided_by}, ${e.decided_at} (that ruling, not Bob's words): ${e.interim}`);
-export const entryLines = (repo, e) => [`- ${repo} ${e.id}. ${attribution(e)}`, `  Problem: ${e.problem}`, `  Ends when: ${e.end_condition}`];
+// chosen_by holds the dated words that chose it, quoted; the response is printed as recorded.
+export const chosen = (e) => e.kind === 'short-term' && e.response !== undefined;
+export const entryLines = (repo, e) => [`- ${repo} ${e.id}. Response chosen ${e.chosen_at}: ${e.response}`, `  Problem: ${e.problem}`, `  Ends when: ${e.end_condition}`];
 
 // A prompt without its standing block: the one-screen cap is the prompt's, the block has its own.
-export const STANDING_HEAD = '## Standing interim measures';
+export const STANDING_HEAD = '## Chosen short-term responses';
 export const promptBody = (p) => p.split(`\n\n${STANDING_HEAD}\n`)[0].replace(/\n*$/, '\n');
 
-// The block a role's initial prompt carries: every open short-term entry naming the role, from
+// The block a role's starting prompt carries: every open chosen short-term response naming the role, from
 // each register given ({ repo, register }), verbatim; '' when none. Over the cap, it says so.
 export function standingBlock(registers, role) {
-  const rows = registers.flatMap(({ repo, register }) => register.open.filter((e) => e.kind === 'short-term' && e.affects.includes(role)).map((e) => entryLines(repo, e)));
+  const rows = registers.flatMap(({ repo, register }) => register.open.filter((e) => chosen(e) && e.affects.includes(role)).map((e) => entryLines(repo, e)));
   if (!rows.length) return '';
-  const L = [STANDING_HEAD, '', 'Printed verbatim from the triage registers; each holds until its end condition is met and its triage lane closes it. Act by each as written, within the limits above.', '', ...rows.flat()];
+  const L = [STANDING_HEAD, '', 'Printed verbatim from the triage registers (AUD-8); each holds until its end condition is met and its triage lane closes it. Act by each as written, within the limits above.', '', ...rows.flat()];
   const text = L.join('\n') + '\n';
   const b = Buffer.byteLength(text);
   return b > STANDING_CAP ? `${text}\nThis block is ${b} bytes, over its cap of ${STANDING_CAP}: tell the triage lanes, which close or combine entries.\n` : text;
@@ -118,7 +117,7 @@ export function standingFor(root, cfg, role, { processRoot: pr = processRoot() }
     try { const r = read(); if (r) regs.push(r); } catch (e) { bad.push(e.message); }
   }
   const text = standingBlock(regs, role);
-  return bad.length ? `${text || `${STANDING_HEAD}\n`}\nA triage register could not be read (${bad.join('; ')}): its interim measures are missing here; tell its triage lane.\n` : text;
+  return bad.length ? `${text || `${STANDING_HEAD}\n`}\nA triage register could not be read (${bad.join('; ')}): its chosen responses are missing here; tell its triage lane.\n` : text;
 }
 
 // Which register a triage command writes: in a process3 checkout (the tool at its root, no product
@@ -161,23 +160,48 @@ const capLine = (root, cfg, where, log) => {
   return over;
 };
 
-// triage add --kind short-term|long-term --problem ... --evidence ... [--interim ... --decided-by ... --end ... --affects <roles>] [--judged-against ...] [--owner ...] [--state ...]
+const commit = (root, where, files, msg) => {
+  git(['add', ...files.map((f) => join(where.dir, f))], { cwd: root });
+  git(['commit', '-q', ...msg.flatMap((m) => ['-m', m]), '--', ...files.map((f) => join(where.dir, f))], { cwd: root });
+};
+
+// triage add --kind short-term|long-term --problem ... --evidence ... --option ... --context ... [--option ... --context ...] [--judged-against ...] [--owner ...]
+// AUD-8: the entry carries the options, each with its context, for a choice; no response yet, so nothing is printed.
 export function triageAdd(root, cfg, o, { log = console.log, tranche = cfg?.tranche || 'tranche' } = {}) {
   const where = registerHere(root, cfg);
   const branch = branchFor(root, tranche);
   const reg = readHere(root, where);
   const ids = [...reg.open, ...closedRows(root, where)].map((e) => Number(String(e.id).slice(1))).filter(Number.isFinite);
   const id = `${where.prefix}${Math.max(0, ...ids) + 1}`;
-  const e = { id, kind: o.kind, problem: one(o.problem), evidence: one(o.evidence) };
-  if (o.kind === 'short-term') Object.assign(e, { interim: one(o.interim), decided_by: one(o['decided-by']), decided_at: one(o['decided-at']) || now().slice(0, 10), end_condition: one(o.end), affects: String(o.affects ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) });
-  else e.judged_against = one(o['judged-against']);
-  Object.assign(e, { owner: one(o.owner) || `the ${where.repo === 'process' ? PROCESS_TRIAGE.name : productTriageLane(cfg).name} lane`, state: one(o.state) || 'studying', opened_at: now() });
+  const opts = list(o.option);
+  const ctxs = list(o.context);
+  if (opts.length !== ctxs.length) fail(`triage add: each --option takes its own --context (${opts.length} options, ${ctxs.length} contexts); nothing written`);
+  const e = { id, kind: o.kind, problem: one(o.problem), evidence: one(o.evidence), options: opts.map((x, i) => ({ option: one(x), context: one(ctxs[i]) })) };
+  if (o.kind === 'long-term') e.judged_against = one(o['judged-against']);
+  Object.assign(e, { owner: one(o.owner) || `the ${where.repo === 'process' ? PROCESS_TRIAGE.name : productTriageLane(cfg).name} lane`, state: 'options brought for a choice', opened_at: now() });
   checkEntry(e, 'triage add');
   reg.open.push(e);
   write(root, where, reg);
-  git(['add', join(where.dir, REGISTER)], { cwd: root });
-  git(['commit', '-q', '-m', `triage ${id}: ${e.kind} entry added`, '--', join(where.dir, REGISTER)], { cwd: root });
-  log(`triage ${id} added to ${where.dir}/${REGISTER} on ${branch}; push it and land it by pull request into ${tranche}`);
+  commit(root, where, [REGISTER], [`triage ${id}: ${e.kind} entry added, ${e.options.length} option${e.options.length === 1 ? '' : 's'}`]);
+  log(`triage ${id} added to ${where.dir}/${REGISTER} on ${branch}; push it and land it by pull request into ${tranche}, then bring its options with their context to Bob, through BOB by send_message (AUD-8)`);
+  return e;
+}
+
+// triage choose <id> --response "<the chosen response, word for word>" --chosen-by "<the dated words that chose it, quoted>" [--end ... --affects <roles>]
+// Once chosen, a short-term response with its end condition is printed into the roles it names (AUD-8).
+export function triageChoose(root, cfg, id, o, { log = console.log, tranche = cfg?.tranche || 'tranche' } = {}) {
+  const where = registerHere(root, cfg);
+  const branch = branchFor(root, tranche);
+  const reg = readHere(root, where);
+  const e = reg.open.find((x) => x.id === id) || fail(`no open entry ${JSON.stringify(id)} in ${where.dir}/${REGISTER}; open: ${reg.open.map((x) => x.id).join(', ') || 'none'}`);
+  if (e.response !== undefined) fail(`triage ${id} already has its chosen response; close it and add a new entry to change it; nothing written`);
+  Object.assign(e, { response: one(o.response), chosen_by: one(o['chosen-by']), chosen_at: one(o['chosen-at']) || now().slice(0, 10) });
+  if (e.kind === 'short-term') Object.assign(e, { end_condition: one(o.end), affects: String(o.affects ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean) });
+  e.state = 'response chosen';
+  checkEntry(e, 'triage choose');
+  write(root, where, reg);
+  commit(root, where, [REGISTER], [`triage ${id}: response chosen`]);
+  log(`triage ${id}: response recorded on ${branch}; push it and land it by pull request into ${tranche}${e.kind === 'short-term' ? `; once landed it reaches ${e.affects.join(', ')} at their next start` : ''}`);
   capLine(root, cfg, where, log);
   return e;
 }
@@ -192,8 +216,7 @@ export function triageClose(root, cfg, id, { how, log = console.log, tranche = c
   reg.open = reg.open.filter((x) => x !== e);
   write(root, where, reg);
   appendFileSync(join(root, where.dir, CLOSED), JSON.stringify({ ...e, state: 'closed', closed_at: now(), how_met: one(how) }) + '\n');
-  git(['add', join(where.dir, REGISTER), join(where.dir, CLOSED)], { cwd: root });
-  git(['commit', '-q', '-m', `triage ${id}: closed`, '-m', one(how), '--', join(where.dir, REGISTER), join(where.dir, CLOSED)], { cwd: root });
+  commit(root, where, [REGISTER, CLOSED], [`triage ${id}: closed`, one(how)]);
   log(`triage ${id} closed on ${branch}; push it and land it by pull request into ${tranche}`);
   return e;
 }

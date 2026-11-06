@@ -14,7 +14,7 @@ import { stuckLine, trainStuck } from '../lib/stuck.mjs';
 import { idleCapacity, markInTrain } from '../lib/sweep.mjs';
 import { readySelection } from '../lib/ready.mjs';
 import { git } from '../lib/util.mjs';
-import { commit, entry, honestBranch, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const SIGNIN = [
@@ -64,8 +64,6 @@ function io(head) {
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: (slug, r) => r.run_id === 11,
-    ...honestBranch([5, 6, 7, 173, 364]),
-    gateBound: () => null, // the merged result's gate is the process gate's run (merge.mjs gateRunWhy)
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   };
 }

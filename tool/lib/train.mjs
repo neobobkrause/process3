@@ -10,7 +10,7 @@
 // triages nothing and rules on nothing. Each merge writes one row, the trial's measures.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { baseEverChanged, checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, compare, createPR, editPR, gateRuns, getPR, openPRs, prsFromBranch, verifyRow } from './github.mjs';
+import { checkRun, checkRunMany, checkRuns, checkRunsMany, comments, commentsMany, compare, createPR, editPR, gateRuns, getPR, openPRs, verifyRow } from './github.mjs';
 import { AGE_MIN, agedFromOf, exportsChangedAt, fullGateMinutes, holdLine, importsFromAt, median as med, orderQueue, providerHolds, usesGraph } from './order.mjs';
 import { readModules } from './notice.mjs';
 import { CLOSED_FILE, releaseModules } from './status.mjs';
@@ -18,16 +18,16 @@ import { branchModule, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { P3, READY_FIRST, READY_START, bobWake, toolPin } from './job.mjs';
 import { owe, readAuto, starterLive } from './hold.mjs';
 import { GATE_CAP_MINUTES, GATE_WAIT_MINUTES, attemptStart, deepenToBase, firstActs, jobChecks, jobCostOf, merge, mergePR, mergePlain, mergedResult, pinWake, printWake, reviewCostOf, reviewMeasures, reviewRounds, reviewSessions } from './merge.mjs';
-import { diffNames } from './gate.mjs';
+import { builtOn, diffNames, entriesAt, offSpec } from './gate.mjs';
 import { rowsAt } from './metrics.mjs';
 import { TRAIN_NOTES, TRAIN_ROWS } from './stuck.mjs';
-import { admit, chainEnd, firstRed, nextSeq, onHeadMoved, onLand, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
+import { admit, chainEnd, chainStart, firstRed, nextSeq, onHeadMoved, onLand, onLeave, onRed, onTrancheMoved, restore, specHead, specState } from './window.mjs';
 import { isJob } from './workflows.mjs';
 import { fetchState, jsonl, readState, send, wakeOnce, writeState } from './state.mjs';
 import { INFLIGHT_QUEUE_MIN, endHold, readHolds, startHold, unendedHold } from './inflight.mjs';
 import { approvalsHash } from './start.mjs';
 import { createHash, randomBytes } from 'node:crypto';
-import { DEEP_MARK, Fail, SERVER_ERROR, fail, fetchJobRefs, git, heartbeat, isRecordPath, isShallow, loadConfig, markedDeep, now, repoSlug } from './util.mjs';
+import { DEEP_MARK, Fail, SERVER_ERROR, fail, fetchJobRefs, git, heartbeat, isRecordOrLane, isRecordPath, isShallow, loadConfig, markedDeep, now, repoSlug } from './util.mjs';
 import { readAddress } from './roles.mjs';
 
 // A stop the train must never write past or retry: a lost lease, changed approvals, the disk.
@@ -332,9 +332,24 @@ function ready(root, ctx, skip = new Set()) {
 
 // The order and the provider hold (order.mjs), with what each reads cached by head or tranche tip.
 // Every read that fails holds nothing and orders as unknown: the train never stalls on a read.
+// A held PR gone from the queue because its own gate ended red, its providers still open: its
+// gate on the tranche without them went red (data only, Bob, 5 Nov).
+function leftHeld(ctx, c, cands, jobs) {
+  const inQueue = new Set(cands.map((u) => u.n));
+  for (const [n, why] of c?.heldBy || []) {
+    if (inQueue.has(n)) continue;
+    const j = jobs.find((x) => x.n === n);
+    const red = /^its gate ended /.test(j?.stuck || '');
+    const open = why.filter((w) => jobs.some((x) => x.n === w.pr));
+    if (red && open.length) ctx.log(`provider hold data: PR ${n} (${j.id}), its gate on the tranche without ${open.map((w) => `${w.provider} (PR ${w.pr})`).join(', ')}: went red (${j.stuck.replace(/^its gate ended /, '')}), head ${String(j.head).slice(0, 10)}`);
+    c.seen.delete(n);
+    c.heldBy.delete(n);
+  }
+}
+
 function order(root, ctx, cands, jobs) {
   const { cfg, slug, io } = ctx;
-  if (!cands.length) { ctx.held = []; return cands; }
+  if (!cands.length) { ctx.held = []; leftHeld(ctx, ctx.order, cands, jobs); return cands; }
   const at = `refs/remotes/origin/${cfg.tranche}`;
   const tip = git(['rev-parse', at], { cwd: root }).trim();
   const c = (ctx.order ||= { tip: null, modules: null, release: null, exp: new Map(), imp: new Map(), mins: new Map(), runs: new Set(), seen: new Map(), heldAt: new Map(), said: new Set() });
@@ -393,12 +408,19 @@ function order(root, ctx, cands, jobs) {
     const was = c.seen.get(u.n);
     if (why) {
       const l = holdLine(u, why);
-      if (was !== l) ctx.log(l);
+      // Data only, to judge provider holds later (Bob, 5 Nov): the held PR's own gate ran on the
+      // tranche without the provider (still open). Only a green PR is held, so this reads green;
+      // one whose gate goes red while held leaves the queue, and that is logged below.
+      const g = ctx.gates.get(u.head);
+      const without = !g ? 'unread' : g.status !== 'completed' ? 'running' : g.conclusion === 'success' ? 'green' : 'red';
+      if (was !== l) { ctx.log(l); ctx.log(`provider hold data: PR ${u.n} (${u.id}), its gate on the tranche without ${why.map((w) => `${w.provider} (PR ${w.pr})`).join(', ')}: ${without === 'red' ? 'went red' : without === 'green' ? 'did not go red (green)' : without}, head ${u.head.slice(0, 10)}`); }
       c.seen.set(u.n, l);
       c.heldAt.set(u.n, now);
-      ctx.held.push({ pr: u.n, module: u.id, providers: why.map((w) => ({ module: w.provider, pr: w.pr })) });
-    } else if (was) { ctx.log(`PR ${u.n} (${u.id}) is no longer held: its providers merged, went red, or no longer change what it imports`); c.seen.delete(u.n); }
+      ctx.held.push({ pr: u.n, module: u.id, providers: why.map((w) => ({ module: w.provider, pr: w.pr })), gate_without_provider: without, head: u.head });
+      (c.heldBy ||= new Map()).set(u.n, why);
+    } else if (was) { ctx.log(`PR ${u.n} (${u.id}) is no longer held: its providers merged, went red, or no longer change what it imports`); c.seen.delete(u.n); c.heldBy?.delete(u.n); }
   }
+  leftHeld(ctx, c, cands, jobs);
   // Each module's full-gate minutes, from the gate rows on its pull requests (read once per head).
   const unread = cands.filter((u) => !c.runs.has(`${u.n}@${u.head}`));
   const read = timed(ctx, 'gate minutes', () => io.commentsMany(slug, unread.map((u) => u.n)));
@@ -540,7 +562,7 @@ function prepare(root, ctx, cur) {
 // An exception, handed to BOB once per pull request head: p3 send bob, delivered by the merger.
 // A refusal that lasts until the job or BOB acts; anything else (GitHub slow or unread, a gate
 // row not yet there, a moved tranche) is tried again on the next round, and BOB is not told.
-const LASTING = /review trigger|conflicts with|bring itself up to date|outside its module|^ledger:|has no ledger entry|gate on the merged result is|not from a job branch|no receipt|checked receipt attempt|disagrees/;
+const LASTING = /review trigger|conflicts with|bring itself up to date|outside its module|^ledger:|has no ledger entry|gate on the merged result is|not from a job branch|no receipt|read receipt attempt/;
 export const lasting = (why) => LASTING.test(String(why).split('\n')[0]);
 function refuse(root, ctx, c, why) {
   const key = `${c.n}@${c.head}@${c.run}`;
@@ -586,6 +608,8 @@ function mergeOne(root, ctx, c, { queue, idle }) {
     row.queue_at_end = ctx.prepared?.depth ?? null;
     // The report's count of spec-tested lands against fallbacks (condition 4); null: not a window land.
     if (c.spec) { row.spec_pr = c.spec.pr; row.spec_fast = r?.spec?.fast === true; if (!row.spec_fast) row.spec_why = r?.spec?.why || 'merge gave no spec answer'; }
+    // A land on its spec that carried a disjoint tranche move: the move's ends, files and commits.
+    if (r?.spec?.move) row.spec_move = r.spec.move;
   } catch (e) {
     if (!(e instanceof Fail) || e instanceof Stop) throw e; // a lost lease, changed approvals: never land past it
     row.result = lasting(e.message) ? 'refused' : 'retry';
@@ -761,27 +785,49 @@ function openSpec(root, ctx, p) {
 }
 function admitWindow(root, ctx, w, list, tip) {
   const { cfg } = ctx;
+  // Positions kept over a tranche move, or past a position that left, are built on a chain the
+  // tranche will not hold: one built behind them would be too, so none is, until they have landed.
+  if (w.some((p) => p.moved || p.dropped)) return;
   const ends = () => chainEnd(w, tip);
-  const queue = list.filter((c) => !ctx.buildFailed.has(`${c.n}@${c.head}@${ends()}`));
+  // A plain one not built onto the chain's end stays in the queue: nothing is admitted past it, so
+  // the window drains to it and it is judged on the tip (built there, or refused by plainOne).
+  const failed = (c) => ctx.buildFailed.has(`${c.n}@${c.head}@${ends()}`);
+  const queue = list.filter((c) => c.plain || !failed(c));
   for (const c of admit(w, queue, ctx.k, { causes: ctx.causes })) {
     if (w.length >= ctx.k) break;
+    if (c.plain && failed(c) && !(w.length === 0 && ends() === tip)) break;
     // Red once behind others: only at the head of the window, on the tranche tip itself.
     if (w.length && ctx.solo.has(`${c.n}@${c.head}`)) continue;
     const onto = ends();
     const position = w.length;
     let res;
-    try { res = ctx.build(root, ctx, c, onto); } catch (e) {
+    try { res = c.plain ? buildPlain(root, ctx, c, onto) : ctx.build(root, ctx, c, onto); } catch (e) {
       if (!(e instanceof Fail) || e instanceof Stop) throw e;
       const why = e.message.split('\n')[0];
+      // A plain one that cannot be built on the tip lands as plainOne lands it (which refuses or
+      // tries it again, as without the window); nothing is admitted behind it.
+      if (c.plain && position === 0 && onto === tip) {
+        w.push({ ...c, position, base: onto, result: null, spec_pr: null, seq: null, state: 'green', cause: `${c.cause}; not built on the tip (${why}): it lands as a plain merge does` });
+        break;
+      }
       // On the tip, a lasting refusal is the job's, as merge would refuse it; behind others it waits for them.
       if (position === 0 && onto === tip && lasting(why)) { refuse(root, ctx, c, e.message); record(root, ctx, `merge train: PR ${c.n} refused`, { at: now(), row: 'merge', session: ctx.session, pr: c.n, module: c.id, head: c.head, result: 'refused', why: why.slice(0, 300), window: true }); }
       else ctx.log(`window: PR ${c.n} not built onto ${s10(onto)} this pass: ${why}`);
       ctx.buildFailed.add(`${c.n}@${c.head}@${onto}`);
+      if (c.plain) break;
       continue;
     }
     // The cause as admitted, with the position it really takes (a build skipped ahead of it moves it).
     const cause = c.cause.replace(/^admitted at position \d+ (behind PR [\d, ]+|on the tranche tip)/, position ? `admitted at position ${position} behind PR ${w.map((x) => x.n).join(', ')}` : 'admitted at position 0 on the tranche tip');
     const p = { ...c, cause, position, base: onto, result: res.sha, tree: res.tree, state: 'gating', built_at: Date.now() };
+    if (c.plain) {
+      // A plain one has no spec pull request (a spec run judges only a job's change): its own
+      // gate runs on the head that lands, as without the window (plainOne). Those behind build on
+      // its predicted result, and it lands in chain order.
+      w.push({ ...p, spec_pr: null, seq: null, state: 'green' });
+      ctx.log(`window: PR ${c.n} (plain) at position ${position}: ${s10(p.result)} on ${s10(onto)}; it lands in chain order, on its own gate`);
+      continue;
+    }
     if (res.sha === c.head) {
       // The job already holds its merged result on the tip: its own gate is the test, no spec.
       if (position !== 0 || onto !== tip) { ctx.log(`window: PR ${c.n}'s head already holds ${s10(onto)}, which is not the tip: not admitted`); ctx.buildFailed.add(`${c.n}@${c.head}@${onto}`); continue; }
@@ -802,24 +848,64 @@ function admitWindow(root, ctx, w, list, tip) {
     w.push(p);
   }
 }
+// A position's own change, records aside (its base to its result), for window.mjs's keep rules;
+// null when it has none built or it is not readable here (then it shares every file).
+const ownFiles = (root, ctx) => (p) => {
+  if (!p.base || !p.result) return null;
+  try { return new Set(diffNames(root, p.base, p.result).filter((f) => !isRecordPath(ctx.cfg, f))); } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; return null; }
+};
+// How much of the window stands when the tranche moves from the window's start to tip (Bob, 5
+// Nov; copy: two plain lands of generated files and .gitignore lines closed three green specs):
+// the files the move changes, records aside, against each position's own change (its base to its
+// result). The first position that shares a file with the move (0 when anything is not readable,
+// or the tip is not after the start; the window's length when none does).
+function keptOver(root, ctx, w, tip) {
+  const start = chainStart(w);
+  if (!w.length || start === tip || w[0].moved === tip) return w.length;
+  const files = (a, b) => diffNames(root, a, b).filter((f) => !isRecordPath(ctx.cfg, f));
+  try {
+    if (w.some((p) => !p.base || !p.result) || git(['merge-base', '--is-ancestor', start, tip], { cwd: root, allowFail: true }).code !== 0) return 0;
+    const move = new Set(files(start, tip));
+    const j = w.findIndex((p) => files(p.base, p.result).some((f) => move.has(f)));
+    const from = j < 0 ? w.length : j;
+    if (from) ctx.log(`window: the tranche moved to ${s10(tip)} in ${move.size} file(s), records aside, none of which ${from === w.length ? 'the window changes' : `PR ${w.slice(0, from).map((p) => p.n).join(', ')} change`}: ${from} position(s) stand`);
+    return from;
+  } catch (e) {
+    if (!(e instanceof Fail) || e instanceof Stop) throw e;
+    return 0;
+  }
+}
 // One pass of the window: reconcile with the tranche and the jobs' heads, read the spec gates,
 // act on a red, land position 0 when green, fill the window. true when a land was tried.
-function windowPass(root, ctx, { idle }) {
+// Queued plain pull requests (plain: plainReady's rows, oldest first) take free positions before
+// any job, and land in chain order (build plain-in-window: copy, 5 Nov 19:47, two plain lands ahead
+// of a full window closed all three specs, and nothing of the window landed).
+function windowPass(root, ctx, { idle, plain = [] }) {
   const { cfg, slug, io, log } = ctx;
   let list = ready(root, ctx);
   ctx.onQueue?.(list);
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
   let w = ctx.window;
+  // A queued plain pull request not open and ready into the tranche, and not in the window, goes
+  // to plainOne as without the window: it records one merged elsewhere, and refuses the rest.
+  const odd = plain.find((q) => !w.some((p) => p.plain && p.q.id === q.id) && !(ctx.open || []).some((o) => o.number === q.pr && !o.draft && o.base?.ref === cfg.tranche));
+  if (odd) { plainOne(root, ctx, odd, { queue: plain.length, idle }); return true; }
+  const queued = new Set(plain.map((q) => q.id));
+  const plains = plain.filter((q) => !w.some((p) => p.plain && p.q.id === q.id)).map((q) => {
+    const o = ctx.open.find((x) => x.number === q.pr);
+    return { n: q.pr, plain: true, q, id: null, head: o.head.sha, ref: o.head.ref, run: null, green_at: null };
+  });
   try {
     if (ctx.unclosed?.length) for (const { event, ...p } of ctx.unclosed.splice(0)) closeSpecs(ctx, [p], event);
-    const moved = onTrancheMoved(w, tip);
-    if (moved.close.length) { closeSpecs(ctx, moved.close); w = moved.keep; }
+    const moved = onTrancheMoved(w, tip, keptOver(root, ctx, w, tip));
+    if (moved.close.length) closeSpecs(ctx, moved.close);
+    w = moved.keep;
     // The jobs' heads, from ready()'s one read of the open pull requests.
     for (let i = 0; i < w.length; i++) {
       const p = w[i];
       const o = (ctx.open || []).find((x) => x.number === p.n);
-      const why = !o ? 'is closed or merged' : o.head?.sha !== p.head && o.head?.sha !== p.pushed ? `head moved to ${s10(o.head?.sha)}` : o.draft ? 'was made a draft' : o.base?.ref !== cfg.tranche ? `was retargeted to ${o.base?.ref}` : null;
-      if (why) { const r = onHeadMoved(w, p.n, why); closeSpecs(ctx, r.close); w = r.keep; break; }
+      const why = !o ? 'is closed or merged' : o.head?.sha !== p.head && o.head?.sha !== p.pushed ? `head moved to ${s10(o.head?.sha)}` : o.draft ? 'was made a draft' : o.base?.ref !== cfg.tranche ? `was retargeted to ${o.base?.ref}` : p.plain && !queued.has(p.q.id) ? 'left the plain queue (withdrawn or ended)' : null;
+      if (why) { const r = onHeadMoved(w, p.n, why, ownFiles(root, ctx)); closeSpecs(ctx, r.close); w = r.keep; break; }
     }
     // The spec gates, and each green one's post job (its row is what the fast path reads).
     const look = w.filter((p) => p.spec_pr && p.state === 'gating');
@@ -850,14 +936,14 @@ function windowPass(root, ctx, { idle }) {
       const k = `${p.n}@${p.head}`;
       if ((ctx.rebuilt.get(k) || 0) < SPEC_REBUILDS) {
         ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
-        const r = onHeadMoved(w, p.n, `spec gate did not report within ${HOLD_MINUTES(cfg)} min`);
+        const r = onHeadMoved(w, p.n, `spec gate did not report within ${HOLD_MINUTES(cfg)} min`, ownFiles(root, ctx));
         closeSpecs(ctx, r.close);
         w = r.keep;
       } else { p.state = 'red'; p.notJudged = `no report within ${HOLD_MINUTES(cfg)} min, after ${SPEC_REBUILDS} rebuilds`; p.timedOut = true; }
       break;
     }
     const gone = w.findIndex((p) => p.state === 'cancelled');
-    if (gone >= 0) { const r = onHeadMoved(w, w[gone].n, `spec gate cancelled (${w[gone].url || 'no run'})`); closeSpecs(ctx, r.close); w = r.keep; }
+    if (gone >= 0) { const r = onHeadMoved(w, w[gone].n, `spec gate cancelled (${w[gone].url || 'no run'})`, ownFiles(root, ctx)); closeSpecs(ctx, r.close); w = r.keep; }
     // A red is the job's only when the spec run judged the job (its row's trigger is code) and the job
     // PR is as admitted now; a spec run that could not judge it (the job PR moved, closed or unread
     // while it ran: a spec finding, no suite) is closed and rebuilt, never refused.
@@ -871,7 +957,7 @@ function windowPass(root, ctx, { idle }) {
         const row = gateRuns(io.comments(slug, p.spec_pr) || []).filter((x) => x.sha === p.result && p.run_id != null && x.run_id === p.run_id).pop();
         const o = io.getPR(slug, p.n);
         const same = o?.state === 'open' && !o.draft && o.base?.ref === cfg.tranche && (o.head?.sha === p.head || o.head?.sha === p.pushed);
-        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: cfg.tranche, branch: specHead(p.n, p.seq) }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
+        judged = !row ? 'no row' : !io.verify(slug, row, { pr: p.spec_pr, baseRef: cfg.tranche }) ? 'its row does not verify' : row.trigger !== 'code' ? `its run did not judge the job (${row.trigger})` : !same ? 'the job PR changed since' : true;
       } catch (e) { if (!(e instanceof Fail) || e instanceof Stop) throw e; judged = `unread: ${e.message.split('\n')[0]}`; }
       // A red that is not the job's is rebuilt, up to SPEC_REBUILDS times for one head; then it is
       // refused as the serial train refuses a gate that ends so (cold review: a gate that times out
@@ -879,23 +965,31 @@ function windowPass(root, ctx, { idle }) {
       const k = `${p.n}@${p.head}`;
       if (judged !== true && (ctx.rebuilt.get(k) || 0) < SPEC_REBUILDS) {
         ctx.rebuilt.set(k, (ctx.rebuilt.get(k) || 0) + 1);
-        const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`);
+        const r = onHeadMoved(w, p.n, `spec gate red, not the job's: ${judged}`, ownFiles(root, ctx));
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
       } else if (judged !== true) p.notJudged ||= `${judged}, after ${SPEC_REBUILDS} rebuilds`;
+      if (red >= 0 && p.dropped) {
+        // Its tested tree holds a change ahead that left the window: a green stands for its land
+        // (offSpec), a red may be that change's, never refused; it is rebuilt without it.
+        const r = onHeadMoved(w, p.n, 'spec gate red on a tree holding a change ahead that left the window: rebuilt without it', ownFiles(root, ctx));
+        closeSpecs(ctx, r.close);
+        w = r.keep;
+        red = -1;
+      }
       if (red >= 0 && red > 0) {
         // Red behind others that have not landed (cold review: a green spec is not a land): never
         // refused on a base that may not come to be; it is judged again at the head of the window.
         ctx.solo.add(k);
-        const r = onHeadMoved(w, p.n, `spec gate red behind PR ${w.slice(0, red).map((x) => x.n).join(', ')}: judged again at the head of the window`);
+        const r = onHeadMoved(w, p.n, `spec gate red behind PR ${w.slice(0, red).map((x) => x.n).join(', ')}: judged again at the head of the window`, ownFiles(root, ctx));
         closeSpecs(ctx, r.close);
         w = r.keep;
         red = -1;
       }
     }
     if (red >= 0) {
-      const { refuse: p, close, keep } = onRed(w, red);
+      const { refuse: p, close, keep } = onRed(w, red, ownFiles(root, ctx));
       const why = `the gate on the merged result is failure${p.notJudged ? ` with no judgment of the job (${p.notJudged})` : ''} (spec PR ${p.spec_pr}, ${s10(p.result)} on ${red ? `PR ${w.slice(0, red).map((x) => x.n).join(', ')} ahead` : 'the tranche tip'}): ${p.url || 'no run'}`;
       refuse(root, ctx, p, why);
       list = list.filter((c) => c.n !== p.n); // read before the refusal: not admitted again this pass
@@ -904,12 +998,13 @@ function windowPass(root, ctx, { idle }) {
       w = keep;
     }
     ctx.window = w;
+    if (w[0]?.state === 'green' && w[0].plain) { plainLand(root, ctx, w[0], { queue: plain.length, idle }); return true; }
     if (w[0]?.state === 'green') {
       const p = w[0];
       mergeOne(root, ctx, { ...p, window: true, head: p.pushed ?? p.head, spec: p.spec_pr ? { pr: p.spec_pr, sha: p.result } : null }, { queue: list.length, idle });
       return true;
     }
-    admitWindow(root, ctx, w, list, tip);
+    admitWindow(root, ctx, w, [...plains, ...list], tip);
     ctx.window = w;
     return false;
   } finally {
@@ -930,11 +1025,45 @@ function specDone(root, ctx, c, r, row) {
     const { keep } = onLand(w, r.sha);
     if (!fast && keep.length) { closeSpecs(ctx, keep.map((x) => ({ ...x, cause: `PR ${p.n} landed by its full re-gate, not on its spec` }))); ctx.window = []; } else ctx.window = keep;
   } else if (row.result === 'refused' || row.to_bob) {
-    closeSpecs(ctx, w.map((x, i) => ({ ...x, cause: i ? `refused ahead: PR ${p.n}` : `refused: ${row.why}` })));
-    ctx.window = [];
+    const { close, keep } = onLeave(w, 0, `refused: ${row.why}`, `refused ahead: PR ${p.n}`, ownFiles(root, ctx));
+    closeSpecs(ctx, close);
+    ctx.window = keep;
   }
   flushWindow(root, ctx);
 }
+// A plain position at the head of the window lands as plainOne lands it (its sync onto the tranche,
+// its own gate, mergePlain). Landed as the tree the window built on, records aside, the chain
+// holds and those behind stand, as after a spec-tested land; anything else (not landed, or another
+// tree) closes those behind, which hold its predicted result.
+function plainLand(root, ctx, p, { queue, idle }) {
+  const { cfg } = ctx;
+  const row = plainOne(root, ctx, p.q, { queue, idle });
+  const w = ctx.window;
+  if (w[0] !== p) return;
+  const rest = w.slice(1);
+  let why = row.result === 'merged' ? null : `PR ${p.n} (plain) did not land: ${row.result}${row.why ? `: ${row.why}` : ''}`;
+  if (!why && rest.length) {
+    git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`], { cwd: root, allowFail: true });
+    const readable = (c) => c && git(['cat-file', '-e', `${c}^{commit}`], { cwd: root, allowFail: true }).code === 0;
+    if (!readable(p.result) || !readable(row.sha)) why = `PR ${p.n} (plain) landed at ${s10(row.sha)}, not readable against its predicted result ${s10(p.result)}`;
+    else {
+      const entries = entriesAt(root, row.sha);
+      // Its predicted result plus a disjoint tranche move it was merged onto (offSpec) is its tree too.
+      const is = git(['rev-parse', `${row.sha}^1`], { cwd: root });
+      const { off: differ } = offSpec(root, { tested: p.result, head: row.sha, was: builtOn(root, p.result, is), is, skip: (f) => isRecordOrLane(cfg, f, entries) });
+      if (differ.length) why = `PR ${p.n} (plain) landed as a tree other than its predicted result, outside the records: ${differ.slice(0, 5).join(', ')}`;
+    }
+  }
+  if (why && row.result !== 'merged') {
+    // Not landed: it leaves (plainOne has its row), and those behind sharing a file with it.
+    const { close, keep } = onLeave(w, 0, why, why, ownFiles(root, ctx));
+    closeSpecs(ctx, close.slice(1));
+    ctx.window = keep;
+  } else if (why) { closeSpecs(ctx, rest.map((x) => ({ ...x, cause: why }))); ctx.window = []; }
+  else { ctx.window = onLand(w, row.sha).keep; ctx.log(`window: PR ${p.n} (plain) landed at ${s10(row.sha)} as its predicted result, records aside: ${rest.length} position(s) behind stand`); }
+  flushWindow(root, ctx);
+}
+
 // A restarted train's window, from its rows and the spec pull requests still open.
 function restoreWindow(root, ctx) {
   const { cfg, slug, io, log } = ctx;
@@ -1130,6 +1259,30 @@ function syncPlain(root, ctx, q) {
   while (io.getPR(slug, q.pr).head?.sha !== m) { if (Date.now() > until) fail(`GitHub does not show ${m.slice(0, 10)} as the head of pull request ${q.pr} after 2 min`); sleep(ctx.every ?? 5000); }
   return m;
 }
+// The take of a queued plain pull request, once: its caller's clock runs from it (plainViaTrain),
+// and a taken row no longer ends at its take_by. In the window it is taken at its land, at position
+// 0 (its own gate runs from there), inside plainOne's retries; until then its take_by holds it.
+function takePlain(root, ctx, q) {
+  if (ctx.plainTaken.has(q.id)) return;
+  writeState(root, ctx.cfg.state_branch, `merge train: PR ${q.pr} taken (plain)`, (wt) => append(wt, TRAIN_FILE, { at: now(), row: 'plain', session: ctx.session, queue: q.id, pr: q.pr, result: 'taken' }));
+  ctx.plainTaken.add(q.id);
+}
+// A plain pull request's predicted result in the window: its head (the queued one, or it with only
+// the tranche merged in, as syncPlain holds it) merged onto `onto`, cleanly, never pushed. The land
+// (syncPlain onto the tranche, then mergePlain) is this tree when the tranche is `onto`, records aside.
+export function buildPlain(root, ctx, c, onto) {
+  const { cfg, slug, io } = ctx;
+  const pr = io.getPR(slug, c.n);
+  if (pr.head?.sha !== c.head) fail(`pull request ${c.n} moved to ${s10(pr.head?.sha)} from ${s10(c.head)}, the head the train chose`);
+  if (!plainBranch(cfg, slug, pr)) fail(`pull request ${c.n}'s head ${pr.head?.repo?.full_name || '?'}:${pr.head?.ref} is not a plain branch of ${slug} the train may bring up to date`);
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${pr.head.ref}:refs/remotes/origin/${pr.head.ref}`], { cwd: root });
+  if (!plainHead(root, cfg, c.q.head, c.head)) fail(`${pr.head.ref} is at ${s10(c.head)}, not the head queued (${s10(c.q.head)}) with only the tranche merged in`);
+  if (ancestor(root, onto, c.head)) return { sha: c.head, tree: git(['rev-parse', `${c.head}^{tree}`], { cwd: root }).trim() };
+  const tree = cleanTree(root, c.head, onto);
+  if (!tree) fail(`${pr.head.ref} conflicts with ${s10(onto)}`);
+  const sha = git(['commit-tree', tree, '-p', c.head, '-p', onto, '-m', `Bring ${pr.head.ref} up to ${s10(onto)} (merge train window, for PR ${c.n})`], { cwd: root }).trim();
+  return { sha, tree };
+}
 // What a plain merge is tried again for (GitHub slow or a moved base), else refused and sent to BOB.
 // A clash on the state branch in this clone (cannot read origin's state branch, a ref-lock
 // failure, the state lock held past its wait) is tried again too (build train-robust, option 1A:
@@ -1147,10 +1300,7 @@ function plainOne(root, ctx, q, { queue, idle }) {
   if (free < ctx.diskMin) stop(`STOP: ${free} MB free, under the merger's disk budget of ${ctx.diskMin} MB; nothing was started for PR ${q.pr}. Delete what is not needed (old clones, caches), then run the train again`);
   const row = { at: now(), row: 'plain', session: ctx.session, queue: q.id, pr: q.pr, head: q.head, queued_at: q.at, waited_min: mins(Date.parse(q.at), Date.now()), jobs_ready: queue, idle_min: idle, disk_free_mb: free };
   try {
-    if (!ctx.plainTaken.has(q.id)) {
-      writeState(root, cfg.state_branch, `merge train: PR ${q.pr} taken (plain)`, (wt) => append(wt, TRAIN_FILE, { at: now(), row: 'plain', session: ctx.session, queue: q.id, pr: q.pr, result: 'taken' }));
-      ctx.plainTaken.add(q.id);
-    }
+    takePlain(root, ctx, q);
     const p = ctx.io.getPR(slug, q.pr);
     if (p.merged) {
       // Landed before this pass (a train that stopped after its land, or by hand): the wake from
@@ -1210,7 +1360,7 @@ export function train(root, opts = {}) {
   const session = opts.session;
   if (!/^session_[A-Za-z0-9]+$/.test(String(session))) fail(`usage: ${TRAIN_USAGE}; the train takes a lease, so --session <your session id> is required and nothing was started`);
   if (!cfg.tranche || cfg.tranche === 'main') fail(`the tranche is ${JSON.stringify(cfg.tranche)}: the merge train never merges into main`);
-  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, createPR, editPR, prsFromBranch, baseEverChanged, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
+  const io = { getPR, comments, checkRun, checkRuns, mergePR, openPRs, createPR, editPR, verify: (s, r, c) => verifyRow(s, r, c), ...(opts.io || {}) };
   // The batched reads: GitHub's at once, or, where a caller gives its own single read, that one in turn.
   const given = opts.io || {};
   if (!given.checkRunMany) io.checkRunMany = given.checkRun ? (s, pairs) => pairs.map(([sha, name]) => io.checkRun(s, sha, name)) : checkRunMany;
@@ -1300,7 +1450,8 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
     // A queued plain pull request goes before every job (its caller waits): oldest first.
     const plain = timed(ctx, 'plain', () => plainReady(root, ctx));
     expirePlain(root, ctx);
-    // Past a window of 1, the window's pass picks (windowPass): ready() runs inside it.
+    // Past a window of 1, the window's pass picks (windowPass): ready() runs inside it, and a queued
+    // plain pull request takes the next free position there instead of landing ahead of the window.
     const win = ctx.k > 1;
     const list = plain.length || win ? [] : ready(root, ctx);
     const ms = Date.now() - t0;
@@ -1311,18 +1462,18 @@ function loop(root, ctx, { once, idleEvery, rounds = Infinity }) {
     const first = list.find((c) => c.n === ctx.prepared?.n) || list[0];
     if (!win) ctx.onQueue?.(list);
     let landed = false;
-    if (plain.length) {
+    if (win) {
+      if ((landed = windowPass(root, ctx, { idle: mins(idleFrom, Date.now()), plain }))) idleFrom = Date.now();
+    } else if (plain.length) {
       plainOne(root, ctx, plain[0], { queue: plain.length, idle: mins(idleFrom, Date.now()) });
       idleFrom = Date.now();
-    } else if (win) {
-      if ((landed = windowPass(root, ctx, { idle: mins(idleFrom, Date.now()) }))) idleFrom = Date.now();
     } else if (first) {
       mergeOne(root, ctx, first, { queue: list.length, idle: mins(idleFrom, Date.now()) });
       idleFrom = Date.now();
     } else ctx.prepared = null;
     if (once || --rounds <= 0) return { rows: ctx.rows }; // rounds: a bounded run, for tests
     if (Math.floor(Date.now() / 36e5) !== hour) { hour = Math.floor(Date.now() / 36e5); log(`hourly: record your context: ${P3} merge train beat --session ${session} --context <percent>`); }
-    if (!first && !plain.length && !landed) sleep(idleEvery);
+    if (!first && !(plain.length && !win) && !landed) sleep(idleEvery); // a plain one waiting in the window waits as the window does
   }
 }
 

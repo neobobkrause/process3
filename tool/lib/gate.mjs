@@ -3,7 +3,7 @@
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { GATE, addComment, block, comments, gateRuns, baseEverChanged, getPR, latestReceipt, prsFromBranch, unbound, verifyRow } from './github.mjs';
+import { GATE, addComment, block, comments, gateRuns, getPR, latestReceipt, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
@@ -14,7 +14,7 @@ import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
 import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
-const ghIO = { comments, addComment, getPR, prsFromBranch, baseEverChanged, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
+const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
 // The product's code runs in child processes without the workflow's token (runSuite, install).
 export { NO_TOKENS };
@@ -25,6 +25,66 @@ export const entriesAt = (root, ref) => Object.values(readLedgerTexts(root, ref)
 // No rename detection: a rename lists both the removed and the added path (confirming review
 // of PR 14).
 export const diffNames = (root, a, b, paths = []) => git(['diff', '--no-renames', '--name-only', '-z', a, b, '--', ...paths], { cwd: root }).split('\0').filter(Boolean);
+// The tranche tip a predicted tree was built on: the newest commit on `is`'s first-parent line
+// that is an ancestor of `tested` (null within 200 commits: none).
+export function builtOn(root, tested, is) {
+  const line = git(['rev-list', '--first-parent', '--max-count=200', is], { cwd: root, allowFail: true }).stdout?.split('\n').filter(Boolean) || [];
+  return line.find((c) => git(['merge-base', '--is-ancestor', c, tested], { cwd: root, allowFail: true }).code === 0) || null;
+}
+// A spec-tested tree plus a disjoint tranche move, minus a disjoint position that left the window
+// ahead of it (window keep-disjoint, Bob and the coordinator, 5 Nov): the files where `head`
+// differs from `tested` (the tree a spec run tested), skip() aside (records, lanes), split into
+// `moved`, those `head` holds as `is` (the land's base) does and that either `tested` held as the
+// tranche did at `was` (the spec's base, a tranche tip behind `is`) or at a tip since on its first-
+// parent line (the tranche moved them on), or the tranche never changed while `tested` did (a
+// change ahead of it in the window that never landed); and `off`, the rest. Entries compare mode
+// and object. `dropped`: the second kind, only whole steps of the window's chain in `tested` ahead
+// of the job (chainSteps: exactly a leaving position's change, cold review), never a file own(f)
+// (the job's own module: no position ahead changes it). commits: the move's, first parent.
+export function offSpec(root, { tested, head, was, is, skip, own = () => false }) {
+  const differ = diffNames(root, tested, head).filter((f) => !skip(f));
+  const after = differ.length && was && is && git(['merge-base', '--is-ancestor', was, is], { cwd: root, allowFail: true }).code === 0;
+  const line = after ? [was, ...git(['rev-list', '--first-parent', `${was}..${is}`], { cwd: root }).split('\n').filter(Boolean)] : [];
+  const kind = (f) => {
+    const i = entryOf(root, is, f);
+    if (entryOf(root, head, f) !== i) return null;
+    const t = entryOf(root, tested, f);
+    if (t !== i && line.some((c) => entryOf(root, c, f) === t)) return 'move';
+    return entryOf(root, was, f) === i && !own(f) ? 'drop' : null;
+  };
+  const kinds = after ? new Map(differ.map((f) => [f, kind(f)])) : new Map();
+  // A drop stands only as the whole change of a step ahead in the chain; any other is off.
+  const drops = differ.filter((f) => kinds.get(f) === 'drop');
+  if (drops.length) {
+    const steps = chainSteps(root, tested, was)?.slice(1) || [];
+    const whole = new Set(steps.map((x) => diffNames(root, x.from, x.to).filter((f) => !skip(f))).filter((fs) => fs.every((f) => drops.includes(f))).flat());
+    for (const f of drops) if (!whole.has(f)) kinds.set(f, null);
+  }
+  const moved = differ.filter((f) => kinds.get(f));
+  const commits = moved.some((f) => kinds.get(f) === 'move') ? line.slice(1) : [];
+  return { off: differ.filter((f) => !kinds.get(f)), moved, dropped: moved.filter((f) => kinds.get(f) === 'drop'), commits };
+}
+// The window's chain in a spec head, from `tested` back to `was` (the tranche tip it was built
+// on): each step { from: R(i-1), to: R(i) }, the job's first. A job's step is its merge-row commit
+// over the merge of R(i-1) into its head (merge.mjs buildMerged); a plain one's the merge itself
+// (train.mjs buildPlain): R(i-1) is the merge's second parent. null for any other shape.
+function chainSteps(root, tested, was) {
+  const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
+  const steps = [];
+  for (let c = tested; c !== was;) {
+    if (steps.length > 64) return null;
+    const p = parents(c);
+    const m = p.length === 2 ? p : p.length === 1 ? parents(p[0]) : [];
+    if (m.length !== 2 || !isAnc(root, was, m[1])) return null;
+    steps.push({ from: m[1], to: c });
+    c = m[1];
+  }
+  return steps;
+}
+// Whether a file is in job `id`'s module (its entry's paths and tests).
+export const ownOf = (entries, id) => { const e = entries.find((x) => x.id === id); return (f) => !!e && [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)); };
+// A path's tree entry at a commit, mode and object ("" when absent).
+const entryOf = (root, ref, f) => git(['ls-tree', ref, '--', f], { cwd: root, allowFail: true }).stdout?.split('\t')[0] || '';
 export const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.test(a) && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
@@ -76,7 +136,6 @@ export function gate(root, opts) {
   // In spec mode both are the job PR's own (below): the spec head holds the window ahead of it too.
   let mb = git(['merge-base', head, base], { cwd: root });
   let changed = diffNames(root, mb, head);
-  let gatePassed = null; // the ids the gate's own suite run saw pass (the receipt check)
   // tree: what this run tests, the checkout (GitHub's merge of the head into the base) as it is
   // before anything runs. A spec-tested fast path stands on a row only for the tree it names.
   const tree = git(['rev-parse', 'HEAD^{tree}'], { cwd: root });
@@ -188,12 +247,8 @@ export function gate(root, opts) {
     for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
   }
   const recordOnly = changed.every((f) => isRecordPath(cfg, f)) || !!lanePR;
-  // The fast path stands on an earlier green run only when that run is verified (verifyRow) and
-  // the branch's runs are bound to this pull request (unbound): read only when a row could stand.
-  const greens = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse();
-  const loose = greens.length ? unbound(slug, branch, pr, cfg.tranche, io) : null;
-  if (loose) log(`no earlier green run stands for the records-only path: ${loose}`);
-  const lastGreen = loose ? undefined : greens.find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche, branch }));
+  // The fast path stands on an earlier green run only when that run is verified (verifyRow).
+  const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
     // A lane's folder counts as records here: a lane's land between a job's green run and its
     // merge does not send the job back through its suite (Bob, 5 Nov).
@@ -204,39 +259,31 @@ export function gate(root, opts) {
   const parents = git(['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: root }).split(' ').slice(1);
   const revertBase = parents.length === 2 && parents[1] === head ? parents[0] : base;
 
-  // A ready job's receipt must be agreed by a run on this head (merge). Records only, the fast
-  // path stands only on a green code run that measured what the receipt claims (measuredBy);
-  // with no such run the gate runs the suite here, so a records-only job pull request, or a
-  // records-only head after a code run on another tree, can merge (copy PR 247, 4 Nov:
-  // attempt 3 changed only its records, every run on it was "record", and merge refused it).
-  // A plain pull request, or a job's with no receipt yet, keeps the record fast path.
+  // A ready job's receipt is read for its presence only, never compared with a run (Bob, 5 Nov:
+  // 17 reds, no catch), so records-only heads keep the record fast paths, a job's too.
   const jobReceipt = entry && !draft && receipt?.module === job ? receipt : null;
-  const stands = jobReceipt && sinceGreen && git(['merge-base', '--is-ancestor', jobReceipt.sha, head], { cwd: root, allowFail: true }).code === 0
-    ? measuredBy(root, cfg, jobReceipt, lastGreen, entries) : null;
-  const receiptRun = !!jobReceipt && (recordOnly || sinceGreen) && !stands?.ok;
 
   // The land of a spec-tested job (merge, train-spec C'): its head is the merged result built on
   // the real tranche, whose tree is the one a green spec run tested, records aside. Asked for by
   // the head's Spec-Tested trailer, judged here (specTested); anything short of that runs as it
   // would have without it.
-  const fast = windowOn && !spec && jobReceipt && !(sinceGreen && !receiptRun) ? specTested(root, cfg, { slug, io, pr, base, head, tree, receipt: jobReceipt, job }) : null;
+  const fast = windowOn && !spec && jobReceipt && !recordOnly && !sinceGreen ? specTested(root, cfg, { slug, io, pr, base, head, tree, job }) : null;
   if (fast && !fast.ok) log(`Spec-Tested is not taken: ${fast.why}; the gate runs as it would without it`);
 
-  if (!spec && recordOnly && !jobReceipt) runRow.trigger = 'record';
+  if (!spec && recordOnly) runRow.trigger = 'record';
   else if (draft) runRow.trigger = 'draft';
   else if (fast?.ok) {
-    // The spec run's suite, revert and receipt stand for this tree; ownership, ledger and
-    // imports above were judged on this pull request as usual.
+    // The spec run's suite and revert stand for this tree; ownership, ledger, imports and the
+    // receipt are judged on this pull request as usual.
     const r = fast.row;
     runRow.trigger = 'spec-tested';
-    for (const k of ['suite', 'scope', 'tests', 'base_red', 'revert', 'inert', 'load_only', 'smoke', 'receipt', 'receipt_attempt', 'receipt_passed']) if (r[k] !== undefined) runRow[k] = r[k];
+    for (const k of ['suite', 'scope', 'tests', 'base_red', 'revert', 'inert', 'load_only']) if (r[k] !== undefined) runRow[k] = r[k];
     Object.assign(runRow, { spec_pr: fast.n, spec_run: r.run_id, spec_sha: r.sha });
-    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside: no suite runs`);
+    log(`spec-tested: spec PR ${fast.n}'s run ${r.run_id} tested this tree on ${String(r.sha).slice(0, 10)}, records aside${fast.move ? `, with ${fast.move.files.length - fast.move.dropped.length} file(s) of the disjoint tranche move ${String(fast.move.from).slice(0, 10)}..${String(base).slice(0, 10)} and ${fast.move.dropped.length} of a change ahead that left the window (${fast.move.dropped.slice(0, 5).join(', ') || 'none'})` : ''}: no suite runs`);
   }
-  else if (sinceGreen && !receiptRun) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
+  else if (sinceGreen) { runRow.trigger = 'record-since-green'; runRow.after = lastGreen.sha; }
   else {
     runRow.trigger = 'code';
-    if (receiptRun) log(`only records changed${sinceGreen ? ` since ${String(lastGreen.sha).slice(0, 10)}` : ''}, but no green code run measured receipt attempt ${jobReceipt.attempt}${stands ? ` (${stands.why})` : ''}: the gate runs the ${job} suite to check it`);
     // A job's PR runs its module; any other PR runs every module whose files it touches. The
     // tranche (into main) runs only the modules with a file its job merges did not gate.
     let touched = changed;
@@ -299,47 +346,34 @@ export function gate(root, opts) {
       } else if (!s.tests.total) findings.push(F('suite', e.tests[0], `zero tests ran in ${e.id}`));
     }
     if (tolerated.length) runRow.base_red = tolerated;
-    gatePassed = new Set(results.flatMap((s) => (s.passing || []).map(testId)));
-    if (entry && cfg.smoke) {
-      const sm = smoke(root, cfg, { entry, entries, base: revertBase, rows: gen.rows, exec, log, prepared });
-      runRow.smoke = sm.row;
-      findings.push(...sm.findings);
-    }
     prepared?.drop();
     if (scope.length) {
       runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
       runRow.suite_seconds = results.reduce((t, s) => t + s.seconds, 0);
     }
-    // JOB-12: the job's new or changed tests must fail with its change reverted.
+    // JOB-12, advisory (Bob, 5 Nov: 29 reds, the catches test quality, which the test review
+    // trigger covers): the job's new or changed tests run with its change reverted, and those
+    // that still pass are named in the row for the reviewer. Never a finding.
     if (entry && ['pass', 'base-red'].includes(runRow.suite)) {
-      const exempt = receipt?.module === job ? receipt.exempt?.revert : undefined;
       const tests = changed.filter((f) => entry.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(entry)) && existsSync(join(root, f)));
       // The requirements file's struck marks are not code: reverting them proves nothing.
       const code = changed.filter((f) => !isRecordPath(cfg, f) && f !== entry.requirements && !entry.tests.some((t) => underPath(f, t)));
-      // A records-only job pull request (receiptRun) changes no code and no test: nothing to revert.
-      if (recordOnly) runRow.revert = 'no code changed';
-      else if (!tests.length) {
-        runRow.revert = exempt ? 'exempt' : 'fail';
-        if (!exempt) findings.push(F('revert', entry.tests[0], 'the job adds or changes no test; name why in the receipt (--exempt-revert)'));
-      } else if (!code.length) {
-        runRow.revert = 'no code changed';
-      } else if (exempt) {
-        // The exemption decides the verdict whatever the run finds (inert files are 'exempt', no
-        // finding): not run (build gate-speed). The row says 'exempt', so a later receipt that
-        // drops the exemption is not measured by this run (measuredBy) and the gate runs again.
+      // The receipt's revert exemption, for the reviewer: with one, the check is not run (build gate-speed).
+      const exempt = receipt?.module === job ? receipt.exempt?.revert : undefined;
+      if (!code.length) runRow.revert = 'no code changed';
+      else if (!tests.length) runRow.revert = exempt ? 'exempt' : 'no test changed';
+      else if (exempt) {
         runRow.revert = 'exempt';
         log(`the receipt exempts the revert check (${printable(exempt)}): not run`);
       } else {
         const t0 = Date.now();
         const r = revertCheck(root, entry, revertBase, code, tests, { timeout, tolerated: (runRow.base_red || []).flatMap((b) => b.tests) });
         log(`revert check: ${tests.length} test file(s) in ${Math.round((Date.now() - t0) / 1000)} s, ${r.alone} run alone`);
-        runRow.revert = r.inert.length ? 'fail' : 'pass';
+        runRow.revert = r.inert.length ? 'inert' : 'pass';
         runRow.inert = r.inert;
-        // A test that fails only because a new file is gone cannot load; it is not proof the
-        // test checks behaviour. Counted for review, not failed.
+        // A test that fails only because a new file is gone cannot load: named apart.
         runRow.load_only = r.loadOnly;
-        for (const t of r.inert) findings.push(F('revert', t, 'passes with the change reverted: the test does not test the change'));
       }
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
@@ -368,40 +402,17 @@ export function gate(root, opts) {
   if (runRow.trigger === 'record-since-green' && plain?.length && lastGreen.refresh
     && !diffNames(root, lastGreen.sha, head).some((f) => isGenerated(gen.rows, f))) runRow.refresh = lastGreen.refresh;
 
-  // The receipt against this run: present, naming a commit on this branch, agreeing on the suite.
-  if (job && !draft && runRow.trigger !== 'record') {
+  // The receipt: present and naming a commit on this branch. It is not compared with the run. A
+  // records-only run reads it so merge can take that run's row, and finds nothing when there is none.
+  if (job && !draft) {
     if (!receipt || receipt.module !== job) {
       runRow.receipt = 'none';
-      findings.push(F('receipt', entryFile(job), 'the pull request is ready but has no receipt (job complete posts it)'));
+      if (runRow.trigger !== 'record') findings.push(F('receipt', entryFile(job), 'the pull request is ready but has no receipt (job complete posts it)'));
     } else {
       runRow.receipt_attempt = receipt.attempt;
       const onBranch = git(['merge-base', '--is-ancestor', receipt.sha, head], { cwd: root, allowFail: true }).code === 0;
-      const claimed = receipt.commands?.find((c) => c.suite);
-      const claim = claimed ? (claimed.exit === 0 ? 'pass' : 'fail') : 'none';
+      runRow.receipt = onBranch ? 'present' : 'wrong commit';
       if (!onBranch) findings.push(F('receipt', entryFile(job), `the receipt names ${String(receipt.sha).slice(0, 10)}, which is not on this branch`));
-      // Records only since the last green code run (copy PR 105, 4 Nov: a receipt-only commit after
-      // a green code gate): the receipt is checked against that run when it was made on the tree
-      // that run tested, so the claim is of the same tree, suite and results.
-      const measured = onBranch && runRow.trigger === 'record-since-green' ? measuredBy(root, cfg, receipt, lastGreen) : null;
-      const suite = measured?.ok ? lastGreen.suite : runRow.suite;
-      if (measured?.ok) runRow.receipt_measured = lastGreen.sha;
-      else if (measured) runRow.receipt_unmeasured = measured.why;
-      const red = measured?.ok ? lastGreen.base_red : runRow.base_red;
-      // The excused tests the gate's run saw pass (copy plane PR 175: three failed in the job's
-      // container and passed on the runner); kept in the row for a records-only run after it.
-      // spec-tested: the spec run's suite, base-red and kept passes (carried into this row) are
-      // what this receipt is checked against, as a measured run's are.
-      const carried = runRow.trigger === 'spec-tested';
-      const passed = measured?.ok ? (Array.isArray(lastGreen.receipt_passed) ? lastGreen.receipt_passed : [])
-        : carried ? (Array.isArray(runRow.receipt_passed) ? runRow.receipt_passed : [])
-          : [...new Set(claimedRed(claimed))].filter((t) => gatePassed?.has(t));
-      if (!measured?.ok && !carried && passed.length) runRow.receipt_passed = passed;
-      runRow.receipt = !onBranch ? 'wrong commit'
-        : measured && !measured.ok ? 'unmeasured'
-          : suite === 'skipped' ? 'present' : receiptAgrees(claimed, suite, red, passed) ? 'agrees' : 'disagrees';
-      const unexplained = [...new Set(claimedRed(claimed))].filter((t) => !redIds(red).includes(t) && !passed.includes(t));
-      if (runRow.receipt === 'disagrees') findings.push(F('receipt', entryFile(job), `the receipt claims the suite ${claim === 'none' ? 'was not run' : claim === 'pass' ? 'passed' : claimedRed(claimed).length ? 'failed only on base-red tests' : 'failed'}; the gate's run${measured?.ok ? ` on ${String(lastGreen.sha).slice(0, 10)}` : ''} ${suite === 'pass' ? 'passed' : suite === 'base-red' ? `failed only on tests that fail at the base too${unexplained.length ? `, and the receipt excuses ${unexplained.length} that neither fail at the base nor passed in the gate's run: ${unexplained.join('; ')}` : `, these ${redIds(red).length}: ${redIds(red).join('; ')}`}` : 'failed'}`));
-      if (runRow.receipt === 'unmeasured') log(`receipt attempt ${receipt.attempt} is not checked: ${measured.why}`);
     }
   }
 
@@ -428,13 +439,12 @@ const blobAt = (root, ref, f) => { const r = git(['rev-parse', `${ref}:${f}`], {
 // The spec-tested fast path: the head's commit message carries the trailer Spec-Tested: <s>, and
 // spec PR s (a spec pair for this job PR, from this repository) holds a run that tested exactly
 // this tree. The run is s's newest row that is green, ran the code path as this job (spec.pr),
-// agreed with this job's current receipt attempt, names the tree of its own commit (its spec base
-// was the head's ancestor, so GitHub's merge was that commit's tree), and verifies as s's run
-// into its spec base. This head differs from that commit only in record paths, with the same
+// and names the tree of its own commit (its spec base was the head's ancestor, so GitHub's merge
+// was that commit's tree). This head differs from that commit only in record paths, with the same
 // ledger entry and base config, and this run's checkout is this head's tree (the tranche is the
 // head's ancestor: what lands is these bytes). Any doubt is a full run (coordinator's ruling,
 // 5 Nov). { ok, n, row }, { ok: false, why }, or null when no trailer asks for it.
-export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt, job }) {
+export function specTested(root, cfg, { slug, io, pr, base, head, tree, job }) {
   const no = (why) => ({ ok: false, why });
   const t = git(['log', '-1', '--format=%(trailers:key=Spec-Tested,valueonly)', head], { cwd: root }).split('\n').map((x) => x.trim()).filter(Boolean);
   if (!t.length) return null;
@@ -444,69 +454,27 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, receipt,
   const sp = io.getPR(slug, n);
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== pr || sp.head?.repo?.full_name !== slug) return no(`PR ${n} is not a spec pull request of PR ${pr} in ${slug}`);
-  // Every pull request ever opened from the spec head is this one, into the tranche, never retargeted:
-  // GitHub lists only open PRs on a run, so a closed second PR (or a retarget) into a branch with
-  // another gate workflow could otherwise vouch for a run here (confirming review, finding 1).
-  const ctx = { pr: n, baseRef: cfg.tranche, branch: sp.head.ref };
+  // The tree and records comparison is the binding (Bob, 5 Nov): the row's artifact and the spec
+  // head's pull requests are not read again here.
   const row = gateRuns(io.comments(slug, n) || [])
-    .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
-    .reverse().find((r) => committed(root, r.sha) && typeof r.tree === 'string' && r.tree === treeOf(root, r.sha) && io.verify(slug, r, ctx));
-  if (!row) return no(`spec PR ${n} has no verified green code run of ${job}, on its own commit's tree, agreeing with receipt attempt ${receipt.attempt}`);
-  // Read after the row (final review, L1): any pull request whose run made the row existed by now.
-  const unbound = branchBound(slug, sp.head.ref, n, cfg.tranche, io);
-  if (unbound) return no(`spec PR ${n}'s branch is not bound to it: ${unbound.replace(/^is PR \d+'s merge, but /, '')}`);
+    .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr)
+    .reverse().find((r) => committed(root, r.sha) && typeof r.tree === 'string' && r.tree === treeOf(root, r.sha));
+  if (!row) return no(`spec PR ${n} has no green code run of ${job} on its own commit's tree`);
   const at = String(row.sha).slice(0, 10);
   // Lane folders count as records here, as in record-since-green (lane.mjs; Bob, 5 Nov).
   const entries = entriesAt(root, head);
-  const off = diffNames(root, row.sha, head).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
+  // Or by a tranche move since the spec run's base, or a change ahead that left the window, sharing no file with it (offSpec).
+  const { off, moved, dropped, commits } = offSpec(root, { tested: row.sha, head, was: row.base, is: base, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }), own: ownOf(entries, job) });
   if (off.length) return no(`the head differs from ${at}, which spec PR ${n}'s run ${row.run_id} tested, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
   // Records, but read by the run: the job's entry names its suite; the base's config says how it runs.
   if (blobAt(root, row.sha, entryFile(job)) !== blobAt(root, head, entryFile(job))) return no(`${job}'s ledger entry differs from ${at}'s`);
   if (blobAt(root, row.base, CONFIG_FILE) !== blobAt(root, base, CONFIG_FILE)) return no(`the base's ${CONFIG_FILE} differs from the spec run's`);
   // The spec run's base was a tranche tip (its run is bound into the tranche, as a job PR's): it
   // must be this land's base or behind it, with the same judge, and a base-red suite stands only
-  // on this very base (a test failing at an older tip may have been fixed since).
-  const baseOff = baseDiffers(root, row, base);
+  // on this very base or one that differs from it only as baseRedMoved allows.
+  const baseOff = baseDiffers(root, cfg, row, base);
   if (baseOff) return no(`spec PR ${n}'s run was judged on base ${String(row.base).slice(0, 10)}, which ${baseOff}`);
-  if (row.revert === 'exempt' && !receipt.exempt?.revert) return no(`spec PR ${n}'s run passed its revert check by an exemption this receipt does not claim`);
-  const kept = Array.isArray(row.receipt_passed) ? row.receipt_passed : [];
-  if (!receiptAgrees(receipt.commands?.find((c) => c.suite), row.suite, row.base_red, kept)) return no(`the receipt does not agree with spec PR ${n}'s run ${row.run_id}`);
-  return { ok: true, n, row };
-}
-
-// The receipt against the gate's suite. A base-red suite (basered.mjs) agrees with a receipt
-// whose suite passed (the job's own run, on its branch, had none of the base's failures) or
-// excused only tests the gate found failing at the base (copy PR 291: the runner's extra failures
-// are tolerated on its own evidence) or saw pass itself (passed: copy plane PR 175, tests that
-// failed in the job's container and passed on the runner; the environment differs either way).
-// A test the gate saw failing is base-red there, or the suite is not base-red. Naming base-red
-// tests agrees with a suite that passed.
-const claimedRed = (c) => (Array.isArray(c?.base_red) ? c.base_red.filter((t) => typeof t === 'string' && /^[^:]+::./.test(t)) : []);
-const redIds = (rows) => (Array.isArray(rows) ? rows.flatMap((r) => (Array.isArray(r?.tests) ? r.tests : [])) : []);
-export function receiptAgrees(claimed, suite, red, passed = []) {
-  const claim = claimed ? (claimed.exit === 0 ? 'pass' : claimedRed(claimed).length ? 'base-red' : 'fail') : 'none';
-  if (claim === suite) return claim !== 'base-red' || claimedRed(claimed).every((t) => redIds(red).includes(t) || passed.includes(t));
-  if (suite === 'base-red' && claim === 'pass') return true;
-  return suite === 'pass' && claim === 'base-red';
-}
-
-// Whether the last green code run measured what a receipt claims: the receipt was made on a
-// commit whose files, records aside, are that run's (the same tree, so the same suite and
-// results), that run ran the job's suite, and a revert exemption that run relied on is still
-// claimed. { ok } or { ok: false, why }.
-function measuredBy(root, cfg, receipt, green, entries = []) {
-  const job = receipt.module;
-  if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail', 'base-red'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, did not run the ${job} suite` };
-  const same = git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
-    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries, { self: job }));
-  if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${String(green.sha).slice(0, 10)}, tested` };
-  if (green.revert === 'exempt' && !receipt.exempt?.revert) return { ok: false, why: `the last green code run, on ${String(green.sha).slice(0, 10)}, passed its revert check by an exemption this receipt does not claim` };
-  // The row keeps only the passes an earlier receipt excused: a test this one excuses that the row
-  // neither found base-red nor kept as passing is measured by running the suite (review of PR 134).
-  const kept = Array.isArray(green.receipt_passed) ? green.receipt_passed : [];
-  const unknown = [...new Set(claimedRed(receipt.commands?.find((c) => c.suite)))].filter((t) => !redIds(green.base_red).includes(t) && !kept.includes(t));
-  if (unknown.length) return { ok: false, why: `it excuses ${unknown.length} test(s) the last green code run, on ${String(green.sha).slice(0, 10)}, neither found base-red nor kept as passing: ${unknown.slice(0, 5).join('; ')}` };
-  return { ok: true };
+  return { ok: true, n, row, ...(moved.length ? { move: { from: row.base, to: base, files: moved, dropped, commits } } : {}) };
 }
 
 // The tranche into main (PR 89's report, 4 Nov): one gate job running every changed module's
@@ -595,21 +563,6 @@ export function trancheCover(root, cfg, { head, mb, changed, entries, slug, io, 
   return { uncovered, through: [...through.values()].sort((a, b) => a.pr - b.pr) };
 }
 
-// The merged PR's runs list no pull request (verifyRow), so a run is bound to it by its branch.
-// That holds only while every pull request ever opened from the branch is into the tranche: a PR
-// from the branch into another base runs that base's workflow file, which could upload any row
-// (review of PR 94). Pull requests cannot be deleted, so the list is complete; unread, no binding.
-// The list shows each PR's base as it is now; one retargeted to the tranche may have run another
-// base's workflow first (confirming review of PR 94). Any base change, or an unread history,
-// refuses. Returns why the branch does not bind, or null. Used by the job merges' cover and by
-// a close's workflow changes (workflows.mjs).
-// The same check binds an open PR's rows too (github.mjs unbound): GitHub lists only open PRs on
-// a run, so a closed second PR's run lists only this one.
-export function branchBound(slug, branch, n, tranche, io) {
-  const why = unbound(slug, branch, n, tranche, io);
-  return why && `is PR ${n}'s merge, but ${why}`;
-}
-
 export function jobMerge(root, cfg, c, { slug, io }) {
   const no = (why) => ({ ok: false, why });
   const n = Number(git(['log', '-1', '--format=%s', c], { cwd: root }).match(MERGE_TITLE)?.[1]);
@@ -624,8 +577,6 @@ export function jobMerge(root, cfg, c, { slug, io }) {
   if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== cfg.tranche || !id || pr.head.sha !== p2 || pr.head.repo?.full_name !== slug) return no(`is not GitHub's merge of job PR ${n} into ${cfg.tranche}`);
   if (!rowsAt(root, p2, id).some((r) => r.row === 'merge' && r.pr === n)) return no(`is PR ${n}'s merge, but its head holds no merge row for it`);
   const branch = pr.head.ref;
-  const why = branchBound(slug, branch, n, cfg.tranche, io);
-  if (why) return no(why);
   const runs = gateRuns(io.comments(slug, n));
   // The row is bound to the PR here: its run was on job/<id> (verifyRow); its commit is the PR's
   // head or an earlier commit of it; its base was the tranche, at or before the merge's.
@@ -735,41 +686,53 @@ const listFiles = (root, p, out = []) => {
 // The spec run a spec-tested row names (row.spec_pr, spec_run, spec_sha; held in the row's own
 // artifact, verifyRow): a spec pair for job PR n, from this repository, whose run of that id on
 // that commit judged job PR n, ran its suite green, tested that commit's own tree, differs from
-// the merged result only in records, and verifies as the spec PR's run into its spec base. Once
-// the spec PR is closed GitHub may list no pull request on its runs, as on a merged one's
-// (verifyRow): the run is then bound by its branch, as a merged job PR's is, when every PR from
-// the spec head was into the tranche, never retargeted (branchBound). null when not shown.
+// the merged result only in records, on a base this land's stands on (baseDiffers). The tree and
+// records comparison is the binding (Bob, 5 Nov): the spec run's artifact is not read again; the
+// spec-tested row that names it is verified by the caller. null when not shown.
 function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== n || sp.head?.repo?.full_name !== slug) return null;
-  // Bound whether open or closed (confirming review, finding 1): every PR from the spec head is this one, into the tranche.
-  const ctx = sp.state === 'open' ? { pr: row.spec_pr, baseRef: cfg.tranche, branch: sp.head.ref } : { pr: row.spec_pr, baseRef: cfg.tranche, merged: { branch: sp.head.ref }, branch: sp.head.ref };
   const r = gateRuns(io.comments(slug, row.spec_pr) || []).find((x) => x.run_id === row.spec_run && x.sha === row.spec_sha);
   const entries = r ? entriesAt(root, head) : [];
   if (!r || !suiteRan(r) || r.spec?.pr !== n || !committed(root, r.sha) || r.tree !== treeOf(root, r.sha)
-    || !diffNames(root, r.sha, head).every((f) => isRecordOrLane(cfg, f, entries, { self: job })) || baseDiffers(root, r, row.base) || !io.verify(slug, r, ctx)) return null;
-  // Read after the row (final review, L1).
-  if (branchBound(slug, sp.head.ref, row.spec_pr, cfg.tranche, io)) return null;
+    || offSpec(root, { tested: r.sha, head, was: r.base, is: row.base, skip: (f) => isRecordOrLane(cfg, f, entries, { self: job }), own: ownOf(entries, job) }).off.length || baseDiffers(root, cfg, r, row.base)) return null;
   return r;
 }
 
 // Why a spec run (row) does not stand for a land on base `is`: its base, a tranche tip, is not
 // `is` or behind it, or the judge differs (the pin, the config, the gate workflow), or its suite
-// was base-red on another base; null when it stands.
+// was base-red on a base this one differs from otherwise than baseRedMoved allows; null when it stands.
 const GATE_FILE = '.github/workflows/process-gate.yml';
 export const JUDGE_FILES = ['.process', CONFIG_FILE, GATE_FILE];
-function baseDiffers(root, row, is) {
+function baseDiffers(root, cfg, row, is) {
   const was = row?.base;
   if (!committed(root, was) || !committed(root, is)) return 'is not readable here';
   if (!isAnc(root, was, is)) return `is not ${String(is).slice(0, 10)}, this land's base, nor behind it`;
   const judge = JUDGE_FILES.filter((f) => blobAt(root, was, f) !== blobAt(root, is, f));
   if (judge.length) return `has another judge than ${String(is).slice(0, 10)}: ${judge.join(', ')}`;
-  if (row.suite === 'base-red' && was !== is) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}`;
+  const moved = row.suite === 'base-red' && was !== is ? baseRedMoved(root, cfg, row, was, is) : [];
+  if (moved.length) return `ran base-red, tolerated on that base, not on ${String(is).slice(0, 10)}, which differs from it in ${moved.length} file(s) the spec run neither ran with nor left as they were: ${moved.slice(0, 5).join(', ')}`;
   // GitHub takes a pull_request run's workflow file from its merge, i.e. from the spec head: it must
   // be the land base's too (the spec head is any writer's branch; review of the tranche-based spec).
   if (!committed(root, row.sha) || blobAt(root, row.sha, GATE_FILE) !== blobAt(root, is, GATE_FILE)) return `ran ${GATE_FILE} from its spec head ${String(row.sha).slice(0, 10)}, not ${String(is).slice(0, 10)}'s`;
   return null;
+}
+
+// A base-red spec run's tolerance carries from its base `was` to a land's base `is` (coordinator,
+// 5 Nov; copy: spec 566 for PR 470, base-red on 85f411fd03, refused at its land on 808de5b52a, PR
+// 364's land ahead of it, and its full gate found the same 15 tests red at the base) when each file
+// between them, records aside, is as the spec run ran it, as its predicted base held it (the land
+// ahead of it in the window: the spec head's merge built onto it, `row.sha^1^2`), or as at `was` in
+// the tree it tested (a tranche move disjoint from it). The files that are none of these.
+function baseRedMoved(root, cfg, row, was, is) {
+  const r = git(['rev-parse', '--verify', '-q', `${row.sha}^1^2`], { cwd: root, allowFail: true });
+  const predicted = r.code === 0 && isAnc(root, was, r.stdout.trim()) ? r.stdout.trim() : null;
+  return diffNames(root, was, is).filter((f) => !isRecordPath(cfg, f)).filter((f) => {
+    const t = blobAt(root, row.sha, f);
+    const i = blobAt(root, is, f);
+    return t !== i && t !== blobAt(root, was, f) && !(predicted && blobAt(root, predicted, f) === i);
+  });
 }
 
 // A gate row, checked before job post writes it into a comment: the file was written after
@@ -821,54 +784,6 @@ export function postRow(file, { pr, head, gateResult, slug, runId = process.env.
 }
 
 // A fresh file for fail-reporter.mjs's lines, outside the checkout, removed once read (withTemp).
-// The product's smoke list (`smoke` in the config, read at the base): a few tests of other
-// modules every job PR's gate runs beside the job's own suite, the cheap catch for a break
-// across modules (Bob, 4 Nov: users' suites in a job gate cost +7.6 min median and caught none
-// of 20 refuted claims). Each file runs by the module whose tests hold it, within `seconds` in
-// all (default 120); a file under the job's own test paths is the suite's. A test red at the base too is reported in the row, not a finding, as the
-// suite's base-red is; the receipt claims only the job's own suite.
-export function smoke(root, cfg, { entry, entries, base, rows, exec, log = () => {}, prepared = null }) {
-  const { files, seconds = 120 } = cfg.smoke;
-  if (!Array.isArray(files) || files.some((f) => typeof f !== 'string') || !(seconds > 0)) {
-    return { row: { result: 'fail' }, findings: [F('config', CONFIG_FILE, 'smoke must be {"files": [test files], "seconds": <cap, default 120>}')] };
-  }
-  const findings = [];
-  const groups = new Map();
-  for (const f of files.filter((x) => !entry.tests.some((t) => underPath(x, t)))) {
-    const e = entries.find((m) => m.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(m)));
-    if (!e || !existsSync(join(root, f))) { findings.push(F('smoke', f, `smoke file ${f} is ${e ? 'missing' : 'not a test of any module'}`)); continue; }
-    groups.set(e, [...(groups.get(e) || []), f]);
-  }
-  let end = Date.now() + seconds * 1000;
-  const row = { files: 0, seconds: 0, base_red: [] };
-  const left = [...groups];
-  while (left.length) {
-    if (Date.now() >= end) { findings.push(F('smoke', left[0][1][0], `the ${seconds} s smoke cap is spent; not run: ${left.flatMap((g) => g[1]).join(', ')}`)); break; }
-    const [e, fs] = left.shift();
-    const s = withEvents((events) => runSuite(root, e, fs, { timeout: end - Date.now(), events }));
-    row.files += fs.length;
-    row.seconds += s.seconds;
-    if (s.exit === 0) { if (!s.tests.total) findings.push(F('smoke', fs[0], `zero smoke tests ran in ${fs.join(', ')}`)); continue; }
-    const out = /ETIMEDOUT/.test(s.output);
-    // Base-red has its own budget, the suite's (suite_timeout_minutes; PR 117), and its time is not
-    // the cap's (copy, 4 Nov: the base build of bundles.mjs timed out in about half the runs
-    // within the 120 s smoke cap, which the base install, build and run shared).
-    const t0 = Date.now();
-    const br = out ? null : baseRed(root, e, { base, failing: s.failing, cfg, rows, timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, ...(exec ? { exec } : {}), log, prepared });
-    end += Date.now() - t0;
-    if (br?.ok) {
-      row.base_red.push({ module: e.id, ...br.base_red });
-      log(`smoke: ${br.base_red.tests.length} failing test(s) of ${e.id} fail at the base ${String(base).slice(0, 10)} too: reported, not blocking:\n${br.base_red.tests.map((t) => `  ${t}`).join('\n')}`);
-      continue;
-    }
-    findings.push(F('smoke', fs[0], `smoke tests of ${e.id} failed (exit ${s.exit}${out ? `, over the ${seconds} s cap` : ''}): ${JSON.stringify(s.tests)}${br ? `; not base-red: ${br.why}` : ''}`));
-    log(s.output.split('\n').slice(-60).join('\n'));
-  }
-  row.result = findings.length ? 'fail' : row.base_red.length ? 'base-red' : 'pass';
-  if (!row.base_red.length) delete row.base_red;
-  return { row, findings };
-}
-
 const withEvents = (fn) => withTemp('p3-failing-', (d) => fn(join(d, 'failing.jsonl')));
 
 // Reverts the code files to the base, runs the test files, restores each file to HEAD (removing
