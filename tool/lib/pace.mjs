@@ -153,17 +153,23 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
   const me = cloneId(cwd);
   // free: rate_limit reads (not counted by GitHub's primary limit); pushes_by: per repository,
   // '?' for pushes logged before R17c named theirs.
-  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, pushes_by: {} };
-  const add = (repo, n) => { if (n) out.pushes_by[repo || '?'] = (out.pushes_by[repo || '?'] || 0) + n; };
+  // pushes_by keys: "<repo>", "<repo>#state" (its state branch), "?" (no repository logged);
+  // content_by the same for content-creating requests.
+  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, fetches: 0, connector: 0, graphql: 0, pushes_by: {}, content_by: {} };
+  const add = (repo, n, into = out.pushes_by) => { if (n) into[repo || '?'] = (into[repo || '?'] || 0) + n; };
   for (const r of rows) {
     if (!(Date.parse(r.at) > since)) continue;
-    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); if (r.free) out.free++; }
-    if (r.kind === 'push') { out.pushes++; add(r.repo, 1); }
+    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); add(r.repo, contentOf(r), out.content_by); if (r.free) out.free++; if (r.connector) out.connector++; if (r.graphql) out.graphql++; }
+    if (r.kind === 'fetch') out.fetches++;
+    if (r.kind === 'push') { out.pushes++; add(r.repo ? `${r.repo}${r.state ? '#state' : ''}` : null, 1); }
   }
   for (const u of others) {
     if (u.clone && u.clone === me) continue; // this clone's own are in its log
     if (!(Date.parse(u.minute) + 60e3 > since)) continue;
-    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0; out.free += u.free || 0;
+    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0; out.free += u.free || 0; out.fetches += u.fetches || 0; out.connector += u.connector || 0; out.graphql += u.graphql || 0;
+    const cnamed = Object.entries(u.content_by || {});
+    for (const [repo, n] of cnamed) add(repo, n, out.content_by);
+    add('?', (u.content || 0) - cnamed.reduce((a, [, n]) => a + n, 0), out.content_by);
     const named = Object.entries(u.pushes_by || {});
     for (const [repo, n] of named) add(repo, n);
     add('?', (u.pushes || 0) - named.reduce((s, [, n]) => s + n, 0));
@@ -309,14 +315,24 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
     if (wait > 0) sleep(Math.min(wait, ms));
     try { writeFileSync(f, String(now())); } catch { /* best effort */ }
   }
-  logEvent(kind, label, cwd, kind === 'push' ? extra : { points: cost.points || 0, ...(content ? { content } : {}), ...(cost.actions ? { actions: true } : {}), ...(cost.note ? { note: true } : {}) }, now());
+  logEvent(kind, label, cwd, kind === 'push' ? extra : { points: cost.points || 0, ...(content ? { content } : {}), ...(cost.actions ? { actions: true } : {}), ...(cost.note ? { note: true } : {}), ...(cost.graphql ? { graphql: true } : {}), ...(cost.primary === false && !cost.note ? { free: true } : {}), ...extra }, now());
   // This clone's use reaches the other sessions during a long command too (cold review of R17).
   try { shared.share?.(); } catch { /* the budget's record; never the call's failure */ }
   return cost;
 }
 export function ghTurn(args, cwd, opts = {}) {
   const a = args.map(String);
-  return reserve(classify(args), a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd, opts);
+  const repo = ghRepo(a, cwd);
+  return reserve(classify(args), a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd, { ...opts, extra: repo ? { repo } : {} });
+}
+// The repository a gh call acts on (the audit's per-repository write count): its api path's
+// repos/<owner>/<repo>, its --repo or -R, else this clone's origin.
+export function ghRepo(a, cwd) {
+  const path = a[0] === 'api' ? a.find((x, i) => i > 0 && /^\/?repos\/[^/]+\/[^/?]+/.test(x)) : null;
+  if (path) return path.replace(/^\//, '').split('/').slice(1, 3).join('/').split('?')[0].toLowerCase();
+  const ri = a.findIndex((x) => x === '--repo' || x === '-R');
+  if (ri >= 0 && a[ri + 1]) return slugOf(a[ri + 1]) || String(a[ri + 1]).toLowerCase();
+  return pushRepo(['push', 'origin'], cwd);
 }
 // Before a git push (every one the tool makes, and \`p3 github push\`): the pause, the stop and the
 // push ceiling; logged. A --dry-run is no push. While exempt, logged only.
@@ -324,14 +340,21 @@ export function pushTurn(args, cwd, opts = {}) {
   if (args[0] !== 'push' || args.includes('--dry-run') || args.includes('-n')) return null;
   const label = args.filter((x) => !String(x).startsWith('-')).slice(1).join(' ');
   const repo = pushRepo(args, cwd);
-  if (exempting) { logEvent('push', label, cwd, repo ? { repo } : {}); return null; }
-  return reserve({ push: true, points: 0, content: 0, primary: false }, label, cwd, { ...opts, kind: 'push', extra: repo ? { repo } : {} });
+  // A push to the state branch is told apart (the audit: GitHub runs no workflow on it).
+  const dsts = pushPositionals(args).slice(1).map((x) => String(x).split(':').pop().replace(/^refs\/heads\//, ''));
+  const extra = { ...(repo ? { repo } : {}), ...(dsts.length && dsts.every((d) => d === 'process-state') ? { state: true } : {}) };
+  if (exempting) { logEvent('push', label, cwd, extra); return null; }
+  return reserve({ push: true, points: 0, content: 0, primary: false }, label, cwd, { ...opts, kind: 'push', extra });
 }
 // The "<owner>/<repo>" a push goes to (R17c, the audit's per-repository count): its remote's URL,
 // or the URL or path given; null when it cannot be read.
-export const slugOf = (url) => { const m = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, '').match(/([^/:]+)\/([^/:]+)$/); return m ? `${m[1]}/${m[2]}` : null; };
+// A GitHub URL's "<owner>/<repo>", lower case; null for anything else (a local path, another host).
+export const slugOf = (url) => { const u = String(url || '').trim().replace(/\/+$/, '').replace(/\.git$/, ''); const m = u.match(/github\.com[/:]([^/:]+)\/([^/:]+)$/) || (/^\w[\w.-]*\/\w[\w.-]*$/.test(u) ? u.match(/^([^/]+)\/([^/]+)$/) : null); return m ? `${m[1]}/${m[2]}`.toLowerCase() : null; };
+// git push options that take a value: their value is not the remote (cold review of R17c).
+const PUSH_VALUED = new Set(['-o', '--push-option', '--repo', '--receive-pack', '--exec']);
+const pushPositionals = (args) => { const out = []; for (let i = 1; i < args.length; i++) { const x = String(args[i]); if (PUSH_VALUED.has(x)) { i++; continue; } if (!x.startsWith('-')) out.push(x); } return out; };
 export function pushRepo(args, cwd) {
-  const remote = args.slice(1).find((x) => !String(x).startsWith('-'));
+  const remote = pushPositionals(args)[0];
   if (!remote) return null;
   if (/[/:]/.test(remote)) return slugOf(remote);
   const r = spawnSync('git', ['config', '--get', `remote.${remote}.url`], { cwd: cwd || process.cwd(), encoding: 'utf8' });
@@ -366,6 +389,11 @@ export function limitSignal(text) {
 export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
   const a = args.map(String);
   if (result?.code === 0) {
+    // A merge (api PUT .../pulls/N/merge, pr merge) or a release's tag moves a ref on GitHub: a push
+    // GitHub shows, logged as one (cold review of R17c: the audit called every merge unexplained).
+    const merge = (a[0] === 'api' && a.some((x) => /\/pulls\/\d+\/merge$/.test(x))) || (a[0] === 'pr' && a[1] === 'merge');
+    const release = a[0] === 'release' && a[1] === 'create';
+    if (merge || release) { const repo = ghRepo(a, cwd); logEvent('push', `${merge ? 'merge' : 'release tag'} via gh`, cwd, { ...(repo ? { repo } : {}), via: merge ? 'merge' : 'release' }, now()); }
     if (a.includes('--paginate')) {
       const per = Number((a.join(' ').match(/per_page=(\d+)/) || [])[1]) || 30;
       let pages = 1;
@@ -411,6 +439,13 @@ export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = 
   return null;
 }
 
+// git fetch, clone and ls-remote: logged (kind fetch), shown in the budget; GitHub publishes no
+// limit on them and the process sets no ceiling (R17c, coordinator's item B).
+export function fetchSeen(args, cwd) {
+  if (!['fetch', 'clone', 'ls-remote'].includes(args[0])) return;
+  const remote = args.slice(1).find((x) => !String(x).startsWith('-'));
+  logEvent('fetch', `${args[0]} ${remote || ''}`.trim(), cwd);
+}
 // git push (not --dry-run): logged with no gate (the tests' record of a push made elsewhere).
 export function pushSeen(args, cwd) {
   if (args[0] !== 'push' || args.includes('--dry-run') || args.includes('-n')) return;
@@ -422,11 +457,12 @@ export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
   const by = new Map();
   for (const r of rows) {
     const at = Date.parse(r.at);
-    if (!(at > after) || !['gh', 'push'].includes(r.kind)) continue;
+    if (!(at > after) || !['gh', 'push', 'fetch'].includes(r.kind)) continue;
     const minute = iso(Math.floor(at / 60e3) * 60e3);
     const k = `${r.session}\0${minute}`;
     const x = by.get(k) || { session: r.session || null, clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0, pushes_by: {} };
-    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); if (r.free) x.free = (x.free || 0) + 1; } else { x.pushes++; if (r.repo) x.pushes_by[r.repo] = (x.pushes_by[r.repo] || 0) + 1; }
+    if (r.kind === 'fetch') { x.fetches = (x.fetches || 0) + 1; by.set(k, x); continue; }
+    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); if (contentOf(r) && r.repo) { x.content_by = x.content_by || {}; x.content_by[r.repo] = (x.content_by[r.repo] || 0) + contentOf(r); } if (r.free) x.free = (x.free || 0) + 1; if (r.connector) x.connector = (x.connector || 0) + 1; if (r.graphql) x.graphql = (x.graphql || 0) + 1; } else { x.pushes++; if (r.repo) { const k2 = `${r.repo}${r.state ? '#state' : ''}`; x.pushes_by[k2] = (x.pushes_by[k2] || 0) + 1; } }
     by.set(k, x);
   }
   return [...by.values()];
@@ -448,6 +484,7 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   log(`- content-creating requests, the last minute: ${pct(m.content, lim.content_per_minute)}`);
   log(`- content-creating requests, the last hour: ${pct(h.content, lim.content_per_hour)}`);
   log(`- pushes, the last hour: ${pct(h.pushes, p.pushes_per_hour)} of the process's own ceiling (PD-3; GitHub publishes none; each push starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
+  log(`- fetches, the last hour: ${h.fetches} (git fetch, clone and ls-remote by the tool; GitHub publishes no limit, and the process sets none)`);
   log(`- not counted here: ${lim.concurrent} concurrent requests (each session calls one at a time) and ${lim.cpu_seconds_per_minute} s of CPU a minute (GitHub's side)`);
   const pause = pauseOf(cwd, s);
   log(pause?.stopped ? `STOPPED: ${pause.why} at ${pause.at}, a refusal within an hour of an earlier one; the coordinator runs github resume` : pause && Date.parse(pause.until) > now ? `PAUSED until ${pause.until}: ${pause.why}` : 'no pause');

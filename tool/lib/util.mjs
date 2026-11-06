@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushTurn, setPacing } from './pace.mjs';
+import { fetchSeen, ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushTurn, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -50,6 +50,7 @@ export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', '
 export function git(args, opts = {}) {
   // Every push waits its turn: the pause, the stop and the account's push ceiling (R17b, pace.mjs).
   try { pushTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
+  fetchSeen(args, opts.cwd);
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');

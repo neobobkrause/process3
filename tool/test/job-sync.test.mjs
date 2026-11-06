@@ -120,7 +120,9 @@ test('#4: job complete and test refuse at the start, naming job sync, when the t
   assert.equal(git(['rev-list', '--parents', '-1', 'HEAD'], { cwd: root }).split(' ').length, 3, 'a merge commit');
   assert.equal(head(toolRoot), p2, '.process updated to the merged pin');
   assert.equal(clean(root), '');
-  assert.match(said.join('\n'), /next: `node \.process\/tool\/p3\.mjs github push origin job\/alpha`/);
+  // Without origin nothing is pushed; with it, job sync pushes the branch itself (R17c, item G).
+  assert.match(said.join('\n'), /next: run your command again/);
+  assert.doesNotMatch(said.join('\n'), /git push|github push/);
   assert.equal(jobTest(root, 'alpha', { toolRoot, log: quiet }).ok, true);
   assert.equal(jobComplete(root, 'alpha', { push: false, toolRoot, log: quiet }).ok, true);
   // A tool newer than both pins stands (copy PR 40: a COMPLETE job amends with a newer tool).
@@ -253,6 +255,7 @@ test('#5: synced with BOB\'s push, the new attempt is checked and its receipt na
     const s = jobSync(root, 'alpha', { log: quiet });
     assert.deepEqual(s.merged, ['origin/job/alpha'], `fix ${fix}`);
     if (!fix) assert.equal(head(root), bobTip, 'a fast-forward when the job added nothing');
+    assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head(root), 'job sync pushed the branch itself, through the governed git (R17c, item G)');
     const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
     assert.equal(r.ok, true, `fix ${fix}`);
     assert.equal(r.receipt.attempt, 2, 'a new attempt: BOB\'s commits were never checked');

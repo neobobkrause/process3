@@ -152,7 +152,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   if (!force && !pending && now() - after < pacing().share_s * 1000) return 0;
   // The mark is the last row shared, taken before the write: the share's own push, logged during
   // it, is shared next time (cold review of R17b).
-  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push'].includes(r.kind));
+  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push', 'fetch'].includes(r.kind));
   const rows = usageRows(root, { after, rows: log });
   if (!rows.length) return 0;
   const last = Math.max(...log.map((r) => Date.parse(r.at)));

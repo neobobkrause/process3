@@ -504,7 +504,11 @@ const commands = {
     try { slug = repoSlug(root); } catch { slug = null; }
     const processOrigin = git(['config', '--get', 'remote.origin.url'], { cwd: PROCESS_ROOT, allowFail: true }).stdout.trim();
     const repos = [...auditRepos({ slug, cfg, processOrigin }), ...list(a.repo).filter((x) => typeof x === 'string')];
-    try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
+    // Against the account's ledger, never this clone's log alone (cold review of R17c).
+    const sh = stateShare(root, cfg);
+    if (!sh) fail('github audit: no GitHub ledger here (a product\'s clone, or one whose pacing.json names it): nothing to audit against');
+    useShared(sh);
+    try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch, login: typeof a.login === 'string' ? a.login : null }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
   },
   // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
   // through this: it waits its turn against the pause, the stop and the account's push ceiling,
