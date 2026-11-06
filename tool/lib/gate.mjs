@@ -332,7 +332,7 @@ export function gate(root, opts) {
       // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
       if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
       // A row built before the suite runs again when it writes a refreshed file just removed.
-      const g = regenerate(root, gen.rows, { timeout, log, stale: true, judged: [...(plain || []), ...findings.filter((f) => f.check === 'generated').map((f) => f.file)], skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
+      const g = regenerate(root, gen.rows, { timeout, log, stale: !job, judged: [...(plain || []), ...findings.filter((f) => f.check === 'generated').map((f) => f.file)], skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
       runRow.generated = g.ran;
       findings.push(...g.findings);
     }

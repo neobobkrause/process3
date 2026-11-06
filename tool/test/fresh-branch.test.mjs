@@ -133,8 +133,17 @@ test('a committed generated file its regenerate changes is stale at the commit: 
   // A file another check names (a plain pull request's refreshed file, refreshCheck's) is not named stale too.
   git(['checkout', '-q', '--', 'gen/order.mjs'], { cwd: root });
   assert.deepEqual(regenerate(root, rows, { timeout: 60000, exec, stale: true, judged: ['gen/order.mjs'] }).findings, []);
-  // Layer checks (no stale option) report it as changed, as before.
-  assert.deepEqual(regenerate(root, rows, { timeout: 60000, exec }).findings, []);
+  // A job's pull request (no stale option: a job may not commit a generated file, JOB-8) records it
+  // on its row and in the log, owed by a plain refresh after it lands; no finding.
+  git(['checkout', '-q', '--', 'gen/order.mjs'], { cwd: root });
+  const log = [];
+  const j = regenerate(root, rows, { timeout: 60000, exec, log: (l) => log.push(l) });
+  assert.deepEqual([j.findings, j.ran[0].stale], [[], ['gen/order.mjs']]);
+  assert.ok(log.includes('generated, stale: gen/order.mjs differs from this commit after regen order'), log.join('\n'));
+  // An untracked file a suite left in a committed directory is not stale.
+  git(['checkout', '-q', '--', 'gen/order.mjs'], { cwd: root });
+  writeFileSync(join(root, 'gen/scratch.tmp'), 'x\n');
+  assert.deepEqual(regenerate(root, [row('same', 'gen/')], { timeout: 60000, exec, stale: true }).findings, []);
 });
 
 test('regenerate runs in config order: a built row after a regenerated row is built again from its output', () => {
