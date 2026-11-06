@@ -29,7 +29,8 @@ import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { fetchState, handoff, jsonl, outcome, readState, send, writeState, stateReplay } from './lib/state.mjs';
+import { fetchState, flushState, handoff, jsonl, outcome, readState, send, stateBatch, writeState, stateReplay } from './lib/state.mjs';
+import { githubBudget } from './lib/pace.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -488,6 +489,10 @@ const commands = {
   //   failure, then the restart's acts in order. Writes nothing.
   // switch quiet [--minutes 2]: exit 0 only when the tranche's tip has not moved for that long.
   // The runbook: rulebooks/account-switch.md.
+  // github budget [--hours 1] (R17): this clone's gh calls, pushes and Actions dispatches per
+  // session in the window, from the tool's own log (pace.mjs). Writes nothing.
+  'github budget': (a, root) => { try { githubBudget(root, { hours: a.hours ?? 1 }); } catch (e) { fail(e.message); } return 0; },
+
   switch: (a, root) => {
     const sub = a._[0];
     if (sub === 'out') return (switchOut(root, { tasks: a.tasks, sessions: a.sessions, by: a.by }), 0);
@@ -590,6 +595,18 @@ export async function main(argv) {
   a._ = a._.slice(name.split(' ').length);
   let root = null;
   let cfg = null;
+  // One state push per command (R17, GitHub pacing): the writes are coalesced and pushed at its end.
+  const batched = process.env.P3_STATE_BATCH !== '0';
+  if (batched) stateBatch(true);
+  let flushed = false;
+  const flush = () => {
+    if (flushed || !batched) return null;
+    flushed = true;
+    stateBatch(false);
+    try { flushState(); return null; } catch (e) { return e; }
+  };
+  // A command ended early (a signal's process.exit) still pushes what it wrote.
+  if (batched) process.once('exit', () => { const e = flush(); if (e) console.error(`p3 ${name}: ${e.message}`); });
   try {
     root = repoRoot();
     // The idle check in a product only: process3 itself has no process/config.json.
@@ -605,8 +622,14 @@ export async function main(argv) {
     // that writes, the holds met end, recorded; never a refusal of the act. The sweep does the
     // same with the session list (lane seats).
     if (cfg && !process.env.NODE_TEST_CONTEXT) endsAfter(root, cfg, name, code);
+    const lost = flush();
+    if (lost) throw lost;
     return code;
   } catch (e) {
+    // A refusal after writes: they are pushed, as they were before the writes were coalesced.
+    const lost = flush();
+    if (lost instanceof Fail) console.error(`p3 ${name}: ${lost.message}`);
+    else if (lost) throw lost;
     if (e instanceof Fail) {
       console.error(`p3 ${name}: ${e.message}`);
       if (a.out) writeFileSync(a.out, JSON.stringify({ error: e.message, findings: [{ check: 'tool', file: '(tool)', line: 1, message: e.message }] }, null, 2) + '\n');

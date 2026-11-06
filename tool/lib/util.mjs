@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { ghTurn, PACING_DEFAULTS, pacedJobs, pacingProblem, pushSeen, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -47,6 +48,7 @@ export function run(cmd, args = [], opts = {}) {
 // product code may have written into .git/config while the gate ran it (review of build G).
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
+  pushSeen(args, opts.cwd);
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
@@ -85,8 +87,13 @@ function gitCwds() {
 export const exists = (root, rev, path) => git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true }).code === 0;
 
 // GitHub through the gh CLI (measured route, platform row 14). Returns parsed JSON or text.
+// Every gh call waits its turn and is logged (R17, pace.mjs).
+export function ghRun(args, opts = {}) {
+  ghTurn(args, opts.cwd);
+  return run('gh', args, opts);
+}
 export function gh(args, opts = {}) {
-  const r = run('gh', args, { input: opts.input, cwd: opts.cwd });
+  const r = ghRun(args, { input: opts.input, cwd: opts.cwd });
   if (r.code !== 0 && !opts.allowFail) fail(`gh ${args.slice(0, 3).join(' ')} failed: ${(r.stderr || r.stdout).trim()}`);
   if (opts.allowFail && r.code !== 0) return null;
   const s = r.stdout.trim();
@@ -147,6 +154,9 @@ export function repoSlug(root) {
 }
 
 export const DEFAULTS = {
+  // GitHub pacing (R17, pace.mjs): the job and lane sessions at once, one gh call per
+  // gh_interval_ms per clone, and polls from poll_first_s to poll_most_s.
+  pacing: { ...PACING_DEFAULTS },
   tranche: 'tranche',
   records: ['process/'],
   transient: [],
@@ -309,6 +319,9 @@ export function configOf(c, where = CONFIG_FILE) {
     const r = recs.find((x) => typeof x === 'string' && (underPath(strip(g), strip(x)) || underPath(strip(x), strip(g))));
     if (r !== undefined) fail(`${where}: the generated path ${g} and the records path ${r} overlap; a generated file is never a record`);
   }
+  const pp = pacingProblem(c.pacing);
+  if (pp) fail(`${where}: ${pp}`);
+  setPacing(c.pacing);
   const ms = c.merge_strategy ?? DEFAULTS.merge_strategy;
   if (ms !== 'layer') fail(`${where}: merge_strategy ${JSON.stringify(c.merge_strategy)}: the merge train was removed (Bob, 6 Nov); the shared layer branch is the only flow, so set "merge_strategy": "layer" or leave the key out`);
   return {
@@ -317,6 +330,7 @@ export function configOf(c, where = CONFIG_FILE) {
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
+    pacing: { ...DEFAULTS.pacing, ...(c.pacing || {}) },
   };
 }
 
@@ -333,8 +347,12 @@ export function jobCap(cfg = {}, env = process.env) {
   const cap = set ? (/^\d+$/.test(String(raw).trim()) ? Number(raw) : NaN) : JOB_CAP_DEFAULT;
   if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
   const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
+  // GitHub pacing (R17): the job sessions pushing at once are at most pacing.jobs, whatever the
+  // account's cap; the lower of the two is the cap in force.
+  const paced = pacedJobs(cfg, env);
+  const from = paced < cap ? `pacing.jobs in ${CONFIG_FILE}` : set ? JOB_CAP_VAR : 'default';
   return {
-    cap, from: set ? JOB_CAP_VAR : 'default', line: `job cap ${cap} (${set ? JOB_CAP_VAR : 'default'})`,
+    cap: Math.min(cap, paced), from, line: `job cap ${Math.min(cap, paced)} (${from})`,
     note: old.length ? `${CONFIG_FILE}: ${old.join(', ')} ignored; the job cap now comes from ${JOB_CAP_VAR} (default ${JOB_CAP_DEFAULT})` : null,
   };
 }

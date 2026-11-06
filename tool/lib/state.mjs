@@ -28,6 +28,8 @@ export function fetchState(root, sb, { fresh = false } = {}) {
   const r = withStateLock(root, () => fetchRetry(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root }));
   if (r.code !== 0 && !/couldn't find remote ref/i.test(r.stderr)) fail(`cannot read origin's ${sb}: ${r.stderr.trim()}`);
   fetched.set(key, r.code === 0);
+  // A coalesced command's writes not yet pushed (R17): made again on the tip just read.
+  if (r.code === 0 && batch.pending.get(key)?.list.length) withStateLock(root, () => rebuild(root, sb, batch.pending.get(key).list));
   return r.code === 0;
 }
 
@@ -56,7 +58,68 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 // withStateLock): a `change` makes no network call, so nothing but the state fetch and push is
 // waited on under it.
 export function writeState(root, sb, msg, change) {
+  if (batch.on) return withStateLock(root, () => writeStateLocal(root, sb, msg, change));
   return withStateLock(root, () => writeStateNow(root, sb, msg, change));
+}
+
+// Coalesced writes (R17, GitHub pacing; the copy pushed its state branch up to 173 times an hour,
+// 6 Nov). While a command runs (p3.mjs main turns it on), writeState commits onto the clone's copy
+// of the state branch, which readState reads, and pushes nothing; flushState pushes them all at
+// once, at the command's end and before any wait on GitHub. A fresh read, or a push refused
+// because another writer moved the branch, makes the pending changes again on origin's new tip:
+// each change is a function of the tip, as writeState's own retry already needs.
+const batch = { on: false, pending: new Map() };
+export function stateBatch(on = true) { batch.on = !!on; }
+export const pendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.length, 0);
+const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
+const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
+// Each change made and committed in a worktree at start, in order; the clone's ref moved to the result.
+function commitAll(root, sb, start, list) {
+  return withTemp('p3-state-', (tmp) => {
+    const wt = join(tmp, 's');
+    git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
+    const outs = list.map(({ msg, change }) => { const o = change(wt); git(['add', '-A'], { cwd: wt }); git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt }); return o; });
+    const tip = git(['rev-parse', 'HEAD'], { cwd: wt });
+    git(['update-ref', ref(sb), tip], { cwd: root });
+    return { tip, outs };
+  }, { root });
+}
+function rebuild(root, sb, list) { return commitAll(root, sb, tipOf(root, sb) || emptyStart(root, sb), list); }
+function writeStateLocal(root, sb, msg, change) {
+  const key = `${root}\0${sb}`;
+  const entry = batch.pending.get(key) || { root, sb, list: [] };
+  if (!entry.list.length) fetchState(root, sb);
+  const { tip, outs } = commitAll(root, sb, tipOf(root, sb) || emptyStart(root, sb), [{ msg, change }]);
+  entry.list.push({ msg, change });
+  batch.pending.set(key, entry);
+  fetched.set(key, true);
+  return { ...outs[0], tip };
+}
+// Pushes every pending write, one push per state branch; refused to the end, the commits are kept
+// under refs/p3/unpushed/ in order and the refusal names the replay. Returns the writes pushed.
+export function flushState({ log = () => {} } = {}) {
+  let n = 0;
+  for (const [key, entry] of [...batch.pending]) {
+    if (!entry.list.length) { batch.pending.delete(key); continue; }
+    const { root, sb, list } = entry;
+    withStateLock(root, () => withTemp('p3-state-', (tmp) => {
+      const wt = join(tmp, 's');
+      git(['worktree', 'add', '-q', '--detach', wt, tipOf(root, sb)], { cwd: root });
+      const redo = () => { for (const { msg, change } of list) { change(wt); git(['add', '-A'], { cwd: wt }); git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt }); } };
+      try { pushRetry(wt, sb, { redo, log, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
+        if (!(e instanceof Fail)) throw e;
+        batch.pending.delete(key);
+        const cs = git(['rev-list', '--reverse', '-n', String(list.length), 'HEAD'], { cwd: wt }).split('\n').filter(Boolean);
+        const t = Date.now();
+        const names = cs.map((c, i) => { const name = `refs/p3/unpushed/${t}-${String(i).padStart(3, '0')}-${c.slice(0, 7)}`; git(['update-ref', name, c], { cwd: root }); return name; });
+        fail(`${e.message}. The ${list.length} write(s) are kept: replay them with \`node .process/tool/p3.mjs state replay\` (${names.join(', ')})`);
+      }
+    }, { root }));
+    batch.pending.delete(key);
+    n += list.length;
+    try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(key); }
+  }
+  return n;
 }
 function writeStateNow(root, sb, msg, change) {
   const have = fetchState(root, sb, { fresh: true });

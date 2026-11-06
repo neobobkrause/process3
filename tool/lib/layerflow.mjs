@@ -37,7 +37,8 @@ import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
-import { fetchState, readState, writeState } from './state.mjs';
+import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
+import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor } from './hold.mjs';
 import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
@@ -609,7 +610,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
-  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
+  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
 }
@@ -684,7 +685,7 @@ export function voiding(root, sb, n, id, testedOn, { fetch = true } = {}) {
 // A reschedule arriving mid-run halts it (the child killed, a halt run row with the minutes lost)
 // and the next round starts on the new tip; a run that ends while a reschedule is outstanding
 // does not count either. At most `rounds` rounds.
-export async function layerPublish(root, id, { push = true, every = 30000, rounds = 4, sync, complete, log = console.log, args = [], session = null } = {}) {
+export async function layerPublish(root, id, { push = true, every = null, rounds = 4, sync, complete, log = console.log, args = [], session = null } = {}) {
   const cfg0 = loadConfig(root);
   needLayerMode(cfg0, 'layer publish');
   const cfg = jobCfg(root, cfg0, id, { push });
@@ -705,15 +706,23 @@ export async function layerPublish(root, id, { push = true, every = 30000, round
     const pre = voiding(root, sb, n, id, testedOn, { fetch: push });
     if (pre.length) fail(`${layerBranch(n)} at ${short(testedOn)} lacks ${pre.map((r) => `${r.provider}'s land ${short(r.provider_land)}`).join(', ')}: run publish again once origin's ${layerBranch(n)} holds it`);
     log(`layer ${n}, round ${round}: ${id} runs on ${layerBranch(n)} ${short(testedOn)}`);
+    // The run's own job complete reads the state this command wrote (R17: writes are coalesced).
+    if (pendingWrites()) flushState();
     const c = doComplete();
     let halted = null;
-    const timer = setInterval(() => {
+    // The layer branch read again while the run goes: from pacing.poll_first_s (30 s) doubling to
+    // poll_most_s (5 min), never tighter (R17); every, a fixed pause, for the tests.
+    let k = 0;
+    let timer = null;
+    const check = () => {
       if (halted) return;
       const v = voiding(root, sb, n, id, testedOn, { fetch: push });
-      if (v.length) { halted = v; c.kill(); }
-    }, every);
+      if (v.length) { halted = v; c.kill(); return; }
+      timer = setTimeout(check, every ?? pollMs(++k));
+    };
+    timer = setTimeout(check, every ?? pollMs(++k));
     let code;
-    try { ({ code } = await c.done); } finally { clearInterval(timer); }
+    try { ({ code } = await c.done); } finally { clearTimeout(timer); }
     if (!halted) { const v = voiding(root, sb, n, id, testedOn, { fetch: push }); if (v.length) halted = v; }
     const ended = now();
     // One file per run, never two runs under one name (two in one second, the same round).
