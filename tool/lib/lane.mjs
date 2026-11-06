@@ -28,7 +28,7 @@ import { entryFile, jobBranch, laneModuleGaps, ledgerIds, originJobs } from './l
 import { PROCESS_ROOT, PROCESS_TRIAGE, REGISTER, productTriageLane } from './register.mjs';
 import { addressFile, fetchState, jsonl, readState, writeState } from './state.mjs';
 import { fail, fetchBranch, git, laneChecks, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
-import { pacedLanes } from './pace.mjs';
+import { budgetGate, pacedLanes } from './pace.mjs';
 
 export const LANES_FILE = 'lanes/asks.jsonl';
 
@@ -394,9 +394,12 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   const laneCap = (seats) => {
     const others = [...seats.values()].filter((x) => x.lane !== l.name);
     const max = pacedLanes(cfg);
-    if (others.length >= max) fail(`the lane cap is full: ${others.length} lane session(s) live (${others.map((x) => `lane ${x.lane}${x.session ? '' : ' pending'}`).join(', ')}) of pacing.lanes ${max} in process/config.json (GitHub pacing); end one with ${P3} lane end <name>, or raise pacing.lanes; nothing was started`);
+    if (max !== null && others.length >= max) fail(`the lane cap is full: ${others.length} lane session(s) live (${others.map((x) => `lane ${x.lane}${x.session ? '' : ' pending'}`).join(', ')}) of pacing.lanes ${max} in process/config.json (GitHub pacing); end one with ${P3} lane end <name>, or raise pacing.lanes; nothing was started`);
   };
   if (!seat) laneCap(readSeats(root, cfg));
+  // The budget throttles new sessions (R17): none while GitHub is paused or the hour's content use is at target.
+  const gate = seat ? null : budgetGate(root);
+  if (gate) fail(`${gate}; no lane session was started`);
   if (replace !== undefined && (!seat || replace !== (seat.session || 'pending'))) fail(`--replace names lane ${l.name}'s live session, ${seat ? seat.session || 'pending' : 'none'}; not ${JSON.stringify(replace)}`);
   const row = { row: 'start', at: now(), tranche: cfg.tranche, lane: l.name, ...(seat ? { replaces: seat.session || 'pending' } : {}) };
   writeState(root, cfg.state_branch, `lane ${l.name}: session started`, (wt) => {

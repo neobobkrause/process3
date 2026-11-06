@@ -3,6 +3,7 @@
 import { readHolds, slotsHeld } from './hold.mjs';
 import { readSessions, sessionsCount } from './status.mjs';
 import { fail, jobCap, loadConfig } from './util.mjs';
+import { budgetGate } from './pace.mjs';
 
 export function capCheck(root, { live, sessions } = {}) {
   if (sessions === true) fail('--sessions <file>: your list_sessions result, saved as JSON');
@@ -13,6 +14,9 @@ export function capCheck(root, { live, sessions } = {}) {
   const { cap } = jobCap(cfg);
   let held = 0;
   try { held = slotsHeld(readHolds(root, cfg.state_branch)); } catch { held = 0; }
+  // The budget throttles new sessions (R17, pace.mjs).
+  const gate = budgetGate(root);
+  if (gate) fail(`${gate}; nothing was started`);
   if (n >= cap - held) fail(`the job cap is full: ${n} job sessions live of the cap ${cap}${held ? ` less ${held} held` : ''}; nothing was started`);
   return { n, cap, held };
 }

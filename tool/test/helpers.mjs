@@ -14,10 +14,6 @@ import { writeState } from '../lib/state.mjs';
 // stand-ins, no log written into the clones.
 process.env.P3_GH_INTERVAL_MS ??= '0';
 process.env.P3_GITHUB_LOG ??= '0';
-// The session caps (pacing.jobs, pacing.lanes) out of the way of the tests written for the account's
-// job cap; pace.test.mjs clears these to test the caps themselves.
-process.env.P3_TEST_PACING_JOBS ??= '1000';
-process.env.P3_TEST_PACING_LANES ??= '1000';
 export const MADE = new Set();
 if (!fs.mkdtempSync.p3Tracked) {
   const made = fs.mkdtempSync;

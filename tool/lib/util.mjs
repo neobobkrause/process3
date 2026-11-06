@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ghTurn, PACING_DEFAULTS, pacedJobs, pacingProblem, pushSeen, setPacing } from './pace.mjs';
+import { ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushSeen, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -87,10 +87,14 @@ function gitCwds() {
 export const exists = (root, rev, path) => git(['rev-parse', '-q', '--verify', `${rev}:${path}`], { cwd: root, allowFail: true }).code === 0;
 
 // GitHub through the gh CLI (measured route, platform row 14). Returns parsed JSON or text.
-// Every gh call waits its turn and is logged (R17, pace.mjs).
+// Every gh call takes its turn against the account's budget of GitHub's published limits, and a
+// rate-limit refusal pauses every session until GitHub's reset (R17, pace.mjs).
 export function ghRun(args, opts = {}) {
-  ghTurn(args, opts.cwd);
-  return run('gh', args, opts);
+  try { ghTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
+  const r = run('gh', args, opts);
+  const p = ghAfter(args, r, opts.cwd);
+  if (p) fail(`GitHub refused gh ${args.slice(0, 2).join(' ')} with a rate limit; ${p.stopped ? 'a second refusal within an hour: every GitHub call is stopped until the coordinator runs `node .process/tool/p3.mjs github resume`; tell the coordinator' : `every session waits until ${p.until}; run this again after it, never inside it`}`);
+  return r;
 }
 export function gh(args, opts = {}) {
   const r = ghRun(args, { input: opts.input, cwd: opts.cwd });
@@ -154,8 +158,8 @@ export function repoSlug(root) {
 }
 
 export const DEFAULTS = {
-  // GitHub pacing (R17, pace.mjs): the job and lane sessions at once, one gh call per
-  // gh_interval_ms per clone, and polls from poll_first_s to poll_most_s.
+  // GitHub limit conformance (R17, pace.mjs): the share of GitHub's published limits used, the
+  // limits themselves, optional session caps, the per-clone burst floor and the poll backoff.
   pacing: { ...PACING_DEFAULTS },
   tranche: 'tranche',
   records: ['process/'],
@@ -330,7 +334,7 @@ export function configOf(c, where = CONFIG_FILE) {
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
-    pacing: { ...DEFAULTS.pacing, ...(c.pacing || {}) },
+    pacing: { ...DEFAULTS.pacing, ...(c.pacing || {}), github_limits: { ...DEFAULTS.pacing.github_limits, ...(c.pacing?.github_limits || {}) } },
   };
 }
 
@@ -347,12 +351,13 @@ export function jobCap(cfg = {}, env = process.env) {
   const cap = set ? (/^\d+$/.test(String(raw).trim()) ? Number(raw) : NaN) : JOB_CAP_DEFAULT;
   if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
   const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
-  // GitHub pacing (R17): the job sessions pushing at once are at most pacing.jobs, whatever the
-  // account's cap; the lower of the two is the cap in force.
-  const paced = pacedJobs(cfg, env);
-  const from = paced < cap ? `pacing.jobs in ${CONFIG_FILE}` : set ? JOB_CAP_VAR : 'default';
+  // An optional hard cap (R17, off by default): pacing.jobs, when set and lower, is the cap in
+  // force; otherwise the budget of GitHub's published limits throttles (pace.mjs).
+  const paced = pacedJobs(cfg);
+  const lower = paced !== null && paced < cap;
+  const from = lower ? `pacing.jobs in ${CONFIG_FILE}` : set ? JOB_CAP_VAR : 'default';
   return {
-    cap: Math.min(cap, paced), from, line: `job cap ${Math.min(cap, paced)} (${from})`,
+    cap: lower ? paced : cap, from, line: `job cap ${lower ? paced : cap} (${from})`,
     note: old.length ? `${CONFIG_FILE}: ${old.join(', ')} ignored; the job cap now comes from ${JOB_CAP_VAR} (default ${JOB_CAP_DEFAULT})` : null,
   };
 }

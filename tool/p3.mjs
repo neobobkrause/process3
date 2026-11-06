@@ -29,8 +29,9 @@ import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { fetchState, flushState, handoff, jsonl, outcome, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
-import { githubBudget } from './lib/pace.mjs';
+import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
+import { githubBudget, useShared } from './lib/pace.mjs';
+import { shareUsage, stateShare } from './lib/ghshare.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -491,9 +492,18 @@ const commands = {
   //   failure, then the restart's acts in order. Writes nothing.
   // switch quiet [--minutes 2]: exit 0 only when the tranche's tip has not moved for that long.
   // The runbook: rulebooks/account-switch.md.
-  // github budget [--hours 1] (R17): this clone's gh calls, pushes and Actions dispatches per
-  // session in the window, from the tool's own log (pace.mjs). Writes nothing.
-  'github budget': (a, root) => { try { githubBudget(root, { hours: a.hours ?? 1 }); } catch (e) { fail(e.message); } return 0; },
+  // github budget (R17): use against each of GitHub's published limits, per window, account-wide
+  // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
+  'github budget': (a, root) => { githubBudget(root); return 0; },
+  // github resume --by <session> (R17): the coordinator clears a stop (two refusals within an
+  // hour) once the account is in good standing; every session may call GitHub again.
+  'github resume': (a, root) => {
+    const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
+    const cfg = loadConfig(root);
+    stateShare(root, cfg).resume(by);
+    console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
+    return 0;
+  },
 
   switch: (a, root) => {
     const sub = a._[0];
@@ -610,6 +620,8 @@ export async function main(argv) {
   const flush = () => {
     if (flushed || !batched) return null;
     flushed = true;
+    // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
+    if (cfg && root && !process.env.NODE_TEST_CONTEXT) { try { shareUsage(root, cfg, { pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -630,6 +642,8 @@ export async function main(argv) {
     try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
+    // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
+    if (cfg && !process.env.NODE_TEST_CONTEXT) useShared(stateShare(root, cfg));
     if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;

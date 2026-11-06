@@ -79,6 +79,8 @@ export function writeState(root, sb, msg, change) {
 //   finds when the clone's ref no longer holds them.
 const batch = { on: false, pending: new Map() };
 export function stateBatch(on = true) { batch.on = !!on; }
+// fn with writes pushed at once, whatever the command's batching (a pause every session must see).
+export function unbatched(fn) { const was = batch.on; batch.on = false; try { return fn(); } finally { batch.on = was; } }
 export const pendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.length, 0);
 const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
 const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });

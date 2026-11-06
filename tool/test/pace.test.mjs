@@ -1,29 +1,26 @@
-// GitHub pacing (R17; coordinator, 6 Nov: the civicsmith account was suspended at 19:19Z, most
-// likely for automated bulk activity; the copy pushed its state branch 1,387 times that day, 173 in
-// its busiest hour). The caps, the gh pace and log, the poll backoff, the budget and one state push
-// per command.
+// GitHub limit conformance (R17; Bob, 6 Nov: "rather than limiting usage to a small fraction of
+// github's stated limits, I'd suggest that the tooling limit usage to 80% or 90% of github's
+// published limits"). The limits as data, the target, the account-wide windows, GitHub's refusals
+// obeyed by every session, the budget report, the optional caps, and one state push per command.
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { laneStart } from '../lib/lane.mjs';
-import { ghTurn, githubBudget, pacing, pacingProblem, pollMs, pushSeen, PACING_DEFAULTS } from '../lib/pace.mjs';
+import { budgetGate, classify, ghAfter, ghTurn, githubBudget, GITHUB_LIMITS, limitSignal, Paced, pacing, pacingProblem, pollMs, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
+import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
 import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, strandedWrites, writeState } from '../lib/state.mjs';
-import { flow } from '../lib/status.mjs';
 import { configOf, git, jobCap } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
-// The caps themselves: helpers.mjs's test stand-ins cleared for one test, restored after it.
-function realCaps(t, env = {}) {
-  const keys = ['P3_TEST_PACING_JOBS', 'P3_TEST_PACING_LANES', 'P3_JOB_CAP', 'P3_GITHUB_LOG', ...Object.keys(env)];
-  const was = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
-  delete process.env.P3_TEST_PACING_JOBS;
-  delete process.env.P3_TEST_PACING_LANES;
+// One test's environment (the log file, the session id), restored after it; the shared store reset.
+function env(t, vars = {}) {
+  const was = Object.fromEntries(Object.keys({ P3_GITHUB_LOG: 1, CLAUDE_CODE_SESSION_ID: 1, P3_JOB_CAP: 1, ...vars }).map((k) => [k, process.env[k]]));
   delete process.env.P3_JOB_CAP;
-  Object.assign(process.env, env);
-  t.after(() => { for (const [k, v] of Object.entries(was)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+  Object.assign(process.env, vars);
+  t.after(() => { useShared(null); for (const [k, v] of Object.entries(was)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
 }
 function withOrigin(files) {
   const root = makeRepo(files);
@@ -34,81 +31,161 @@ function withOrigin(files) {
   git(['push', '-q', 'origin', 'main', 'tranche'], { cwd: root });
   return { root, bare };
 }
+const logFile = () => join(mkdtempSync(join(tmpdir(), 'p3-pace-')), 'log.jsonl');
+const P = { ...PACING_DEFAULTS, gh_interval_ms: 0 };
+// A clock and a sleep that moves it.
+function clock(start = Date.parse('2026-11-06T22:00:00Z')) {
+  const c = { t: start, slept: [] };
+  c.now = () => c.t;
+  c.sleep = (ms) => { c.slept.push(ms); c.t += ms; };
+  return c;
+}
 
-test('pacing config: conservative defaults; a key outside pacing, a cap under 1 or a poll tighter than 30 s is refused', () => {
-  assert.deepEqual(PACING_DEFAULTS, { jobs: 4, lanes: 1, gh_interval_ms: 2000, poll_first_s: 30, poll_most_s: 300 });
-  assert.deepEqual(configOf({}).pacing, PACING_DEFAULTS);
-  assert.equal(configOf({ pacing: { jobs: 6 } }).pacing.jobs, 6);
-  assert.equal(pacingProblem({ jobs: 0 }), 'pacing.jobs is a whole number, 1 or more');
+test('GitHub\'s published limits are data with their source and date; the target is 80 to 90% (default 85%); the caps are off by default', () => {
+  assert.deepEqual(GITHUB_LIMITS, { source: 'https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api', read: '2026-11-06', primary_per_hour: 5000, actions_token_per_hour: 1000, concurrent: 100, rest_points_per_minute: 900, content_per_minute: 80, content_per_hour: 500, cpu_seconds_per_minute: 90 });
+  const c = configOf({});
+  assert.deepEqual([c.pacing.target, c.pacing.jobs, c.pacing.lanes], [0.85, null, null]);
+  assert.equal(configOf({ pacing: { target: 0.9 } }).pacing.target, 0.9);
+  assert.match(pacingProblem({ target: 0.95 }), /pacing\.target is between 0\.8 and 0\.9/);
+  assert.match(pacingProblem({ target: 0.5 }), /pacing\.target is between 0\.8 and 0\.9/);
+  assert.match(pacingProblem({ github_limits: { content_per_minute: 60 } }), /names its source and the date it was read/);
+  assert.equal(pacingProblem({ github_limits: { content_per_minute: 60, source: 'x', read: '2027-01-01' } }), null);
+  assert.match(pacingProblem({ github_limits: { content_per_day: 1, source: 'x', read: 'y' } }), /not one of GitHub's published limits/);
+  assert.equal(configOf({ pacing: { github_limits: { content_per_minute: 60, source: 'x', read: 'y' } } }).pacing.github_limits.content_per_hour, 500, 'a limit not restated keeps GitHub\'s');
   assert.match(pacingProblem({ gh_interval_ms: 500 }), /gh_interval_ms is 1000 or more/);
-  // The test stand-ins are read under the test runner only, never in a session.
-  assert.equal(pacing({ P3_GH_INTERVAL_MS: '0' }).gh_interval_ms, 2000);
-  assert.equal(pacing({ P3_GH_INTERVAL_MS: '0', NODE_TEST_CONTEXT: 'child' }).gh_interval_ms, 0);
-  assert.match(pacingProblem({ burst: 3 }), /pacing\.burst is not a pacing key/);
-  assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /pacing\.poll_first_s is 30 or more: no wait on GitHub polls tighter than 30 s/);
-  assert.throws(() => configOf({ pacing: { poll_first_s: 60, poll_most_s: 40 } }), /poll_most_s is at least pacing\.poll_first_s/);
+  assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /no wait on GitHub polls tighter than 30 s/);
+  // The test stand-in is read under the test runner only, never in a session.
+  assert.equal(pacing({ P3_GH_INTERVAL_MS: '0' }).gh_interval_ms, 1000);
   configOf({});
 });
 
 test('polls back off from 30 s to 5 min, never tighter than 30 s', () => {
-  const p = { ...PACING_DEFAULTS };
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((k) => pollMs(k, p) / 1000), [30, 60, 120, 240, 300, 300, 300]);
-  assert.equal(pollMs(1, { ...p, poll_first_s: 5 }), 30000, 'the floor holds whatever the numbers');
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((k) => pollMs(k, P) / 1000), [30, 60, 120, 240, 300, 300, 300]);
+  assert.equal(pollMs(1, { ...P, poll_first_s: 5 }), 30000);
 });
 
-test('the job cap is at most pacing.jobs; the account cap still binds below it; status queues the startable jobs past the free slots', (t) => {
-  realCaps(t);
-  assert.deepEqual([jobCap({}).cap, jobCap({}).from], [4, 'pacing.jobs in process/config.json']);
+test('session caps are derived: no fixed job or lane cap unless pacing sets one', (t) => {
+  env(t);
+  assert.deepEqual([jobCap({}).cap, jobCap({}).from], [20, 'default']);
+  assert.deepEqual([jobCap({ pacing: { jobs: 4 } }).cap, jobCap({ pacing: { jobs: 4 } }).from], [4, 'pacing.jobs in process/config.json']);
   assert.equal(jobCap({ pacing: { jobs: 10 } }, { P3_JOB_CAP: '6' }).cap, 6);
-  assert.equal(jobCap({ pacing: { jobs: 10 } }, {}).cap, 10);
-  // 3 live of 4: one slot free, 3 startable, 2 wait their turn.
-  const f = flow(configOf({}), [], [], 3, null, [], { view: { kind: 'open', startable: ['a', 'b', 'c'] } });
-  assert.equal(f.queued, 2);
-  assert.match(f.line, /^flow: live 3\/4 \(pacing\.jobs in process\/config\.json\), startable 3, queued 2 \(each starts as a slot frees: GitHub pacing\)/);
-  assert.equal(flow(configOf({}), [], [], 1, null, [], { view: { kind: 'open', startable: ['a'] } }).queued, undefined);
-});
-
-test('lane start refuses past pacing.lanes, naming the live lanes; a replace adds none; a raised cap lets the next start', (t) => {
-  realCaps(t);
   const files = { 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }, { name: 'pub', dir: 'design/pub' }] }, 'design/ux/README.md': 'x\n', 'design/pub/README.md': 'x\n' };
   const { root } = withOrigin(files);
   laneStart(root, 'ux', { slug: 'o/p', log: quiet });
-  assert.throws(() => laneStart(root, 'pub', { slug: 'o/p', log: quiet }), /the lane cap is full: 1 lane session\(s\) live \(lane ux pending\) of pacing\.lanes 1 in process\/config\.json \(GitHub pacing\).*nothing was started/);
-  laneStart(root, 'ux', { slug: 'o/p', replace: 'pending', log: quiet });
-  const two = withOrigin({ ...files, 'process/config.json': { ...files['process/config.json'], pacing: { lanes: 2 } } });
-  laneStart(two.root, 'ux', { slug: 'o/p', log: quiet });
-  laneStart(two.root, 'pub', { slug: 'o/p', log: quiet });
+  laneStart(root, 'pub', { slug: 'o/p', log: quiet });
+  const one = withOrigin({ ...files, 'process/config.json': { ...files['process/config.json'], pacing: { lanes: 1 } } });
+  laneStart(one.root, 'ux', { slug: 'o/p', log: quiet });
+  assert.throws(() => laneStart(one.root, 'pub', { slug: 'o/p', log: quiet }), /the lane cap is full: 1 lane session\(s\) live \(lane ux pending\) of pacing\.lanes 1/);
 });
 
-test('each gh call waits for the clone\'s last one to be gh_interval_ms old, and every call, push and Actions dispatch is logged; github budget counts them per session', (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'p3-pace-'));
-  const logFile = join(dir, 'log.jsonl');
-  realCaps(t, { P3_GITHUB_LOG: logFile, CLAUDE_CODE_SESSION_ID: 'cse_a' });
+test('each call is costed: REST points (a read 1, a write 5) and content-creating requests', () => {
+  assert.deepEqual(classify(['api', 'repos/o/p/pulls/1']), { points: 1, content: false, actions: false, primary: true });
+  assert.deepEqual(classify(['api', '-X', 'POST', 'repos/o/p/issues/1/comments', '-f', 'body=x']).points, 5);
+  assert.equal(classify(['api', 'repos/o/p/issues/1/comments', '-f', 'body=x']).content, true, 'fields without a method are a POST');
+  assert.equal(classify(['api', 'repos/o/p/pulls/1', '--method', 'GET', '-f', 'x=1']).content, false);
+  assert.equal(classify(['api', 'graphql', '-f', 'query=mutation { x }']).content, true);
+  assert.equal(classify(['api', 'graphql', '-f', 'query={ viewer { login } }']).content, false);
+  assert.equal(classify(['api', 'rate_limit']).primary, false, 'rate_limit is free against the primary limit');
+  for (const v of ['create', 'edit', 'merge', 'comment', 'review', 'ready']) assert.equal(classify(['pr', v, '1']).content, true, v);
+  for (const v of ['view', 'list', 'checks', 'diff']) assert.equal(classify(['pr', v, '1']).content, false, v);
+  assert.deepEqual([classify(['workflow', 'run', 'x.yml']).content, classify(['workflow', 'run', 'x.yml']).actions], [true, true]);
+});
+
+test('each window waits at the target, account-wide: this clone\'s log and the other sessions\' shared rows', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
   const root = makeRepo({ 'README.md': 'x\n' });
-  let clock = 1_000_000;
-  const slept = [];
-  const at = { p: { ...PACING_DEFAULTS }, now: () => clock, sleep: (ms) => { slept.push(ms); clock += ms; } };
-  ghTurn(['api', 'repos/o/p/pulls/1'], root, at);
-  clock += 500;
-  ghTurn(['pr', 'view', '1'], root, at);
-  assert.deepEqual(slept, [1500], 'the second call waits out the rest of the 2 s');
-  clock += 5000;
-  ghTurn(['workflow', 'run', 'deploy-test.yml', '-f', 'x=1'], root, at);
-  assert.deepEqual(slept, [1500], 'no wait once the interval has passed');
-  pushSeen(['push', '-q', 'origin', 'HEAD:refs/heads/job/a'], root);
-  pushSeen(['push', '--dry-run', 'origin', 'HEAD'], root);
+  const c = clock();
+  // 85% of 80 content-creating requests a minute is 68: 40 by another session, 28 by this one.
+  const minute = new Date(c.t - 30e3).toISOString().replace(/\.\d+Z$/, 'Z').replace(/:\d\dZ$/, ':00Z');
+  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute, calls: 40, points: 200, content: 40, pushes: 0 }] }), pause: () => {} });
+  for (let i = 0; i < 28; i++) ghTurn(['pr', 'comment', '1', '-b', 'x'], root, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, [], 'up to the target, no wait');
+  ghTurn(['pr', 'view', '1'], root, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, [], 'a read is not content-creating');
+  ghTurn(['pr', 'comment', '1', '-b', 'x'], root, { p: P, now: c.now, sleep: c.sleep });
+  assert.equal(c.slept.length, 1, 'the 69th waits for the window');
+  assert.ok(c.slept[0] > 0 && c.slept[0] <= 61e3, String(c.slept[0]));
+  // The primary limit, from GitHub's own count: at 85% of 5,000 it waits for the reset.
+  const c2 = clock(c.t + 3700e3);
+  const reset = c2.t + 300e3;
+  ghTurn(['api', 'user'], root, { p: P, now: c2.now, sleep: c2.sleep, rateLimit: () => ({ limit: 5000, remaining: 740, reset }) });
+  assert.deepEqual(c2.slept, [300e3]);
+  // A wait longer than 15 minutes is refused, never slept through.
+  const c3 = clock(c2.t + 120e3);
+  assert.throws(() => ghTurn(['api', 'user'], makeRepo({ 'a.md': 'x\n' }), { p: P, now: c3.now, sleep: c3.sleep, rateLimit: () => ({ limit: 5000, remaining: 10, reset: c3.t + 3000e3 }) }), (e) => e instanceof Paced && /run this again then/.test(e.message));
+});
+
+test('a 403 with Retry-After pauses every session until it passes, never a retry inside it; a second refusal within an hour stops the tool until the coordinator resumes it', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_a' });
+  // Two sessions, two clones of one product, one origin.
+  const { root: a, bare } = withOrigin({ 'process/config.json': {} });
+  const b = join(mkdtempSync(join(tmpdir(), 'p3-clone-')), 'b');
+  git(['clone', '-q', bare, b], { cwd: a });
+  const cfg = configOf({});
+  const c = clock();
+  const sharedA = stateShare(a, cfg, { now: c.now });
+  const sharedB = stateShare(b, cfg, { now: c.now });
+  assert.deepEqual(limitSignal('gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 120'), { kind: 'secondary', retryAfter: 120, reset: null });
+  assert.equal(limitSignal('HTTP 404: Not Found'), null);
+  assert.equal(limitSignal('HTTP 403: Resource not accessible by integration'), null, 'a permission 403 is no rate limit');
+  // Session A is refused.
+  useShared(sharedA);
+  const rec = ghAfter(['pr', 'comment'], { code: 1, stderr: 'gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 120' }, a, { now: c.now });
+  assert.equal(rec.until, new Date(c.t + 120e3).toISOString().replace(/\.\d+Z$/, 'Z'));
+  assert.equal(JSON.parse(git(['show', `process-state:${PAUSE_FILE}`], { cwd: bare })).stopped, false, 'written to origin at once');
+  // Session B's next call waits the pause out before it calls; nothing sooner.
   process.env.CLAUDE_CODE_SESSION_ID = 'cse_b';
-  ghTurn(['api', 'user'], root, { ...at, p: { ...PACING_DEFAULTS, gh_interval_ms: 0 } });
-  const rows = readFileSync(logFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-  assert.deepEqual(rows.map((r) => [r.kind, r.session]), [['gh', 'cse_a'], ['gh', 'cse_a'], ['actions', 'cse_a'], ['push', 'cse_a'], ['gh', 'cse_b']]);
-  // An old row is outside the window.
-  writeFileSync(logFile, readFileSync(logFile, 'utf8') + JSON.stringify({ at: '2020-01-01T00:00:00Z', kind: 'gh', session: 'cse_a' }) + '\n');
+  useShared(sharedB);
+  ghTurn(['pr', 'view', '1'], b, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, [120e3]);
+  assert.match(budgetGate(b, { p: P, now: c.t - 1 }) || '', /rate-limited this account until/);
+  // A second refusal within the hour, by session B: every GitHub call stops.
+  ghAfter(['api', 'repos/o/p'], { code: 1, stderr: 'HTTP 429: Too Many Requests' }, b, { now: c.now });
+  process.env.CLAUDE_CODE_SESSION_ID = 'cse_a';
+  useShared(stateShare(a, cfg, { now: c.now }));
+  assert.throws(() => ghTurn(['pr', 'view', '1'], a, { p: P, now: c.now, sleep: c.sleep }), (e) => e instanceof Paced && /twice within an hour.*Tell the coordinator.*github resume/.test(e.message));
+  assert.match(budgetGate(a, { p: P, now: c.t }) || '', /stopped until the coordinator runs github resume/);
+  // The coordinator resumes it.
+  stateShare(a, cfg, { now: c.now }).resume('session_coord');
+  useShared(stateShare(b, cfg, { now: c.now }));
+  ghTurn(['pr', 'view', '1'], b, { p: P, now: c.now, sleep: c.sleep });
+  assert.equal(c.slept.length, 1);
+});
+
+test('github budget: use against each published limit, per window, as a percentage, account-wide; usage rows shared with the command\'s push', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const { root, bare } = withOrigin({ 'process/config.json': {} });
+  const c = clock(Date.now());
+  for (let i = 0; i < 4; i++) ghTurn(['pr', 'comment', '1'], root, { p: P, now: c.now, sleep: c.sleep });
+  ghTurn(['pr', 'view', '1'], root, { p: P, now: c.now, sleep: c.sleep });
+  pushSeen(['push', '-q', 'origin', 'HEAD:refs/heads/job/a'], root);
+  assert.deepEqual(usageRows(root).map((r) => [r.calls, r.points, r.content]).reduce((s, x) => s.map((v, i) => v + x[i]), [0, 0, 0]), [5, 21, 4]);
+  const cfg = configOf({});
+  assert.ok(shareUsage(root, cfg, { force: true }) >= 1);
+  assert.match(git(['ls-tree', '--name-only', 'process-state', 'github/use/'], { cwd: bare }), /github\/use\/cse_me\.jsonl/);
+  assert.equal(shareUsage(root, cfg, {}), 0, 'nothing new since');
+  // Another session's shared rows count; this one's own come from its log, never twice.
+  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString().replace(/\.\d+Z$/, 'Z'), calls: 10, points: 50, content: 10, pushes: 2 }, { session: 'cse_me', minute: new Date(c.t).toISOString(), calls: 5, points: 21, content: 4, pushes: 1 }] }), pause: () => {} });
   const out = [];
-  const b = githubBudget(root, { hours: 1, log: (l) => out.push(l), p: { ...PACING_DEFAULTS } });
-  assert.deepEqual([b.gh, b.push, b.actions], [3, 1, 1]);
-  assert.match(out[0], /github budget, the last 1 h, this clone .*: 3 gh call\(s\), 1 push\(es\), 1 Actions dispatch\(es\); the pace: one gh call per 2 s per clone \(at most 1800 in 1 h\)/);
-  assert.ok(out.includes('- cse_a: 2 gh, 1 push, 1 actions') && out.includes('- cse_b: 1 gh, 0 push, 0 actions'), out.join('\n'));
-  assert.throws(() => githubBudget(root, { hours: 0, log: quiet }), /--hours/);
+  const r = githubBudget(root, { now: c.t, log: (l) => out.push(l), p: P, rateLimit: () => ({ limit: 5000, remaining: 4000, reset: c.t + 1800e3 }) });
+  // Every push this clone made is in its log (the fixture's, the share's state push, job/a's).
+  const mine = readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('"kind":"push"')).length;
+  assert.ok(mine >= 2);
+  assert.deepEqual([r.minute.content, r.hour.content, r.hour.pushes], [14, 14, 2 + mine]);
+  const text = out.join('\n');
+  assert.match(text, /the target is 85% of GitHub's published limits \(https:\/\/docs\.github\.com\/en\/rest\/using-the-rest-api\/rate-limits-for-the-rest-api, read 2026-11-06\)/);
+  assert.match(text, /- primary, an hour: 1000\/5000 \(20%\)/);
+  assert.match(text, /- REST points, the last minute: 71\/900 \(8%\)/);
+  assert.match(text, /- content-creating requests, the last minute: 14\/80 \(18%\)/);
+  assert.match(text, /- content-creating requests, the last hour: 14\/500 \(3%\)/);
+  assert.match(text, /cse_other: 10 gh call\(s\), 10 content-creating, 2 push\(es\)/);
+  assert.match(text, /no pause/);
+  // A new session waits while the hour's content use is at target.
+  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString(), calls: 430, points: 2150, content: 430, pushes: 0 }] }), pause: () => {} });
+  assert.match(budgetGate(root, { p: P, now: c.t }) || '', /content-creating requests an hour used account-wide, the target 85%: a new session waits/);
 });
 
 test('coalesced state writes: read at once in the command, pushed once at its end, made again on a tip another writer moved', (t) => {

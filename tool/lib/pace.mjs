@@ -1,50 +1,81 @@
-// GitHub pacing (R17; coordinator, 6 Nov): the civicsmith account was suspended at 19:19Z,
-// most likely for automated bulk activity (GitHub's Acceptable Use Policies, section 4; the API
-// terms' "excessively frequent requests"). Measured on the copy that day: 1,387 state-branch
-// pushes since midnight, 173 in the busiest hour (the merge train's), about 70 an hour in the
-// layer flow; gh calls were not logged at all. So:
-// - every gh call waits its turn (one per `gh_interval_ms` per clone) and is logged;
-// - every push and Actions dispatch the tool makes is logged, for `github budget`;
-// - waits on GitHub poll from `poll_first_s` up to `poll_most_s`, never tighter than 30 s;
-// - the job cap is at most `pacing.jobs`, and live lane seats at most `pacing.lanes`.
-// Each is configurable under "pacing" in process/config.json.
+// GitHub limit conformance (R17). The civicsmith account was suspended on 6 Nov at 19:19Z, most
+// likely for automated bulk activity. Bob, 6 Nov ~21:10Z: "If github publishes limits, then we
+// should introduce process3 tooling that conforms to those limits. But rather than limiting usage
+// to a small fraction of github's stated limits, I'd suggest that the tooling limit usage to 80%
+// or 90% of github's published limits. That feels like the proper balance."
+//
+// So the tool:
+// - holds GitHub's published limits as data (GITHUB_LIMITS, pacing.github_limits);
+// - uses at most pacing.target (default 0.85, 0.8 to 0.9) of each, account-wide:
+//   - the primary limit is GitHub's own count: the rate_limit endpoint, which does not count
+//     against it, read at most once a minute per clone;
+//   - the secondary limits are counted per call (REST points; content-creating requests), from
+//     every session's usage rows on the state branch plus this clone's own log;
+// - obeys GitHub's refusals: on a 403 or 429 rate-limit response, every session pauses until the
+//   reset (Retry-After, x-ratelimit-reset, else at least a minute) and never retries inside it; a
+//   second refusal within an hour stops the tool until the coordinator runs `github resume`.
+// The per-clone spacing (gh_interval_ms) is only a floor against bursts. Session caps are off by
+// default (pacing.jobs, pacing.lanes): the budget throttles. The shared store is an adapter
+// (useShared): p3.mjs sets the state branch's (ghshare.mjs); with none, this clone's own log only.
 // No import from util.mjs (util imports this).
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
-export const PACING_DEFAULTS = { jobs: 4, lanes: 1, gh_interval_ms: 2000, poll_first_s: 30, poll_most_s: 300 };
+// GitHub's published limits, read 6 Nov 2026 from the source below.
+export const GITHUB_LIMITS = {
+  source: 'https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api',
+  read: '2026-11-06',
+  primary_per_hour: 5000, // per user token
+  actions_token_per_hour: 1000, // GITHUB_TOKEN, per repository
+  concurrent: 100,
+  rest_points_per_minute: 900, // GET, HEAD, OPTIONS 1 point; POST, PATCH, PUT, DELETE 5
+  content_per_minute: 80,
+  content_per_hour: 500,
+  cpu_seconds_per_minute: 90,
+};
+export const PACING_DEFAULTS = { target: 0.85, jobs: null, lanes: null, gh_interval_ms: 1000, poll_first_s: 30, poll_most_s: 300, share_s: 300, github_limits: GITHUB_LIMITS };
+export const TARGET_RANGE = [0.8, 0.9];
 export const POLL_FLOOR_S = 30;
 export const GH_FLOOR_MS = 1000;
+export const MAX_WAIT_MIN = 15;
 export const GITHUB_LOG = 'p3-github.jsonl';
 const STAMP = 'p3-gh-pace';
+const PRIMARY = 'p3-gh-primary.json';
 
 let current = { ...PACING_DEFAULTS };
-// The pacing in force: the defaults, the config's "pacing" over them (configOf sets it), and for
-// the tests P3_GH_INTERVAL_MS over the interval.
-export function setPacing(p) { current = { ...PACING_DEFAULTS, ...(p || {}) }; }
-// P3_GH_INTERVAL_MS (and P3_GITHUB_LOG=0) are read under the test runner only, never in a session.
+// The pacing in force: the defaults, the config's "pacing" over them (configOf sets it).
+export function setPacing(p) { current = { ...PACING_DEFAULTS, ...(p || {}), github_limits: { ...GITHUB_LIMITS, ...(p?.github_limits || {}) } }; }
+// P3_GH_INTERVAL_MS (and P3_GITHUB_LOG) are read under the test runner only, never in a session.
 export function pacing(env = process.env) {
   const ms = env.NODE_TEST_CONTEXT ? env.P3_GH_INTERVAL_MS : undefined;
   return { ...current, ...(ms !== undefined && ms !== '' && /^\d+$/.test(ms) ? { gh_interval_ms: Number(ms) } : {}) };
 }
-// The session caps in force for a config: its pacing.jobs and pacing.lanes. Under the test runner
-// only (NODE_TEST_CONTEXT), P3_TEST_PACING_JOBS and _LANES stand in, so the tests written for the
-// account's job cap keep testing it; nothing outside a test run reads them.
-const testCap = (v, env) => (env.NODE_TEST_CONTEXT && /^\d+$/.test(String(v ?? '')) ? Number(v) : null);
-export const pacedJobs = (cfg = {}, env = process.env) => testCap(env.P3_TEST_PACING_JOBS, env) ?? cfg.pacing?.jobs ?? PACING_DEFAULTS.jobs;
-export const pacedLanes = (cfg = {}, env = process.env) => testCap(env.P3_TEST_PACING_LANES, env) ?? cfg.pacing?.lanes ?? PACING_DEFAULTS.lanes;
+// Optional hard caps (off by default): pacing.jobs on the job cap, pacing.lanes on lane seats.
+export const pacedJobs = (cfg = {}) => cfg.pacing?.jobs ?? null;
+export const pacedLanes = (cfg = {}) => cfg.pacing?.lanes ?? null;
 // Checks a config's "pacing" block; returns the problem or null.
 export function pacingProblem(p) {
   if (p === undefined) return null;
   if (!p || typeof p !== 'object' || Array.isArray(p)) return 'pacing is an object';
   for (const k of Object.keys(p)) if (!(k in PACING_DEFAULTS)) return `pacing.${k} is not a pacing key (${Object.keys(PACING_DEFAULTS).join(', ')})`;
-  for (const k of ['jobs', 'lanes', 'gh_interval_ms', 'poll_first_s', 'poll_most_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= (k === 'jobs' || k === 'lanes' ? 1 : 0))) return `pacing.${k} is a whole number${k === 'jobs' || k === 'lanes' ? ', 1 or more' : ''}`;
+  if (p.target !== undefined && !(typeof p.target === 'number' && p.target >= TARGET_RANGE[0] && p.target <= TARGET_RANGE[1])) return `pacing.target is between ${TARGET_RANGE[0]} and ${TARGET_RANGE[1]}: the share of GitHub's published limits the tool uses (Bob, 6 Nov: "80% or 90%")`;
+  for (const k of ['jobs', 'lanes']) if (p[k] !== undefined && p[k] !== null && !(Number.isInteger(p[k]) && p[k] >= 1)) return `pacing.${k} is a whole number, 1 or more, or null (no cap)`;
+  for (const k of ['gh_interval_ms', 'poll_first_s', 'poll_most_s', 'share_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= 0)) return `pacing.${k} is a whole number`;
   if (p.gh_interval_ms !== undefined && p.gh_interval_ms < GH_FLOOR_MS) return `pacing.gh_interval_ms is ${GH_FLOOR_MS} or more: no more than one gh call a second per clone`;
   if (p.poll_first_s !== undefined && p.poll_first_s < POLL_FLOOR_S) return `pacing.poll_first_s is ${POLL_FLOOR_S} or more: no wait on GitHub polls tighter than ${POLL_FLOOR_S} s`;
   const first = p.poll_first_s ?? PACING_DEFAULTS.poll_first_s;
   if (p.poll_most_s !== undefined && p.poll_most_s < first) return 'pacing.poll_most_s is at least pacing.poll_first_s';
+  if (p.github_limits !== undefined) {
+    const g = p.github_limits;
+    if (!g || typeof g !== 'object' || Array.isArray(g)) return 'pacing.github_limits is an object';
+    for (const [k, v] of Object.entries(g)) {
+      if (!(k in GITHUB_LIMITS)) return `pacing.github_limits.${k} is not one of GitHub's published limits held here (${Object.keys(GITHUB_LIMITS).join(', ')})`;
+      if (k !== 'source' && k !== 'read' && !(Number.isInteger(v) && v > 0)) return `pacing.github_limits.${k} is a whole number above 0`;
+    }
+    if (g.source === undefined || g.read === undefined) return 'pacing.github_limits names its source and the date it was read (source, read), as GitHub publishes them';
+  }
   return null;
 }
 
@@ -54,8 +85,8 @@ export function pollMs(k, p = pacing()) {
   return Math.min(Math.max(first, p.poll_most_s * 1000), first * 2 ** Math.max(0, k - 1));
 }
 
-// The clone's git directory (shared by its worktrees), where the stamp and the log live; the temp
-// directory when cwd is no clone.
+// The clone's git directory (shared by its worktrees), where the stamps and the log live; the
+// temp directory when cwd is no clone.
 function commonDir(cwd) {
   const r = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: cwd || process.cwd(), encoding: 'utf8' });
   const d = r.status === 0 ? r.stdout.trim() : '';
@@ -63,16 +94,131 @@ function commonDir(cwd) {
   return isAbsolute(d) ? d : resolve(cwd || process.cwd(), d);
 }
 export const githubLog = (cwd) => (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG) || join(commonDir(cwd), GITHUB_LOG);
+export const sessionId = () => process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null;
+const readJSON = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
 
-// One event: a gh call, a push, an Actions dispatch. Never fails the act it records.
-export function logEvent(kind, what, cwd) {
-  if (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG === '0') return;
-  try { appendFileSync(githubLog(cwd), JSON.stringify({ at: new Date().toISOString(), kind, session: process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null, what: String(what).slice(0, 120) }) + '\n'); } catch { /* the log is a record, not a gate */ }
+// What a gh call costs against the secondary limits: its REST points (a read 1, a write 5) and
+// whether it creates content. gh api's method is -X/--method, else POST when it sends fields; a
+// GraphQL mutation is a write. gh's own commands by their verb. Approximate where gh hides the
+// request (its pr and issue commands use GraphQL): a write verb is counted as a write.
+const WRITE_VERBS = new Set(['create', 'edit', 'merge', 'comment', 'review', 'ready', 'close', 'reopen', 'delete', 'lock', 'unlock', 'transfer', 'rerun', 'cancel', 'run', 'enable', 'disable', 'set', 'add', 'remove', 'upload']);
+export function classify(args) {
+  const a = args.map(String);
+  if (a[0] === 'api') {
+    const mi = a.findIndex((x) => x === '-X' || x === '--method');
+    const m = mi >= 0 ? String(a[mi + 1] || '').toUpperCase() : a.find((x) => /^--method=/.test(x))?.split('=')[1]?.toUpperCase();
+    const fields = a.some((x) => /^(-f|-F|--field|--raw-field|--input)$/.test(x) || /^--(raw-)?field=/.test(x));
+    const graphql = a[1] === 'graphql';
+    const write = graphql ? a.some((x) => /^\s*(query=)?\s*mutation\b/.test(x)) : (m ? !['GET', 'HEAD', 'OPTIONS'].includes(m) : fields);
+    const free = !graphql && /^\/?rate_limit$/.test(a[1] || '');
+    return { points: write ? 5 : 1, content: write, actions: a.some((x) => /\/actions\/(workflows\/[^/]+\/dispatches|runs\/\d+\/rerun)/.test(x)), primary: !free };
+  }
+  const write = WRITE_VERBS.has(a[1]) && !(a[0] === 'run' && a[1] === 'run');
+  const actions = (a[0] === 'workflow' && a[1] === 'run') || (a[0] === 'run' && (a[1] === 'rerun' || a[1] === 'cancel'));
+  return { points: write ? 5 : 1, content: write, actions, primary: true };
 }
 
+// One event in this clone's log: a gh call (with its cost), a push, a refusal. Never fails the act.
+export function logEvent(kind, what, cwd, extra = {}, at = Date.now()) {
+  if (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG === '0') return;
+  try { appendFileSync(githubLog(cwd), JSON.stringify({ at: new Date(at).toISOString(), kind, session: sessionId(), what: String(what).slice(0, 120), ...extra }) + '\n'); } catch { /* the log is a record, not a gate */ }
+}
+export function readLog(cwd) {
+  try { return readFileSync(githubLog(cwd), 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }); } catch { return []; }
+}
+
+// The shared store (useShared): read() → { pause, use } with use the other sessions' rows
+// ({ session, minute, calls, points, content, pushes }); pause(rec) writes at once; resume(by).
+const LOCAL = { read: () => ({ pause: null, use: [] }), pause: () => {}, resume: () => {} };
+let shared = LOCAL;
+export function useShared(s) { shared = s || LOCAL; }
+
+// Use in the window ending at t: the other sessions' shared rows plus this clone's own log. A
+// shared row covers a minute, counted whole while its minute is in the window.
+export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), others = shared.read().use || [] } = {}) {
+  const since = t - seconds * 1000;
+  const me = sessionId();
+  const out = { calls: 0, points: 0, content: 0, pushes: 0 };
+  for (const r of rows) {
+    if (!(Date.parse(r.at) > since)) continue;
+    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += r.content ? 1 : 0; }
+    if (r.kind === 'push') out.pushes++;
+  }
+  for (const u of others) {
+    if (u.session && u.session === me) continue; // this clone's own are in its log
+    if (!(Date.parse(u.minute) + 60e3 > since)) continue;
+    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0;
+  }
+  return out;
+}
+// When the oldest counted call leaves the window, so the next fits: the first moment after t at
+// which the window's count drops by `need` (approximate for shared rows: their minute's end).
+function freedAt(cwd, { t, seconds, field, need, rows, others }) {
+  const me = sessionId();
+  const times = [];
+  for (const r of rows) if (r.kind === 'gh' && Date.parse(r.at) > t - seconds * 1000) times.push([Date.parse(r.at), field === 'points' ? (r.points ?? 1) : r.content ? 1 : 0]);
+  for (const u of others) if (!(u.session && u.session === me) && Date.parse(u.minute) + 60e3 > t - seconds * 1000) times.push([Date.parse(u.minute) + 59e3, u[field] || 0]);
+  times.sort((a, b) => a[0] - b[0]);
+  let freed = 0;
+  for (const [at, n] of times) { freed += n; if (freed >= need) return at + seconds * 1000 + 1000; }
+  return t + seconds * 1000;
+}
+
+// GitHub's own count of the primary limit (rate_limit: free against it), at most once a minute per
+// clone; null when it cannot be read (the tests read none unless given).
+export function primaryState(cwd, { t = Date.now(), read = defaultRateLimit } = {}) {
+  const f = join(commonDir(cwd), PRIMARY);
+  const was = readJSON(f);
+  if (was && t - was.read_at < 60e3) return was;
+  const r = read(cwd);
+  if (!r) return was;
+  const s = { ...r, read_at: t };
+  try { writeFileSync(f, JSON.stringify(s)); } catch { /* best effort */ }
+  return s;
+}
+function defaultRateLimit(cwd) {
+  if (process.env.NODE_TEST_CONTEXT) return null;
+  const r = spawnSync('gh', ['api', 'rate_limit'], { cwd, encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  try { const c = JSON.parse(r.stdout).resources.core; return { limit: c.limit, remaining: c.remaining, reset: c.reset * 1000 }; } catch { return null; }
+}
+
+export class Paced extends Error {}
 const nap = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
-// Before a gh call: wait until the clone's last call is gh_interval_ms old, then take the turn.
-export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap } = {}) {
+const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+// Waits out a pause or a full window, or refuses when the wait is longer than MAX_WAIT_MIN.
+function waitUntil(until, why, { now, sleep }) {
+  const ms = until - now();
+  if (ms <= 0) return;
+  if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`${why}: GitHub calls wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
+  sleep(ms);
+}
+
+// Before a gh call: the stop, the pause, the primary limit at target, each secondary window at
+// target, then the per-clone floor; logs the call with its cost. Throws Paced to refuse.
+export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit } = {}) {
+  const cost = classify(args);
+  const lim = p.github_limits || GITHUB_LIMITS;
+  const target = p.target;
+  const s = shared.read();
+  if (s.pause?.stopped) throw new Paced(`GitHub refused this account twice within an hour (${s.pause.why}; the second at ${s.pause.at} by ${s.pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume\` once the account is in good standing`);
+  if (s.pause?.until && Date.parse(s.pause.until) > now()) waitUntil(Date.parse(s.pause.until), `GitHub rate-limited this account (${s.pause.why})`, { now, sleep });
+  if (cost.primary) {
+    const pr = primaryState(cwd, { t: now(), ...(rateLimit ? { read: rateLimit } : {}) });
+    if (pr && pr.limit > 0 && pr.limit - pr.remaining >= Math.floor(target * pr.limit) && pr.reset > now()) waitUntil(pr.reset, `${pr.limit - pr.remaining} of the primary limit's ${pr.limit} an hour used, the target ${Math.round(target * 100)}%`, { now, sleep });
+  }
+  const rows = readLog(cwd);
+  const others = s.use || [];
+  for (const [seconds, field, cap, add, name] of [
+    [60, 'points', lim.rest_points_per_minute, cost.points, 'REST points a minute'],
+    [60, 'content', lim.content_per_minute, cost.content ? 1 : 0, 'content-creating requests a minute'],
+    [3600, 'content', lim.content_per_hour, cost.content ? 1 : 0, 'content-creating requests an hour'],
+  ]) {
+    if (!add) continue;
+    const max = Math.floor(target * cap);
+    const used = usage(cwd, { t: now(), seconds, rows, others })[field];
+    if (used + add > max) waitUntil(freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, others }), `${used} of the ${cap} ${name} used account-wide, the target ${Math.round(target * 100)}% (${max})`, { now, sleep });
+  }
   const ms = p.gh_interval_ms;
   if (ms > 0) {
     const f = join(commonDir(cwd), STAMP);
@@ -83,8 +229,54 @@ export function ghTurn(args, cwd, { p = pacing(), now = Date.now, sleep = nap } 
     try { writeFileSync(f, String(now())); } catch { /* best effort */ }
   }
   const a = args.map(String);
-  const actions = (a[0] === 'workflow' && a[1] === 'run') || (a[0] === 'run' && a[1] === 'rerun') || (a[0] === 'api' && a.some((x) => /\/actions\/(workflows\/[^/]+\/dispatches|runs\/\d+\/rerun)/.test(x)));
-  logEvent(actions ? 'actions' : 'gh', a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd);
+  logEvent('gh', a.filter((x) => !x.startsWith('-')).slice(0, 3).join(' '), cwd, { points: cost.points, ...(cost.content ? { content: true } : {}), ...(cost.actions ? { actions: true } : {}) }, now());
+  return cost;
+}
+
+// A rate-limit refusal in a gh call's output: GitHub's words for the primary and secondary limits,
+// HTTP 403 or 429, and its Retry-After or x-ratelimit-reset when gh shows them.
+export function limitSignal(text) {
+  const t = String(text || '');
+  const secondary = /secondary rate limit|abuse detection/i.test(t);
+  const primary = /API rate limit exceeded|rate limit exceeded for/i.test(t) && !secondary;
+  const http = /HTTP (403|429)\b/.test(t) || /\b429 Too Many Requests\b/i.test(t);
+  if (!secondary && !primary && !(http && /rate limit/i.test(t)) && !/\bHTTP 429\b/.test(t)) return null;
+  const ra = t.match(/retry-after:\s*(\d+)/i);
+  const reset = t.match(/x-ratelimit-reset:\s*(\d+)/i);
+  return { kind: primary ? 'primary' : 'secondary', retryAfter: ra ? Number(ra[1]) : null, reset: reset ? Number(reset[1]) * 1000 : null };
+}
+// After a gh call: a refusal pauses every session until GitHub's reset (Retry-After, else
+// x-ratelimit-reset, else for the primary limit rate_limit's reset, else one minute, as GitHub's
+// docs say); a second within an hour stops the tool. Returns the pause written, or null.
+export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
+  const sig = limitSignal(`${result?.stderr || ''}\n${result?.stdout || ''}`);
+  if (!sig || result?.code === 0) return null;
+  const t = now();
+  let until = sig.retryAfter !== null ? t + sig.retryAfter * 1000 : sig.reset;
+  if (!until && sig.kind === 'primary') { const pr = (rateLimit || defaultRateLimit)(cwd); until = pr?.reset || null; }
+  if (!until || until <= t) until = t + 60e3;
+  const s = shared.read();
+  const prev = s.pause;
+  const second = !!prev && t - Date.parse(prev.at) < 3600e3;
+  const rec = { at: iso(t), until: iso(until), why: `${sig.kind} rate limit on gh ${args.slice(0, 2).join(' ')}${sig.retryAfter !== null ? `, Retry-After ${sig.retryAfter} s` : ''}`, session: sessionId(), stopped: second, ...(second ? { first: prev.at } : {}) };
+  logEvent('refused', rec.why, cwd, { until: rec.until, stopped: second }, t);
+  shared.pause(rec);
+  return rec;
+}
+
+// Whether a new session may start (job start, lane start): not while GitHub is paused or the tool
+// stopped, nor while the last hour's content-creating requests or the primary limit are at target
+// (a new session adds both). Returns the reason, or null.
+export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = {}) {
+  const lim = p.github_limits || GITHUB_LIMITS;
+  const s = shared.read();
+  if (s.pause?.stopped) return `GitHub refused this account twice within an hour (${s.pause.why}): the tool is stopped until the coordinator runs github resume`;
+  if (s.pause?.until && Date.parse(s.pause.until) > now) return `GitHub rate-limited this account until ${s.pause.until} (${s.pause.why})`;
+  const h = usage(cwd, { t: now, seconds: 3600, others: s.use || [] });
+  if (h.content >= Math.floor(p.target * lim.content_per_hour)) return `${h.content} of GitHub's ${lim.content_per_hour} content-creating requests an hour used account-wide, the target ${Math.round(p.target * 100)}%: a new session waits for the window`;
+  const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
+  if (pr && pr.limit - pr.remaining >= Math.floor(p.target * pr.limit) && pr.reset > now) return `${pr.limit - pr.remaining} of the primary limit's ${pr.limit} an hour used, the target ${Math.round(p.target * 100)}%, until ${iso(pr.reset)}`;
+  return null;
 }
 
 // git push (not --dry-run): logged.
@@ -93,27 +285,43 @@ export function pushSeen(args, cwd) {
   logEvent('push', args.filter((x) => !x.startsWith('-')).slice(1).join(' '), cwd);
 }
 
-// p3 github budget [--hours 1]: calls, pushes and Actions dispatches per session in the window,
-// from this clone's log.
-export function githubBudget(cwd, { hours = 1, now = Date.now(), log = console.log, p = pacing() } = {}) {
-  const h = Number(hours);
-  if (!(h > 0)) throw new Error('--hours <n>: a positive number of hours');
-  const since = now - h * 3600e3;
-  let rows = [];
-  try { rows = readFileSync(githubLog(cwd), 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { return [JSON.parse(l)]; } catch { return []; } }); } catch { rows = []; }
-  rows = rows.filter((r) => Date.parse(r.at) >= since);
+// This clone's log rows since `after`, as shared usage rows: one per session and minute.
+export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
   const by = new Map();
   for (const r of rows) {
-    const k = r.session || '(no session id)';
-    const x = by.get(k) || { session: k, gh: 0, push: 0, actions: 0 };
-    x[r.kind] = (x[r.kind] || 0) + 1;
+    const at = Date.parse(r.at);
+    if (!(at > after) || !['gh', 'push'].includes(r.kind)) continue;
+    const minute = iso(Math.floor(at / 60e3) * 60e3);
+    const k = `${r.session}\0${minute}`;
+    const x = by.get(k) || { session: r.session || null, minute, calls: 0, points: 0, content: 0, pushes: 0 };
+    if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += r.content ? 1 : 0; } else x.pushes++;
     by.set(k, x);
   }
-  const all = [...by.values()].sort((a, b) => (b.gh + b.push + b.actions) - (a.gh + a.push + a.actions));
-  const sum = all.reduce((s, x) => ({ gh: s.gh + x.gh, push: s.push + x.push, actions: s.actions + x.actions }), { gh: 0, push: 0, actions: 0 });
-  log(`github budget, the last ${h} h, this clone (${githubLog(cwd)}): ${sum.gh} gh call(s), ${sum.push} push(es), ${sum.actions} Actions dispatch(es); the pace: one gh call per ${p.gh_interval_ms / 1000} s per clone (at most ${p.gh_interval_ms ? Math.floor(3600e3 * h / p.gh_interval_ms) : 'any number'} in ${h} h)`);
-  for (const x of all) log(`- ${x.session}: ${x.gh} gh, ${x.push} push, ${x.actions} actions`);
-  if (!all.length) log('- nothing logged in the window');
-  log('Each push to a branch with workflows also starts their runs on GitHub; the Actions count is the tool\'s own dispatches and re-runs only.');
-  return { ...sum, sessions: all };
+  return [...by.values()];
+}
+
+// p3 github budget: use against each of GitHub's published limits, per window, account-wide
+// (the shared rows and this clone's log), with the pause and the per-session counts.
+export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pacing(), rateLimit } = {}) {
+  const lim = p.github_limits || GITHUB_LIMITS;
+  const s = shared.read();
+  const rows = readLog(cwd);
+  const m = usage(cwd, { t: now, seconds: 60, rows, others: s.use || [] });
+  const h = usage(cwd, { t: now, seconds: 3600, rows, others: s.use || [] });
+  const pct = (n, cap) => `${n}/${cap} (${Math.round((100 * n) / cap)}%)`;
+  const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
+  log(`github budget: the target is ${Math.round(p.target * 100)}% of GitHub's published limits (${lim.source}, read ${lim.read})`);
+  log(`- primary, an hour: ${pr ? `${pct(pr.limit - pr.remaining, pr.limit)}, resets ${iso(pr.reset)} (GitHub's own count, every session)` : 'unread (rate_limit not answered)'}`);
+  log(`- REST points, the last minute: ${pct(m.points, lim.rest_points_per_minute)}`);
+  log(`- content-creating requests, the last minute: ${pct(m.content, lim.content_per_minute)}`);
+  log(`- content-creating requests, the last hour: ${pct(h.content, lim.content_per_hour)}`);
+  log(`- pushes, the last hour: ${h.pushes} (git, outside the REST limits; each starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
+  log(`- not counted here: ${lim.concurrent} concurrent requests (each session calls one at a time) and ${lim.cpu_seconds_per_minute} s of CPU a minute (GitHub's side)`);
+  log(s.pause?.stopped ? `STOPPED: ${s.pause.why} at ${s.pause.at}, a second refusal within an hour; the coordinator runs github resume` : s.pause && Date.parse(s.pause.until) > now ? `PAUSED until ${s.pause.until}: ${s.pause.why}` : 'no pause');
+  const by = new Map();
+  const since = now - 3600e3;
+  for (const r of rows) if (Date.parse(r.at) > since && ['gh', 'push'].includes(r.kind)) { const k = r.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; if (r.kind === 'gh') { x.calls++; x.content += r.content ? 1 : 0; } else x.pushes++; by.set(k, x); }
+  for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since && u.session !== sessionId()) { const k = u.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += u.pushes || 0; by.set(k, x); }
+  for (const x of [...by.values()].sort((a, b) => b.calls - a.calls)) log(`  ${x.session}: ${x.calls} gh call(s), ${x.content} content-creating, ${x.pushes} push(es) in the hour`);
+  return { minute: m, hour: h, primary: pr, pause: s.pause || null };
 }

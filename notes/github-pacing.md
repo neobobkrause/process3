@@ -1,31 +1,53 @@
-# GitHub pacing (R17, 6 Nov)
+# GitHub limit conformance (R17, 6 Nov)
 
-The civicsmith account was suspended at 19:19Z on 6 Nov. The likely cause is automated bulk activity: GitHub's Acceptable Use Policies, section 4, and the API terms' "excessively frequent requests". This change paces what the tool does on GitHub. Every limit is configurable under `"pacing"` in process/config.json.
+The civicsmith account was suspended at 19:19Z on 6 Nov, most likely for automated bulk activity: GitHub's Acceptable Use Policies, section 4, and the API terms' "excessively frequent requests".
+
+Bob, 6 Nov ~21:10Z: "If github publishes limits, then we should introduce process3 tooling that conforms to those limits. But rather than limiting usage to a small fraction of github's stated limits, I'd suggest that the tooling limit usage to 80% or 90% of github's published limits. That feels like the proper balance."
+
+So the tool conforms to GitHub's published limits at a target share of each. Every setting is under `"pacing"` in process/config.json (Foundations P27).
 
 ## Measured on 6 Nov (the copy's state branch, one commit per push)
 
 - 1,387 state-branch pushes from 00:00 to 19:19Z.
 - The busiest hours were 00–03Z, at 143–173 pushes an hour, while the merge train ran. The train's lease writes alone made 143 pushes.
 - In the layer flow, after the train was retired, the rate was about 70 an hour (17–18Z).
-- The largest kinds of write: merger lease 143, starts owed 81, idle check 106, message delivered 98, message to BOB 59, live job sessions 49.
-- Not measured: the tool logged no gh calls, and the job branches' pushes could not be read once GitHub refused access. `p3 github budget` now logs both.
-- Sessions at once: 8 live jobs, 3 lanes, BOB, ROOT, the watcher and the coordinator. Each job pushed at least once a turn.
+- The largest kinds of write: idle check 106, message delivered 98, starts owed 81, message to BOB 59, live job sessions 49.
+- Not measured: the tool logged no gh calls, and the job branches' pushes could not be read once GitHub refused access. Both are logged now.
 
-## What the tool now enforces
+## GitHub's published limits, held as data
 
-| Limit | Default | Where |
+`pacing.github_limits`, read 6 Nov 2026 from https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api:
+
+| Limit | Published | At the 85% target |
 |---|---|---|
-| Job sessions at once | `pacing.jobs` 4 (the job cap is the lower of this and P3_JOB_CAP) | `job start`, BOB's start list, the sweep; status's flow line shows `queued <n>` |
-| Lane sessions at once | `pacing.lanes` 1 (a `--replace` adds none) | `lane start` refuses past it, naming the live lanes |
-| gh calls | one per `pacing.gh_interval_ms` 2000 ms per clone (at most 1,800 an hour) | every gh call the tool makes waits its turn |
-| Polls on GitHub | from `pacing.poll_first_s` 30 s, doubling to `pacing.poll_most_s` 300 s; never under 30 s | merge's gate, checks and mergeable waits; transient read retries (30 s to 5 min); layer publish's check of the layer branch during a run |
-| State-branch pushes | one per command | writes are coalesced and pushed at the command's end, before any wait, and before publish's run |
-| Job pushes | once per turn, at its end (JOB-9 in the job START) | the tool's own pushes were already one per complete or publish round |
-| Budget | `p3 github budget [--hours 1]` | gh calls, pushes and Actions dispatches per session, from this clone's log (`<git dir>/p3-github.jsonl`) |
+| Primary, per user token | 5,000 requests an hour | 4,250 |
+| GITHUB_TOKEN in Actions, per repository | 1,000 requests an hour | (the workflows' own; shown, not metered) |
+| Concurrent requests | 100 | (each session calls one at a time) |
+| REST points (read 1, write 5) | 900 a minute | 765 |
+| Content-creating requests | 80 a minute, 500 an hour | 68, 425 |
+| CPU time | 90 s per 60 s | (GitHub's side; not measurable here) |
 
-With 4 jobs and 1 lane, the state pushes fall to about one per command run, and job pushes to one per session turn.
+A config that restates a limit must name its source and the date it was read. `pacing.target` is 0.85 by default, and only 0.8 to 0.9 is accepted.
 
-Raise the caps only once the budget shows room. Moving the copy's 8 live jobs and 3 lanes under the new caps happens by attrition: nothing running is stopped. Starts are refused until the counts fall below 4 jobs and 1 lane, or the copy's config raises them.
+## How the tool conforms
+
+- **One account-wide budget.**
+  - The primary limit is GitHub's own count: the `rate_limit` endpoint, which GitHub says does not count against it, read at most once a minute per clone. It covers every session on the token.
+  - The secondary windows (points a minute, content a minute, content an hour) are counted per call. Each session's use is shared on the state branch (`github/use/<session>.jsonl`), appended with the command's one push, or every `share_s` (300 s) while it calls GitHub. The other sessions' rows plus this clone's own log are the account's use.
+  - Another session's use can be up to one command or 5 min late. The 10–20% margin covers it; the primary limit does not depend on it.
+- **Each call reserves against the windows.** It waits when it would take a window past the target. A wait over 15 minutes is refused with the time to run again, never slept through. The per-clone spacing (`gh_interval_ms`, 1000) is only a floor against bursts.
+- **GitHub's refusals are obeyed.**
+  - On a rate-limit 403 or 429, the tool writes `github/pause.json` at once. Every session reads it before its next call (at most 30 s old) and waits out the pause, never retrying inside it.
+  - The pause lasts until Retry-After, else x-ratelimit-reset, else, for the primary limit, rate_limit's reset, else one minute, as GitHub's docs say.
+  - A second refusal within an hour stops the tool. Every call is then refused with "tell the coordinator", until the coordinator runs `p3 github resume --by <session>`.
+- **Session caps are derived.**
+  - There is no fixed job or lane cap: `pacing.jobs` and `pacing.lanes` are optional hard caps, off by default.
+  - `job start` and `lane start` refuse a new session while GitHub is paused, the tool is stopped, the hour's content-creating requests are at target, or the primary limit is.
+- **`p3 github budget`** shows the use against each published limit as a percentage, per window, with the pause and each session's calls.
+- **Kept from the first pass:**
+  - polls back off from 30 s to 5 min, never tighter;
+  - state writes are coalesced into one push per command;
+  - the job START says to push once per turn.
 
 ## Actions: proposals (not changed here; workflow files go through the merge tool under Bob's R1 limits)
 
@@ -37,7 +59,7 @@ Raise the caps only once the budget shows room. Moving the copy's 8 live jobs an
 3. **process3's `record.yml`** runs on every push to every branch, the state branch included. Proposal: `branches-ignore: [process-state]`, since state rows are not product records.
 4. **Branch cleanup** (the copy's `process-branch-prune.yml`) already runs once a day (`47 10 * * *`), not hourly; nothing to change. The hourly job is ROOT's sweep, which pushes one state commit per run now.
 
-## Cold review (one pass), fixed
+## The first pass's cold review, fixed
 
 - **Concurrent p3 processes in one clone could drop each other's coalesced writes.** Fixed: the flush always reads origin's tip under the state lock and makes every pending change again on it; a later write does the same when the clone's ref moved.
 - **A killed command lost its unflushed writes.** Fixed:
@@ -49,9 +71,9 @@ Raise the caps only once the budget shows room. Moving the copy's 8 live jobs an
 - **Commands that hand out a session acted on a write before it was pushed.** Fixed: `job start`, `lane start`, `start`, `handover` and `state replay` push at once.
 - **`layer publish` still polled every 30 s or faster.** Fixed: unset, it backs off; `--every` takes 30 s or more.
 - **The lane cap could be passed by two starts at once.** Fixed: it is checked again inside the write.
-- **The pacing test overrides could switch pacing off in a session.** Fixed: `P3_GH_INTERVAL_MS` and `P3_GITHUB_LOG` are read under the test runner only, and `gh_interval_ms` has a floor of 1000.
+- **The test overrides could switch pacing off in a session.** Fixed: `P3_GH_INTERVAL_MS` and `P3_GITHUB_LOG` are read under the test runner only, and `gh_interval_ms` has a floor of 1000.
 
 Left as they are:
-- the gh stamp is not locked, so two processes in one clone can call gh in the same second;
+- the burst stamp is not locked, so two processes in one clone can call gh in the same second (the account-wide windows still hold);
 - the last config read sets the pacing in force;
 - state-push retries still wait 2–16 s, which is bounded.
