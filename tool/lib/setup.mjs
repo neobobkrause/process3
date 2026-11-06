@@ -1,5 +1,6 @@
 // setup check (setup audit, 2 Nov): the product's setup, read and reported, one line per
 // condition of setup/conditions.json. Read-only. job start runs it first and stops on a gap.
+import { census } from './census.mjs';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -404,7 +405,19 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
   const size = sizeCheck(root, x, sha, { io, log });
   const carry = takeInCheck(root, x, { io, log });
   const generated = generatedCheck(root, x, sha, { log });
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated };
+  // The census (R15): every module's entry, row, requirements and layer line at the checked tip;
+  // a report, never a refusal (status --role bob names the open layer's, layer open refuses on its own).
+  let gapsFound = null;
+  // At the checked tip, else the tranche as origin has it (as the conditions read it), else HEAD.
+  const ref = sha || [`origin/${x.cfg.tranche}`, 'HEAD'].find((r) => git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).code === 0);
+  if (x.cfg.modules_file && ref) {
+    try {
+      const c = census(root, x.cfg, { ref });
+      gapsFound = c.skipped ? null : c.gaps.length;
+      if (!c.skipped) log(c.gaps.length ? `census: ${c.gaps.length} gap(s) at ${sha ? sha.slice(0, 10) : ref} (${[...new Set(c.gaps.map((g) => g.kind))].join(', ')}); status --role bob lists the open layer's with their fixes` : 'census: every module has its entry, modules row, requirements file and layer line');
+    } catch (e) { log(`census: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
+  }
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, census: gapsFound };
 }
 
 // Which opening of next work is in force (open_by in process/config.json; status --role bob).

@@ -92,6 +92,17 @@ test('every condition is listed with what, why, value, who and how it is read, a
   assert.deepEqual(cs.filter((c) => c.read === CONFIRMED).map((c) => c.id), ['ruleset-bypass', 'actions-settings', 'secrets', 'collaborators', 'environments']);
 });
 
+test('setup check reports the census (R15), never refusing on it', () => {
+  const w = world();
+  const out = [];
+  const r = makeRepo({ 'README.md': 'x', 'process/config.json': { modules_file: 'build/modules.json' }, 'build/modules.json': { modules: [{ id: 'lost', layer: 1, paths: ['src/lost/'], tests: ['test/lost/'] }] }, 'build/layers.md': '| 1 | One | other |\n' });
+  const res = setupCheck(r, { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
+  assert.match(out.join('\n'), /census: 1 gap\(s\) at HEAD \(no-modules-row\); status --role bob lists the open layer's with their fixes/);
+  assert.equal(res.census, 1, 'other, named by the layer map, has no modules row; lost needs no job, so its place off the map is no gap');
+  // Nothing in the census changes whether setup is complete.
+  assert.equal(res.ok, setupCheck(root(), { slug: 'o/r', io: w.io, log: quiet }).ok);
+});
+
 test('a complete setup is all set, and the four unreadable conditions are confirmed, never read', () => {
   const w = world();
   const out = [];

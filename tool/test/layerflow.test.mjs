@@ -109,6 +109,17 @@ test('layer map: the modules of each layer, from the layers table', () => {
   assert.deepEqual(layerMap(layers), [{ n: 1, mods: ['a', 'b', 'c'] }, { n: 2, mods: ['d'] }]);
 });
 
+test('layer open (R15): a census gap in the layer refuses the open, naming the fix; nothing is cut', () => {
+  const { root } = product();
+  // c's entry names a requirements file the tranche does not hold, and e is in no layer-map line.
+  commit(root, { 'process/ledger/c.json': entry('c', { layer: 1, requirements: 'req/gone.md' }), 'build/modules.json': { modules: [...modules.modules, { id: 'e', layer: 1, uses: [] }] } });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.throws(() => layerOpen(root, 1, { io: openIO, log: quiet }), (e) => /layer 1 has 4 gap\(s\) on tranche; land the fixes first, then open the layer; nothing was opened/.test(e.message)
+    && /- c \(layer 1\), entry-requirements: its entry names req\/gone\.md/.test(e.message) && /- e \(layer 1\), not-in-layer-map: name e on its layer's line/.test(e.message));
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }), '', 'nothing cut');
+});
+
 test('layer open: cuts layer/<n> from the tranche tip, records the open, and lists every module that can start', () => {
   const { root } = product();
   const lines = [];
