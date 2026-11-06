@@ -131,6 +131,8 @@ test('only a chosen short-term response is printed, with its end condition; the 
   assert.throws(bad({ ...chosenE, end_condition: undefined }), /needs end_condition/);
   assert.throws(bad({ ...chosenE, chosen_at: undefined }), /needs chosen_at/);
   assert.throws(bad({ ...chosenE, affects: ['watcher'] }), /affects lists roles/);
+  assert.throws(bad({ ...chosenE, chosen_by: 'the coordinator, 6 Nov' }), /chosen_by quotes the dated words/);
+  assert.throws(() => parseRegister(JSON.stringify({ open: [base, base] })), /entry T1 appears twice/);
 });
 
 test('the process register\'s seed P1, while awaiting a choice, brings options with context and is printed into no prompt', () => {

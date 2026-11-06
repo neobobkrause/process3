@@ -143,9 +143,9 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
   // The chain's last automatic step is the watcher (coordinator, 4 Nov); `address <role>` reads each.
   L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then the watcher, with the minutes, by send_message (\`${P3} address <role>\`). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
-  // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
-  // The open short-term triage entries naming job briefs (register.mjs), verbatim, before the acts and their limits.
+  // The chosen short-term triage responses naming job briefs (register.mjs, AUD-8), verbatim, before the acts and their limits.
   if (standing) L.push('', standing.trimEnd());
+  // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
   L.push('', 'Give each judged act (a push, a session start) its own shell command, never chained with another.');
   L.push('', '## Acts you may take', '');
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(branch)) L.push(`- ${a}`);

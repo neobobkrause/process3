@@ -26,13 +26,14 @@ export const REGISTER = 'register.json';
 export const CLOSED = 'closed.jsonl';
 export const KINDS = ['short-term', 'long-term'];
 // The roles whose starting prompts print a chosen short-term response (AUD-8: "later sessions").
+// The watcher and the lanes' own sessions are not among them: their STARTs carry no register block.
 export const AFFECTS = ['bob', 'root', 'merger', 'coordinator', 'job'];
 // The printed block's cap. Measured 5 Nov: each role prompt is at most one screen, 4096 bytes
 // (prompt-caps.test.mjs; BOB's 3789, the MERGER's 4072, on the copy's slug), and the seed entry's
 // block, its heading included, is 880 bytes. Half a screen holds the heading and about two and a
 // half entries of the seed's size, so a prompt with its block stays within a screen and a half and
 // is read whole. Over it the tool still prints every entry, and says the set is over its cap (in
-// the block and at triage add and list), so the triage lanes close or combine entries rather than
+// the block and at triage choose and list), so the triage lanes close or combine entries rather than
 // let the set grow until it is skimmed.
 export const STANDING_CAP = 2048;
 
@@ -58,6 +59,8 @@ export function checkEntry(e, where = 'the register') {
   if (e.kind === 'long-term' && !one(e.judged_against)) fail(`${at}: a long-term entry needs judged_against (the requirement, principle or foundation)`);
   if (e.response === undefined) return e;
   for (const k of ['response', 'chosen_at', 'chosen_by']) if (!one(e[k])) fail(`${at}: a chosen response needs ${k}`);
+  // AUD-8: the options go to Bob, who chooses; chosen_by quotes his dated words.
+  if (!/^Bob, \d/.test(e.chosen_by)) fail(`${at}: chosen_by quotes the dated words that chose it, as Bob, <date>: "<his words>"`);
   if (e.kind === 'short-term') {
     if (!one(e.end_condition)) fail(`${at}: a chosen short-term response needs end_condition (AUD-8: "with the condition that ends it")`);
     if (!Array.isArray(e.affects) || !e.affects.length || e.affects.some((r) => !AFFECTS.includes(r))) fail(`${at}: affects lists roles from ${AFFECTS.join(', ')}`);
@@ -71,6 +74,9 @@ export function parseRegister(text, where = REGISTER) {
   try { r = JSON.parse(text); } catch (e) { fail(`${where} is not JSON: ${e.message}`); }
   if (!r || !Array.isArray(r.open)) fail(`${where} needs {"open": [entries]}`);
   r.open.forEach((e) => checkEntry(e, where));
+  const ids = r.open.map((e) => e.id);
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (dup) fail(`${where}: entry ${dup} appears twice; renumber one`);
   return r;
 }
 
@@ -87,7 +93,7 @@ export const promptBody = (p) => p.split(`\n\n${STANDING_HEAD}\n`)[0].replace(/\
 export function standingBlock(registers, role) {
   const rows = registers.flatMap(({ repo, register }) => register.open.filter((e) => chosen(e) && e.affects.includes(role)).map((e) => entryLines(repo, e)));
   if (!rows.length) return '';
-  const L = [STANDING_HEAD, '', 'Printed verbatim from the triage registers (AUD-8); each holds until its end condition is met and its triage lane closes it. Act by each as written, within the limits above.', '', ...rows.flat()];
+  const L = [STANDING_HEAD, '', 'Printed verbatim from the triage registers (AUD-8); each holds until its end condition is met and its triage lane closes it. Act by each as written, within your prompt\'s limits.', '', ...rows.flat()];
   const text = L.join('\n') + '\n';
   const b = Buffer.byteLength(text);
   return b > STANDING_CAP ? `${text}\nThis block is ${b} bytes, over its cap of ${STANDING_CAP}: tell the triage lanes, which close or combine entries.\n` : text;
