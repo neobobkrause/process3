@@ -33,3 +33,6 @@ Nothing pending. At the trial's end: report layers 7-10 against the layer 6 base
 - A ci re-run keeps the old workflow; a push picks up the new one.
 - Builders' reports can cross my messages: check the head sha before merging.
 - Ask BOB for figures; `layer report` lacks starts, wall and gate minutes until R9.
+
+## Addendum 15:36
+- Bob: schedule jobs earliest in the total order first. BOB starts in dependency order now (a user starts after its in-layer providers land; early starts only on idle capacity, logged). R10 (tool support: layer jobs ordered, after-provider marks, early-start counts) to builder session_018BhceetVvqFedhb4N42ZAK after 190 and 193.
