@@ -38,7 +38,7 @@ import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBra
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { endLayerHolds } from './hold.mjs';
-import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
+import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 export const LAND_TITLE = /^Merge layer PR (\d+)$/;
@@ -767,9 +767,6 @@ const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPa
 // ledger entry as the layer has it (its jobs' states; R4's carried entries). Any other refuses.
 const syncSide = (f) => (f === '.process' || (SHIMS.has(f.split('/').pop()) && (f.startsWith('.github/') || f.startsWith('.claude/') || !f.includes('/'))) ? 'theirs' : /^process\/ledger\/[^/]+\.json$/.test(f) ? 'ours' : null);
 
-// p3 layer sync <n> [--no-wait] (BOB): the tranche into layer/<n> by a tool-made merge PR, landed by
-// the merge tool on a green gate (the gate runs layer/<n>'s own tool, which takes a plain PR's
-// ledger entries, pointer and shims). Nothing when layer/<n> already holds the tranche tip.
 export const SYNC_TITLE = /^Merge layer sync PR (\d+)$/;
 // The tool's merge of the tranche tip into a layer commit, in a worktree: { tree, resolved, conflictsOutside }.
 function syncMerge(root, cfg, n, base, ttip, w) {
@@ -795,6 +792,62 @@ function syncMerge(root, cfg, n, base, ttip, w) {
   return { head: git(['rev-parse', 'HEAD'], { cwd: w }), tree: git(['rev-parse', 'HEAD^{tree}'], { cwd: w }), resolved: conflicted };
 }
 
+// After the layer syncs, each open job PR's branch takes the synced layer tip by a merge commit, so its
+// gate runs with the new tool (coordinator, 6 Nov: layer 8's job PRs 658-661 were red only on the old
+// tool's ledger finding, their sessions archived). Only when the merge is clean but for .process, the
+// shims and the job's own ledger entry (kept as the job wrote it), and brings nothing but those and
+// records (no code): then the
+// receipt still stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
+export function syncJobs(root, cfg, n, prs, ids, log = console.log) {
+  const b0 = layerBranch(n);
+  const tip = rev(root, layerRef(n));
+  const out = { merged: [], left: [] };
+  // Records (other modules' metrics rows and the like) are no code: a receipt stands over them.
+  const allowed = (f) => f === '.process' || syncSide(f) === 'theirs' || /^process\/ledger\/[^/]+\.json$/.test(f) || isRecordPath(cfg, f);
+  for (const p of prs) {
+    const id = branchModule(p.head?.ref, ids);
+    if (!id || !String(p.head.ref).startsWith('job/')) continue;
+    const branch = p.head.ref;
+    const leave = (why) => { out.left.push({ id, pr: p.number, branch, why }); log(`  ${branch} (PR ${p.number}) left as it is: ${why}`); };
+    fetchBranch(root, branch, { allowFail: true });
+    const head = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${branch}`], { cwd: root, allowFail: true }).stdout.trim();
+    if (!head) { leave('its branch is not on origin'); continue; }
+    if (isAnc(root, tip, head)) continue;
+    if (entryAt(root, head, id)?.status?.state === 'BLOCKED') { leave('BLOCKED'); continue; }
+    const r = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      git(['worktree', 'add', '-q', '--detach', w, head], { cwd: root });
+      try {
+        const m = git(['merge', '-q', '--no-ff', '--no-commit', tip], { cwd: w, allowFail: true });
+        const conflicted = m.code === 0 ? [] : git(['diff', '--name-only', '--diff-filter=U'], { cwd: w }).split('\n').filter(Boolean);
+        if (m.code !== 0 && !conflicted.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the merge failed (${(m.stderr || m.stdout).trim().split('\n').pop()})` }; }
+        const bad = conflicted.filter((f) => f !== entryFile(id) && syncSide(f) !== 'theirs');
+        if (bad.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `a conflict in ${bad.join(', ')}` }; }
+        for (const f of conflicted) {
+          if (f === '.process') { const pin = pinOf(root, tip); if (pin) git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w }); else git(['rm', '-q', '--cached', '--', '.process'], { cwd: w }); continue; }
+          const side = f === entryFile(id) ? 'ours' : 'theirs';
+          const has = git(['ls-files', '-u', '--', f], { cwd: w }).split('\n').some((l) => l.split(/\s+/)[2] === (side === 'ours' ? '2' : '3'));
+          if (!has) git(['rm', '-q', '--', f], { cwd: w });
+          else { git(['checkout', '-q', `--${side}`, '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); }
+        }
+        // What the merge changes on the job's branch: the pointer, shims and ledger entries only.
+        const changed = git(['diff', '--cached', '--name-only', head], { cwd: w }).split('\n').filter(Boolean);
+        const other = changed.filter((f) => !allowed(f));
+        if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its receipt would not stand; its job syncs it` }; }
+        git(['commit', '-q', '--no-edit', '-m', `Merge ${b0} ${short(tip)} into ${branch} (layer sync: ${changed.join(', ') || 'no file'})`], { cwd: w });
+        const h = git(['rev-parse', 'HEAD'], { cwd: w });
+        const push = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });
+        if (push.code !== 0) return { why: `the push was refused (${push.stderr.trim().split('\n').pop()})` };
+        return { head: h, changed };
+      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    if (r.why) { leave(r.why); continue; }
+    out.merged.push({ id, pr: p.number, branch, head: r.head, changed: r.changed });
+    log(`  ${branch} (PR ${p.number}) took ${b0} ${short(tip)}: ${r.changed.join(', ') || 'no file'}; its gate re-runs with the new tool`);
+  }
+  return out;
+}
+
 // p3 layer sync <n> [--no-wait] (BOB): the tranche into layer/<n> by a tool-made merge PR, landed by
 // the merge tool on a green gate (the gate runs layer/<n>'s own tool, which takes a plain PR's
 // ledger entries, pointer and shims). Nothing when layer/<n> already holds the tranche tip.
@@ -815,7 +868,16 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   const known = new Set((rows.syncs || []).map((r) => r.pr));
   const lost = git(['log', '--first-parent', '--format=%H %s', layerRef(n), '--not', rows.open.from], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => [l.slice(0, l.indexOf(' ')), l.slice(l.indexOf(' ') + 1).match(SYNC_TITLE)?.[1]]).filter(([, k]) => k && !known.has(Number(k)));
   if (lost.length) writeRows(root, cfg.state_branch, `layer ${n}: sync rows recorded late`, lost.map(([c, k]) => [flowFile(n, 'sync', k), { row: 'sync', layer: n, pr: Number(k), merge: c, recovered: true, at: now(), by }]));
-  if (isAnc(root, ttip, tip)) { log(`${b0} holds ${cfg.tranche} ${short(ttip)}: in sync`); return { ok: true, synced: false }; }
+  const jobsOf = () => {
+    const open = x.openPRs(slug, b0);
+    if (open === null) { log(`GitHub unreadable: the job PRs into ${b0} were not brought up to it; run ${P3} layer sync ${n} again`); return null; }
+    fetchBranch(root, b0, { allowFail: true });
+    const ids = new Set([...ledgerIds(root, layerRef(n)), ...ledgerIds(root, tr)]);
+    const r = syncJobs(root, cfg, n, open, ids, log);
+    if (r.merged.length || r.left.length) log(`layer sync ${n}: ${r.merged.length} job branch(es) took the layer, ${r.left.length} left as they are`);
+    return r;
+  };
+  if (isAnc(root, ttip, tip)) { log(`${b0} holds ${cfg.tranche} ${short(ttip)}: in sync`); return { ok: true, synced: false, jobs: jobsOf() }; }
   // Another sync PR open into the layer (the tranche moved since it opened) is closed first: two
   // would each hold the layer's merge (cold review of PR 198).
   const into = x.openPRs(slug, b0);
@@ -862,7 +924,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   const row = { row: 'sync', layer: n, pr: pr.number, head, merge: r.sha || null, tranche_tip: ttip, pin_before: pinOf(root, tip), pin_after: pinOf(root, ttip), resolved, at: now(), by };
   writeRows(root, cfg.state_branch, `layer ${n}: sync PR ${pr.number}`, [[flowFile(n, 'sync', `${pr.number}`), row]]);
   log(`layer sync ${n}: ${cfg.tranche} ${short(ttip)} landed into ${b0}${r.sha ? ` at ${short(r.sha)}` : ''}`);
-  return { ok: true, synced: true, pr, row };
+  return { ok: true, synced: true, pr, row, jobs: jobsOf() };
 }
 
 // ---- layer merge ----------------------------------------------------------------------------
