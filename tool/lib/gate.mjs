@@ -259,8 +259,8 @@ export function gate(root, opts) {
   const parents = git(['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: root }).split(' ').slice(1);
   const revertBase = parents.length === 2 && parents[1] === head ? parents[0] : base;
 
-  // A ready job's receipt is read for its presence only, never compared with a run (Bob, 5 Nov:
-  // 17 reds, no catch), so records-only heads keep the record fast paths, a job's too.
+  // A ready job's receipt is read for its presence only, never compared with a run (the
+  // coordinator's check audit, 5 Nov 19:30: 17 reds, no catch), so records-only heads keep the record fast paths, a job's too.
   const jobReceipt = entry && !draft && receipt?.module === job ? receipt : null;
 
   // The land of a spec-tested job (merge, train-spec C'): its head is the merged result built on
@@ -352,8 +352,8 @@ export function gate(root, opts) {
       runRow.tests = results.map((s) => s.tests);
       runRow.suite_seconds = results.reduce((t, s) => t + s.seconds, 0);
     }
-    // JOB-12, advisory (Bob, 5 Nov: 29 reds, the catches test quality, which the test review
-    // trigger covers): the job's new or changed tests run with its change reverted, and those
+    // The revert check, advisory (the coordinator's check audit, 5 Nov 19:30, departing from
+    // JOB-12, which makes inert tests fail the gate; that line is Bob's to change): the job's new or changed tests run with its change reverted, and those
     // that still pass are named in the row for the reviewer. Never a finding.
     if (entry && ['pass', 'base-red'].includes(runRow.suite)) {
       const tests = changed.filter((f) => entry.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(entry)) && existsSync(join(root, f)));
@@ -454,7 +454,7 @@ export function specTested(root, cfg, { slug, io, pr, base, head, tree, job }) {
   const sp = io.getPR(slug, n);
   const refs = specRefs(sp?.base?.ref, sp?.head?.ref, cfg.tranche);
   if (!refs || refs.pr !== pr || sp.head?.repo?.full_name !== slug) return no(`PR ${n} is not a spec pull request of PR ${pr} in ${slug}`);
-  // The tree and records comparison is the binding (Bob, 5 Nov): the row's artifact and the spec
+  // The tree and records comparison is the binding (the coordinator's check audit, 5 Nov 19:30): the row's artifact and the spec
   // head's pull requests are not read again here.
   const row = gateRuns(io.comments(slug, n) || [])
     .filter((r) => r.ok && r.trigger === 'code' && r.spec?.pr === pr)
@@ -687,7 +687,7 @@ const listFiles = (root, p, out = []) => {
 // artifact, verifyRow): a spec pair for job PR n, from this repository, whose run of that id on
 // that commit judged job PR n, ran its suite green, tested that commit's own tree, differs from
 // the merged result only in records, on a base this land's stands on (baseDiffers). The tree and
-// records comparison is the binding (Bob, 5 Nov): the spec run's artifact is not read again; the
+// records comparison is the binding (coordinator's check audit, 5 Nov 19:30): the spec run's artifact is not read again; the
 // spec-tested row that names it is verified by the caller. null when not shown.
 function specRan(root, cfg, { slug, io, n, row, head, suiteRan, job = null }) {
   const sp = Number.isSafeInteger(row.spec_pr) ? io.getPR(slug, row.spec_pr) : null;

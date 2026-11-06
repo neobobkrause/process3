@@ -487,7 +487,7 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   if (!receipt) fail(`pull request ${n} has no receipt`);
   // Each row names its Actions run; the row counts only when that run is the process gate on
   // this tip, green, and its own artifact holds the same row (verifyRow).
-  // A receipt is read for its presence (gate.mjs; Bob, 5 Nov); 'agrees' and 'unmeasured' are an
+  // A receipt is read for its presence (gate.mjs; coordinator's check audit, 5 Nov 19:30); 'agrees' and 'unmeasured' are an
   // earlier pin's words for a green run that read it.
   const read = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && READ.includes(r.receipt) && r.receipt_attempt === receipt.attempt)
     .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));

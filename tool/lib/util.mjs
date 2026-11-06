@@ -237,7 +237,7 @@ export const DEFAULTS = {
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
   setup_timeout_minutes: 15,
-  // Targets in minutes. decision_minutes: the escalation chain (Bob, 4 Nov): job to BOB to ROOT to
+  // Targets in minutes. decision_minutes: the escalation chain (coordinator, 4 Nov, for Bob's "urgency is fully supported"): job to BOB to ROOT to
   // watcher to Bob, each step waiting this long for an answer before the next is asked.
   // replace_minutes: status --role bob --sessions flags a job whose session is idle with no push
   // this long (measured 3-4 Nov: a stopped job was flagged only after two hours). All four are
@@ -392,7 +392,7 @@ export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r));
 
-// Lanes' folders (lane.mjs; Bob, 5 Nov: "lanes' file changes need not be tested the way jobs do").
+// Lanes' folders (lane.mjs; Bob, 5 Nov 17:45: "I don't believe that lanes' file changes need to be tested the way jobs do").
 // A lane's folder is its config "dir"; one at the root, or holding the process's own files, the
 // workflows or the session settings, is no lane folder here, so nothing outside a lane rides it.
 const NOT_LANE = ['process', '.process', '.github', '.claude', 'CLAUDE.md'];

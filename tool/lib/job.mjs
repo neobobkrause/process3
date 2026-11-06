@@ -139,7 +139,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. The gate names, for the reviewer, any changed test that still passes with your change reverted; \`--exempt-revert "<why>"\` records why one cannot fail.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
-  // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
+  // Bob, 4 Nov: "urgency is fully supported in process3's initial release"; the wait, at most
+  // decision_minutes, is the coordinator's chain.
   // The chain's last automatic step is the watcher (coordinator, 4 Nov); `address <role>` reads each.
   L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then the watcher, with the minutes, by send_message (\`${P3} address <role>\`). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
   // Measured 2 Nov: the only refused merge into main was chained with an unrelated script.
@@ -157,7 +158,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
 
 // A job's coordinator (PR 43: `coordinator` in process/config.json is ROOT's and the watcher's):
 // the BOB addresses/bob.json on the state branch names; --coordinator overrides it for one start.
-// With ROOT's address and decision_minutes, for the START's escalation (Bob, 4 Nov).
+// With ROOT's address and decision_minutes, for the START's escalation (coordinator, 4 Nov).
 function jobCoordinator(root, cfg, given, fetch) {
   const addressed = (role) => { try { const s = JSON.parse(readState(root, cfg.state_branch, addressFile(role)) || 'null')?.session; return typeof s === 'string' && s ? s : null; } catch { return null; } };
   if (fetch) fetchState(root, cfg.state_branch);
@@ -424,7 +425,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
   // The requirements cap (REQ-6): a trigger for BOB's split or consolidation, never a refusal
-  // (Bob, 5 Nov: 32 of 32 refusals overridden). The figure is kept in the start row.
+  // (coordinator's check audit, 5 Nov 19:30: 32 of 32 refusals overridden). The figure is kept in the start row.
   const reqAt = entry0.requirements ? git(['show', `${from}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
   const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
   if (over) log(`${over}; starting over the cap${overWhy === undefined ? '' : `: ${overWhy}`}`);

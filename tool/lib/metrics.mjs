@@ -146,7 +146,7 @@ export function idleByDay(sweepRows) {
   return [...days.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
 
-// Cap use (Bob, 5 Nov: about 48% over a day, unseen): job session-hours over cap session-hours from
+// Cap use (the coordinator's measurement, 5 Nov 00:50: about 48% over a day, unseen): job session-hours over cap session-hours from
 // `from` to `to`, each sweep row's live and job_cap held until the next row (at most 2 h). A diagnostic, not a
 // target (audit of PR 139); with the idle stretches that alarmed IDLE CAPACITY and the longest idle.
 const SPAN_H = 2;

@@ -4,7 +4,7 @@ For a read-only review worker, read once at start, after your brief. Your brief 
 
 ## Principles (TXT-4)
 
-1. A job's tests fail when its change is reverted (JOB-12); the gate's revert check names any that still pass, for the reviewer. Nudge.
+1. A job's tests fail when its change is reverted (JOB-12); the gate's revert check names any that still pass, for the reviewer (coordinator's check audit, 5 Nov 19:30). Nudge.
 
 ## Rules
 

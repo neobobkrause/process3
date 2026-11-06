@@ -50,7 +50,7 @@ export const DELETE_BATCH = 100;
 const PUSH_TRIES = 3;
 
 const norm = (t) => String(t).replace(/[‘’ʼ]/g, '\'').replace(/\s+/g, ' ').trim();
-// Whether an approvals block carries the marker phrase (Bob, 5 Nov: a substring match; the keep
+// Whether an approvals block carries the marker phrase (coordinator's check audit, 5 Nov 19:30: a substring match; the keep
 // rules below are the real limit, whatever the sentence around it says).
 export function approves(block) {
   return !!block && norm(block).includes(norm(MARKER));
