@@ -37,7 +37,7 @@ import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { endLayerHolds } from './hold.mjs';
+import { endLayerHolds, paidFor } from './hold.mjs';
 import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
@@ -194,7 +194,7 @@ export function flowRows(root, sb, n) {
   const files = r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
   const rows = files.flatMap((f) => { try { return [JSON.parse(readState(root, sb, f))]; } catch { return []; } });
   const by = (k) => rows.filter((x) => x.row === k).sort((a, b) => String(a.at).localeCompare(String(b.at)));
-  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule'), retests: by('retest'), retest_refusals: by('retest-refused'), syncs: by('sync'), tests: by('test'), gates: by('gate') };
+  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule'), retests: by('retest'), retest_refusals: by('retest-refused'), starts: by('start'), syncs: by('sync'), tests: by('test'), gates: by('gate') };
 }
 // One file per event, added and never edited: an existing file is the same event, kept.
 function addFiles(w, files) {
@@ -227,7 +227,7 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     const mine = lands.filter((l) => l.module === id);
     const out = outstanding(reschedules, lands, id, anc);
     const m = marks.get(id) || [];
-    const base = { id, pr: pr?.number ?? null, lands: mine.length, outstanding: out, marks: m };
+    const base = { id, pr: pr?.number ?? null, lands: mine.length, outstanding: out, marks: m, entry_state: e?.status?.state ?? null };
     if (e?.status?.state === 'BLOCKED') return { ...base, state: 'deferred', why: `BLOCKED: ${e.status.reason || 'no reason'}` };
     if (out.length) return { ...base, state: 'rescheduled', why: `re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface` };
     if (pr && !pr.draft) return { ...base, state: 'published', why: `PR ${pr.number} ready into the layer` };
@@ -238,15 +238,62 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
   });
 }
 export const DONE = ['complete', 'deferred'];
+
+// ---- the order within a layer (R10) ---------------------------------------------------------
+
+// Bob, 6 Nov ~15:35: start a layer's jobs earliest in the total (dependency) order first, so an
+// interface change is found before its users start or test. providers: each module's providers in
+// the layer, from the modules file (its uses), else its entry's.
+export function layerProviders(mods, modules, entries) {
+  const named = new Map((modules || []).filter((m) => m?.id).map((m) => [m.id, m.uses || []]));
+  const inLayer = new Set(mods);
+  return new Map(mods.map((id) => [id, [...new Set(named.get(id) || entries.get(id)?.uses || [])].filter((u) => u !== id && inLayer.has(u))]));
+}
+// The layer's modules, each after its providers in the layer, the layer map's order kept otherwise;
+// a cycle's modules follow in the map's order.
+export function totalOrder(mods, providers) {
+  const out = [];
+  const done = new Set();
+  let moved = true;
+  while (moved) {
+    moved = false;
+    for (const id of mods) if (!done.has(id) && (providers.get(id) || []).every((p) => done.has(p))) { out.push(id); done.add(id); moved = true; }
+  }
+  return [...out, ...mods.filter((id) => !done.has(id))];
+}
+// A provider has landed when its land is on the layer (a land row), or it was BLOCKED (deferred: it
+// lands nothing here), or COMPLETE with no unmet mark at the layer tip (its interface already there;
+// one with marks is about to be reopened: cold review of PR 196).
+export const landedProvider = (p, lands, entries, marks = new Map()) => lands.some((l) => l.module === p) || entries.get(p)?.status?.state === 'BLOCKED' || (entries.get(p)?.status?.state === 'COMPLETE' && !(marks.get(p) || []).length);
+// The in-layer providers of id not yet landed on layer/<n>, read from origin (job start's early mark).
+export function earlyProviders(root, cfg, n, id, ref) {
+  const L = layersAt(root, cfg, ref).find((x) => x.n === n);
+  if (!L) return [];
+  const entries = new Map(L.mods.map((m) => [m, entryAt(root, ref, m) || entryAt(root, `refs/remotes/origin/${cfg.tranche}`, m)]));
+  const prov = layerProviders(L.mods, readModules(root, cfg, ref), entries);
+  const lands = flowRows(root, cfg.state_branch, n).lands;
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  const marksOf = (p) => unmetIds(textAt(root, ref, entries.get(p)?.requirements || `${dir}/${p}.md`) || '').filter((x) => !isFound(x));
+  // As layer jobs reads it: a provider BLOCKED at its job branch's head is deferred (readLayer's PR-head read).
+  const blockedOnBranch = (p) => {
+    const r = git(['ls-remote', '--heads', 'origin', `refs/heads/job/${p}`, `refs/heads/job/${p}-*`], { cwd: root, allowFail: true });
+    return r.code === 0 && r.stdout.split('\n').filter(Boolean).some((l) => { const [sha, h] = l.split('\t'); const name = h.replace('refs/heads/', ''); if (!hasCommit(root, sha)) fetchBranch(root, name, { allowFail: true }); return hasCommit(root, sha) && entryAt(root, sha, p)?.status?.state === 'BLOCKED'; });
+  };
+  const marks = new Map((prov.get(id) || []).map((p) => [p, marksOf(p)]));
+  return (prov.get(id) || []).filter((p) => !landedProvider(p, lands, entries, marks) && !blockedOnBranch(p));
+}
 export const mergeReady = (states) => states.every((s) => DONE.includes(s.state));
 
 // What BOB may start (the tool lists, BOB starts; Bob, 5 Nov): each module not started, and each
 // complete one a reschedule reopened (its PR landed, so a new attempt).
 export function startable(states) {
-  return states.flatMap((s) => {
+  const list = states.flatMap((s) => {
     if (s.state === 'not started') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.marks.length && s.why.startsWith('COMPLETE') ? ` --reopen "meet the unmet requirement marks ${s.marks.join(', ')}"` : ''}` }];
     if (s.state === 'rescheduled' && s.pr === null) {
       const why = [...new Set(s.outstanding.map((r) => `${r.provider} (land ${short(r.provider_land)})`))].join(', ');
+      // A module that never ran (OPEN, never COMPLETE) starts plainly: --reopen is for a COMPLETE one
+      // (coordinator, 6 Nov 16:03: publish-schedule, project-stage and case-account were refused).
+      if (s.entry_state && s.entry_state !== 'COMPLETE') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>` }];
       const job = `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`;
       // With no unmet mark, CI can re-test it with no job session (layer retest): the way for an
       // additive change (Bob's "c"), offered beside the job for a breaking one.
@@ -256,6 +303,11 @@ export function startable(states) {
     }
     return [];
   });
+  // R10: in the layer's total order (the states' own), those with an in-layer provider not yet
+  // landed after the rest, each marked "after <provider>".
+  const mark = (x) => { const after = states.find((s) => s.id === x.id)?.after || []; return after.length ? { ...x, after } : x; };
+  const all = list.map(mark);
+  return [...all.filter((x) => !x.after), ...all.filter((x) => x.after)];
 }
 
 // ---- reading a layer ------------------------------------------------------------------------
@@ -295,13 +347,18 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
     if (e?.status?.state === 'BLOCKED') { entries.set(p.module, e); blockedOn.set(p.module, p.number); }
   }
   const anc = (a, b) => isAnc(root, a, b);
-  const states = moduleStates({ mods: L.mods, entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
+  let states = moduleStates({ mods: L.mods, entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
     .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)` } : x))
     // A retest refused since its newest outstanding reschedule: a job re-tests it.
     .map((x) => (x.outstanding?.length && (rows.retest_refusals || []).some((r) => r.module === x.id && String(r.at) >= String(x.outstanding.map((o) => o.at).sort().at(-1))) ? { ...x, retest_refused: true } : x));
+  // R10: the states in the layer's total order, each with the in-layer providers not yet landed.
+  const providers = layerProviders(L.mods, readModules(root, cfg, ref), entries);
+  const order = totalOrder(L.mods, providers);
+  const byId = new Map(states.map((x) => [x.id, x]));
+  states.splice(0, states.length, ...order.map((id) => ({ ...byId.get(id), after: (providers.get(id) || []).filter((p) => !landedProvider(p, rows.lands, entries, marks)) })));
   // The open PRs that hold the merge: all but those of a module deferred by its PR head's BLOCKED.
   const holding = prs.filter((p) => !(blockedOn.has(p.module) && blockedOn.get(p.module) === p.number));
-  return { n, ref, mods: L.mods, layers, rows, entries, prs, holding, states };
+  return { n, ref, mods: L.mods, layers, rows, entries, prs, holding, states, order, providers };
 }
 
 // Whether a layer is behind us when the flow starts mid-tranche (the copy switches after layer 6,
@@ -361,7 +418,7 @@ export function layerLines(root, cfg, { slug, io = {} } = {}) {
     L.push(`layer flow: layer ${n} open on ${layerBranch(n)}; ${['complete', 'deferred', 'published', 'working', 'rescheduled', 'not started'].map((k) => `${k} ${by(k).length}`).join(', ')}`);
     for (const s of x.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
     const st = startable(x.states);
-    if (st.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...st.map((q) => `- ${q.cmd}`));
+    if (st.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...st.map((q) => `- ${q.cmd}${q.after ? `   (after ${q.after.join(', ')})` : ''}`));
     if (mergeReady(x.states) && !x.holding.length) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
     return L;
   }
@@ -420,7 +477,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
-  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
+  for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
 }
 
@@ -434,7 +491,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   if (sync) log(sync.line);
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
-  for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
+  for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, startable: s, states: L.states, sync };
 }
 
@@ -715,6 +772,8 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   try { for (const k of noticeRecords(root, cfg.state_branch).filter((q) => !q.withdrawn && q.open.includes(id))) files.push([answerFile(id, k.key), { row: 'answered', at, key: k.key, user: id, pr: n0, by: 'layer land' }]); } catch { /* none read: none answered */ }
   writeRows(root, cfg.state_branch, `layer ${n}: land PR ${n0} (${id})${ic.changed ? `, interface changed (${ic.class}): ${same.length} ${ic.class === 'additive' ? 'to retest' : 'rescheduled'}` : ''}`, files);
   log(`landed PR ${n0} (${id}) into ${layerBranch(n)} at ${short(after)}; interface: ${interfaceText(ic)}`);
+  // Its starts owed are paid by its land (a job's or a retest's): job start --ready never runs here.
+  try { writeState(root, cfg.state_branch, `starts owed: ${id} landed (PR ${n0})`, (dir) => { paidFor(dir, [id]); return {}; }); } catch (e) { log(`note: the starts owed were not updated (${e.message})`); }
   const msgs = [];
   const retests = [];
   if (ic.changed) {
@@ -1215,6 +1274,8 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
       const jobs = (l.users_rescheduled || []).filter((u) => !retested.has(u)).length;
       return t + Math.max(0, (l.users_rescheduled_old_rule || l.users_rescheduled || []).length - jobs);
     }, 0),
+    // R10: job starts in the layer, and the early ones (an in-layer provider not yet landed).
+    starts: (rows.starts || []).length, early_starts: (rows.starts || []).filter((r) => Array.isArray(r.early) && r.early.length).length, early_unknown: (rows.starts || []).filter((r) => !Array.isArray(r.early)).length,
     // Retests (layer retest): opened, and those landed (no job session; a CI suite run each).
     retests: (rows.retests || []).length, retest_lands: rows.lands.filter((l) => l.retest).length,
     // Which trigger fired, per reschedule (Bob, 5 Nov, as relayed in the coordinator's handoff: "the
@@ -1309,7 +1370,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
     m.tool_lines = { from: toolFrom, to: toolTo, added: ins, removed: del };
   }
   const c = m.reschedule_changed_result;
-  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.lands_breaking} breaking and ${m.lands_additive} additive land(s); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests_owed} retest(s) owed by additive changes, ${m.retests} retest(s), ${m.retest_lands} landed; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
+  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.lands_breaking} breaking and ${m.lands_additive} additive land(s); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests_owed} retest(s) owed by additive changes, ${m.retests} retest(s), ${m.retest_lands} landed; ${m.starts} job start(s), ${m.early_starts} early; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
   log(budgetLine(m.time_budget));
   log('the baseline: the same layer\'s history under the serial train (merge train report, and the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));

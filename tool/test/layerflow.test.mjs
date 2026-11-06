@@ -117,7 +117,8 @@ test('layer open: cuts layer/<n> from the tranche tip, records the open, and lis
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }).split('\t')[0], r.from);
   fetchState(root, SB, { fresh: true });
   assert.equal(JSON.parse(readState(root, SB, flowFile(1, 'open'))).from, r.from);
-  assert.deepEqual(r.startable.map((x) => x.id), ['a', 'b', 'c']);
+  // b uses a, which has not landed: listed after the rest (R10).
+  assert.deepEqual(r.startable.map((x) => [x.id, x.after || null]), [['a', null], ['c', null], ['b', ['a']]]);
   assert.ok(lines.some((l) => /BOB starts them; no other session creates a job/.test(l)));
   // Again: nothing cut twice, the open kept.
   assert.equal(layerOpen(root, 1, { io: openIO, log: quiet }).from, r.from);
@@ -399,7 +400,8 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   await layerLand(root, 3, { io: landIO(bare, prs), log: quiet });
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.deepEqual(j.startable.map((x) => x.id), ['b']);
-  assert.match(j.startable[0].cmd, /--reopen "re-test against the new interface of a/);
+  // b is OPEN (it never ran): a plain start, never --reopen (coordinator, 6 Nov 16:03).
+  assert.equal(j.startable[0].cmd, 'node .process/tool/p3.mjs job start b --live <n>');
   const mio = (extra = {}) => ({ slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), ...extra });
   await assert.rejects(layerMerge(root, 1, { io: mio(), wait: false, log: quiet }), /b is rescheduled/);
   // b's job re-runs on the new tip and lands; now the layer merges, with no test run.
@@ -1100,6 +1102,81 @@ test('layer retest refuses a module owed a job for a breaking change, even when 
   fetchState(root, SB, { fresh: true });
   assert.equal(flowRows(root, SB, 1).retest_refusals.length, 1, 'the refusal is kept');
   assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
+});
+
+// R10 (Bob, 6 Nov ~15:35): a layer's jobs earliest in the total order first, so an interface
+// change is found before its users start or test.
+test('layer jobs (R10): startable in the layer\'s total order, a module whose in-layer provider has not landed after the rest, marked "after"; status follows it', async () => {
+  const { root, bare } = product();
+  // b uses a; e uses b: the order a, c, b, e (map order a, b, c, e).
+  commit(root, { 'build/layers.md': layers.replace('| 1 | One | a, b, c |', '| 1 | One | e, b, a, c |'), 'build/modules.json': { modules: [...modules.modules, { id: 'e', uses: ['b'] }] }, 'process/ledger/e.json': entry('e', { layer: 1 }), 'req/e.md': req('e') }, 'e joins layer 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const lines = [];
+  const o = layerOpen(root, 1, { io: openIO, log: (l) => lines.push(l) });
+  assert.deepEqual(o.startable.map((x) => [x.id, x.after || null]), [['a', null], ['c', null], ['b', ['a']], ['e', ['b']]]);
+  assert.ok(lines.some((l) => /job start b --live <n>\s+\(after a\)/.test(l)));
+  const j = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.deepEqual(j.states.map((s) => s.id), ['a', 'c', 'b', 'e'], 'layer status reads in the same order');
+  const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
+  const at = st.findIndex((l) => /^jobs to start/.test(l));
+  assert.deepEqual(st.slice(at + 1, at + 5).map((l) => l.match(/job start (\w)/)[1]), ['a', 'c', 'b', 'e']);
+  assert.match(st[at + 3], /\(after a\)$/);
+  // a lands: b is ready now, e still after b.
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', ha) }), log: quiet });
+  const k = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.deepEqual(k.startable.map((x) => [x.id, x.after || null]), [['c', null], ['b', null], ['e', ['b']]]);
+});
+
+test('job start (R10): a start while an in-layer provider has not landed is early, in its start row; layer report counts early starts', () => {
+  const { root } = product();
+  git(['branch', 'layer/1', 'tranche'], { cwd: root });
+  const lines = [];
+  jobStart(root, 'b', { coordinator: 's', push: false, log: (l) => lines.push(l) });
+  const row = JSON.parse(git(['show', 'job/b:process/metrics/b.jsonl'], { cwd: root }).trim().split('\n').pop());
+  assert.deepEqual([row.event, row.layer, row.early], ['start', 1, ['a']]);
+  assert.ok(lines.some((l) => /note: an early start: a has not landed on layer\/1/.test(l)));
+  jobStart(root, 'a', { coordinator: 's', push: false, log: quiet });
+  assert.deepEqual(JSON.parse(git(['show', 'job/a:process/metrics/a.jsonl'], { cwd: root }).trim().split('\n').pop()).early, []);
+  writeRows(root, SB, 'starts', [[flowFile(1, 'start', 'b-1'), { row: 'start', layer: 1, module: 'b', attempt: 1, early: ['a'], at: '2026-11-06T15:40:00Z' }], [flowFile(1, 'start', 'a-1'), { row: 'start', layer: 1, module: 'a', attempt: 1, early: [], at: '2026-11-06T15:41:00Z' }]]);
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  assert.deepEqual([m.starts, m.early_starts], [2, 1]);
+});
+
+test('total order: providers first, the map order kept otherwise, a cycle after', async () => {
+  const { totalOrder, layerProviders } = await import('../lib/layerflow.mjs');
+  const prov = layerProviders(['e', 'b', 'a', 'c', 'x', 'y'], [{ id: 'b', uses: ['a', 'z'] }, { id: 'e', uses: ['b'] }, { id: 'x', uses: ['y'] }, { id: 'y', uses: ['x'] }], new Map());
+  assert.deepEqual(prov.get('b'), ['a'], 'a provider outside the layer is not in it');
+  assert.deepEqual(totalOrder(['e', 'b', 'a', 'c', 'x', 'y'], prov), ['a', 'c', 'b', 'e', 'x', 'y']);
+});
+
+// Coordinator, 6 Nov 16:03: the merge tool still said "starts owed since 05:29Z (network-notices,
+// case-checker, case-inputs)" after their re-tests landed.
+test('layer land pays the starts owed by its module (its job complete or block); others stay', async () => {
+  const { owe, readOwed } = await import('../lib/hold.mjs');
+  const { writeState } = await import('../lib/state.mjs');
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  writeState(root, SB, 'owed', (dir) => { owe(dir, 'job complete c'); owe(dir, 'job complete b'); owe(dir, 'block c'); return {}; });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 4;\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'c', hc) }), log: quiet });
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(readOwed(root, SB).acts.map((x) => x.act), ['job complete b']);
+});
+
+test('R10 (cold review): a COMPLETE provider with unmet marks has not landed (it is about to be reopened); a provider BLOCKED on its job branch has (deferred), for job start as for layer jobs', () => {
+  const { root, bare } = product({ over: { a: { status: { state: 'COMPLETE' } } } });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  // a is COMPLETE with R1 unmet: b waits on it.
+  assert.deepEqual(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').after, ['a']);
+  // a's job commits BLOCKED on its branch: job start of b is not early.
+  jobWork(bare, 'a', { 'process/ledger/a.json': entry('a', { layer: 1, status: { state: 'BLOCKED', reason: 'owed to layer 2' } }) });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  git(['branch', '-f', 'layer/1', 'origin/layer/1'], { cwd: root });
+  const lines = [];
+  jobStart(root, 'b', { coordinator: 's', push: false, log: (l) => lines.push(l) });
+  assert.deepEqual(JSON.parse(git(['show', 'job/b:process/metrics/b.jsonl'], { cwd: root }).trim().split('\n').pop()).early, []);
+  assert.ok(!lines.some((l) => /early start/.test(l)));
 });
 
 // R11 (copy, 6 Nov): layer/8 was cut at a tranche pinned at 4a85f26; the pin moved to 0635b64 on the

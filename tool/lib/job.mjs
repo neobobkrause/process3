@@ -18,6 +18,7 @@ import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
 import { standingFor } from './register.mjs';
 import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
+import { earlyProviders, writeRows } from './layerflow.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -488,6 +489,14 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const held = git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').some((l) => l === `branch refs/heads/${branch}`);
   if (stale && held) fail(`${branch} is checked out in a worktree; check out another branch there first`);
 
+  // R10 (Bob, 6 Nov): a start while a provider in its layer has not landed is early; its start row
+  // says so, and layer report counts it.
+  let early = [];
+  if (cfg.layer) {
+    // Unread: null (unknown), never counted as not early (cold review of PR 196).
+    try { if (push) fetchState(root, cfg.state_branch); early = earlyProviders(root, { ...cfg, tranche: cfg.layer.tranche }, cfg.layer.n, id, from); } catch (e) { early = null; log(`note: whether this start is early was not read (${e.message})`); }
+    if (early?.length) log(`note: an early start: ${early.join(', ')} ${early.length > 1 ? 'have' : 'has'} not landed on ${cfg.tranche}; ${id} may meet ${early.length > 1 ? 'their' : 'its'} interface change later (layer jobs lists ${id} after ${early.join(', ')})`);
+  }
   const sym = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true });
   const back = sym.code === 0 ? sym.stdout.trim() : git(['rev-parse', 'HEAD'], { cwd: root });
   const before = stale ? git(['rev-parse', `refs/heads/${branch}`], { cwd: root }) : null;
@@ -508,7 +517,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const reading = readingSet(root, entry, [], cfg);
     const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}), ...(cfg.layer ? { layer: cfg.layer.n, early } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id), ...(carried?.req ? [carried.req.file] : [])], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
@@ -519,6 +528,8 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
       provable(root, id, branch, cfg.tranche, from);
       git(['push', '-q', '-u', 'origin', branch], { cwd: root });
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
+      // The layer's own count of starts, early ones marked (layer report).
+      if (cfg.layer) { try { writeRows(root, cfg.state_branch, `layer ${cfg.layer.n}: ${id} started${early?.length ? ' early' : ''}`, [[flowFile(cfg.layer.n, 'start', `${safeName(id)}-${attempt}-${Date.now()}`), { row: 'start', layer: cfg.layer.n, module: id, attempt, branch, early, at: now() }]]); } catch (e) { log(`note: the layer's start row was not written (${e.message}); the start row on ${branch} has it`); } }
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });
       log(`draft pull request: ${result.pr.html_url}`);
       const subscribe = subscribeFor(slug, result.pr);
