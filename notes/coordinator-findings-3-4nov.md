@@ -789,3 +789,8 @@
 - process3 for the pause: 183, 185, 186, 187, 181, 184 accepted. Own context fine, below 60%.
 - 04:05 BOB: 610 and 569 reviewed, green, noted for the train; 618 (control-plane F2) merged 03:57. Estimate: both land by about 04:30; close about 04:45 without a notice job, about 05:30 with one. Told BOB to brief the 497 notice job as a pass-through pin test if agent-worker already returns the refusal unchanged.
 - 04:44 BOB: 569 merged 04:32; ai-catalogue recorded BLOCKED; 379, 380, 615 and 617 closed unmerged (branches kept); layer close 6 started about 04:41 and passed its readiness check; suites running. The starter opened agent-worker's 497 notice job (PR 619) at 04:41, briefed as one pass-through test. RULED: 619 may run and must land before the copy's pin move, else it pushes and stops; nothing else starts after close.
+
+## 04:51 hourly flow (6 Nov)
+- Copy lands 03:51-04:51: 618 control-plane F2 (03:57), 610 agent-runner, 569 agent-worker (04:32). Layer 6's job PRs are all in; 379, 380, 615 and 617 were closed unmerged. Layer close 6 running since about 04:41. 619 (agent-worker 497 notice, one pass-through test) is running and must land before the pin move.
+- Product work pauses at close. Next: merge process3 183, 185, 186, 187, 181, 184, then the copy pin move; then the dist pass by the P7 route; then layer 7 opens.
+- Layer 6 baseline report is running in a background agent.
