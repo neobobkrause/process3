@@ -150,7 +150,7 @@ function jobPR({ testFile = realTest } = {}) {
   const code = commit(root, {});
   const g = gateIO([{ id: 1, body: block(RECEIPT, receiptOf(1, code)), user: { login: 'civicsmith' } }]);
   const first = gate(root, { base, head: code, branch: 'job/alpha', pr: 105, slug: 'o/r', io: g.io, log: quiet });
-  assert.deepEqual([first.run.trigger, first.run.receipt, first.run.revert, first.run.ok], ['code', 'present', 'pass', true]);
+  assert.deepEqual([first.run.trigger, first.run.receipt, first.run.revert, first.run.ok], ['code', 'agrees', 'pass', true]);
   // Attempt 3: job complete's commit writes only the entry and the metrics.
   const head = commit(root, { 'process/ledger/alpha.json': entry('alpha', { status: { state: 'COMPLETE' } }), 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":3}\n' });
   const again = (receipt) => {
@@ -160,19 +160,29 @@ function jobPR({ testFile = realTest } = {}) {
   return { root, c0, code, head, again };
 }
 
-test('a later attempt on a receipt-only commit after a green code run takes the record path and reads the receipt', () => {
+test('a later attempt on a receipt-only commit after a green code run is checked against that run, and agrees (AUD-2)', () => {
   const j = jobPR();
   const r = j.again(receiptOf(3, j.head));
-  assert.deepEqual([r.run.trigger, r.run.after, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['record-since-green', j.code, 'present', 3, true]);
-  // Whatever it claims, and whichever of the branch's commits it names: it is not compared with a run.
-  const c = j.again(receiptOf(3, j.c0, 1));
-  assert.deepEqual([c.run.trigger, c.run.receipt, c.run.receipt_attempt, c.findings], ['record-since-green', 'present', 3, []]);
+  assert.deepEqual([r.run.trigger, r.run.after, r.run.receipt, r.run.receipt_attempt, r.run.receipt_measured, r.run.ok], ['record-since-green', j.code, 'agrees', 3, j.code, true]);
 });
 
-test('merge reads a green row of an earlier pin as read too; a row of another attempt names the act that clears it', () => {
+test('a later attempt claiming what the code run did not find disagrees, and is a finding', () => {
+  const j = jobPR();
+  const r = j.again(receiptOf(3, j.head, 1));
+  assert.equal(r.run.receipt, 'disagrees');
+  assert.match(r.findings.find((f) => f.check === 'receipt').message, new RegExp(`the receipt claims the suite failed; the gate's run on ${j.code.slice(0, 10)} passed`));
+});
+
+test('a later attempt made on code no run measured gets a code run that checks it, and merge says what clears an old row', () => {
+  // The fast path cannot stand on the earlier run (copy PR 247): the gate runs the suite on this head.
+  const j = jobPR();
+  const r = j.again(receiptOf(3, j.c0));
+  assert.deepEqual([r.run.trigger, r.run.suite, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['code', 'pass', 'agrees', 3, true]);
+  // merge names the act for a row that did not check the receipt: an earlier pin's 'present', or 'unmeasured'.
   const row = (receipt, receipt_attempt = 3) => ({ sha: 'h'.repeat(40), trigger: 'record-since-green', ok: true, receipt, receipt_attempt });
-  for (const w of ['present', 'agrees', 'unmeasured']) assert.equal(unread([row(w)], 'h'.repeat(40), 3), '', w);
-  assert.match(unread([row('present', 2)], 'h'.repeat(40), 3), /its newest run read attempt 2: give the gate on hhhhhhhhhh a new event \(edit the pull request\)$/);
+  assert.equal(unread([row('agrees')], 'h'.repeat(40), 3), '');
+  for (const w of ['present', 'unmeasured']) assert.match(unread([row(w)], 'h'.repeat(40), 3), new RegExp(`its newest run left the receipt ${w}, not checked against CI's run of its tests: give the gate on hhhhhhhhhh a new event`), w);
+  assert.match(unread([row('agrees', 2)], 'h'.repeat(40), 3), /its newest run read attempt 2: give the gate on hhhhhhhhhh a new event \(edit the pull request\)$/);
 });
 
 test('merge refuses a later attempt no green run read, with the words that clear it', () => {
@@ -195,7 +205,7 @@ test('merge refuses a later attempt no green run read, with the words that clear
     verify: () => true,
     mergePR: () => assert.fail('nothing merges'),
   };
-  assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /read receipt attempt 3; its newest run read attempt 2: give the gate on .* a new event \(edit the pull request\)/);
+  assert.throws(() => merge(root, 105, { slug: 'o/r', io, noReview: 'x', log: quiet }), /checked receipt attempt 3 and agreed with it; its newest run read attempt 2: give the gate on .* a new event \(edit the pull request\)/);
 });
 
 // Review 1 of PR 95.

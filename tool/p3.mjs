@@ -9,7 +9,7 @@ import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
-import { jobBlock, jobComplete, jobStart, jobSync, jobTest } from './lib/job.mjs';
+import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
 import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
@@ -123,6 +123,10 @@ const commands = {
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
     notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
   }).ok ? 0 : 1),
+
+  // revert exempt <pr> --why "<why>" --reviewer <session>: a reviewer's exemption from the gate's revert
+  // check, for a refactor whose tests rightly pass before and after (AUD-1, JOB-12); never the job's own.
+  'revert exempt': (a, root) => (revertExempt(root, one(a, 'pull request'), { why: a.why, reviewer: a.reviewer }).ok ? 0 : 1),
 
   // job sync <id>: the job brings its branch up to date: origin's job/<id> (BOB's pushes) and the
   // tranche merged in, both deepened from GitHub's compare in a shallow clone, then .process
