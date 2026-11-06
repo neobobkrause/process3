@@ -148,3 +148,44 @@ test('a lane module\'s job START: the research area first, or qualify first', ()
   commit(root, { 'design/ux-research/index.md': 'i\n', 'design/ux-research/qualification-2026-11-06.md': 'r\n' });
   assert.match(startText({ ...base, lane: laneForStart(root, loadConfig(root), 'ux-design') }), /The lane's research area `design\/ux-research\/` is its ground truth: read its index\.md before you decide design there/);
 });
+
+// Coordinator, 6 Nov: lane start refused a new lane, "lane investigation's directory
+// docs/development/investigation-design/ is not in this checkout", and BOB seeded READMEs by hand
+// (copy 668, 669). The seeding step is printed and the lane starts.
+test('lane start on a lane whose folder is not in the product yet prints its seeding step (README and an empty research index) and starts; its START opens with it', async () => {
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'investigation', dir: 'docs/development/investigation-design' }] }, 'README.md': 'x\n' });
+  const out = [];
+  const r = laneStart(root, 'investigation', { slug: 'o/p', log: (m) => out.push(m) });
+  assert.deepEqual(r.seed.map((f) => f.file), ['docs/development/investigation-design/README.md', 'docs/development/investigation-design-research/index.md']);
+  assert.match(r.seed[0].text, /^# Lane investigation\n\n- Lane: investigation\n- Area: `docs\/development\/investigation-design\/`\n- Decision: </);
+  assert.equal(r.seed[1].text, '');
+  assert.match(out.join('\n'), /^Lane investigation's directory docs\/development\/investigation-design\/ is not in tranche yet\. Seed it first: a lane-only pull request into tranche .*adding:\n- docs\/development\/investigation-design\/README\.md:\n    # Lane investigation[\s\S]*\n- docs\/development\/investigation-design-research\/index\.md \(empty\)\n/);
+  assert.match(r.prompt, /^Lane investigation's directory docs\/development\/investigation-design\/ is not in tranche yet\. Seed it first/);
+  assert.ok(r.call, 'the lane starts');
+  // A research index already there is never overwritten by the seed.
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  mkdirSync(join(root, 'docs/development/investigation-design-research'), { recursive: true });
+  writeFileSync(join(root, 'docs/development/investigation-design-research/index.md'), 'index\n');
+  laneEnd(root, 'investigation', { session: 'pending', why: 'test', log: quiet });
+  assert.deepEqual(laneStart(root, 'investigation', { slug: 'o/p', log: quiet }).seed.map((f) => f.file), ['docs/development/investigation-design/README.md']);
+});
+
+// Coordinator's ruling, 6 Nov: a lane's module, when named, has a ledger entry, a modules row and a
+// requirements file; its marks are the lane's work. A lanes row without module stays valid.
+test('lane start and setup check refuse a lane whose module has no ledger entry, modules row or requirements file, naming what BOB writes', async () => {
+  const { laneModuleGaps } = await import('../lib/ledger.mjs');
+  const cfg = { tranche: 'tranche', modules_file: 'build/modules.json', requirements_dir: 'req', lanes: [{ name: 'ux', dir: 'design/ux', module: 'ux' }, { name: 'investigation', dir: 'docs/inv' }] };
+  const files = (over = {}) => (f) => ({ 'build/modules.json': JSON.stringify({ modules: [{ id: 'ux', uses: [] }] }), 'process/ledger/ux.json': JSON.stringify(entry('ux', { requirements: 'req/ux.md' })), 'req/ux.md': '# ux\n', ...over }[f] ?? null);
+  assert.deepEqual(laneModuleGaps(files(), cfg), [], 'all three there; the row without module is valid');
+  assert.match(laneModuleGaps(files({ 'process/ledger/ux.json': null }), cfg)[0], /^lane ux names module ux, which has no ledger entry process\/ledger\/ux\.json: BOB writes it \(with its modules file row and its requirements file\) by a plain pull request into tranche, or drops "module" from the lane's row$/);
+  assert.match(laneModuleGaps(files({ 'build/modules.json': JSON.stringify({ modules: [] }) }), cfg)[0], /lane ux's module ux has no row in build\/modules\.json: BOB adds \{"id": "ux"/);
+  assert.match(laneModuleGaps(files({ 'req/ux.md': null }), cfg)[0], /lane ux's module ux has no requirements file req\/ux\.md: BOB writes it/);
+  // lane start, in a checkout: refused, nothing started.
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux', module: 'ux' }] }, 'design/ux/README.md': 'x\n' });
+  assert.throws(() => laneStart(root, 'ux', { slug: 'o/p', log: quiet }), /lane ux names module ux, which has no ledger entry process\/ledger\/ux\.json: BOB writes it .*; nothing was started/);
+  // setup check's reader.
+  const { readers } = await import('../lib/setup.mjs');
+  const r = readers['lane-modules']({}, { cfg, file: files({ 'process/ledger/ux.json': null }) });
+  assert.equal(r.state, 'missing');
+  assert.equal(readers['lane-modules']({}, { cfg, file: files() }).state, 'set');
+});

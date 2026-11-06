@@ -24,10 +24,10 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { P3, rulebook } from './job.mjs';
-import { entryFile, jobBranch, ledgerIds, originJobs } from './ledger.mjs';
+import { entryFile, jobBranch, laneModuleGaps, ledgerIds, originJobs } from './ledger.mjs';
 import { PROCESS_ROOT, PROCESS_TRIAGE, REGISTER, productTriageLane } from './register.mjs';
 import { addressFile, fetchState, jsonl, readState, writeState } from './state.mjs';
-import { fail, fetchBranch, git, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
+import { fail, fetchBranch, git, laneChecks, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
 
 export const LANES_FILE = 'lanes/asks.jsonl';
 
@@ -57,7 +57,10 @@ export function lanes(cfg) {
     const gen = (Array.isArray(cfg.generated) ? cfg.generated : []).flatMap((r) => (Array.isArray(r?.paths) ? r.paths : [])).map((g) => String(g).replace(/^\.\//, ''));
     const g = research && gen.find((x) => underPath(x, research) || underPath(research, x.replace(/\/+$/, '')));
     if (g) fail(`lane ${l.name.trim()}'s research folder ${research}/ holds the generated path ${g}: research is never what the build reads`);
-    return { name: l.name.trim(), dir: dir ? dir.replace(/^\.\//, '') : null, module, kind, research, repo: 'product' };
+    // Its checks (laneChecks): commands the gate runs on its lane-only pull requests.
+    const checks = laneChecks({ lanes: [l] }, l.name.trim());
+    if (checks === null) fail(`lane ${l.name.trim()}'s checks are a list of commands, each a string or a list of words, not ${JSON.stringify(l.checks)}`);
+    return { name: l.name.trim(), dir: dir ? dir.replace(/^\.\//, '') : null, module, kind, research, repo: 'product', ...(checks.length ? { checks } : {}) };
   });
 }
 // The lane whose ledger module this is (a lane's "module" in process/config.json), or null.
@@ -338,6 +341,15 @@ export function laneArtifact(root, name, url, { title, drop, log = console.log }
 }
 
 // lane start <name> [--replace <session>|pending] | --record <session>, and lane end <name>.
+// The seed of a lane folder not yet in the product: <dir>/README.md (the lane, its area, the decision
+// that set it up) and, for a design lane, an empty <research>/index.md.
+export function seedFiles(l) {
+  const readme = [`# Lane ${l.name}`, '', `- Lane: ${l.name}${l.kind === 'triage' ? ' (triage)' : ''}`, `- Area: \`${l.dir}/\`${l.module ? `, the marks of ledger module \`${l.module}\`` : ''}`, '- Decision: <the decision that set up this lane: the canon line or Bob\'s word, with its date>', ''].join('\n');
+  const research = l.kind === 'triage' ? null : researchOf(l);
+  return [{ file: `${l.dir}/README.md`, text: readme }, ...(research ? [{ file: `${research}/index.md`, text: '' }] : [])];
+}
+const seedText = (l, seed, tranche) => [`Lane ${l.name}'s directory ${l.dir}/ is not in ${tranche} yet. Seed it first: a lane-only pull request into ${tranche} (it changes only the lane's folders, so it takes the records-only path) adding:`, ...seed.map((f) => `- ${f.file}${f.text ? `:\n${f.text.split('\n').map((x) => `    ${x}`).join('\n').trimEnd()}` : ' (empty)'}`)].join('\n');
+
 export function laneStart(root, name, { replace, record, model, slug, log = console.log, jobOpen = moduleJobOpen } = {}) {
   if (typeof name !== 'string' || !name) fail('lane start <name>');
   const cfg = loadConfig(root);
@@ -357,6 +369,9 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
     log(`lane ${l.name} is ${sid}`);
     return { session: sid };
   }
+  // A lane's module, when named, has its entry, its modules row and its requirements file (ruling, 6 Nov).
+  const gaps = laneModuleGaps((f) => { try { return readFileSync(join(root, f), 'utf8'); } catch { return null; } }, { ...cfg, lanes: [l] });
+  if (gaps.length) fail(`${gaps.join('; ')}; nothing was started`);
   // The lane's module's job at work is the lane's one session until it ends (job start, the other way in).
   if (l.module && !seat) {
     const j = jobOpen(root, cfg, l.module);
@@ -364,7 +379,10 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
     if (j === null) log(`job ${l.module}'s branch could not be read: start the lane only if no job ${l.module} session is at work`);
   }
   const home = l.repo === 'process' ? PROCESS_ROOT : root;
-  if (!existsSync(join(home, l.dir))) fail(`lane ${l.name}'s directory ${l.dir}/ is not in ${l.repo === 'process' ? 'the pinned process3' : 'this checkout'}`);
+  // A new lane's folder not yet in the product (coordinator, 6 Nov: lane investigation was refused and
+  // BOB seeded its README by hand, copy 668, 669): the seeding step is printed and the lane starts,
+  // its session's first pull request the seed. The pinned process3 is never seeded from here.
+  const seed = !existsSync(join(home, l.dir)) ? (l.repo === 'process' ? fail(`lane ${l.name}'s directory ${l.dir}/ is not in the pinned process3`) : seedFiles(l).filter((f) => !existsSync(join(root, f.file)))) : null;
   if (seat && replace === undefined) fail(busy(l, seat));
   // A folder already there under the research area's name, holding files but no index.md, is not
   // the lane's research: the gate would let its changes skip the suite (review), so name it.
@@ -384,13 +402,13 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   const tranche = l.repo === 'process' ? 'tranche' : cfg.tranche;
   const text = l.kind === 'triage' ? triageSessionText : laneSessionText;
   const research = l.kind === 'triage' ? null : qualification(root, l);
-  const prompt = text({ l, slug: s, tranche, bob, replaces: seat?.session || null, artifacts: readArtifacts(root, cfg, l.name), research });
+  const prompt = (seed ? `${seedText(l, seed, tranche)}\n\n` : '') + text({ l, slug: s, tranche, bob, replaces: seat?.session || null, artifacts: readArtifacts(root, cfg, l.name), research });
   const call = { title: `lane ${l.name}`, source_url: `https://github.com/${s}`, source_revision: tranche, ...(model ? { model } : {}), prompt };
   log(prompt.trimEnd());
   log(`start the ${l.name} lane's one session with create_session:\n${JSON.stringify(call, null, 2)}`);
   if (research && !research.qualified) log(`lane ${l.name} has not qualified (${missing(research)}): the START above is its QUALIFICATION brief; lane ask refuses its questions until the qualification pull request is in ${tranche}`);
   log(`then: ${P3} lane start ${l.name} --record <the new session id>${seat?.session ? `; once it reports running and ${seat.session} is idle, archive_session ${seat.session}` : ''}`);
-  return { prompt, call, replaces: seat?.session || null, qualified: research ? research.qualified : null };
+  return { prompt, call, replaces: seat?.session || null, qualified: research ? research.qualified : null, ...(seed ? { seed } : {}) };
 }
 
 export function laneEnd(root, name, { session, why, log = console.log } = {}) {

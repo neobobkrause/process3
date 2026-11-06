@@ -1434,3 +1434,32 @@ test('land: a user joined to this layer (R12) is rescheduled with the layer\'s o
   assert.deepEqual([...ra.land.users_rescheduled].sort(), ['b', 'd']);
   assert.deepEqual(ra.land.users_noticed, []);
 });
+
+// Coordinator, 6 Nov 17:45: after layer sync, every restarted job hit a job sync conflict on its own
+// entry (BLOCKED on the branch, OPEN on the layer) and resolved it by hand, keeping its status.
+test('job sync joins a conflict on the job\'s own entry: the layer\'s entry, the job\'s status; a fixed field both sides changed is refused', () => {
+  const { root } = lateEntry({ local: true });
+  jobStart(root, 'e', { coordinator: 's', push: false, log: quiet });
+  git(['checkout', '-q', 'job/e'], { cwd: root });
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'BLOCKED', reason: 'the gate refuses my carried entry' } }) }, 'job block e');
+  // The layer takes e's entry (layer sync), OPEN, with a path the job's copy lacks.
+  git(['checkout', '-q', 'layer/1'], { cwd: root });
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1, paths: ['src/e/', 'lib/e/'] }) }, 'Merge layer sync PR 666');
+  git(['checkout', '-q', 'job/e'], { cwd: root });
+  const lines = [];
+  const r = jobSync(root, 'e', { push: false, log: (l) => lines.push(l) });
+  assert.deepEqual(r.merged, ['layer/1']);
+  const e = JSON.parse(git(['show', 'HEAD:process/ledger/e.json'], { cwd: root }));
+  assert.deepEqual([e.status.state, e.paths], ['BLOCKED', ['src/e/', 'lib/e/']]);
+  assert.ok(lines.some((l) => /process\/ledger\/e\.json: layer\/1's entry, with e's own status \(BLOCKED\); the branch's own paths not kept/.test(l)), lines.join('\n'));
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '', 'merged and committed');
+  // Both sides change the same fixed field, differently: refused, the merge left for the job.
+  commit(root, { 'process/ledger/e.json': { ...e, paths: ['src/e/'], status: { state: 'WORKING' } } }, 'job narrows its paths');
+  git(['checkout', '-q', 'layer/1'], { cwd: root });
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1, paths: ['src/e/', 'lib/e/', 'more/e/'], status: { state: 'OPEN', reason: 'r' } }) }, 'the layer widens them');
+  git(['checkout', '-q', 'job/e'], { cwd: root });
+  const l2 = [];
+  assert.throws(() => jobSync(root, 'e', { push: false, log: (l) => l2.push(l) }), /layer\/1 does not merge cleanly: process\/ledger\/e\.json/);
+  assert.ok(l2.some((l) => /both sides changed paths; resolve it by hand/.test(l)));
+  git(['merge', '--abort'], { cwd: root });
+});

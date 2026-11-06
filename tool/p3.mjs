@@ -29,7 +29,7 @@ import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { fetchState, handoff, jsonl, outcome, readState, send, writeState } from './lib/state.mjs';
+import { fetchState, handoff, jsonl, outcome, readState, send, writeState, stateReplay } from './lib/state.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -524,6 +524,9 @@ const commands = {
     if (sub === 'confirm') { handoverConfirm(root, a._[0]); return 0; }
     fail('handover begin | handover confirm <new BOB session id>');
   },
+
+  // state replay [<ref>...]: the state writes kept when their push gave up (refs/p3/unpushed/*), made again.
+  'state replay': (a, root) => { stateReplay(root, loadConfig(root).state_branch, a._.map(String)); return 0; },
 
   // ledger check [--base <ref> --branch <name> [--home <tranche ref>]]: schema; on a job branch, own
   // status only; with --home (the layer flow), its own entry may be added as the tranche holds it.

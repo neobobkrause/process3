@@ -11,10 +11,10 @@ import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
 import { layerMode, layerOfBranch } from './layerbase.mjs';
 import { layerCover } from './layerflow.mjs';
-import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
+import { buildGenerated, committedGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
-import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneChecks, laneOfPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
@@ -150,6 +150,25 @@ export function gate(root, opts) {
   if (lanePR) {
     runRow.lane = lanePR;
     for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
+  }
+  // Each lane whose folder the pull request touches runs its own checks (coordinator, 6 Nov: ux lane
+  // Q7's broken words build landed green): in place of the suite on a lane-only pull request, beside
+  // whatever else runs on any other (cold review of PR 203). Installed and its generated files built
+  // first, as a suite's are. Red when any fails.
+  const touchedLanes = branch === cfg.tranche ? [] : [...new Set(changed.map((f) => laneOfPath(cfg, f, entries)).filter(Boolean))];
+  const laneCmds = touchedLanes.map((name) => ({ name, cmds: laneChecks(cfg, name), dir: (Array.isArray(cfg.lanes) ? cfg.lanes : []).find((x) => x?.name?.trim?.() === name)?.dir || null }));
+  for (const l of laneCmds.filter((x) => x.cmds === null)) findings.push(F('lane-checks', CONFIG_FILE, `lane ${l.name}'s checks in ${CONFIG_FILE} are not a list of commands (each a string or a list of words)`));
+  const runLanes = laneCmds.filter((x) => x.cmds?.length);
+  if (runLanes.length) {
+    const inst = install(root, cfg.lockfiles, exec ? { exec } : {}).findings;
+    findings.push(...inst);
+    if (!inst.length && gen.rows.length) findings.push(...buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) }).findings);
+    runRow.lane_checks = [];
+    for (const l of runLanes) {
+      const lc = inst.length ? { findings: [], ran: [] } : laneCheckRun(root, l.name, l.dir, l.cmds, { timeout, log, ...(exec ? { exec } : {}) });
+      findings.push(...lc.findings);
+      runRow.lane_checks.push(...lc.ran.map((x) => ({ lane: l.name, ...x })));
+    }
   }
   // A ready job PR into a layer branch (layerflow.mjs) runs its suite even when it changes only
   // records: a rescheduled user re-publishes with no code change, and its run on the new layer tip,

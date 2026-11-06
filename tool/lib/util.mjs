@@ -346,6 +346,31 @@ export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r));
 
+// A lane's checks (coordinator, 6 Nov: a broken words build landed green, ux lane Q7): the commands
+// its lanes row declares, each a string (split on spaces) or an argv list, run by the gate on a
+// lane-only pull request in place of the suite. [] when none; null for a row that is not lists of words.
+// A command line's words, with "..." and '...' kept whole (no shell runs them); null when a quote is open.
+function words(line) {
+  const out = [];
+  let cur = null;
+  let q = null;
+  for (const ch of String(line)) {
+    if (q) { if (ch === q) q = null; else cur += ch; continue; }
+    if (ch === '"' || ch === "'") { q = ch; cur ??= ''; continue; }
+    if (/\s/.test(ch)) { if (cur !== null) out.push(cur); cur = null; continue; }
+    cur = (cur ?? '') + ch;
+  }
+  if (q) return null;
+  if (cur !== null) out.push(cur);
+  return out;
+}
+export function laneChecks(cfg, name) {
+  const l = (Array.isArray(cfg?.lanes) ? cfg.lanes : []).find((x) => typeof x?.name === 'string' && x.name.trim() === name);
+  if (!l || l.checks === undefined) return [];
+  if (!Array.isArray(l.checks)) return null;
+  const out = l.checks.map((c) => (typeof c === 'string' ? words(c) : Array.isArray(c) && c.every((w) => typeof w === 'string') ? c : null));
+  return out.some((c) => !c || !c.length) ? null : out;
+}
 // Lanes' folders (lane.mjs; Bob, 5 Nov 17:45: "I don't believe that lanes' file changes need to be tested the way jobs do").
 // A lane's folder is its config "dir"; one at the root, or holding the process's own files, the
 // workflows or the session settings, is no lane folder here, so nothing outside a lane rides it.
@@ -398,6 +423,9 @@ export const isRecordOrLane = (cfg, f, entries = [], opts = {}) => isRecordPath(
 // The one lane a change is all inside, records aside, or null: no file of a lane's folder, a file
 // outside every lane's folder, or files of two lanes' folders.
 export function laneOnly(cfg, files, entries = []) {
+  // The config is a record, but a change to it (a lane's checks, its dir) is never a lane's own: a
+  // lane-only pull request could otherwise drop its own checks (cold review of PR 203).
+  if (files.includes(CONFIG_FILE)) return null;
   const names = new Set();
   for (const f of files) {
     if (isRecordPath(cfg, f)) continue;
@@ -442,7 +470,8 @@ const pause = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayB
 // way: the push may or may not have landed, so the fetched tip is checked first.
 export const PUSH_TRIES = 5;
 export const REF_MOVED = /fetch first|non-fast-forward|cannot lock ref|but expected|failed to update ref|stale info/i;
-export const SERVER_ERROR = /(?:error|HTTP(?:\/[\d.]+)?(?: code)?)[: ]+5\d\d\b|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out/i;
+// GitHub's own transient push failures too (copy PR 678, 6 Nov: "remote: fatal error in commit_refs").
+export const SERVER_ERROR = /(?:error|HTTP(?:\/[\d.]+)?(?: code)?)[: ]+5\d\d\b|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time-?out|fatal error in commit_refs|RPC failed|unexpected disconnect|remote end hung up/i;
 const jitter = (ms) => Math.round(ms * (0.75 + Math.random() * 0.5));
 
 // Pushes HEAD to a branch (the state branch's push). On a moved-ref rejection or a server error it
