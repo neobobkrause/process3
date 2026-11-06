@@ -286,7 +286,45 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
   return { kinds, acts, line };
 }
 
-export function status(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given } = {}) {
+// BOB's acts first (GAT-4, REC-3; measured 6 Nov: 8 job PRs sat ready with a red last gate for 2-6
+// hours unseen, copy 569, 570, 493, 549 and 597, printed as "gate failure" under idle: around line
+// 288 of about 700, no act named; extraction 432 COMPLETE with its PR a draft for 20 h): BOB's
+// lines are held until the rows are read, then the count of acts is printed after the starts-owed
+// marker and the plan, before any hold or list. A run that stops prints what it held.
+export function status(root, opts = {}) {
+  if (opts.role !== 'bob') return statusLines(root, opts);
+  const log = opts.log || console.log;
+  const held = [];
+  let top = 0;
+  let out = null;
+  try {
+    out = statusLines(root, { ...opts, log: (l) => held.push(l), top: () => { top = held.length; } });
+  } finally {
+    const acts = out ? (out.rows || []).filter((r) => actOf(r)) : null;
+    let plan = null;
+    try { plan = acts?.length ? loadConfig(root).plan : null; } catch { plan = null; }
+    const wait = ['pause', 'stop'].includes(plan) ? `; plan ${plan}: they wait for the plan to resume` : '';
+    for (const l of [...held.slice(0, top), ...(acts ? [actsCount(acts) + wait] : []), ...held.slice(top)]) log(l);
+  }
+  return out;
+}
+
+// A job PR BOB must act on now (display only): ready or COMPLETE with its last gate red or
+// cancelled, or COMPLETE with its pull request still a draft. Its act, or null.
+const RED = ['failure', 'timed_out', 'action_required', 'startup_failure'];
+const CANCELLED = ['cancelled', 'stale'];
+export function actOf(r) {
+  if (!String(r.pr || '').startsWith('#') || r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') return null;
+  const complete = String(r.branch || '').startsWith('COMPLETE');
+  if ((r.ready || complete) && RED.includes(r.gate)) return `gate ${r.gate}: restart it with the finding: ${P3} job start ${r.id} --restart "<the gate's finding>"`;
+  if ((r.ready || complete) && CANCELLED.includes(r.gate)) return `gate ${r.gate}: re-gate it: re-run its gate run, or give it a new event (edit the pull request)`;
+  // A gate still running on a COMPLETE draft is job complete between its push and its ready (cold review).
+  if (complete && !r.ready && !['queued', 'in_progress', 'waiting', 'pending', 'requested'].includes(r.gate)) return `COMPLETE, its pull request still a draft: restart it so its job complete marks it ready: ${P3} job start ${r.id} --restart "COMPLETE, PR a draft"`;
+  return null;
+}
+export const actsCount = (acts) => `acts now: ${acts.length}${acts.length ? ` (${acts.map((r) => r.id).slice(0, 8).join(', ')}): see red gates: act now` : ''}`;
+
+function statusLines(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given, top = () => {} } = {}) {
   const io = { openPRs, checkRun, compare, prFiles, ...given };
   let cfg = loadConfig(root);
   // Starts owed, the first line (hold.mjs): a marker, never a refusal.
@@ -310,6 +348,7 @@ export function status(root, { role, module, context, live, sessions: sessionsFi
   if (halt) log(`plan ${cfg.plan}: take no new step`);
   // Every hold first, after a paused plan (coordinator's design, 5 Nov 01:13): a limit on starts is a recorded row, never words.
   let holds = [];
+  top(); // BOB's count of acts, after the starts owed and the plan, before any hold (status)
   try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
   // One session per lane (lane.mjs): the seats the state branch records.
   let seats = null;
@@ -567,7 +606,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   else haveState = git(['rev-parse', '--verify', '-q', `refs/remotes/origin/${sb}`], { cwd: root, allowFail: true }).code === 0;
   const age = (t) => (t ? `${Math.round((Date.now() - Date.parse(t)) / 36e5 * 10) / 10}h ago` : 'unknown');
   const idle = (r) => r.flag?.startsWith('WORKING') || (r.updated && Date.now() - Date.parse(r.updated) > IDLE_HOURS * 36e5);
-  const groups = { blocked: [], owed: [], idle: [], open: [] };
+  const groups = { 'red gates: act now': [], blocked: [], owed: [], idle: [], open: [] };
   const merger = haveState && readState(root, sb, addressFile('merger')) !== null; // job merges are the MERGER's
   // A pull request stuck in the train (stuck.mjs): owed, with its reason, never "the train merges it".
   let bobAt = null;
@@ -579,6 +618,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   for (const r of [...rows].sort((a, b) => (waits.get(a.id)?.i ?? 1e9) - (waits.get(b.id)?.i ?? 1e9))) {
     const line = `${r.id}: ${r.branch || r.tranche || r.state}${r.pr ? `; PR ${r.pr}, last activity ${age(r.updated)}` : ''}${r.gate ? `; gate ${r.gate}` : ''}${r.flag ? `; ${r.flag}` : ''}${waits.get(r.id)?.text ?? ''}`;
     if (r.tranche === 'BLOCKED' || r.flag === 'BLOCKED') groups.blocked.push(line);
+    else if (actOf(r)) groups['red gates: act now'].push(`${line}; BOB's act: ${actOf(r)}`);
     else if (r.ready && r.gate === 'success' && merger && stuck.has(inTrain(r))) groups.owed.push(`${line}; ${stuckLine(stuck.get(inTrain(r)), r.id)}`);
     else if (r.ready && r.gate === 'success' && merger) groups.open.push(`${line}; the MERGER's train merges it`);
     else if (r.ready && r.gate === 'success') groups.owed.push(`${line}; merge owed, with --job-cost-usd (its session's get_session usage.cost_usd)`);
