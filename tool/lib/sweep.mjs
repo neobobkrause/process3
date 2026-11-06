@@ -59,7 +59,8 @@ function overMedian(root, ref, attempts) {
   return out;
 }
 
-// Idle capacity (Bob, 5 Nov: cap use about 48% over a day; a spoken "about 6 at most" held BOB
+// Idle capacity (Bob, 5 Nov 01:24: Process3 must watch whether capacity is used; the coordinator's
+// measurement: cap use about 48% over a day; a spoken "about 6 at most" held BOB
 // near 6 of 20 for 6 hours and nothing alarmed). Live job sessions under the cap less the slots
 // held, with the open layer's startable jobs for IDLE_MIN.work minutes, or no startable work while
 // under half the cap and BOB owes the act that frees work, for IDLE_MIN.empty: an alarm, each
@@ -332,7 +333,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
 
 // watch --session <the watcher's id> [--full | --escalated <minutes>]: take over as ROOT when ROOT
 // is full (the session read ROOT's record and passes --full), when a message to ROOT has gone
-// unanswered for targets.decision_minutes (--escalated, the escalation chain; Bob, 4 Nov), or
+// unanswered for targets.decision_minutes (--escalated, the escalation chain; coordinator, 4 Nov), or
 // when its heartbeat is older than four hours; otherwise end.
 export function watch(root, { session, full = false, escalated, offline = false, log = console.log } = {}) {
   checkSession(session);

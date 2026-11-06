@@ -205,8 +205,8 @@ const jobOpen = (r) => !!r && !r.unstarted && (r.tranche !== 'COMPLETE' || !!r.p
 export const jobDone = (r) => (r.tranche === 'COMPLETE' || String(r.branch || '').startsWith('COMPLETE'))
   && !/^(WORKING|BLOCKED)/.test(String(r.branch || '')) && !/draft|unknown/.test(String(r.pr || '')) && !r.flag;
 
-// The session list kept clean (Bob, 4 Nov 15:50: 5 of 17 unarchived sessions were leftovers no
-// one owned). From list_sessions (--sessions): each session not archived, by kind, and its act.
+// The session list kept clean (Bob's ask, 4 Nov; the coordinator's count at 15:50: 5 of 17
+// unarchived sessions were leftovers no one owned). From list_sessions (--sessions): each session not archived, by kind, and its act.
 // Never a role's (ROOT, BOB, watcher, coordinator) nor one of a job still open. Idle over an
 // hour and its work done (a job merged or deferred, a pin move with none open), or its parent
 // archived: archive it. Asking (need_input) with its parent archived and its work not done: tell
@@ -313,7 +313,7 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
   const tranche = `origin/${cfg.tranche}`;
   const halt = role === 'bob' && (cfg.plan === 'pause' || cfg.plan === 'stop');
   if (halt) log(`plan ${cfg.plan}: take no new step`);
-  // Every hold first, after a paused plan (Bob, 5 Nov): a limit on starts is a recorded row, never words.
+  // Every hold first, after a paused plan (coordinator's design, 5 Nov 01:13): a limit on starts is a recorded row, never words.
   let holds = [];
   top(); // BOB's count of acts, after the starts owed and the plan, before any hold (status)
   try { holds = readHolds(root, cfg.state_branch, { offline }); for (const l of holdLines(holds)) log(l); } catch (e) { log(`holds: unread (${e.message})`); }
@@ -606,7 +606,7 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   if (owedMsgs.length) L.push('undelivered messages:', ...owedMsgs.map((m) => `- ${m.from}-${m.n} to ${m.to}: ${m.outcome || 'not recorded delivered'}`));
   const reports = haveState ? toRoute(root, sb) : [];
   if (reports.length) L.push('reports to route (until a later message from bob names its id):', ...reports.map((m) => `- ${m.from}-${m.n}: ${m.text.slice(0, 100)}`));
-  // Bob, 4 Nov: a report unanswered past targets.decision_minutes is listed, ahead of next work.
+  // The escalation chain (coordinator, 4 Nov): a report unanswered past targets.decision_minutes is listed, ahead of next work.
   const target = decisionMinutes(cfg);
   for (const m of reports) {
     const mins = Math.floor((Date.now() - Date.parse(m.at)) / 6e4);
@@ -644,7 +644,7 @@ export function baseRedAges(root, cfg, { tranche, comments, haveState }) {
   return [...by.values()].sort((a, b) => String(a.since).localeCompare(String(b.since)));
 }
 
-// A layer closed by `layer close` (INT-4): one row per close in layers/closed.jsonl on the state
+// A layer closed by `layer merge` (INT-4; the train-era `layer close` wrote the same rows): one row per close in layers/closed.jsonl on the state
 // branch, BOB the one writer. A row counts for this tranche only: its tranche name, and its commit
 // not yet on main (a row from a tranche already merged into main is stale). On main is GitHub's
 // compare when online (a shallow clone's history, and a stale origin/main, cannot say; review of
@@ -697,7 +697,7 @@ export function layerState(root, cfg, rows, ref, { closed = closedRows(root, cfg
     .sort((a, b) => a.n - b.n);
   // Work merged in this tranche: a COMPLETE entry whose ledger file differs from main's, or that
   // main lacks (origin/main unread counts as here). A layer that had such work closes only by
-  // `layer close`, its checks and close row; one with none closes implicitly.
+  // `layer merge`, its checks and close row; one with none closes implicitly.
   const blob = (at, f) => {
     if (at) { const r = git(['rev-parse', '-q', '--verify', `${at}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; }
     return existsSync(join(root, f)) ? git(['hash-object', f], { cwd: root }) : null;

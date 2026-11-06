@@ -77,7 +77,7 @@ const PRIORITIES = [
 // acts reached only BOB and Bob took a process3-fix-or-restart choice to Bob, saying it could not
 // message the coordinator). The test of what goes to Bob instead is in their rulebooks.
 const COORD_ACT = 'send a technical question (a fix, a restart, a route) to the coordinator with send_message, never to Bob; push-notify Bob only what passes your rulebook\'s test';
-// The escalation chain (Bob, 4 Nov: urgency fully supported): job to BOB to ROOT to watcher to
+// The escalation chain (coordinator, 4 Nov, for Bob's "urgency is fully supported"): job to BOB to ROOT to watcher to
 // Bob, each step waiting targets.decision_minutes. ROOT's half; the watcher's is watch --escalated.
 const ESCALATION_ACT = 'on an escalation about a silent BOB, at once: get_session on BOB; if archived, or idle past `targets.decision_minutes` with it unanswered, hand over now (rulebook rule 6)';
 
@@ -190,6 +190,7 @@ export function coordinatorPrompt({ slug, processSlug, rootId, old, branch, hand
   L.push(`3. Send ROOT (\`${rootId}\`) one message with send_message that you are running. ROOT records you as the coordinator address (\`start record coordinator\`), which the roles read with \`address coordinator\`, and archives \`${old}\`.`);
   L.push('4. On each other product you hold (the probe), set your id as `coordinator` in its process/config.json by a plain pull request, as before; nothing here waits on it.');
   L.push('5. Do the handoff\'s open acts.');
+  L.push('', '## Your decisions', '', 'Process technical decisions are yours and product decisions BOB\'s (AUD-5, kept by Bob 6 Nov). Write each of yours as a short decision record (REC-11: context, decision, consequences) in DECISIONS.md on process3\'s tranche, and report it in one line. Only what P17 makes Bob\'s goes to him, with options and context. Bob\'s words are cited only where he said them, quoted with their date (AUD-4); a decision of yours is cited as the coordinator\'s.');
   L.push('', '## Your own refresh', '', `When your context nears full, write a handoff on ${branch}, push it, then send ROOT one message asking for your refresh: \`start coordinator --replace <your id> --branch ${branch} --handoff <its path>\`. Never call create_session for your successor: ROOT alone starts it, so sessions do not nest one level deeper per refresh.`);
   return sized(withStanding(L, standing));
 }

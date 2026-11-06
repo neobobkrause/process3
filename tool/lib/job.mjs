@@ -145,7 +145,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. CI runs the suite and checks your receipt. The gate fails a changed test that still passes with your change reverted (JOB-12); a refactor's \`--exempt-revert "<why>"\` asks a reviewer to exempt it.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
-  // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
+  // Bob, 4 Nov: "urgency is fully supported in process3's initial release"; the wait, at most
+  // decision_minutes, is the coordinator's chain.
   // The chain's last automatic step is the watcher (coordinator, 4 Nov); `address <role>` reads each.
   L.push('', `No answer from BOB in ${decisionMinutes} min: send it once more, then to ROOT${rootId ? ` \`${rootId}\`` : ''}, then the watcher, with the minutes, by send_message (\`${P3} address <role>\`). If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.`);
   // The chosen short-term triage responses naming job briefs (register.mjs, AUD-8), verbatim, before the acts and their limits.
@@ -156,7 +157,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   for (const a of entry.acts?.length ? entry.acts : DEFAULT_ACTS(branch)) L.push(`- ${a}`);
   // Review of PR 72: the wake's send writes the state branch, which "push to job/<id> only" forbade.
   L.push('- the wake that job complete or block prints, and its send_message');
-  // A division of labour (Bob, 2 Nov): deploying and releasing are the coordinator's acts in a
+  // A division of labour (Bob, 2 Nov, before the log; unverified): deploying and releasing are the coordinator's acts in a
   // round; local wrangler and miniflare runs are the job's own builds and tests.
   L.push('', 'Not yours, and this line wins over any act above: merging; pushing to any other branch yourself (the wake\'s send writes the state branch); editing `.claude/`, `.process/`, `process/` by hand, CLAUDE.md or another module\'s files; starting sessions; deploying, releasing, release signing and acting on a live site (the coordinator\'s; local wrangler and miniflare builds and tests are yours). Other modules\' work, or a need for the coordinator\'s acts: report it to your coordinator.');
   return L.join('\n') + '\n';
@@ -165,7 +166,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
 
 // A job's coordinator (PR 43: `coordinator` in process/config.json is ROOT's and the watcher's):
 // the BOB addresses/bob.json on the state branch names; --coordinator overrides it for one start.
-// With ROOT's address and decision_minutes, for the START's escalation (Bob, 4 Nov).
+// With ROOT's address and decision_minutes, for the START's escalation (coordinator, 4 Nov).
 function jobCoordinator(root, cfg, given, fetch) {
   const addressed = (role) => { try { const s = JSON.parse(readState(root, cfg.state_branch, addressFile(role)) || 'null')?.session; return typeof s === 'string' && s ? s : null; } catch { return null; } };
   if (fetch) fetchState(root, cfg.state_branch);
@@ -249,7 +250,7 @@ function provable(root, id, branch, tranche, from) {
 function setupOrStop(root, cfg, slug, setup, log) {
   // A checkout behind the tip moves to it first (start.mjs anchor): a moved tranche is no stale session.
   const s = setup(root, { slug, log, anchor: true });
-  // A session not started from the tranche (Bob, 2 Nov): say so plainly, with the check's own
+  // A session not started from the tranche (Bob, 2 Nov, before the log; unverified): say so plainly, with the check's own
   // words for what to do (re-review of PR 24).
   if (s.missing.includes('session-branch')) {
     const t = s.tranche || cfg.tranche;
@@ -277,7 +278,7 @@ export function routeFor(id, { state, ahead, open }) {
 
 // BOB: branch, status WORKING, START, draft pull request; prints what to start the session with.
 // Safe to run again: when the branch is pushed but has no pull request, it opens the PR.
-// --reopen "<what>" (Bob's decision 1A, 2 Nov 2026): a new attempt on a COMPLETE module whose
+// --reopen "<what>" (decision 1A, Bob, 2 Nov, before the log; unverified): a new attempt on a COMPLETE module whose
 // last attempt merged. The branch restarts from the tranche, which already holds the old tip,
 // so the push is a fast-forward: nothing is force-pushed and no branch is deleted. On an
 // abandoned attempt (commits the tranche lacks, no open pull request, not an unfinished start)
@@ -437,7 +438,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
   // The requirements cap (REQ-6): a trigger for BOB's split or consolidation, never a refusal
-  // (Bob, 5 Nov: 32 of 32 refusals overridden). The figure is kept in the start row.
+  // (coordinator's check audit, 5 Nov 19:30: 32 of 32 refusals overridden). The figure is kept in the start row.
   const reqAt = entry0.requirements ? git(['show', `${from}:${entry0.requirements}`], { cwd: root, allowFail: true }) : null;
   const over = reqAt?.code === 0 ? overCap(cfg, entry0.requirements, reqAt.stdout) : null;
   if (over) log(`${over}; starting over the cap${overWhy === undefined ? '' : `: ${overWhy}`}`);

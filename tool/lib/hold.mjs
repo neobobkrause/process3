@@ -1,11 +1,12 @@
-// Holds (Bob, 5 Nov: on 4 Nov the coordinator's "about 6 job sessions at most" kept BOB near 6 of
-// 20 for about 6 hours and nothing in Process3 saw it). A hold on startable work is a row on the
+// Holds (the coordinator's design, 5 Nov 01:13, answering Bob's question why work was silently
+// limited: on 4 Nov the coordinator's "about 6 job sessions at most" kept BOB near 6 of 20 for
+// about 6 hours and nothing in Process3 saw it). A hold on startable work is a row on the
 // state branch, never words: `p3 hold <scope> --why --by --until`, ended by `p3 hold --end <id>` or
 // its end. Scope: module:<id>, layer:<n> or slots:<n>. job start counts the cap less the live slot holds
 // (cap.mjs) and the idle check counts no held module; status prints every hold first; the sweep alarms
 // on idle capacity whatever holds there are. A hold lasts until the pull requests it names (--prs)
-// have landed on the tranche, or its --until time, whichever comes first (Bob, 5 Nov: no forced
-// renewal); no hold needs Bob (coordinator's correction, 5 Nov). report tranche lists hold-hours
+// have landed on the tranche, or its --until time, whichever comes first (coordinator's check audit, 5 Nov
+// 19:30: no forced renewal); no hold needs Bob (coordinator's correction, 5 Nov). report tranche lists hold-hours
 // by setter and reason.
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
