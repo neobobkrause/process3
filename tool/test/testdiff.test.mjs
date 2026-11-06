@@ -50,3 +50,28 @@ test('breaking: the review\'s cases, each a changed expectation', () => {
 test('tokens: a regular expression is one token, a division is not', () => {
   assert.deepEqual(tokens('x = a / b / c; y = /a\\/*b/g;'), ['x', '=', 'a', '/', 'b', '/', 'c', ';', 'y', '=', '/a\\/*b/g', ';']);
 });
+
+// The final rule's cold review (PR 193): each of these read as none or additive.
+test('breaking: an id in a value, a method named test, an override, a call\'s argument, a block, destructuring', () => {
+  const pairs = [
+    ["assert.deepEqual(f(), { code: 'R2' });", "assert.deepEqual(f(), { code: 'R3' });"],
+    ["assert.ok(re.test('2024-01-01'));", "assert.ok(re.test('garbage'));"],
+    ["const e = { status: 'ok' };", "const e = { status: 'ok', status: 'error' };"],
+    ['const e = { ...base };', "const e = { ...base, status: 'error' };"],
+    ['f(x, { strict: false });', "f(x, { strict: false, mode: 'v2' });"],
+    ['t(() => { assert.equal(f(),1); });', 't(() => { x: 0; globalThis.MODE = 2; y: 1, assert.equal(f(),1); });'],
+    ['const { a } = o;', 'const { a, b: a2 } = o;'],
+    ['assert.deepEqual(f({ a: 1 }), { b: 2 });', 'assert.deepEqual(f({ a: 1, c: 3 }), { b: 2 });'],
+  ];
+  for (const [a, b] of pairs) assert.equal(cls(a, b), 'breaking', b);
+});
+
+test('additive: an assertion\'s expected object, an expect().toEqual, a fixture\'s rows or nested value', () => {
+  const pairs = [
+    ['assert.deepEqual(f(), { b: 2 });', 'assert.deepEqual(f(), { b: 2, c: 3 });'],
+    ['expect(f()).toEqual({ b: 2 });', 'expect(f()).toEqual({ b: 2, c: null });'],
+    ['const rows = [{ id: 1 }, { id: 2 }];', 'const rows = [{ id: 1, p: null }, { id: 2, p: null }];'],
+    ['const e = { a: { b: 1 } };', 'const e = { a: { b: 1, c: 2 } };'],
+  ];
+  for (const [a, b] of pairs) assert.equal(cls(a, b), 'additive', b);
+});

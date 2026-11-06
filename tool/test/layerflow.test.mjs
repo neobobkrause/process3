@@ -857,7 +857,8 @@ test('layer retest: a rescheduled module with no work on the layer gets a record
   layerOpen(root, 1, { io: openIO, log: quiet });
   const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y) { return x + y; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'a', ha) };
-  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  // The land's own retest is left to this test (a stub that opens nothing and refuses nothing).
+  await layerLand(root, 1, { io: { ...landIO(bare, prs), retest: () => ({ pr: null }) }, log: quiet });
   const jl = [];
   const j = layerJobs(root, 1, { io: openIO, log: (l) => jl.push(l) });
   assert.deepEqual(j.states.find((s) => s.id === 'b').state, 'rescheduled');
@@ -920,9 +921,11 @@ test('layer retest: a module whose own work landed on the layer is retested; one
   const { root, bare } = product({ done: true });
   layerOpen(root, 1, { io: openIO, log: quiet });
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export class a { constructor(x, y) { this.v = x + y; } }\n' });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' });
   const prs = { 1: prOf(1, 'c', hc), 2: prOf(2, 'a', ha) };
   for (const k of [1, 2]) await layerLand(root, k, { io: landIO(bare, prs), log: quiet });
+  // Its land's retest was refused (the stub): layer jobs now leads with b's job.
+  assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
   // b's job branch holds work the layer lacks (pushed, never landed).
   jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
   const io = { slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: () => assert.fail('no PR'), addComment: () => assert.fail('no comment') };
@@ -954,7 +957,8 @@ test('land (R8): a reworded Provides text reschedules no one and leaves a notice
   assert.deepEqual([r2.land.users_rescheduled, r2.land.interface.triggers, r2.land.interface.class], [['b'], ['exports'], 'additive']);
   assert.deepEqual([opened, r2.retests], [['b'], [{ user: 'b', pr: 70 }]]);
   const m = layerReport(root, 1, { log: quiet }).measures;
-  assert.deepEqual([m.reschedules, m.retests_owed, m.reschedules_old_rule, m.reschedules_avoided, m.lands_additive, m.lands_breaking], [0, 1, 2, 2, 1, 0]);
+  // The stub opened no retest row for b, so b's re-test is still counted as a job: 1 avoided (the Provides land's).
+  assert.deepEqual([m.reschedules, m.retests_owed, m.reschedules_old_rule, m.reschedules_avoided, m.lands_additive, m.lands_breaking], [0, 1, 2, 1, 1, 0]);
   assert.deepEqual([m.triggers_old_rule['provides-text'], m.triggers_new_rule['provides-text'], m.triggers_new_rule.exports], [1, 0, 1]);
   assert.equal(typeof m.reschedule_changed_result.unknown, 'number', 'reschedule_changed_result still counts');
   assert.equal(m.reschedule_changed_result.rows.length, 1);
@@ -1018,4 +1022,24 @@ test('publication 632: an added export and expected rows that only gain a key ar
   prs[633] = prOf(633, 'a', h2);
   const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: () => assert.fail('no retest for a breaking change') }, log: quiet });
   assert.deepEqual([r2.land.interface.class, r2.land.users_rescheduled], ['breaking', ['b']]);
+});
+
+test('layer retest refuses a module owed a job for a breaking change, even when an additive one followed (the retest\'s land would clear both)', async () => {
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const h1 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export class a { constructor(x) { this.v = x; } }\n' });
+  const prs = { 1: prOf(1, 'a', h1) };
+  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
+  const h2 = commit(d, { 'src/a/index.mjs': 'export class a { constructor(x) { this.v = x; } }\nexport const a2 = 1;\n' }, 'additive');
+  git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
+  prs[2] = prOf(2, 'a', h2);
+  const lines = [];
+  const r = await layerLand(root, 2, { io: { ...landIO(bare, prs), retest: undefined }, log: (l) => lines.push(l) });
+  assert.equal(r.land.interface.class, 'additive');
+  assert.match(r.retests[0].refused, /b owes a job for a's breaking change/);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 1).retest_refusals.length, 1, 'the refusal is kept');
+  assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
 });

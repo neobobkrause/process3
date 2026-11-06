@@ -50,10 +50,9 @@ export function tokens(src) {
   return out;
 }
 
-const ID = /\bR\d+(?:\.\d+)*[a-z]?\b/g;
 const TEST_CALL = new Set(['test', 'it', 'describe', 'suite']);
-// What never counts set aside: package imports (a relative one may be a fixture: it stays), test
-// names (the first string of test(...) / it(...) / describe(...)) and requirement-id labels.
+// What never counts set aside: package imports (a relative one may be a fixture: it stays) and test
+// names (the first string of test(...) / it(...) / describe(...)), where requirement-id labels are.
 function significant(toks, ids) {
   const out = [];
   for (let i = 0; i < toks.length; i++) {
@@ -64,11 +63,11 @@ function significant(toks, ids) {
       while (k < toks.length && k < i + 200 && !/^["']/.test(toks[k]) && toks[k] !== ';') k++;
       if (/^["']/.test(toks[k] || '') && !/^["']\.{1,2}\//.test(toks[k])) { i = toks[k + 1] === ';' ? k + 1 : k; continue; }
     }
-    if (/^["'`]/.test(t) && toks[i - 1] === '(' && TEST_CALL.has(toks[i - 2])) { out.push('""'); continue; }
-    if (/^["'`]/.test(t) && toks[i - 1] === '(' && toks[i - 2] && ['only', 'skip', 'todo'].includes(toks[i - 2]) && toks[i - 3] === '.' && TEST_CALL.has(toks[i - 4])) { out.push('""'); continue; }
-    let x = t;
-    for (const id of ids) x = x.split(id).join('R#');
-    out.push(x.replace(ID, 'R#'));
+    // A test's name: the first string of test(...), never of a method call such as re.test(...).
+    if (/^["'`]/.test(t) && toks[i - 1] === '(' && TEST_CALL.has(toks[i - 2]) && toks[i - 3] !== '.') { out.push('""'); continue; }
+    if (/^["'`]/.test(t) && toks[i - 1] === '(' && ['only', 'skip', 'todo'].includes(toks[i - 2]) && toks[i - 3] === '.' && TEST_CALL.has(toks[i - 4]) && toks[i - 5] !== '.') { out.push('""'); continue; }
+    // A requirement id outside a test's name is a value (cold review of PR 193): never masked.
+    out.push(t);
   }
   return out;
 }
@@ -100,32 +99,75 @@ function diff(a, b) {
   return { runs, deleted };
 }
 
-// Whether an inserted run, at position at in b, only adds properties to an object literal:
-// `, key: value` or `key: value,` (one or more), inside braces, each value balanced.
+// Whether an inserted run, at position at in b, only adds properties to an expected object: one
+// that is a fixture (`= {`, `= [{`, a value under one) or an expected argument of an assertion
+// (assert.x(actual, {...}), .toEqual({...}); never the actual, never another call's argument);
+// `, key: value` or `key: value,`, each value balanced, plain data (no ';', '=>' or function), each
+// key new to that object, which holds no spread (cold review of PR 193: an override is a change).
+const ASSERT_EXPECTED = (b, open) => {
+  // b[open] is '(': the call before it.
+  const name = b[open - 1];
+  if (b[open - 2] === '.' && /^to[A-Z]/.test(name)) return 'all'; // expect(x).toEqual(<expected>)
+  let k = open - 1;
+  while (b[k - 1] === '.' && /^[\w$]+$/.test(b[k - 2] || '')) k -= 2;
+  return b[k] === 'assert' && b[k - 1] !== '.' ? 'after-first' : null;
+};
 function addsProperties(b, run) {
-  // The innermost open bracket before the run must be '{'.
   const stack = [];
-  for (let k = 0; k < run.at; k++) { const t = b[k]; if ('([{'.includes(t)) stack.push(t); else if (')]}'.includes(t)) stack.pop(); }
-  if (stack.at(-1) !== '{') return false;
+  for (let k = 0; k < run.at; k++) { const t = b[k]; if ('([{'.includes(t)) stack.push(k); else if (')]}'.includes(t)) stack.pop(); }
+  const obj = stack.at(-1);
+  if (b[obj] !== '{') return false;
+  // The chain of '{' and '[' it sits in, up to what holds it.
+  let i = stack.length - 1;
+  while (i > 0 && '{['.includes(b[stack[i - 1]])) {
+    // inside a '{', the container must be a value (`key: {`), not a block
+    if (b[stack[i - 1]] === '{' && b[stack[i] - 1] !== ':') return false;
+    i--;
+  }
+  const root = stack[i];
+  const before = b[root - 1];
+  const holder = i > 0 ? stack[i - 1] : null;
+  if (holder !== null && b[holder] === '(') {
+    const how = ASSERT_EXPECTED(b, holder);
+    if (!how) return false;
+    if (how === 'after-first') {
+      // Not the first argument (the actual): a ',' at depth one between '(' and the object.
+      let d = 0;
+      let comma = false;
+      for (let k = holder + 1; k < root; k++) { if ('([{'.includes(b[k])) d++; else if (')]}'.includes(b[k])) d--; else if (d === 0 && b[k] === ',') comma = true; }
+      if (!comma) return false;
+    }
+  } else if (!(before === '=' && ['const', 'let', 'var'].includes(b[root - 3]))) return false;
+  if (b[obj - 1] === '=' && ['const', 'let', 'var'].includes(b[obj - 2])) return false; // destructuring
+  // The object's own keys (depth one), the run left out, and whether it holds a spread.
+  const own = new Set();
+  let d = 0;
+  for (let k = obj + 1; k < b.length; k++) {
+    if (k >= run.at && k < run.at + run.toks.length) continue;
+    const t = b[k];
+    if ('([{'.includes(t)) d++;
+    else if (')]}'.includes(t)) { if (d === 0) break; d--; } else if (d === 0 && t === '...') return false;
+    else if (d === 0 && b[k + 1] === ':' && (b[k - 1] === '{' || b[k - 1] === ',' || k === obj + 1 || k === run.at + run.toks.length)) own.add(t.replace(/^["']|["']$/g, ''));
+  }
   const t = run.toks;
+  if (t.some((x) => x === ';' || x === '=>' || x === 'function' || x === '...')) return false;
   let k = 0;
   const lead = t[0] === ',';
   if (lead) k++;
   let props = 0;
   while (k < t.length) {
     if (!/^(?:[A-Za-z_$][\w$]*|["'][^"']*["']|\d+)$/.test(t[k]) || t[k + 1] !== ':') return false;
+    const key = t[k].replace(/^["']|["']$/g, '');
+    if (own.has(key)) return false;
+    own.add(key);
     k += 2;
-    let d = 0;
+    let dd = 0;
     const start = k;
-    while (k < t.length && !(d === 0 && t[k] === ',')) { if ('([{'.includes(t[k])) d++; else if (')]}'.includes(t[k])) { if (--d < 0) return false; } k++; }
-    if (d !== 0 || k === start) return false;
+    while (k < t.length && !(dd === 0 && t[k] === ',')) { if ('([{'.includes(t[k])) dd++; else if (')]}'.includes(t[k])) { if (--dd < 0) return false; } k++; }
+    if (dd !== 0 || k === start) return false;
     props++;
     if (k < t.length) k++; // its comma
-    if (!lead && k === t.length && t[k - 1] !== ',') {
-      // `key: value` with no comma of its own: the token after the run must close the object or be
-      // the comma that was the previous last property's (inserted before an existing `}`).
-      if (b[run.at + t.length] !== '}') return false;
-    }
+    if (!lead && k === t.length && t[k - 1] !== ',' && b[run.at + t.length] !== '}') return false;
   }
   if (lead && t.at(-1) === ',') return false;
   return props > 0;
