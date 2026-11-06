@@ -167,3 +167,25 @@ export function checkLedger(root, { base, branch, ref, home } = {}) {
   }
   return findings;
 }
+
+// A lane's module, when named, has a ledger entry, a modules file row and a requirements file: its
+// marks are the lane's work (coordinator's ruling, 6 Nov; a lanes row without "module" stays valid).
+// read(f): the file's text at the place checked, or null. Each gap names what BOB writes.
+export function laneModuleGaps(read, cfg) {
+  const gaps = [];
+  let mods = null;
+  if (cfg.modules_file) { try { const t = read(cfg.modules_file); mods = t === null ? [] : (JSON.parse(t).modules || []); } catch { mods = []; } }
+  for (const l of Array.isArray(cfg.lanes) ? cfg.lanes : []) {
+    const m = typeof l?.module === 'string' && l.module.trim() ? l.module.trim() : null;
+    if (!m) continue;
+    const name = String(l.name || '').trim();
+    const t = read(entryFile(m));
+    let e = null;
+    try { e = t === null ? null : JSON.parse(t); } catch { e = undefined; }
+    if (!e) { gaps.push(`lane ${name} names module ${m}, which has no ${e === undefined ? 'readable ' : ''}ledger entry ${entryFile(m)}: BOB writes it (with its modules file row and its requirements file) by a plain pull request into ${cfg.tranche}, or drops "module" from the lane's row`); continue; }
+    if (mods && !mods.some((x) => x?.id === m)) gaps.push(`lane ${name}'s module ${m} has no row in ${cfg.modules_file}: BOB adds {"id": "${m}", "uses": [...]} there`);
+    const req = e.requirements || `${String(cfg.requirements_dir || '').replace(/\/$/, '')}/${m}.md`;
+    if (read(req) === null) gaps.push(`lane ${name}'s module ${m} has no requirements file ${req}: BOB writes it, its marks the lane's work`);
+  }
+  return gaps;
+}
