@@ -268,3 +268,19 @@ export function entryChecks(root, entry, { timeout, exec = run, log = () => {} }
   }
   return findings;
 }
+
+// A lane-only pull request's checks (laneChecks), run where the suite would be: each that fails is
+// a finding on the lane's folder. { findings, ran: [{ cmd, exit }] }.
+export function laneCheckRun(root, lane, dir, cmds, { timeout, exec = run, log = () => {} }) {
+  const findings = [];
+  const ran = [];
+  for (const c of cmds) {
+    const r = exec(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
+    ran.push({ cmd: c.join(' '), exit: r.code });
+    if (r.code !== 0) {
+      findings.push({ check: 'lane-checks', file: dir || '(lane)', line: 1, message: `lane ${lane}'s check ${c.join(' ')} failed (exit ${r.code}): ${tail(r)}` });
+      log((r.stdout + r.stderr).split('\n').slice(-40).join('\n'));
+    } else log(`lane ${lane}: ${c.join(' ')} passed`);
+  }
+  return { findings, ran };
+}

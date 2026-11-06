@@ -132,3 +132,27 @@ test('a job of the lane\'s module whose own lane-folder code changed since its g
   const h2 = commit(s.root, { 'design/ux/words.json': '{"e":1}\n' });
   assert.equal(run(s, h2, 'job/alpha', io).run.trigger, 'code');
 });
+
+// Coordinator, 6 Nov: a broken words build landed green on a lane-only pull request (ux lane Q7).
+test('a lane\'s declared checks run on its lane-only pull request in place of the suite: red when one fails, green when all pass; a malformed list is a finding', async () => {
+  const { lanes } = await import('../lib/lane.mjs');
+  const check = (code) => ['node', '-e', `process.exit(require('fs').readFileSync('design/ux/words.json','utf8').includes('broken') ? ${code} : 0)`];
+  const cfg = { lanes: [{ name: 'ux', dir: 'design/ux', checks: ['node -e process.exit(0)', check(3)] }, { name: 'ai', dir: 'design/ai' }] };
+  assert.deepEqual(lanes(cfg)[0].checks, [['node', '-e', 'process.exit(0)'], check(3)]);
+  assert.throws(() => lanes({ lanes: [{ name: 'ux', dir: 'design/ux', checks: 'node x' }] }), /lane ux's checks are a list of commands/);
+  const s = setup({ cfg });
+  const good = onBranch(s, 'lane/ux', { 'design/ux/words.json': '{"a":1}\n' });
+  const g = run(s, good, 'lane/ux');
+  assert.deepEqual([g.run.trigger, g.run.suite, g.run.lane, g.findings.length], ['record', 'skipped', 'ux', 0]);
+  assert.deepEqual(g.run.lane_checks.map((x) => x.exit), [0, 0]);
+  const bad = commit(s.root, { 'design/ux/words.json': '{"broken":true}\n' });
+  const b = run(s, bad, 'lane/ux');
+  assert.equal(b.run.ok, false);
+  assert.deepEqual(b.findings.map((f) => [f.check, f.file]), [['lane-checks', 'design/ux']]);
+  assert.match(b.findings[0].message, /^lane ux's check node -e .* failed \(exit 3\)/);
+  // The other lane, with no checks, keeps the records-only path with nothing run.
+  git(['checkout', '-q', 'main'], { cwd: s.root });
+  const ai = onBranch(s, 'lane/ai', { 'design/ai/notes.md': 'b\n' });
+  const a = run(s, ai, 'lane/ai');
+  assert.deepEqual([a.run.trigger, a.run.lane, a.run.lane_checks, a.findings.length], ['record', 'ai', undefined, 0]);
+});

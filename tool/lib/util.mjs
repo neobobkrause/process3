@@ -398,6 +398,16 @@ export const underPath = (file, p) => file === p || file.startsWith(p.endsWith('
 
 export const isRecordPath = (cfg, f) => cfg.records.some((r) => underPath(f, r));
 
+// A lane's checks (coordinator, 6 Nov: a broken words build landed green, ux lane Q7): the commands
+// its lanes row declares, each a string (split on spaces) or an argv list, run by the gate on a
+// lane-only pull request in place of the suite. [] when none; null for a row that is not lists of words.
+export function laneChecks(cfg, name) {
+  const l = (Array.isArray(cfg?.lanes) ? cfg.lanes : []).find((x) => typeof x?.name === 'string' && x.name.trim() === name);
+  if (!l || l.checks === undefined) return [];
+  if (!Array.isArray(l.checks)) return null;
+  const out = l.checks.map((c) => (typeof c === 'string' ? c.trim().split(/\s+/).filter(Boolean) : Array.isArray(c) && c.every((w) => typeof w === 'string') ? c : null));
+  return out.some((c) => !c || !c.length) ? null : out;
+}
 // Lanes' folders (lane.mjs; Bob, 5 Nov 17:45: "I don't believe that lanes' file changes need to be tested the way jobs do").
 // A lane's folder is its config "dir"; one at the root, or holding the process's own files, the
 // workflows or the session settings, is no lane folder here, so nothing outside a lane rides it.

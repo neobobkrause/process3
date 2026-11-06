@@ -11,10 +11,10 @@ import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
 import { layerMode, layerOfBranch } from './layerbase.mjs';
 import { layerCover } from './layerflow.mjs';
-import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
+import { buildGenerated, committedGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
-import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
+import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneChecks, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
 
 const ghIO = { comments, addComment, getPR, verify: (slug, r, ctx) => verifyRow(slug, r, ctx), lookup: (args, o) => gh(args, o) };
 const MINUTE = 60000;
@@ -257,6 +257,18 @@ export function gate(root, opts) {
   if (lanePR) {
     runRow.lane = lanePR;
     for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
+    // The lane's own checks, in place of the suite (coordinator, 6 Nov: ux lane Q7's broken words build
+    // landed green): installed first, as a suite would be; red when any fails.
+    const cmds = laneChecks(cfg, lanePR);
+    const dir = (Array.isArray(cfg.lanes) ? cfg.lanes : []).find((x) => x?.name?.trim?.() === lanePR)?.dir || null;
+    if (cmds === null) findings.push(F('lane-checks', CONFIG_FILE, `lane ${lanePR}'s checks in ${CONFIG_FILE} are not a list of commands (each a string or a list of words)`));
+    else if (cmds.length) {
+      const inst = install(root, cfg.lockfiles, exec ? { exec } : {}).findings;
+      findings.push(...inst);
+      const lc = inst.length ? { findings: [], ran: [] } : laneCheckRun(root, lanePR, dir, cmds, { timeout, log, ...(exec ? { exec } : {}) });
+      findings.push(...lc.findings);
+      runRow.lane_checks = lc.ran;
+    }
   }
   // A ready job PR into a layer branch (layerflow.mjs) runs its suite even when it changes only
   // records: a rescheduled user re-publishes with no code change, and its run on the new layer tip,
