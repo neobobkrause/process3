@@ -4,6 +4,7 @@
 // session calls it; start record <role> <id> writes the address. Handover is split the same way.
 // The address files (addresses/<role>.json on the state branch) are written only here, through
 // state.mjs's writeState: a worktree of its own, pushed with fetch-and-retry, never forced.
+import { layerMode } from './layerbase.mjs';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -146,7 +147,7 @@ export function rootPrompt({ slug, tranche = 'tranche', approvals }) {
   return sized(L);
 }
 
-export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche = 'tranche', approvals, merger = false }) {
+export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche = 'tranche', approvals, merger = false, layer = false }) {
   // The coordinator's words reach BOB directly (measured 3-4 Nov: every coordinator decision went
   // coordinator to ROOT to BOB; PR 40 waited 47 minutes, mostly on that route). ROOT stays BOB's only
   // creator and its backstop.
@@ -156,7 +157,9 @@ export function bobPrompt({ slug, rootId, oldBob, sb = 'process-state', tranche 
   L.push(`3. list_sessions, its result saved as a JSON file, then \`${P3} status --role bob --sessions <that file>\` (it counts the job sessions for the cap).`);
   // With a MERGER, its starter (auto.mjs) makes every ready start: BOB keeps the judgments.
   // status's starter: line says the rest (one screen: the prompt is at its cap).
-  const starts = `\`${READY_START}\` ${merger ? 'when status\'s `starter:` line says NOT RUNNING' : '(deliver what it prints)'}, then take up what status shows.`;
+  // The shared layer branch (merge_strategy "layer"): BOB starts the open layer's jobs from its list.
+  const starts = layer ? `each \`job start\` line status's \`jobs to start\` lists for the open layer (\`${P3} layer jobs <n>\`), then take up what status shows.`
+    : `\`${READY_START}\` ${merger ? 'when status\'s `starter:` line says NOT RUNNING' : '(deliver what it prints)'}, then take up what status shows.`;
   const work = `${starts} For next work with no entry, choose modules from it whose suite runs in minutes and whose requirements are real; write their ledger entries and start their jobs, by \`--take-in\` when status lists earlier work. Never end your turn while status shows work you can start, review or merge; end it only when blocked, every job is running, or the cap is reached. Ask Bob nothing technical.`;
   if (oldBob) {
     L.push(`4. You replace BOB \`${oldBob}\`. Read the old BOB's one-screen handoff: \`git show origin/${sb}:handoff/bob.md\` after \`git fetch origin ${sb}\`. Report running to ROOT, act on the messages queued while you started, then ${work} The old BOB forwards what it receives to you until it reports ready.`);
@@ -308,7 +311,7 @@ export function startRole(root, role, { slug = repoSlug(root), address = readAdd
   }
   if (address.bob) fail(`BOB ${address.bob.session} is addressed (since ${address.bob.at}); replace it with handover begin, not start bob`);
   const rootId = address.root?.session || fail('no ROOT is addressed; ROOT records its own address first (start record root <its id>)');
-  const prompt = bobPrompt({ slug, rootId, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger });
+  const prompt = bobPrompt({ slug, rootId, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger, layer: layerMode(cfg) });
   const call = launch(slug, cfg, 'bob', 'BOB', prompt, tip);
   log(prompt, size(prompt));
   log(`start BOB with create_session:\n${JSON.stringify(call, null, 2)}`);
@@ -351,7 +354,7 @@ export function handoverBegin(root, { slug = repoSlug(root), address = readAddre
   const old = address.bob?.session || fail('no BOB is addressed; start one with start bob');
   const rootId = address.root?.session || fail('no ROOT is addressed; ROOT records its own address first (start record root <its id>)');
   const { tip, approvals } = tipApprovals(root, cfg);
-  const prompt = bobPrompt({ slug, rootId, oldBob: old, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger });
+  const prompt = bobPrompt({ slug, rootId, oldBob: old, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger, layer: layerMode(cfg) });
   const call = launch(slug, cfg, 'bob', 'BOB', prompt, tip);
   log(prompt, size(prompt));
   log(`Steps for ROOT, each its own command:
@@ -398,7 +401,7 @@ export function currentPrompt(root, role, { address = readAddress(root), oldBob,
   if (role === 'watcher') return watcherPrompt({ slug, tranche: cfg.tranche, approvals });
   if (role === 'merger') return mergerPrompt({ slug, rootId: address.root?.session || fail('no ROOT is addressed; the MERGER\'s prompt names it'), tranche: cfg.tranche, approvals });
   const rootId = address.root?.session || fail('no ROOT is addressed; BOB\'s prompt names it');
-  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger });
+  return bobPrompt({ slug, rootId, oldBob, sb: cfg.state_branch, tranche: cfg.tranche, approvals, merger: !!address.merger, layer: layerMode(cfg) });
 }
 
 // { hash, old_bob } for the address file; null when this checkout cannot print the prompt (no

@@ -380,3 +380,13 @@ test('the shim\'s pin step, run: a schedule on the default branch runs (the defa
   assert.notEqual(bad.status, 0, bad.stdout + bad.stderr + readFileSync(out, "utf8"));
   assert.match(bad.stdout, /process_repo is not a github\.com repository/);
 });
+
+test('a layer branch (layer/<n>, the shared layer branch) is kept though it holds no commit the tranche lacks', () => {
+  const p = product({ config: { tranche: 'tranche' } });
+  branch(p, 'layer/7');
+  branch(p, 'job/old-1');
+  const r = runIt(p);
+  assert.equal(r.approved, true);
+  assert.deepEqual(r.deleted.map((d) => d.name), ['job/old-1']);
+  assert.ok(heads(p).includes('layer/7'));
+});

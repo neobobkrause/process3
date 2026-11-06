@@ -9,6 +9,8 @@ import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
+import { layerMode, layerOfBranch } from './layerbase.mjs';
+import { layerCover } from './layerflow.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
@@ -253,7 +255,11 @@ export function gate(root, opts) {
     runRow.lane = lanePR;
     for (const f of changed.filter((x) => isGenerated(gen.rows, x) && exists(root, head, x))) findings.push(F('generated', f, `${f} is a generated output; lane ${lanePR} does not commit it: it is built at layer close, deploy and release`));
   }
-  const recordOnly = changed.every((f) => isRecordPath(cfg, f)) || !!lanePR;
+  // A ready job PR into a layer branch (layerflow.mjs) runs its suite even when it changes only
+  // records: a rescheduled user re-publishes with no code change, and its run on the new layer tip,
+  // against its provider's new version, is the evidence the layer's merge reads (cold review 1).
+  const layerJob = !!job && !spec && layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null;
+  const recordOnly = !(layerJob && !draft) && (changed.every((f) => isRecordPath(cfg, f)) || !!lanePR);
   // The fast path stands on an earlier green run only when that run is verified (verifyRow).
   const lastGreen = prior.filter((r) => r.ok && r.trigger === 'code' && r.base === base).reverse().find((r) => io.verify(slug, r, { pr, baseRef: cfg.tranche }));
   const sinceGreen = lastGreen && git(['cat-file', '-e', `${lastGreen.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
@@ -277,8 +283,20 @@ export function gate(root, opts) {
   const fast = windowOn && !spec && jobReceipt && !recordOnly && !sinceGreen ? specTested(root, cfg, { slug, io, pr, base, head, tree, job }) : null;
   if (fast && !fast.ok) log(`Spec-Tested is not taken: ${fast.why}; the gate runs as it would without it`);
 
+  // The shared layer branch's merge (layerflow.mjs; Bob, 5 Nov: no test run at layer close): a pull
+  // request from layer/<n> into the tranche, with the base's merge_strategy "layer", runs no suite;
+  // each module it changes must be covered by its last land's verified green gate run, on a head
+  // that held every interface change of its providers. Anything short is a finding, never a re-run.
+  const layerPR = !spec && !job && layerMode(cfg) && layerOfBranch(branch) !== null && (live?.base?.ref ?? null) === cfg.tranche;
   if (!spec && recordOnly) runRow.trigger = 'record';
   else if (draft) runRow.trigger = 'draft';
+  else if (layerPR) {
+    runRow.trigger = 'layer';
+    const lc = layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io });
+    runRow.layer = { n: layerOfBranch(branch), covered: lc.covered.map((c) => c.id), findings: lc.findings.length };
+    for (const c of lc.covered) log(`${c.id}: covered by its land of PR ${c.pr} (${String(c.merge).slice(0, 10)}); no suite runs`);
+    findings.push(...lc.findings);
+  }
   else if (fast?.ok) {
     // The spec run's suite and revert stand for this tree; ownership, ledger, imports and the
     // receipt are judged on this pull request as usual.
@@ -307,7 +325,9 @@ export function gate(root, opts) {
     // exec (the tests'), which a process of its own cannot use.
     // A change only to a module's requirements file runs only the tests that read it: read here
     // to know whether a suite runs at all, and again once the generated files are built.
-    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche && !passPR ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
+    // Not for a job PR into a layer branch: its land must carry a run of the whole suite, which
+    // the layer's merge reads (confirming review N1).
+    const onlyAt = (e, l = () => {}) => (branch !== cfg.tranche && !layerJob && !passPR ? requirementsOnly(root, cfg, e, { changed, rows: gen.rows, log: l }) : null);
     // Only a suite whose failures can be read per test can be base-red.
     const mayBaseRed = scope.some((e) => reportsEvents(e.suite.command) && (onlyAt(e) === null || onlyAt(e).length));
     const prepared = mayBaseRed && branch !== cfg.tranche && !exec && opts.prepareBase !== false
