@@ -120,7 +120,7 @@ test('#4: job complete and test refuse at the start, naming job sync, when the t
   assert.equal(git(['rev-list', '--parents', '-1', 'HEAD'], { cwd: root }).split(' ').length, 3, 'a merge commit');
   assert.equal(head(toolRoot), p2, '.process updated to the merged pin');
   assert.equal(clean(root), '');
-  assert.match(said.join('\n'), /next: `git push origin job\/alpha`/);
+  assert.match(said.join('\n'), /next: `node \.process\/tool\/p3\.mjs github push origin job\/alpha`/);
   assert.equal(jobTest(root, 'alpha', { toolRoot, log: quiet }).ok, true);
   assert.equal(jobComplete(root, 'alpha', { push: false, toolRoot, log: quiet }).ok, true);
   // A tool newer than both pins stands (copy PR 40: a COMPLETE job amends with a newer tool).

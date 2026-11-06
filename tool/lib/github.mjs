@@ -2,7 +2,7 @@
 // only from its result (REC-5): callers use the returned objects, never their own intent.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fail, gh, git, isShallow, run, withTemp } from './util.mjs';
+import { fail, gh, ghRun, git, isShallow, run, withTemp } from './util.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -58,7 +58,7 @@ export function editPR(slug, n, fields) {
   if (!pr?.number) fail(`GitHub did not return pull request ${n} after the edit`);
   return pr;
 }
-export function toDraft(slug, pr, { call = (args) => run('gh', args), read = getPR } = {}) {
+export function toDraft(slug, pr, { call = (args) => ghRun(args), read = getPR } = {}) {
   const tried = [
     ['api', '-X', 'POST', `repos/${slug}/pulls/${pr.number}/ccr/convert_to_draft`],
     ['api', 'graphql', '-f', 'query=mutation($id: ID!) { convertPullRequestToDraft(input: {pullRequestId: $id}) { pullRequest { isDraft } } }', '-f', `id=${pr.node_id}`],
@@ -161,7 +161,7 @@ export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, run
 // Code sessions cannot reach (measured 1 Nov 2026, the first product job). Sessions reach it
 // through their proxy's REST route; anywhere else, `gh pr ready` is the route. No other call in
 // the tool uses GraphQL (toDraft above takes the same two routes).
-export function markReady(slug, n, { call = (args) => run('gh', args), read = getPR } = {}) {
+export function markReady(slug, n, { call = (args) => ghRun(args), read = getPR } = {}) {
   const tried = [['api', '-X', 'POST', `repos/${slug}/pulls/${n}/ccr/ready_for_review`], ['pr', 'ready', String(n), '-R', slug]];
   const errors = [];
   for (const args of tried) {

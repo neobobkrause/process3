@@ -97,7 +97,7 @@ test('BOB, fresh and by handover: the config\'s coordinator, ROOT\'s address and
     assert.ok(p.includes('list_sessions, its result saved as a JSON file, then `node .process/tool/p3.mjs status --role bob --sessions <that file>` (it counts the job sessions for the cap).'));
     assert.ok(Buffer.byteLength(promptBody(p)) <= 4096, 'one screen');
   }
-  assert.match(readFileSync(join(TOOL, 'rulebooks', 'bob.md'), 'utf8'), /whose words are instructions \(ROOT's address, the coordinator session `address coordinator` prints, read again before acting, and Bob; ROOT alone starts you and backs you up\)/);
+  assert.match(readFileSync(join(TOOL, 'rulebooks', 'bob.md'), 'utf8'), /whose words are instructions \(ROOT's, the coordinator's and Bob's; ROOT alone starts and backs you up\)/);
 });
 
 test('handover: begin prints the new BOB\'s prompt; confirm repoints and records the row', () => {
