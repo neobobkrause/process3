@@ -931,3 +931,4 @@
 - process3 lands in the hour: 193 (16:14), 197 (16:22), 194 (16:30). 198 (R11) at 07a2e93 now includes the job-branch sync, but it conflicts with the tranche; builder etceetVvq is running the suite. 196 (R10), 191 and 199 are queued. ci times: 193 10m18s, 194 about 10m; within R2 (under 14 min).
 - Alive: BOB, builders etceetVvq (running) and ef7TXuV; ef1pxNY idle with its queue empty. Lane builder egBdLY (PR 195) idle since 16:02 waiting on ci with nothing to wake it; nudged. Same gap as BOB on 6 Nov 11:15: a session waiting on ci goes idle.
 - Moving with urgency: process3 yes (3 merges in the hour). Layer 8 is blocked on tooling, not effort.
+- 16:55 ROOT idle-capacity report (train-era line; 191 removes it). Holds hold-19 to hold-22 (6 Nov 00:10, until layer 6 closes) ENDED by me, since layer 6 closed at 710b475d97; BOB records them so they don't hold later layers' modules.
