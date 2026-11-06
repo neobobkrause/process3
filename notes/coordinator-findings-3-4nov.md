@@ -1000,3 +1000,4 @@
   - Lanes: nothing unpushed (lane/ux ce1c408f04 pushed earlier; no PR).
   ORDER at GO: test push (my notes), R17 PR and merge, then BOB 708 and its job-branch step, 697, 698, 699, BOB's two branches, the lanes, then builders R8, stale-gen, R14 1b, R16. One at a time, no polling under 30 s, stop on 403/429.
 - 22:05 SWITCHED: Claude's GitHub connection is now believeinoakland (Bob). Verified: gh api user = believeinoakland; process3 and probes push=true admin=false; coordinator notes pushed (8d4d9cb). R17 GO to builder ef1pxNY first; everyone else holds until R17 is merged and pinned. Scheduled tasks stay off until then.
+- 22:10 R17 pushed: build/github-pacing 67bea87 on process3 (no PR yet). The GitHub MCP connector needs re-authorizing after the identity switch (PR creation, ready and subscribe all go through it), so Bob must reconnect it in the claude.ai connector settings. R16 pushed as a held branch.
