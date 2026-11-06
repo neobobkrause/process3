@@ -936,8 +936,25 @@ function mergeIn(root, ref, { id, name, ff, msg, log }) {
   if (git(['merge-base', '--is-ancestor', ref, 'HEAD'], { cwd: root, allowFail: true }).code === 0) return false;
   const m = git(['merge', '-q', '--no-edit', ...(ff ? [] : ['--no-ff', '-m', msg]), ref], { cwd: root, allowFail: true });
   if (m.code !== 0) {
-    const files = git(['diff', '--name-only', '--diff-filter=U'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+    let files = git(['diff', '--name-only', '--diff-filter=U'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
     if (!files.length) { git(['merge', '--abort'], { cwd: root, allowFail: true }); fail(`git merge ${name} failed: ${(m.stderr || m.stdout).trim().split('\n').pop()}; nothing was merged`); }
+    // Its own ledger entry (coordinator, 6 Nov: after layer sync every restarted job hit it, BLOCKED
+    // on the branch, OPEN on the layer): the incoming entry with the job's own status laid over it,
+    // as layer sync's job-branch step joins it. Refused only when a fixed field conflicts: both sides
+    // changed it from the base, differently.
+    const own = entryFile(id);
+    if (files.includes(own)) {
+      const stage = (k) => { const r = git(['show', `:${k}:${own}`], { cwd: root, allowFail: true }); try { return r.code === 0 ? JSON.parse(r.stdout) : null; } catch { return undefined; } };
+      const [base, mine, theirs] = [stage(1), stage(2), stage(3)];
+      const fixedClash = base && mine && theirs ? [...new Set([...Object.keys(mine), ...Object.keys(theirs)])].filter((k) => k !== 'status' && JSON.stringify(mine[k]) !== JSON.stringify(base[k]) && JSON.stringify(theirs[k]) !== JSON.stringify(base[k]) && JSON.stringify(mine[k]) !== JSON.stringify(theirs[k])) : [];
+      if (mine && theirs && !fixedClash.length) {
+        writeFileSync(join(root, own), JSON.stringify({ ...theirs, status: mine.status }, null, 2) + '\n');
+        git(['add', '--', own], { cwd: root });
+        files = files.filter((f) => f !== own);
+        log(`${own}: ${name}'s entry, with ${id}'s own status (${mine.status?.state})`);
+        if (!files.length) { git(['commit', '-q', '--no-edit'], { cwd: root }); log(`merged ${name}`); return true; }
+      } else if (fixedClash.length) log(`${own}: both sides changed ${fixedClash.join(', ')}; resolve it by hand`);
+    }
     fail(`${name} does not merge cleanly: ${files.join(', ')}. The merge is left in progress: resolve those files, \`git add\` them and \`git commit --no-edit\`, then run \`${P3} job sync ${id}\` again`);
   }
   log(`merged ${name}`);

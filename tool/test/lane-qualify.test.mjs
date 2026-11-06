@@ -148,3 +148,18 @@ test('a lane module\'s job START: the research area first, or qualify first', ()
   commit(root, { 'design/ux-research/index.md': 'i\n', 'design/ux-research/qualification-2026-11-06.md': 'r\n' });
   assert.match(startText({ ...base, lane: laneForStart(root, loadConfig(root), 'ux-design') }), /The lane's research area `design\/ux-research\/` is its ground truth: read its index\.md before you decide design there/);
 });
+
+// Coordinator, 6 Nov: lane start refused a new lane, "lane investigation's directory
+// docs/development/investigation-design/ is not in this checkout", and BOB seeded READMEs by hand
+// (copy 668, 669). The seeding step is printed and the lane starts.
+test('lane start on a lane whose folder is not in the product yet prints its seeding step (README and an empty research index) and starts; its START opens with it', () => {
+  const { root } = withOrigin({ 'process/config.json': { lanes: [{ name: 'investigation', dir: 'docs/development/investigation-design', module: 'investigation' }] }, 'README.md': 'x\n' });
+  const out = [];
+  const r = laneStart(root, 'investigation', { slug: 'o/p', log: (m) => out.push(m) });
+  assert.deepEqual(r.seed.map((f) => f.file), ['docs/development/investigation-design/README.md', 'docs/development/investigation-design-research/index.md']);
+  assert.match(r.seed[0].text, /^# Lane investigation\n\n- Lane: investigation\n- Area: `docs\/development\/investigation-design\/`, the marks of ledger module `investigation`\n- Decision: </);
+  assert.equal(r.seed[1].text, '');
+  assert.match(out[0], /^Lane investigation's directory docs\/development\/investigation-design\/ is not in tranche yet\. Seed it first: a lane-only pull request into tranche .*adding:\n- docs\/development\/investigation-design\/README\.md:\n    # Lane investigation[\s\S]*\n- docs\/development\/investigation-design-research\/index\.md \(empty\)$/);
+  assert.match(r.prompt, /^Lane investigation's directory docs\/development\/investigation-design\/ is not in tranche yet\. Seed it first/);
+  assert.ok(r.call, 'the lane starts');
+});
