@@ -798,7 +798,7 @@ function syncMerge(root, cfg, n, base, ttip, w) {
 // shims and the job's own ledger entry (kept as the job wrote it), and brings nothing but those and
 // records (no code): then the
 // receipt still stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
-export function syncJobs(root, cfg, n, prs, ids, log = console.log) {
+export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null) {
   const b0 = layerBranch(n);
   const tip = rev(root, layerRef(n));
   const out = { merged: [], left: [] };
@@ -807,6 +807,8 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log) {
   for (const p of prs) {
     const id = branchModule(p.head?.ref, ids);
     if (!id || !String(p.head.ref).startsWith('job/')) continue;
+    // A fork's PR names a branch that is not origin's: never pushed to (cold review of PR 198).
+    if (slug && p.head?.repo?.full_name && p.head.repo.full_name !== slug) continue;
     const branch = p.head.ref;
     const leave = (why) => { out.left.push({ id, pr: p.number, branch, why }); log(`  ${branch} (PR ${p.number}) left as it is: ${why}`); };
     fetchBranch(root, branch, { allowFail: true });
@@ -825,13 +827,24 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log) {
         if (bad.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `a conflict in ${bad.join(', ')}` }; }
         for (const f of conflicted) {
           if (f === '.process') { const pin = pinOf(root, tip); if (pin) git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w }); else git(['rm', '-q', '--cached', '--', '.process'], { cwd: w }); continue; }
-          const side = f === entryFile(id) ? 'ours' : 'theirs';
-          const has = git(['ls-files', '-u', '--', f], { cwd: w }).split('\n').some((l) => l.split(/\s+/)[2] === (side === 'ours' ? '2' : '3'));
+          if (f === entryFile(id)) {
+            // Its own entry: the layer's, with the job's status laid over it, so the gate's ledger
+            // rule (only the status may differ from the base) holds (cold review of PR 198).
+            const stage = (k) => { const r = git(['show', `:${k}:${f}`], { cwd: w, allowFail: true }); try { return r.code === 0 ? JSON.parse(r.stdout) : null; } catch { return undefined; } };
+            const [mine, theirs] = [stage(2), stage(3)];
+            if (!mine || !theirs) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `its entry ${f} cannot be joined (${!mine ? 'the job\'s' : 'the layer\'s'} is missing or unreadable)` }; }
+            writeFileSync(join(w, f), JSON.stringify({ ...theirs, status: mine.status }, null, 2) + '\n');
+            git(['add', '--', f], { cwd: w });
+            continue;
+          }
+          const side = 'theirs';
+          const has = git(['ls-files', '-u', '--', f], { cwd: w }).split('\n').some((l) => l.split(/\s+/)[2] === '3');
           if (!has) git(['rm', '-q', '--', f], { cwd: w });
           else { git(['checkout', '-q', `--${side}`, '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); }
         }
         // What the merge changes on the job's branch: the pointer, shims and ledger entries only.
-        const changed = git(['diff', '--cached', '--name-only', head], { cwd: w }).split('\n').filter(Boolean);
+        // No rename detection: a rename lists the path it removes too (as diffNames reads it).
+        const changed = git(['diff', '--cached', '--no-renames', '-z', '--name-only', head], { cwd: w }).split('\0').filter(Boolean);
         const other = changed.filter((f) => !allowed(f));
         if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its receipt would not stand; its job syncs it` }; }
         git(['commit', '-q', '--no-edit', '-m', `Merge ${b0} ${short(tip)} into ${branch} (layer sync: ${changed.join(', ') || 'no file'})`], { cwd: w });
@@ -873,7 +886,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
     if (open === null) { log(`GitHub unreadable: the job PRs into ${b0} were not brought up to it; run ${P3} layer sync ${n} again`); return null; }
     fetchBranch(root, b0, { allowFail: true });
     const ids = new Set([...ledgerIds(root, layerRef(n)), ...ledgerIds(root, tr)]);
-    const r = syncJobs(root, cfg, n, open, ids, log);
+    const r = syncJobs(root, cfg, n, open, ids, log, slug);
     if (r.merged.length || r.left.length) log(`layer sync ${n}: ${r.merged.length} job branch(es) took the layer, ${r.left.length} left as they are`);
     return r;
   };

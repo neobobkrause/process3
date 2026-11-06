@@ -1280,22 +1280,26 @@ test('layer sync (layer 8): each open job PR branch takes the synced layer when 
   jobWork(bare, 'b', { 'process/ledger/b.json': entry('b', { layer: 1, status: { state: 'BLOCKED', reason: 'owed to layer 2' } }) });
   // The tranche: e's OPEN entry (PR 638), the pin moved, the shim with it.
   git(['fetch', '-q', 'origin'], { cwd: root });
-  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1 }) }, 'Merge PR 638');
+  // PR 638's entry has a field the job's carried copy lacks (a later edit of the tranche's).
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1, paths: ['src/e/', 'lib/e/'] }) }, 'Merge PR 638');
   setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin move 2');
   commit(root, { '.github/workflows/process-gate.yml': 'name: gate v2\n' }, 'shim 2');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   const open = [658, 660, 661].map((k, i) => ({ number: k, draft: false, head: { ref: ['job/e', 'job/b', 'job/a'][i], sha: null } }));
+  // A fork's PR naming a job branch is never pushed to.
+  open.push({ number: 662, draft: false, head: { ref: 'job/c', sha: null, repo: { full_name: 'someone/fork' } } });
   const lines = [];
   const r = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: (l) => lines.push(l) });
   assert.equal(r.synced, true);
-  assert.deepEqual(r.jobs.merged.map((x) => [x.branch, x.changed.sort()]), [['job/e', ['.github/workflows/process-gate.yml', '.process']]]);
+  assert.deepEqual(r.jobs.merged.map((x) => [x.branch, x.changed.sort()]), [['job/e', ['.github/workflows/process-gate.yml', '.process', 'process/ledger/e.json']]]);
   assert.deepEqual(r.jobs.left.map((x) => [x.branch, x.why.split(' (')[0]]), [['job/b', 'BLOCKED'], ['job/a', 'the layer brings other changes']]);
   git(['fetch', '-q', 'origin'], { cwd: root });
   const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
   const eh = git(['rev-parse', 'origin/job/e'], { cwd: root });
   assert.equal(git(['merge-base', '--is-ancestor', tip, eh], { cwd: root, allowFail: true }).code, 0, 'job/e holds the synced layer');
   assert.equal(git(['merge-base', '--is-ancestor', he, eh], { cwd: root, allowFail: true }).code, 0, 'a fast-forward of job/e');
-  assert.equal(JSON.parse(git(['show', `${eh}:process/ledger/e.json`], { cwd: root })).status.state, 'WORKING', 'its own entry as the job wrote it');
+  const merged = JSON.parse(git(['show', `${eh}:process/ledger/e.json`], { cwd: root }));
+  assert.deepEqual([merged.status.state, merged.paths], ['WORKING', ['src/e/', 'lib/e/']], 'the layer\'s entry, the job\'s status');
   // The ledger rule, as the gate reads it now: e's entry is in the base, only its status differs.
   assert.deepEqual(checkLedger(root, { ref: eh, base: git(['merge-base', eh, tip], { cwd: root }), branch: 'job/e' }), []);
   assert.ok(lines.some((l) => /job\/e \(PR 658\) took layer\/1 .*its gate re-runs with the new tool/.test(l)));
