@@ -830,3 +830,7 @@
 
 ## 08:51 hourly flow (6 Nov)
 - No change since 07:51: process3 tranche still 4a85f26; PR 188 not merged (Bob merges it on GitHub; asked 07:22 and pushed 07:31). 187, 181 and 184 wait on it; nothing lands in the pause. Jobs 3/20, all held (hold-23, hold-24); ROOT and the MERGER have their alarms muted until layer 7. Not pushing Bob again this hour.
+
+## 09:51 hourly flow (6 Nov)
+- No change: tranche 4a85f26; PR 188 unmerged; 187, 181 and 184 wait on it (2.5 h lost). No route avoids Bob: ci.yml runs the tests inline on Node 22 then 26 (no package script to speed up), and node --test already runs files in parallel. Pushed Bob one reminder. ROOT holds the three builders until their PRs merge (told 08:54). Jobs 3/20, all held; nothing lands in the pause.
+- Measure for later: two full suite runs per ci job is about 2 x 5 min; PR 178 (both Nodes at once) would halve it, but it is also a workflow change for Bob.
