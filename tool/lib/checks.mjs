@@ -98,7 +98,12 @@ export const isGenerated = (rows, f) => rows.some((r) => r.paths.some((p) => und
 export function refreshOthers(cfg, rows, changed, entries = [], ignores = []) {
   const named = new Set(rows.flatMap((r) => [...r.regenerate.slice(1), ...r.verify.slice(1)]).map((a) => normPath(a)));
   const inModule = (f) => entries.some((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, normPath(p))));
-  return changed.filter((f) => !isGenerated(rows, f) && !ignores.includes(f) && (!cfg.records.some((r) => underPath(f, r)) || inModule(f) || named.has(f)));
+  // Beside a refresh go only records, the modules file, the layers file and process/config.json (the
+  // coordinator's ruling (A), 6 Nov: modules.json gained rows and order.mjs could be refreshed
+  // neither in the same pull request nor before it); any other file (a module's own, a generator
+  // its row names or one it imports) could be what writes them.
+  const beside = new Set([CONFIG_FILE, cfg.modules_file, cfg.layers_file].filter(Boolean).map((x) => normPath(x)));
+  return changed.filter((f) => !isGenerated(rows, f) && !ignores.includes(f) && (!(cfg.records.some((r) => underPath(f, r)) || beside.has(f)) || inModule(f) || named.has(f)));
 }
 
 // Untracking a committed generated file (build untrack-generated, 4 Nov: copy PR 306 could not
@@ -145,7 +150,7 @@ export function verifyUntracked(root, rows, files, { timeout, exec = run, log = 
 export function refreshCheck(root, files, { ran, failed = false, others = [], untracked = [] }) {
   if (!files.length) return { refresh: null, findings: [] };
   const F = (file, message) => ({ check: 'generated', file, line: 1, message });
-  if (others.length) return { refresh: { files, result: 'other files changed', differ: [] }, findings: [F(others[0], `the pull request changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`)] };
+  if (others.length) return { refresh: { files, result: 'other files changed', differ: [] }, findings: [F(others[0], `the pull request changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh may go beside only records, the modules file, the layers file and process/config.json; any other file could be what writes them`)] };
   if (!ran) return { refresh: { files, result: 'not regenerated', differ: [] }, findings: [F(files[0], `the pull request changes generated files (${files.slice(0, 5).join(', ')}), but this run regenerated nothing to compare them with`)] };
   const differ = files.filter((f) => !untracked.includes(f) && (!exists(root, 'HEAD', f)
     || git(['status', '--porcelain', '-z', '--untracked-files=all', '--', f], { cwd: root }) !== ''));
