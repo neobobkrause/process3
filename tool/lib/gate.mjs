@@ -3,7 +3,7 @@
 // when nothing but records changed since the last green run on the same tranche tip.
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, latestBlock, latestReceipt, verifyRow } from './github.mjs';
+import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, latestReceipt, parseBlock, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
@@ -271,7 +271,7 @@ export function gate(root, opts) {
   const receiptRun = !!jobReceipt && (recordOnly || sinceGreen) && !stands?.ok;
   // The revert exemption (AUD-1, JOB-12): only a reviewed one recorded on the pull request, never
   // the receipt's own words (a receipt never exempts itself).
-  const exemption = entry && !draft ? revertExemption(all, { root, cfg, head: judged, entries, job, jobSession: completeSession(rowsAt(root, judged, job)) }) : null;
+  const exemption = entry && !draft ? revertExemption(all, { root, cfg, head: judged, entry, job, jobSession: completeSession(rowsAt(root, judged, job)) }) : null;
 
   // The land of a spec-tested job (merge, train-spec C'): its head is the merged result built on
   // the real tranche, whose tree is the one a green spec run tested, records aside. Asked for by
@@ -453,7 +453,7 @@ export function gate(root, opts) {
       const named = namedTests(receipt);
       const confirmed = measured?.ok ? (Array.isArray(lastGreen.receipt_tests) ? lastGreen.receipt_tests : [])
         : carried ? (Array.isArray(runRow.receipt_tests) ? runRow.receipt_tests : []) : null;
-      const unpassed = confirmed ? named.filter((t) => !confirmed.includes(t)) : named.filter((t) => namedVerdict(gatePassed, t) === 'fail');
+      const unpassed = confirmed ? named.filter((t) => !confirmed.includes(t)) : named.filter((t) => namedVerdict(gatePassed, t, redIds(runRow.base_red)) === 'fail');
       // Kept for a records-only run after this one: the named tests this run did not refute.
       if (!confirmed && named.length) runRow.receipt_tests = named.filter((t) => !unpassed.includes(t));
       runRow.receipt = !onBranch ? 'wrong commit'
@@ -576,33 +576,42 @@ export function passedByFile(results) {
   return read ? { ids, byFile } : null;
 }
 
-// A named test against the gate's run: 'fail' when its file ran and a test holding its name
-// failed (or the file failed as a whole) and none holding it passed; 'pass' when one passed; null
-// when the run says nothing of it (its file did not run, or no test holds the name: job complete
-// checks only that the file contains the name). Only 'fail' disagrees.
+// A named test against the gate's run: 'fail' when its file ran and the test (by its name, or its
+// name under describes) failed, or the file failed as a whole and is not tolerated as base-red;
+// 'pass' when it passed; null when the run says nothing of it (its file did not run, or no test
+// has the name: job complete checks only that the file contains it). Only 'fail' disagrees.
 const escName = (x) => x.replace(/\\/g, '\\\\').replace(/>/g, '\\>');
-export function namedVerdict(g, t) {
+export function namedVerdict(g, t, tolerated = []) {
   const at = t.indexOf('::');
-  const f = g?.byFile.get(t.slice(0, at));
+  const file = t.slice(0, at);
+  const f = g?.byFile.get(file);
   if (!f) return null;
   const name = t.slice(at + 2);
-  const holds = (x) => x.includes(name) || x.includes(escName(name));
+  // The test itself, or one nested under describes: never a longer name that holds it.
+  const holds = (x) => [name, escName(name)].some((n) => x === n || x.endsWith(` > ${n}`));
+  const failed = f.fail.some(holds);
+  if (failed) return 'fail';
   if (f.pass.some(holds)) return 'pass';
-  return f.fail.some(holds) || f.whole ? 'fail' : null;
+  // A file that failed as a whole ran none of its tests; tolerated as base-red, the run says nothing of them.
+  return f.whole && !tolerated.some((x) => String(x).startsWith(`${file}::`)) ? 'fail' : null;
 }
 
 // Whether the last green code run measured what a receipt claims: the receipt was made on a
 // commit whose files, records aside, are that run's (the same tree, so the same suite and
-// results), that run ran the job's suite and agreed with a receipt, and it neither refuted nor
+// results) or that run checked this same attempt, it ran the job's suite and agreed with a receipt, and it neither refuted nor
 // left unread a test this receipt names or excuses. { ok } or { ok: false, why }.
 export function measuredBy(root, cfg, receipt, green, entries = []) {
   const job = receipt.module;
   const at = String(green.sha).slice(0, 10);
   if (!(Array.isArray(green.scope) && green.scope.includes(job)) || !['pass', 'fail', 'base-red'].includes(green.suite)) return { ok: false, why: `the last green code run, on ${at}, did not run the ${job} suite` };
-  const same = git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
-    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries, { self: job }));
-  if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${at}, tested` };
   if (green.receipt !== 'agrees') return { ok: false, why: `the last green code run, on ${at}, checked no receipt` };
+  // That run checked this very attempt (its claims are the same whatever amends it), or this
+  // receipt was made on the tree that run tested, records aside. Without the first, a receipt
+  // older than the head's code would send every records-only head through the suite (cold review).
+  const checked = green.receipt_attempt === receipt.attempt;
+  const same = checked || (git(['cat-file', '-e', `${receipt.sha}^{commit}`], { cwd: root, allowFail: true }).code === 0
+    && diffNames(root, green.sha, receipt.sha).every((f) => isRecordOrLane(cfg, f, entries, { self: job })));
+  if (!same) return { ok: false, why: `it names ${String(receipt.sha).slice(0, 10)}, whose code is not what the last green code run, on ${at}, tested` };
   const kept = Array.isArray(green.receipt_passed) ? green.receipt_passed : [];
   const unknown = [...new Set(claimedRed(receipt.commands?.find((c) => c.suite)))].filter((t) => !redIds(green.base_red).includes(t) && !kept.includes(t));
   if (unknown.length) return { ok: false, why: `it excuses ${unknown.length} test(s) the last green code run, on ${at}, neither found base-red nor kept as passing: ${unknown.slice(0, 5).join('; ')}` };
@@ -620,19 +629,30 @@ export function measuredBy(root, cfg, receipt, green, entries = []) {
 // { ok, by, sha, why }, { ok: false, why }, or null when none is recorded.
 export const P3_EXEMPT = 'p3 revert exempt <pr> --why "<why>" --reviewer <session>, by a reviewer that is not the job';
 export const completeSession = (rows) => (rows || []).filter((r) => r.row === 'attempt' && r.event === 'complete').pop()?.session || null;
-export function revertExemption(all, { root, cfg, head, entries = [], job, jobSession = null }) {
-  const x = latestBlock(null, null, REVERT_EXEMPT, all || [])?.data;
-  if (!x) return null;
-  const no = (why) => ({ ok: false, why });
-  const by = typeof x.reviewer === 'string' ? x.reviewer.trim() : '';
-  if (!by || typeof x.why !== 'string' || !x.why.trim()) return no('it names no reviewer or no reason');
-  if (x.module !== job) return no(`it is for ${printable(x.module, 40)}, not ${job}`);
+export function revertExemption(all, { root, cfg, head, entry, job, jobSession = null }) {
+  // Never an edited comment (its block could be pointed at another commit), as gateRuns reads rows.
+  const blocks = (all || []).filter((c) => !c.updated_at || c.updated_at === c.created_at)
+    .map((c) => parseBlock(c.body, REVERT_EXEMPT)).filter(Boolean).reverse();
+  if (!blocks.length) return null;
   const sf = (x) => String(x).replace(/^cse_/, 'session_');
-  if (jobSession && sf(by) === sf(jobSession)) return no(`its reviewer ${printable(by, 60)} is the job's own session: a job never exempts itself`);
-  if (!committed(root, x.sha)) return no(`it names ${printable(x.sha, 40)}, which is no commit here`);
-  const off = diffNames(root, x.sha, head).filter((f) => !isRecordOrLane(cfg, f, entries, { self: job }));
-  if (off.length) return no(`the head differs from ${String(x.sha).slice(0, 10)}, the commit reviewed, in ${off.length} file(s) outside the records: ${off.slice(0, 5).join(', ')}`);
-  return { ok: true, by, sha: x.sha, why: x.why };
+  const own = entry ? ownPaths(entry) : [];
+  const judge = (x) => {
+    const no = (why) => ({ ok: false, why });
+    const by = typeof x.reviewer === 'string' ? x.reviewer.trim() : '';
+    if (!by || typeof x.why !== 'string' || !x.why.trim()) return no('it names no reviewer or no reason');
+    if (x.module !== job) return no(`it is for ${printable(x.module, 40)}, not ${job}`);
+    // Fails closed: with no job session recorded, a reviewer cannot be told from the job.
+    if (!jobSession) return no(`${job}'s complete row records no session, so its reviewer cannot be told from the job (job complete --session <id>)`);
+    if (sf(by) === sf(jobSession)) return no(`its reviewer ${printable(by, 60)} is the job's own session: a job never exempts itself`);
+    if (!committed(root, x.sha)) return no(`it names ${printable(x.sha, 40)}, which is no commit here`);
+    // The job's own code as reviewed: the tranche merged in since (job sync, merge) changes other modules' files only.
+    const off = diffNames(root, x.sha, head).filter((f) => own.some((p) => underPath(f, p)) && !isRecordPath(cfg, f) && f !== entry.requirements);
+    if (off.length) return no(`the job's code differs from ${String(x.sha).slice(0, 10)}, the commit reviewed, in ${off.length} file(s): ${off.slice(0, 5).join(', ')}`);
+    return { ok: true, by, sha: x.sha, why: x.why };
+  };
+  // The newest block that stands; else why the newest does not.
+  const verdicts = blocks.map(judge);
+  return verdicts.find((v) => v.ok) || verdicts[0];
 }
 
 // The tranche into main (PR 89's report, 4 Nov): one gate job running every changed module's

@@ -122,7 +122,7 @@ test('the reporter: a done line per file the runner finished, a load line per fi
 });
 
 test('a reviewed revert exemption skips the revert check: the row says exempt, no finding (AUD-1)', () => {
-  const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/y.test.mjs': inertTest });
+  const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/y.test.mjs': inertTest, 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":1,"session":"session_job"}\n' });
   const plain = run(s, receiptFor(s.head, { exempt: { revert: 'y is a fixture' } }));
   assert.deepEqual([plain.run.revert, plain.run.inert, plain.findings.map((f) => f.check)], ['fail', ['test/alpha/y.test.mjs'], ['revert']]);
   const io = fakeIO(receiptFor(s.head));
