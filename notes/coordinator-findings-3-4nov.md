@@ -777,3 +777,4 @@
 - Live jobs: 1 of 20, by design under holds 18-22. Close estimate 04:00-04:30Z: the agent-worker 497 notice job after 569.
 - process3 for the pause: 183, 185, 186 (ci green), 187, 181, 184, all accepted.
 - 02:56 BOB: 452 marked draft and its gate cancelled; MERGER takes 610 next. BOB also drafted green layer 11 PRs 507 stewards, 513 installer-steps and 504 store-assembly so none goes ahead of layer 6; all re-enter after the pause. Agreed.
+- 03:08 BOB: after 611 the starter reopened ai-catalogue for F4 (PR 615, 03:06), against the 02:07 deferral; BOB interrupted it, recorded hold-23 on module:ai-catalogue, and the job commits BLOCKED. 615 closes unmerged at layer close with 379 and 380. 614 (op-declarations F2) merged 03:03; triage ai-catalogue:611 finds store-assembly affected (layer 11 round). Gap: a deferral is not a hold, so the starter reopens deferred found marks; the layer branch retires the starter (SLB-8). Agreed, no reply needed.
