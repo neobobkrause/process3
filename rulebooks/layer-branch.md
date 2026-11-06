@@ -1,6 +1,6 @@
 # The shared layer branch (trial)
 
-Only where the product's `process/config.json` says `"merge_strategy": "layer"`; without it the train's flow runs, unchanged. Design: the note "Shared Layer Branch" (Bob, 5 Nov), with his rulings: no gate or test run at layer close; a rescheduled job halts its run and restarts; one small PR per publish, landed by the merge tool on a green gate; the tool lists the jobs, BOB starts them; at layer merge the layer's checks run, but no module suite.
+Only where the product's `process/config.json` says `"merge_strategy": "layer"`; without it the train's flow runs, unchanged. Design: the note "Shared Layer Branch" (Bob, 5 Nov), with his rulings: no gate or test run at layer close; a rescheduled job halts its run and restarts; the tool lists the jobs, BOB starts them; at layer merge the layer's checks run, but no module suite. One small PR per publish, landed by the merge tool on a green gate, is the note's recommended implementation choice, which the coordinator adopted.
 
 The steps, with who runs each (`p3` is `node .process/tool/p3.mjs`):
 
