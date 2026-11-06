@@ -598,8 +598,11 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { onOrigi
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
 // activity; merged as a count; other open pull requests into the tranche; undelivered messages;
 // REFRESH from refusals and from context use; BOB's reading set with sizes.
-export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList, comments, holds = [] }) {
+export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = null, tranche = `origin/${cfg.tranche}`, files: prList, comments: readComments, holds = [] }) {
   const sb = cfg.state_branch;
+  // Each pull request's comments read once per status (base-red and the suite budget share them).
+  const seen = new Map();
+  const comments = readComments && ((pr) => { if (!seen.has(pr)) seen.set(pr, readComments(pr)); return seen.get(pr); });
   const L = [];
   let haveState = false;
   if (!offline) { try { haveState = fetchState(root, sb); } catch (e) { L.push(`${sb}: ${e.message}`); } }
@@ -637,6 +640,9 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
     groups.owed.unshift(...(red === null ? ['base-red: unread (a merged PR\'s gate rows)']
       : red.map((o) => `base-red ${age(o.since)}: ${o.module} ${o.test} (PR ${o.pr})`)));
   }
+  // Bob, 6 Nov (R2): a module whose gate suite took over 70% of suite_timeout_minutes, from
+  // the newest gate row of its pull requests on this tranche, is one line among the acts.
+  if (!offline && comments && haveState) groups['red gates: act now'].push(...(suiteBudget(root, cfg, { tranche, comments, rows }) ?? ['suite budget: unread (a pull request\'s gate rows)']));
   for (const [k, v] of Object.entries(groups)) if (v.length) L.push(`${k}:`, ...v.map((x) => `- ${x}`));
   L.push(`merged: ${merged}`);
   const jobs = new Set(rows.map(refOf));
@@ -671,6 +677,37 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   L.push(`reading set for bob: ${files.reduce((s, x) => s + x.b, 0)} bytes; ${files.map((x) => `${x.f} ${x.b}`).join(', ')}`);
   for (const l of L) log(l);
   return { rows, undelivered: owedMsgs };
+}
+
+// The suite budget (build ci-budget, R2; Bob, "go R2"): each module whose newest gate row on this
+// tranche's pull requests (its merges since the opening, and its open job pull request) took
+// over SUITE_BUDGET of suite_timeout_minutes (20 when unset) for its own suite. Its seconds are the
+// row's suite_by_module, or, from a row before that, suite_seconds when the run's scope was that
+// module alone. One line per module, most over first; [] when none; null when a read failed.
+export const SUITE_BUDGET = 0.7;
+export function suiteBudget(root, cfg, { tranche, comments, rows = [] }) {
+  const limit = Number(cfg.suite_timeout_minutes) > 0 ? Number(cfg.suite_timeout_minutes) : 20;
+  const opened = openedAt(leadInputs(root, cfg.state_branch, (p) => readState(root, cfg.state_branch, p), cfg.tranche).grants, cfg);
+  const prs = new Map();
+  if (opened) for (const r of rowsAt(root, tranche)) if (r.row === 'merge' && Date.parse(r.at) >= Date.parse(opened) && r.pr && r.module) prs.set(Number(r.pr), r.module);
+  // An open job pull request: status writes its pr as "#<n> ready" or "#<n> draft" (cold review).
+  for (const r of rows) { const n = Number(String(r.pr || '').match(/^#(\d+)/)?.[1]); if (n) prs.set(n, r.id); }
+  const newest = new Map();
+  for (const [pr, module] of prs) {
+    let got;
+    try { got = comments(pr); } catch { return null; }
+    if (got === null || got === undefined) return null;
+    for (const row of gateRuns(got)) {
+      const sec = Number.isFinite(row.suite_by_module?.[module]) ? row.suite_by_module[module]
+        : !row.suite_by_module && Array.isArray(row.scope) && row.scope.length === 1 && row.scope[0] === module && Number.isFinite(row.suite_seconds) ? row.suite_seconds : null;
+      // A run of only some of the module's tests (requirements-only) is not its suite's time.
+      if (sec === null || !['pass', 'fail', 'base-red'].includes(row.suite) || (row.requirements_only || []).some((x) => x?.module === module)) continue;
+      const was = newest.get(module);
+      if (!was || String(row.at) > String(was.at)) newest.set(module, { at: row.at, sec, pr });
+    }
+  }
+  return [...newest].map(([module, x]) => ({ module, ...x, min: x.sec / 60 })).filter((x) => x.min > SUITE_BUDGET * limit).sort((a, b) => b.min - a.min)
+    .map((x) => `suite budget: ${x.module}'s gate suite took ${Math.round(x.min * 10) / 10} min, ${Math.round((x.min / limit) * 100)}% of suite_timeout_minutes ${limit} (over ${Math.round(SUITE_BUDGET * 100)}%; PR ${x.pr}, gate row ${x.at}): speed or split its suite before it times out`);
 }
 
 // The tranche's base-red tests (baseRedOwed over its merge rows since its opening), each once by

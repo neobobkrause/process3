@@ -213,6 +213,9 @@ test('a records-only job pull request with a receipt gets a code run whose recei
   const said = [];
   const r = run(s, io, { log: (m) => said.push(m) });
   assert.deepEqual([r.run.trigger, r.run.scope, r.run.suite, r.run.revert, r.run.receipt, r.run.receipt_attempt, r.run.ok], ['code', ['alpha'], 'pass', 'no code changed', 'agrees', 3, true]);
+  // Each module's own suite seconds (build ci-budget): status reads them against suite_timeout_minutes.
+  assert.deepEqual(Object.keys(r.run.suite_by_module), ['alpha']);
+  assert.equal(r.run.suite_by_module.alpha, r.run.suite_seconds);
   assert.ok(said.some((m) => /only records changed, but no green code run measured receipt attempt 3/.test(m)), said.join('\n'));
   assert.equal(unread(gateRuns(io.state.comments), s.head, 3), '');
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
