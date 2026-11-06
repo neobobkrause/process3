@@ -15,7 +15,8 @@ import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undeli
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
+import { laneSeatFor, lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
+import { census, censusLines, openLayers, preflight, preflightLines } from './census.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
@@ -649,6 +650,10 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   // Its read (view) is returned: next work takes the layer's merge line from it.
   let view = null;
   if (!offline && haveState && slug) { try { view = openLayer(root, cfg, { slug }); L.push(...layerLines(root, cfg, { view, merge: false })); } catch (e) { L.push(`layer flow: unread (${e.message})`); } }
+  // The census and the preflight (R15, census.mjs; Bob, 6 Nov: anticipate the refusals): the gaps
+  // of the open layer and the two after it, the rest counted, and the starts of the next layer
+  // that job start would refuse, each with what BOB writes.
+  if (!offline && cfg.modules_file) { try { L.push(...gapLines(root, cfg, { tranche, holds, haveState })); } catch (e) { L.push(`gaps: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); } }
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });
@@ -689,6 +694,21 @@ export function suiteBudget(root, cfg, { tranche, comments, rows = [] }) {
   }
   return [...newest].map(([module, x]) => ({ module, ...x, min: x.sec / 60 })).filter((x) => x.min > SUITE_BUDGET * limit).sort((a, b) => b.min - a.min)
     .map((x) => `suite budget: ${x.module}'s gate suite took ${Math.round(x.min * 10) / 10} min, ${Math.round((x.min / limit) * 100)}% of suite_timeout_minutes ${limit} (over ${Math.round(SUITE_BUDGET * 100)}%; PR ${x.pr}, gate row ${x.at}): speed or split its suite before it times out`);
+}
+
+// The gaps block of status --role bob (R15): the census at the tranche for the open layer n and
+// lookahead n+1 and n+2 (with no open layer, every gap), then layer n+1's preflight.
+export function gapLines(root, cfg, { tranche = `origin/${cfg.tranche}`, holds = [], haveState = true } = {}) {
+  const open = haveState ? openLayers(root, cfg, (p) => readState(root, cfg.state_branch, p)) : [];
+  const c = census(root, cfg, { ref: tranche, open });
+  if (c.skipped) return [];
+  const n = open.length ? Math.min(...open) : null;
+  const out = censusLines(c, { layers: n === null ? null : [n, n + 1, n + 2], tranche: cfg.tranche, label: n === null ? 'gaps' : `gaps (layer ${n} open; lookahead ${n + 1} and ${n + 2})` });
+  if (n !== null && layersAt(root, cfg, tranche).size) {
+    const seat = (id) => { try { return laneSeatFor(root, cfg, id, { fetch: false }); } catch { return null; } };
+    out.push(...preflightLines(n + 1, preflight(root, cfg, n + 1, { ref: tranche, census: c, holds, heldBy, seat, layers: layersAt(root, cfg, tranche) })));
+  }
+  return out;
 }
 
 // The tranche's base-red tests (baseRedOwed over its merge rows since its opening), each once by

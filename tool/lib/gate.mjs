@@ -1,6 +1,7 @@
 // The gate (GAT-1, GAT-2, GAT-5, GAT-6, JOB-12, ARC-5): run by CI on every pull request tip,
 // never in a session. Ends in seconds when only record paths changed (row 15), on a draft, or
 // when nothing but records changed since the last green run on the same tranche tip.
+import { changeGaps } from './census.mjs';
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, latestReceipt, parseBlock, verifyRow } from './github.mjs';
@@ -113,6 +114,10 @@ export function gate(root, opts) {
   // A job PR into a layer branch may carry its own entry from the tranche, the ledger's home.
   const home = job && layerMode(cfg) && layerOfBranch(live?.base?.ref) !== null ? homeRef(root, cfg.tranche) : null;
   findings.push(...checkLedger(root, { ref: judged, base: mb, branch, home }));
+  // The census of the change (R15, census.mjs): a plain pull request that adds a requirements file
+  // or a modules row with no ledger entry, or an entry with no row or requirements file, is told
+  // now, not by the refusal of the job start that would meet it.
+  if (!job && cfg.modules_file) { try { findings.push(...changeGaps(root, cfg, { base: mb, head: judged, changed }).map((x) => F('census', x.file, x.message))); } catch (e) { log(`census of the change: unread (${String(e.message).slice(0, 120)})`); } }
 
   // A job writes only its module's files and tests, and its own records (ARC-2).
   if (entry) {

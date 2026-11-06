@@ -34,6 +34,7 @@ import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
+import { census, censusLines } from './census.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
@@ -583,6 +584,13 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const cut = git(['ls-remote', '--heads', 'origin', layerBranch(n)], { cwd: root, allowFail: true }).stdout.trim() !== '';
   if (bare.length && cut) log(`warning: layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; ${layerBranch(n)} is cut already, so their jobs cannot start until the entries land`);
   if (bare.length && !cut) fail(`layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; land their entries first, then open the layer; nothing was opened`);
+  // The census of the layer (R15, census.mjs): a layer opens with no gap in it, each named with
+  // what BOB writes (the entries that need no judgment printed ready).
+  if (!cut) {
+    const c = census(root, cfg, { ref: tr, open: [n] });
+    const mineGaps = c.gaps.filter((g) => g.layer === n && g.kind !== 'not-on-layer');
+    if (mineGaps.length) fail(`layer ${n} has ${mineGaps.length} gap(s) on ${cfg.tranche}; land the fixes first, then open the layer; nothing was opened:\n${censusLines({ gaps: mineGaps }, { tranche: cfg.tranche }).slice(1).join('\n')}`);
+  }
   const rows = flowRows(root, cfg.state_branch, n);
   if (staleFlow(root, rows)) fail(`layer ${n}'s flow rows and ${layerBranch(n)} are an earlier tranche's (its merge ${short(rows.merged.commit)} is on main): a second tranche under the flow is not built; ask the coordinator`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);

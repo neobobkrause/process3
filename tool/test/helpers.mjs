@@ -1,9 +1,24 @@
 // Throwaway git repositories for tests.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import fs, { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { git } from '../lib/util.mjs';
 import { writeState } from '../lib/state.mjs';
+
+// Every temporary directory a test process makes is removed when it exits (coordinator, 6 Nov: the
+// suite left about 70,000 p3-* directories in a builder's /tmp, and filled its disk). fs.mkdtempSync
+// is wrapped once, for every caller in the process (a test's own import of it, the fixtures', the
+// tool's), and the directories it made under the temp directory go at exit. tempdirs.test.mjs holds it.
+export const MADE = new Set();
+if (!fs.mkdtempSync.p3Tracked) {
+  const made = fs.mkdtempSync;
+  const tracked = (prefix, ...rest) => { const d = made(prefix, ...rest); if (String(prefix).startsWith(tmpdir())) MADE.add(d); return d; };
+  tracked.p3Tracked = true;
+  fs.mkdtempSync = tracked;
+  syncBuiltinESMExports();
+  process.on('exit', () => { for (const d of MADE) { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 2 }); } catch { /* gone, or busy: the guard test sees it */ } } });
+}
 
 export function makeRepo(files = {}) {
   const root = mkdtempSync(join(tmpdir(), 'p3-test-'));
