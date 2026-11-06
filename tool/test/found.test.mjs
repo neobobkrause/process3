@@ -74,9 +74,16 @@ test('found: with origin, two findings for one module before the first merges ge
   git(['init', '-q', '--bare', bare], { cwd: root });
   git(['remote', 'add', 'origin', bare], { cwd: root });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
-  // Printed only, its branch pushed: the next is F2.
-  assert.equal(found(root, 'q2', 'one', { log: quiet }).mark, 'F1');
-  git(['push', '-q', 'origin', 'tranche:refs/heads/found/q2-f1'], { cwd: root });
+  // Printed, then written and pushed on its branch (BOB's steps 1 to 3): the next is F2.
+  const one = found(root, 'q2', 'one', { log: quiet });
+  assert.equal(one.mark, 'F1');
+  const back = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root });
+  git(['checkout', '-q', '-b', one.branch, 'tranche'], { cwd: root });
+  found(root, 'q2', 'one', { write: true, log: quiet });
+  git(['commit', '-qam', 'found: q2 F1'], { cwd: root });
+  git(['push', '-q', 'origin', one.branch], { cwd: root });
+  git(['checkout', '-q', back], { cwd: root });
+  git(['branch', '-q', '-D', one.branch], { cwd: root });
   assert.equal(found(root, 'q2', 'two', { log: quiet }).mark, 'F2');
   // Written in the checkout (--write), not yet pushed: the next counts it too.
   assert.equal(found(root, 'q2', 'two', { write: true, log: quiet }).mark, 'F2');
@@ -165,4 +172,28 @@ test('report tranche: found work in the record is counted, per module and with n
   assert.match(md, /\| reader \| 2 \| F1 \|/);
   assert.match(md, /\| \(no module\) \| 1 \| F1 \|/);
   assert.match(md, /\| f4 \| 1 \| F1 \|/);
+});
+
+// Copy, 6 Nov: BOB previewed found op-capabilities (no --write), cut its branch as step 1 printed,
+// and the --write run numbered the mark F2; PR 664 renumbered it by hand.
+test('found: a preview\'s branch, cut as step 1 prints it with nothing written, is the same mark, local or pushed: the --write run keeps F1', () => {
+  const root = repo();
+  git(['branch', 'tranche'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const preview = found(root, 'q2', 'one', { log: quiet });
+  assert.equal(preview.mark, 'F1');
+  git(['switch', '-q', '-c', preview.branch, 'tranche'], { cwd: root });
+  assert.equal(found(root, 'q2', 'one', { log: quiet }).mark, 'F1', 'the local branch holds nothing written');
+  git(['push', '-q', 'origin', preview.branch], { cwd: root });
+  const w = found(root, 'q2', 'one', { write: true, log: quiet });
+  assert.deepEqual([w.mark, w.branch], ['F1', preview.branch], 'pushed with nothing written: still the same mark');
+  assert.match(readFileSync(join(root, 'build/requirements/q2.md'), 'utf8'), /\*\*F1\*\* \*\(not yet met: [^)]*\)\* one/);
+  // Once committed there, it is written: another finding is F2.
+  git(['commit', '-qam', 'found: q2 F1'], { cwd: root });
+  git(['push', '-q', 'origin', preview.branch], { cwd: root });
+  git(['switch', '-q', 'tranche'], { cwd: root });
+  assert.equal(found(root, 'q2', 'two', { log: quiet }).mark, 'F2');
 });
