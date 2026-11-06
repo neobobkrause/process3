@@ -708,22 +708,26 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
 // The gate's minutes as state rows (R9, Bob, 6 Nov: the time budget). The gate's own token can
 // only read (shims/process-gate.yml: job gate reads, job post writes only the PR's comment), and
 // the owner's limits forbid widening it, so the land, which reads the PR's gate rows and writes
-// the state branch, records them: one row per gate run, its whole minutes, and its suite minutes
-// (this module's, or the run's when it ran this module alone), or record-only when no suite ran.
-// Keyed by the run (its run_id, else its head and time), so a run is one file however often seen.
-export const RECORD_ONLY = (r) => !['pass', 'fail', 'base-red'].includes(r.suite);
+// the state branch, records them: one row per gate run, its whole minutes, its suite minutes
+// (this module's suite, or the run's when it ran this module alone; null when none of this
+// module's ran), and whether it was a record-only run (trigger record or record-since-green).
+// Only a pull request that lands is recorded: a closed or replaced one's gate runs are not.
+// Keyed by the run and its attempt (a GitHub re-run keeps the run id), else its head and time,
+// so a run is one file however often it is seen.
+export const RECORD_ONLY = (r) => r.trigger === 'record' || r.trigger === 'record-since-green';
 export function gateRow(n, id, pr, r) {
-  const sec = Number.isFinite(r.suite_by_module?.[id]) ? r.suite_by_module[id]
+  const ran = ['pass', 'fail', 'base-red'].includes(r.suite) && !(r.requirements_only || []).some((x) => x?.module === id && !x.files?.length);
+  const sec = !ran ? null : Number.isFinite(r.suite_by_module?.[id]) ? r.suite_by_module[id]
     : !r.suite_by_module && Array.isArray(r.scope) && r.scope.length === 1 && r.scope[0] === id && Number.isFinite(r.suite_seconds) ? r.suite_seconds : null;
-  const rec = RECORD_ONLY(r);
   return {
-    row: 'gate', layer: n, module: id, pr, sha: r.sha, run_id: r.run_id ?? null, at: r.at ?? null, trigger: r.trigger ?? null, suite: r.suite ?? null, ok: r.ok ?? null,
+    row: 'gate', layer: n, module: id, pr, sha: r.sha, run_id: r.run_id ?? null, run_attempt: r.run_attempt ?? null, at: r.at ?? null, trigger: r.trigger ?? null, suite: r.suite ?? null, ok: r.ok ?? null,
     minutes: Number.isFinite(r.minutes) ? r.minutes : null,
-    suite_minutes: rec || sec === null ? null : Math.round((sec / 60) * 100) / 100,
-    record_only: rec,
+    suite_minutes: sec === null ? null : Math.round((sec / 60) * 100) / 100,
+    record_only: RECORD_ONLY(r),
   };
 }
-export const gateFiles = (n, id, pr, runs) => runs.map((r) => [flowFile(n, 'gate', `${safeName(id)}-${pr}-${r.run_id ?? `${short(r.sha)}-${Date.parse(r.at) || 0}`}`), gateRow(n, id, pr, r)]);
+const gateKey = (r) => (r.run_id ? `${r.run_id}-${r.run_attempt ?? 1}` : `${short(r.sha)}-${Date.parse(r.at) || 0}`);
+export const gateFiles = (n, id, pr, runs) => runs.map((r) => [flowFile(n, 'gate', `${safeName(id)}-${pr}-${gateKey(r)}`), gateRow(n, id, pr, r)]);
 
 // ---- layer report (the trial's measures) ----------------------------------------------------
 
@@ -773,10 +777,15 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
 //   starts               its job's start rows (metrics, on the layer branch);
 //   wall_minutes         each start to its complete (by attempt), summed; null when no attempt has
 //                        both (open_attempts counts those still without a complete);
-//   local_test_minutes   its `p3 test` rows and its layer publish runs (job complete's suite);
-//   gate_minutes         its gate runs' whole minutes (the land's gate rows), with suite_minutes
-//                        and record_only_minutes apart;
-//   work_minutes         wall minus local test; null when wall is null.
+//   local_test_minutes   its `p3 test` rows (all of them);
+//   publish_minutes      its layer publish runs (job complete: checks and the push; it runs no
+//                        suite, the gate does), apart from the tests;
+//   gate_minutes         its gate runs' whole minutes (the land's gate rows: landed PRs only),
+//                        with suite and record-only minutes apart; a run of unknown length is
+//                        counted in gate_unknown_runs, not as 0;
+//   work_minutes         wall minus the local tests that ran inside a start-to-complete window
+//                        (a test outside every window took no wall time here); null when wall
+//                        is null.
 // The layer total sums each; test_share is local test over wall, test_per_work local test over
 // work, both over the modules whose wall is known (null when none).
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -788,27 +797,33 @@ export function timeBudget(mods, { attempts = {}, tests = [], runs = [], gates =
     const starts = rows.filter((r) => r.event === 'start');
     let wall = null;
     let open = 0;
+    const windows = [];
     for (const st of starts) {
       const c = rows.find((r) => r.event === 'complete' && (st.attempt === undefined || r.attempt === st.attempt) && String(r.at) >= String(st.at));
       if (!c || !Number.isFinite(Date.parse(c.at)) || !Number.isFinite(Date.parse(st.at))) { open++; continue; }
+      windows.push([Date.parse(st.at), Date.parse(c.at)]);
       wall = (wall ?? 0) + (Date.parse(c.at) - Date.parse(st.at)) / 60000;
     }
-    const local = sum([...tests.filter((t) => t.module === id && after(t)).map((t) => t.minutes), ...runs.filter((t) => t.module === id && after(t)).map((t) => t.minutes)]);
+    const mine = tests.filter((t) => t.module === id && after(t));
+    const inside = (t) => { const a = Date.parse(t.started); const b = Date.parse(t.ended ?? t.at); return windows.some(([s, e]) => a >= s && b <= e); };
+    const local = sum(mine.map((t) => t.minutes));
     const g = gates.filter((x) => x.module === id);
     return {
       id, starts: starts.length, open_attempts: open, wall_minutes: wall === null ? null : r2(wall),
-      test_runs: tests.filter((t) => t.module === id && after(t)).length, local_test_minutes: local,
-      gate_runs: g.length, gate_minutes: sum(g.map((x) => x.minutes)), gate_suite_minutes: sum(g.map((x) => x.suite_minutes)), gate_record_only_minutes: sum(g.filter((x) => x.record_only).map((x) => x.minutes)),
-      work_minutes: wall === null ? null : r2(wall - local),
+      test_runs: mine.length, local_test_minutes: local,
+      publish_runs: runs.filter((t) => t.module === id && after(t)).length, publish_minutes: sum(runs.filter((t) => t.module === id && after(t)).map((t) => t.minutes)),
+      gate_runs: g.length, gate_unknown_runs: g.filter((x) => !Number.isFinite(x.minutes)).length, gate_minutes: sum(g.map((x) => x.minutes)), gate_suite_minutes: sum(g.map((x) => x.suite_minutes)), gate_record_only_minutes: sum(g.filter((x) => x.record_only).map((x) => x.minutes)),
+      work_minutes: wall === null ? null : r2(wall - sum(mine.filter(inside).map((t) => t.minutes))),
+      tests_in_wall_minutes: sum(mine.filter(inside).map((t) => t.minutes)),
     };
   });
   const known = per.filter((x) => x.wall_minutes !== null);
   const wall = sum(known.map((x) => x.wall_minutes));
-  const localKnown = sum(known.map((x) => x.local_test_minutes));
+  const localKnown = sum(known.map((x) => x.tests_in_wall_minutes));
   const work = sum(known.map((x) => x.work_minutes));
   const total = {
     starts: per.reduce((t, x) => t + x.starts, 0), wall_minutes: known.length ? wall : null, wall_unknown_modules: per.length - known.length,
-    local_test_minutes: sum(per.map((x) => x.local_test_minutes)), gate_minutes: sum(per.map((x) => x.gate_minutes)),
+    local_test_minutes: sum(per.map((x) => x.local_test_minutes)), publish_minutes: sum(per.map((x) => x.publish_minutes)), gate_minutes: sum(per.map((x) => x.gate_minutes)), gate_unknown_runs: per.reduce((t, x) => t + x.gate_unknown_runs, 0),
     gate_suite_minutes: sum(per.map((x) => x.gate_suite_minutes)), gate_record_only_minutes: sum(per.map((x) => x.gate_record_only_minutes)),
     work_minutes: known.length ? work : null,
     test_share: known.length && wall > 0 ? r2(localKnown / wall) : null,
@@ -816,7 +831,7 @@ export function timeBudget(mods, { attempts = {}, tests = [], runs = [], gates =
   };
   return { per_module: per, total };
 }
-export const budgetLine = (b) => `time budget: ${b.total.starts} start(s); wall ${b.total.wall_minutes ?? 'unknown'} min${b.total.wall_unknown_modules ? ` (${b.total.wall_unknown_modules} module(s) unknown)` : ''}; local tests ${b.total.local_test_minutes} min; gate ${b.total.gate_minutes} min (suites ${b.total.gate_suite_minutes}, record-only ${b.total.gate_record_only_minutes}); work ${b.total.work_minutes ?? 'unknown'} min; tests ${b.total.test_share === null ? 'unknown' : `${Math.round(b.total.test_share * 100)}%`} of wall, ${b.total.test_per_work ?? 'unknown'} per minute of work`;
+export const budgetLine = (b) => `time budget: ${b.total.starts} start(s); wall ${b.total.wall_minutes ?? 'unknown'} min${b.total.wall_unknown_modules ? ` (${b.total.wall_unknown_modules} module(s) unknown)` : ''}; local tests ${b.total.local_test_minutes} min; publish runs ${b.total.publish_minutes} min; gate ${b.total.gate_minutes} min on landed PRs (suites ${b.total.gate_suite_minutes}, record-only ${b.total.gate_record_only_minutes}${b.total.gate_unknown_runs ? `, ${b.total.gate_unknown_runs} run(s) of unknown length` : ''}); work ${b.total.work_minutes ?? 'unknown'} min; tests ${b.total.test_share === null ? 'unknown' : `${Math.round(b.total.test_share * 100)}%`} of wall, ${b.total.test_per_work ?? 'unknown'} per minute of work`;
 
 export function layerReport(root, n, { log = console.log, toolFrom = null, toolTo = 'HEAD', toolRoot = null } = {}) {
   n = layerNum(n);

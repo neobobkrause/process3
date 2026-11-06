@@ -416,15 +416,16 @@ test('time budget: a land writes its gate runs as rows; layer report sums them w
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
   const prs = { 1: prOf(1, 'c', hc) };
   const gateRows = [
-    { sha: hc, run_id: 71, at: '2026-11-06T10:00:00Z', trigger: 'draft', suite: 'skipped', ok: true, minutes: 0.5 },
+    { sha: hc, run_id: 71, at: '2026-11-06T10:00:00Z', trigger: 'record', suite: 'skipped', ok: true, minutes: 0.5 },
     { sha: hc, run_id: 72, at: '2026-11-06T10:10:00Z', trigger: 'code', suite: 'pass', ok: true, minutes: 6, scope: ['c'], suite_seconds: 240, suite_by_module: { c: 240 } },
+    // GitHub's re-run of run 72 keeps its run id: its own row, not lost to the first.
+    { sha: hc, run_id: 72, run_attempt: 2, at: '2026-11-06T10:20:00Z', trigger: 'code', suite: 'pass', ok: true, minutes: 5, scope: ['c'], suite_seconds: 180, suite_by_module: { c: 180 } },
   ];
   const comments = () => [{ user: { login: BOT }, body: block(GATE, { runs: gateRows }) }];
   await layerLand(root, 1, { io: landIO(bare, prs, { comments }), log: quiet });
-  // A second land of the same runs (a recovery, a re-read) would not add files: one file per run.
   fetchState(root, SB, { fresh: true });
   const rows = flowRows(root, SB, 1);
-  assert.deepEqual(rows.gates.map((g) => [g.module, g.pr, g.run_id, g.minutes, g.suite_minutes, g.record_only]), [['c', 1, 71, 0.5, null, true], ['c', 1, 72, 6, 4, false]]);
+  assert.deepEqual(rows.gates.map((g) => [g.module, g.pr, g.run_id, g.run_attempt, g.minutes, g.suite_minutes, g.record_only]), [['c', 1, 71, null, 0.5, null, true], ['c', 1, 72, null, 6, 4, false], ['c', 1, 72, 2, 5, 3, false]]);
   // A p3 test run and a publish run of c, after the opening.
   const open = rows.open.at;
   const later = (m) => new Date(Date.parse(open) + m * 60000).toISOString();
@@ -434,8 +435,9 @@ test('time budget: a land writes its gate runs as rows; layer report sums them w
   ]);
   const rep = layerReport(root, 1, { log: quiet }).measures.time_budget;
   const c = rep.per_module.find((x) => x.id === 'c');
-  assert.deepEqual([c.test_runs, c.local_test_minutes, c.gate_runs, c.gate_minutes, c.gate_suite_minutes, c.gate_record_only_minutes], [1, 5, 2, 6.5, 4, 0.5]);
-  assert.equal(rep.total.gate_minutes, 6.5);
+  // The publish run runs no suite (job complete; the gate runs it): apart from the tests.
+  assert.deepEqual([c.test_runs, c.local_test_minutes, c.publish_runs, c.publish_minutes, c.gate_runs, c.gate_minutes, c.gate_suite_minutes, c.gate_record_only_minutes], [1, 2, 1, 3, 3, 11.5, 7, 0.5]);
+  assert.equal(rep.total.gate_minutes, 11.5);
 });
 
 test('time budget: wall from each start to its complete, work is wall minus local tests, null when unknown', () => {
@@ -448,16 +450,18 @@ test('time budget: wall from each start to its complete, work is wall minus loca
     ],
     b: [{ row: 'attempt', event: 'start', attempt: 1, at: at(5) }], // still open: wall unknown
   };
-  const tests = [{ module: 'a', minutes: 4, at: at(20) }, { module: 'b', minutes: 3, at: at(9) }];
+  // a's tests: one inside its first attempt (counted against its wall), one after its last
+  // complete (a gate-red fix: no wall here, so not subtracted from work).
+  const tests = [{ module: 'a', minutes: 4, started: at(16), ended: at(20), at: at(20) }, { module: 'a', minutes: 2, started: at(55), ended: at(57), at: at(57) }, { module: 'b', minutes: 3, started: at(6), ended: at(9), at: at(9) }];
   const runs = [{ module: 'a', minutes: 6, at: at(29) }];
-  const gates = [{ module: 'a', minutes: 7, suite_minutes: 5, record_only: false }, { module: 'a', minutes: 1, suite_minutes: null, record_only: true }];
+  const gates = [{ module: 'a', minutes: 7, suite_minutes: 5, record_only: false }, { module: 'a', minutes: 1, suite_minutes: null, record_only: true }, { module: 'a', minutes: null, suite_minutes: null, record_only: false }];
   const b = timeBudget(['b', 'a'], { attempts, tests, runs, gates, since: '2026-11-06T09:00:00Z' });
-  assert.deepEqual(b.per_module.map((x) => [x.id, x.starts, x.open_attempts, x.wall_minutes, x.local_test_minutes, x.gate_minutes, x.gate_suite_minutes, x.gate_record_only_minutes, x.work_minutes]), [
-    ['a', 2, 0, 40, 10, 8, 5, 1, 30],
-    ['b', 1, 1, null, 3, 0, 0, 0, null],
+  assert.deepEqual(b.per_module.map((x) => [x.id, x.starts, x.open_attempts, x.wall_minutes, x.local_test_minutes, x.tests_in_wall_minutes, x.publish_minutes, x.gate_minutes, x.gate_unknown_runs, x.gate_suite_minutes, x.gate_record_only_minutes, x.work_minutes]), [
+    ['a', 2, 0, 40, 6, 4, 6, 8, 1, 5, 1, 36],
+    ['b', 1, 1, null, 3, 0, 0, 0, 0, 0, 0, null],
   ]);
-  assert.deepEqual(b.total, { starts: 3, wall_minutes: 40, wall_unknown_modules: 1, local_test_minutes: 13, gate_minutes: 8, gate_suite_minutes: 5, gate_record_only_minutes: 1, work_minutes: 30, test_share: 0.25, test_per_work: 0.33 });
-  assert.equal(budgetLine(b), 'time budget: 3 start(s); wall 40 min (1 module(s) unknown); local tests 13 min; gate 8 min (suites 5, record-only 1); work 30 min; tests 25% of wall, 0.33 per minute of work');
+  assert.deepEqual(b.total, { starts: 3, wall_minutes: 40, wall_unknown_modules: 1, local_test_minutes: 9, publish_minutes: 6, gate_minutes: 8, gate_unknown_runs: 1, gate_suite_minutes: 5, gate_record_only_minutes: 1, work_minutes: 36, test_share: 0.1, test_per_work: 0.11 });
+  assert.equal(budgetLine(b), 'time budget: 3 start(s); wall 40 min (1 module(s) unknown); local tests 9 min; publish runs 6 min; gate 8 min on landed PRs (suites 5, record-only 1, 1 run(s) of unknown length); work 36 min; tests 10% of wall, 0.11 per minute of work');
   // Nothing known: nulls, never a guess.
   const none = timeBudget(['b'], { attempts: { b: attempts.b } });
   assert.deepEqual([none.total.wall_minutes, none.total.work_minutes, none.total.test_share, none.total.test_per_work], [null, null, null, null]);

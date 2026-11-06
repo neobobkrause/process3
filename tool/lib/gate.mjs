@@ -143,7 +143,7 @@ export function gate(root, opts) {
   // tree: what this run tests, the checkout (GitHub's merge of the head into the base) as it is
   // before anything runs. A spec-tested fast path stands on a row only for the tree it names.
   const tree = git(['rev-parse', 'HEAD^{tree}'], { cwd: root });
-  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
+  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, ...(Number(process.env.GITHUB_RUN_ATTEMPT) > 0 ? { run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT) } : {}), trigger: null, suite: 'skipped', revert: 'skipped', receipt: 'not checked', receipt_attempt: null };
   // The pull request as it is now. Its draft state is read live, not from the event (the gate
   // race, measured on the copy 4 Nov, PRs 55, 61, 62, 63): job complete pushes, then marks
   // ready, so one head gets a synchronize run whose payload says draft and a ready_for_review

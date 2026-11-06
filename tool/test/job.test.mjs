@@ -876,6 +876,19 @@ test('test writes a run row: module, session, minutes, result', () => {
   assert.match(path, /^tests\/alpha\/alpha-\d+-[0-9a-f]{8}\.json$/);
   const kept = JSON.parse(git(['show', `refs/heads/process-state:${path}`], { cwd: bare }));
   assert.deepEqual([kept.row, kept.module, kept.session, kept.result, kept.state_branch], ['test', 'alpha', 'session_abc', 'pass', undefined]);
+  // In an open layer: under that layer's flow, where layer report reads it.
+  assert.match(recordTest(root, { ...rows[0], layer: 3, state_branch: 'process-state' }, { log: quiet }), /^layerflow\/3\/test\/alpha-\d+-[0-9a-f]{8}\.json$/);
+  // A red suite is a row too, its result 'fail'; the session from the container when none is given.
+  const was = process.env.CLAUDE_CODE_REMOTE_SESSION_ID;
+  process.env.CLAUDE_CODE_REMOTE_SESSION_ID = 'session_fromenv';
+  try {
+    writeFileSync(join(root, 'test/alpha/a.test.mjs'), failing);
+    git(['add', '-A'], { cwd: root });
+    git(['commit', '-q', '-m', 'red'], { cwd: root });
+    const red = jobTest(root, 'alpha', { exec, log: quiet, record: (x) => rows.push(x) });
+    assert.equal(red.ok, false);
+    assert.deepEqual([rows.at(-1).result, rows.at(-1).session], ['fail', 'session_fromenv']);
+  } finally { if (was === undefined) delete process.env.CLAUDE_CODE_REMOTE_SESSION_ID; else process.env.CLAUDE_CODE_REMOTE_SESSION_ID = was; }
   // No origin to write to: said, never a refusal.
   git(['remote', 'remove', 'origin'], { cwd: root });
   const said = [];
