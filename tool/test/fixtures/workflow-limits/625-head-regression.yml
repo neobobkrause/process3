@@ -1,0 +1,84 @@
+# regression.yml: the full regression (PROCESS-MECHANICS §11; principle P11).
+#
+# Under the process of 2026-09-25 the full regression runs ONLY at a release, or when Bob asks. It never
+# runs on a push: a module job runs its module's and its layer's tests, and a push to `main` is a tranche's
+# fast-forward of work already tested. This replaces the old process's `gates.yml`, which ran the whole
+# battery on every push to `main` (retired 2026-09-26 by BOB #38 at Bob's direction).
+#
+# Started by hand from the Actions tab, or by BOB on Bob's request or at a release. What it runs grows with
+# the extraction: each package's own tests today, each module's tests as modules are extracted.
+name: regression
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # migrate-released reads every released cut's files with `git show` (K1710).
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26.10.0"
+      - name: install
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          # site: its browser test imports playwright-core from its own lock (ONB-6).
+          for pkg in bio-plane pdf-worker ocr-worker newgroup agent-runner sheet-worker site; do
+            [ -f "$pkg/package-lock.json" ] || continue
+            (cd "$pkg" && npm ci --no-audit --no-fund --loglevel=error)
+          done
+          # journey-check's walk drives Chromium through playwright-core (K3146, K3184): its own lock, and the browser.
+          (cd bio-plane/src/journey-check && npm ci --no-audit --no-fund --loglevel=error)
+          # Bounded (K3191): run 38522006895 hung after Chromium's download until the job's limit. Without the
+          # browser journey-check's arms report their failures and end (K3185), so the rest of the battery still runs.
+          (cd bio-plane/src/journey-check && timeout 600 npx playwright-core install --with-deps chromium) || echo "::warning::Chromium not installed; journey-check's browser arms will fail by name"
+      - name: build (the dist pass, 6 Nov 2026; generated files and dist/ are not committed)
+        run: |
+          set -euo pipefail
+          # bundles.mjs builds every guarded member, so each member with a lock file is installed first.
+          node bio-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
+            [ -d "$dir/node_modules" ] && continue
+            (cd "$dir" && npm ci --no-audit --no-fund --loglevel=error)
+          done
+          node docs/development/ux-substrate/screens/build_words.mjs
+          node bio-plane/src/setup-words/build.mjs
+          node docs/development/ux-substrate/screens/words-reads.src.mjs . --build
+          node bio-plane/src/case-checker/build-program.mjs
+          node bio-plane/scripts/bundles.mjs
+          npm --prefix newgroup run build
+      - name: test every package
+        run: |
+          set -uo pipefail
+          failed=""
+          # site's browser test launches $CHROMIUM (default /opt/pw-browsers/chromium, absent on the runner):
+          # the Chromium journey-check's step installed, same playwright-core 1.56.1 (ONB-6).
+          CHROMIUM="$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux*/chrome 2>/dev/null | head -1)"
+          [ -n "$CHROMIUM" ] && export CHROMIUM || echo "::warning::no installed Chromium found; site's browser test will fail by name"
+          for pkg in bio-plane pdf-worker ocr-worker newgroup agent-worker; do
+            [ -f "$pkg/package.json" ] || continue
+            echo "::group::$pkg"
+            if (cd "$pkg" && npm test); then echo "$pkg: passed"; else failed="$failed $pkg"; fi
+            echo "::endgroup::"
+          done
+          # The suites outside test/m that T20 kept (N466, K932; LEGACY-TESTS #18): run from the root.
+          # several-cases-choice needs ssh-keygen (openssh-client, on the runner image).
+          echo "::group::kept suites"
+          if node --test bio-plane/test/*.test.mjs bio-plane/test/system/*.test.mjs; then
+            echo "kept suites: passed"; else failed="$failed kept-suites"; fi
+          echo "::endgroup::"
+          # Every module's own tests, read from build/modules.json, so a module is never left out (K1692).
+          echo "::group::every module's tests"
+          if node .github/scripts/module-tests.mjs | tee -a "$GITHUB_STEP_SUMMARY"; then
+            echo "module tests: passed"; else failed="$failed module-tests"; fi
+          echo "::endgroup::"
+          if [ -n "$failed" ]; then echo "regression: FAILED in$failed" | tee -a "$GITHUB_STEP_SUMMARY"; exit 1; fi
+          echo "regression: every package passed" | tee -a "$GITHUB_STEP_SUMMARY"

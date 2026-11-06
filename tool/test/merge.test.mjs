@@ -241,16 +241,20 @@ test('merge --plain works in process3 itself, with no config and no ledger', () 
   assert.equal(f.calls.merged.message, 'No review: a test\nReview rounds: 0');
 });
 
-test('a pull request that edits or adds a workflow is refused: that needs the owner\'s word', () => {
+test('a pull request that changes a shim, or adds a job named like a required check, is refused: that needs the owner\'s word', () => {
   for (const files of [{ '.github/workflows/process-gate.yml': 'on: pull_request\njobs: { gate: { steps: [] } }\n' }, { '.github/workflows/fake.yml': 'jobs: { gate: {} }\n' }]) {
     const r = plainRepo({ files });
     const f = plainIO(r, { repo: { released: () => true, shim: () => 'f'.repeat(40) } });
     assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), /changes \.github\/workflows\/\S+\.yml: .*needs the owner's word: bring it to Bob/);
     assert.equal(f.calls.merged, null);
   }
-  // In process3 itself there is no pin, so any workflow change is refused.
+  // In process3 itself there is no pin and no shim: a workflow is judged by the owner's limits
+  // (workflow-limits.test.mjs), and one they cannot read is refused.
   const p = plainRepo({ config: false, ledger: false, files: { '.github/workflows/ci.yml': 'x\n' } });
-  assert.throws(() => mergePlain(p.root, 4, { ...q, noReview: 'x', io: plainIO(p).io }), /no process pin to compare it with.*owner's word/);
+  assert.throws(() => mergePlain(p.root, 4, { ...q, noReview: 'x', io: plainIO(p).io }), /changes \.github\/workflows\/ci\.yml: reading: .*outside the owner's limits needs the owner's word/);
+  // A product with a pin it has not released, or none at all: refused before any limit.
+  const none = plainRepo({ files: { '.github/workflows/fake.yml': 'on: push\npermissions: {}\njobs: { a: { runs-on: x } }\n' } });
+  assert.throws(() => mergePlain(none.root, 4, { ...q, noReview: 'x', io: plainIO(none).io }), /no process pin to compare it with.*owner's word/);
 });
 
 // Build J: GitHub's ruleset judges the required checks; merge --plain waits while one is queued,
