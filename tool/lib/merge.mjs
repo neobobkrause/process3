@@ -863,8 +863,8 @@ function passGate(slug, n, sha, ids, { base, baseSha, io, log }) {
 }
 
 // The live jobs of a pass's modules (P7: while no job runs): an open job pull request into the
-// tranche, an entry WORKING on the tranche, or a job branch whose entry is anything but COMPLETE
-// (a COMPLETE job whose pull request merged holds nothing). Unreadable: refused, not guessed.
+// tranche, an entry WORKING on the tranche, or a job branch whose entry is WORKING or OPEN (a
+// COMPLETE job whose pull request merged holds nothing). Unreadable: refused, not guessed.
 export function liveJobs(root, ids, { slug, tranche, entries, io }) {
   const heads = io.jobHeads(root);
   const prs = io.openPRs(slug, tranche);
@@ -877,11 +877,12 @@ export function liveJobs(root, ids, { slug, tranche, entries, io }) {
     if (entries.find((e) => e.id === id)?.status?.state === 'WORKING') { live.push(`${id} (WORKING on ${tranche})`); continue; }
     const b = jobBranch(id, heads, all);
     if (!heads.has(b)) continue;
-    git(['fetch', '-q', 'origin', `+refs/heads/${b}:refs/remotes/origin/${b}`], { cwd: root, allowFail: true });
-    const t = git(['show', `refs/remotes/origin/${b}:${entryFile(id)}`], { cwd: root, allowFail: true });
+    // A failed fetch would read a stale tracking ref: unread (cold review).
+    const fetched = git(['fetch', '-q', 'origin', `+refs/heads/${b}:refs/remotes/origin/${b}`], { cwd: root, allowFail: true }).code === 0;
+    const t = fetched ? git(['show', `refs/remotes/origin/${b}:${entryFile(id)}`], { cwd: root, allowFail: true }) : null;
     let st = null;
-    try { st = t.code === 0 ? JSON.parse(t.stdout).status?.state || null : null; } catch { st = null; }
-    if (st !== 'COMPLETE') live.push(`${id} (${st || 'an unread entry'} on ${b})`);
+    try { st = t?.code === 0 ? JSON.parse(t.stdout).status?.state || null : null; } catch { st = null; }
+    if (!st || st === 'WORKING' || st === 'OPEN') live.push(`${id} (${st || 'an unread entry'} on ${b})`);
   }
   return live;
 }
@@ -937,6 +938,7 @@ export function mergePlain(root, n, opts = {}) {
   let untracked = [];
   let ignores = [];
   let passIds = null;
+  let noLiveJobs = () => {};
   if (pass !== undefined && (!baseCfg || base !== baseCfg.tranche)) fail(`pull request ${n} is into ${base}: a pass lands only on the tranche (P7)`);
   if (pass !== undefined && !PASS_BRANCH.test(head)) fail(`pull request ${n} is from ${head}: a pass comes from a pass/<name> branch, which the gate runs as a pass (P7)`);
   // Module code goes through a job (ARC-2): in a product, a plain merge may not touch any ledger
@@ -972,8 +974,11 @@ export function mergePlain(root, n, opts = {}) {
     if (pass !== undefined) {
       passIds = entries.filter((e) => changed.some((f) => owned(f, e))).map((e) => e.id);
       if (!passIds.length) fail(`pull request ${n} changes no module's files: it is no pass; merge it without --pass`);
-      const live = liveJobs(root, passIds, { slug, tranche: base, entries, io });
-      if (live.length) fail(`pull request ${n} is a pass, and a pass runs while no job holds its modules (P7): ${live.slice(0, 5).join(', ')}`);
+      noLiveJobs = () => {
+        const live = liveJobs(root, passIds, { slug, tranche: base, entries, io });
+        if (live.length) fail(`pull request ${n} is a pass, and a pass runs while no job holds its modules (P7): ${live.slice(0, 5).join(', ')}`);
+      };
+      noLiveJobs();
       if (latestBlock(null, null, RECEIPT, io.comments(slug, n))) fail(`pull request ${n} carries a receipt: a pass has none; a job's work merges without --plain`);
     }
     const hits = pass !== undefined ? [] : changed.flatMap((f) => entries.filter((e) => owned(f, e) && !found(f, e)).map((e) => ({ f, id: e.id })));
@@ -1019,6 +1024,8 @@ export function mergePlain(root, n, opts = {}) {
   // The merger's lease (train.mjs), when the train lands it, checked again just before GitHub is asked.
   opts.beforeLand?.();
   held();
+  // A job started on a pass's module while its gate was awaited: no pass lands over it (cold review).
+  noLiveJobs();
   const r = mergeRetry(() => io.mergePR(slug, n, pr.head.sha, {
     title: `Merge PR ${n}: ${head} into ${base}`,
     message: [pass !== undefined ? `Pass: ${pass}` : reviewed ? `Reviewed: ${reviewed}` : `No review: ${noReview}`, `Review rounds: ${rounds.rounds}`, ...(rounds.decision ? [`Decision: ${rounds.decision}`] : [])].join('\n'),
@@ -1030,6 +1037,7 @@ export function mergePlain(root, n, opts = {}) {
       if (p.state !== 'open' || p.base?.ref !== base || p.head?.sha !== pr.head.sha) fail(`pull request ${n} changed while its base moved; run merge again`);
       opts.beforeLand?.();
       baseHolds();
+      noLiveJobs();
     },
   });
   if (!r?.merged) fail(`GitHub did not merge pull request ${n}: ${r?.message || 'no result'}`);

@@ -10,6 +10,7 @@ import { recordCheck, recordSince, takenIn } from './record.mjs';
 import { setupCheck } from './setup.mjs';
 import { addressFile, fetchState, readState, writeState } from './state.mjs';
 import { RESTARTS_FILE, entryHistory } from './lead.mjs';
+import { refuseUnpushable } from './pushcheck.mjs';
 import { movedText, retiredIds, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
@@ -1110,6 +1111,7 @@ function finish(root, { id, slug, pr, branch, push, io, log, receipt, amend = nu
     return { ok: true, receipt: a || receipt };
   }
   if (remoteTip(root, branch) !== sha) {
+    refuseUnpushable(root, loadConfig(root), { branch });
     if (again && !pr.draft) pr = { ...pr, ...io.toDraft(slug, pr), draft: true };
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); run job complete again${originAhead(root, branch) ? `, after \`${P3} job sync ${id}\`: origin's ${branch} has commits this checkout lacks` : ''}`);
@@ -1155,6 +1157,7 @@ export function jobBlock(root, id, { reason, owner, push = true, log = console.l
     try { commitFiles(root, [entryFile(id)], `block ${id}: ${reason}`); } catch (err) { restore(root, [entryFile(id)]); throw err; }
   }
   if (push) {
+    refuseUnpushable(root, loadConfig(root), { branch });
     const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
     // BOB's merge pushed to job/<id> (defect sweep 4 Nov, #5): name the step that brings it in.
     if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim()}); ${originAhead(root, branch) ? `origin's ${branch} has commits this checkout lacks: run \`${P3} job sync ${id}\`, then block again` : 'run block again'}`);

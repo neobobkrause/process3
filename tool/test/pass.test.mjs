@@ -114,8 +114,8 @@ test('a pass across two modules: the gate runs both suites as a pass, and merge 
   assert.match(f.calls.merged.message, new RegExp(`^Pass: ${WHY.replace(/[()/]/g, '\\$&')}\nReview rounds: 0$`));
 });
 
-test('a pass waits for no live job: an open job pull request, or a job branch not COMPLETE, refuses it', () => {
-  const p = product(SRC2, { jobs: { alpha: 'WORKING', beta: 'COMPLETE' } });
+test('a pass waits for no live job: an open job pull request, or a job branch WORKING, refuses it; a BLOCKED one alone does not', () => {
+  const p = product(SRC2, { jobs: { alpha: 'WORKING', beta: 'BLOCKED' } });
   const g = gateIO();
   posted(p, g);
   assert.throws(() => mergePlain(p.root, 260, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /a pass runs while no job holds its modules \(P7\): alpha \(WORKING on job\/alpha\)$/);
@@ -175,4 +175,31 @@ test('a pass that changes only a requirements file runs the module\'s whole suit
   assert.equal(r2.run.pass, undefined);
   assert.deepEqual(r2.run.requirements_only, [{ module: 'beta', files: ['test/beta/y.test.mjs'] }]);
   assert.throws(() => mergePlain(f.root, 260, { ...q, io: plainIO(f, g2.state.comments, g2.io.verify).io }), /is from bob\/words: a pass comes from a pass\/<name> branch, which the gate runs as a pass \(P7\)/);
+});
+
+test('a job that starts while the pass\'s gate is awaited stops the pass before it lands; one WORKING on the tranche holds it too', () => {
+  const p = product(SRC2);
+  const g = gateIO();
+  posted(p, g);
+  let reads = 0;
+  const late = plainIO(p, g.state.comments, g.io.verify, { openPRs: () => (++reads > 1 ? [{ number: 601, head: { ref: 'job/alpha' } }] : []) });
+  assert.throws(() => mergePlain(p.root, 260, { ...q, io: late.io }), /no job holds its modules \(P7\): alpha \(job PR 601 is open\)/);
+  assert.equal(late.calls.merged, null);
+  const w = product(SRC2);
+  git(['checkout', '-q', 'tranche'], { cwd: w.root });
+  commit(w.root, { 'process/ledger/beta.json': entry('beta', { requirements: REQ, status: { state: 'WORKING' } }) });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: w.root });
+  git(['checkout', '-q', 'main'], { cwd: w.root });
+  assert.throws(() => mergePlain(w.root, 260, { ...q, io: plainIO(w, [], () => true).io }), /beta \(WORKING on tranche\)/);
+});
+
+test('a pass\'s gate row must be on the base as it is and must not be narrowed to a requirements file\'s readers', () => {
+  const p = product({ 'test/alpha/x.test.mjs': PASS.replace('ok', 'still ok'), 'src/beta/index.mjs': 'export const y = 2;\n' });
+  const g = gateIO();
+  const r = posted(p, g);
+  for (const bad of [{ base: 'f'.repeat(40) }, { requirements_only: [{ module: 'beta', files: [] }] }, { pass: undefined }]) {
+    const io = gateIO();
+    io.io.addComment('o/r', 260, gateComment({ ...r.run, ...bad }));
+    assert.throws(() => mergePlain(p.root, 260, { ...q, io: plainIO(p, io.state.comments, io.io.verify).io }), /ran the whole suites of alpha, beta as a pass/, JSON.stringify(bad));
+  }
 });
