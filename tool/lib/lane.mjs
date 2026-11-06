@@ -389,17 +389,20 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   // the lane's research: the gate would let its changes skip the suite (review), so name it.
   const pre = l.kind === 'triage' ? null : qualification(root, l);
   if (pre && pre.files.length && !pre.index && !pre.records.length) fail(`lane ${l.name}'s research folder ${pre.area}/ already holds ${pre.files.length} file(s), and neither ${RESEARCH_INDEX} nor a qualification record: it is not the lane's research; set the lane's "research" in process/config.json to a folder of its own; nothing was started`);
-  // GitHub pacing (R17, pace.mjs): at most pacing.lanes lane sessions at once; a replace adds none.
-  if (!seat) {
-    const others = [...readSeats(root, cfg).values()].filter((x) => x.lane !== l.name);
+  // GitHub pacing (R17, pace.mjs): at most pacing.lanes lane sessions at once, a pending seat
+  // among them; a replace adds none. Checked here and again in the write, on the tip it writes to.
+  const laneCap = (seats) => {
+    const others = [...seats.values()].filter((x) => x.lane !== l.name);
     const max = pacedLanes(cfg);
-    if (others.length >= max) fail(`the lane cap is full: ${others.length} lane session(s) live (${others.map((x) => `lane ${x.lane}`).join(', ')}) of pacing.lanes ${max} in process/config.json (GitHub pacing); end one with ${P3} lane end <name>, or raise pacing.lanes; nothing was started`);
-  }
+    if (others.length >= max) fail(`the lane cap is full: ${others.length} lane session(s) live (${others.map((x) => `lane ${x.lane}${x.session ? '' : ' pending'}`).join(', ')}) of pacing.lanes ${max} in process/config.json (GitHub pacing); end one with ${P3} lane end <name>, or raise pacing.lanes; nothing was started`);
+  };
+  if (!seat) laneCap(readSeats(root, cfg));
   if (replace !== undefined && (!seat || replace !== (seat.session || 'pending'))) fail(`--replace names lane ${l.name}'s live session, ${seat ? seat.session || 'pending' : 'none'}; not ${JSON.stringify(replace)}`);
   const row = { row: 'start', at: now(), tranche: cfg.tranche, lane: l.name, ...(seat ? { replaces: seat.session || 'pending' } : {}) };
   writeState(root, cfg.state_branch, `lane ${l.name}: session started`, (wt) => {
     const s = seatAt(wt, l.name);
     if (!sameSeat(s, seat)) fail(`lane ${l.name}'s seat changed while this ran${s ? `: ${busy(l, s)}` : ''}; nothing was started`);
+    if (!seat) laneCap(seatsIn(existsSync(join(wt, LANE_SESSIONS_FILE)) ? readFileSync(join(wt, LANE_SESSIONS_FILE), 'utf8') : ''));
     put(wt, LANE_SESSIONS_FILE, row);
   });
   // BOB's address read here, not with roles.mjs readAddress: roles imports job, which imports this.

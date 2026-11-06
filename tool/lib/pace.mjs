@@ -16,6 +16,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 export const PACING_DEFAULTS = { jobs: 4, lanes: 1, gh_interval_ms: 2000, poll_first_s: 30, poll_most_s: 300 };
 export const POLL_FLOOR_S = 30;
+export const GH_FLOOR_MS = 1000;
 export const GITHUB_LOG = 'p3-github.jsonl';
 const STAMP = 'p3-gh-pace';
 
@@ -23,8 +24,9 @@ let current = { ...PACING_DEFAULTS };
 // The pacing in force: the defaults, the config's "pacing" over them (configOf sets it), and for
 // the tests P3_GH_INTERVAL_MS over the interval.
 export function setPacing(p) { current = { ...PACING_DEFAULTS, ...(p || {}) }; }
+// P3_GH_INTERVAL_MS (and P3_GITHUB_LOG=0) are read under the test runner only, never in a session.
 export function pacing(env = process.env) {
-  const ms = env.P3_GH_INTERVAL_MS;
+  const ms = env.NODE_TEST_CONTEXT ? env.P3_GH_INTERVAL_MS : undefined;
   return { ...current, ...(ms !== undefined && ms !== '' && /^\d+$/.test(ms) ? { gh_interval_ms: Number(ms) } : {}) };
 }
 // The session caps in force for a config: its pacing.jobs and pacing.lanes. Under the test runner
@@ -39,6 +41,7 @@ export function pacingProblem(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p)) return 'pacing is an object';
   for (const k of Object.keys(p)) if (!(k in PACING_DEFAULTS)) return `pacing.${k} is not a pacing key (${Object.keys(PACING_DEFAULTS).join(', ')})`;
   for (const k of ['jobs', 'lanes', 'gh_interval_ms', 'poll_first_s', 'poll_most_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= (k === 'jobs' || k === 'lanes' ? 1 : 0))) return `pacing.${k} is a whole number${k === 'jobs' || k === 'lanes' ? ', 1 or more' : ''}`;
+  if (p.gh_interval_ms !== undefined && p.gh_interval_ms < GH_FLOOR_MS) return `pacing.gh_interval_ms is ${GH_FLOOR_MS} or more: no more than one gh call a second per clone`;
   if (p.poll_first_s !== undefined && p.poll_first_s < POLL_FLOOR_S) return `pacing.poll_first_s is ${POLL_FLOOR_S} or more: no wait on GitHub polls tighter than ${POLL_FLOOR_S} s`;
   const first = p.poll_first_s ?? PACING_DEFAULTS.poll_first_s;
   if (p.poll_most_s !== undefined && p.poll_most_s < first) return 'pacing.poll_most_s is at least pacing.poll_first_s';
@@ -59,11 +62,11 @@ function commonDir(cwd) {
   if (!d) return tmpdir();
   return isAbsolute(d) ? d : resolve(cwd || process.cwd(), d);
 }
-export const githubLog = (cwd) => process.env.P3_GITHUB_LOG || join(commonDir(cwd), GITHUB_LOG);
+export const githubLog = (cwd) => (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG) || join(commonDir(cwd), GITHUB_LOG);
 
 // One event: a gh call, a push, an Actions dispatch. Never fails the act it records.
 export function logEvent(kind, what, cwd) {
-  if (process.env.P3_GITHUB_LOG === '0') return;
+  if (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG === '0') return;
   try { appendFileSync(githubLog(cwd), JSON.stringify({ at: new Date().toISOString(), kind, session: process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null, what: String(what).slice(0, 120) }) + '\n'); } catch { /* the log is a record, not a gate */ }
 }
 

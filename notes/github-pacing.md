@@ -36,3 +36,22 @@ Raise the caps only once the budget shows room. Moving the copy's 8 live jobs an
 2. **process3's `ci.yml`** runs on `opened, synchronize, reopened, edited`. Proposal: drop `edited`, which re-runs the whole suite when only a title or body changes. Also add the same draft condition with `ready_for_review` in its types.
 3. **process3's `record.yml`** runs on every push to every branch, the state branch included. Proposal: `branches-ignore: [process-state]`, since state rows are not product records.
 4. **Branch cleanup** (the copy's `process-branch-prune.yml`) already runs once a day (`47 10 * * *`), not hourly; nothing to change. The hourly job is ROOT's sweep, which pushes one state commit per run now.
+
+## Cold review (one pass), fixed
+
+- **Concurrent p3 processes in one clone could drop each other's coalesced writes.** Fixed: the flush always reads origin's tip under the state lock and makes every pending change again on it; a later write does the same when the clone's ref moved.
+- **A killed command lost its unflushed writes.** Fixed:
+  - each pending write is kept at once under `refs/p3/pending/<pid>/`;
+  - SIGTERM, SIGHUP and SIGINT flush before exiting;
+  - the next command in the clone moves a dead process's kept writes to `refs/p3/unpushed/` and names `state replay`;
+  - `state replay` pushes each write before dropping its kept ref.
+- **A refused flush could keep other writers' commits for replay.** Fixed: it keeps only its own pending refs.
+- **Commands that hand out a session acted on a write before it was pushed.** Fixed: `job start`, `lane start`, `start`, `handover` and `state replay` push at once.
+- **`layer publish` still polled every 30 s or faster.** Fixed: unset, it backs off; `--every` takes 30 s or more.
+- **The lane cap could be passed by two starts at once.** Fixed: it is checked again inside the write.
+- **The pacing test overrides could switch pacing off in a session.** Fixed: `P3_GH_INTERVAL_MS` and `P3_GITHUB_LOG` are read under the test runner only, and `gh_interval_ms` has a floor of 1000.
+
+Left as they are:
+- the gh stamp is not locked, so two processes in one clone can call gh in the same second;
+- the last config read sets the pacing in force;
+- state-push retries still wait 2–16 s, which is bounded.

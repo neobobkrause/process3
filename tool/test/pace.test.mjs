@@ -8,8 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { laneStart } from '../lib/lane.mjs';
-import { ghTurn, githubBudget, pacingProblem, pollMs, pushSeen, PACING_DEFAULTS } from '../lib/pace.mjs';
-import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, writeState } from '../lib/state.mjs';
+import { ghTurn, githubBudget, pacing, pacingProblem, pollMs, pushSeen, PACING_DEFAULTS } from '../lib/pace.mjs';
+import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, strandedWrites, writeState } from '../lib/state.mjs';
 import { flow } from '../lib/status.mjs';
 import { configOf, git, jobCap } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
@@ -40,6 +40,10 @@ test('pacing config: conservative defaults; a key outside pacing, a cap under 1 
   assert.deepEqual(configOf({}).pacing, PACING_DEFAULTS);
   assert.equal(configOf({ pacing: { jobs: 6 } }).pacing.jobs, 6);
   assert.equal(pacingProblem({ jobs: 0 }), 'pacing.jobs is a whole number, 1 or more');
+  assert.match(pacingProblem({ gh_interval_ms: 500 }), /gh_interval_ms is 1000 or more/);
+  // The test stand-ins are read under the test runner only, never in a session.
+  assert.equal(pacing({ P3_GH_INTERVAL_MS: '0' }).gh_interval_ms, 2000);
+  assert.equal(pacing({ P3_GH_INTERVAL_MS: '0', NODE_TEST_CONTEXT: 'child' }).gh_interval_ms, 0);
   assert.match(pacingProblem({ burst: 3 }), /pacing\.burst is not a pacing key/);
   assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /pacing\.poll_first_s is 30 or more: no wait on GitHub polls tighter than 30 s/);
   assert.throws(() => configOf({ pacing: { poll_first_s: 60, poll_most_s: 40 } }), /poll_most_s is at least pacing\.poll_first_s/);
@@ -69,7 +73,7 @@ test('lane start refuses past pacing.lanes, naming the live lanes; a replace add
   const files = { 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }, { name: 'pub', dir: 'design/pub' }] }, 'design/ux/README.md': 'x\n', 'design/pub/README.md': 'x\n' };
   const { root } = withOrigin(files);
   laneStart(root, 'ux', { slug: 'o/p', log: quiet });
-  assert.throws(() => laneStart(root, 'pub', { slug: 'o/p', log: quiet }), /the lane cap is full: 1 lane session\(s\) live \(lane ux\) of pacing\.lanes 1 in process\/config\.json \(GitHub pacing\).*nothing was started/);
+  assert.throws(() => laneStart(root, 'pub', { slug: 'o/p', log: quiet }), /the lane cap is full: 1 lane session\(s\) live \(lane ux pending\) of pacing\.lanes 1 in process\/config\.json \(GitHub pacing\).*nothing was started/);
   laneStart(root, 'ux', { slug: 'o/p', replace: 'pending', log: quiet });
   const two = withOrigin({ ...files, 'process/config.json': { ...files['process/config.json'], pacing: { lanes: 2 } } });
   laneStart(two.root, 'ux', { slug: 'o/p', log: quiet });
@@ -133,7 +137,7 @@ test('coalesced state writes: read at once in the command, pushed once at its en
   git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'theirs'], { cwd: other });
   git(['push', '-q', 'origin', SB], { cwd: other });
   assert.equal(flushState(), 2);
-  assert.equal(pushes, 2, 'one refused (origin moved), then one push for both writes');
+  assert.equal(pushes, 1, 'the flush reads origin\'s tip first: one push for both writes');
   assert.equal(git(['show', `${SB}:a.txt`], { cwd: bare }), '1\n2');
   assert.equal(git(['show', `${SB}:b.txt`], { cwd: bare }), 'theirs');
   assert.deepEqual(git(['log', '--format=%s', '-3', SB], { cwd: bare }).split('\n'), ['two', 'one', 'theirs']);
@@ -170,4 +174,35 @@ test('a command run through p3 pushes its state writes once, at its end, and lea
   assert.equal(pendingWrites(), 0);
   writeState(root, 'process-state', 'after', (wt) => { writeFileSync(join(wt, 'after.txt'), 'x\n'); return {}; });
   assert.equal(pushes, 2, 'outside a command a write pushes at once');
+});
+
+test('coalesced writes survive another process resetting the clone\'s ref, a kill before the flush, and a refused flush keeps only its own', (t) => {
+  const { root, bare } = withOrigin({ 'README.md': 'x\n' });
+  const SB = 'process-state';
+  writeState(root, SB, 'seed', (wt) => { writeFileSync(join(wt, 'seed.txt'), 's\n'); return {}; });
+  stateIO.wait = 1;
+  stateBatch(true);
+  t.after(() => { stateBatch(false); stateIO.push = null; stateIO.wait = null; });
+  const put = (f, v) => (wt) => { writeFileSync(join(wt, f), v); return {}; };
+  // Another p3 process in this clone fetches over the ref (cold review of R17: the write was lost).
+  writeState(root, SB, 'mine', put('mine.txt', 'm\n'));
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  assert.equal(readState(root, SB, 'mine.txt'), null);
+  writeState(root, SB, 'mine too', put('too.txt', 't\n'));
+  assert.equal(readState(root, SB, 'mine.txt'), 'm\n', 'a later write makes the earlier one again');
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  assert.equal(flushState(), 2);
+  assert.deepEqual([git(['show', `${SB}:mine.txt`], { cwd: bare }), git(['show', `${SB}:too.txt`], { cwd: bare })], ['m', 't']);
+  assert.equal(git(['for-each-ref', 'refs/p3/pending/'], { cwd: root }), '', 'pushed: nothing kept');
+  // A command killed before its flush: its kept write is moved for replay by the next command.
+  git(['update-ref', 'refs/p3/pending/999999/0000', git(['rev-parse', `refs/remotes/origin/${SB}`], { cwd: root })], { cwd: root });
+  assert.equal(strandedWrites(root, { alive: () => false }), 1);
+  assert.match(git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }), /^refs\/p3\/unpushed\/\d+-999999-0000-[0-9a-f]{7}$/);
+  git(['update-ref', '-d', git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root })], { cwd: root });
+  // Refused to the end: only this command's own write is kept, never another writer's commit.
+  stateIO.push = () => ({ code: 1, stdout: '', stderr: 'remote: fatal error in commit_refs' });
+  writeState(root, SB, 'refused', put('r.txt', 'r\n'));
+  assert.throws(() => flushState(), /This command's 1 state write\(s\) are kept: replay them with `node \.process\/tool\/p3\.mjs state replay`/);
+  const kept = git(['for-each-ref', '--format=%(refname) %(subject)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
+  assert.deepEqual(kept.map((l) => l.split(' ').slice(1).join(' ')), ['refused']);
 });
