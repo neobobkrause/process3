@@ -5,9 +5,6 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Fail, fail, fetchRetry, git, now, pushRetry, withStateLock, withTemp } from './util.mjs';
-// State-branch pushes are logged and counted, never gated (R17b): the process's own record, the
-// pause itself among it, must be written while the account is paused.
-import { exempt } from './pace.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -155,7 +152,7 @@ export function flushState({ log = () => {} } = {}) {
           git(['worktree', 'add', '-q', '--detach', wt, tipOf(root, sb) || emptyStart(root, sb)], { cwd: root });
           const redo = () => { for (const { msg, change } of list) { change(wt); git(['add', '-A'], { cwd: wt }); git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt }); } };
           redo();
-          exempt(() => pushRetry(wt, sb, { redo, log, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }));
+          pushRetry(wt, sb, { redo, log, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) });
         }, { root });
       });
     } catch (e) {
@@ -190,7 +187,7 @@ function writeStateNow(root, sb, msg, change) {
     // one "fatal error in commit_refs"). Given up, the commit is kept under refs/p3/unpushed/ and the
     // refusal names the command that replays it.
     let tip;
-    try { tip = exempt(() => pushRetry(wt, sb, { redo: make, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) })); } catch (e) {
+    try { tip = pushRetry(wt, sb, { redo: make, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;
       git(['update-ref', name, 'HEAD'], { cwd: wt });

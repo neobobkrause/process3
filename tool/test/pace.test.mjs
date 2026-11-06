@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import { laneStart } from '../lib/lane.mjs';
 import { budgetGate, classify, ghAfter, ghTurn, usage, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
 import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
-import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, strandedWrites, writeState } from '../lib/state.mjs';
+import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, stateReplay, strandedWrites, writeState } from '../lib/state.mjs';
 import { configOf, git, jobCap } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -346,7 +346,7 @@ test('coalesced writes survive another process resetting the clone\'s ref, a kil
 import { cloneId, exempt, noteTurn, pushTurn } from '../lib/pace.mjs';
 import { ledgerOf, USE_DIR } from '../lib/ghshare.mjs';
 
-test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the tool\'s own included; state-branch pushes are counted, never held', (t) => {
+test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the tool\'s own included', (t) => {
   const f = logFile();
   env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
   assert.equal(configOf({}).pacing.pushes_per_hour, 120);
@@ -365,10 +365,44 @@ test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the 
   // A stopped account: the tool's own push (git()) is refused with the budget's words...
   useShared({ read: () => ({ pause: { at: '2026-11-06T21:00:00Z', until: '2026-11-06T21:01:00Z', why: 'secondary rate limit', stopped: true }, use: [] }), pause: () => null });
   assert.throws(() => git(['push', '-q', 'origin', 'HEAD:refs/heads/x'], { cwd: root }), /GitHub budget: GitHub refused this account again/);
-  // ...while a state-branch push (exempt) still goes, logged.
+  // ...and only the ledger's own writes (exempt) pass, logged.
   const before = readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('"kind":"push"')).length;
   exempt(() => pushTurn(['push', '-q', 'origin', 'HEAD:refs/heads/process-state'], root, { p: P, now: c.now, sleep: c.sleep }));
   assert.equal(readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('"kind":"push"')).length, before + 1);
+});
+
+test('at the push ceiling a state write is held and kept for replay, never dropped; the ledger\'s pause write passes (coordinator, PR 206)', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const { root, bare } = withOrigin({ 'process/config.json': {} });
+  const cfg = configOf({});
+  writeState(root, 'process-state', 'seed', (wt) => { writeFileSync(join(wt, 'seed.txt'), 's\n'); return {}; });
+  // 120 pushes by another session in the last minute: the window frees none within 15 minutes.
+  const full = { pause: null, use: [{ session: 'cse_other', clone: 'elsewhere', minute: new Date(Date.now() - 30e3).toISOString(), calls: 0, points: 0, content: 0, pushes: 120 }] };
+  const real = stateShare(root, cfg);
+  useShared({ read: () => full, pause: real.pause, resume: real.resume });
+  assert.throws(() => writeState(root, 'process-state', 'held', (wt) => { writeFileSync(join(wt, 'held.txt'), 'h\n'); return {}; }),
+    /\d+ of the 120 pushes an hour.*the ceiling \(120\).*The write is kept: replay it with `node \.process\/tool\/p3\.mjs state replay refs\/p3\/unpushed\//s);
+  assert.equal(git(['show', 'process-state:held.txt'], { cwd: bare, allowFail: true }).code, 128, 'not pushed');
+  const kept = git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
+  assert.equal(kept.length, 1);
+  assert.equal(git(['show', `${kept[0]}:held.txt`], { cwd: root }), 'h', 'the write survives');
+  // A coalesced command's writes the same: kept, named for replay.
+  stateBatch(true);
+  t.after(() => stateBatch(false));
+  writeState(root, 'process-state', 'coalesced', (wt) => { writeFileSync(join(wt, 'c.txt'), 'c\n'); return {}; });
+  assert.throws(() => flushState(), /This command's 1 state write\(s\) are kept: replay them/);
+  stateBatch(false);
+  assert.equal(git(['for-each-ref', '--format=%(subject)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean).sort().join(','), 'coalesced,held');
+  // The ledger's own pause write goes through at the ceiling.
+  const rec = ghAfter(['pr', 'comment'], { code: 1, stderr: 'HTTP 403: You have exceeded a secondary rate limit' }, root);
+  assert.equal(rec.unshared, undefined);
+  assert.equal(JSON.parse(git(['show', `process-state:${PAUSE_FILE}`], { cwd: bare })).stopped, false);
+  // Once there is room, the kept writes replay.
+  useShared(null);
+  stateReplay(root, 'process-state', [], { log: () => {} });
+  assert.equal(git(['show', 'process-state:held.txt'], { cwd: bare }), 'h');
+  assert.equal(git(['show', 'process-state:c.txt'], { cwd: bare }), 'c');
 });
 
 test('github note: a session\'s connector writes are reserved and logged before it makes them, waiting at the content target', (t) => {
@@ -418,7 +452,10 @@ test('one ledger per account: a process3 clone reads and writes the product\'s s
   // The process3 clone's use is shared onto the product's ledger.
   process.env.CLAUDE_CODE_SESSION_ID = 'cse_p3';
   ghTurn(['api', 'repos/o/p'], p3, { p: P, now: c.now, sleep: c.sleep });
-  assert.ok(stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow() >= 1, 'shared once share_s has passed');
+  // The share is gated and never waits: refused while the account is paused, shared after.
+  assert.throws(() => stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow(), /GitHub budget: GitHub rate-limited this account.*not now; tried again later/);
+  stateShare(product, configOf({})).resume('session_coord');
+  assert.ok(stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow() >= 1, 'shared once share_s has passed and the pause is lifted');
   assert.match(git(['ls-tree', '--name-only', 'process-state', `${USE_DIR}/`], { cwd: bare }), /github\/use\/cse_p3\.jsonl/);
 });
 

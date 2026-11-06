@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { fetchState, flushState, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { fail, git, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
-import { exempt, nextPause, pacing, readLog, sessionId, usageRows } from './pace.mjs';
+import { exempt, nextPause, pacing, readLog, sessionId, usageRows, withoutWaiting } from './pace.mjs';
 import { PROCESS_ROOT } from './register.mjs';
 
 export const PAUSE_FILE = 'github/pause.json';
@@ -158,8 +158,9 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg.state_branch);
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
-  // The share's own push is logged, not gated: a gate here would wait on the use it reports.
-  exempt(() => st.write(`github: ${rows.length} minute(s) of use`, (wt) => {
+  // The share's push is gated like any push but never waits (coordinator's ruling on PR 206): where
+  // the account is paused or at the ceiling it is refused, the mark stays, and it is shared later.
+  withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use`, (wt) => {
     mkdirSync(join(wt, USE_DIR), { recursive: true });
     const since = now() - 2 * 3600e3;
     let kept = [];

@@ -239,16 +239,21 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 function waitUntil(until, why, { now, sleep }) {
   const ms = until - now();
   if (ms <= 0) return;
+  if (noWait) throw new Paced(`GitHub budget: ${why}: not now; tried again later`);
   if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: acts on GitHub wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); run this again then`);
   sleep(ms);
 }
 
 // Before a gh call: the stop, the pause, the primary limit at target, each secondary window at
 // target, then the per-clone floor; logs the call with its cost. Throws Paced to refuse.
-// Paced acts (pushes, notes) run with no gate while exempt: the ledger's own pause and resume
-// writes, which must go through even while the account is paused or stopped.
+// Paced acts (pushes, notes) run with no gate while exempt: only the ledger's own pause, stop and
+// resume writes, which must go through while the account is paused, stopped or at the ceiling
+// (coordinator's ruling on PR 206). Every other push, state-branch pushes included, waits its turn.
 let exempting = 0;
 export function exempt(fn) { exempting++; try { return fn(); } finally { exempting--; } }
+// Acts that must not wait (the usage share): refused at once where they would wait, and tried later.
+let noWait = 0;
+export function withoutWaiting(fn) { noWait++; try { return fn(); } finally { noWait--; } }
 
 // Before any act on GitHub: the stop, the pause, the primary limit, each window at target (and the
 // push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The pause

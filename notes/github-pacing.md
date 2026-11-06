@@ -107,7 +107,7 @@ Open:
 - **One ledger per account.** It is the product's state branch (neobobkrause/civicsmith-copy process-state, `github/`). A clone finds it in its config's `pacing.ledger`, else in the pinned process3's `pacing.json`, else in its own `pacing.json`. So process3's clones and every product (process3-probes among them) share it once their pin holds this change, and before that the probe keeps its own. The ledger is read fresh before every content-creating call and every push.
 - **The push ceiling, PD-3 in DECISIONS.md.**
   - `pacing.pushes_per_hour` is 120, account-wide, applied like a window. It covers every push the tool makes (gated in `git()`) and `p3 github push`.
-  - State-branch pushes, the ledger's own writes among them, are counted but never held, so the pause can always be written.
+  - State-branch pushes are held like any push (coordinator's ruling on PR 206: they were most of 6 Nov's volume). Only the ledger's pause, stop and resume writes pass while the account is paused, stopped or at the ceiling. A command whose state push would wait past 15 min keeps its writes under `refs/p3/unpushed/` for `state replay`, and says so. The usage share is gated but never waits.
   - `github budget` shows the hour's pushes against the ceiling, and `job start` and `lane start` wait while it is full.
 
 ### R17b's cold review, fixed
