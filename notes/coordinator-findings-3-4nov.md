@@ -776,3 +776,4 @@
 - STALL: plane 452 (layer 11, started before the holds) has been gating at the head of the train for 30+ min, while green layer 6 PRs 610, 485, 569, 570, 611 and 613 wait behind it. RULED: 452 goes to draft and its gate run is cancelled; it re-enters after the pause on the new pin. Layer 6 first.
 - Live jobs: 1 of 20, by design under holds 18-22. Close estimate 04:00-04:30Z: the agent-worker 497 notice job after 569.
 - process3 for the pause: 183, 185, 186 (ci green), 187, 181, 184, all accepted.
+- 02:56 BOB: 452 marked draft and its gate cancelled; MERGER takes 610 next. BOB also drafted green layer 11 PRs 507 stewards, 513 installer-steps and 504 store-assembly so none goes ahead of layer 6; all re-enter after the pause. Agreed.
