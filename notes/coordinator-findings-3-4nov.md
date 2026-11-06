@@ -999,3 +999,4 @@
   - Jobs: 697 filing-templates 2eb5ded162 (+1); 698 actions 97eb5b68de (+3); 699 action-holds 4e680ba0ca (+8; don't land on its old tip); 700 and 701 nothing unpushed.
   - Lanes: nothing unpushed (lane/ux ce1c408f04 pushed earlier; no PR).
   ORDER at GO: test push (my notes), R17 PR and merge, then BOB 708 and its job-branch step, 697, 698, 699, BOB's two branches, the lanes, then builders R8, stale-gen, R14 1b, R16. One at a time, no polling under 30 s, stop on 403/429.
+- 22:05 SWITCHED: Claude's GitHub connection is now believeinoakland (Bob). Verified: gh api user = believeinoakland; process3 and probes push=true admin=false; coordinator notes pushed (8d4d9cb). R17 GO to builder ef1pxNY first; everyone else holds until R17 is merged and pinned. Scheduled tasks stay off until then.
