@@ -24,7 +24,8 @@
 // State: one file per event under layerflow/<n>/ on the state branch (layerbase.mjs flowFile).
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
 import { classifyTestChange } from './testdiff.mjs';
@@ -37,7 +38,7 @@ import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBra
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { endLayerHolds } from './hold.mjs';
-import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
+import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 export const LAND_TITLE = /^Merge layer PR (\d+)$/;
@@ -193,7 +194,7 @@ export function flowRows(root, sb, n) {
   const files = r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
   const rows = files.flatMap((f) => { try { return [JSON.parse(readState(root, sb, f))]; } catch { return []; } });
   const by = (k) => rows.filter((x) => x.row === k).sort((a, b) => String(a.at).localeCompare(String(b.at)));
-  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule'), retests: by('retest'), retest_refusals: by('retest-refused'), tests: by('test'), gates: by('gate') };
+  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule'), retests: by('retest'), retest_refusals: by('retest-refused'), syncs: by('sync'), tests: by('test'), gates: by('gate') };
 }
 // One file per event, added and never edited: an existing file is the same event, kept.
 function addFiles(w, files) {
@@ -354,6 +355,8 @@ export function layerLines(root, cfg, { slug, io = {} } = {}) {
     if (!r.open) { L.push(`layer flow: layer ${n} is next and not open: \`${P3} layer open ${n}\``); return L; }
     fetchBranch(root, layerBranch(n), { allowFail: true });
     const x = readLayer(root, cfg, n, { io, slug });
+    const sync = syncOwed(root, cfg, n);
+    if (sync) L.push(sync.line);
     const by = (k) => x.states.filter((s) => s.state === k).map((s) => s.id);
     L.push(`layer flow: layer ${n} open on ${layerBranch(n)}; ${['complete', 'deferred', 'published', 'working', 'rescheduled', 'not started'].map((k) => `${k} ${by(k).length}`).join(', ')}`);
     for (const s of x.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
@@ -427,10 +430,12 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   needLayerMode(cfg, 'layer jobs');
   fetchLayer(root, cfg, n);
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
+  const sync = syncOwed(root, cfg, n);
+  if (sync) log(sync.line);
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
   for (const x of s) log(`  ${x.cmd}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
-  return { ok: true, startable: s, states: L.states };
+  return { ok: true, startable: s, states: L.states, sync };
 }
 
 export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
@@ -737,6 +742,204 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   return { ok: true, land, messages: msgs, retests };
 }
 
+// ---- layer sync (R11) -----------------------------------------------------------------------
+
+// Bob, 6 Nov ~16:15 (SLB-12): every pin move made while a layer is open is followed by layer sync <n>
+// before any job in it lands. A pin move reaches no open layer branch by itself: the gate and the
+// record check run the base's own tool, so layer/<n> kept the tool it was cut with (copy, 6 Nov:
+// layer/8 at 4a85f26 refused R4's carried entries after the tranche moved to 0635b64).
+const pinOf = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root, allowFail: true }).stdout.match(/^160000 commit ([0-9a-f]{40,64})\t/)?.[1] || null;
+// { line, why, afterLastLand, lastLand } when layer/<n>'s pin differs from the tranche's; null in sync.
+export function syncOwed(root, cfg, n) {
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const [lp, tp] = [pinOf(root, layerRef(n)), pinOf(root, tr)];
+  if (!lp || !tp || lp === tp) return null;
+  const why = `${layerBranch(n)}'s process pin ${short(lp)} differs from ${cfg.tranche}'s ${short(tp)}`;
+  // The first pin move the layer lacks, dated when it reached the tranche (its first-parent commit
+  // there), never the pin branch's own commit date (cold review of PR 198).
+  const moved = git(['log', '--first-parent', '--reverse', '--format=%cI', `${layerRef(n)}..${tr}`, '--', '.process'], { cwd: root, allowFail: true }).stdout.trim().split('\n')[0] || '';
+  const lands = flowRows(root, cfg.state_branch, n).lands;
+  const lastLand = lands.map((l) => l.at).sort().at(-1) || null;
+  return { why, lastLand, moved, afterLastLand: !!moved && (!lastLand || Date.parse(moved) > Date.parse(lastLand)), line: `run ${P3} layer sync ${n} first: ${why}; a pin move while a layer is open is followed by layer sync before any job in it lands (SLB-12)` };
+}
+const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
+// The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
+// ledger entry as the layer has it (its jobs' states; R4's carried entries). Any other refuses.
+const syncSide = (f) => (f === '.process' || (SHIMS.has(f.split('/').pop()) && (f.startsWith('.github/') || f.startsWith('.claude/') || !f.includes('/'))) ? 'theirs' : /^process\/ledger\/[^/]+\.json$/.test(f) ? 'ours' : null);
+
+export const SYNC_TITLE = /^Merge layer sync PR (\d+)$/;
+// The tool's merge of the tranche tip into a layer commit, in a worktree: { tree, resolved, conflictsOutside }.
+function syncMerge(root, cfg, n, base, ttip, w) {
+  git(['worktree', 'add', '-q', '--detach', w, base], { cwd: root });
+  const m = git(['merge', '-q', '--no-ff', '--no-commit', ttip], { cwd: w, allowFail: true });
+  const conflicted = m.code === 0 ? [] : git(['diff', '--name-only', '--diff-filter=U'], { cwd: w }).split('\n').filter(Boolean);
+  if (m.code !== 0 && !conflicted.length) fail(`merging ${cfg.tranche} into ${layerBranch(n)} failed (${(m.stderr || m.stdout).trim().split('\n').pop()}); nothing was opened`);
+  const bad = conflicted.filter((f) => !syncSide(f));
+  if (bad.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); fail(`layer sync ${n} refused: ${layerBranch(n)} and ${cfg.tranche} conflict in ${bad.join(', ')}; only .process, the process's shims and ledger entries are resolved by the tool; nothing was opened`); }
+  for (const f of conflicted) {
+    const side = syncSide(f);
+    // The side's version, or its deletion (a modify/delete conflict).
+    const stage = side === 'ours' ? 2 : 3;
+    const has = git(['ls-files', '-u', '--', f], { cwd: w }).split('\n').some((l) => l.split(/\s+/)[2] === String(stage));
+    if (f === '.process') {
+      const pin = pinOf(root, ttip);
+      if (pin) git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w });
+      else git(['rm', '-q', '--cached', '--', '.process'], { cwd: w });
+    } else if (!has) git(['rm', '-q', '--', f], { cwd: w });
+    else { git(['checkout', '-q', `--${side}`, '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); }
+  }
+  git(['commit', '-q', '--no-edit', '-m', `Merge ${cfg.tranche} ${short(ttip)} into ${layerBranch(n)} (layer sync)${conflicted.length ? `: ${conflicted.map((f) => `${f} ${syncSide(f) === 'ours' ? 'the layer\'s' : `${cfg.tranche}'s`}`).join(', ')}` : ''}`], { cwd: w });
+  return { head: git(['rev-parse', 'HEAD'], { cwd: w }), tree: git(['rev-parse', 'HEAD^{tree}'], { cwd: w }), resolved: conflicted };
+}
+
+// After the layer syncs, each open job PR's branch takes the synced layer tip by a merge commit, so its
+// gate runs with the new tool (coordinator, 6 Nov: layer 8's job PRs 658-661 were red only on the old
+// tool's ledger finding, their sessions archived). Only when the merge is clean but for .process, the
+// shims and the job's own ledger entry (kept as the job wrote it), and brings nothing but those and
+// records (no code): then the
+// receipt still stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
+export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null) {
+  const b0 = layerBranch(n);
+  const tip = rev(root, layerRef(n));
+  const out = { merged: [], left: [] };
+  // Records (other modules' metrics rows and the like) are no code: a receipt stands over them.
+  const allowed = (f) => f === '.process' || syncSide(f) === 'theirs' || /^process\/ledger\/[^/]+\.json$/.test(f) || isRecordPath(cfg, f);
+  for (const p of prs) {
+    const id = branchModule(p.head?.ref, ids);
+    if (!id || !String(p.head.ref).startsWith('job/')) continue;
+    // A fork's PR names a branch that is not origin's: never pushed to (cold review of PR 198).
+    if (slug && p.head?.repo?.full_name && p.head.repo.full_name !== slug) continue;
+    const branch = p.head.ref;
+    const leave = (why) => { out.left.push({ id, pr: p.number, branch, why }); log(`  ${branch} (PR ${p.number}) left as it is: ${why}`); };
+    fetchBranch(root, branch, { allowFail: true });
+    const head = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${branch}`], { cwd: root, allowFail: true }).stdout.trim();
+    if (!head) { leave('its branch is not on origin'); continue; }
+    if (isAnc(root, tip, head)) continue;
+    if (entryAt(root, head, id)?.status?.state === 'BLOCKED') { leave('BLOCKED'); continue; }
+    const r = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      git(['worktree', 'add', '-q', '--detach', w, head], { cwd: root });
+      try {
+        const m = git(['merge', '-q', '--no-ff', '--no-commit', tip], { cwd: w, allowFail: true });
+        const conflicted = m.code === 0 ? [] : git(['diff', '--name-only', '--diff-filter=U'], { cwd: w }).split('\n').filter(Boolean);
+        if (m.code !== 0 && !conflicted.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the merge failed (${(m.stderr || m.stdout).trim().split('\n').pop()})` }; }
+        const bad = conflicted.filter((f) => f !== entryFile(id) && syncSide(f) !== 'theirs');
+        if (bad.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `a conflict in ${bad.join(', ')}` }; }
+        for (const f of conflicted) {
+          if (f === '.process') { const pin = pinOf(root, tip); if (pin) git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w }); else git(['rm', '-q', '--cached', '--', '.process'], { cwd: w }); continue; }
+          if (f === entryFile(id)) {
+            // Its own entry: the layer's, with the job's status laid over it, so the gate's ledger
+            // rule (only the status may differ from the base) holds (cold review of PR 198).
+            const stage = (k) => { const r = git(['show', `:${k}:${f}`], { cwd: w, allowFail: true }); try { return r.code === 0 ? JSON.parse(r.stdout) : null; } catch { return undefined; } };
+            const [mine, theirs] = [stage(2), stage(3)];
+            if (!mine || !theirs) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `its entry ${f} cannot be joined (${!mine ? 'the job\'s' : 'the layer\'s'} is missing or unreadable)` }; }
+            writeFileSync(join(w, f), JSON.stringify({ ...theirs, status: mine.status }, null, 2) + '\n');
+            git(['add', '--', f], { cwd: w });
+            continue;
+          }
+          const side = 'theirs';
+          const has = git(['ls-files', '-u', '--', f], { cwd: w }).split('\n').some((l) => l.split(/\s+/)[2] === '3');
+          if (!has) git(['rm', '-q', '--', f], { cwd: w });
+          else { git(['checkout', '-q', `--${side}`, '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); }
+        }
+        // What the merge changes on the job's branch: the pointer, shims and ledger entries only.
+        // No rename detection: a rename lists the path it removes too (as diffNames reads it).
+        const changed = git(['diff', '--cached', '--no-renames', '-z', '--name-only', head], { cwd: w }).split('\0').filter(Boolean);
+        const other = changed.filter((f) => !allowed(f));
+        if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its receipt would not stand; its job syncs it` }; }
+        git(['commit', '-q', '--no-edit', '-m', `Merge ${b0} ${short(tip)} into ${branch} (layer sync: ${changed.join(', ') || 'no file'})`], { cwd: w });
+        const h = git(['rev-parse', 'HEAD'], { cwd: w });
+        const push = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });
+        if (push.code !== 0) return { why: `the push was refused (${push.stderr.trim().split('\n').pop()})` };
+        return { head: h, changed };
+      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    if (r.why) { leave(r.why); continue; }
+    out.merged.push({ id, pr: p.number, branch, head: r.head, changed: r.changed });
+    log(`  ${branch} (PR ${p.number}) took ${b0} ${short(tip)}: ${r.changed.join(', ') || 'no file'}; its gate re-runs with the new tool`);
+  }
+  return out;
+}
+
+// p3 layer sync <n> [--no-wait] (BOB): the tranche into layer/<n> by a tool-made merge PR, landed by
+// the merge tool on a green gate (the gate runs layer/<n>'s own tool, which takes a plain PR's
+// ledger entries, pointer and shims). Nothing when layer/<n> already holds the tranche tip.
+export async function layerSync(root, n, { io = {}, log = console.log, wait = true, by = 'bob' } = {}) {
+  n = layerNum(n);
+  const cfg = loadConfig(root);
+  needLayerMode(cfg, 'layer sync');
+  const slug = io.slug || repoSlug(root);
+  const x = { findPR, createPR, checkRun, getPR, openPRs, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
+  fetchLayer(root, cfg, n);
+  const rows = flowRows(root, cfg.state_branch, n);
+  if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
+  if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche}`);
+  const b0 = layerBranch(n);
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const [tip, ttip] = [rev(root, layerRef(n)), rev(root, tr)];
+  // A sync merged whose row was never written (the run stopped after GitHub's merge) is recorded now.
+  const known = new Set((rows.syncs || []).map((r) => r.pr));
+  const lost = git(['log', '--first-parent', '--format=%H %s', layerRef(n), '--not', rows.open.from], { cwd: root, allowFail: true }).stdout.split('\n').map((l) => [l.slice(0, l.indexOf(' ')), l.slice(l.indexOf(' ') + 1).match(SYNC_TITLE)?.[1]]).filter(([, k]) => k && !known.has(Number(k)));
+  if (lost.length) writeRows(root, cfg.state_branch, `layer ${n}: sync rows recorded late`, lost.map(([c, k]) => [flowFile(n, 'sync', k), { row: 'sync', layer: n, pr: Number(k), merge: c, recovered: true, at: now(), by }]));
+  const jobsOf = () => {
+    const open = x.openPRs(slug, b0);
+    if (open === null) { log(`GitHub unreadable: the job PRs into ${b0} were not brought up to it; run ${P3} layer sync ${n} again`); return null; }
+    fetchBranch(root, b0, { allowFail: true });
+    const ids = new Set([...ledgerIds(root, layerRef(n)), ...ledgerIds(root, tr)]);
+    const r = syncJobs(root, cfg, n, open, ids, log, slug);
+    if (r.merged.length || r.left.length) log(`layer sync ${n}: ${r.merged.length} job branch(es) took the layer, ${r.left.length} left as they are`);
+    return r;
+  };
+  if (isAnc(root, ttip, tip)) { log(`${b0} holds ${cfg.tranche} ${short(ttip)}: in sync`); return { ok: true, synced: false, jobs: jobsOf() }; }
+  // Another sync PR open into the layer (the tranche moved since it opened) is closed first: two
+  // would each hold the layer's merge (cold review of PR 198).
+  const into = x.openPRs(slug, b0);
+  if (into === null) fail(`GitHub unreadable: the open pull requests into ${b0} are not known; nothing was opened`);
+  const stem = `layer-sync/${n}-${short(ttip)}`;
+  const other = into.filter((p) => String(p.head?.ref || '').startsWith(`layer-sync/${n}-`) && !String(p.head.ref).startsWith(stem));
+  if (other.length) fail(`an older sync PR is open into ${b0}: ${other.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; BOB closes it, then runs ${P3} layer sync ${n} again; nothing was opened`);
+  let pr = into.find((p) => String(p.head?.ref || '').startsWith(stem)) || null;
+  let head = pr?.head?.sha || null;
+  let resolved = [];
+  if (pr) {
+    // Its head must be the tool's own merge, tree for tree: a push to the branch is never landed.
+    fetchBranch(root, pr.head.ref, { allowFail: true });
+    const ps = hasCommit(root, head) ? git(['rev-list', '--parents', '-n', '1', head], { cwd: root }).split(' ').slice(1) : [];
+    const ok = ps.length === 2 && isAnc(root, ps[0], tip) && ps[1] === ttip && withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try { const r = syncMerge(root, cfg, n, ps[0], ttip, w); resolved = r.resolved; return r.tree === git(['rev-parse', `${head}^{tree}`], { cwd: root }); } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    if (!ok) fail(`sync PR ${pr.number}'s head ${short(head)} is not the tool's merge of ${cfg.tranche} ${short(ttip)} into ${b0}: BOB closes it, then runs ${P3} layer sync ${n} again; nothing was landed`);
+    log(`layer sync ${n}: PR ${pr.number} from ${pr.head.ref} is open already, its head the tool's merge`);
+  } else {
+    // A closed or red attempt keeps its branch (no session deletes one): the next takes a new name.
+    let branch = stem;
+    for (let k = 2; git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim(); k++) branch = `${stem}-${k}`;
+    ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try {
+        const r = syncMerge(root, cfg, n, tip, ttip, w);
+        const p = git(['push', '-q', 'origin', `${r.head}:refs/heads/${branch}`], { cwd: w, allowFail: true });
+        if (p.code !== 0) fail(`the push of ${branch} failed (${p.stderr.trim()}); nothing was opened`);
+        return r;
+      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root }));
+    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (SLB-12: a pin move while a layer is open is followed by layer sync before any job in it lands).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
+    pr = x.createPR(slug, { head: branch, base: b0, title: `layer sync ${n}: ${cfg.tranche} ${short(ttip)}`, body, draft: false });
+    log(`layer sync ${n}: PR ${pr.number} from ${branch} into ${b0}${resolved.length ? `, resolved ${resolved.join(', ')}` : ''}`);
+  }
+  if (!wait) { log(`the gate decides; run ${P3} layer sync ${n} again to land it`); return { ok: true, synced: false, pr }; }
+  const g = await waitGate(x, slug, pr.number, head);
+  if (g?.status !== 'completed' || g.conclusion !== 'success') fail(`the gate on sync PR ${pr.number} ${short(head)} is ${g ? `${g.status} ${g.conclusion || ''}`.trim() : 'not run'}; layer sync lands on a green gate`);
+  const r = await x.merge(slug, pr.number, head, `Merge layer sync PR ${pr.number}`);
+  if (!r?.merged && !r?.sha) fail(`GitHub did not merge pull request ${pr.number}: ${JSON.stringify(r).slice(0, 200)}`);
+  fetchBranch(root, b0);
+  const row = { row: 'sync', layer: n, pr: pr.number, head, merge: r.sha || null, tranche_tip: ttip, pin_before: pinOf(root, tip), pin_after: pinOf(root, ttip), resolved, at: now(), by };
+  writeRows(root, cfg.state_branch, `layer ${n}: sync PR ${pr.number}`, [[flowFile(n, 'sync', `${pr.number}`), row]]);
+  log(`layer sync ${n}: ${cfg.tranche} ${short(ttip)} landed into ${b0}${r.sha ? ` at ${short(r.sha)}` : ''}`);
+  return { ok: true, synced: true, pr, row, jobs: jobsOf() };
+}
+
 // ---- layer merge ----------------------------------------------------------------------------
 
 export async function layerMerge(root, n, { io = {}, log = console.log, wait = true, by = 'bob' } = {}) {
@@ -751,6 +954,11 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   const not = L.states.filter((s) => !DONE.includes(s.state));
   if (not.length) fail(`layer ${n} cannot merge: ${not.map((s) => `${s.id} is ${s.state} (${s.why})`).join('; ')}`);
   if (L.holding.length) fail(`layer ${n} cannot merge: PR(s) ${L.holding.map((p) => p.number).join(', ')} still open into ${layerBranch(n)}`);
+  // A pin move while the layer is open is followed by layer sync before any job lands (Bob, 6 Nov):
+  // out of sync, the merge waits, unless the tranche's pin moved only after the layer's last land.
+  const sync = syncOwed(root, cfg, n);
+  if (sync && !sync.afterLastLand) fail(`layer ${n} cannot merge: ${sync.why}, and a job landed after that pin move (land ${sync.lastLand}); run ${P3} layer sync ${n} first`);
+  if (sync) log(`note: ${sync.why}; the pin moved after the layer's last land, so the merge goes on`);
   const x = { findPR, createPR, checkRun, getPR, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   const b = layerBranch(n);
   carriedSync(root, cfg, n, L, log);
@@ -912,7 +1120,9 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     if (!fs.length && e.status?.state === 'BLOCKED') continue;
     const last = lands.find((x) => x.v.id === e.id) || null; // newest first
     if (fs.length && !last) { for (const f of fs) findings.push({ check: 'layer', file: f, line: 1, message: `${e.id} changed with no land of its publish on ${branch}` }); continue; }
-    const stray = last ? fs.filter((f) => chain.slice(0, chain.indexOf(last.c)).some((c) => diffNames(root, parents(c)[0], c).includes(f))) : [];
+    // A layer sync's merge brings the tranche's own changes (tool-made, its tree checked): not a stray.
+    const synced = (c) => SYNC_TITLE.test(git(['log', '-1', '--format=%s', c], { cwd: root }));
+    const stray = last ? fs.filter((f) => chain.slice(0, chain.indexOf(last.c)).some((c) => !synced(c) && diffNames(root, parents(c)[0], c).includes(f))) : [];
     if (stray.length) { for (const f of stray) findings.push({ check: 'layer', file: f, line: 1, message: `${f} changed on ${branch} after ${e.id}'s last land (PR ${last.v.pr}) by a commit that is not its land` }); continue; }
     // Each provider in the layer: its interface-changing lands are held by this module's last green head.
     const late = [];

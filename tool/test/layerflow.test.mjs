@@ -1,7 +1,7 @@
 // The shared layer branch (layerflow.mjs, layerbase.mjs; design note "Shared Layer Branch", Bob,
 // 5 Nov): one test per rule the tool holds, on a local product with a bare origin.
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -13,7 +13,7 @@ import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
-  layerStatus, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
+  layerStatus, layerSync, moduleStates, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -1100,4 +1100,210 @@ test('layer retest refuses a module owed a job for a breaking change, even when 
   fetchState(root, SB, { fresh: true });
   assert.equal(flowRows(root, SB, 1).retest_refusals.length, 1, 'the refusal is kept');
   assert.match(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, /job start b/);
+});
+
+// R11 (copy, 6 Nov): layer/8 was cut at a tranche pinned at 4a85f26; the pin moved to 0635b64 on the
+// tranche, and layer/8's gate, run with the base's own tool, still refused R4's carried entries.
+// SLB-12 (Bob, 6 Nov): a pin move while a layer is open is followed by layer sync before any job lands.
+// An empty .process stands for the submodule, so `git add -A` keeps the pointer.
+const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive: true }); git(['update-index', '--add', '--cacheinfo', `160000,${sha},.process`], { cwd: dir }); git(['commit', '-q', '-m', msg], { cwd: dir }); return git(['rev-parse', 'HEAD'], { cwd: dir }); };
+const syncIO = (bare, made) => ({
+  slug: 'o/p', openPRs: () => [], findPR: () => null,
+  createPR: (s, p) => { made.push(p); return { number: 90 + made.length, ...p }; },
+  waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
+  merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
+});
+test('layer sync (R11, SLB-12): a pin moved on the tranche while the layer is open leads layer jobs and status, holds the merge, and layer sync lands the tranche by a gated PR, the pin and shims the tranche\'s, a ledger entry the layer\'s', async () => {
+  const { root, bare } = product({ done: true });
+  const p1 = git(['rev-parse', 'HEAD'], { cwd: root });
+  setPin(root, p1, 'pin 1');
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v1\n' }, 'shim 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  // On the layer: e's entry carried by its job and landed (COMPLETE), and c's land.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'l', 'origin/layer/1'], { cwd: d });
+  commit(d, { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'COMPLETE' } }) }, 'Merge layer PR 5');
+  git(['push', '-q', 'origin', 'l:layer/1'], { cwd: d });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 5;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  // The tranche: the pin moves, the shim with it, and e's OPEN entry lands (PR 638).
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  git(['merge', '-q', '--ff-only', 'origin/tranche'], { cwd: root });
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1 }) }, 'Merge PR 638');
+  const p2 = git(['rev-parse', 'HEAD'], { cwd: root });
+  setPin(root, p2, 'pin move 2');
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v2\n' }, 'shim 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // A land after the pin move.
+  const d2 = clone(bare);
+  git(['checkout', '-q', '-B', 'job/c', 'origin/layer/1'], { cwd: d2 });
+  const hc2 = commit(d2, { 'src/c/index.mjs': 'export const c = 6;\n' }, 'c again');
+  git(['push', '-q', '-f', 'origin', 'job/c'], { cwd: d2 });
+  await layerLand(root, 7, { io: landIO(bare, { 7: prOf(7, 'c', hc2) }), log: quiet });
+  const lines = [];
+  const j = layerJobs(root, 1, { io: openIO, log: (l) => lines.push(l) });
+  assert.match(j.sync.line, /^run node \.process\/tool\/p3\.mjs layer sync 1 first: layer\/1's process pin .* differs from tranche's .*\(SLB-12\)$/);
+  assert.equal(lines[0], j.sync.line, 'layer jobs leads with it');
+  const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
+  assert.equal(st[0], j.sync.line, 'status leads with it');
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no layer PR'), checkRun: () => ({ status: 'completed', conclusion: 'success' }) };
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: layer\/1's process pin .* differs .*a job landed after that pin move .*run .*layer sync 1 first/);
+  // layer sync: one gated PR, landed by the merge tool.
+  const made = [];
+  const r = await layerSync(root, 1, { io: syncIO(bare, made), log: quiet });
+  assert.equal(r.synced, true);
+  assert.deepEqual([made[0].base, made[0].draft, made[0].head], ['layer/1', false, `layer-sync/1-${git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10)}`]);
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.equal(git(['merge-base', '--is-ancestor', 'origin/tranche', tip], { cwd: root, allowFail: true }).code, 0, 'the layer holds the tranche');
+  assert.equal(git(['ls-tree', tip, '--', '.process'], { cwd: root }).split(/\s+/)[2], p2, 'the tranche\'s pin');
+  assert.equal(git(['show', `${tip}:.github/workflows/process-gate.yml`], { cwd: root }), 'name: gate v2', 'the tranche\'s shim');
+  assert.equal(JSON.parse(git(['show', `${tip}:process/ledger/e.json`], { cwd: root })).status.state, 'COMPLETE', 'the layer\'s entry');
+  assert.deepEqual(r.row.resolved, ['process/ledger/e.json']);
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 1).syncs.length, 1, 'a layer event');
+  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).sync, null, 'in sync now');
+  assert.equal((await layerSync(root, 1, { io: syncIO(bare, made), log: quiet })).synced, false, 'nothing to do again');
+});
+
+test('layer sync (R11) refuses a conflict outside .process, the shims and ledger entries, naming it; nothing is opened. layer merge goes on when the pin moved after the last land', async () => {
+  const { root, bare } = product({ done: true });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 5;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  await new Promise((r) => setTimeout(r, 1100)); // the pin move is dated after the land
+  commit(root, { 'src/c/index.mjs': 'export const c = 9;\n' }, 'a plain PR on c');
+  const p = git(['rev-parse', 'HEAD'], { cwd: root });
+  setPin(root, p, 'pin move');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const made = [];
+  await assert.rejects(layerSync(root, 1, { io: syncIO(bare, made), log: quiet }), /layer sync 1 refused: layer\/1 and tranche conflict in src\/c\/index\.mjs; only \.process, the process's shims and ledger entries are resolved by the tool; nothing was opened/);
+  assert.equal(made.length, 0);
+  // The pin moved after the layer's last land: the merge is not held (a note says so).
+  const lines = [];
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, q) => ({ number: 99, ...q, base: { ref: q.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  await layerMerge(root, 1, { io: mio, wait: false, log: (l) => lines.push(l) }).catch((e) => assert.doesNotMatch(e.message, /layer sync/));
+  assert.ok(lines.some((l) => /note: layer\/1's process pin .* differs .*the pin moved after the layer's last land, so the merge goes on/.test(l)));
+});
+
+// Cold review of PR 198 (layer sync).
+test('layer sync (cold review): two pin moves, the first unsynced before a land, hold the merge; a closed attempt takes a new branch; an older sync PR open, or a head that is not the tool\'s merge, refuses; a lost row is recorded', async () => {
+  const { root, bare } = product({ done: true });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  await new Promise((r) => setTimeout(r, 1100));
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 5;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  await new Promise((r) => setTimeout(r, 1100));
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 3');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no layer PR'), checkRun: () => ({ status: 'completed', conclusion: 'success' }) };
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /a job landed after that pin move/, 'pin 2 came before the land, unsynced');
+  // A first attempt, then closed (red, say): the next takes a new branch name.
+  const made = [];
+  const io = syncIO(bare, made);
+  await layerSync(root, 1, { io, wait: false, log: quiet });
+  await layerSync(root, 1, { io, wait: false, log: quiet });
+  const stem = `layer-sync/1-${git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10)}`;
+  assert.deepEqual(made.map((p) => p.head), [stem, `${stem}-2`]);
+  // An older sync PR still open into the layer refuses.
+  await assert.rejects(layerSync(root, 1, { io: { ...io, openPRs: () => [{ number: 50, head: { ref: 'layer-sync/1-0000000000', sha: 'x' } }] }, log: quiet }), /an older sync PR is open into layer\/1: #50/);
+  // An open sync PR whose head is not the tool's merge (a push to its branch) is never landed.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'w', `origin/${stem}-2`], { cwd: d });
+  const forged = commit(d, { 'src/c/index.mjs': 'export const c = 666;\n' }, 'a push to the sync branch');
+  git(['push', '-q', 'origin', `w:${stem}-2`], { cwd: d });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  await assert.rejects(layerSync(root, 1, { io: { ...io, openPRs: () => [{ number: 92, head: { ref: `${stem}-2`, sha: forged } }] }, log: quiet }), /sync PR 92's head .* is not the tool's merge .*nothing was landed/);
+  // Landed by GitHub, its row lost: the next run records it.
+  const ok = git(['rev-parse', `origin/${stem}`], { cwd: root });
+  ghMerge(bare, 'layer/1', ok, 'Merge layer sync PR 91');
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.equal((await layerSync(root, 1, { io, log: quiet })).synced, false);
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(flowRows(root, SB, 1).syncs.map((r) => [r.pr, r.recovered]), [[91, true]]);
+});
+
+test('the gate\'s layer trigger after a layer sync: the sync\'s merge is not a stray change to a module\'s file', async () => {
+  const { root, bare } = product({ done: true });
+  commit(root, { 'src/c/more.mjs': 'export const one = 1;\n// 2\n// 3\n// 4\nexport const five = 5;\n' }, 'more');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/more.mjs': 'export const one = 11;\n// 2\n// 3\n// 4\nexport const five = 5;\n' });
+  const prs = { 6: prOf(6, 'c', hc) };
+  const mergedAs = {};
+  const io0 = landIO(bare, prs);
+  await layerLand(root, 6, { io: { ...io0, merge: (s, k, sha, t) => { const r = io0.merge(s, k, sha, t); mergedAs[k] = r.sha; return r; } }, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  commit(root, { 'src/c/more.mjs': 'export const one = 1;\n// 2\n// 3\n// 4\nexport const five = 55;\n' }, 'a plain PR on c, another line');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  await layerSync(root, 1, { io: syncIO(bare, []), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  assert.deepEqual(changed, ['src/c/more.mjs']);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const merged = { 6: { ...prs[6], merged: true, merge_commit_sha: mergedAs[6] } };
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { getPR: (s, k) => merged[k], verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [{ sha: hc, ok: true, trigger: 'code', suite: 'pass', scope: ['c'] }] }, 'gate') }] } });
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual(r.covered.map((x) => x.id), ['c']);
+});
+
+// Coordinator, 6 Nov 16:13: layer 8's job PRs 658-661 were red only on the old tool's ledger finding,
+// their sessions archived. After the layer syncs, layer sync brings it into each open job branch.
+test('layer sync (layer 8): each open job PR branch takes the synced layer when the merge brings only the pointer, shims, ledger entries and records; a BLOCKED one, or one the merge would bring code into, is left alone', async () => {
+  const { root, bare } = product({ done: true });
+  commit(root, { 'build/layers.md': layers.replace('| 1 | One | a, b, c |', '| 1 | One | a, b, c, e |'), 'req/e.md': req('e'), '.github/workflows/process-gate.yml': 'name: gate v1\n' }, 'e joins layer 1');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  // Opened before e's entry landed (as layer/8 was): open by hand, as the refusal now forbids it.
+  git(['push', '-q', 'origin', 'tranche:layer/1'], { cwd: root });
+  writeRows(root, SB, 'open', [[flowFile(1, 'open'), { row: 'open', layer: 1, branch: 'layer/1', tranche: 'tranche', from: git(['rev-parse', 'tranche'], { cwd: root }), at: new Date().toISOString(), by: 'bob' }]]);
+  // job/a, cut now; then c's code lands on the layer; then job/e (carrying e's entry) and job/b (BLOCKED).
+  jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 2; }\n' });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 3;\n' });
+  await layerLand(root, 6, { io: landIO(bare, { 6: prOf(6, 'c', hc) }), log: quiet });
+  const he = jobWork(bare, 'e', { 'process/ledger/e.json': entry('e', { layer: 1, status: { state: 'WORKING' } }), 'src/e/index.mjs': 'export const e = 1;\n', 'process/metrics/e.jsonl': '{"row":"attempt","event":"start","attempt":1}\n' });
+  jobWork(bare, 'b', { 'process/ledger/b.json': entry('b', { layer: 1, status: { state: 'BLOCKED', reason: 'owed to layer 2' } }) });
+  // The tranche: e's OPEN entry (PR 638), the pin moved, the shim with it.
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  // PR 638's entry has a field the job's carried copy lacks (a later edit of the tranche's).
+  commit(root, { 'process/ledger/e.json': entry('e', { layer: 1, paths: ['src/e/', 'lib/e/'] }) }, 'Merge PR 638');
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin move 2');
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v2\n' }, 'shim 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  const open = [658, 660, 661].map((k, i) => ({ number: k, draft: false, head: { ref: ['job/e', 'job/b', 'job/a'][i], sha: null } }));
+  // A fork's PR naming a job branch is never pushed to.
+  open.push({ number: 662, draft: false, head: { ref: 'job/c', sha: null, repo: { full_name: 'someone/fork' } } });
+  const lines = [];
+  const r = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: (l) => lines.push(l) });
+  assert.equal(r.synced, true);
+  assert.deepEqual(r.jobs.merged.map((x) => [x.branch, x.changed.sort()]), [['job/e', ['.github/workflows/process-gate.yml', '.process', 'process/ledger/e.json']]]);
+  assert.deepEqual(r.jobs.left.map((x) => [x.branch, x.why.split(' (')[0]]), [['job/b', 'BLOCKED'], ['job/a', 'the layer brings other changes']]);
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const tip = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const eh = git(['rev-parse', 'origin/job/e'], { cwd: root });
+  assert.equal(git(['merge-base', '--is-ancestor', tip, eh], { cwd: root, allowFail: true }).code, 0, 'job/e holds the synced layer');
+  assert.equal(git(['merge-base', '--is-ancestor', he, eh], { cwd: root, allowFail: true }).code, 0, 'a fast-forward of job/e');
+  const merged = JSON.parse(git(['show', `${eh}:process/ledger/e.json`], { cwd: root }));
+  assert.deepEqual([merged.status.state, merged.paths], ['WORKING', ['src/e/', 'lib/e/']], 'the layer\'s entry, the job\'s status');
+  // The ledger rule, as the gate reads it now: e's entry is in the base, only its status differs.
+  assert.deepEqual(checkLedger(root, { ref: eh, base: git(['merge-base', eh, tip], { cwd: root }), branch: 'job/e' }), []);
+  assert.ok(lines.some((l) => /job\/e \(PR 658\) took layer\/1 .*its gate re-runs with the new tool/.test(l)));
+  // Run again: nothing more to do.
+  const again = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: quiet });
+  assert.deepEqual([again.synced, again.jobs.merged.length], [false, 0]);
 });
