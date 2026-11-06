@@ -2,9 +2,9 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RECEIPT, addComment, aheadBy, block, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
+import { RECEIPT, REVERT_EXEMPT, addComment, aheadBy, block, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
-import { checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
+import { branchModule, checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
 import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
 import { recordCheck, recordSince, takenIn } from './record.mjs';
 import { setupCheck } from './setup.mjs';
@@ -14,10 +14,9 @@ import { refuseUnpushable } from './pushcheck.mjs';
 import { movedText, retiredIds, unanswered, withdrawnKeys } from './notice.mjs';
 import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
-import { baseRed } from './basered.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
 import { jobCfg, layerMode, layerOfBranch, refuseInLayer } from './layerbase.mjs';
-import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds, withTemp } from './util.mjs';
+import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -140,8 +139,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
   // The shared layer branch (layerflow.mjs): the job publishes onto its layer; the merge tool lands it.
   const lay = layerOfBranch(tranche);
-  if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your checks and suite, pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
-  else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. The gate names, for the reviewer, any changed test that still passes with your change reverted; \`--exempt-revert "<why>"\` records why one cannot fail.`);
+  if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your fast checks (CI runs the suite), pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
+  else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. CI runs the suite and checks your receipt. The gate fails a changed test that still passes with your change reverted (JOB-12); a refactor's \`--exempt-revert "<why>"\` asks a reviewer to exempt it.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -950,7 +949,8 @@ export function jobSync(root, id, { push = true, compare: cmp = compare, log = c
   return { ok: true, merged, pin };
 }
 
-// The job: fast checks and the suite, then COMPLETE, push, receipt, ready (JOB-5, JOB-7).
+// The job: fast checks (ledger, records, install, build, the module's checks; never a suite:
+// AUD-7, PLT-4), then COMPLETE, push, receipt, ready (JOB-5, JOB-7). CI runs the suite.
 // Safe to run again: on an entry already COMPLETE it only finishes the steps still missing, or,
 // with commits after the COMPLETE commit and its pull request open, completes a new attempt.
 export function jobComplete(root, id, opts = {}) {
@@ -1037,22 +1037,9 @@ export function jobComplete(root, id, opts = {}) {
       const r = run(c[0], c.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
       commands.push({ cmd: c.join(' '), exit: r.code, seconds: r.seconds });
     }
-    if (noSuite) notv.push('the module suite was not run by job complete');
-    else if (installed) {
-      const s = withTemp('p3-failing-', (evDir) => runSuite(root, entry, undefined, { timeout, events: join(evDir, 'failing.jsonl') }));
-      const c = { cmd: s.cmd, cwd: s.cwd, exit: s.exit, seconds: s.seconds, tests: s.tests, suite: true };
-      commands.push(c);
-      if (s.exit !== 0 && /ETIMEDOUT/.test(s.output)) log(s.output.split('\n').slice(-40).join('\n') + '\nthe suite timed out: no base-red run, as at the gate');
-      else if (s.exit !== 0) {
-        log(s.output.split('\n').slice(-40).join('\n'));
-        // Base-red, as the gate judges it (basered.mjs): failures the tranche's tip has too are
-        // not the job's; the receipt names them, and the gate checks them again.
-        const tip = git(['rev-parse', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
-        const br = baseRed(root, entry, { base: tip, failing: s.failing, cfg, rows: generatedRows(cfg).rows, timeout, ...(exec ? { exec } : {}), log });
-        if (br.ok) { c.base_red = br.base_red.tests; log(`the suite's ${c.base_red.length} failing test(s) fail at ${cfg.tranche}'s tip ${tip.slice(0, 10)} too: base-red, named in the receipt`); }
-        else log(`not base-red: ${br.why}`);
-      }
-    }
+    // AUD-7, PLT-4, JOB-5: no test suite runs in the session. The module's suite runs in CI (the
+    // gate), which checks this receipt against its own run (AUD-2); the receipt claims it passes.
+    if (noSuite) log('--no-suite is the default: job complete runs no suite; the gate runs it in CI');
   } finally {
     if (built) restoreGenerated(root, built.ran, log);
   }
@@ -1237,4 +1224,42 @@ export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
   log(s.output.split('\n').slice(-60).join('\n'));
   log(`${s.cmd}\nexit ${s.exit}; tests ${JSON.stringify(s.tests)}; ${s.seconds} s`);
   return { ok: s.exit === 0, install: inst, ...s };
+}
+
+// revert exempt <pr> --why "<why>" --reviewer <session> (AUD-1, JOB-12): a reviewer's exemption from
+// the gate's revert check, for a refactor whose tests rightly pass before and after the change.
+// Posted on the job's pull request as a p3:revert-exempt block naming the head it reviewed; the
+// gate takes it only from a reviewer that is not the job's own session, and only while the job's
+// own files (its module's paths and tests, records aside) are as that commit had them
+// (gate.mjs revertExemption). A body edit then gives the
+// gate a new event (pull_request: edited), as a comment gives none.
+export const EXEMPT_MARK = 'p3:revert-exempt-regate';
+export function revertExempt(root, n, { why, reviewer, io: given = {}, log = console.log } = {}) {
+  const io = { getPR, addComment, editPR, ...given };
+  if (typeof why !== 'string' || !why.trim()) fail('revert exempt needs --why "<why its tests rightly pass before and after>"');
+  const by = sessionForm(typeof reviewer === 'string' ? reviewer.trim() : '');
+  if (!by) fail('revert exempt needs --reviewer <your session id>: the exemption is a reviewer\'s, never the job\'s own');
+  const slug = io.slug || repoSlug(root);
+  const pr = io.getPR(slug, Number(n));
+  if (!pr || pr.state !== 'open') fail(`pull request ${n} is not open`);
+  const id = branchModule(pr.head?.ref, ledgerIds(root, 'HEAD'));
+  if (!id) fail(`pull request ${n} is from ${pr.head?.ref}, not a job branch`);
+  const sha = pr.head.sha;
+  // The job's own session, from its newest complete row at the head, when this clone can read it;
+  // the gate checks it again either way.
+  let rows = [];
+  try { git(['fetch', '-q', 'origin', sha], { cwd: root, allowFail: true }); rows = rowsAt(root, sha, id); } catch { rows = []; }
+  const own = rows.filter((r) => r.row === 'attempt' && r.event === 'complete').pop()?.session || null;
+  if (own && sessionForm(own) === by) fail(`${by} is ${id}'s own job session: a job never exempts itself; a reviewer records the exemption`);
+  const data = { kind: 'revert-exempt', module: id, pr: pr.number, sha, reviewer: by, why: why.trim(), at: now(), tool: toolPin() };
+  const c = io.addComment(slug, pr.number, block(REVERT_EXEMPT, data, `Revert check exemption for job \`${id}\` at \`${sha.slice(0, 10)}\`, reviewed by ${by}.`));
+  const key = String(c?.id ?? c?.html_url ?? data.at);
+  const line = `<!-- ${EXEMPT_MARK} ${key} --> Gate re-run for the revert exemption${c?.html_url ? ` ${c.html_url}` : ''}.`;
+  const mark = new RegExp(`^<!-- ${EXEMPT_MARK} \\S+ -->.*$`, 'm');
+  const body = String(pr.body ?? '');
+  try { io.editPR(slug, pr.number, { body: mark.test(body) ? body.replace(mark, () => line) : `${body}${body ? '\n\n' : ''}${line}` }); } catch (e) {
+    fail(`the exemption is posted, but the body edit that re-runs the gate failed (${e.message}); edit the pull request to re-run it`);
+  }
+  log(`revert exemption for ${id} at ${sha.slice(0, 10)} posted${c?.html_url ? `: ${c.html_url}` : ''}; the gate runs again on the pull request`);
+  return { ok: true, data };
 }

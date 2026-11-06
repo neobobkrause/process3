@@ -52,7 +52,7 @@ test('a test that fails at the PR and at the base passes the gate as base_red, a
   const io = fakeIO(receiptFor(s.head));
   const r = gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt], [true, 'base-red', 'pass', 'present']);
+  assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt], [true, 'base-red', 'pass', 'agrees']);
   assert.equal(r.run.base_red.length, 1);
   assert.deepEqual(r.run.base_red[0].tests, [RED]);
   assert.equal(r.run.base_red[0].base, s.base);
@@ -121,11 +121,11 @@ test('the failing tests come from the runner\'s events, full names escaped, suit
   assert.equal(runSuite(root, { ...entry('alpha'), suite: { cwd: '.', command: ['node', '--test', '--test-reporter=spec'] } }, ['t/a.test.mjs'], { events: ev + '2' }).failing, null, 'a suite naming its own reporter cannot be read per test');
 });
 
-test('the revert check names, for review, a new test placed beside a base-red one; no finding', () => {
+test('the revert check fails a new inert test placed beside a base-red one (AUD-1)', () => {
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/red.test.mjs': redTest + "test('my feature', () => {});\n" });
   const r = run(s, receiptFor(s.head));
   assert.equal(r.run.suite, 'base-red');
-  assert.deepEqual([r.run.revert, r.run.inert, r.findings], ['inert', ['test/alpha/red.test.mjs'], []]);
+  assert.deepEqual([r.run.revert, r.run.inert, r.findings.map((f) => [f.check, f.file])], ['fail', ['test/alpha/red.test.mjs'], [['revert', 'test/alpha/red.test.mjs']]]);
   // A real test beside the red one still proves the change.
   const t = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/red.test.mjs': redTest.replace("import a from 'node:assert';", "import a from 'node:assert'; import { x } from '../../src/alpha/index.mjs';") + "test('x is 2', () => a.equal(x, 2));\n" });
   assert.deepEqual([run(t, receiptFor(t.head)).run.revert], ['pass']);
@@ -219,11 +219,11 @@ test('the events: passes are recorded and kept out of failing; a file that faile
   }
 });
 
-test('the revert check reads every file per test when a sibling\'s tests are tolerated: a new inert test beside them is named', () => {
+test('the revert check reads every file per test when a sibling\'s tests are tolerated: a new inert test beside them fails', () => {
   const s = setup({ ...fast, 'test/alpha/r9-seam-limits.mjs': sib('no statement'), 'test/alpha/t51-seam.test.mjs': seam },
     { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/t51-seam.test.mjs': seam + "import test from 'node:test';\ntest('my feature', () => {});\n" });
   const r = run(s, receiptFor(s.head));
-  assert.deepEqual([r.run.suite, r.run.revert, r.run.inert, r.findings], ['base-red', 'inert', ['test/alpha/t51-seam.test.mjs'], []]);
+  assert.deepEqual([r.run.suite, r.run.revert, r.run.inert, r.findings.map((f) => f.check)], ['base-red', 'fail', ['test/alpha/t51-seam.test.mjs'], ['revert']]);
 });
 
 test('a sibling reached by other test files here than at the base has no base-red verdict, even with a matching count', () => {

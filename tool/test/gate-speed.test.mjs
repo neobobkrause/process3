@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { gate as gateRun, gateComment, requirementsOnly, revertCheck } from '../lib/gate.mjs';
 import { baseRed, changedInTree, startBase } from '../lib/basered.mjs';
 import { readResults, runSuite } from '../lib/suite.mjs';
-import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
+import { BOT, GATE, RECEIPT, REVERT_EXEMPT, block } from '../lib/github.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -121,13 +121,15 @@ test('the reporter: a done line per file the runner finished, a load line per fi
   assert.deepEqual(readResults(events, s.root).ran, r.ran);
 });
 
-test('a revert exemption skips the revert check: the row says exempt; neither is a finding', () => {
-  const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/y.test.mjs': inertTest });
-  const plain = run(s, receiptFor(s.head));
-  assert.deepEqual([plain.run.revert, plain.run.inert, plain.findings], ['inert', ['test/alpha/y.test.mjs'], []]);
-  const r = run(s, receiptFor(s.head, { exempt: { revert: 'y is a fixture' } }));
+test('a reviewed revert exemption skips the revert check: the row says exempt, no finding (AUD-1)', () => {
+  const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/y.test.mjs': inertTest, 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":1,"session":"session_job"}\n' });
+  const plain = run(s, receiptFor(s.head, { exempt: { revert: 'y is a fixture' } }));
+  assert.deepEqual([plain.run.revert, plain.run.inert, plain.findings.map((f) => f.check)], ['fail', ['test/alpha/y.test.mjs'], ['revert']]);
+  const io = fakeIO(receiptFor(s.head));
+  io.state.comments.push({ id: 50, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module: 'alpha', pr: 5, sha: s.head, reviewer: 'session_rev', why: 'y is a fixture' }), user: { login: 'civicsmith' } });
+  const r = run(s, null, { io: io.io });
   assert.deepEqual([r.run.revert, r.run.inert, r.findings], ['exempt', undefined, []]);
-  assert.ok(r.lines.some((l) => /exempts the revert check \(y is a fixture\): not run/.test(l)), r.lines.join('\n'));
+  assert.ok(r.lines.some((l) => /revert check is exempt by session_rev's reviewed exemption .*\(y is a fixture\): not run/.test(l)), r.lines.join('\n'));
   assert.equal(git(['status', '--porcelain'], { cwd: s.root }), '');
 });
 
@@ -137,7 +139,7 @@ test('base-red: the base tree prepared in the background gives the verdict the i
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
   const bg = run(s, receiptFor(s.head));
   const inline = run(s, receiptFor(s.head), { prepareBase: false });
-  for (const r of [bg, inline]) assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt, r.run.base_red[0].tests], [true, 'base-red', 'pass', 'present', ['test/alpha/red.test.mjs::plane > has ai-catalogue']]);
+  for (const r of [bg, inline]) assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.receipt, r.run.base_red[0].tests], [true, 'base-red', 'pass', 'agrees', ['test/alpha/red.test.mjs::plane > has ai-catalogue']]);
   assert.ok(bg.lines.some((l) => /prepared in the background/.test(l)), bg.lines.join('\n'));
   assert.ok(!inline.lines.some((l) => /prepared (in the background|beside)/.test(l)));
   assert.deepEqual(mine(), [], 'no base tree is left');
@@ -280,7 +282,7 @@ test('no test reading the requirements file: the suite is not run, and passes wi
   const s = setup({ 'test/alpha/other.test.mjs': RED_ELSEWHERE }, { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' }, { alpha: { paths: ['src/alpha/', 'req/alpha.md'] } });
   const r = run(s, exempt(s));
   assert.deepEqual(r.findings, []);
-  assert.deepEqual([r.run.suite, r.run.tests, r.run.receipt, r.run.requirements_only], ['pass', [{ total: 0, pass: 0, fail: 0 }], 'present', [{ module: 'alpha', files: [] }]]);
+  assert.deepEqual([r.run.suite, r.run.tests, r.run.receipt, r.run.requirements_only], ['pass', [{ total: 0, pass: 0, fail: 0 }], 'agrees', [{ module: 'alpha', files: [] }]]);
   assert.ok(!r.lines.some((l) => /prepared beside/.test(l)), 'no suite runs: no base tree is prepared');
   assert.ok(r.lines.some((l) => /no test reads it \(none of its tests names alpha\.md or req\): the suite is not run/.test(l)), r.lines.join('\n'));
 });

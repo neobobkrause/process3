@@ -5,9 +5,10 @@
 //   layer open <n>     cuts layer/<n> from the tranche tip and lists the jobs that can start; ROOT
 //                      starts them (job start cuts each job branch from layer/<n>, its draft PR into it).
 //   layer publish <id> the job's: brings its branch up to the layer tip, refuses any file outside
-//                      the module, runs the module's checks and suite (job complete, its receipt),
+//                      the module, runs the module's fast checks (job complete, its receipt; the
+//                      suite runs in CI's gate: AUD-7, PLT-4),
 //                      and marks its PR into layer/<n> ready, so the gate runs on its tip. While the
-//                      suite runs it watches the state branch: a reschedule for the module halts the
+//                      run goes it watches the state branch: a reschedule for the module halts the
 //                      run at once, and it starts again on the new layer tip.
 //   layer land <pr>    the merge tool's: a publish PR whose gate is green on its head merges into
 //                      layer/<n>, with no combined re-test. Refused when the run behind it started
@@ -374,7 +375,7 @@ export function outsideFiles(root, entry, base, head) {
   return diffNames(root, base, head).filter((f) => !own.some((p) => underPath(f, p)));
 }
 
-// The suite's run, as a child process: `job complete` (the module's checks and suite, the receipt,
+// The publish's run, as a child process: `job complete` (the module's fast checks, never a suite: AUD-7; the receipt,
 // the ready PR) in this checkout. { done: Promise<{ code }>, kill() }.
 export function spawnComplete(root, id, args = []) {
   const tool = join(new URL('.', import.meta.url).pathname, '..', 'p3.mjs');
@@ -541,7 +542,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
     const ids = ledgerIds(root, lref);
     for (const u of same) {
       const p = open.find((q) => branchModule(q.head?.ref, ids) === u);
-      const text = `layer ${n}: ${id} changed its interface (land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and re-runs your suite against ${id}'s new version. A run started before this never counts.`;
+      const text = `layer ${n}: ${id} changed its interface (land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and its gate re-runs your suite against ${id}'s new version. A run started before this never counts.`;
       if (p) { msgs.push({ user: u, pr: p.number, text }); log(`BOB delivers to job ${u}'s session (PR ${p.number}), with send_message priority now: ${text}`); } else log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`);
     }
     if (later.length) log(`provider notice ${noticeKey(id, n0)} for ${later.length} user(s) in later layers: ${later.join(', ')}`);

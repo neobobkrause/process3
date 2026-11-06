@@ -1,7 +1,7 @@
 // merge (GAT-8, INT-1): BOB brings a job's branch up to the tranche, writes the merge row, waits
 // for the gate on that tip, and merges only a green, current tip. The merge is completion.
 // merge runs with BOB's tool, not the pull request's, so it repeats the checks a pull request
-// could switch off in its own copy of the gate workflow: ownership, and a receipt read by the gate.
+// could switch off in its own copy of the gate workflow: ownership, and a receipt checked by the gate against its own run (AUD-2).
 import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { RECEIPT, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestBlock, latestReceipt, openPRs, requiredChecks, verifyRow } from './github.mjs';
@@ -261,9 +261,6 @@ export function merge(root, n, opts = {}) {
     if (run.conclusion !== 'success') fail(`the gate on the merged result is ${run.conclusion}: ${run.html_url}`);
     const loadOnly = gateRuns(all).flatMap((x) => x.load_only || []);
     if (loadOnly.length) log(`note for review: these tests failed only by not loading when reverted: ${[...new Set(loadOnly)].join(', ')}`);
-    // The revert check is advisory (gate.mjs, JOB-12): the tests that still passed reverted, for the reviewer.
-    const inert = gateRuns(all).filter((x) => x.sha === pr.head.sha).flatMap((x) => x.inert || []);
-    if (inert.length) log(`note for review: these tests passed with the job's change reverted: ${[...new Set(inert)].join(', ')}`);
     // The merger's lease (train.mjs) is checked again just before GitHub is asked to merge.
     opts.beforeLand?.();
     if (!opts.beforeLand) refuseUnderHold(root, cfg, n, { slug, io });
@@ -431,7 +428,7 @@ function specMark(wt, cfg, { pr: sp, sha }, { tip, was, onto, job = null, log = 
 
 // The per-PR checks a job's merge holds before it brings the job in (merge, and each member of
 // the merge train): open, ready, into the tranche, from a job branch, mergeable, the branch where
-// GitHub has it, a green gate on the head that read the opener's newest receipt, only the job's own files and ledger status, and the review triggers (refusing
+// GitHub has it, a green gate on the head that checked and agreed with the opener's newest receipt, only the job's own files and ledger status, and the review triggers (refusing
 // --no-review when one fires).
 // A shallow clone (the MERGER's, 5 Nov: at clone_depth 1 every land failed at git merge-base): both
 // sides deepened down to their merge base by GitHub's compare (its counts), and the clone
@@ -483,7 +480,7 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   // wait: wait on that gate here, and (below) push no second merge row (defect sweep 4 Nov, #6).
   const rowTip = mergeRowSince(rowsAt(root, pr.head.sha, id), n);
   const watch = { minutes, read: io.checkRun, pr: () => io.getPR(slug, n), log, ...(every !== undefined ? { every } : {}), ...(transient ? { transient } : {}) };
-  // The newest receipt must have been read by a green gate run on the tip.
+  // The newest receipt must have been checked, and agreed with, by a green gate run on the tip (AUD-2, JOB-7).
   let first = io.checkRun(slug, pr.head.sha, 'gate');
   // The merged result an earlier run pushed is gating: the train holds the tranche for it first (inflight.mjs).
   if (rowTip && first?.status !== 'completed') { onGate?.(pr.head.sha); first = waitForGate(slug, pr.head.sha, watch); }
@@ -493,11 +490,11 @@ export function jobChecks(root, n, pr, id, { cfg, slug, io, noReview, minutes = 
   if (!receipt) fail(`pull request ${n} has no receipt`);
   // Each row names its Actions run; the row counts only when that run is the process gate on
   // this tip, green, and its own artifact holds the same row (verifyRow).
-  // A receipt is read for its presence (gate.mjs; Bob, 5 Nov); 'agrees' and 'unmeasured' are an
-  // earlier pin's words for a green run that read it.
-  const read = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && READ.includes(r.receipt) && r.receipt_attempt === receipt.attempt)
+  // The receipt is checked against CI's own run of its tests (gate.mjs receiptAgrees): only a
+  // row that says 'agrees' stands; an earlier pin's 'present' or an 'unmeasured' does not.
+  const agreed = gateRuns(all).filter((r) => r.sha === pr.head.sha && r.ok && r.receipt === 'agrees' && r.receipt_attempt === receipt.attempt)
     .find((r) => io.verify(slug, r, { pr: n, baseRef: cfg.tranche }));
-  if (!read) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} read receipt attempt ${receipt.attempt}${unread(gateRuns(all), pr.head.sha, receipt.attempt)}`);
+  if (!agreed) fail(`no green process-gate run on ${pr.head.sha.slice(0, 10)} checked receipt attempt ${receipt.attempt} and agreed with it${unread(gateRuns(all), pr.head.sha, receipt.attempt)}`);
 
   // ARC-2 and the ledger's job rule, held here by BOB's tool: the job changed only its own
   // module and records, and nothing in the ledger but its own status. The paths come from the
@@ -556,12 +553,13 @@ export function jobCostRow(wt, id, rows, { cost, session, attempt, log = console
   return usd;
 }
 
-// The act that clears a receipt no green run on the tip has read: an amended receipt posts no
-// commit, so the gate on the tip needs a new event.
-const READ = ['present', 'agrees', 'unmeasured'];
+// The act that clears a receipt no green run on the tip has checked and agreed with: an amended
+// receipt posts no commit, and a row from an earlier pin read it without checking it (AUD-2), so
+// the gate on the tip needs a new event.
 export function unread(runs, sha, attempt) {
   const r = runs.filter((x) => x.sha === sha).pop();
-  if (!r || !r.ok || r.receipt_attempt === attempt) return '';
+  if (!r || !r.ok || (r.receipt_attempt === attempt && r.receipt === 'agrees')) return '';
+  if (r.receipt_attempt === attempt) return `; its newest run left the receipt ${r.receipt}${r.receipt_unmeasured ? `: ${r.receipt_unmeasured}` : ''}, not checked against CI's run of its tests: give the gate on ${sha.slice(0, 10)} a new event (edit the pull request)`;
   return `; its newest run read ${r.receipt_attempt == null ? 'no receipt' : `attempt ${r.receipt_attempt}`}: give the gate on ${sha.slice(0, 10)} a new event (edit the pull request)`;
 }
 
