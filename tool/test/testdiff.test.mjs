@@ -43,7 +43,8 @@ test('breaking: the review\'s cases, each a changed expectation', () => {
     assert.equal(cls(from, after), 'breaking', k);
   }
   assert.equal(cls(base, '/* unclosed'), 'breaking', 'unparsed counts as breaking');
-  assert.equal(cls(null, base), 'breaking', 'added');
+  // A wholly new test file only adds assertions (copy PR 696, t53-layer.test.mjs).
+  assert.deepEqual(classifyTestChange(null, base, ['R3']), { class: 'additive', why: 'added: a new test file only adds assertions' });
   assert.equal(cls(base, null), 'breaking', 'removed');
 });
 
@@ -74,4 +75,29 @@ test('additive: an assertion\'s expected object, an expect().toEqual, a fixture\
     ['const e = { a: { b: 1 } };', 'const e = { a: { b: 1, c: 2 } };'],
   ];
   for (const [a, b] of pairs) assert.equal(cls(a, b), 'additive', b);
+});
+
+// Copy PR 632 (publication): `pixels_sha256: null` added to a fixture inside a test's body read as
+// "added code that is not an object property": the climb went into the try block around it.
+test('a key added to a fixture inside a test body is additive; an override or a key in a block is not', () => {
+  const t = (x) => `test('R3', async () => {\n  try {\n    const old = { sha256: "t", capture_sha: null${x} };\n    assert.deepEqual(f(), [old]);\n  } finally {}\n});\n`;
+  assert.deepEqual(classifyTestChange(t(''), t(', pixels_sha256: null'), ['R3']), { class: 'additive', why: 'added pixels_sha256' });
+  assert.equal(cls(t(''), t(', sha256: "u"')), 'breaking', 'an override');
+  const blk = "test('R3', () => {\n  if (x) {\n    run(1);\n  }\n});\n";
+  assert.equal(cls(blk, blk.replace('run(1);', 'run(1);\n    q: 1,')), 'breaking', 'a label in a block is no property');
+});
+
+// Cold review of the fixture-root fix: inside a test's body only a fixture used solely as an
+// assertion's expected value counts; an added value holds plain data only (no call, await, new or
+// assignment); `const {` is destructuring.
+test('a body fixture that is an input, a value with a call or an assignment, is breaking', () => {
+  const body = (decl, use) => `test('R3', async () => {\n  try {\n    ${decl}\n    ${use}\n  } finally {}\n});\n`;
+  const pair = (a, b, use) => cls(body(a, use), body(b, use));
+  assert.equal(pair('const old = { a: 1 };', 'const old = { a: 1, b: null };', 'assert.deepEqual(f(), [old], "m");'), 'additive');
+  assert.equal(pair('const input = { a: 1 };', 'const input = { a: 1, strict: true };', 'assert.deepEqual(f(input), 2);'), 'breaking', 'an input');
+  assert.equal(pair('const out = { a: 1 };', 'const out = { a: 1, b: await g(2) };', 'assert.deepEqual(g(), out);'), 'breaking', 'await and a call');
+  assert.equal(pair('const out = { a: 1 };', 'const out = { a: 1, c: assert.equal(f(), 3) };', 'assert.deepEqual(g(), out);'), 'breaking', 'an assertion in a value');
+  assert.equal(pair('const out = { a: 1 };', 'const out = { a: 1, c: globalThis.mode = 2 };', 'assert.deepEqual(g(), out);'), 'breaking', 'an assignment');
+  assert.equal(pair('const out = { a: 1 };', 'const out = { a: 1, c: new Date(0) };', 'assert.deepEqual(g(), out);'), 'breaking', 'a construction');
+  assert.equal(cls('const exp = { a: 1 };\n', 'const exp = { a: 1, b: f() };\n'), 'breaking', 'a call at the top level too');
 });

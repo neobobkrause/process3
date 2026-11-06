@@ -132,7 +132,10 @@ export function interfaceChange(root, cfg, id, before, after) {
   // after, else before) counts when what it asserts changed.
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
-    const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
+    // The ids of both sides: a test of a Provides requirement renamed or dropped is examined too
+    // (cold review of R8: R2 renamed R4 with r2.test.mjs deleted read as additive).
+    const idsBefore = providesIds(textAt(root, before, e.requirements)) || [];
+    const ids = [...new Set([...(providesIds(textAt(root, after, e.requirements)) || []), ...idsBefore])];
     const names = (t) => ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t));
     const hit = ids.length ? tests.filter((f) => names(`${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`)) : [];
     // A fixture (a file under its tests that is not itself a test: rows, JSON, a snapshot) that a test
@@ -143,7 +146,32 @@ export function interfaceChange(root, cfg, id, before, after) {
     if (hit.length) out.provides_tests_old = hit.sort();
     if (examined.length) {
       out.provides_tests_named = examined;
-      const asserted = examined.map((f) => ({ file: f, ...classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids) }));
+      // A new file that replaces a deleted one naming a Provides requirement they share is compared
+      // with that file, as a rename would be; a new file replacing none only adds assertions.
+      const gone = examined.filter((f) => textAt(root, after, f) === null && textAt(root, before, f) !== null);
+      const nameRe = (r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`);
+      const shared = (x, y) => ids.some((r) => nameRe(r).test(x || '') && nameRe(r).test(y || ''));
+      const replaced = new Map(); // added file -> the deleted one it replaces
+      for (const f of examined) {
+        const a0 = textAt(root, after, f);
+        if (textAt(root, before, f) !== null || a0 === null) continue;
+        const was = gone.find((g) => ![...replaced.values()].includes(g) && shared(textAt(root, before, g), a0));
+        if (was) replaced.set(f, was);
+      }
+      const asserted = examined.map((f) => {
+        if ([...replaced.values()].includes(f)) return { file: f, class: 'none', why: `replaced by ${[...replaced].find(([, g]) => g === f)[0]}` };
+        if (replaced.has(f)) { const c = classifyTestChange(textAt(root, before, replaced.get(f)), textAt(root, after, f), ids); return { file: f, ...c, why: `replaces ${replaced.get(f)}: ${c.why}` }; }
+        const c = classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids);
+        // A new file is additive only when every requirement it names is new, or the provider's
+        // own source did not change in this land (the coordinator's ruling, 6 Nov, under Bob's "c":
+        // additive means nothing an existing user relies on changed). One naming an existing
+        // Provides requirement while its implementation changed may assert a changed answer.
+        if (textAt(root, before, f) === null && c.class === 'additive' && src.length) {
+          const old = idsBefore.filter((r) => nameRe(r).test(textAt(root, after, f) || ''));
+          if (old.length) return { file: f, class: 'breaking', why: `added, naming ${old.join(', ')} (Provides before this land) while ${id}'s source changed: it may assert a changed answer` };
+        }
+        return { file: f, ...c };
+      });
       out.provides_test_changes = asserted;
       const real = asserted.filter((x) => x.class !== 'none').map((x) => x.file);
       if (real.length) out.provides_tests = real;
