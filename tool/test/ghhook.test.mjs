@@ -33,8 +33,8 @@ test('a connector read passes and is counted; a write is a content-creating requ
   assert.deepEqual(rows().map((r) => [r.kind, r.points ?? null, r.content ?? null, r.connector, r.repo]), [
     ['gh', 1, null, true, 'neobobkrause/process3'],
     ['gh', 5, 1, true, 'neobobkrause/process3'],
-    ['push', null, null, true, 'neobobkrause/process3'],
     ['gh', 5, 1, true, 'neobobkrause/process3'],
+    ['push', null, null, true, 'neobobkrause/process3'],
   ]);
   for (const op of ['create_pull_request', 'update_pull_request', 'pull_request_review_write', 'add_comment_to_pending_review', 'add_reply_to_pull_request_comment', 'create_branch', 'issue_write', 'update_pull_request_branch']) {
     assert.equal(hookDecision({ tool_name: `mcp__github__${op}`, tool_input: {} }, root, { p: P }).counted, 'write', op);
@@ -57,6 +57,17 @@ test('Bash: a raw git push, gh, or curl to GitHub is refused; the tool\'s own co
   for (const c of ['git push origin job/x', 'git -c user.name=x push -u origin b', 'cd /x && git push', 'FOO=1 git push origin HEAD', 'gh pr create --title x', 'gh api repos/o/r', 'echo $(gh api user)', 'curl -s https://api.github.com/repos/o/r', 'wget https://github.com/o/r/archive/x.zip']) assert.ok(bashVerdict(c), c);
   for (const c of ['node .process/tool/p3.mjs github push origin job/x', 'node tool/p3.mjs github push origin build/x --set-upstream', 'cd /home/user/process3 && node tool/p3.mjs job sync alpha', 'git status', 'git fetch origin tranche', 'git commit -m "push the gh button"', 'npm test', 'curl -s https://registry.npmjs.org/x', 'node --test tool/test/*.test.mjs']) assert.equal(bashVerdict(c), null, c);
   assert.match(bashVerdict('git push origin x'), /node \.process\/tool\/p3\.mjs github push <remote> <refspec>/);
+  // Read as the shell reads it (cold review of R17c): no way around it, and no false block.
+  for (const c of ['(git push)', '(cd x && git push)', '/usr/bin/git push', '\\git push', '"git" push', 'bash -c "git push"', "sh -c 'git push origin x'", 'xargs git push', 'time git push', 'nohup git push', 'timeout 60 git push', 'env -i git push', '! git push', 'if true; then git push; fi', 'for x in a; do git push; done', 'sleep 1 & git push', 'git --git-dir x push', 'echo $(git push)', 'echo `git push`', 'git -c alias.p=push p', '/usr/bin/gh api x', 'node tool/p3.mjs x $(gh api y)', 'git -C dir push', 'eval git push']) assert.ok(bashVerdict(c), c);
+  for (const c of ['git commit -m "note; git push later"', 'git commit -F - <<EOF\ngh pr create\ngit push\nEOF', 'echo hi # ; git push', 'git push --dry-run origin x', 'git log --grep push']) assert.equal(bashVerdict(c), null, c);
+});
+
+test('the hook never waits past its cap: longer, it refuses and says to retry the tool call', (t) => {
+  logTo(t);
+  const root = makeRepo({ 'README.md': 'x\n' });
+  useShared({ read: () => ({ pause: { at: new Date().toISOString(), until: new Date(Date.now() + 300e3).toISOString(), why: 'secondary rate limit' }, use: [] }), pause: () => null });
+  const d = hookDecision({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }, root, { p: P, sleep: () => assert.fail('no sleep past the cap') });
+  assert.match(d.block, /acts on GitHub wait until .*then retry the tool call \(retry it\)/);
 });
 
 test('the hook command: exit 0 to allow, exit 2 with the reason on stderr to block', () => {

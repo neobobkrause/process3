@@ -11,9 +11,16 @@ not by rule):
 - **PreToolUse hooks**, matcher `mcp__github__.*` and matcher `Bash`, both calling the pinned tool's
   `github hook`. A connector call is counted in the account's ledger and waits or is refused like a
   gh call; a raw `git push`, any `gh`, or curl/wget to github.com is refused. Exit 2 blocks the call.
-- **The hook fails open only when the tool lacks it**: if the pinned `p3.mjs` has no `github hook`
-  (a pin from before R17c), it says so on stderr and exits 0, so such a clone is not bricked. A
-  governor refusal exits 2: closed.
+- **The hook fails open only when the tool itself is missing**: no pinned `p3.mjs` (the pin not
+  filled yet), or one without `github hook` (a pin from before R17c). It says which on stderr and
+  exits 0, so such a clone is not bricked. Anything else is closed: a governor refusal exits 2, and
+  so does any failure of the tool (it exits 2, never 1, which Claude Code would let through).
+  `CLAUDE_PROJECT_DIR` unset, it uses the working directory.
+- **Timeout 300 s**: the hook never waits past 2 minutes for the budget (longer, it refuses and
+  says to retry the call), well inside the timeout, so it is never killed into letting a call
+  through.
+- **With the hook installed, `github note` double-counts** a connector write (the hook counts it
+  too). Retire the note rule once these settings are applied: the coordinator's call.
 - **Deny** `Bash(git push)`, `Bash(git push *)`, `Bash(gh *)` beside each file's existing denies,
   and **allow** the tool's own push: `Bash(node .process/tool/p3.mjs github push *)` in a product,
   `Bash(node tool/p3.mjs github push *)` in process3. Deny wins over allow in Claude Code, so the
@@ -89,7 +96,8 @@ Notes:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && f=\".process/tool/p3.mjs\"; if [ -f \"$f\" ] && grep -q \"'github hook'\" \"$f\"; then exec node \"$f\" github hook; fi; echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0"
+            "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; f=\"$d/.process/tool/p3.mjs\"; if [ ! -f \"$f\" ]; then echo \"GitHub pacing hook: no tool at $f (the pin not filled yet): this call is not governed\" >&2; exit 0; fi; if ! grep -q \"'github hook'\" \"$f\"; then echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0; fi; cd \"$d\" || exit 2; node \"$f\" github hook; s=$?; [ \"$s\" -eq 0 ] && exit 0; exit 2",
+            "timeout": 300
           }
         ]
       },
@@ -98,7 +106,8 @@ Notes:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && f=\".process/tool/p3.mjs\"; if [ -f \"$f\" ] && grep -q \"'github hook'\" \"$f\"; then exec node \"$f\" github hook; fi; echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0"
+            "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; f=\"$d/.process/tool/p3.mjs\"; if [ ! -f \"$f\" ]; then echo \"GitHub pacing hook: no tool at $f (the pin not filled yet): this call is not governed\" >&2; exit 0; fi; if ! grep -q \"'github hook'\" \"$f\"; then echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0; fi; cd \"$d\" || exit 2; node \"$f\" github hook; s=$?; [ \"$s\" -eq 0 ] && exit 0; exit 2",
+            "timeout": 300
           }
         ]
       }
@@ -146,7 +155,8 @@ Notes:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && f=\"tool/p3.mjs\"; if [ -f \"$f\" ] && grep -q \"'github hook'\" \"$f\"; then exec node \"$f\" github hook; fi; echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0"
+            "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; f=\"$d/tool/p3.mjs\"; if [ ! -f \"$f\" ]; then echo \"GitHub pacing hook: no tool at $f (the pin not filled yet): this call is not governed\" >&2; exit 0; fi; if ! grep -q \"'github hook'\" \"$f\"; then echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0; fi; cd \"$d\" || exit 2; node \"$f\" github hook; s=$?; [ \"$s\" -eq 0 ] && exit 0; exit 2",
+            "timeout": 300
           }
         ]
       },
@@ -155,7 +165,8 @@ Notes:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && f=\"tool/p3.mjs\"; if [ -f \"$f\" ] && grep -q \"'github hook'\" \"$f\"; then exec node \"$f\" github hook; fi; echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0"
+            "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; f=\"$d/tool/p3.mjs\"; if [ ! -f \"$f\" ]; then echo \"GitHub pacing hook: no tool at $f (the pin not filled yet): this call is not governed\" >&2; exit 0; fi; if ! grep -q \"'github hook'\" \"$f\"; then echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0; fi; cd \"$d\" || exit 2; node \"$f\" github hook; s=$?; [ \"$s\" -eq 0 ] && exit 0; exit 2",
+            "timeout": 300
           }
         ]
       }
@@ -196,7 +207,8 @@ Notes:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && f=\".process/tool/p3.mjs\"; if [ -f \"$f\" ] && grep -q \"'github hook'\" \"$f\"; then exec node \"$f\" github hook; fi; echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0"
+            "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; f=\"$d/.process/tool/p3.mjs\"; if [ ! -f \"$f\" ]; then echo \"GitHub pacing hook: no tool at $f (the pin not filled yet): this call is not governed\" >&2; exit 0; fi; if ! grep -q \"'github hook'\" \"$f\"; then echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0; fi; cd \"$d\" || exit 2; node \"$f\" github hook; s=$?; [ \"$s\" -eq 0 ] && exit 0; exit 2",
+            "timeout": 300
           }
         ]
       },
@@ -205,7 +217,8 @@ Notes:
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && f=\".process/tool/p3.mjs\"; if [ -f \"$f\" ] && grep -q \"'github hook'\" \"$f\"; then exec node \"$f\" github hook; fi; echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0"
+            "command": "d=\"${CLAUDE_PROJECT_DIR:-$PWD}\"; f=\"$d/.process/tool/p3.mjs\"; if [ ! -f \"$f\" ]; then echo \"GitHub pacing hook: no tool at $f (the pin not filled yet): this call is not governed\" >&2; exit 0; fi; if ! grep -q \"'github hook'\" \"$f\"; then echo \"GitHub pacing hook: $f has no github hook (a pin from before R17c): this call is not governed\" >&2; exit 0; fi; cd \"$d\" || exit 2; node \"$f\" github hook; s=$?; [ \"$s\" -eq 0 ] && exit 0; exit 2",
+            "timeout": 300
           }
         ]
       }

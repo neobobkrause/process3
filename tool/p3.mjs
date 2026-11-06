@@ -685,7 +685,8 @@ export async function main(argv) {
     if (flushed || !batched) return null;
     flushed = true;
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
-    if (ledger) { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
+    if (ledger && name !== 'github hook') { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -703,7 +704,7 @@ export async function main(argv) {
     root = repoRoot();
     // A p3 command killed in this clone before its flush left its writes kept (state.mjs): moved
     // for replay, and said.
-    try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
+    if (name !== 'github hook') try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).

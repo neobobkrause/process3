@@ -251,6 +251,7 @@ const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 // The command to run again after a refusal: this p3 command as it was given (R17c, item F: every
 // refusal names the limit, when it frees and what to rerun).
 export function rerunLine(argv = process.argv) {
+  if (rerunText) return rerunText;
   const at = argv.findIndex((x) => /(^|\/)p3\.mjs$/.test(String(x)));
   if (at < 0) return 'the same command';
   const tool = /(^|\/)\.process\/tool\/p3\.mjs$/.test(argv[at]) ? 'node .process/tool/p3.mjs' : /(^|\/)tool\/p3\.mjs$/.test(argv[at]) ? 'node tool/p3.mjs' : `node ${argv[at]}`;
@@ -261,6 +262,7 @@ function waitUntil(until, why, { now, sleep }) {
   const ms = until - now();
   if (ms <= 0) return;
   if (noWait) throw new Paced(`GitHub budget: ${why}: not now; tried again later`);
+  if (waitCap && ms > waitCap) throw new Paced(`GitHub budget: ${why}: acts on GitHub wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); then retry ${rerunLine()}`);
   if (ms > MAX_WAIT_MIN * 60e3) throw new Paced(`GitHub budget: ${why}: acts on GitHub wait until ${iso(until)} (${Math.ceil(ms / 60e3)} min); then rerun ${rerunLine()}; what this command did before the refusal stands, and the rerun picks up from it`);
   sleep(ms);
 }
@@ -275,6 +277,11 @@ export function exempt(fn) { exempting++; try { return fn(); } finally { exempti
 // Acts that must not wait (the usage share): refused at once where they would wait, and tried later.
 let noWait = 0;
 export function withoutWaiting(fn) { noWait++; try { return fn(); } finally { noWait--; } }
+// The hook's waits: never past its own timeout (cold review of R17c: a hook killed by Claude Code's
+// timeout lets the call through, uncounted). Longer, it refuses, and says to retry the tool call.
+let waitCap = 0;
+let rerunText = null;
+export function hookPacing(fn, { longestMs = 120e3, rerun = 'the tool call (retry it)' } = {}) { const was = [waitCap, rerunText]; waitCap = longestMs; rerunText = rerun; try { return fn(); } finally { [waitCap, rerunText] = was; } }
 
 // Before any act on GitHub: the stop, the pause, the primary limit, each window at target (and the
 // push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The pause
