@@ -35,48 +35,7 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
   if (!ls.ready) fail(`layer ${n} is not ready to close: ${ls.cur.mods.filter((m) => (m.blocked ? m.pr : m.open || (!m.merged && m.marks.length))).map((m) => `${m.id} ${m.blocked ? `is BLOCKED (${m.blocked}) with PR #${m.pr} still open: BOB closes it unmerged first, never deleting its branch` : m.open ? 'has an open job' : m.row?.flag ? `is flagged: ${m.row.flag}` : 'has no merged job and unmet marks'}`).join('; ')}`);
   const sha = git(['rev-parse', tranche], { cwd: root });
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
-  const findings = [];
-  const suites = [];
-  let changed = [];
-  let built = [];
-  withTemp('p3-layer-', (tmp) => {
-    const wt = join(tmp, 'w');
-    git(['worktree', 'add', '-q', '--detach', wt, sha], { cwd: root });
-    findings.push(...install(wt, cfg.lockfiles, { exec }).findings);
-    // Generated files the tranche does not track are built before the suites, as the gate builds
-    // them (copy, 4 Nov: layer 2's close failed on an unbuilt rows.mjs, 37/37 and 33/33).
-    const gen0 = generatedRows(cfg);
-    if (!findings.length && gen0.rows.length) findings.push(...buildGenerated(wt, gen0.rows, { ref: sha, timeout, exec, log }).findings);
-    for (const m of findings.length ? [] : ls.cur.mods) {
-      if (m.blocked) { log(`${m.id}: deferred, BLOCKED (${m.blocked}); its work is not in the tranche, no suite to run`); continue; }
-      if (!existsSync(join(wt, entryFile(m.id)))) { log(`${m.id}: no ledger entry, no suite to run`); continue; }
-      const e = JSON.parse(readFileSync(join(wt, entryFile(m.id)), 'utf8'));
-      findings.push(...entryChecks(wt, e, { timeout, exec, log }));
-      const r = runSuite(wt, e, undefined, { timeout });
-      suites.push({ module: e.id, exit: r.exit, tests: r.tests });
-      if (r.exit !== 0) findings.push({ check: 'suite', file: e.tests[0], line: 1, message: `the ${e.id} suite failed (exit ${r.exit}): ${JSON.stringify(r.tests)}` });
-      else if (!r.tests.total) findings.push({ check: 'suite', file: e.tests[0], line: 1, message: `zero tests ran in ${e.id}` });
-      log(`${e.id}: suite exit ${r.exit}; tests ${JSON.stringify(r.tests)}`);
-    }
-    const gen = generatedRows(cfg);
-    findings.push(...gen.findings);
-    if (!findings.length && gen.rows.length) {
-      const g = regenerate(wt, gen.rows, { timeout, exec, log });
-      findings.push(...g.findings);
-      // Only committed paths can differ from the tranche; the rest are built.
-      for (const r of g.ran.filter((x) => x.changed)) {
-        const mine = committedPaths(wt, sha, r);
-        changed.push(...mine.filter((p) => git(['status', '--porcelain', '-z', '--untracked-files=all', '--', normPath(p)], { cwd: wt }) !== ''));
-      }
-      built = gen.rows.flatMap((r) => { const c = new Set(committedPaths(wt, sha, r)); return r.paths.filter((p) => !c.has(p)); });
-      // A built row is verified even when git shows no change (its paths ignored by .gitignore).
-      for (const [i, r] of gen.rows.entries()) {
-        if (g.ran[i]?.verify !== null || !r.paths.some((p) => built.includes(p))) continue;
-        const v = exec(r.verify[0], r.verify.slice(1), { cwd: wt, timeout, unset: NO_TOKENS });
-        if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after building: ${(v.stdout + v.stderr).trim().split('\n').slice(-5).join(' ')}` });
-      }
-    }
-  }, { root });
+  const { findings, suites, changed, built } = layerChecks(root, cfg, sha, ls.cur.mods, { timeout, exec, log });
   if (findings.length) {
     for (const f of findings) log(`${f.check}: ${f.file}: ${f.message}`);
     log(`layer ${n} not closed: ${findings.length} finding(s) on ${sha.slice(0, 10)}; nothing recorded`);
@@ -103,3 +62,53 @@ export function layerClose(root, n, { log = console.log, io, exec = run, as = 'b
   return { ok: true, row, wake };
 }
 
+// The layer checks on a commit, in a worktree of its own (layer close; and layer merge in the
+// shared layer branch's flow, without the module suites: Bob, 5 Nov, INT-4): every lock file
+// installed, the generated rows built, each module's entry checks and (withSuites) its suite, then
+// each generated row's regenerate and verify. { findings, suites, changed, built }.
+export function layerChecks(root, cfg, sha, mods, { timeout, exec = run, log = console.log, withSuites = true } = {}) {
+  const findings = [];
+  const suites = [];
+  let changed = [];
+  let built = [];
+  withTemp('p3-layer-', (tmp) => {
+    const wt = join(tmp, 'w');
+    git(['worktree', 'add', '-q', '--detach', wt, sha], { cwd: root });
+    findings.push(...install(wt, cfg.lockfiles, { exec }).findings);
+    // Generated files the tranche does not track are built before the suites, as the gate builds
+    // them (copy, 4 Nov: layer 2's close failed on an unbuilt rows.mjs, 37/37 and 33/33).
+    const gen0 = generatedRows(cfg);
+    if (!findings.length && gen0.rows.length) findings.push(...buildGenerated(wt, gen0.rows, { ref: sha, timeout, exec, log }).findings);
+    for (const m of findings.length ? [] : mods) {
+      if (m.blocked) { log(`${m.id}: deferred, BLOCKED (${m.blocked}); its work is not in the tranche, no suite to run`); continue; }
+      if (!existsSync(join(wt, entryFile(m.id)))) { log(`${m.id}: no ledger entry, no suite to run`); continue; }
+      const e = JSON.parse(readFileSync(join(wt, entryFile(m.id)), 'utf8'));
+      findings.push(...entryChecks(wt, e, { timeout, exec, log }));
+      if (!withSuites) continue;
+      const r = runSuite(wt, e, undefined, { timeout });
+      suites.push({ module: e.id, exit: r.exit, tests: r.tests });
+      if (r.exit !== 0) findings.push({ check: 'suite', file: e.tests[0], line: 1, message: `the ${e.id} suite failed (exit ${r.exit}): ${JSON.stringify(r.tests)}` });
+      else if (!r.tests.total) findings.push({ check: 'suite', file: e.tests[0], line: 1, message: `zero tests ran in ${e.id}` });
+      log(`${e.id}: suite exit ${r.exit}; tests ${JSON.stringify(r.tests)}`);
+    }
+    const gen = generatedRows(cfg);
+    findings.push(...gen.findings);
+    if (!findings.length && gen.rows.length) {
+      const g = regenerate(wt, gen.rows, { timeout, exec, log });
+      findings.push(...g.findings);
+      // Only committed paths can differ from the tranche; the rest are built.
+      for (const r of g.ran.filter((x) => x.changed)) {
+        const mine = committedPaths(wt, sha, r);
+        changed.push(...mine.filter((p) => git(['status', '--porcelain', '-z', '--untracked-files=all', '--', normPath(p)], { cwd: wt }) !== ''));
+      }
+      built = gen.rows.flatMap((r) => { const c = new Set(committedPaths(wt, sha, r)); return r.paths.filter((p) => !c.has(p)); });
+      // A built row is verified even when git shows no change (its paths ignored by .gitignore).
+      for (const [i, r] of gen.rows.entries()) {
+        if (g.ran[i]?.verify !== null || !r.paths.some((p) => built.includes(p))) continue;
+        const v = exec(r.verify[0], r.verify.slice(1), { cwd: wt, timeout, unset: NO_TOKENS });
+        if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after building: ${(v.stdout + v.stderr).trim().split('\n').slice(-5).join(' ')}` });
+      }
+    }
+  }, { root });
+  return { findings, suites, changed, built };
+}

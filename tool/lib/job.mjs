@@ -15,6 +15,7 @@ import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { baseRed } from './basered.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
+import { jobCfg, layerMode, layerOfBranch, refuseInLayer } from './layerbase.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
@@ -136,7 +137,10 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
-  L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. The gate names, for the reviewer, any changed test that still passes with your change reverted; \`--exempt-revert "<why>"\` records why one cannot fail.`);
+  // The shared layer branch (layerflow.mjs): the job publishes onto its layer; the merge tool lands it.
+  const lay = layerOfBranch(tranche);
+  if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your checks and suite, pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
+  else L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} job complete ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, one \`--test\` for each \`(not yet met)\` mark your branch struck (\`--test F<n>=...\` for a found mark), naming its test. It pushes, posts your receipt, marks the PR ready; if it stops, rerun it. The gate names, for the reviewer, any changed test that still passes with your change reverted; \`--exempt-revert "<why>"\` records why one cannot fail.`);
   L.push(`${n + 4}. When it prints the receipt link, wake BOB as its last line says, then end your turn.`);
   L.push('', `If you cannot go on: \`${P3} block ${id} --reason "<why>"\`, wake BOB as its last line says, then end your turn. A legitimate exit, not a failure.`);
   // Bob, 4 Nov: urgency in the initial release; a question to BOB waits at most decision_minutes.
@@ -287,6 +291,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   // One session per lane (lane.mjs): a lane's module starts no job while the lane's recorded
   // session is live, whatever starts it; a restart replaces the job's own session, so it is let be.
   if (restart === undefined) { const ls = laneSeatFor(root, loadConfig(root), id, { fetch: push }); if (ls) fail(`${ls.why}; nothing was started`); }
+  if (takeIn !== undefined) refuseInLayer(jobCfg(root, loadConfig(root), id, { push }), 'job start --take-in');
   if (takeIn !== undefined) return jobTakeIn(root, id, { coordinator, model, from: takeIn, overWhy, push, open, find, setup, compare: cmp, gh: ghIO, log });
   if (reopen === true || (reopen !== undefined && !String(reopen).trim())) fail('--reopen needs what the new attempt must do');
   if (overWhy === true || (overWhy !== undefined && !String(overWhy).trim())) fail('--over-cap needs why the job starts over the cap');
@@ -298,7 +303,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   // module's facts), judged at the tip the job is cut from (confirming review of the anchor).
   const anchor = () => {
     if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
-    const c = loadConfig(root); // the anchored checkout's
+    // The anchored checkout's; in the layer flow, the open layer's branch is the job's base.
+    const c = jobCfg(root, loadConfig(root), id, { push });
+    // In the layer flow a job starts only in its layer, once that layer is open (layer open <n>).
+    if (layerMode(c) && !c.layer) fail(`merge_strategy is "layer" and ${id}'s layer has no open branch (layer/<n> on origin, not merged): open the layer first (${P3} layer open <n>), then start it from ${P3} layer jobs <n>; nothing was started`);
     const a = push ? anchoredTip(root, c) : null;
     if (push && (c.plan === 'pause' || c.plan === 'stop')) fail(`plan ${c.plan} at the tip of ${c.tranche}: take no new step; nothing was started`);
     const m = still?.(a || `origin/${c.tranche}`);
@@ -648,7 +656,7 @@ export const STOPS = ['archived', 'idle'];
 function jobRestart(root, id, { coordinator, model, why, stop, find, open = createPR, notes, compare: cmp = compare, log }) {
   if (why === true || !String(why ?? '').trim()) fail('--restart needs why: the replaced session\'s failure as BOB saw it');
   if (stop !== undefined && !STOPS.includes(stop)) fail(`--stop ${STOPS.join('|')}: how the replaced session stopped, not ${JSON.stringify(stop)}`);
-  const cfg = loadConfig(root);
+  const cfg = jobCfg(root, loadConfig(root), id);
   const slug = repoSlug(root);
   const lead = jobCoordinator(root, cfg, coordinator, true);
   model ||= cfg.roles?.job?.model;
@@ -895,7 +903,7 @@ function mergeIn(root, ref, { id, name, ff, msg, log }) {
 // job/<id> (BOB's pushes; a fast-forward when it can) and then the tranche, by a merge commit;
 // then `git submodule update .process`, so the tool is the branch's pin. Pushes nothing.
 export function jobSync(root, id, { push = true, compare: cmp = compare, log = console.log } = {}) {
-  const cfg = loadConfig(root);
+  const cfg = jobCfg(root, loadConfig(root), id, { push });
   if (push) fetchRef(root, cfg.tranche);
   const branch = push ? branchOf(root, id, originJobs(root), ledgerIds(root, `origin/${cfg.tranche}`), true) : startBranch(readRows(root, id), id);
   const slug = push ? repoSlug(root) : 'local/local';
@@ -962,7 +970,7 @@ export function jobComplete(root, id, opts = {}) {
   const io = { findPR, addComment, markReady, comments, toDraft, getPR, editPR, ...(opts.gh || {}) };
   if (exemptRevert === true) fail('--exempt-revert needs a reason');
   const branch = onBranch(root, id);
-  const cfg = loadConfig(root);
+  const cfg = jobCfg(root, loadConfig(root), id, { push });
   if (push) fetchRef(root, cfg.tranche);
   pinCheck(root, id, { toolRoot: opts.toolRoot, tranche: push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`, what: 'job complete' });
   // BOB's merge pushed to job/<id>: the job's push would be refused (defect sweep 4 Nov, #5).
@@ -1211,7 +1219,8 @@ function restoreGenerated(root, ran, log) {
 
 // The module's own suite, for the job while it works (JOB-2: the START names only tool commands).
 export function jobTest(root, id, { log = console.log, exec, toolRoot } = {}) {
-  const cfg = loadConfig(root);
+  // origin's layer branch, as the session's clone has it (no local layer/<n>): cold review 5.
+  const cfg = jobCfg(root, loadConfig(root), id);
   pinCheck(root, id, { toolRoot, tranche: trancheRef(root, cfg), what: `\`${P3} test ${id}\`` });
   const entry = readEntry(root, id);
   const inst = installModule(root, cfg, entry, { exec, log });
