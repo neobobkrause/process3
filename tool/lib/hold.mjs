@@ -183,6 +183,21 @@ export function owe(dir, act) {
   mkdirSync(join(dir, 'flow'), { recursive: true });
   writeFileSync(f, JSON.stringify({ since: o?.since || now(), acts: [...(o?.acts || []).slice(-9), { at: now(), act }] }) + '\n');
 }
+// The layer flow (coordinator, 6 Nov 16:03: "starts owed since 05:29Z (network-notices, case-checker,
+// case-inputs)" stood after their re-tests landed): job start --ready never runs there, so a module's
+// own acts (its job complete, its block) are paid when its job or retest lands on the layer.
+export function paidFor(dir, ids) {
+  const f = join(dir, OWED_FILE);
+  let o = null;
+  try { o = existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { o = null; }
+  if (!o) return false;
+  const mine = (x) => ids.some((id) => new RegExp(`^(job complete|block) ${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`).test(String(x.act)));
+  const left = (o.acts || []).filter((x) => !mine(x));
+  if (left.length === (o.acts || []).length) return false;
+  if (left.length) writeFileSync(f, JSON.stringify({ since: left[0].at, acts: left }) + '\n');
+  else rmSync(f, { force: true });
+  return true;
+}
 export function paid(dir, begun) {
   const f = join(dir, OWED_FILE);
   let o = null;

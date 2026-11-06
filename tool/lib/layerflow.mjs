@@ -36,7 +36,7 @@ import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { endLayerHolds } from './hold.mjs';
+import { endLayerHolds, paidFor } from './hold.mjs';
 import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
@@ -226,7 +226,7 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     const mine = lands.filter((l) => l.module === id);
     const out = outstanding(reschedules, lands, id, anc);
     const m = marks.get(id) || [];
-    const base = { id, pr: pr?.number ?? null, lands: mine.length, outstanding: out, marks: m };
+    const base = { id, pr: pr?.number ?? null, lands: mine.length, outstanding: out, marks: m, entry_state: e?.status?.state ?? null };
     if (e?.status?.state === 'BLOCKED') return { ...base, state: 'deferred', why: `BLOCKED: ${e.status.reason || 'no reason'}` };
     if (out.length) return { ...base, state: 'rescheduled', why: `re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface` };
     if (pr && !pr.draft) return { ...base, state: 'published', why: `PR ${pr.number} ready into the layer` };
@@ -260,9 +260,10 @@ export function totalOrder(mods, providers) {
   }
   return [...out, ...mods.filter((id) => !done.has(id))];
 }
-// A provider has landed when its land is on the layer (a land row), or it was COMPLETE or BLOCKED
-// at the layer tip (its interface already there, or deferred).
-export const landedProvider = (p, lands, entries) => lands.some((l) => l.module === p) || ['COMPLETE', 'BLOCKED'].includes(entries.get(p)?.status?.state);
+// A provider has landed when its land is on the layer (a land row), or it was BLOCKED (deferred: it
+// lands nothing here), or COMPLETE with no unmet mark at the layer tip (its interface already there;
+// one with marks is about to be reopened: cold review of PR 196).
+export const landedProvider = (p, lands, entries, marks = new Map()) => lands.some((l) => l.module === p) || entries.get(p)?.status?.state === 'BLOCKED' || (entries.get(p)?.status?.state === 'COMPLETE' && !(marks.get(p) || []).length);
 // The in-layer providers of id not yet landed on layer/<n>, read from origin (job start's early mark).
 export function earlyProviders(root, cfg, n, id, ref) {
   const L = layersAt(root, cfg, ref).find((x) => x.n === n);
@@ -270,7 +271,15 @@ export function earlyProviders(root, cfg, n, id, ref) {
   const entries = new Map(L.mods.map((m) => [m, entryAt(root, ref, m) || entryAt(root, `refs/remotes/origin/${cfg.tranche}`, m)]));
   const prov = layerProviders(L.mods, readModules(root, cfg, ref), entries);
   const lands = flowRows(root, cfg.state_branch, n).lands;
-  return (prov.get(id) || []).filter((p) => !landedProvider(p, lands, entries));
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  const marksOf = (p) => unmetIds(textAt(root, ref, entries.get(p)?.requirements || `${dir}/${p}.md`) || '').filter((x) => !isFound(x));
+  // As layer jobs reads it: a provider BLOCKED at its job branch's head is deferred (readLayer's PR-head read).
+  const blockedOnBranch = (p) => {
+    const r = git(['ls-remote', '--heads', 'origin', `refs/heads/job/${p}`, `refs/heads/job/${p}-*`], { cwd: root, allowFail: true });
+    return r.code === 0 && r.stdout.split('\n').filter(Boolean).some((l) => { const [sha, h] = l.split('\t'); const name = h.replace('refs/heads/', ''); if (!hasCommit(root, sha)) fetchBranch(root, name, { allowFail: true }); return hasCommit(root, sha) && entryAt(root, sha, p)?.status?.state === 'BLOCKED'; });
+  };
+  const marks = new Map((prov.get(id) || []).map((p) => [p, marksOf(p)]));
+  return (prov.get(id) || []).filter((p) => !landedProvider(p, lands, entries, marks) && !blockedOnBranch(p));
 }
 export const mergeReady = (states) => states.every((s) => DONE.includes(s.state));
 
@@ -281,6 +290,9 @@ export function startable(states) {
     if (s.state === 'not started') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.marks.length && s.why.startsWith('COMPLETE') ? ` --reopen "meet the unmet requirement marks ${s.marks.join(', ')}"` : ''}` }];
     if (s.state === 'rescheduled' && s.pr === null) {
       const why = [...new Set(s.outstanding.map((r) => `${r.provider} (land ${short(r.provider_land)})`))].join(', ');
+      // A module that never ran (OPEN, never COMPLETE) starts plainly: --reopen is for a COMPLETE one
+      // (coordinator, 6 Nov 16:03: publish-schedule, project-stage and case-account were refused).
+      if (s.entry_state && s.entry_state !== 'COMPLETE') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>` }];
       const job = `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`;
       // With no unmet mark, CI can re-test it with no job session (layer retest): the way for an
       // additive change (Bob's "c"), offered beside the job for a breaking one.
@@ -342,7 +354,7 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   const providers = layerProviders(L.mods, readModules(root, cfg, ref), entries);
   const order = totalOrder(L.mods, providers);
   const byId = new Map(states.map((x) => [x.id, x]));
-  states.splice(0, states.length, ...order.map((id) => ({ ...byId.get(id), after: (providers.get(id) || []).filter((p) => !landedProvider(p, rows.lands, entries)) })));
+  states.splice(0, states.length, ...order.map((id) => ({ ...byId.get(id), after: (providers.get(id) || []).filter((p) => !landedProvider(p, rows.lands, entries, marks)) })));
   // The open PRs that hold the merge: all but those of a module deferred by its PR head's BLOCKED.
   const holding = prs.filter((p) => !(blockedOn.has(p.module) && blockedOn.get(p.module) === p.number));
   return { n, ref, mods: L.mods, layers, rows, entries, prs, holding, states, order, providers };
@@ -755,6 +767,8 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   try { for (const k of noticeRecords(root, cfg.state_branch).filter((q) => !q.withdrawn && q.open.includes(id))) files.push([answerFile(id, k.key), { row: 'answered', at, key: k.key, user: id, pr: n0, by: 'layer land' }]); } catch { /* none read: none answered */ }
   writeRows(root, cfg.state_branch, `layer ${n}: land PR ${n0} (${id})${ic.changed ? `, interface changed (${ic.class}): ${same.length} ${ic.class === 'additive' ? 'to retest' : 'rescheduled'}` : ''}`, files);
   log(`landed PR ${n0} (${id}) into ${layerBranch(n)} at ${short(after)}; interface: ${interfaceText(ic)}`);
+  // Its starts owed are paid by its land (a job's or a retest's): job start --ready never runs here.
+  try { writeState(root, cfg.state_branch, `starts owed: ${id} landed (PR ${n0})`, (dir) => { paidFor(dir, [id]); return {}; }); } catch (e) { log(`note: the starts owed were not updated (${e.message})`); }
   const msgs = [];
   const retests = [];
   if (ic.changed) {
@@ -1027,7 +1041,7 @@ export function trialMeasures(rows, { anc = () => true } = {}) {
       return t + Math.max(0, (l.users_rescheduled_old_rule || l.users_rescheduled || []).length - jobs);
     }, 0),
     // R10: job starts in the layer, and the early ones (an in-layer provider not yet landed).
-    starts: (rows.starts || []).length, early_starts: (rows.starts || []).filter((r) => (r.early || []).length).length,
+    starts: (rows.starts || []).length, early_starts: (rows.starts || []).filter((r) => Array.isArray(r.early) && r.early.length).length, early_unknown: (rows.starts || []).filter((r) => !Array.isArray(r.early)).length,
     // Retests (layer retest): opened, and those landed (no job session; a CI suite run each).
     retests: (rows.retests || []).length, retest_lands: rows.lands.filter((l) => l.retest).length,
     // Which trigger fired, per reschedule (Bob, 5 Nov, as relayed in the coordinator's handoff: "the

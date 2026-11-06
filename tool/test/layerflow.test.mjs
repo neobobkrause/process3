@@ -400,7 +400,8 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   await layerLand(root, 3, { io: landIO(bare, prs), log: quiet });
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.deepEqual(j.startable.map((x) => x.id), ['b']);
-  assert.match(j.startable[0].cmd, /--reopen "re-test against the new interface of a/);
+  // b is OPEN (it never ran): a plain start, never --reopen (coordinator, 6 Nov 16:03).
+  assert.equal(j.startable[0].cmd, 'node .process/tool/p3.mjs job start b --live <n>');
   const mio = (extra = {}) => ({ slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), ...extra });
   await assert.rejects(layerMerge(root, 1, { io: mio(), wait: false, log: quiet }), /b is rescheduled/);
   // b's job re-runs on the new tip and lands; now the layer merges, with no test run.
@@ -1089,4 +1090,33 @@ test('total order: providers first, the map order kept otherwise, a cycle after'
   const prov = layerProviders(['e', 'b', 'a', 'c', 'x', 'y'], [{ id: 'b', uses: ['a', 'z'] }, { id: 'e', uses: ['b'] }, { id: 'x', uses: ['y'] }, { id: 'y', uses: ['x'] }], new Map());
   assert.deepEqual(prov.get('b'), ['a'], 'a provider outside the layer is not in it');
   assert.deepEqual(totalOrder(['e', 'b', 'a', 'c', 'x', 'y'], prov), ['a', 'c', 'b', 'e', 'x', 'y']);
+});
+
+// Coordinator, 6 Nov 16:03: the merge tool still said "starts owed since 05:29Z (network-notices,
+// case-checker, case-inputs)" after their re-tests landed.
+test('layer land pays the starts owed by its module (its job complete or block); others stay', async () => {
+  const { owe, readOwed } = await import('../lib/hold.mjs');
+  const { writeState } = await import('../lib/state.mjs');
+  const { root, bare } = product({ done: true });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  writeState(root, SB, 'owed', (dir) => { owe(dir, 'job complete c'); owe(dir, 'job complete b'); owe(dir, 'block c'); return {}; });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 4;\n' });
+  await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'c', hc) }), log: quiet });
+  fetchState(root, SB, { fresh: true });
+  assert.deepEqual(readOwed(root, SB).acts.map((x) => x.act), ['job complete b']);
+});
+
+test('R10 (cold review): a COMPLETE provider with unmet marks has not landed (it is about to be reopened); a provider BLOCKED on its job branch has (deferred), for job start as for layer jobs', () => {
+  const { root, bare } = product({ over: { a: { status: { state: 'COMPLETE' } } } });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  // a is COMPLETE with R1 unmet: b waits on it.
+  assert.deepEqual(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').after, ['a']);
+  // a's job commits BLOCKED on its branch: job start of b is not early.
+  jobWork(bare, 'a', { 'process/ledger/a.json': entry('a', { layer: 1, status: { state: 'BLOCKED', reason: 'owed to layer 2' } }) });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  git(['branch', '-f', 'layer/1', 'origin/layer/1'], { cwd: root });
+  const lines = [];
+  jobStart(root, 'b', { coordinator: 's', push: false, log: (l) => lines.push(l) });
+  assert.deepEqual(JSON.parse(git(['show', 'job/b:process/metrics/b.jsonl'], { cwd: root }).trim().split('\n').pop()).early, []);
+  assert.ok(!lines.some((l) => /early start/.test(l)));
 });
