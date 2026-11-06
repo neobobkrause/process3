@@ -1,10 +1,10 @@
 // A job's life (JOB-1, JOB-2, JOB-5, JOB-7, ENF-7): job start, job complete, block.
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RECEIPT, REVERT_EXEMPT, addComment, aheadBy, block, comments, parseBlock, compare, createPR, editPR, findPR, getPR, latestBlock, latestReceipt, markReady, prsFromBranch, toDraft } from './github.mjs';
 import { ownPaths } from './gate.mjs';
-import { branchModule, checkLedger, entryFile, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
+import { branchModule, checkLedger, entryFile, homeRef, jobBranch, ledgerIds, originJobs, readEntry, readLedgerTexts, startBranch, validate, writeStatus } from './ledger.mjs';
 import { appendRow, jobBranchAt, metricsFile, nextAttempt, readRows, rowsAt } from './metrics.mjs';
 import { recordCheck, recordSince, takenIn } from './record.mjs';
 import { setupCheck } from './setup.mjs';
@@ -426,8 +426,22 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   }
 
   // Validate from the tranche before touching the checkout.
-  const t = git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true });
-  if (t.code !== 0) fail(`no ledger entry ${entryFile(id)} on ${from}`);
+  let t = git(['show', `${from}:${entryFile(id)}`], { cwd: root, allowFail: true });
+  // The layer flow: a layer branch cut before the tranche got this module's entry (copy, 6 Nov:
+  // layer/8 from 2ec3f0be, the entries of PR 638 after it) reads it from the tranche, the
+  // ledger's home; the start commit carries it onto the job's branch, and its publish onto the layer.
+  let carried = null;
+  if (t.code !== 0 && cfg.layer) {
+    if (push) fetchRef(root, cfg.layer.tranche, { allowFail: true });
+    const home = push ? `origin/${cfg.layer.tranche}` : cfg.layer.tranche;
+    const h = git(['show', `${home}:${entryFile(id)}`], { cwd: root, allowFail: true });
+    if (h.code === 0) {
+      t = h;
+      carried = { from: home, text: h.stdout.endsWith('\n') ? h.stdout : `${h.stdout}\n` };
+      log(`${from} has no ledger entry ${entryFile(id)}; it is read from ${cfg.layer.tranche}, the ledger's home, and the start commit carries it onto ${branch} (its publish, onto ${cfg.tranche})`);
+    }
+  }
+  if (t.code !== 0) fail(`no ledger entry ${entryFile(id)} on ${from}${cfg.layer ? ` or on ${cfg.layer.tranche}` : ''}`);
   const entry0 = JSON.parse(t.stdout);
   const errs = validate(entry0);
   if (errs.length) fail(`ledger entry is invalid: ${errs.join('; ')}`);
@@ -465,7 +479,14 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   git(['checkout', '-q', stale ? '-B' : '-b', branch, from], { cwd: root });
   let result;
   let committed = false;
+  let wrote = false;
   try {
+    if (carried) {
+      if (existsSync(join(root, entryFile(id)))) fail(`${entryFile(id)} is in the working tree, untracked, though ${from} has none; move it aside first; nothing was started`);
+      mkdirSync(dirname(join(root, entryFile(id))), { recursive: true });
+      writeFileSync(join(root, entryFile(id)), carried.text);
+      wrote = true;
+    }
     const entry = readEntry(root, id);
     const attempt = Math.max(nextAttempt(root, id), (fresh0?.prior ?? 0) + 1);
     const reading = readingSet(root, entry, [], cfg);
@@ -490,6 +511,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     }
   } catch (e) {
     if (!committed) restore(root, [entryFile(id), metricsFile(id)]);
+    if (!committed && wrote) rmSync(join(root, entryFile(id)), { force: true });
     git(['checkout', '-q', back], { cwd: root, allowFail: true });
     // Nothing new reached GitHub: undo the local branch so the command can run again (a branch
     // the reopen moved goes back to where it was).
@@ -1013,7 +1035,7 @@ export function jobComplete(root, id, opts = {}) {
   const { tests, moved } = struckTests(root, entry, base, opts.tests || []);
 
   const commands = [];
-  const ledger = checkLedger(root, { base, branch });
+  const ledger = checkLedger(root, { base, branch, home: cfg.layer ? homeRef(root, cfg.layer.tranche) : null });
   commands.push({ cmd: `p3 ledger check --base ${base.slice(0, 10)} --branch ${branch}`, exit: ledger.length ? 1 : 0, findings: ledger.length });
   const since = recordSince(root, { base });
   const taken = takenIn(root, { base, id });

@@ -9,9 +9,10 @@ import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { layerClose } from './lib/layer.mjs';
 import { layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerStatus } from './lib/layerflow.mjs';
+import { layerMode } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
-import { branchModule, checkLedger, ledgerIds } from './lib/ledger.mjs';
+import { branchModule, checkLedger, homeRef, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
@@ -574,7 +575,9 @@ const commands = {
     // job's, on any other branch every module's.
     const job = branchModule(String(a.branch || ''), ledgerIds(root, head));
     const t = takenIn(root, { base, head, id: job || undefined });
-    const { commits, findings, notices, size_waived } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips });
+    // In the layer flow, a job may carry its own entry from the tranche, the ledger's home.
+    const home = job && layerMode(cfg) ? homeRef(root, cfg.tranche) : null;
+    const { commits, findings, notices, size_waived } = recordCheck(root, cfg, { base, head, branch: a.branch, ledgerBase, since: s.since, takenIn: t.tips, home });
     if (s.finding) findings.push(s.finding);
     findings.push(...t.findings);
     console.log(`checked ${commits} commit(s) after ${base.slice(0, 10)}${s.since ? ` and after ${s.since.slice(0, 10)} (record_since, from the ${s.from})` : ''}${t.tips.length ? `, leaving out the earlier work taken in at ${t.tips.map((x) => x.slice(0, 10)).join(', ')}` : ''}`);

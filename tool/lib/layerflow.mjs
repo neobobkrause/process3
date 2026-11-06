@@ -34,6 +34,7 @@ import { branchModule, entryFile, ledgerIds } from './ledger.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
+import { endLayerHolds } from './hold.mjs';
 import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, jobCap, loadConfig, now, repoSlug, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -222,8 +223,12 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   const L = layers.find((x) => x.n === n) || fail(`layer ${n} is not in ${cfg.layers_file} on ${layerBranch(n)}`);
   const rows = flowRows(root, cfg.state_branch, n);
   const dir = cfg.requirements_dir.replace(/\/$/, '');
-  const entries = new Map(L.mods.map((id) => [id, entryAt(root, ref, id)]));
-  const marks = new Map(L.mods.map((id) => [id, unmetIds(textAt(root, ref, entries.get(id)?.requirements || `${dir}/${id}.md`) || '').filter((x) => !isFound(x))]));
+  // An entry the layer branch lacks is read from the tranche, the ledger's home (copy, 6 Nov: layer/8
+  // was cut before PR 638 added four entries): its job starts from it (job start) and carries it on.
+  const home = `refs/remotes/origin/${cfg.tranche}`;
+  const entries = new Map(L.mods.map((id) => [id, entryAt(root, ref, id) || entryAt(root, home, id)]));
+  const reqOf = (id) => entries.get(id)?.requirements || `${dir}/${id}.md`;
+  const marks = new Map(L.mods.map((id) => [id, unmetIds(textAt(root, ref, reqOf(id)) ?? textAt(root, home, reqOf(id)) ?? '').filter((x) => !isFound(x))]));
   const list = (io.openPRs || openPRs)(slug, layerBranch(n));
   if (list === null) fail(`GitHub unreadable: the open pull requests into ${layerBranch(n)} are not known`);
   const ids = ledgerIds(root, ref);
@@ -322,6 +327,10 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const ids = ledgerIds(root, tr);
   const held = into.filter((p) => mine.has(branchModule(p.head?.ref, ids)));
   if (held.length) fail(`layer ${n}'s module(s) have job PRs open into ${cfg.tranche}: ${held.map((p) => `#${p.number} (${p.head.ref})`).join(', ')}; those finish (or close) under the train before the layer opens`);
+  // Every module of the layer has its ledger entry on the tranche before the branch is cut (copy,
+  // 6 Nov: layer/8 was cut before four of its entries landed, and their jobs could not start).
+  const bare = [...mine].filter((id) => !ids.has(id));
+  if (bare.length) fail(`layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; land their entries first, then open the layer; nothing was opened`);
   const rows = flowRows(root, cfg.state_branch, n);
   if (staleFlow(root, rows)) fail(`layer ${n}'s flow rows and ${layerBranch(n)} are an earlier tranche's (its merge ${short(rows.merged.commit)} is on main): a second tranche under the flow is not built; ask the coordinator`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);
@@ -336,11 +345,13 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
     log(`${b} cut from ${cfg.tranche} ${short(at)}`);
   } else log(`${b} is on origin at ${short(at)}`);
   if (!rows.open) writeRows(root, cfg.state_branch, `layer ${n} open on ${b}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by }]]);
+  // Holds on this layer's modules end at its open, recorded as hold --end records them.
+  const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}`);
-  return { ok: true, branch: b, from: at, startable: s };
+  return { ok: true, branch: b, from: at, startable: s, ended };
 }
 
 export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
