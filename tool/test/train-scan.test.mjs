@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { checkRun, checkRuns, comments } from '../lib/github.mjs';
+import { checkRun, checkRuns, comments, gateRuns } from '../lib/github.mjs';
 import { git } from '../lib/util.mjs';
 import { firstPick, scanFixture } from './train-scan-fixture.mjs';
 
@@ -18,6 +18,13 @@ const ORDER = [116, 100, 101, 112, 107, 102, 119, 106, 117, 104, 108, 118, 115];
 
 test('train scan: on a cold clone of 20 job PRs the first pick reads GitHub side by side, holds every user, and keeps the order', () => {
   const fx = scanFixture({ latency: 150, gitLatency: 0 });
+  // Every PR's gate rows read, whatever the clock: an unedited comment's times are one time.
+  const db = JSON.parse(readFileSync(join(fx.gh, 'db.json'), 'utf8'));
+  for (const n of fx.prs.map((p) => p.number)) {
+    const c = db[`repos/o/r/issues/${n}/comments`][0];
+    assert.equal(c.updated_at, c.created_at, `PR ${n}'s gate comment reads as unedited`);
+    assert.ok(gateRuns(db[`repos/o/r/issues/${n}/comments`]).length > 0, `PR ${n}'s gate rows are read`);
+  }
   const root = fx.fresh();
   const cold = firstPick(fx, root);
   assert.equal(cold.pr, 116, 'the release_path PR goes first, ahead of the aged');

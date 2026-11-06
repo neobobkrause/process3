@@ -390,6 +390,9 @@ export function gate(root, opts) {
       runRow.suite = results.every((s) => s.exit === 0) ? 'pass' : results.every((s) => s.exit === 0 || s.baseRed) ? 'base-red' : 'fail';
       runRow.tests = results.map((s) => s.tests);
       runRow.suite_seconds = results.reduce((t, s) => t + s.seconds, 0);
+      // Each module's own suite seconds (build ci-budget, R2): status warns when one nears
+      // suite_timeout_minutes, which bounds each suite alone. A requirements-only skip ran nothing.
+      runRow.suite_by_module = Object.fromEntries(scope.map((e, k) => [e.id, results[k]?.seconds]).filter(([id, sec]) => Number.isFinite(sec) && !runRow.requirements_only?.some((x) => x.module === id && !x.files?.length)));
     }
     // AUD-1, JOB-12: the job's new or changed tests must fail with its change reverted. A test
     // that still passes (inert) fails the gate. A refactor whose tests rightly pass before and

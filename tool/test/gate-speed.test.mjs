@@ -3,6 +3,7 @@
 // that read it, each with the verdicts it had before.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -213,16 +214,29 @@ test('base-red: a base file changed in the tree prepared beside the head is caug
 
 test('base-red: dropping a preparation kills its whole process group, verdict or not', () => {
   const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
-  // A build that leaves a descendant behind, as an install's lifecycle script may.
-  const rows = [{ paths: ['gen/x.txt'], regenerate: ['sh', '-c', 'sleep 30 >/dev/null 2>&1 & exit 0'], verify: ['true'] }];
-  const p = startBase(s.root, { base: s.base, cfg: loadConfig(s.root), rows, timeout: 60000 });
-  assert.equal(p.wait(30000).ok, true);
-  const pgid = Number(readFileSync(`/proc/${process.pid}/stat`, 'utf8').split(' ')[4]);
-  const members = () => readdirSync('/proc').filter((n) => /^\d+$/.test(n)).filter((n) => { try { const f = readFileSync(`/proc/${n}/stat`, 'utf8').replace(/^.*\) /s, '').split(' '); return f[0] !== 'Z' && Number(f[2]) !== pgid && readFileSync(`/proc/${n}/cmdline`, 'utf8').startsWith('sleep\u000030'); } catch { return false; } });
-  assert.ok(members().length >= 1, 'the descendant outlives the verdict');
-  p.drop();
-  assert.deepEqual(members(), []);
+  // A build that leaves a descendant behind, as an install's lifecycle script may. Its sleep
+  // takes a duration no other process on the machine uses (30 s and a fraction unique to this
+  // run), so the count is of this test's own processes only: another `sleep 30` (a session's
+  // ci-watch loop, 6 Nov) is neither counted nor killed.
+  const mine = `30.${process.pid}${Date.now() % 1000}`;
+  const other = spawn('sleep', ['30'], { detached: true, stdio: 'ignore' });
+  try {
+    const rows = [{ paths: ['gen/x.txt'], regenerate: ['sh', '-c', `sleep ${mine} >/dev/null 2>&1 & exit 0`], verify: ['true'] }];
+    const p = startBase(s.root, { base: s.base, cfg: loadConfig(s.root), rows, timeout: 60000 });
+    assert.equal(p.wait(30000).ok, true);
+    assert.equal(sleeping(mine).length, 1, 'the descendant outlives the verdict');
+    p.drop();
+    assert.deepEqual(sleeping(mine), []);
+    assert.ok(sleeping('30').includes(String(other.pid)), 'a sleep the test did not start is not counted, and is left running');
+  } finally { try { process.kill(-other.pid); } catch { /* gone */ } }
 });
+
+// The live (not zombie) processes whose command line is exactly `sleep <arg>`.
+function sleeping(arg) {
+  return readdirSync('/proc').filter((n) => /^\d+$/.test(n)).filter((n) => {
+    try { return readFileSync(`/proc/${n}/stat`, 'utf8').replace(/^.*\) /s, '')[0] !== 'Z' && readFileSync(`/proc/${n}/cmdline`, 'utf8') === `sleep\u0000${arg}\u0000`; } catch { return false; }
+  });
+}
 
 test('base-red: a preparation whose process is gone without a verdict is not waited for', () => {
   const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
