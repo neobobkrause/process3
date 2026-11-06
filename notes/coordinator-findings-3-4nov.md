@@ -858,3 +858,4 @@
 
 ## 12:51 hourly flow (6 Nov)
 - Since 11:51: pass/dist landed (624, 12:11); the bundler F mark (626, 12:22) and 627 merged; the MERGER stopped and archived (12:24); BOB handed over (12:27); LAYER 7 OPEN 12:33:10Z (trial clock). Layer 7 = one module: investigation 628 working (R26-R32; F1 to layer 11). UX lane up, landing 620. 4 job sessions live (1 working, 3 held: inquiry and ai-catalogue x2). Waiting on Bob: process3 188, copy 625. Hourly prompt updated to the trial phase.
+- 12:57 BOB: lane PR 620 refused as module files (ux-design) because the copy's process/config.json ux lane row names no module, so laneOfPath counts ux-design's ledger paths as another module. Fix: plain PR 629 adds "module": "ux-design"; then 620 by the lane route. Agreed. FIX QUEUE (g): the tool could warn at setup check when a lane row names no module but its folder belongs to a ledger module.
