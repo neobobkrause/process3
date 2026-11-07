@@ -221,6 +221,9 @@ export const stateIO = { push: null, wait: null };
 
 // p3 state replay [<ref>...]: each kept write (refs/p3/unpushed/*, all when none is named) made again
 // on the state branch's fresh tip (its own commit picked onto it) and pushed; its ref then dropped.
+// fn(subject, root) after each kept write replay pushes (R17e: a usage share it carried is settled).
+const replayedFns = [];
+export function onReplayed(fn) { if (!replayedFns.includes(fn)) replayedFns.push(fn); }
 export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
   const all = refs.length ? refs : git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
   if (!all.length) { log('no kept state writes to replay'); return []; }
@@ -228,6 +231,18 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
   for (const r of all) {
     const c = git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || fail(`no kept write ${r}`);
     const msg = git(['log', '-1', '--format=%s', c], { cwd: root });
+    // A kept write a rerun has since made itself (cold review of R17d: layer sync's rerun records
+    // the sync row its refused push held): every file it adds is on the tip already, and it changes
+    // nothing else. It is dropped, said, never picked into a conflict that holds it forever.
+    const changes = git(['diff-tree', '--no-commit-id', '-r', '--name-status', '--root', c], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t'));
+    fetchState(root, sb, { fresh: true });
+    const onTip = (p) => git(['cat-file', '-e', `${ref(sb)}:${p}`], { cwd: root, allowFail: true }).code === 0;
+    if (changes.length && changes.every(([st, p]) => st === 'A' && onTip(p))) {
+      git(['update-ref', '-d', r], { cwd: root });
+      log(`dropped ${r} (${msg}): ${changes.map(([, p]) => p).join(', ')} on ${sb} already, written by a rerun`);
+      done.push(r);
+      continue;
+    }
     // The kept commit's own change, as a function of the fresh worktree: picked onto it.
     // Pushed at once, never coalesced: the kept ref goes only once its write is on origin.
     const was = batch.on;
@@ -239,6 +254,7 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
     }); } finally { batch.on = was; }
     git(['update-ref', '-d', r], { cwd: root });
     log(`replayed ${r} (${msg})`);
+    for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
     done.push(r);
   }
   return done;

@@ -19,7 +19,7 @@ import { pinMove } from '../lib/pin.mjs';
 import { WAKES_FILE, fetchState, heldWrites, stateReplay } from '../lib/state.mjs';
 import { OPEN_FILE, TRANCHE_CLOSED_FILE, recordOpen, trancheClose, trancheOpen } from '../lib/tranche.mjs';
 import { Fail, git } from '../lib/util.mjs';
-import { commit, entry, makeRepo, write } from './helpers.mjs';
+import { commit, entry, later, makeRepo, write } from './helpers.mjs';
 
 const REFUSED = 'GitHub budget: 68 of the 80 content-creating requests a minute used account-wide, the target 85% (68): acts on GitHub wait until 2026-11-06T23:59:00Z (16 min); then rerun `node .process/tool/p3.mjs <the command>`';
 // Every push refused, as a stopped account refuses them.
@@ -276,6 +276,14 @@ test('layer sync: refused at each GitHub step in turn (each gh call, its branch\
     assert.equal(g.s.prs.length, 1, `step ${k}: one pull request`);
     assert.equal(g.s.merges, 1, `step ${k}: one merge`);
     assert.equal(syncRows(root).length, 1, `step ${k}: one sync row`);
+    // The refused row's write, kept: the rerun wrote its row, so a replay drops it (R17d leftover);
+    // nothing stays held.
+    const kept = () => git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
+    if (kept().length) {
+      stateReplay(root, 'process-state', [], { log: quiet });
+      assert.deepEqual(kept(), [], `step ${k}: nothing held after the replay`);
+      assert.equal(syncRows(root).length, 1, `step ${k}: still one sync row`);
+    }
     git(['fetch', '-q', 'origin'], { cwd: root });
     assert.equal(git(['merge-base', '--is-ancestor', 'origin/tranche', 'origin/layer/1'], { cwd: root, allowFail: true }).code, 0, `step ${k}: the layer holds the tranche`);
   }
@@ -317,7 +325,7 @@ test('pin move --supersedes: refused at each GitHub step in turn, then rerun: on
     const f = refusing(g.io, k);
     const first = await attempt(() => pinMove(root, 'o/r', { ...opts, io: f.io }));
     assert.match(String(first), refusal, `step ${k}`);
-    const r = pinMove(root, 'o/r', { ...opts, io: f.io });
+    const r = later(() => pinMove(root, 'o/r', { ...opts, io: f.io }));
     assert.equal(g.s.comments[106].length, 1, `step ${k}: one comment, not one per run`);
     assert.equal(g.s.prs[0].state, 'closed', `step ${k}: closed`);
     assert.deepEqual(r.call, clean.call, `step ${k}: the same session printed`);
@@ -344,7 +352,7 @@ test('tranche open: no GitHub act of its own (it prints the same steps, with the
   const before = refs(bare);
   const a = trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 });
   useShared(stopped);
-  const b = trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 });
+  const b = later(() => trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 }));
   assert.deepEqual([b.n, b.steps, b.call], [a.n, a.steps, a.call], 'the same steps, the same throwaway branch');
   assert.equal(refs(bare), before, 'nothing pushed');
   // --record: its state write refused; nothing written, nothing counted; the rerun writes each once.
@@ -380,7 +388,7 @@ test('tranche close: refused at each GitHub read in turn, then rerun: the same s
     const f = refusing(closeIO(), k);
     const first = await attempt(() => trancheClose(root, { slug: 'o/p', io: f.io, log: quiet }));
     if (first) assert.match(first, refusal, `step ${k}`);
-    assert.deepEqual(trancheClose(root, { slug: 'o/p', io: f.io, log: quiet }).steps, clean.steps, `step ${k}: the same steps`);
+    assert.deepEqual(later(() => trancheClose(root, { slug: 'o/p', io: f.io, log: quiet })).steps, clean.steps, `step ${k}: the same steps`);
   }
   // The tranche on main; --record refused at its compare, then at its push; each rerun once.
   git(['checkout', '-q', 'main'], { cwd: root });
@@ -395,4 +403,17 @@ test('tranche close: refused at each GitHub read in turn, then rerun: the same s
   assert.equal(trancheClose(root, { slug: 'o/p', io: f.io, record: true, log: quiet }).ok, true);
   assert.equal(onOrigin(bare, TRANCHE_CLOSED_FILE).length, 1, 'one close row');
   assert.throws(() => trancheClose(root, { slug: 'o/p', io: f.io, record: true, log: quiet }), /already recorded/);
+});
+
+// C14's guard itself: `later` shifts both clocks, so a step that reads the wall clock is caught on
+// every run (tranche open without its injected clock differs), and a step given one is not.
+test('a compared rerun runs later (C14): a printed step reading the wall clock differs every time', () => {
+  const at = later(() => [Date.now(), new Date().getTime()]);
+  assert.ok(at[0] - Date.now() > 59e3 && at[1] - Date.now() > 59e3);
+  const { root } = withOrigin({ 'README.md': 'x\n' });
+  const a = trancheOpen(root, { slug: 'o/p', log: quiet });
+  const b = later(() => trancheOpen(root, { slug: 'o/p', log: quiet }));
+  assert.notDeepEqual(b.steps, a.steps, 'the wall clock read: caught');
+  const c = later(() => trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 }));
+  assert.deepEqual(c.steps, trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 }).steps);
 });
