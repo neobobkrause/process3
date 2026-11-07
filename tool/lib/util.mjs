@@ -72,7 +72,9 @@ export function git(args, opts = {}) {
   // the provider's land hidden behind the cut). Its no stands only when it is exact; else the clone
   // deepens until it is, and a deepen that fails refuses the command (allowFail or not), never
   // answering no. Every ancestry check in the tool asks here.
-  if (ancQ && r.code !== 0 && settleAncestry(args.slice(2), opts.cwd)) r = once();
+  // `cut: true`: a caller that judges a shallow clone itself and reads the cut's no as "not vouched"
+  // (report tranche: unmeasured); shallow-mergebase.test holds each such caller to a named reason.
+  if (ancQ && r.code !== 0 && !opts.cut && settleAncestry(args.slice(2), opts.cwd)) r = once();
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
 }
@@ -105,7 +107,14 @@ function deepenOnce(cwd, how, why) {
   const before = cutOf(cwd);
   const args = ['fetch', '-q', ...how, 'origin'];
   fetchSeen(args, cwd);
-  const f = runGit(args, cwd);
+  let f = runGit(args, cwd);
+  // A deepen refused on a cut another fetch made (--shallow-exclude: "error in object: unshallow"):
+  // the whole history once, before refusing.
+  if (f.code !== 0 && how[0] !== '--unshallow' && /error in object: unshallow/.test(f.stderr)) {
+    const u = ['fetch', '-q', '--unshallow', 'origin'];
+    fetchSeen(u, cwd);
+    f = runGit(u, cwd);
+  }
   if (f.code !== 0) fail(`${why}; that history could not be fetched (git fetch: ${f.stderr.trim().split('\n').pop()})${lockNote(f.stderr, cwd)}; nothing was answered: run it again, or deepen the clone (git fetch --unshallow origin)`);
   return cutOf(cwd) !== before;
 }

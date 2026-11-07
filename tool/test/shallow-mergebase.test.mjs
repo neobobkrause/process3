@@ -177,3 +177,13 @@ test('an origin itself shallow ends the deepening with a refusal, never a loop a
   git(['clone', '-q', '--depth', '1', '--no-single-branch', `file://${src}`, c], { cwd: tmp });
   assert.throws(() => anc(c)(S, L), /cannot tell whether .* holds .* without more history: origin holds no more of it/);
 });
+
+// A caller that reads an is-ancestor on the cut (`cut: true`) judges the shallow clone itself; each is
+// named here with why.
+const CUT = { 'report.mjs': 'report tranche vouches a base through its own deepen; anything unvouched is unmeasured' };
+test('an is-ancestor read on the cut (cut: true) only in a module named with its reason', () => {
+  const lib = join(here, '..', 'lib');
+  const at = [...readdirSync(lib).map((x) => join(lib, x)), join(here, '..', 'p3.mjs')].filter((f) => f.endsWith('.mjs') && !f.endsWith('util.mjs'))
+    .filter((f) => /\bcut: true\b/.test(readFileSync(f, 'utf8'))).map((f) => f.split('/').pop());
+  assert.deepEqual(at.filter((f) => !CUT[f]), []);
+});
