@@ -51,3 +51,18 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
    - (g) Messages to BOB stay in the record: `status --role bob` lists them by id, and their text is on the state branch. The others are delivered to the new sessions.
    - (h) Each lane with a seat (the triage seat too): `lane start <lane>`, with `--replace <old id>` only if it says the seat is still held (ROOT's sweep usually ends it first); then `--record <new id>`, its open asks, and the tasks bound to it.
 4. Old sessions cannot be messaged or archived from the new account. Bob archives them on the old account once the new ones run, and deletes the switched-off tasks there.
+
+## 5. If the process's GitHub account is suspended: the reopen route
+
+Problem class C6 (civicsmith, 6 Nov): GitHub hides every pull request a suspended account opened, with its comments and reviews, from everyone. Its branches, commits, tags and the state branch's rows stay. The switch above moves the Claude account. This route moves the GitHub account and recovers what it held.
+
+1. Bob connects the new GitHub account (2.1, 2.2). No session pushes before `switch in --preflight` passes on it.
+2. Each job whose pull request is hidden: its branch on origin holds its work. Its session (BOB restarts it if it ended) runs `job complete` again. That posts the receipt on a new pull request from the same head branch, which the coordinator opens. The gate then reads it there.
+3. Take in by branch name, never by a hidden PR's number. `job start --reopen` can call an attempt abandoned when its merge PR is hidden: check the branch against the tranche before giving it a new branch.
+4. A layer retest whose receipt was on a hidden PR refuses: the job is re-run.
+5. Lead times and the take-in carry read hidden PRs as unmeasured or empty. Note it in the layer report; nothing is lost from the state rows.
+6. Open layer, tranche and pin-move PRs: reopen each from its branch, with the same title and body.
+
+The full list of tool reads a hidden PR affects is in notes/github-pacing.md ("Risk: GitHub hides every pull request").
+
+Prevention for the class: what the process needs to know about a pull request is recorded in git (the state rows, the land row and the gate run's artifact: C13), never only in the pull request's comments. Then a hidden pull request costs a reopen, not the record.
