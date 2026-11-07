@@ -30,6 +30,11 @@ not by rule):
   `Bash(node tool/p3.mjs github push *)` in process3. Deny wins over allow in Claude Code, so the
   tool's push is allowed only because it is not a `git push` or `gh` command line; its own git push
   runs inside the tool, under the governor.
+- **Allow** `Artifact` in each product (C15, 7 Nov: an investigation lane waited from ~00:31Z on
+  "permission: Artifact", which asks a person even in auto mode; lanes keep their design documents
+  as claude.ai artifacts, within Bob's approvals for Process3 pages on claude.ai). process3 runs no
+  lanes and needs none. The suite (admit.test) holds these lists to every tool the process tells a
+  session to use.
 - Kept: every existing deny entry, and the copy's SessionStart hook
   (`bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"`).
 
@@ -80,7 +85,8 @@ Notes:
       "Bash(gh *)"
     ],
     "allow": [
-      "Bash(node .process/tool/p3.mjs github push *)"
+      "Bash(node .process/tool/p3.mjs github push *)",
+      "Artifact"
     ]
   },
   "hooks": {
@@ -201,7 +207,8 @@ Notes:
       "Bash(gh *)"
     ],
     "allow": [
-      "Bash(node .process/tool/p3.mjs github push *)"
+      "Bash(node .process/tool/p3.mjs github push *)",
+      "Artifact"
     ]
   },
   "hooks": {
