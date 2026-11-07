@@ -200,25 +200,37 @@ export function interfaceChange(root, cfg, id, before, after) {
     out.test_only = { files: testFiles, by_tests: out.class };
     out.class = 'none';
   }
+  out.source_changed = src.length > 0;
   out.changed = out.class !== 'none';
   return out;
 }
 // The users whose own code or tests import one of files (the provider's changed test files), at ref:
 // a relative import resolved from the importing file, or the path written out whole.
-export function testImporters(root, cfg, ref, users, files) {
+// provTests: the provider's test roots; a file there that imports a changed one (a shared helper
+// re-exporting a fixture) counts as changed too, followed until nothing new (cold review of C11).
+const CODE_EXT = ['', '.mjs', '.js', '.cjs', '.ts', '.mts', '.cts', '.tsx', '.jsx', '/index.mjs', '/index.js', '/index.ts'];
+const codeFiles = (root, ref, roots) => (roots.length ? git(['ls-tree', '-r', '--name-only', '-z', ref, '--', ...roots], { cwd: root, allowFail: true }).stdout.split('\0').filter((f) => /\.(m|c)?(j|t)sx?$/.test(f)) : []);
+function importsAny(f, t, want) {
+  const noExt = (x) => x.replace(/\.(m|c)?(j|t)sx?$/, '');
+  if ([...want].some((x) => t.includes(x) || t.includes(noExt(x)))) return true;
+  return specifiers(t).some(({ spec }) => {
+    if (!spec.startsWith('.')) return false;
+    const base = posix.normalize(posix.join(posix.dirname(f), spec));
+    // A TypeScript import names the .js it compiles to: the .ts beside it is meant.
+    return [base, base.replace(/\.js$/, '.ts'), base.replace(/\.mjs$/, '.mts')].some((b) => CODE_EXT.some((x) => want.has(b + x)));
+  });
+}
+export function testImporters(root, cfg, ref, users, files, { provTests = [] } = {}) {
   if (!files.length || !users.length) return [];
   const want = new Set(files);
-  const ext = ['', '.mjs', '.js', '.cjs', '.ts', '/index.mjs', '/index.js'];
+  const helpers = codeFiles(root, ref, provTests);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const f of helpers) if (!want.has(f) && importsAny(f, textAt(root, ref, f) || '', want)) { want.add(f); grew = true; }
+  }
   return users.filter((u) => {
     const e = entryAt(root, ref, u);
-    const roots = [...(e?.paths || []), ...(e?.tests || [])];
-    if (!roots.length) return false;
-    const listed = git(['ls-tree', '-r', '--name-only', '-z', ref, '--', ...roots], { cwd: root, allowFail: true }).stdout.split('\0').filter((f) => /\.(m|c)?(j|t)sx?$/.test(f));
-    return listed.some((f) => {
-      const t = textAt(root, ref, f) || '';
-      if (files.some((x) => t.includes(x))) return true;
-      return specifiers(t).some(({ spec }) => spec.startsWith('.') && ext.some((x) => want.has(posix.normalize(posix.join(posix.dirname(f), spec + x)))));
-    });
+    return codeFiles(root, ref, [...(e?.paths || []), ...(e?.tests || [])]).some((f) => importsAny(f, textAt(root, ref, f) || '', want));
   });
 }
 // An export's kind from its signature (exports.mjs): function, class, value, external, method, getter...
@@ -261,7 +273,7 @@ export function flowRows(root, sb, n) {
   // A reschedule cleared for its user by a recorded ruling (layer clear) is outstanding no more.
   const clears = by('clear');
   const cleared = (r) => clears.some((c) => c.user === r.user && c.provider === r.provider && c.provider_land === r.provider_land);
-  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule').filter((r) => !cleared(r)), clears, retests: by('retest'), retest_refusals: by('retest-refused'), starts: by('start'), syncs: by('sync'), tests: by('test'), gates: by('gate'), joins: by('join') };
+  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule').filter((r) => !cleared(r)), reschedules_all: by('reschedule'), clears, retests: by('retest'), retest_refusals: by('retest-refused'), starts: by('start'), syncs: by('sync'), tests: by('test'), gates: by('gate'), joins: by('join') };
 }
 // One file per event, added and never edited: an existing file is the same event, kept.
 function addFiles(w, files) {
@@ -825,7 +837,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
 // reschedule had no scoped clear, only notice withdraw, for every user, or a retest): the user's
 // outstanding reschedules from that provider, in the open layer, cleared by one row each
 // (layerflow/<n>/clear/), the ruling and who gave it recorded; the user owes them no more.
-export function layerClear(root, user, { provider, why, by = 'bob', log = console.log } = {}) {
+export function layerClear(root, user, { provider, land, why, by = 'bob', log = console.log } = {}) {
   const cfg = loadConfig(root);
   needLayerMode(cfg, 'layer clear');
   if (typeof provider !== 'string' || !provider.trim()) fail('layer clear <user> --provider <id> --why "<the ruling>"');
@@ -836,8 +848,14 @@ export function layerClear(root, user, { provider, why, by = 'bob', log = consol
   if (v.n === null) fail(`no layer is open: nothing to clear`);
   const rows = flowRows(root, cfg.state_branch, v.n);
   const anc = (a, b) => isAnc(root, a, b);
-  const owed = outstanding(rows.reschedules, rows.lands, user, anc).filter((r) => r.provider === provider);
-  if (!owed.length) fail(`${user} owes no reschedule from ${provider} in layer ${v.n}; nothing recorded`);
+  const all = outstanding(rows.reschedules, rows.lands, user, anc).filter((r) => r.provider === provider);
+  if (!all.length) fail(`${user} owes no reschedule from ${provider} in layer ${v.n}; nothing recorded`);
+  // One land at a time when the provider landed more than once (cold review of C11: a false first
+  // change and a real second one are not cleared together).
+  const lands = [...new Set(all.map((r) => r.provider_land))];
+  if (lands.length > 1 && !land) fail(`${user} owes reschedules from ${provider}'s ${lands.length} lands (${lands.map((x) => short(x)).join(', ')}): name the one the ruling is for with --land <sha>; nothing recorded`);
+  const owed = land ? all.filter((r) => String(r.provider_land).startsWith(String(land))) : all;
+  if (!owed.length) fail(`${user} owes no reschedule from ${provider}'s land ${land} in layer ${v.n}; nothing recorded`);
   const at = now();
   writeRows(root, cfg.state_branch, `layer ${v.n}: ${user}'s reschedule from ${provider} cleared`, owed.map((r) => [flowFile(v.n, 'clear', `${safeName(user)}-${safeName(provider)}-${short(r.provider_land)}`), { row: 'clear', layer: v.n, user, provider, provider_land: r.provider_land, key: r.key, why: why.trim(), at, by }]));
   log(`${user}: ${owed.length} reschedule(s) from ${provider} cleared in layer ${v.n} (${why.trim()}); its other providers' stand`);
@@ -989,10 +1007,22 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   // A change confined to its own tests (C11) reaches only the users importing a changed test file,
   // as breaking for them; for the rest it is no change.
   let reach = null;
-  if (ic.test_only) {
-    ic.test_only.importers = testImporters(root, cfg, after, users, ic.test_only.files);
+  // An earlier land of this provider in the layer that changed its source (or one recorded before
+  // that was read) leaves its tests' verdict standing: this test change may be the only sign of it.
+  const earlier = rows.lands.some((l) => l.module === id && !l.interface?.test_only && l.interface?.source_changed !== false);
+  if (ic.test_only && earlier) {
+    ic.test_only.earlier_source = true;
+    ic.class = ic.test_only.by_tests;
+    ic.changed = ic.class !== 'none';
+  } else if (ic.test_only) {
+    // Any module may import a provider's test file, a declared user or not.
+    const others = (readModules(root, cfg, after) || []).map((m) => m?.id).filter((m) => m && m !== id);
+    const pe = entryAt(root, after, id);
+    ic.test_only.importers = testImporters(root, cfg, after, [...new Set([...users, ...others])], ic.test_only.files, { provTests: pe?.tests || [] });
     reach = new Set(ic.test_only.importers);
+    ic.triggers = reach.size ? ['test-import'] : [];
     if (reach.size) { ic.class = 'breaking'; ic.changed = true; }
+    for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
   }
   const layers = layersAt(root, cfg, after);
   // Where each user's work is (R12; cold review of PR 191): joined to this layer, or to a later one
@@ -1004,13 +1034,15 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const home = (u) => joinedTo.get(u) ?? layerOf(layers, u);
   const floor = joinedTo.get(id) === n ? (layerOf(layers, id) ?? n) : n;
   const same = users.filter((u) => home(u) === n && (!reach || reach.has(u)));
+  // The old rule's count reads every declared user in the layer, whatever reach filtered (cold review).
+  const sameAll = usersOf(root, cfg, id, after).filter((u) => home(u) === n);
   const later = users.filter((u) => { const k = home(u); return k !== n && (k === null || k > floor) && (!reach || reach.has(u)); });
   const runs = gateRuns(x.comments(slug, n0)).filter((q) => q?.sha);
   const at = now();
   // A changed Public / Provides text alone is a notice to every user, in this layer and later ones.
   const noticed = ic.changed ? later : ic.provides ? users.filter((u) => same.includes(u) || later.includes(u)) : [];
   if (ic.unread) log(`warning: ${id}'s exports could not be read on the land ${short(after)} (${ic.unread}): counted as breaking, each user in the layer rescheduled`);
-  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? same : [], users_noticed: noticed };
+  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? sameAll : [], users_noticed: noticed };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land], ...gateFiles(n, id, n0, runs)];
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class }]);
@@ -1511,6 +1543,9 @@ export function resultChanges(reschedules, runs, anc = () => true) {
 const TRIGGERS = ['exports', 'provides-text', 'provides-test', 'exports-unread'];
 const countTriggers = (lands, k) => Object.fromEntries(TRIGGERS.map((t) => [t, lands.filter((l) => (l.interface?.[k] || (k === 'triggers_old' ? l.interface?.triggers : null) || []).includes(t)).length]));
 export function trialMeasures(rows, { anc = () => true } = {}) {
+  // The trial counts every reschedule made, a cleared one included (cold review of C11): a false
+  // reschedule is what it measures. The cleared are counted apart.
+  if (rows.reschedules_all) rows = { ...rows, reschedules: rows.reschedules_all, cleared: (rows.clears || []).length };
   const mods = new Set([...rows.runs.map((r) => r.module), ...rows.lands.map((l) => l.module), ...rows.reschedules.map((r) => r.user)]);
   const per = [...mods].sort().map((id) => {
     const runs = rows.runs.filter((r) => r.module === id);

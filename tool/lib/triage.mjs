@@ -364,9 +364,10 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     if (!has(h)) return false;
     if (git(['merge-base', '--is-ancestor', h, sha], { cwd: root, allowFail: true }).code === 0) return true;
     // An attempt that gives its module new paths (and the import there) is not settled either.
+    // Its paths and its tests (cold review of C11: an attempt adding a tests dir holding the import).
     let atH = null;
-    try { atH = JSON.parse(git(['show', `${h}:${cfg.modules_file}`], { cwd: root })).modules?.find((x) => x?.id === u)?.paths || null; } catch { atH = null; }
-    if (JSON.stringify(atH) !== JSON.stringify(paths)) return false;
+    try { const m = JSON.parse(git(['show', `${h}:${cfg.modules_file}`], { cwd: root })).modules?.find((x) => x?.id === u); atH = m ? [...(m.paths || []), ...(m.tests || [])] : null; } catch { atH = null; }
+    if (JSON.stringify(atH) !== JSON.stringify(roots)) return false;
     return git(['diff', '--quiet', h, sha, '--', ...roots], { cwd: root, allowFail: true }).code === 0;
   };
   const out = [];

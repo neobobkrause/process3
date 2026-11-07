@@ -145,8 +145,8 @@ const commands = {
     return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
   'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
-  // layer clear <user> --provider <id> --why "<the ruling>": a false reschedule cleared for that user only (C11 c).
-  'layer clear': (a, root) => (layerClear(root, one(a, 'user module'), { provider: a.provider, why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
+  // layer clear <user> --provider <id> [--land <sha>] --why "<the ruling>": a false reschedule cleared for that user only (C11 c).
+  'layer clear': (a, root) => (layerClear(root, one(a, 'user module'), { provider: a.provider, land: typeof a.land === 'string' ? a.land : undefined, why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer sync': async (a, root) => ((await layerSync(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer merge': async (a, root) => ((await layerMerge(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a['defer-done'] !== undefined ? { deferDone: a['defer-done'] } : {}) })).ok ? 0 : 1),

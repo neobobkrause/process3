@@ -1111,14 +1111,15 @@ test('publication 632: an added export and expected rows that only gain a key ar
   fetchState(root, SB, { fresh: true });
   assert.deepEqual(flowRows(root, SB, 1).reschedules.map((x) => [x.user, x.class]), [['b', 'additive']]);
   assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
-  // A changed expected value, only in its own tests (C11): no change for b, which imports none of them.
+  // A changed expected value, only in its own tests, after 632's land changed a's source in this
+  // layer: the tests' verdict stands (C11's review), breaking, a job each, no retest opened.
   const d = clone(bare);
   git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
   const h2 = commit(d, { 'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null').replace("status: 'draft'", "status: 'withdrawn'") }, 'a value');
   git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
   prs[633] = prOf(633, 'a', h2);
-  const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: () => assert.fail('no retest for a test-only change') }, log: quiet });
-  assert.deepEqual([r2.land.interface.class, r2.land.interface.test_only.by_tests, r2.land.users_rescheduled], ['none', 'breaking', []]);
+  const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: () => assert.fail('no retest for a breaking change') }, log: quiet });
+  assert.deepEqual([r2.land.interface.class, r2.land.interface.test_only.earlier_source, r2.land.users_rescheduled], ['breaking', true, ['b']]);
 });
 
 test('layer retest refuses a module owed a job for a breaking change, even when an additive one followed (the retest\'s land would clear both)', async () => {
@@ -1519,17 +1520,37 @@ test('job sync joins a conflict on the job\'s own entry: the layer\'s entry, the
 test('a change confined to the provider\'s own tests reschedules no user, except one importing a changed test file (copy PR 727)', async () => {
   const { root, bare } = product({ done: true });
   // d's own test imports a's fixture; b imports nothing of a's tests.
-  commit(root, { 'test/a/fixture.mjs': "export const rows = [{ id: 'f1', amount: 3 }];\n", 'test/a/r1.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { rows } from './fixture.mjs';\ntest('R1 a filing', () => { assert.deepEqual(rows.length, 1); });\n", 'test/d/uses-fixture.test.mjs': "import { rows } from '../a/fixture.mjs';\nimport test from 'node:test';\ntest('d reads a fixture', () => { rows; });\n" }, 'a fixture');
+  commit(root, { 'test/a/fixture.mjs': "export const rows = [{ id: 'f1', amount: 3 }];\n", 'test/a/r1.test.mjs': "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { rows } from './fixture.mjs';\ntest('R1 a filing', () => { assert.deepEqual(rows.length, 1); });\n", 'test/d/uses-fixture.test.mjs': "import { rows } from '../a/fixture.mjs';\nimport test from 'node:test';\ntest('d reads a fixture', () => { rows; });\n",
+    // c declares no use of a; its test reaches a's fixture through a's own helper (cold review of C11).
+    'test/a/helpers.mjs': "export { rows } from './fixture.mjs';\n", 'test/c/via-helper.test.mjs': "import { rows } from '../a/helpers.mjs';\nimport test from 'node:test';\ntest('c', () => { rows; });\n" }, 'a fixture');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
   layerOpen(root, 1, { io: openIO, log: quiet });
   const h = jobWork(bare, 'a', { 'test/a/fixture.mjs': "export const rows = [{ id: 'f1', amount: 4, filed: true }];\n" });
   const r = await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', h) }), log: quiet });
   assert.deepEqual(r.land.interface.test_only.files, ['test/a/fixture.mjs']);
-  assert.deepEqual(r.land.interface.test_only.importers, ['d']);
-  assert.deepEqual([r.land.interface.class, r.land.users_rescheduled], ['breaking', []], 'b, in the layer, imports none: no reschedule');
+  assert.deepEqual(r.land.interface.test_only.importers.sort(), ['c', 'd']);
+  assert.deepEqual([r.land.interface.class, r.land.users_rescheduled, r.land.interface.triggers], ['breaking', ['c'], ['test-import']], 'b imports none; c, through a\'s helper and declaring no use, is rescheduled');
   assert.deepEqual(r.land.users_noticed, ['d'], 'd, in a later layer, imports the fixture: noticed, breaking for it only');
-  assert.match(interfaceText(r.land.interface), /only its own tests changed \(test\/a\/fixture\.mjs\): no interface change for its users, but d imports a changed test file: breaking for it only/);
+  assert.match(interfaceText(r.land.interface), /only its own tests changed \(test\/a\/fixture\.mjs\): no interface change for its users, but (c, d|d, c) import a changed test file: breaking for them only/);
+});
+
+// Cold review of C11: an earlier land of the provider that changed its source, read none, leaves a
+// later test-only land's own verdict standing (it may be the only sign of that change).
+test('a test-only land after an earlier source land of the provider keeps its tests\' verdict', async () => {
+  const { root, bare } = await opened();
+  const h1 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return [x]; }\n' });
+  const r1 = await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', h1) }), log: quiet });
+  assert.equal(r1.land.interface.source_changed, true);
+  const h2 = jobWork(bare, 'a', { 'req/a.md': req('a', '- **R2** `a(x)` answers a list') }, {});
+  await layerLand(root, 2, { io: landIO(bare, { 2: prOf(2, 'a', h2) }), log: quiet });
+  const t = (want) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../../src/a/index.mjs';\ntest('R2 a list', () => { assert.deepEqual(a(1), ${want}); });\n`;
+  const h3 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1]') });
+  await layerLand(root, 3, { io: landIO(bare, { 3: prOf(3, 'a', h3) }), log: quiet });
+  const h4 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1, 1]') });
+  const r4 = await layerLand(root, 4, { io: landIO(bare, { 4: prOf(4, 'a', h4) }), log: quiet });
+  assert.equal(r4.land.interface.test_only.earlier_source, true);
+  assert.deepEqual([r4.land.interface.class, r4.land.users_rescheduled], ['breaking', ['b']]);
 });
 
 // C11 c (the coordinator, 7 Nov): a false reschedule had no scoped clear, only notice withdraw (every
@@ -1540,13 +1561,21 @@ test('layer clear: one user\'s reschedule from one provider cleared with the rul
   const ra = await layerLand(root, 2, { io: landIO(bare, { 2: prOf(2, 'a', ha) }, { open: [] }), log: quiet });
   assert.deepEqual(ra.land.users_rescheduled, ['b']);
   assert.throws(() => layerClear(root, 'b', { provider: 'a', log: quiet }), /--why/);
+  // A second breaking land by a: one clear per land, named (cold review of C11).
+  const hb = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x, y, z) { return x; }\n' });
+  const rb = await layerLand(root, 3, { io: landIO(bare, { 3: prOf(3, 'a', hb) }, { open: [] }), log: quiet });
+  assert.throws(() => layerClear(root, 'b', { provider: 'a', why: 'x', log: quiet }), /b owes reschedules from a's 2 lands .*name the one the ruling is for with --land <sha>; nothing recorded/);
+  layerClear(root, 'b', { provider: 'a', land: rb.land.merge.slice(0, 10), why: 'the second land changes nothing b reads', log: quiet });
+  fetchState(root, SB, { fresh: true });
+  assert.equal(flowRows(root, SB, 1).reschedules.length, 1, 'the first stands');
   assert.throws(() => layerClear(root, 'c', { provider: 'a', why: 'x', log: quiet }), /c owes no reschedule from a in layer 1; nothing recorded/);
   const lines = [];
-  const r = layerClear(root, 'b', { provider: 'a', why: 'the coordinator, 7 Nov: b imports nothing a changed', by: 'coordinator', log: (l) => lines.push(l) });
+  const r = layerClear(root, 'b', { provider: 'a', land: ra.land.merge, why: 'the coordinator, 7 Nov: b imports nothing a changed', by: 'coordinator', log: (l) => lines.push(l) });
   assert.equal(r.cleared.length, 1);
   assert.match(lines[0], /^b: 1 reschedule\(s\) from a cleared in layer 1 \(the coordinator, 7 Nov: b imports nothing a changed\)/);
   fetchState(root, SB, { fresh: true });
   const rows = flowRows(root, SB, 1);
-  assert.deepEqual([rows.reschedules.length, rows.clears.map((c) => [c.user, c.provider, c.by])], [0, [['b', 'a', 'coordinator']]]);
+  assert.deepEqual([rows.reschedules.length, rows.clears.map((c) => [c.user, c.provider, c.by]).sort()], [0, [['b', 'a', 'bob'], ['b', 'a', 'coordinator']]]);
+  assert.equal(rows.reschedules_all.length, 2, 'the trial still counts both');
   assert.notEqual(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((x) => x.id === 'b').state, 'rescheduled');
 });
