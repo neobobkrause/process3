@@ -2,9 +2,9 @@
 // (MSG-1, MSG-3, MSG-6). Each file has one writer (REC-2): handoff/<role>.md by that role,
 // messages/<sender>.jsonl by that sender. The address file is build K's; send only reads it.
 // The tool cannot call send_message: send records and prints, the session delivers.
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Fail, fail, fetchRetry, git, now, pushRetry, withStateLock, withTemp } from './util.mjs';
+import { Fail, Superseded, fail, fetchRetry, git, now, pushRetry, withStateLock, withTemp } from './util.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -91,12 +91,33 @@ const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{com
 const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
 const PENDING = `refs/p3/pending/${process.pid}/`;
 const UNPUSHED = 'refs/p3/unpushed/';
+// One change made and committed in wt. A change that refuses on the tip it now meets puts the
+// worktree back: a Superseded refusal (its work done by another writer: the idle check's "another
+// check landed first") is dropped with a logged line; any other refusal is returned as refused, for
+// the caller to report, never kept for a replay that would refuse it too (the coordinator, 6 Nov: the
+// idle check's refusal, met only at the flush on origin's newer tip, parked every write of the
+// command in refs/p3/unpushed, four times; cold review: a reservation that lost must say so).
+export const DROPPED = 'state write dropped on the state branch as it stands now';
+function applyOne(wt, { msg, change }, log = (l) => console.error(l)) {
+  let o;
+  try { o = change(wt); } catch (e) {
+    if (!(e instanceof Fail)) throw e;
+    git(['reset', '-q', '--hard', 'HEAD'], { cwd: wt });
+    git(['clean', '-qfd'], { cwd: wt });
+    if (!(e instanceof Superseded)) return { refused: e.message };
+    log(`note: ${DROPPED}: ${msg}: ${e.message}`);
+    return { dropped: e.message };
+  }
+  git(['add', '-A'], { cwd: wt });
+  git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
+  return { o };
+}
 // Each change made and committed in a worktree at start, in order; the clone's ref moved to the result.
-function commitAll(root, sb, start, list) {
+function commitAll(root, sb, start, list, log = () => {}) {
   return withTemp('p3-state-', (tmp) => {
     const wt = join(tmp, 's');
     git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
-    const made = list.map(({ msg, change }) => { const o = change(wt); git(['add', '-A'], { cwd: wt }); git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt }); return { o, c: git(['rev-parse', 'HEAD'], { cwd: wt }) }; });
+    const made = list.map((x) => { const r = applyOne(wt, x, log); return { o: r.o || {}, dropped: r.dropped ?? r.refused, c: git(['rev-parse', 'HEAD'], { cwd: wt }) }; });
     const tip = git(['rev-parse', 'HEAD'], { cwd: wt });
     git(['update-ref', ref(sb), tip], { cwd: root });
     return { tip, made };
@@ -104,7 +125,8 @@ function commitAll(root, sb, start, list) {
 }
 // The pending changes made again on the clone's ref as it stands now (origin's tip, or empty).
 function rebuild(root, sb, entry) {
-  const r = commitAll(root, sb, tipOf(root, sb) || emptyStart(root, sb), entry.list);
+  const r = commitAll(root, sb, tipOf(root, sb) || emptyStart(root, sb), entry.list, (l) => console.error(l));
+  for (const [i, m] of r.made.entries()) if (m.dropped !== undefined && !/^note: /.test(m.dropped)) console.error(`note: a pending state write refuses on the moved tip: ${entry.list[i].msg}: ${m.dropped}; the flush reports it`);
   entry.tip = r.tip;
   return r;
 }
@@ -114,6 +136,8 @@ function writeStateLocal(root, sb, msg, change) {
   if (!entry.list.length) fetchState(root, sb);
   else if (tipOf(root, sb) !== entry.tip) rebuild(root, sb, entry); // the ref moved under this command
   const { tip, made } = commitAll(root, sb, tipOf(root, sb) || emptyStart(root, sb), [{ msg, change }]);
+  // Refused on the clone's tip: as writeStateNow refuses, nothing kept or pending.
+  if (made[0].dropped !== undefined) { git(['update-ref', ref(sb), tip], { cwd: root }); throw new Fail(made[0].dropped); }
   const n = entry.list.length;
   git(['update-ref', `${PENDING}${String(n).padStart(4, '0')}`, made[0].c], { cwd: root });
   entry.list.push({ msg, change });
@@ -143,10 +167,14 @@ const dropPending = (root) => { for (const r of git(['for-each-ref', '--format=%
 // Returns the writes pushed.
 export function flushState({ log = () => {} } = {}) {
   let n = 0;
+  const lost = [];
   for (const [key, entry] of [...batch.pending]) {
     batch.pending.delete(key);
     if (!entry.list.length) continue;
     const { root, sb, list } = entry;
+    const refused = [];
+    const dropped = [];
+    const out = new Set(); // the indexes of the writes left out, never kept for a replay
     try {
       withStateLock(root, () => {
         const have = fetchRetry(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root });
@@ -155,27 +183,33 @@ export function flushState({ log = () => {} } = {}) {
         withTemp('p3-state-', (tmp) => {
           const wt = join(tmp, 's');
           git(['worktree', 'add', '-q', '--detach', wt, tipOf(root, sb) || emptyStart(root, sb)], { cwd: root });
-          const redo = () => { for (const { msg, change } of list) { change(wt); git(['add', '-A'], { cwd: wt }); git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt }); } };
+          // Each pending change made again on the tip met: a superseded one dropped and logged; one that
+          // refuses there left out and reported once the others are pushed, never kept.
+          const redo = () => { refused.length = 0; dropped.length = 0; out.clear(); for (const [i, x] of list.entries()) { const r = applyOne(wt, x, (l) => { log(l); console.error(l); }); if (r.refused !== undefined) refused.push(`${x.msg}: ${r.refused}`); if (r.dropped !== undefined) dropped.push(x.msg); if (r.o === undefined) out.add(i); } };
           redo();
           pushRetry(wt, sb, { redo, log, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) });
         }, { root });
       });
     } catch (e) {
       flushedFns.delete(key);
-      const kept = git(['for-each-ref', '--format=%(refname)', PENDING], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+      const all = git(['for-each-ref', '--format=%(refname)', PENDING], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+      for (const r of all.filter((x) => out.has(Number(x.split('/').pop())))) git(['update-ref', '-d', r], { cwd: root });
+      const kept = all.filter((x) => !out.has(Number(x.split('/').pop())));
       const t = Date.now();
       const names = kept.map((r) => { const name = `${UNPUSHED}${t}-${r.split('/').pop()}`; git(['update-ref', name, r], { cwd: root }); git(['update-ref', '-d', r], { cwd: root }); return name; });
       fetched.delete(key);
-      if (e instanceof Fail) fail(`${e.message}. This command's ${list.length} state write(s) are kept: replay them with \`node .process/tool/p3.mjs state replay\` (${names.join(', ')})`);
+      if (e instanceof Fail) fail(`${e.message}. This command's ${kept.length} state write(s) are kept: replay them with \`node .process/tool/p3.mjs state replay\` (${names.join(', ')})`);
       throw e;
     }
     dropPending(root);
-    n += list.length;
+    n += list.length - refused.length - dropped.length;
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(key); }
+    lost.push(...refused);
     // What waited on this push (R17e: a usage share carried by it records when it went).
     for (const fn of flushedFns.get(key) || []) { try { fn(); } catch { /* a record only */ } }
     flushedFns.delete(key);
   }
+  if (lost.length) fail(`${lost.length} state write(s) of this command refused on the state branch as it stands now, so not written (the command's other writes are pushed): ${lost.join('; ')}`);
   return n;
 }
 
@@ -196,13 +230,20 @@ function writeStateNow(root, sb, msg, change) {
     // one "fatal error in commit_refs"). Given up, the commit is kept under refs/p3/unpushed/ and the
     // refusal names the command that replays it.
     let tip;
-    try { tip = pushRetry(wt, sb, { redo: make, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
+    // Made again on a tip another writer moved: a change that refuses there is dropped and logged,
+    // never kept for a replay that would refuse it too.
+    let lost = null;
+    const again = () => { lost = null; const r = applyOne(wt, { msg, change }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
+    try { tip = pushRetry(wt, sb, { redo: again, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;
       git(['update-ref', name, 'HEAD'], { cwd: wt });
       fail(`${e.message}. The write is kept: replay it with \`node .process/tool/p3.mjs state replay ${name}\``);
     }
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
+    // Refused on the tip another writer moved to (a reservation that lost: a lane's seat, an
+    // address): nothing written, never kept, said plainly.
+    if (lost !== null) fail(`${msg}: refused on ${sb} as it stands now (another writer moved it first): ${lost}; nothing was written`);
     return { ...out, tip };
   }, { root });
 }
@@ -218,6 +259,51 @@ export const heldAct = (held) => `\`node .process/tool/p3.mjs state replay\` (${
 
 // For the tests: a stand-in for the state push.
 export const stateIO = { push: null, wait: null };
+
+// The kept commit c's change made on the worktree's tip: a file it appended to gets the same lines
+// appended (unless the tip holds them already), a file it added is added (the same bytes there
+// already: nothing), a file it removed is removed; anything else is picked with git's three-way
+// merge (the coordinator, 6 Nov: a kept append to a jsonl another writer had appended to since
+// "does not apply" under a plain cherry-pick).
+function reapply(root, wt, c, r, sb) {
+  const parent = git(['rev-parse', '-q', '--verify', `${c}^`], { cwd: root, allowFail: true }).stdout.trim() || null;
+  const raw = (rev, f) => { const x = git(['cat-file', 'blob', `${rev}:${f}`], { cwd: root, allowFail: true }); return x.code === 0 ? x.stdout : null; };
+  const files = git(['diff-tree', '--no-commit-id', '--name-status', '-r', '--root', '-z', c], { cwd: root }).split('\0').filter(Boolean);
+  const other = [];
+  for (let i = 0; i < files.length; i += 2) {
+    const [st, f] = [files[i], files[i + 1]];
+    const p = join(wt, f);
+    const now = existsSync(p) ? readFileSync(p, 'utf8') : null;
+    const before = parent ? raw(parent, f) : null;
+    const after = raw(c, f);
+    if (st === 'D') { if (now === null) continue; if (now === before) rmSync(p, { force: true }); else other.push(f); continue; }
+    if (before === null) {
+      if (now === null) put(wt, f, after);
+      else if (now !== after) other.push(f);
+      continue;
+    }
+    // Re-appended only to the measurement rows (metrics/): rows elsewhere may carry an id counted
+    // from the file (a hold's hold-<n>, a message's n:k) or reserve something (a lane's seat), so
+    // they go through the merge below, which refuses when another writer appended too (cold review).
+    if (f.startsWith('metrics/') && after.startsWith(before)) {
+      const added = after.slice(before.length);
+      const have = now ?? '';
+      if (!`\n${have}`.includes(`\n${added}`)) put(wt, f, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${added}`);
+      continue;
+    }
+    if (now === after) continue;
+    // Any other change: git's three-way merge of this file (the kept commit's parent as the base).
+    const m = withTemp('p3-state-', (tmp) => {
+      const [o, b, t] = ['ours', 'base', 'theirs'].map((k) => join(tmp, k));
+      writeFileSync(o, now ?? ''); writeFileSync(b, before); writeFileSync(t, after);
+      const x = git(['merge-file', '-p', o, b, t], { cwd: root, allowFail: true });
+      return x.code === 0 ? x.stdout : null;
+    }, { root });
+    if (m === null) other.push(f);
+    else put(wt, f, m);
+  }
+  if (other.length) fail(`${r} does not apply to ${sb} as it stands now (${other.join(', ')} changed there in a way its change cannot be merged into); it is kept`);
+}
 
 // p3 state replay [<ref>...]: each kept write (refs/p3/unpushed/*, all when none is named) made again
 // on the state branch's fresh tip (its own commit picked onto it) and pushed; its ref then dropped.
@@ -254,11 +340,15 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
     // Pushed at once, never coalesced: the kept ref goes only once its write is on origin.
     const was = batch.on;
     batch.on = false;
-    try { writeState(root, sb, msg, (wt) => {
-      const p = git(['cherry-pick', '--no-commit', '--allow-empty', c], { cwd: wt, allowFail: true });
-      if (p.code !== 0) fail(`${r} does not apply to ${sb} as it stands now (${(p.stderr || p.stdout).trim().split('\n').pop()}); it is kept`);
-      return {};
-    }); } finally { batch.on = was; }
+    // An idle check's row is a measurement of its window: a kept one is stale once another check
+    // has run, so it is dropped, never replayed (the next check measures again).
+    if (/^idle check: /.test(msg)) {
+      git(['update-ref', '-d', r], { cwd: root });
+      log(`dropped ${r} (${msg}): an idle check's row is stale once kept; the next check measures again`);
+      done.push(r);
+      continue;
+    }
+    try { writeState(root, sb, msg, (wt) => { reapply(root, wt, c, r, sb); return {}; }); } finally { batch.on = was; }
     git(['update-ref', '-d', r], { cwd: root });
     log(`replayed ${r} (${msg})`);
     for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
