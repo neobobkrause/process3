@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { RULEBOOKS, rulebook } from '../lib/job.mjs';
 import { bobPrompt, rootPrompt, watcherPrompt } from '../lib/roles.mjs';
 import { briefText } from '../lib/review.mjs';
+import './helpers.mjs'; // no machine git config (C2)
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (role) => readFileSync(join(repo, 'rulebooks', `${role}.md`), 'utf8');
