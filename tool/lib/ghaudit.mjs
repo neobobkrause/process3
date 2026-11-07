@@ -126,7 +126,7 @@ export function githubAudit(root, { since, repos = [], product = null, stateBran
 
   log(`github audit ${iso(start)} to ${iso(until)} (the last ${Math.round((now - until) / 60e3)} min left out: not yet shared by every session)${login ? `, as ${login}` : ', every login but bots and each repository\'s owner'}: ${audited.join(', ') || 'no repository'}`);
   for (const l of L) log(`- ${l}`);
-  log(unexplained ? 'audit: an unexplained push or write gap: some GitHub traffic went around the tool; find its session and route it through the tool, github push or github note' : 'audit: every push and write GitHub shows is in the ledger');
+  log(unexplained ? 'audit: an unexplained push or write gap: some GitHub traffic went around the tool; find its session and route it through the tool (github push) or the GitHub connector under the hook' : 'audit: every push and write GitHub shows is in the ledger');
   return { ok: !unexplained, ledger, lines: L };
 }
 

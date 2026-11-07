@@ -21,7 +21,8 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // GitHub's published limits, read 6 Nov 2026 from the source below.
 export const GITHUB_LIMITS = {
@@ -93,12 +94,20 @@ export function pollMs(k, p = pacing()) {
 
 // The clone's git directory (shared by its worktrees), where the stamps and the log live; the
 // temp directory when cwd is no clone.
-function commonDir(cwd) {
-  const r = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: cwd || process.cwd(), encoding: 'utf8' });
+// Asked of git once per directory and process (R17d: the hook's read path spawns as little as it can).
+const dirs = new Map();
+export function commonDir(cwd) {
+  const at = cwd || process.cwd();
+  if (dirs.has(at)) return dirs.get(at);
+  const r = spawnSync('git', ['rev-parse', '--git-common-dir'], { cwd: at, encoding: 'utf8' });
   const d = r.status === 0 ? r.stdout.trim() : '';
-  if (!d) return tmpdir();
-  return isAbsolute(d) ? d : resolve(cwd || process.cwd(), d);
+  const out = !d ? tmpdir() : isAbsolute(d) ? d : resolve(at, d);
+  if (d) dirs.set(at, out);
+  return out;
 }
+// The tool's command as it is run in this clone (R17d: a refusal names the path that exists): a
+// product runs the pinned process at .process/tool/p3.mjs, process3 its own tool/p3.mjs.
+export const TOOL = basename(resolve(dirname(fileURLToPath(import.meta.url)), '../..')) === '.process' ? 'node .process/tool/p3.mjs' : 'node tool/p3.mjs';
 export const githubLog = (cwd) => (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG) || join(commonDir(cwd), GITHUB_LOG);
 export const sessionId = () => process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null;
 // This clone, as the ledger's rows name it: one session can act from two clones (process3 and a
@@ -295,7 +304,7 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
   for (let round = 0; ; round++) {
     const s = shared.read({ fresh: round > 0 || content > 0 || !!cost.push });
     const pause = pauseOf(cwd, s);
-    if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`node .process/tool/p3.mjs github resume --by <its session>\` once the account is in good standing; then rerun ${rerunLine()}`);
+    if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`${TOOL} github resume --by <its session>\` once the account is in good standing; then rerun ${rerunLine()}`);
     let wait = null;
     if (pause?.until && Date.parse(pause.until) > now()) wait = [Date.parse(pause.until), `GitHub rate-limited this account (${pause.why})`];
     if (!wait && cost.primary) {

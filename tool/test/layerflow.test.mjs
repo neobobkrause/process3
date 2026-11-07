@@ -1235,6 +1235,8 @@ const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive
 const syncIO = (bare, made) => ({
   slug: 'o/p', openPRs: () => [], findPR: () => null,
   createPR: (s, p) => { made.push(p); return { number: 90 + made.length, ...p }; },
+  // Every pull request ever opened from a branch: the ones made here.
+  prsFromBranch: (s, b) => made.filter((p) => p.head === b),
   waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
   merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
 });

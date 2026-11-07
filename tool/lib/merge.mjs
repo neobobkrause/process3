@@ -577,8 +577,12 @@ function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) 
 // input", the pull request left unmerged, and the same run again merged it): with `reread`
 // ({ read, sha }), the pull request is read again. Merged with this head is success; open with the
 // head unchanged tries the PUT once more; anything else stops. A refusal GitHub stated (a JSON
-// body, which gh prints with its HTTP status) is not this case.
+// body, which gh prints with its HTTP status) is not this case. Nor is a refusal of the budget's
+// or of GitHub's rate limit (R17d): the merge was never made, and the reply is no unread one; read
+// as one, the PUT was sent again at once into the same refusal, and the stop named an unread
+// reply, not the refusal and its rerun.
 export const unreadable = (msg) => {
+  if (BUDGET.test(String(msg))) return false;
   const body = String(msg).replace(/^gh api -X PUT failed:\s*/, '').trim();
   if (!body) return true;
   if (/\(HTTP \d{3}\)/.test(body)) return false;

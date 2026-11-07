@@ -33,7 +33,7 @@ import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readSta
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
 import { stateShare } from './lib/ghshare.mjs';
 import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
-import { hookDecision } from './lib/ghhook.mjs';
+import { hookRun } from './lib/ghhook.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { PROCESS_ROOT, triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -516,10 +516,8 @@ const commands = {
   'github hook': (a, root) => {
     let input = null;
     try { input = JSON.parse(readFileSync(0, 'utf8') || 'null'); } catch { input = null; }
-    if (!input) { console.error('p3 github hook: no hook JSON on stdin'); return 2; }
-    const d = hookDecision(input, root);
-    if (d.block) { console.error(`GitHub pacing (P27): ${d.block}`); return 2; }
-    return 0;
+    // The same as tool/hook.mjs (R17d), which the settings call: this command stays for older ones.
+    return hookRun(input, root);
   },
   // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
   // through this: it waits its turn against the pause, the stop and the account's push ceiling,

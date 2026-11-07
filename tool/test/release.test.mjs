@@ -117,7 +117,7 @@ test('release dev at a closed round: refused until the round is deployed and wal
   const text = out.join('\n');
   assert.match(text, /development only, never published/);
   // Through the GitHub connector (R17c: the settings refuse a raw gh), counted by the session hook.
-  assert.ok(text.includes(`1. \`node .process/tool/p3.mjs github note --content 1\`, then the GitHub connector's actions_run_trigger: run_workflow, workflow_id process-dev-release.yml, owner and repo o/p, ref tranche, inputs {"version":"${r.version}","commit":"${tip}"}`), text);
+  assert.ok(text.includes(`1. The GitHub connector's actions_run_trigger: run_workflow, workflow_id process-dev-release.yml, owner and repo o/p, ref tranche, inputs {"version":"${r.version}","commit":"${tip}"}`), text);
   assert.ok(!/gh workflow run/.test(text));
   assert.match(text, /2\. watch the run: https:\/\/github\.com\/o\/p\/actions\/workflows\/process-dev-release\.yml\?query=branch%3Atranche\n/);
   assert.match(text, /3\. `node \.process\/tool\/p3\.mjs release dev --record <that run's url>`/);

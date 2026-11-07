@@ -91,8 +91,8 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
   const gitActs = (who, dd) => [
     `\`git checkout -q -b ${base}-${who} ${tip}\`, then \`git commit -q --allow-empty -m "grants check ${n}: ${who}"\``,
     `push: \`${P3} github push origin ${base}-${who} --set-upstream\``,
-    `pr-open: \`${P3} github note --content 1\`, then create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${base}-${who}","base":"${base}","title":"grants check ${n}: ${who}","body":"A throwaway pull request of the tranche open's grants check. Kept, never deleted."}`,
-    `pr-comment: \`${P3} github note --content 1\`, then add_issue_comment on that pull request: "grants check ${n}: ${who} comments"`,
+    `pr-open: create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${base}-${who}","base":"${base}","title":"grants check ${n}: ${who}","body":"A throwaway pull request of the tranche open's grants check. Kept, never deleted."}`,
+    `pr-comment: add_issue_comment on that pull request: "grants check ${n}: ${who} comments"`,
     `pr-merge: \`${P3} merge <that pull request> --plain --no-review "grants check: an empty commit into a throwaway branch"\``,
   ];
   const probe = [
@@ -221,10 +221,10 @@ export function trancheClose(root, { record = false, report = false, log = conso
   const steps = [];
   if (onBranch(root, slug, cfg.tranche, main, read)) log(`main ${main.slice(0, 10)} is already in ${cfg.tranche}: no merge of main into it`);
   else {
-    steps.push(`\`${P3} github note --content 1\`, then create_pull_request {"owner":"${owner}","repo":"${repo}","head":"main","base":"${cfg.tranche}","title":"Merge main into ${cfg.tranche}","body":"Brings the tranche up to main before it closes."}`);
+    steps.push(`create_pull_request {"owner":"${owner}","repo":"${repo}","head":"main","base":"${cfg.tranche}","title":"Merge main into ${cfg.tranche}","body":"Brings the tranche up to main before it closes."}`);
     steps.push(`\`${P3} merge <that pull request> --plain --no-review "main into the tranche before its close"\``);
   }
-  steps.push(`\`${P3} github note --content 1\`, then create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${cfg.tranche}","base":"main","title":"Close ${cfg.tranche}","body":"The tranche's work, merged through the gate and its reviews."}`);
+  steps.push(`create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${cfg.tranche}","base":"main","title":"Close ${cfg.tranche}","body":"The tranche's work, merged through the gate and its reviews."}`);
   steps.push(`\`${P3} merge <that pull request> --plain --no-review "the tranche's work, merged through the gate and its reviews"\` (it waits for main's required checks)`);
   steps.push(`\`${P3} tranche close --record\``);
   log(`BOB's acts to close ${cfg.tranche} at ${tip.slice(0, 10)}, each its own command; a refused act is never reworded or rerouted:`);

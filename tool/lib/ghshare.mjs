@@ -18,7 +18,9 @@ import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { fetchState, flushState, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { fail, git, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
-import { exempt, nextPause, pacing, readLog, sessionId, usageRows, withoutWaiting } from './pace.mjs';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { commonDir, exempt, nextPause, pacing, readLog, sessionId, usageRows, withoutWaiting } from './pace.mjs';
 import { PROCESS_ROOT } from './register.mjs';
 
 export const PAUSE_FILE = 'github/pause.json';
@@ -28,6 +30,8 @@ export const READ_S = 30;
 export const LEDGER_REF = 'refs/p3/ledger/state';
 export const LEDGER_BRANCH = 'process-state';
 const MARK = 'p3-gh-shared-to';
+export const LEDGER_CACHE = 'p3-gh-ledger.json';
+const REFRESHING = 'p3-gh-refreshing';
 const safe = (s) => String(s || 'no-session').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
 
 // The ledger for a clone: its config's pacing.ledger, else the pinned process3's pacing.json (so
@@ -51,13 +55,22 @@ function ownStore(root, sb) {
     read: (path) => readState(root, sb, path),
     list: (dir) => git(['ls-tree', '--name-only', `refs/remotes/origin/${sb}`, `${dir}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean),
     write: (msg, change) => writeState(root, sb, msg, change),
+    tip: () => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${sb}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null,
+    remoteTip: () => lsRemote(root, 'origin', sb),
   };
+}
+// The ledger branch's tip on GitHub, without fetching it (R17d): null when it cannot be read.
+function lsRemote(root, where, branch) {
+  const r = git(['ls-remote', where, `refs/heads/${branch}`], { cwd: root, allowFail: true, timeout: 30e3 });
+  return r.code === 0 ? (r.stdout.split('\t')[0].trim() || 'none') : null;
 }
 export function remoteStore(root, url) {
   const fetch = () => git(['fetch', '-q', url, `+refs/heads/${LEDGER_BRANCH}:${LEDGER_REF}`], { cwd: root, allowFail: true });
   const tip = () => git(['rev-parse', '-q', '--verify', `${LEDGER_REF}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
   return {
     fetch,
+    tip,
+    remoteTip: () => lsRemote(root, url, LEDGER_BRANCH),
     read: (path) => { const r = git(['show', `${LEDGER_REF}:${path}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; },
     list: (dir) => git(['ls-tree', '--name-only', LEDGER_REF, `${dir}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean),
     // A change made on the ledger's tip and pushed, never forced; refused because the tip moved,
@@ -92,18 +105,22 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
   let cache = null;
   const load = () => {
     store.fetch();
+    // The tip the reads are of: one moved under them (another p3 process of the clone fetched)
+    // is not recorded, so the next refresh fetches again (cold review of R17d: else old contents
+    // under the new tip would be renewed as current, a stop hidden).
+    const tip0 = store.tip();
     let pause = null;
     try { pause = JSON.parse(store.read(PAUSE_FILE) || 'null'); } catch { pause = null; }
     const since = now() - 2 * 3600e3;
     const use = store.list(USE_DIR).flatMap((f) => (store.read(f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
     const resumed = (store.read(RESUMED_FILE) || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
     cache = { at: now(), pause, use, resumed };
-    try { writeFileSync(diskCache, JSON.stringify({ ...cache, ledger: led.own ? 'own' : led.url })); } catch { /* best effort */ }
+    try { writeFileSync(diskCache, JSON.stringify({ ...cache, ledger: led.own ? 'own' : led.url, tip: store.tip() === tip0 ? tip0 : null })); } catch { /* best effort */ }
     return cache;
   };
   // Shared with this clone's other p3 processes (each hook call is one): a read within READ_S
   // fetches nothing (R17c, the hook's fast path). A fresh read (before a write) always fetches.
-  const diskCache = join(git(['rev-parse', '--git-common-dir'], { cwd: root, allowFail: true }).stdout.trim().replace(/^(?!\/)/, `${root}/`), 'p3-gh-ledger.json');
+  const diskCache = join(commonDir(root), LEDGER_CACHE);
   // Never a stop from disk (a resume elsewhere must show at once), nor another ledger's read.
   const fromDisk = () => { try { const c = JSON.parse(readFileSync(diskCache, 'utf8')); return c && now() - c.at < READ_S * 1000 && !c.pause?.stopped && c.ledger === (led.own ? 'own' : led.url) ? c : null; } catch { return null; } };
   // The ledger's own writes go through whatever the account's state (exempt): a pause must be
@@ -138,6 +155,20 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
       });
       cache = null;
       try { writeFileSync(diskCache, 'null'); } catch { /* none */ }
+    },
+    // The hook's background refresh (R17d): the ledger's tip asked of GitHub (ls-remote, no fetch);
+    // unmoved, the disk cache is current again as it stands, a stop included; moved, fetched and
+    // read again. Returns what it did.
+    refresh: () => {
+      const t = store.remoteTip();
+      let c = null;
+      try { c = JSON.parse(readFileSync(diskCache, 'utf8')); } catch { c = null; }
+      if (t && c && c.tip && c.tip === t && c.ledger === (led.own ? 'own' : led.url)) {
+        try { writeFileSync(diskCache, JSON.stringify({ ...c, at: now() })); } catch { /* best effort */ }
+        return 'unmoved';
+      }
+      load();
+      return 'fetched';
     },
     // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
     beforeWait: () => { if (pendingWrites()) flushState(); },
@@ -178,4 +209,38 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   }));
   try { writeFileSync(mark, String(last)); } catch { /* best effort */ }
   return rows.length;
+}
+
+// The hook's read path (R17d; coordinator, 7 Nov: under 300 ms p95, never a ledger fetch on a
+// read): the account's pause, stop and use as the clone's disk cache holds them, at any age, a stop
+// included; when the cache is READ_S old or missing, a background refresh is started (one at a
+// time per clone) and the read goes on at once. A read can so pass a pause or stop written in the
+// last READ_S plus the refresh's few seconds; a write always reads the ledger fresh (stateShare).
+export function peekShare(cwd, { now = Date.now, kick = kickRefresh } = {}) {
+  let c = null;
+  try { c = JSON.parse(readFileSync(join(commonDir(cwd), LEDGER_CACHE), 'utf8')); } catch { c = null; }
+  if (!c || !(now() - c.at < READ_S * 1000)) { try { kick(cwd, { now }); } catch { /* the next read tries again */ } }
+  const s = c ? { pause: c.pause || null, use: c.use || [], resumed: c.resumed || null } : { pause: null, use: [] };
+  return { read: () => s };
+}
+const HOOK_ENTRY = join(fileURLToPath(new URL('..', import.meta.url)), 'hook.mjs');
+// One refresh at a time per clone: a marker file, taken by its creation; one older than a minute
+// (a refresh killed) is taken over.
+export function kickRefresh(cwd, { now = Date.now, entry = HOOK_ENTRY } = {}) {
+  const f = join(commonDir(cwd), REFRESHING);
+  try { writeFileSync(f, String(now()), { flag: 'wx' }); } catch {
+    let at = 0;
+    try { at = Number(readFileSync(f, 'utf8')) || 0; } catch { at = 0; }
+    if (now() - at < 60e3) return false;
+    writeFileSync(f, String(now()));
+  }
+  // Its marker named, so a refresh taken over does not clear its successor's (cold review of R17d).
+  const child = spawn(process.execPath, [entry, '--refresh'], { cwd, detached: true, stdio: 'ignore', env: { ...process.env, P3_REFRESH_MARK: readFileSync(f, 'utf8') } });
+  child.on('error', () => { /* not started: the next read tries again */ });
+  child.unref();
+  return true;
+}
+export function refreshDone(cwd, mark = process.env.P3_REFRESH_MARK) {
+  const f = join(commonDir(cwd), REFRESHING);
+  try { if (mark === undefined || readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ }
 }
