@@ -90,7 +90,7 @@ export function readingSet(root, entry, extra = [], cfg = null) {
 const DEFAULT_ACTS = (branch) => [
   'read, search and edit files in this repository, within the paths below',
   `run the module's suite and checks below, and the product's build and test commands for it`,
-  `git commit, and git push to ${branch} only`,
+  `git commit (the tool commands push)`,
   `the tool commands below, which comment on, edit and mark ready your own PR`,
 ];
 
@@ -144,7 +144,7 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push('1. `git submodule update --init .process`');
   if (restart) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
-  L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit, and \`git push origin ${branch}\` before every turn ends (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
+  L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit; \`${P3} job sync ${id}\` pushes it each turn (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
   // The shared layer branch (layerflow.mjs): the job publishes onto its layer; the merge tool lands it.
   const lay = layerOfBranch(tranche);
   if (lay !== null) L.push(`${n + 3}. When the suite passes and the requirements are met: \`${P3} layer publish ${id} --not-verified "<what you did not verify>" --test R<id>="<test file>::<test name>"\`, with job complete's flags. It brings your branch up to \`${tranche}\`, refuses any file outside your paths, runs your fast checks (CI runs the suite), pushes, posts your receipt and marks the PR ready; the merge tool lands it into \`${tranche}\` on a green gate. If a message says a provider changed its interface, stop any test run at once and run \`${P3} layer publish ${id}\` again: a run started before the provider's change never counts. A run of publish already going halts and restarts by itself.`);
@@ -979,7 +979,7 @@ function mergeIn(root, ref, { id, name, ff, msg, log, joinOwn = false }) {
 // out from origin: deepens both sides from GitHub's compare, as take-in does; merges origin's
 // job/<id> (BOB's pushes; a fast-forward when it can) and then the tranche, by a merge commit;
 // then `git submodule update .process`, so the tool is the branch's pin. Pushes nothing.
-export function jobSync(root, id, { push = true, compare: cmp = compare, log = console.log } = {}) {
+export function jobSync(root, id, { push = true, pushBranch = true, compare: cmp = compare, log = console.log } = {}) {
   const cfg = jobCfg(root, loadConfig(root), id, { push });
   if (push) fetchRef(root, cfg.tranche);
   const branch = push ? branchOf(root, id, originJobs(root), ledgerIds(root, `origin/${cfg.tranche}`), true) : startBranch(readRows(root, id), id);
@@ -1022,7 +1022,14 @@ export function jobSync(root, id, { push = true, compare: cmp = compare, log = c
     if (u.code !== 0) fail(`merged, but \`git submodule update .process\` failed (${u.stderr.trim().split('\n').pop()}); run it, then job sync again`);
     log(`.process is at the branch's pin ${short(pin)}`);
   }
-  if (push ? remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root }) : merged.length) log(`next: \`git push origin ${branch}\`, then run your command again`);
+  // The branch pushed here, through the governed git() (R17c, coordinator's item G): a job never
+  // pushes by hand. A fast-forward only; refused (origin moved, or the GitHub budget), job sync
+  // again merges origin's branch and pushes, so a rerun is safe.
+  if (push && pushBranch && remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) {
+    const r = git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd: root, allowFail: true });
+    if (r.code !== 0) fail(`the push of ${branch} failed (${r.stderr.trim().split('\n').pop()}); run \`${P3} job sync ${id}\` again: it brings in origin's ${branch} and pushes`);
+    log(`pushed ${branch} at ${git(['rev-parse', '--short', 'HEAD'], { cwd: root })}`);
+  } else if (!push && merged.length) log('next: run your command again');
   return { ok: true, merged, pin };
 }
 

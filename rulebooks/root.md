@@ -5,7 +5,7 @@ For ROOT, read once at start, after your prompt. Your prompt wins where the two 
 ## Principles (TXT-4)
 
 1. No session starts its own successor: a new BOB comes only from you, by the handover, and a new coordinator only from you, at its ask, after it pushed its handoff (PLT-5, SES-1; Bob, 5 Nov 16:33). Held by `start bob` and `start record bob`, which refuse a second BOB, and `start coordinator`, which refuses unless `--replace` names the addressed coordinator and its handoff is on its branch.
-2. Git carries state and a message only wakes, after the push (MSG-1). Held by `send`.
+2. Git carries state and a message only wakes, after the push (MSG-1). Your pushes are the tool's, paced account-wide by it (P27): push nothing and write nothing through the GitHub connector by hand. Held by `send` and the tool's pacing.
 
 ## Rules
 

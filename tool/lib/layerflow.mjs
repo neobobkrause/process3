@@ -37,7 +37,8 @@ import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
-import { fetchState, readState, writeState } from './state.mjs';
+import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
+import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor } from './hold.mjs';
 import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
@@ -131,7 +132,10 @@ export function interfaceChange(root, cfg, id, before, after) {
   // after, else before) counts when what it asserts changed.
   const tests = files.filter((f) => (e.tests || []).some((p) => underPath(f, p)));
   if (tests.length) {
-    const ids = providesIds(textAt(root, after, e.requirements)) || providesIds(textAt(root, before, e.requirements)) || [];
+    // The ids of both sides: a test of a Provides requirement renamed or dropped is examined too
+    // (cold review of R8: R2 renamed R4 with r2.test.mjs deleted read as additive).
+    const idsBefore = providesIds(textAt(root, before, e.requirements)) || [];
+    const ids = [...new Set([...(providesIds(textAt(root, after, e.requirements)) || []), ...idsBefore])];
     const names = (t) => ids.some((r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`).test(t));
     const hit = ids.length ? tests.filter((f) => names(`${textAt(root, before, f) || ''}\n${textAt(root, after, f) || ''}`)) : [];
     // A fixture (a file under its tests that is not itself a test: rows, JSON, a snapshot) that a test
@@ -142,7 +146,32 @@ export function interfaceChange(root, cfg, id, before, after) {
     if (hit.length) out.provides_tests_old = hit.sort();
     if (examined.length) {
       out.provides_tests_named = examined;
-      const asserted = examined.map((f) => ({ file: f, ...classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids) }));
+      // A new file that replaces a deleted one naming a Provides requirement they share is compared
+      // with that file, as a rename would be; a new file replacing none only adds assertions.
+      const gone = examined.filter((f) => textAt(root, after, f) === null && textAt(root, before, f) !== null);
+      const nameRe = (r) => new RegExp(`(^|[^\\w.])${r.replace(/\./g, '\\.')}(?![\\w]|\\.\\w)`);
+      const shared = (x, y) => ids.some((r) => nameRe(r).test(x || '') && nameRe(r).test(y || ''));
+      const replaced = new Map(); // added file -> the deleted one it replaces
+      for (const f of examined) {
+        const a0 = textAt(root, after, f);
+        if (textAt(root, before, f) !== null || a0 === null) continue;
+        const was = gone.find((g) => ![...replaced.values()].includes(g) && shared(textAt(root, before, g), a0));
+        if (was) replaced.set(f, was);
+      }
+      const asserted = examined.map((f) => {
+        if ([...replaced.values()].includes(f)) return { file: f, class: 'none', why: `replaced by ${[...replaced].find(([, g]) => g === f)[0]}` };
+        if (replaced.has(f)) { const c = classifyTestChange(textAt(root, before, replaced.get(f)), textAt(root, after, f), ids); return { file: f, ...c, why: `replaces ${replaced.get(f)}: ${c.why}` }; }
+        const c = classifyTestChange(textAt(root, before, f), textAt(root, after, f), ids);
+        // A new file is additive only when every requirement it names is new, or the provider's
+        // own source did not change in this land (the coordinator's ruling, 6 Nov, under Bob's "c":
+        // additive means nothing an existing user relies on changed). One naming an existing
+        // Provides requirement while its implementation changed may assert a changed answer.
+        if (textAt(root, before, f) === null && c.class === 'additive' && src.length) {
+          const old = idsBefore.filter((r) => nameRe(r).test(textAt(root, after, f) || ''));
+          if (old.length) return { file: f, class: 'breaking', why: `added, naming ${old.join(', ')} (Provides before this land) while ${id}'s source changed: it may assert a changed answer` };
+        }
+        return { file: f, ...c };
+      });
       out.provides_test_changes = asserted;
       const real = asserted.filter((x) => x.class !== 'none').map((x) => x.file);
       if (real.length) out.provides_tests = real;
@@ -609,7 +638,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
-  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the job cap: ${jobCap(cfg)} across the account). BOB starts them; no other session creates a job:`);
+  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
 }
@@ -684,7 +713,7 @@ export function voiding(root, sb, n, id, testedOn, { fetch = true } = {}) {
 // A reschedule arriving mid-run halts it (the child killed, a halt run row with the minutes lost)
 // and the next round starts on the new tip; a run that ends while a reschedule is outstanding
 // does not count either. At most `rounds` rounds.
-export async function layerPublish(root, id, { push = true, every = 30000, rounds = 4, sync, complete, log = console.log, args = [], session = null } = {}) {
+export async function layerPublish(root, id, { push = true, every = null, rounds = 4, sync, complete, log = console.log, args = [], session = null } = {}) {
   const cfg0 = loadConfig(root);
   needLayerMode(cfg0, 'layer publish');
   const cfg = jobCfg(root, cfg0, id, { push });
@@ -692,7 +721,7 @@ export async function layerPublish(root, id, { push = true, every = 30000, round
   const { n } = cfg.layer;
   const sb = cfg.state_branch;
   const lref = push ? layerRef(n) : `refs/heads/${layerBranch(n)}`;
-  const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, log }); });
+  const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, pushBranch: false, log }); });
   const doComplete = complete || (() => spawnComplete(root, id, args));
   for (let round = 1; round <= rounds; round++) {
     const s = await doSync();
@@ -705,15 +734,23 @@ export async function layerPublish(root, id, { push = true, every = 30000, round
     const pre = voiding(root, sb, n, id, testedOn, { fetch: push });
     if (pre.length) fail(`${layerBranch(n)} at ${short(testedOn)} lacks ${pre.map((r) => `${r.provider}'s land ${short(r.provider_land)}`).join(', ')}: run publish again once origin's ${layerBranch(n)} holds it`);
     log(`layer ${n}, round ${round}: ${id} runs on ${layerBranch(n)} ${short(testedOn)}`);
+    // The run's own job complete reads the state this command wrote (R17: writes are coalesced).
+    if (pendingWrites()) flushState();
     const c = doComplete();
     let halted = null;
-    const timer = setInterval(() => {
+    // The layer branch read again while the run goes: from pacing.poll_first_s (30 s) doubling to
+    // poll_most_s (5 min), never tighter (R17); every, a fixed pause, for the tests.
+    let k = 0;
+    let timer = null;
+    const check = () => {
       if (halted) return;
       const v = voiding(root, sb, n, id, testedOn, { fetch: push });
-      if (v.length) { halted = v; c.kill(); }
-    }, every);
+      if (v.length) { halted = v; c.kill(); return; }
+      timer = setTimeout(check, every ?? pollMs(++k));
+    };
+    timer = setTimeout(check, every ?? pollMs(++k));
     let code;
-    try { ({ code } = await c.done); } finally { clearInterval(timer); }
+    try { ({ code } = await c.done); } finally { clearTimeout(timer); }
     if (!halted) { const v = voiding(root, sb, n, id, testedOn, { fetch: push }); if (v.length) halted = v; }
     const ended = now();
     // One file per run, never two runs under one name (two in one second, the same round).
@@ -1082,12 +1119,15 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
 // p3 layer sync <n> [--no-wait] (BOB): the tranche into layer/<n> by a tool-made merge PR, landed by
 // the merge tool on a green gate (the gate runs layer/<n>'s own tool, which takes a plain PR's
 // ledger entries, pointer and shims). Nothing when layer/<n> already holds the tranche tip.
+// A commit's parents as its object names them: a shallow clone's boundary (a depth-1 fetch of the
+// merge) hides them from rev-list, never from the object (cold review of R17d).
+const parentsOf = (root, sha) => git(['cat-file', '-p', sha], { cwd: root }).split('\n\n')[0].split('\n').filter((l) => l.startsWith('parent ')).map((l) => l.slice(7));
 export async function layerSync(root, n, { io = {}, log = console.log, wait = true, by = 'bob' } = {}) {
   n = layerNum(n);
   const cfg = loadConfig(root);
   needLayerMode(cfg, 'layer sync');
   const slug = io.slug || repoSlug(root);
-  const x = { findPR, createPR, checkRun, getPR, openPRs, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
+  const x = { findPR, createPR, checkRun, getPR, openPRs, prsFromBranch, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   fetchLayer(root, cfg, n);
   const rows = flowRows(root, cfg.state_branch, n);
   if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
@@ -1119,10 +1159,26 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   let pr = into.find((p) => String(p.head?.ref || '').startsWith(stem)) || null;
   let head = pr?.head?.sha || null;
   let resolved = [];
+  // Whether origin's `branch` at `at` is the tool's merge of the tranche tip into the layer tip,
+  // tree for tree, with no pull request ever opened from it: { head, resolved }, else null (an
+  // unreadable list counts as one opened: the next name is taken, as before).
+  const unopened = (branch, at) => {
+    fetchBranch(root, branch, { allowFail: true });
+    if (!hasCommit(root, at)) return null;
+    const ps = parentsOf(root, at);
+    if (ps.length !== 2 || ps[0] !== tip || ps[1] !== ttip) return null;
+    const same = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try { const r = syncMerge(root, cfg, n, tip, ttip, w); return r.tree === git(['rev-parse', `${at}^{tree}`], { cwd: root }) ? r.resolved : null; } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    if (!same) return null;
+    const prs = x.prsFromBranch(slug, branch);
+    return Array.isArray(prs) && !prs.length ? { head: at, resolved: same } : null;
+  };
   if (pr) {
     // Its head must be the tool's own merge, tree for tree: a push to the branch is never landed.
     fetchBranch(root, pr.head.ref, { allowFail: true });
-    const ps = hasCommit(root, head) ? git(['rev-list', '--parents', '-n', '1', head], { cwd: root }).split(' ').slice(1) : [];
+    const ps = hasCommit(root, head) ? parentsOf(root, head) : [];
     const ok = ps.length === 2 && isAnc(root, ps[0], tip) && ps[1] === ttip && withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
       try { const r = syncMerge(root, cfg, n, ps[0], ttip, w); resolved = r.resolved; return r.tree === git(['rev-parse', `${head}^{tree}`], { cwd: root }); } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
@@ -1131,9 +1187,21 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
     log(`layer sync ${n}: PR ${pr.number} from ${pr.head.ref} is open already, its head the tool's merge`);
   } else {
     // A closed or red attempt keeps its branch (no session deletes one): the next takes a new name.
+    // A branch an earlier run pushed and opened no pull request from (its create refused, R17d) is
+    // taken up again when its head is the tool's merge of these two tips: not a second branch.
     let branch = stem;
-    for (let k = 2; git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim(); k++) branch = `${stem}-${k}`;
-    ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
+    let again = null;
+    for (let k = 2; ; k++) {
+      const at = git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim().split('\t')[0];
+      if (!at) break;
+      again = unopened(branch, at);
+      if (again) break;
+      branch = `${stem}-${k}`;
+    }
+    if (again) {
+      ({ head, resolved } = again);
+      log(`layer sync ${n}: ${branch} holds the tool's merge already, with no pull request from it; it is opened, not pushed again`);
+    } else ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
       try {
         const r = syncMerge(root, cfg, n, tip, ttip, w);
@@ -1192,7 +1260,10 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   const { layerChecks } = await import('./layer.mjs');
   const mods = L.states.map((s) => ({ id: s.id, blocked: s.state === 'deferred' ? s.why : null }));
   const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, log, ...(x.exec ? { exec: x.exec } : {}) });
-  const all = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
+  // A committed generated file stale on the layer refuses the merge, named with its regenerate (the
+  // coordinator, 6 Nov: the last gate before the tranche; order.mjs drifted this way).
+  const staleAt = new Set((lc.stale || []).map((x) => x.file));
+  const all = [...lc.findings, ...(lc.stale || []).map((x) => ({ check: 'generated', file: x.file, message: `${x.file} is stale on ${b} ${short(head)}: run ${x.regenerate} and commit it (a plain pull request into ${b}), then ${P3} layer merge ${n} again` })), ...lc.changed.filter((f) => !staleAt.has(f) && ![...staleAt].some((x) => underPath(x, f))).map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
   // SLB-7 (Bob): at close only the layer's own checks hold it. A generated row's verify failure
   // blocks only when its paths, or a module it names, are the closing layer's; any other is
   // printed for the module it names, for BOB's found mark there, and the merge goes on.

@@ -186,7 +186,7 @@ export function found(root, module, finding, { from, write = false, offline = fa
   log(`1. git switch -c ${branch} ${ref || cfg.tranche}`);
   log(`2. at the end of ${file}, add this one line and change nothing else (a plain pull request may only add found marks to a requirement file a job owns)${write ? '; written in this checkout now' : '; or run this command again with --write'}:`);
   log(`   ${line}`);
-  log(`3. commit it ("found: ${module || 'no module'} F${n}"), git push -u origin ${branch}, and open the pull request into ${cfg.tranche}`);
+  log(`3. commit it ("found: ${module || 'no module'} F${n}"), \`node .process/tool/p3.mjs github push origin ${branch} --set-upstream\` and open the pull request into ${cfg.tranche}`);
   log(`4. \`${P} merge <that pull request> --plain --no-review "work found elsewhere: one found mark, no code"\``);
   log(module
     ? `status --role bob then lists ${module} as found work as soon as it is ready by open_by, whatever its layer`

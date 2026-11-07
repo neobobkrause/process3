@@ -73,7 +73,8 @@ export function openLine(o) {
 }
 
 // tranche open: the steps, nothing written. The throwaway branch's number is one past those origin has.
-export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(root) } = {}) {
+// now: the clock its printed steps read (a test fixes it: two runs compared read it once).
+export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(root), now = Date.now } = {}) {
   const cfg = loadConfig(root);
   const { tip } = tipApprovals(root, cfg);
   fetchState(root, cfg.state_branch);
@@ -90,7 +91,7 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
   const rec = (act, dd) => `${P3} tranche open --record "${act}|${dd}|<ok, refused or declined>" --session <the session that took it>`;
   const gitActs = (who, dd) => [
     `\`git checkout -q -b ${base}-${who} ${tip}\`, then \`git commit -q --allow-empty -m "grants check ${n}: ${who}"\``,
-    `push: \`git push -u origin ${base}-${who}\``,
+    `push: \`${P3} github push origin ${base}-${who} --set-upstream\``,
     `pr-open: create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${base}-${who}","base":"${base}","title":"grants check ${n}: ${who}","body":"A throwaway pull request of the tranche open's grants check. Kept, never deleted."}`,
     `pr-comment: add_issue_comment on that pull request: "grants check ${n}: ${who} comments"`,
     `pr-merge: \`${P3} merge <that pull request> --plain --no-review "grants check: an empty commit into a throwaway branch"\``,
@@ -103,9 +104,9 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
     `Then send BOB one message with send_message: one line per act, "<act>|${d + 1}|<ok, refused or declined>" (push, pr-open, pr-comment, pr-merge), and the exact words of any refusal. Then end.`,
   ].join('\n');
   const call = { title: `grants probe ${n}`, source_url: `https://github.com/${slug}`, source_revision: tip, clone_depth: 1, prompt: probe };
-  const at = new Date(Date.now() + 864e5).toISOString().replace(/\.\d+Z$/, 'Z');
+  const at = new Date(now() + 864e5).toISOString().replace(/\.\d+Z$/, 'Z');
   const steps = [
-    `\`git push origin ${tip}:refs/heads/${base}\` (the throwaway base; kept, never deleted)`,
+    `\`${P3} github push origin ${tip}:refs/heads/${base}\` (the throwaway base; kept, never deleted)`,
     ...gitActs('bob', d).slice(0, 1),
     ...gitActs('bob', d).slice(1).map((s) => `${s}; then ${rec(s.split(':')[0], d)}`),
     `session-start: create_session with the call below; then ${rec('session-start', d)}`,

@@ -61,12 +61,12 @@ test('tranche open: prints BOB\'s acts and the probe\'s call; --record writes ea
   assert.equal(o.n, 2);
   assert.equal(o.base, 'p3/grants-tranche-2');
   assert.match(text, /^tranche open: 0 of 12 acts recorded/m);
-  assert.match(text, /push: `git push -u origin p3\/grants-tranche-2-bob`; then node \.process\/tool\/p3\.mjs tranche open --record "push\|1\|<ok, refused or declined>"/);
+  assert.match(text, /push: `node \.process\/tool\/p3\.mjs github push origin p3\/grants-tranche-2-bob --set-upstream`; then node \.process\/tool\/p3\.mjs tranche open --record "push\|1\|<ok, refused or declined>"/);
   assert.match(text, /pr-merge: `node \.process\/tool\/p3\.mjs merge <that pull request> --plain --no-review/);
   assert.match(text, /task-delete: delete_trigger/);
   assert.equal(o.call.clone_depth, 1);
   assert.equal(o.call.source_revision, git(['rev-parse', 'tranche'], { cwd: root }));
-  assert.match(o.call.prompt, /push: `git push -u origin p3\/grants-tranche-2-probe`/);
+  assert.match(o.call.prompt, /push: `node \.process\/tool\/p3\.mjs github push origin p3\/grants-tranche-2-probe --set-upstream`/);
   assert.match(o.call.prompt, /"<act>\|2\|<ok, refused or declined>"/);
 
   assert.throws(() => recordOpen(root, ['push|1|ok'], { log: quiet }), /--session/);
