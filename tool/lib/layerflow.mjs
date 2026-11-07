@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, posix } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
 import { classifyTestChange } from './testdiff.mjs';
-import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow } from './github.mjs';
+import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
@@ -438,7 +438,8 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   // A module deferred by its PR head's BLOCKED whose newest gate run on that head passed its suite has
   // its work done, BLOCKED only on a process finding (copy, 6 Nov: layer 8's 658-661 on the old tool's
   // ledger finding): a merge then would drop finished work (layerMerge refuses; layer status says so).
-  // Any run on that head of the module's whole suite, green (as layerCover reads a land's): a later
+  // Any run on that head of the module's whole suite that passed (stricter than layerCover, which takes
+  // base-red as the land does; this only holds a merge, the safe side): a later
   // row never turns it off; a read that fails is unknown, which holds the merge too (cold review of
   // PR 201).
   const doneWork = new Map();
@@ -1466,6 +1467,8 @@ const layerBody = (n, L) => [`Layer ${n} of the shared layer branch: every modul
 // covered by its last land on the layer branch, a merge of its job's PR into layer/<n> whose head
 // had a verified green gate run of that module's suite, and that head held every interface-changing
 // land of each provider it uses in the layer. Anything else is a finding: nothing is re-run.
+// Gate rows written before they said `whole` (this change, 7 Nov): taken as written (see layerCover).
+export const LEGACY_GATE_ROWS = '2026-11-07T12:00:00Z';
 export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io }) {
   const findings = [];
   const covered = [];
@@ -1476,7 +1479,12 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
   const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
   const landOf = new Map(); // commit -> { pr, id, head } | { why }
-  const whole = (r, id) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
+  // Green as the land reads it (gate.mjs: a suite that passed, or failed only on base-red tests): the copy's
+  // PR 715 landed on a base-red run its layer gate then refused (the coordinator, 7 Nov). A base-red
+  // test is still owed: no suite runs at the layer close, and the tranche's PR into main runs its
+  // suite with base-red off (gate.mjs), so it is collected there.
+  const GREEN = ['pass', 'base-red'];
+  const whole = (r, id) => r?.ok && r.trigger === 'code' && GREEN.includes(r.suite) && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
   let stateRows = null;
   const hidden = (c, k, p, why) => {
     const no = (w) => { const v = { why: w }; landOf.set(c, v); return v; };
@@ -1487,22 +1495,43 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
       try { fetchState(root, cfg.state_branch); } catch { /* read what the checkout holds */ }
       try { stateRows = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 ? flowRows(root, cfg.state_branch, n0) : false; } catch { stateRows = false; }
     }
-    const land = stateRows ? stateRows.lands.find((l) => l.pr === k && l.merge === c && l.head === p[1]) : null;
+    // The land row for this very merge: its PR, the merge, and both its parents (the layer before, the head).
+    const land = stateRows ? stateRows.lands.find((l) => l.pr === k && l.merge === c && l.head === p[1] && l.before === p[0] && l.at) : null;
     if (!land || !entries.some((e) => e.id === land.module)) return no(`is PR ${k}'s merge, but GitHub does not serve PR ${k} (${why}) and ${cfg.state_branch} holds no land row for this merge`);
     const id = land.module;
     const art = io.runArtifactRow || runArtifactRow;
-    // The run is bound to the module's own job branch by name (job/<id> or job/<id>-<n>), read from the
-    // start row on the layer before the land, never from the PR's own head (cold review of C13).
-    const jb = startBranch(rowsAt(root, p[0], id), id);
+    // The run is bound to the module's own job branch by name (job/<id> or job/<id>-<n>), as the process
+    // recorded it: the state branch's newest start row of the module at or before the land, else the
+    // ledger's on the layer before the land; never the PR's own head (cold review of C13). The ledger
+    // alone named job/actions for the copy's PR 715, whose attempt 3 ran on job/actions-2 (7 Nov).
+    const st = stateRows.starts.filter((r) => r.module === id && r.branch && String(r.at) <= String(land.at)).at(-1);
+    const jb = st?.branch || startBranch(rowsAt(root, p[0], id), id);
     if (!new RegExp(`^job/${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-\\d+)?$`).test(jb)) return no(`is PR ${k}'s land (from ${cfg.state_branch}), but ${jb} is not ${id}'s job branch`);
     const ctx = { pr: k, baseRef: branch, merged: { branch: jb } };
     // Its newest run on the head by GitHub's own run id (and attempt), never a session-written time.
-    const rows = stateRows.gates.filter((g) => g.pr === k && g.sha === p[1] && g.run_id).sort((a, b) => (Number(a.run_id) - Number(b.run_id)) || ((a.run_attempt ?? 1) - (b.run_attempt ?? 1)));
+    const rows = stateRows.gates.filter((g) => g.pr === k && g.module === id && g.sha === p[1] && g.run_id).sort((a, b) => (Number(a.run_id) - Number(b.run_id)) || ((a.run_attempt ?? 1) - (b.run_attempt ?? 1)));
     const last = rows.at(-1);
-    let row = null;
-    try { row = last ? art(slug, last.run_id) : null; } catch { row = null; }
-    if (!row || Number(row.run_id) !== Number(last.run_id) || row.sha !== p[1] || !whole(row, id) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but its gate run on ${short(p[1])} ${last ? 'is not a verified green run of the whole suite' : 'is not recorded'}`);
-    const v = { pr: k, id, head: p[1], parent: p[0], pr_unreadable: why.slice(0, 200) };
+    if (!last) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but no gate run on ${short(p[1])} is recorded`);
+    // A run GitHub serves is verified, its artifact and its record. One GitHub hides with the PR (the
+    // suspended account's run, copy PR 696, 7 Nov) stands on the process's own record: the land row
+    // for this very merge and its head, and the gate row the land recorded for that run, green on
+    // the head's code. Any other read failure is no answer: refused.
+    const seen = (io.runState || runState)(slug, last.run_id);
+    if (seen === null) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but its gate run ${last.run_id} could not be read`);
+    let run_unreadable = null;
+    if (seen === 'gone') {
+      // A row from before rows said `whole` (the copy's PR 696, run of 6 Nov 19:12) cannot say whether its
+      // run was narrowed to a requirements file's tests: taken as written, a gap named and closed to every
+      // row written since (LEGACY_GATE_ROWS), which says `whole`.
+      const wholeRow = last.whole === true || (last.whole === undefined && String(last.at) < LEGACY_GATE_ROWS);
+      if (!(last.ok === true && last.trigger === 'code' && GREEN.includes(last.suite) && wholeRow)) return no(`is PR ${k}'s land (from ${cfg.state_branch}), but its gate run ${last.run_id} on ${short(p[1])}, which GitHub does not serve, is recorded ${last.suite || 'without a suite'}${last.ok ? '' : ', not ok'}${last.trigger === 'code' ? '' : ` (${last.trigger})`}${wholeRow ? '' : ', not its whole suite'}`);
+      run_unreadable = `run ${last.run_id}: GitHub does not serve it; the land's gate row, ${last.suite}`;
+    } else {
+      let row = null;
+      try { row = art(slug, last.run_id); } catch { row = null; }
+      if (!row || Number(row.run_id) !== Number(last.run_id) || row.sha !== p[1] || !whole(row, id) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but its gate run on ${short(p[1])} is not a verified green run of the whole suite`);
+    }
+    const v = { pr: k, id, head: p[1], parent: p[0], pr_unreadable: why.slice(0, 200), ...(run_unreadable ? { run_unreadable } : {}) };
     landOf.set(c, v);
     return v;
   };
@@ -1569,7 +1598,7 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
       }
     }
     if (late.length) findings.push({ check: 'layer', file: entryFile(e.id), line: 1, message: `${e.id}'s ${last ? `last green run (PR ${last.v.pr}, ${short(last.v.head)})` : 'work (no land on the layer)'} did not hold the interface change of ${late.join(', ')}: it never counts; ${e.id} re-runs and publishes again` });
-    else if (last) covered.push({ id: e.id, pr: last.v.pr, merge: last.c, ...(last.v.pr_unreadable ? { pr_unreadable: last.v.pr_unreadable } : {}) });
+    else if (last) covered.push({ id: e.id, pr: last.v.pr, merge: last.c, ...(last.v.pr_unreadable ? { pr_unreadable: last.v.pr_unreadable } : {}), ...(last.v.run_unreadable ? { run_unreadable: last.v.run_unreadable } : {}) });
   }
   const own = new Set(entries.flatMap((e) => need.filter((f) => inMod(e, f))));
   for (const f of need.filter((x) => !own.has(x))) findings.push({ check: 'layer', file: f, line: 1, message: `${f} is in no module: a plain change goes to ${cfg.tranche} between layers, not onto ${branch}` });
@@ -1595,6 +1624,9 @@ export function gateRow(n, id, pr, r) {
     minutes: Number.isFinite(r.minutes) ? r.minutes : null,
     suite_minutes: sec === null ? null : Math.round((sec / 60) * 100) / 100,
     record_only: RECORD_ONLY(r),
+    // The module's whole suite (its scope, not narrowed to the tests that read a requirements file):
+    // a land whose PR and run GitHub later hides stands on this row alone (cold review of PR 735's fix).
+    whole: Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id)),
   };
 }
 const gateKey = (r) => (r.run_id ? `${r.run_id}-${r.run_attempt ?? 1}` : `${short(r.sha)}-${Date.parse(r.at) || 0}`);
