@@ -178,14 +178,14 @@ test('merge settings: merge commits on, auto-merge off, no branch deleted on mer
   assert.match(state(r, 'merge-settings').detail, /allow_auto_merge is true, not false; delete_branch_on_merge is true, not false/);
 });
 
-test('the deny list must hold the safety, file-write and merge-route rules, and not the rule that blocks every push', () => {
+test('the deny list must hold the safety, file-write and merge-route rules, and not a rule that blocks the tool\'s push', () => {
   // No settings-file rule is required: the record check holds the settings file (build 5).
   assert.equal(check(world()).ok, true);
   const w = world();
-  w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY.filter((d) => !/merge/.test(d)), 'Bash(git push origin :*)'] } });
+  w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY.filter((d) => !/merge/.test(d)), 'Bash(node .process/tool/p3.mjs github push *)'] } });
   const d = state(check(w), 'deny-list');
   assert.equal(d.state, 'missing');
-  for (const m of ['lacks mcp__github__merge_pull_request', 'lacks Bash(gh pr merge *)', 'lacks Bash(gh api *pulls/*/merge*)', 'holds Bash(git push origin :*), which blocks a session\'s push of its own branch']) assert.ok(d.detail.includes(m), `${m} in ${d.detail}`);
+  for (const m of ['lacks mcp__github__merge_pull_request', 'lacks Bash(gh pr merge *)', 'lacks Bash(gh api *pulls/*/merge*)', 'holds Bash(node .process/tool/p3.mjs github push *), which blocks a session\'s push of its own branch']) assert.ok(d.detail.includes(m), `${m} in ${d.detail}`);
   const w2 = world();
   delete w2.files['.claude/settings.json'];
   assert.match(state(check(w2), 'deny-list').detail, /no .claude\/settings.json on tranche/);
@@ -324,12 +324,22 @@ test('the bypass check fails closed: a ruleset without current_user_can_bypass d
   assert.match(state(r, 'ruleset-main-tranche').detail, /can bypass ruleset "process3"/);
 });
 
-test('any deny rule that would block the START\'s push is found, matched as Claude Code matches it', () => {
-  for (const rule of ['Bash(git push origin :*)', 'Bash(git push *)', 'Bash(git push:*)', 'Bash(git *)', 'Bash(git push -u origin *)', 'Bash']) {
+// C17 (the coordinator, 7 Nov): the session's push is the tool's (`p3 github push`); Bob's R17c settings
+// deny raw git push, and this condition refused them, stopping every job start on the copy.
+test('any deny rule that would block the tool\'s push, or refuse a told command, is found; a raw git push denied is not', () => {
+  for (const rule of ['Bash(node *)', 'Bash(node .process/tool/p3.mjs github push *)', 'Bash(node .process/tool/p3.mjs:*)', 'Bash']) {
     const w = world();
     w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY, rule] } });
     assert.match(state(check(w), 'deny-list').detail, new RegExp(`holds ${rule.replace(/[()*]/g, '\\$&')}, which blocks`), rule);
   }
+  for (const rule of ['Bash(git push origin :*)', 'Bash(git push *)', 'Bash(git push)', 'Bash(gh *)']) {
+    const w = world();
+    w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY, rule] } });
+    assert.equal(state(check(w), 'deny-list').state, 'set', rule);
+  }
+  const w = world();
+  w.files['.claude/settings.json'] = JSON.stringify({ permissions: { deny: [...DENY, 'Bash(git fetch *)'] } });
+  assert.match(state(check(w), 'deny-list').detail, /holds Bash\(git fetch \*\), which refuses `git fetch .*`, a command the process tells a session to run \(\S+:\d+\)/);
   assert.equal(bashRuleMatches('Bash(git push origin --delete *)', 'git push origin job/x'), false);
   assert.equal(bashRuleMatches('Bash(git push -f *)', 'git push -u origin job/x'), false);
   assert.equal(bashRuleMatches('Bash(git push origin main)', 'git push origin job/x'), false);

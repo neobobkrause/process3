@@ -58,12 +58,9 @@ test('a told command behind cd, an assignment, a subshell or sh -c, and a span i
 // either. The docs (README.md, setup/*.md) are read too: a span there addressed to a session is a
 // told command; those that only name a command (said to a person, or what a workflow or the tool
 // runs itself) are listed below with why, so a new one is judged here.
-const R17C_ADD = ['Bash(git push)', 'Bash(git push *)', 'Bash(gh *)'];
-const R17C = {
-  copy: { permissions: { deny: [...COPY.permissions.deny, ...R17C_ADD], allow: ['Bash(node .process/tool/p3.mjs github push *)', 'Artifact'] } },
-  process3: { permissions: { deny: ['mcp__github__merge_pull_request', 'Bash(gh pr merge *)', 'Bash(gh api *pulls/*/merge*)', 'Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push origin --delete *)', 'Bash(git push origin main)', 'Bash(git push origin HEAD:main)', 'Bash(gh api *contents/*)', 'Bash(gh api *git/blobs*)', 'Bash(gh api *git/trees*)', 'Bash(gh api *git/commits*)', 'Bash(gh api *git/refs*)', 'Bash(curl *api.github.com*)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file', ...R17C_ADD], allow: ['Bash(node tool/p3.mjs github push *)'] } },
-  probes: { permissions: { deny: ['Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push origin --delete *)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file', 'Bash(gh api *contents/*)', 'mcp__github__merge_pull_request', 'Bash(gh pr merge *)', 'Bash(gh api *pulls/*/merge*)', ...R17C_ADD], allow: ['Bash(node .process/tool/p3.mjs github push *)', 'Artifact'] } },
-};
+// The R17c files as the note gives them (one source: settings-policy.test reads the same, C17).
+const R17C_FILES = Object.fromEntries([...readFileSync(join(ROOT, 'notes/r17c-settings.md'), 'utf8').matchAll(/## (\S+)\n\n```json\n([\s\S]*?)```/g)].map((m) => [m[1], JSON.parse(m[2])]));
+const R17C = { copy: R17C_FILES['neobobkrause/civicsmith-copy'], process3: R17C_FILES['neobobkrause/process3'], probes: R17C_FILES['neobobkrause/process3-probes'] };
 const NAMED = {
   'README.md gh pr ready': 'what job complete runs itself, outside a session',
   'README.md git push --force-with-lease=<ref>:<sha> origin :<ref>': 'what the branch cleanup workflow runs',
