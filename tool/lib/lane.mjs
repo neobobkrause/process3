@@ -201,7 +201,8 @@ export function laneAsk(root, name, question, { context = [], record, worker, co
   const job = !seat && l.module ? jobOpen(root, cfg, l.module) : null;
   if (l.module && !seat && job === null) log(`job ${l.module}'s branch could not be read: if its session is at work, send the question there instead of a worker`);
   const to = seat ? (seat.session ? `send_message to the lane's session ${seat.session}` : `send it to the lane's session once lane start ${l.name} --record names it`) : job ? `send_message to job ${l.module}'s session, the lane's (list_sessions, title "job ${l.module}")` : null;
-  const rec = `${P3} lane ask ${l.name} "${q.replace(/"/g, '\\"')}" --record "<the decision, as you keep or change it>"`;
+  // Single-quoted: the shell leaves $ and backticks in the question as they are (cold review).
+  const rec = `${P3} lane ask ${l.name} '${q.replace(/'/g, `'\\''`)}' --record '<the decision, as you keep or change it>'`;
   if (to) log(`BOB's act: lane ${l.name} has its one session live, so it decides: ${to}, with the brief below, and wait for its decision. Then, the final say yours: ${rec} --worker <its session id>`);
   else log(`BOB's act: start one read-only worker (a subagent; no long-lived session) with the brief below, and wait for its decision. Then, the final say yours: ${rec} --worker <its id> --cost-usd <its cost, when the session record gives it>`);
   log(brief.trimEnd());

@@ -200,6 +200,9 @@ export function preflight(root, m, { slug, approvals, api = (p) => gh(['api', p]
   return out;
 }
 
+// A word for the shell as it is: single-quoted, so $, backticks and $( ) stay text (cold review:
+// a question "a $5 tier?" reached lane ask changed, and opened a second ask).
+const shq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 // The old prompt with the old role ids named as the new role's and the old approvals hash as the tip's.
 const freshPrompt = (m, prompt, approvals) => {
   let p = String(prompt).split(m.approvals).join(approvals);
@@ -267,7 +270,7 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
     // plain lane start; --replace only while the seat still shows the old session (review of R16).
     L.push(`    - \`${P3} lane start ${x.lane}\` (\`--replace ${x.session}\` if it says the seat is still held), then \`${P3} lane start ${x.lane} --record <new id>\`${asks ? `; then send it its ${asks} open ask(s), each brief printed by:` : ''}`);
     // Each ask with its own --context files, as first asked (cold review of R16: a bare re-ask lost them).
-    for (const a of (m.asks || []).filter((y) => y.lane === x.lane)) L.push(`      \`${P3} lane ask ${x.lane} ${JSON.stringify(a.question)}${(a.context || []).map((c) => ` --context ${c}`).join('')}\``);
+    for (const a of (m.asks || []).filter((y) => y.lane === x.lane)) L.push(`      ${P3} lane ask ${x.lane} ${shq(a.question)}${(a.context || []).map((c) => ` --context ${shq(c)}`).join('')}`);
   }
   // The tasks bound to a lane's session, now that its new id is recorded.
   for (const k of m.tasks.filter((x) => x.role.startsWith('lane '))) {

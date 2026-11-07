@@ -2,6 +2,7 @@
 // branch, switch in's preflight and its restart in order, switch quiet, and the train's lease release.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -243,7 +244,7 @@ function withLanes(root, { layer = false } = {}) {
     mkdirSync(join(wt, 'lanes'), { recursive: true });
     mkdirSync(join(wt, 'layerflow', '2'), { recursive: true });
     writeFileSync(join(wt, LANE_SESSIONS_FILE), [{ row: 'start', at: '2026-11-06T10:00:00Z', tranche: 'tranche', lane: 'ux' }, { row: 'record', at: '2026-11-06T10:01:00Z', lane: 'ux', session: 'session_uxold' }, { row: 'start', at: '2026-11-06T10:00:00Z', tranche: 'tranche', lane: 'triage' }, { row: 'record', at: '2026-11-06T10:01:00Z', lane: 'triage', session: 'session_triageold' }].map((r) => JSON.stringify(r) + '\n').join(''));
-    writeFileSync(join(wt, LANES_FILE), JSON.stringify({ row: 'ask', at: '2026-11-06T11:00:00Z', tranche: 'tranche', lane: 'ux', question: 'which words?', context: ['docs/ux/brief.md'] }) + '\n');
+    writeFileSync(join(wt, LANES_FILE), JSON.stringify({ row: 'ask', at: '2026-11-06T11:00:00Z', tranche: 'tranche', lane: 'ux', question: 'which words?', context: ['docs/ux/brief.md'] }) + '\n' + JSON.stringify({ row: 'ask', at: '2026-11-06T11:05:00Z', tranche: 'tranche', lane: 'triage', question: "is a $5 tier's `cap` in scope?" }) + '\n');
     writeFileSync(join(wt, 'layerflow', '2', 'open.json'), '{}\n');
   });
   return root;
@@ -270,11 +271,11 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   assert.equal(readState(root, 'process-state', MANIFEST_FILE), null, 'the real manifest is never written by a dry run');
   const m = r.manifest;
   assert.deepEqual(m.lanes.map((x) => [x.lane, x.session]), [['ux', 'session_uxold'], ['triage', 'session_triageold']]);
-  assert.deepEqual(m.asks.map((a) => [a.lane, a.question]), [['ux', 'which words?']]);
+  assert.deepEqual(m.asks.map((a) => [a.lane, a.question]), [['ux', 'which words?'], ['triage', "is a $5 tier's `cap` in scope?"]]);
   for (const id of [COORD, ID.root, ID.bob, ID.watcher, 'session_jobalpha', 'session_uxold', 'session_triageold']) assert.ok(m.sessions.includes(id), id);
   assert.equal(m.tasks.find((x) => x.id === 'trig_reading').role, 'unknown');
   assert.ok(!m.sessions.includes('session_bobsown'), 'a session of a task not the process\'s is never retired');
-  assert.match(out[0], /switch out --dry-run: .* 2 lane seat\(s\), 1 open ask\(s\), .* nothing was stopped$/);
+  assert.match(out[0], /switch out --dry-run: .* 2 lane seat\(s\), 2 open ask\(s\), .* nothing was stopped$/);
   assert.ok(out.some((l) => /dry run: do none of them/.test(l)));
   const lane = m.tasks.find((x) => x.id === 'trig_lane'), bobs = m.tasks.find((x) => x.id === 'trig_bobs'), fresh = m.tasks.find((x) => x.id === 'trig_fresh');
   // A new-session-per-fire task that runs the process's tool is the process's: switched off (review of R16).
@@ -356,7 +357,11 @@ test('switch in retires the old account\'s sessions: R13 ends a lane seat bound 
   // The seat ends at ROOT's sweep, which can run before (h): a plain lane start, --replace only if still held.
   assert.match(text, /\(h\) BOB restarts each lane .*\n    - `node \.process\/tool\/p3\.mjs lane start ux` \(`--replace session_uxold` if it says the seat is still held\).*then send it its 1 open ask/);
   // Each ask again with its own --context files (cold review of R16).
-  assert.match(text, /\n      `node \.process\/tool\/p3\.mjs lane ask ux "which words\?" --context docs\/ux\/brief\.md`/);
+  assert.match(text, /\n      node \.process\/tool\/p3\.mjs lane ask ux 'which words\?' --context 'docs\/ux\/brief\.md'/);
+  // The shell gives lane ask the question as recorded: $, ' and backticks stay text (cold review).
+  const line = text.split('\n').find((l) => l.includes('lane ask triage'));
+  const said = spawnSync('bash', ['-c', `printf '%s' ${line.trim().replace(/^node \S+ lane ask triage /, '')}`], { encoding: 'utf8' }).stdout;
+  assert.equal(said, "is a $5 tier's `cap` in scope?");
   // A lane-bound task waits for (h); a fresh process task is recreated as one.
   assert.match(text, /    - ux check-in \(lane ux\): created at \(h\)/);
   assert.match(text, /    - then ux check-in \(lane ux\): .*"persistent_session_id":"<the new lane ux id you recorded>","prompt":"ux <the new lane ux id>: next PR"/);
