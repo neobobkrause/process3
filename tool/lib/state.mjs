@@ -217,7 +217,6 @@ function dropDeferred(root, sb, ops) {
 }
 // Waiting records pushed by a later write: what waited on them is told, as by a replay.
 const pushedBooks = (root, ops) => { for (const o of ops) for (const fn of replayedFns) { try { fn(o.msg, root); } catch { /* a record only */ } } };
-export const BOOK_TRAILER = 'P3-Book';
 const asWrite = (o) => ({ msg: o.msg, change: (dir) => { appliers.get(o.kind)(dir, o.payload); return {}; }, book: o });
 export function bookkeep(root, sb, msg, kind, payload) {
   if (!appliers.has(kind)) fail(`bookkeeping ${kind}: no applier registered`);
@@ -314,16 +313,12 @@ function writeStateNow(root, sb, msg, change, { park = true } = {}) {
     const wt = join(tmp, 's');
     git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
     let out;
-    // The clone's waiting bookkeeping rides this write (C18).
-    const waiting = deferredOps(root, sb);
-    const books = () => { for (const o of waiting) { try { appliers.get(o.kind)(wt, o.payload); } catch { /* a record only */ } } };
-    // The records carried are named in the commit (P3-Book lines): a replay of it settles them.
-    const full = waiting.length ? `${msg}\n\n${waiting.map((o) => `${BOOK_TRAILER}: ${o.msg}`).join('\n')}` : msg;
+    // Waiting bookkeeping rides a batched command's flush only, never this unbatched write: a write
+    // kept for replay, or one refused on a moved tip, would carry or drop it (cold reviews of C18).
     const make = () => {
       out = change(wt);
-      books();
       git(['add', '-A'], { cwd: wt });
-      git(['commit', '-q', '--allow-empty', '-m', full], { cwd: wt });
+      git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
     };
     make();
     // 2s, 4s, 8s, 16s between tries (coordinator, 6 Nov: copy PR 678's publish lost its starts owed to
@@ -333,18 +328,14 @@ function writeStateNow(root, sb, msg, change, { park = true } = {}) {
     // Made again on a tip another writer moved: a change that refuses there is dropped and logged,
     // never kept for a replay that would refuse it too.
     let lost = null;
-    const again = () => { lost = null; const r = applyOne(wt, { msg: full, change: (d) => { const o = change(d); books(); return o; } }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
+    const again = () => { lost = null; const r = applyOne(wt, { msg, change }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
     try { tip = pushRetry(wt, sb, { redo: again, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       if (!park) throw e;
       const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;
       git(['update-ref', name, 'HEAD'], { cwd: wt });
-      // The kept commit carries the waiting records: they leave the file, so a replay and a later
-      // write never push them twice (cold review of C18).
-      if (waiting.length) dropDeferred(root, sb, waiting);
       fail(`${e.message}. The write is kept: replay it with \`node .process/tool/p3.mjs state replay ${name}\``);
     }
-    if (waiting.length) { dropDeferred(root, sb, waiting); pushedBooks(root, waiting); }
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     // Refused on the tip another writer moved to (a reservation that lost: a lane's seat, an
     // address): nothing written, never kept, said plainly.
@@ -481,9 +472,7 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
       } finally { batch.on = was; }
       git(['update-ref', '-d', r], { cwd: root });
       log(`replayed ${r} (${msg})`);
-      // The records the kept commit carried (P3-Book lines) are settled with it (cold review of C18).
-      const carried = git(['log', '-1', '--format=%B', c], { cwd: root }).split('\n').flatMap((l) => (l.startsWith(`${BOOK_TRAILER}: `) ? [l.slice(BOOK_TRAILER.length + 2)] : []));
-      for (const m of [msg, ...carried]) for (const fn of replayedFns) { try { fn(m, root); } catch { /* a record only */ } }
+      for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
       done.push(r);
     } catch (e) { if (e instanceof Fail) stop(e); throw e; }
   }

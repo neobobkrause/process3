@@ -259,7 +259,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     // When the last share was made (a riding one's push may not be made yet: cold review of R17e).
     const lastAt = Math.max(0, ...shares.map((x) => x.made ?? (x.at === PENDING_AT ? 0 : x.at || 0)));
     if (now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
-    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && ledgerRepo && r.repo === ledgerRepo)))) return 0;
+    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && (r.repo || null) === (ledgerRepo || null))))) return 0;
   }
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg.state_branch);

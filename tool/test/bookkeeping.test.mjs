@@ -22,7 +22,9 @@ function product() {
   writeState(root, SB, 'seed', (dir) => { writeFileSync(join(dir, 'seed.txt'), 's\n'); return {}; });
   return { root, bare };
 }
-const pushes = (bare) => Number(git(['rev-list', '--count', `refs/heads/${SB}`], { cwd: bare }));
+// Pushes, not commits: each push of the state branch stamps its last commit (P3-Push); the seed's
+// first write counts as one too.
+const pushes = (bare) => git(['log', '--format=%(trailers:key=P3-Push,valueonly)', `refs/heads/${SB}`], { cwd: bare }).split('\n').filter((l) => l.trim()).length;
 
 test('a command that writes only bookkeeping pushes nothing; its record waits in the clone, read there, and rides the next real write', () => {
   const { root, bare } = product();
@@ -40,21 +42,27 @@ test('a command that writes only bookkeeping pushes nothing; its record waits in
   // The next real write carries both, in its one push.
   stateBatch(true);
   try { writeState(root, SB, 'layer join: x', (dir) => { writeFileSync(join(dir, 'join.txt'), 'x\n'); return {}; }); flushState(); } finally { stateBatch(false); }
-  assert.equal(pushes(bare), before + 3, 'one push: the real write and the two records (three commits)');
+  assert.equal(pushes(bare), before + 1, 'one push: the real write and the two records');
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
   assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 7', 'merge 8']);
   assert.equal(readStateWith(root, SB, OWED_FILE), readState(root, SB, OWED_FILE), 'nothing left waiting');
 });
 
-test('an unbatched real write carries the waiting records too', () => {
+test('an unbatched write (job start, replay) leaves the waiting records waiting; the next batched write carries them, once', () => {
   const { root, bare } = product();
   bookkeep(root, SB, 'starts owed: merge 9', 'owe', { path: OWED_FILE, act: 'merge 9', at: now() });
-  const before = Number(git(['rev-list', '--count', `refs/heads/${SB}`], { cwd: bare }));
+  const before = pushes(bare);
   writeState(root, SB, 'a write', (dir) => { writeFileSync(join(dir, 'w.txt'), 'w\n'); return {}; });
-  assert.equal(pushes(bare), before + 1, 'one commit, one push');
+  assert.equal(pushes(bare), before + 1);
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  assert.equal(readState(root, SB, OWED_FILE), null, 'not carried by an unbatched write');
+  assert.deepEqual(readOwed(root, SB).acts.map((a) => a.act), ['merge 9'], 'still waiting, read in the clone');
+  stateBatch(true);
+  try { writeState(root, SB, 'b write', (dir) => { writeFileSync(join(dir, 'b.txt'), 'b\n'); return {}; }); flushState(); } finally { stateBatch(false); }
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
   assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 9']);
 });
+
 
 test('a usage share rides a real write as bookkeeping; with none, the share-alone rule stands (a clone that only reads still reaches the ledger)', async () => {
   const { shareUsage } = await import('../lib/ghshare.mjs');
@@ -75,7 +83,7 @@ test('a usage share rides a real write as bookkeeping; with none, the share-alon
       assert.ok(sharesOf(root).some((x) => x.at === PENDING_AT), 'pending until its push');
       flushState();
     } finally { stateBatch(false); }
-    assert.equal(pushes(bare), before + 2, 'one push: the write and the share');
+    assert.equal(pushes(bare), before + 1, 'one push: the write and the share');
     assert.ok(sharesOf(root).every((x) => x.at !== PENDING_AT), 'settled by its push');
     // A read command (no real write) with content to report, 16 min on: the share-alone rule pushes it.
     reserve({ points: 5, content: 1 }, 'gh pr comment', root, { p: P });
@@ -83,29 +91,34 @@ test('a usage share rides a real write as bookkeeping; with none, the share-alon
     stateBatch(true);
     try { assert.ok(shareUsage(root, { state_branch: SB }, { pending: realPendingWrites(), atEnd: true, now: () => Date.now() + 16 * 60e3 }) >= 1); flushState(); } finally { stateBatch(false); }
     assert.equal(pushes(bare), before + 1, 'alone, as R17e allows');
-    // Within 15 min of it, reads alone: nothing.
+    // Within 15 min of that share, even with content: nothing.
+    reserve({ points: 5, content: 1 }, 'gh pr comment', root, { p: P });
+    before = pushes(bare);
+    assert.equal(shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 20 * 60e3 }), 0, 'the 15-minute rule');
+    // Past 15 min, reads alone (the content row shared first): nothing.
+    stateBatch(true);
+    try { shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 40 * 60e3 }); flushState(); } finally { stateBatch(false); }
     reserve({ points: 1, content: 0 }, 'gh pr view', root, { p: P });
     before = pushes(bare);
-    assert.equal(shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 17 * 60e3 }), 0);
+    assert.equal(shareUsage(root, { state_branch: SB }, { pending: 0, atEnd: true, now: () => Date.now() + 60 * 60e3 }), 0, 'reads alone are no reason to push');
     assert.equal(pushes(bare), before);
   } finally { if (was !== undefined) process.env.P3_GITHUB_LOG = was; }
 });
 
-test('a write kept for replay carries the waiting records once: they leave the file, and the replay settles them (cold review of C18)', () => {
+test('a write kept for replay leaves the waiting records in the clone: the replay pushes the write alone, the next batched write the records, once each (cold reviews of C18)', () => {
   const { root, bare } = product();
   bookkeep(root, SB, 'starts owed: merge 11', 'owe', { path: OWED_FILE, act: 'merge 11', at: now() });
   stateIO.push = () => ({ code: 1, stderr: 'remote: refused for the test' });
   try { assert.throws(() => writeState(root, SB, 'a write', (dir) => { writeFileSync(join(dir, 'k.txt'), 'k\n'); return {}; }), /state replay/); } finally { delete stateIO.push; }
-  assert.equal(readStateWith(root, SB, OWED_FILE), readState(root, SB, OWED_FILE), 'no longer waiting in the clone: the kept commit holds it');
-  const kept = git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
-  assert.equal(kept.length, 1);
-  assert.match(git(['log', '-1', '--format=%B', kept[0]], { cwd: root }), /P3-Book: starts owed: merge 11/);
+  assert.deepEqual(readOwed(root, SB).acts.map((a) => a.act), ['merge 11'], 'still waiting in the clone');
   stateReplay(root, SB, [], { log: () => {} });
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
-  assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 11'], 'once');
-  // A later real write carries nothing more.
-  writeState(root, SB, 'later', (dir) => { writeFileSync(join(dir, 'l.txt'), 'l\n'); return {}; });
+  assert.equal(readState(root, SB, 'k.txt'), 'k\n', 'the kept write replayed');
+  assert.equal(readState(root, SB, OWED_FILE), null, 'the replay carried no records');
+  stateBatch(true);
+  try { writeState(root, SB, 'later', (dir) => { writeFileSync(join(dir, 'l.txt'), 'l\n'); return {}; }); flushState(); } finally { stateBatch(false); }
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
-  assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 11'], 'still once');
+  assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 11'], 'once');
   assert.ok(bare);
 });
+
