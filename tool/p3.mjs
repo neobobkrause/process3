@@ -104,7 +104,7 @@ const commands = {
     if (a['fresh-branch'] !== undefined && a['take-in'] !== undefined) fail('--fresh-branch goes alone, with --reopen or with --restart, not with --take-in');
     if (a.stop !== undefined && a.restart === undefined) fail('--stop archived|idle goes with --restart: how the replaced session stopped');
     if (a.early !== undefined && (a.restart !== undefined || a['take-in'] !== undefined || a['fresh-branch'] !== undefined)) fail('--early is a first start of a next-layer module: not with --restart, --take-in or --fresh-branch');
-    if (a.restart === undefined) capCheck(root, { live: a.live, sessions: a.sessions });
+    if (a.restart === undefined) capCheck(root, { live: a.live, sessions: a.sessions, log: console.log });
     jobStart(root, one(a, 'module'), { coordinator: a.coordinator, model: a.model, reopen: a.reopen, restart: a.restart, stop: a.stop, takeIn: a['take-in'], fresh: a['fresh-branch'], overCap: a['over-cap'], early: !!a.early });
     return 0;
   },

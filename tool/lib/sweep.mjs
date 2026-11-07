@@ -12,10 +12,11 @@ import { bookkeep, fetchState, heldAct, heldWrites, jsonl, messages, messagesFil
 import { openPinMoves } from './pin.mjs';
 import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
-import { SILENT_HOURS, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { SILENT_HOURS, liveJobIds, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { flowRows, layerMergeLine, layerStartAct, needsSlot, readOpenLayer } from './layerflow.mjs';
 import { ROUND_ACT, deploys, owedAt } from './deploy.mjs';
+import { publishedJobs, slotNote, slotUse } from './slots.mjs';
 import { openState } from './tranche.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -161,6 +162,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   let count = null;
   let unread = null;
   let view = null;
+  let use = null;
   if (live !== null) {
     // The holds and the tranche open from the record, offline; the open layer's startable jobs from
     // one read of GitHub's pull requests into it. Unread: no count and no judgment, said in the row.
@@ -178,14 +180,16 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
         live = measured + since;
         const holds = out.holds || [];
         const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
-        ic = layerIdle({ live, cap: jobCap(cfg).cap, holds, view, layers, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), t });
+        // PD-7: the published jobs whose gate is not red hold no slot (slots.mjs).
+        use = slotUse(live, publishedJobs(view, { slug: io?.slug || repoSlug(root), ...(io?.gate ? { gate: io.gate } : {}) }));
+        ic = layerIdle({ live: use.working, cap: jobCap(cfg).cap, holds, view, layers, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), t });
         // One count, the idle check's: the jobs that take a slot, early starts included, less those held.
         count = ic ? ic.startable : view.kind === 'open' ? [...view.startable, ...(view.early || [])].filter(needsSlot).filter((j) => !heldBy(holds, j.id, layers)).length : 0;
       } catch (e) { if (!(e instanceof Fail)) throw e; unread = 'layer'; }
     }
   }
   const { reasons = [], ...rec } = ic || {};
-  const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), ...(since ? { live_measured: measured, started_since: since } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
+  const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), ...(since ? { live_measured: measured, started_since: since } : {}), ...(use && (use.free.length || use.resumed.length) ? { slots_working: use.working, published_free: use.free.length, ...(use.resumed.length ? { resumed: use.resumed } : {}) } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
   // An ok row is bookkeeping (C18): it never pushes on its own; it rides the command's or the
   // clone's next real write, left out there if another session's row landed within CHECK_MIN. An
   // alarm is a real write, as before: only the session whose row lands prints it, wakes BOB and
@@ -201,7 +205,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
     });
   } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
   if (ic?.alarm) {
-    const line = `IDLE CAPACITY: ${ic.live} job sessions live${since ? ` (${measured} measured at ${m.at}, ${since} started since)` : ''} of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${reasons.join('; ')}`;
+    const line = `IDLE CAPACITY: ${ic.live} job sessions ${use && (use.free.length || use.resumed.length) ? `working toward publish (${live} live; ${slotNote(use)})` : 'live'}${since ? ` (${measured} measured at ${m.at}, ${since} started since)` : ''} of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${reasons.join('; ')}`;
     log(line);
     const act = layerStartAct(view);
     log(wakeLine(`${line}: run ${act}`, from) || `next act: ${act}`);
@@ -318,18 +322,21 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         // layer map, or unread: next work (found, notice and entered work) is BOB's act.
         next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready || view.early?.length > 0)) || view.kind === 'next' : work.some((x) => !x.after && !x.owed_layer); // unmet after its job, or owed to a later layer: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
-        const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view });
+        // PD-7: the open layer's published jobs hold no slot unless their gate went red (slots.mjs).
+        const use = slotUse(liveRow.live, view && !offline ? publishedJobs(view, { slug: io?.slug || repoSlug(root), ...(io?.gate ? { gate: io.gate } : {}) }) : [], { jobIds: listed ? liveJobIds(listed) : null });
+        const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view, use });
+        if (use.free.length || use.resumed.length) liveRow = { ...liveRow, slots_working: use.working, published_free: use.free.length, ...(use.resumed.length ? { resumed: use.resumed } : {}) };
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
         if (liveRow.live !== undefined) {
           // Since when: the last sweep's, when it saw the same idle; else the latest the record shows
           // it could have begun, the tranche's tip or a job session's archive.
           const freed = Math.max(ct(root, [tranche]), ...(listed || []).filter((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim())).map((x) => Date.parse(x.updated_at) || 0));
-          const ic = view ? layerIdle({ live: liveRow.live, cap: jobCap(cfg).cap, holds, view, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, t }) : null;
+          const ic = view ? layerIdle({ live: use.working, cap: jobCap(cfg).cap, holds, view, layers: holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map(), prev: judged(jsonl(readState(root, sb, SWEEP_ROWS_FILE))), freed, t }) : null;
           if (ic) {
             const { reasons, ...rec } = ic;
             liveRow.idle_capacity = rec;
             if (ic.alarm) {
-              const line = `IDLE CAPACITY: ${ic.live} job sessions live${listed ? ` (working ${f.working}, waiting ${f.waiting})` : ''} of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${ic.empty} empty slot${ic.empty === 1 ? '' : 's'}: ${reasons.join('; ')}`;
+              const line = `IDLE CAPACITY: ${ic.live} job sessions ${use.free.length || use.resumed.length ? `working toward publish (${liveRow.live} live; ${slotNote(use)})` : 'live'}${listed ? ` (sessions running ${f.working}, waiting ${f.waiting})` : ''} of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${ic.empty} empty slot${ic.empty === 1 ? '' : 's'}: ${reasons.join('; ')}`;
               found.push(line);
               owed.push(`IDLE CAPACITY, ${ic.empty} slots empty, ${ic.startable} startable: run ${startAct} first; only a recorded hold (p3 hold) keeps a slot empty`);
               todo.push(`IDLE CAPACITY to the coordinator: ${cfg.coordinator ? `send_message to ${cfg.coordinator}` : 'no coordinator in process/config.json: tell Bob by push notification'} with "${line}"`);

@@ -3,6 +3,7 @@
 import { staleLines, staleRecords } from './expire.mjs';
 import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
+import { publishedJobs, slotNote, slotUse } from './slots.mjs';
 import { joinAct, layerLines, layerMergeLine, layerPlace, needsSlot, openLayer } from './layerflow.mjs';
 import { aheadBy, cachedComments, checkRun, COMMENTS_MERGED_MS, keptCompare, COMMENTS_OPEN_MS, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
@@ -226,10 +227,15 @@ export function sessionsCount(listed, live, log) {
   if (live !== undefined && Number(live) !== n) log(`--live ${live} ignored: --sessions counts ${n} job sessions`);
   return n;
 }
-// The cap in force, where it came from, and the account's live jobs and sessions when known.
-export function capLine(cfg, live, listed) {
+// The modules with a live (unarchived) job session, from list_sessions (PD-7: a published job with
+// no session holds nothing to subtract).
+export const liveJobIds = (listed) => new Set((listed || []).filter((x) => !isArchived(x)).map((x) => String(x.title || '').trim().match(/^job (\S+)( \(restart\))?$/)?.[1]).filter(Boolean));
+// The cap in force, where it came from, and the account's live jobs and sessions when known; with
+// the slot use (PD-7, slots.mjs), the jobs working toward publish beside them.
+export function capLine(cfg, live, listed, use = null) {
   const c = jobCap(cfg);
-  const seen = listed ? `: ${live} job sessions live, ${listed.filter((x) => !isArchived(x)).length} sessions live in the account (every product, every role)` : live !== undefined ? `: ${live} job sessions live` : '';
+  const work = use && use.working !== null && (use.free.length || use.resumed.length) ? ` (${use.working} working${slotNote(use) ? `; ${slotNote(use)}` : ''})` : '';
+  const seen = listed ? `: ${live} job sessions live${work}, ${listed.filter((x) => !isArchived(x)).length} sessions live in the account (every product, every role)` : live !== undefined ? `: ${live} job sessions live${work}` : '';
   return { ...c, line: `${c.line}${seen}` };
 }
 // Problem class C15 (7 Nov: the investigation lane sat ~2 h waiting on a permission prompt,
@@ -550,7 +556,10 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     out.seats = seats;
     out.lane_defects = laneDefects(cfg, seats, { rows, listed });
     for (const d of out.lane_defects) log(d);
-    out.flow = flow(cfg, rows, out.next, live, listed, holds, { view: out.flow_layer });
+    // PD-7: the open layer's published jobs hold no slot unless their gate went red (slots.mjs).
+    const published = offline || !slug ? [] : publishedJobs(out.flow_layer, { slug, ...(io.checkRun ? { gate: (pr) => io.checkRun(slug, pr.head, 'gate') } : {}) });
+    out.slots = slotUse(live, published, { jobIds: listed ? liveJobIds(listed) : null });
+    out.flow = flow(cfg, rows, out.next, live, listed, holds, { view: out.flow_layer, use: out.slots });
     log(out.flow.line);
     return out;
   }
@@ -589,7 +598,7 @@ export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new 
 }
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
 // the open layer's startable jobs (view: layerflow.mjs openLayer; unread, 0), and the jobs awaiting a ruling. The sweep records its numbers.
-export function flow(cfg, rows, next, live, listed = null, holds = [], { view = null } = {}) {
+export function flow(cfg, rows, next, live, listed = null, holds = [], { view = null, use = null } = {}) {
   // The open layer's jobs that take a slot (C25: an additive retest runs in CI, with no job session),
   // as the idle check leaves retests out; the idle check also counts the early starts and less holds.
   const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), view?.kind === 'open' ? view.startable.filter(needsSlot).length : 0];
@@ -610,12 +619,15 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { view = 
   }
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
   // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
-  const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
+  // The slots held: the job sessions working toward publish (PD-7: a published job holds none
+  // unless its gate went red), else every live one.
+  const held = use && use.working !== null ? use.working : live;
+  const free = held === undefined || held === null ? 0 : c.cap - Number(held) - startable;
   // The startable jobs past the cap's free slots wait their turn (the job cap, jobCap).
-  const queued = live === undefined || live === null ? 0 : Math.max(0, startable - Math.max(0, c.cap - Number(live)));
+  const queued = held === undefined || held === null ? 0 : Math.max(0, startable - Math.max(0, c.cap - Number(held)));
   const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
   const splits = owed.length ? `; ${free} slot${free === 1 ? '' : 's'} free: BOB's split acts would open them (split or consolidate: ${owed.join(', ')})` : '';
-  return { startable, ...(queued ? { queued } : {}), blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}${retests ? ` (and ${retests} retest${retests === 1 ? '' : 's'}, no job session)` : ''}${queued ? `, queued ${queued} (each starts as a slot frees: the job cap)` : ''}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
+  return { startable, ...(queued ? { queued } : {}), blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: ${use && (use.free.length || use.resumed.length) ? `working ${held}/${c.cap} (${c.from}; live ${live}, ${slotNote(use)})` : `live ${live ?? '?'}/${c.cap} (${c.from})`}${split}, startable ${startable}${retests ? ` (and ${retests} retest${retests === 1 ? '' : 's'}, no job session)` : ''}${queued ? `, queued ${queued} (each starts as a slot frees: the job cap)` : ''}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last
