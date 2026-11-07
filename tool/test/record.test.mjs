@@ -907,7 +907,7 @@ test('a layer-sync merge carrying the owner\'s settings commit from the tranche 
   // GitHub unread (every commit reads as not the owner's): the setter on the tranche credits the merge.
   const r = recordCheck(root, cfg, { base: owner2, head, lookup: session, trusted: ['tranche'] });
   assert.deepEqual(r.findings, []);
-  // The owner's own commit credits it too, with no trusted ref holding it.
+  // The base alone credits it (the setter lies behind it), with no other trusted ref named.
   assert.deepEqual(recordCheck(root, cfg, { base: owner2, head, lookup: webFor(owner), trusted: [] }).findings, []);
   // A sync merge that writes its own settings is its own change.
   git(['reset', '-q', '--hard', synced + '^1'], { cwd: root });

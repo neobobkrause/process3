@@ -107,8 +107,9 @@ const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/wo
 // (the owner's settings, instruction files, the approvals file, the config, the files the
 // checks stand on) is carried only when it equals its version at the start of the checked
 // range (the base), or a parent's version that a commit inside the range set, and so was
-// judged there; this holds for every parent, the first included, so a merge that keeps an
-// old copy from either side is judged as its own change (confirming reviews of PR 16).
+// judged there, or one whose setter lies behind the base (judged when it landed) when the merge
+// takes it cleanly (C19); this holds for every parent, the first included, so a merge that keeps
+// an old copy from either side is judged as its own change (confirming reviews of PR 16).
 // Paths read with -z, so any name is safe.
 function introduced(root, sha, parents, { guarded = () => false, judged = () => false, credited = () => false, base } = {}) {
   const names = (args) => git(['diff-tree', '-r', '-z', '--no-commit-id', '--name-only', '--no-renames', ...args], { cwd: root }).split('\0').filter(Boolean);
@@ -119,8 +120,8 @@ function introduced(root, sha, parents, { guarded = () => false, judged = () => 
     if (!guarded(f)) return !parents.some((p) => entryOf(root, p, f) === e);
     if (e === (base ? entryOf(root, base, f) : null)) return false;
     // A merge that takes a parent's version brings nothing of its own when that version was judged:
-    // set inside the range, or set by a commit already judged elsewhere (credited: on a trusted ref,
-    // or the owner's own website commit). A version that matches no parent is the merge's own change.
+    // set inside the range, or set by a commit already judged behind the base, taken cleanly
+    // (credited). A version that matches no parent is the merge's own change.
     return !parents.some((p) => entryOf(root, p, f) === e && (judged(p, f) || credited(p, f, parents)));
   });
 }
@@ -308,14 +309,14 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const judged = (p, f) => inRange.has(setBy(p, f));
   // ...or was judged where its setter landed (C19, the coordinator, 7 Nov: the copy's layer/10, 15
   // layer-sync, land and job-sync merges each carrying the owner's own website commit 314c284a2d on
-  // the tranche into the layer, refused as settings changes not the owner's): a setter on a trusted
-  // ref (the base, main, the tranche), or the owner's own website commit, credits the merge that
-  // only carries its version. A merge that introduces its own version is still judged as its own,
+  // the tranche into the layer, refused as settings changes not the owner's): a setter behind the
+  // base (judged when it landed there, as onTrusted) credits the merge that only carries its
+  // version. A merge that introduces its own version is still judged as its own,
   // and so is one that puts an older version back: credited only when every other parent left the
   // file as it was where the two diverged (what a three-way merge takes cleanly, as cleanFrom).
   const credited = (p, f, parents) => {
     const s = setBy(p, f);
-    if (!s || !(refs.some((r) => anc(s, r)) || ownerCommit(s).ok)) return false;
+    if (!s || !base || !anc(s, base)) return false;
     const e = entryOf(root, p, f);
     return parents.every((q) => q === p || entryOf(root, q, f) === e || (() => { const m = mbOf(p, q); return Boolean(m) && entryOf(root, m, f) === entryOf(root, q, f); })());
   };
