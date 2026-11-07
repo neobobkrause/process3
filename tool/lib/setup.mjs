@@ -10,6 +10,7 @@ import { laneModuleGaps } from './ledger.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
+import { admitCheck, toldCommands } from './admit.mjs';
 import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { address, fetchState } from './state.mjs';
@@ -425,6 +426,9 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
   const carry = takeInCheck(root, x, { io, log });
   const generated = generatedCheck(root, x, sha, { log });
   const lanes = laneModuleCheck(x.cfg, io.entries || ledgerEntries(root, sha || `origin/${x.cfg.tranche}`), { log });
+  // C3: every command the pinned process tells a session to run, admitted by the product's
+  // .claude/settings.json (a told command its deny list refuses leaves the session stuck).
+  const admit = admitLines(x, { log });
   // The census (R15): every module's entry, row, requirements and layer line at the checked tip;
   // a report, never a refusal (status --role bob names the open layer's, layer open refuses on its own).
   let gapsFound = null;
@@ -437,9 +441,20 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
       if (!c.skipped) log(c.gaps.length ? `census: ${c.gaps.length} gap(s) at ${sha ? sha.slice(0, 10) : ref} (${[...new Set(c.gaps.map((g) => g.kind))].join(', ')}); status --role bob lists the open layer's with their fixes` : 'census: every module has its entry, modules row, requirements file and layer line');
     } catch (e) { log(`census: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
   }
-  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, lanes, census: gapsFound, ...(strategy ? { strategy } : {}) };
+  return { ok: !gaps.length, results, missing: gaps.map((r) => r.id), tranche: x.cfg.tranche, at: sha, size, carry, open_by: openByLine, generated, lanes, admit, census: gapsFound, ...(strategy ? { strategy } : {}) };
 }
 
+// The told commands the product's .claude/settings.json denies, each a warning line naming where
+// the process tells it and the rule; none read when the file is absent or not JSON.
+export function admitLines(x, { log = console.log, told = toldCommands(TOOL) } = {}) {
+  let settings = null;
+  try { settings = JSON.parse(x.file('.claude/settings.json') ?? 'null'); } catch { settings = null; }
+  if (!settings) return [];
+  const bad = admitCheck(settings, told);
+  for (const b of bad) log(`warning: ${b.file}:${b.line} tells a session to run \`${b.cmd}\`, which .claude/settings.json denies (${b.rule}): the process's text is changed, or the rule, never the session's workaround`);
+  if (!bad.length) log(`told commands: ${told.length}, each admitted by .claude/settings.json`);
+  return bad;
+}
 const ledgerEntries = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { return [JSON.parse(t)]; } catch { return []; } });
 // A lane whose folder lies under a ledger module's paths and that names no module (or another):
 // the gate counts its files as that module's (util.mjs laneOfPath), so a lane-only pull request is
