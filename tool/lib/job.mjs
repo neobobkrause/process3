@@ -369,7 +369,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     if (n > 0 && !(state === 'WORKING' && n === 1) && !find(slug, branch)) {
       // The pull requests of the abandoned attempt: those after the branch's last merged one.
       // A merged one GitHub no longer lists (hidden) still ends the abandoned run: the state's lands.
-      const all = (landedFrom(root, cfg.state_branch, id, `origin/${branch}`, prs(slug, branch)) || []).sort((a, b) => b.number - a.number);
+      const all = (landedFrom(root, cfg.state_branch, id, branch, `origin/${branch}`, prs(slug, branch)) || []).sort((a, b) => b.number - a.number);
       const merge = all.find((p) => p.merged_at)?.number ?? 0;
       const last = all.find((p) => p.number > merge && p.state === 'closed' && !p.merged_at);
       abandoned = { branch, pr: last?.number ?? null };
@@ -579,7 +579,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
     if (!push) fail('--take-in <number> reads the pull request from GitHub');
     try { pr = x.getPR(slug, Number(source.replace('#', ''))); } catch (e) {
       // A pull request GitHub hides (its opener's account suspended, 6 Nov) cannot be read by number.
-      if (/HTTP 404|Not Found/i.test(e?.message || '')) fail(`GitHub does not serve pull request ${source} (hidden, or no such pull request); take in its branch by name: --take-in <branch>`);
+      if (/\(HTTP 404\)/.test(e?.message || '')) fail(`GitHub does not serve pull request ${source} (hidden, or no such pull request); take in its branch by name: --take-in <branch>`);
       throw e;
     }
     if (!pr?.number || pr.state !== 'open') fail(`pull request ${source} is not open; take in an open pull request or its branch`);

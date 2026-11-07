@@ -1,9 +1,10 @@
 // What the process recorded of a landed pull request, for when GitHub no longer serves it (the
 // coordinator, 7 Nov: PRs opened by the suspended account read 404, are left out of GitHub's lists,
 // and their comments with them; C13 and PR 735 credited such lands at the layer gate). Every reader
-// of a job branch's landed pull requests, and of a landed one's receipt, reads them here: GitHub's
-// answer where it serves it, else the state branch's land rows and the COMPLETE commit in git.
+// of a job branch's landed pull requests reads them here: GitHub's answer where it serves it, with
+// the state branch's land rows for those it no longer lists.
 import { FLOW_DIR } from './layerbase.mjs';
+import { startBranch } from './ledger.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readState } from './state.mjs';
 import { git } from './util.mjs';
@@ -19,28 +20,20 @@ export function landRows(root, sb) {
 
 const has = (root, sha) => !!sha && git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code === 0;
 const anc = (root, a, b) => git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
+// The job branch a land came from: its row's own (written since 7 Nov), else the start branch its head's
+// ledger names (the job branch's own record at the land's head). Never another branch's land of the
+// module that this one holds by a sync or a cut (cold review).
+const branchOf = (root, l) => l.branch || (has(root, l.head) ? startBranch(rowsAt(root, l.head, l.module), l.module) : null);
 
 // A job branch's pull requests: GitHub's list (prs, null when unread), with each land of module id
-// whose head the branch holds (tip: the branch's commit) that GitHub left out, as a merged pull
-// request marked hidden: { number, state: 'closed', merged_at, head: { sha }, merge_commit_sha, user:
-// null, hidden: true }. GitHub unread stays unread (null): a land row never stands for the list.
-export function landedFrom(root, sb, id, tip, prs) {
+// from that branch whose head tip holds (the branch, or the layer it landed in once the branch is
+// gone) that GitHub left out, as a merged pull request marked hidden: { number, state: 'closed',
+// merged_at, head: { sha }, merge_commit_sha, user: null, hidden: true }. GitHub unread stays
+// unread (null): a land row never stands for the list.
+export function landedFrom(root, sb, id, branch, tip, prs) {
   if (!Array.isArray(prs)) return prs;
   const seen = new Set(prs.map((p) => p.number));
-  const hidden = landRows(root, sb).filter((l) => l.module === id && !seen.has(l.pr) && has(root, l.head) && has(root, tip) && anc(root, l.head, tip))
+  const hidden = landRows(root, sb).filter((l) => l.module === id && !seen.has(l.pr) && has(root, l.head) && has(root, tip) && anc(root, l.head, tip) && branchOf(root, l) === branch)
     .map((l) => ({ number: l.pr, state: 'closed', merged_at: l.at, head: { sha: l.head }, merge_commit_sha: l.merge, user: null, hidden: true }));
   return [...prs, ...hidden];
-}
-
-// A landed pull request's receipt from git, for one whose comments GitHub no longer serves: the
-// newest complete row of module id at its head, its sha the commit that wrote it (job complete's
-// COMPLETE commit, "job complete <id> (attempt <n>)"). null when the head holds none.
-export function receiptAt(root, id, head) {
-  if (!has(root, head)) return null;
-  const done = rowsAt(root, head, id).filter((r) => r.row === 'attempt' && r.event === 'complete' && r.receipt?.module === id).at(-1);
-  if (!done) return null;
-  const subject = `job complete ${id} (attempt ${done.receipt.attempt})`;
-  const sha = git(['log', '-1', '--format=%H', '--fixed-strings', `--grep=${subject}`, head], { cwd: root, allowFail: true }).stdout.trim();
-  if (!sha || git(['log', '-1', '--format=%s', sha], { cwd: root }) !== subject) return null;
-  return { ...done.receipt, sha };
 }

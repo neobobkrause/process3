@@ -35,7 +35,7 @@ import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
-import { landedFrom, receiptAt } from './landed.mjs';
+import { landedFrom } from './landed.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
@@ -911,15 +911,19 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
     }
   }
   // GitHub's list, with each land the state branch recorded that GitHub no longer lists (hidden).
-  const prs = landedFrom(root, cfg0.state_branch, id, at || null, x.prsFromBranch(slug, branch));
+  // The branch may be gone (the cleanup deletes a landed job branch): the layer tip holds its lands.
+  const prs = landedFrom(root, cfg0.state_branch, id, branch, at || tip, x.prsFromBranch(slug, branch));
   if (prs === null) fail(`GitHub unreadable: the pull requests from ${branch} are not known; nothing was done`);
   const open = prs.find((p) => p.state === 'open');
   if (open) fail(`${branch} has pull request ${open.number} open: land or close it first`);
-  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer: a
-  // hidden one's from its COMPLETE commit at the land's head (GitHub serves none of its comments).
+  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer. A
+  // hidden one (GitHub serves none of its comments) is a job's: its receipt's amendments (--not-verified,
+  // --exempt-revert) live only in those comments, so the copy in git may claim checks never run, and an
+  // older receipt is not its (cold review).
   let receipt = null;
   for (const p of prs.filter((q) => q.merged_at).sort((a, c) => c.number - a.number)) {
-    const r = p.hidden ? receiptAt(root, id, p.head.sha) : latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
+    if (p.hidden) fail(`${id}'s newest land, PR ${p.number}, is one GitHub no longer serves (its receipt's comments with it): a job re-tests it: ${reopen}`);
+    const r = latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
     if (r?.module === id && r.sha && hasCommit(root, r.sha) && isAnc(root, r.sha, tip)) { receipt = { ...r, retest: { from_pr: p.number } }; break; }
   }
   if (!receipt) fail(`no receipt of ${id} on a merged pull request from ${branch} that ${b0} holds: a job re-tests it: ${reopen}`);
@@ -1051,7 +1055,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   // A changed Public / Provides text alone is a notice to every user, in this layer and later ones.
   const noticed = ic.changed ? later : ic.provides ? users.filter((u) => same.includes(u) || later.includes(u)) : [];
   if (ic.unread) log(`warning: ${id}'s exports could not be read on the land ${short(after)} (${ic.unread}): counted as breaking, each user in the layer rescheduled`);
-  const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? sameAll : [], users_noticed: noticed };
+  const land = { row: 'land', layer: n, module: id, pr: n0, branch: pr.head.ref, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? sameAll : [], users_noticed: noticed };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land], ...gateFiles(n, id, n0, runs)];
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class }]);
