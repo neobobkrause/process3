@@ -13,7 +13,8 @@ export function capCheck(root, { live, sessions } = {}) {
   const cfg = loadConfig(root);
   const { cap } = jobCap(cfg);
   let held = 0;
-  try { held = slotsHeld(readHolds(root, cfg.state_branch)); } catch { held = 0; }
+  // A slot just held counts (cold review of R17f): the holds read fresh.
+  try { held = slotsHeld(readHolds(root, cfg.state_branch, { fresh: true })); } catch { held = 0; }
   // The budget throttles new sessions (R17, pace.mjs).
   const gate = budgetGate(root);
   if (gate) fail(`${gate}; nothing was started`);

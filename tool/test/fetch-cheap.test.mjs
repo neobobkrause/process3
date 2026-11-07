@@ -46,6 +46,7 @@ test('a read that is not fresh takes the clone\'s copy another process fetched w
   const fetches = () => readFileSync(log, 'utf8').split('\n').filter((l) => l.includes('"kind":"fetch"')).length;
   read(false);
   assert.equal(fetches(), 1, 'the first read fetches');
+  assert.equal(JSON.parse(readFileSync(log, 'utf8').split('\n').find((l) => l.includes('"kind":"fetch"'))).of, 'state', 'the row says what it read');
   read(false);
   read(false);
   assert.equal(fetches(), 1, 'within 30 s, the next processes read the clone\'s copy');

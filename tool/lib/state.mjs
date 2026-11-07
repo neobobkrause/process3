@@ -5,6 +5,7 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Fail, Superseded, fail, fetchRetry, git, now, pushRetry, withStateLock, withTemp } from './util.mjs';
+import { commonDir } from './pace.mjs';
 
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
@@ -27,7 +28,7 @@ const fetched = new Map();
 // fetches. Not ls-remote first: a fetch that finds nothing new costs GitHub what ls-remote does
 // (the ref advertisement), and one that finds something would cost two round trips.
 export const STATE_READ_S = 30;
-const stampOf = (root, sb) => join(git(['rev-parse', '--git-common-dir'], { cwd: root, allowFail: true }).stdout.trim().replace(/^(?!\/)/, `${root}/`), `p3-state-read-${sb.replace(/[^\w.-]/g, '_')}`);
+const stampOf = (root, sb) => join(commonDir(root), `p3-state-read-${sb.replace(/[^\w.-]/g, '_')}`);
 const localTip = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
 function recentRead(root, sb) {
   try {
@@ -41,10 +42,15 @@ export function fetchState(root, sb, { fresh = false } = {}) {
   if (!fresh && !batch.pending.get(key)?.list.length && recentRead(root, sb)) { fetched.set(key, true); return true; }
   // Under the clone's state lock, a ref-lock clash retried (build train-robust: two p3 processes
   // in one clone failed "cannot lock ref" and the train refused a plain row, copy 5 Nov 12:36).
-  const r = withStateLock(root, () => fetchRetry(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root }));
+  // The stamp is the tip this fetch left, taken under the same lock: never a local write another
+  // process made onto the ref after it (cold review of R17f). A branch gone from origin: no stamp.
+  const r = withStateLock(root, () => {
+    const f = fetchRetry(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root });
+    try { if (f.code === 0) writeFileSync(stampOf(root, sb), JSON.stringify({ at: Date.now(), tip: localTip(root, sb) })); else rmSync(stampOf(root, sb), { force: true }); } catch { /* a saving, not a gate */ }
+    return f;
+  });
   if (r.code !== 0 && !/couldn't find remote ref/i.test(r.stderr)) fail(`cannot read origin's ${sb}: ${r.stderr.trim()}`);
   fetched.set(key, r.code === 0);
-  if (r.code === 0) { try { writeFileSync(stampOf(root, sb), JSON.stringify({ at: Date.now(), tip: localTip(root, sb) })); } catch { /* a saving, not a gate */ } }
   // A coalesced command's writes not yet pushed (R17): made again on the tip just read.
   if (r.code === 0 && batch.pending.get(key)?.list.length) withStateLock(root, () => rebuild(root, sb, batch.pending.get(key)));
   return r.code === 0;
