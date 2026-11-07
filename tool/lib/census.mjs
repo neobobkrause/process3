@@ -126,11 +126,12 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
     const marks = unmet(id);
     const lane = lanes.includes(id);
     // Whether the module still needs a job: its entry OPEN, BLOCKED or WORKING, an unmet mark, or
-    // no entry and its layer open or to come. A COMPLETE module, or a lane's (no layer lists a
-    // lane), is never refused for its place in the layer map (cold review of R15).
+    // no entry and its layer open or to come. A modules row off the layer map is a gap whatever
+    // its state: a COMPLETE one's later found mark or --reopen would never show in layer jobs (the
+    // copy, 6 Nov: BOB found 8 COMPLETE ones by hand). A lane's module never is: no layer lists it.
     const needs = (e && ['OPEN', 'BLOCKED', 'WORKING'].includes(e.status?.state)) || marks.length > 0 || (!e && ahead(id));
     if (!r) gap(id, 'no-modules-row', `add ${id}'s row to ${cfg.modules_file} (its paths, tests, uses and layer): it is named by ${[entries.has(id) && 'its ledger entry', reqs.has(id) && reqs.get(id), mapLayer.has(id) && cfg.layers_file, lane && 'the lanes config'].filter(Boolean).join(', ')}`);
-    if (r && !mapLayer.has(id) && map.length && needs && !lane) gap(id, 'not-in-layer-map', `name ${id} on its layer's line in ${cfg.layers_file}${Number.isInteger(r.layer) ? ` (its modules row says layer ${r.layer})` : ''}: no layer's jobs list it`);
+    if (r && !mapLayer.has(id) && map.length && !lane) gap(id, 'not-in-layer-map', `name ${id} on its layer's line in ${cfg.layers_file}${Number.isInteger(r.layer) ? ` (its modules row says layer ${r.layer})` : ''}${needs ? '' : ' (a finding: nothing waits on it, PD-4)'}: no layer's jobs list it`, { needs: !!needs });
     if (r && mapLayer.has(id) && Number.isInteger(r.layer) && r.layer !== mapLayer.get(id) && needs) gap(id, 'layer-mismatch', `${cfg.modules_file} says layer ${r.layer}, ${cfg.layers_file} says ${mapLayer.get(id)}: make them one`);
     if (e && e.requirements && text(String(e.requirements).replace(/^\.\//, '')) === null) gap(id, 'entry-requirements', `its entry names ${e.requirements}, which ${ref} does not hold: write it, or name the right file in ${entryFile(id)}`);
     if (!entries.has(id) && (ahead(id) || marks.length || lane) && r) {
