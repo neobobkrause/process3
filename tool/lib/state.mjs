@@ -10,6 +10,14 @@ import { commonDir } from './pace.mjs';
 export const handoffFile = (role) => `handoff/${role}.md`;
 export const messagesFile = (from) => `messages/${from}.jsonl`;
 export const addressFile = (role) => `addresses/${role}.json`; // build K's; read only here
+// Whether the product has a BOB: an address recorded for it on the state branch (C27, the
+// coordinator, 7 Nov: process3-probes has none by design, and every pin move printed a wake whose
+// send then failed "no address for bob", and merge printed starts owed). true or false as read;
+// null when the state branch could not be read, which callers take as addressed, so a failure
+// stays loud.
+export function bobAddressed(root, sb, { fetch = true } = {}) {
+  try { if (fetch && !fetchState(root, sb)) return null; return readState(root, sb, addressFile('bob')) !== null; } catch { return null; }
+}
 export const HANDOFF_MAX = { lines: 40, bytes: 4096, notes: 5 };
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 export const roleName = (v, what) => (typeof v === 'string' && NAME.test(v) ? v : fail(`${what} must be a role name (lower case letters, digits and -), not ${JSON.stringify(v)}`));

@@ -331,7 +331,7 @@ function pinMove(pin, workflow) {
   return { ...r, sha: git(['rev-parse', `refs/heads/${r.head}`], { cwd: r.root }) };
 }
 
-test('a workflow changed to the process\'s own shim at a released pin is allowed, and its runs count', () => {
+test('a workflow changed to the process\'s own shim at a released pin is allowed, and its runs count', async () => {
   const shim = 'name: process-gate\non: pull_request\n';
   const p = process3(shim);
   const r = pinMove(p.pin, shim);
@@ -356,6 +356,26 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   const workLogs = [];
   assert.equal(mergePlain(work.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(work, { base: 'build/w', repo: processRepo(p.dir) }).io, log: (m) => workLogs.push(m) }).wake, null);
   assert.doesNotMatch(workLogs.join('\n'), /wake BOB/);
+  // C27 (the coordinator, 7 Nov): a product with a state branch and no BOB addressed
+  // (process3-probes, by design) has no BOB: no wake printed and none recorded, said once. With a
+  // BOB addressed, the wake as before.
+  const { WAKES_FILE, addressFile, writeState } = await import('../lib/state.mjs');
+  const { mkdirSync: mk, writeFileSync: wf } = await import('node:fs');
+  const { dirname: dn } = await import('node:path');
+  const put = (root, files) => writeState(root, 'process-state', 'state', (d) => { for (const [f, t] of Object.entries(files)) { mk(dn(join(d, f)), { recursive: true }); wf(join(d, f), t); } });
+  const nobob = pinMove(p.pin, shim);
+  put(nobob.root, { 'heartbeat.json': '{}\n' });
+  const nbLogs = [];
+  assert.equal(mergePlain(nobob.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(nobob, { repo: processRepo(p.dir) }).io, log: (m) => nbLogs.push(m) }).merged, true);
+  assert.doesNotMatch(nbLogs.join('\n'), /wake BOB/);
+  assert.equal(nbLogs.filter((l) => /^no BOB is addressed on process-state \(addresses\/bob\.json\): this product has no BOB, so there is no wake to send$/.test(l)).length, 1);
+  git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: nobob.root });
+  assert.equal(git(['cat-file', '-e', `refs/remotes/origin/process-state:${WAKES_FILE}`], { cwd: nobob.root, allowFail: true }).code !== 0, true, 'no wake recorded');
+  const bob = pinMove(p.pin, shim);
+  put(bob.root, { [addressFile('bob')]: '{"session":"session_x"}\n' });
+  const bLogs = [];
+  mergePlain(bob.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(bob, { repo: processRepo(p.dir) }).io, log: (m) => bLogs.push(m) });
+  assert.match(bLogs.at(-1), /^next act: wake BOB with `.*send bob "pin moved to/);
   // Not the shim byte for byte, or a pin that is not on process3's tranche or main: refused.
   const off = pinMove(p.pin, shim + ' ');
   assert.throws(() => mergePlain(off.root, 4, { ...q, noReview: 'x', io: plainIO(off, { repo: processRepo(p.dir) }).io }), /is not the process's own shim at/);
