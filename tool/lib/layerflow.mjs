@@ -1119,6 +1119,9 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
 // p3 layer sync <n> [--no-wait] (BOB): the tranche into layer/<n> by a tool-made merge PR, landed by
 // the merge tool on a green gate (the gate runs layer/<n>'s own tool, which takes a plain PR's
 // ledger entries, pointer and shims). Nothing when layer/<n> already holds the tranche tip.
+// A commit's parents as its object names them: a shallow clone's boundary (a depth-1 fetch of the
+// merge) hides them from rev-list, never from the object (cold review of R17d).
+const parentsOf = (root, sha) => git(['cat-file', '-p', sha], { cwd: root }).split('\n\n')[0].split('\n').filter((l) => l.startsWith('parent ')).map((l) => l.slice(7));
 export async function layerSync(root, n, { io = {}, log = console.log, wait = true, by = 'bob' } = {}) {
   n = layerNum(n);
   const cfg = loadConfig(root);
@@ -1162,7 +1165,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   const unopened = (branch, at) => {
     fetchBranch(root, branch, { allowFail: true });
     if (!hasCommit(root, at)) return null;
-    const ps = git(['rev-list', '--parents', '-n', '1', at], { cwd: root }).split(' ').slice(1);
+    const ps = parentsOf(root, at);
     if (ps.length !== 2 || ps[0] !== tip || ps[1] !== ttip) return null;
     const same = withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
@@ -1175,7 +1178,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   if (pr) {
     // Its head must be the tool's own merge, tree for tree: a push to the branch is never landed.
     fetchBranch(root, pr.head.ref, { allowFail: true });
-    const ps = hasCommit(root, head) ? git(['rev-list', '--parents', '-n', '1', head], { cwd: root }).split(' ').slice(1) : [];
+    const ps = hasCommit(root, head) ? parentsOf(root, head) : [];
     const ok = ps.length === 2 && isAnc(root, ps[0], tip) && ps[1] === ttip && withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
       try { const r = syncMerge(root, cfg, n, ps[0], ttip, w); resolved = r.resolved; return r.tree === git(['rev-parse', `${head}^{tree}`], { cwd: root }); } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
