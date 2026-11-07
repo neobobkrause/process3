@@ -11,7 +11,7 @@ import { laneStart } from '../lib/lane.mjs';
 import { budgetGate, classify, ghAfter, ghTurn, usage, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
 import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
 import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, stateReplay, strandedWrites, writeState } from '../lib/state.mjs';
-import { configOf, git, jobCap } from '../lib/util.mjs';
+import { configOf, git, jobCap, pushRetry } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -41,10 +41,15 @@ function clock(start = Date.parse('2026-11-06T22:00:00Z')) {
   return c;
 }
 
-test('GitHub\'s published limits are data with their source and date; the target is 80 to 90% (default 85%); the caps are off by default', () => {
+test('GitHub\'s published limits are data with their source and date; the target is 80 to 90% (default 85%); the retired caps are accepted and ignored', () => {
   assert.deepEqual(GITHUB_LIMITS, { source: 'https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api', read: '2026-11-06', primary_per_hour: 5000, actions_token_per_hour: 1000, concurrent: 100, rest_points_per_minute: 900, content_per_minute: 80, content_per_hour: 500, cpu_seconds_per_minute: 90 });
   const c = configOf({});
-  assert.deepEqual([c.pacing.target, c.pacing.jobs, c.pacing.lanes], [0.85, null, null]);
+  assert.deepEqual([c.pacing.target, c.pacing.jobs, c.pacing.lanes, c.pacing.pushes_per_hour], [0.85, undefined, undefined, undefined]);
+  // PD-6: an old config's push ceiling and session caps are accepted, ignored, and said.
+  assert.equal(pacingProblem({ pushes_per_hour: 120, jobs: 8, lanes: 2 }), null);
+  configOf({ pacing: { pushes_per_hour: 120, jobs: 8, share_s: 900 } });
+  const inForce = pacing({});
+  assert.deepEqual([inForce.pushes_per_hour, inForce.jobs, inForce.retired], [undefined, undefined, ['pushes_per_hour', 'jobs']]);
   assert.equal(configOf({ pacing: { target: 0.9 } }).pacing.target, 0.9);
   assert.match(pacingProblem({ target: 0.95 }), /pacing\.target is between 0\.8 and 0\.9/);
   assert.match(pacingProblem({ target: 0.5 }), /pacing\.target is between 0\.8 and 0\.9/);
@@ -52,22 +57,28 @@ test('GitHub\'s published limits are data with their source and date; the target
   assert.equal(pacingProblem({ github_limits: { content_per_minute: 60, source: 'x', read: '2027-01-01' } }), null);
   assert.match(pacingProblem({ github_limits: { content_per_day: 1, source: 'x', read: 'y' } }), /not one of GitHub's published limits/);
   assert.equal(configOf({ pacing: { github_limits: { content_per_minute: 60, source: 'x', read: 'y' } } }).pacing.github_limits.content_per_hour, 500, 'a limit not restated keeps GitHub\'s');
-  assert.match(pacingProblem({ gh_interval_ms: 500 }), /gh_interval_ms is 1000 or more/);
-  assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /no wait on GitHub polls tighter than 30 s/);
+  assert.match(pacingProblem({ gh_interval_ms: 500 }), /gh_interval_ms is 1000 or more: at least a second between GitHub writes/);
+  assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /the poll cadence, no tighter than 30 s/);
   // The test stand-in is read under the test runner only, never in a session.
   assert.equal(pacing({ P3_GH_INTERVAL_MS: '0' }).gh_interval_ms, 1000);
   configOf({});
 });
 
-test('polls back off from 30 s to 5 min, never tighter than 30 s', () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((k) => pollMs(k, P) / 1000), [30, 60, 120, 240, 300, 300, 300]);
+test('polls wait a fixed 30 s (PD-6: no back-off on a number of the process\'s own), never tighter than 30 s', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((k) => pollMs(k, P) / 1000), [30, 30, 30, 30, 30, 30, 30]);
+  // An old config's poll_most_s is accepted and ignored: no back-off returns.
+  assert.equal(pacingProblem({ poll_most_s: 300 }), null);
+  configOf({ pacing: { poll_most_s: 300 } });
+  assert.deepEqual([1, 5].map((k) => pollMs(k) / 1000), [30, 30]);
+  configOf({});
   assert.equal(pollMs(1, { ...P, poll_first_s: 5 }), 30000);
 });
 
-test('session caps are derived: no fixed job or lane cap unless pacing sets one', (t) => {
+test('no session cap is GitHub pacing (PD-6): pacing.jobs and pacing.lanes are ignored, said in the job cap\'s note', (t) => {
   env(t);
   assert.deepEqual([jobCap({}).cap, jobCap({}).from], [20, 'default']);
-  assert.deepEqual([jobCap({ pacing: { jobs: 4 } }).cap, jobCap({ pacing: { jobs: 4 } }).from], [4, 'pacing.jobs in process/config.json']);
+  assert.deepEqual([jobCap({ pacing: { jobs: 4 } }).cap, jobCap({ pacing: { jobs: 4 } }).from], [20, 'default']);
+  assert.match(jobCap({ pacing: { jobs: 4 } }).note, /pacing\.jobs \(PD-6: no session cap set as GitHub pacing\) ignored/);
   assert.equal(jobCap({ pacing: { jobs: 10 } }, { P3_JOB_CAP: '6' }).cap, 6);
   const files = { 'process/config.json': { lanes: [{ name: 'ux', dir: 'design/ux' }, { name: 'pub', dir: 'design/pub' }] }, 'design/ux/README.md': 'x\n', 'design/pub/README.md': 'x\n' };
   const { root } = withOrigin(files);
@@ -75,7 +86,7 @@ test('session caps are derived: no fixed job or lane cap unless pacing sets one'
   laneStart(root, 'pub', { slug: 'o/p', log: quiet });
   const one = withOrigin({ ...files, 'process/config.json': { ...files['process/config.json'], pacing: { lanes: 1 } } });
   laneStart(one.root, 'ux', { slug: 'o/p', log: quiet });
-  assert.throws(() => laneStart(one.root, 'pub', { slug: 'o/p', log: quiet }), /the lane cap is full: 1 lane session\(s\) live \(lane ux pending\) of pacing\.lanes 1/);
+  laneStart(one.root, 'pub', { slug: 'o/p', log: quiet }); // pacing.lanes 1 is ignored
 });
 
 test('each call is costed: REST points (a read 1, a write 5) and content-creating requests', () => {
@@ -135,6 +146,10 @@ test('a 403 with Retry-After pauses every session until it passes, never a retry
   assert.deepEqual(limitSignal('gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 120'), { kind: 'secondary', retryAfter: 120, reset: null });
   assert.equal(limitSignal('HTTP 404: Not Found'), null);
   assert.equal(limitSignal('HTTP 403: Resource not accessible by integration'), null, 'a permission 403 is no rate limit');
+  // PD-6: only GitHub's own refusal pauses or stops; a 5xx, a 403 naming no rate limit, or a proxy's
+  // own 429 never does. A bare 429 from gh or git is GitHub's (cold review of R17g).
+  for (const t2 of ['HTTP 502: Bad Gateway (https://api.github.com/repos/o/p)', 'HTTP 500: Internal Server Error', 'HTTP 403: Forbidden', 'proxy: HTTP 429 too many concurrent transfers for this repository']) assert.equal(limitSignal(t2), null, t2);
+  for (const t2 of ['gh: HTTP 429', 'HTTP 429: Too Many Requests (https://api.github.com/repos/o/p)', 'error: RPC failed; HTTP 429 curl 22 The requested URL returned error: 429']) assert.equal(limitSignal(t2)?.kind, 'secondary', t2);
   // Session A is refused.
   useShared(sharedA);
   const rec = ghAfter(['pr', 'comment'], { code: 1, stderr: 'gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 120' }, a, { now: c.now });
@@ -147,7 +162,7 @@ test('a 403 with Retry-After pauses every session until it passes, never a retry
   assert.deepEqual(c.slept, [120e3]);
   assert.match(budgetGate(b, { p: P, now: c.t - 1 }) || '', /rate-limited this account until/);
   // A second refusal within the hour, by session B: every GitHub call stops.
-  const second = ghAfter(['api', 'repos/o/p'], { code: 1, stderr: 'HTTP 429: Too Many Requests' }, b, { now: c.now });
+  const second = ghAfter(['api', 'repos/o/p'], { code: 1, stderr: 'HTTP 429: Too Many Requests (https://api.github.com/repos/o/p)' }, b, { now: c.now });
   assert.deepEqual([second.unshared, second.stopped], [undefined, true], 'shared with the account, and a stop');
   process.env.CLAUDE_CODE_SESSION_ID = 'cse_a';
   useShared(stateShare(a, cfg, { now: c.now }));
@@ -243,7 +258,8 @@ test('github budget: use against each published limit, per window, as a percenta
   assert.match(text, /- content-creating requests, the last hour: 14\/500 \(3%\)/);
   assert.match(text, /cse_other: 10 gh call\(s\), 10 content-creating, 2 push\(es\)/);
   assert.match(text, /no pause/);
-  assert.match(text, /- pushes, the last hour: \d+\/120 \(\d+%\) of the process's own ceiling \(PD-3; GitHub publishes none/);
+  assert.match(text, /- pushes, the last hour: \d+; GitHub publishes no limit, so none is applied \(PD-6/);
+  assert.doesNotMatch(text, /ceiling/);
   // A new session waits while the hour's content use is at target.
   useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString(), calls: 430, points: 2150, content: 430, pushes: 0 }] }), pause: () => {} });
   assert.match(budgetGate(root, { p: P, now: c.t }) || '', /content-creating requests an hour used account-wide, the target 85%: a new session waits/);
@@ -346,27 +362,31 @@ test('coalesced writes survive another process resetting the clone\'s ref, a kil
 });
 
 // R17b (coordinator's rulings, 6 Nov): pushes and connector writes in the ledger, one ledger per
-// account (process3's clones use the product's), and the process's own push ceiling (PD-3).
+// account (process3's clones use the product's); pushes counted, never held but by GitHub (PD-6).
 import { cloneId, exempt, lastShared, noteShare, noteTurn, pushTurn } from '../lib/pace.mjs';
 import { ledgerOf, USE_DIR } from '../lib/ghshare.mjs';
 
-test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the tool\'s own included', (t) => {
+// PD-6 (coordinator, 7 Nov; Bob: "make sure that this baseless overcaution NEVER happens. NEVER!"): a
+// brake acts only on a limit GitHub publishes, at target, or on a refusal GitHub returns. Pushes are
+// counted and reported, never waited on or refused; the published limits and GitHub's refusals still brake.
+test('500 pushes in an hour pass without a wait; a push is held only by GitHub\'s own pause or stop', (t) => {
   const f = logFile();
   env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
-  assert.equal(configOf({}).pacing.pushes_per_hour, 120);
-  assert.match(pacingProblem({ pushes_per_hour: 0 }), /pushes_per_hour is a whole number, 1 or more/);
   const root = makeRepo({ 'README.md': 'x\n' });
   const c = clock();
-  // 119 pushes by another session 50 minutes ago: the hour's window frees them within 15 minutes.
-  const minute = new Date(c.t - 3000e3).toISOString().replace(/\.\d+Z$/, 'Z');
-  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute, calls: 0, points: 0, content: 0, pushes: 119 }] }), pause: () => null });
-  pushTurn(['push', '-q', 'origin', 'HEAD:refs/heads/job/a'], root, { p: P, now: c.now, sleep: c.sleep });
-  assert.deepEqual(c.slept, [], 'the 120th fits');
-  pushTurn(['push', '-q', 'origin', 'HEAD:refs/heads/job/a'], root, { p: P, now: c.now, sleep: c.sleep });
-  assert.equal(c.slept.length, 1, 'the 121st waits for the hour\'s window');
-  assert.ok(c.slept[0] > 0 && c.slept[0] <= 11 * 60e3, String(c.slept[0]));
+  // 499 pushes by other sessions in the last minutes, then this one: no wait, none refused.
+  const minute = new Date(c.t - 120e3).toISOString().replace(/\.\d+Z$/, 'Z');
+  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute, calls: 0, points: 0, content: 0, pushes: 499 }] }), pause: () => null });
+  for (let i = 0; i < 25; i++) pushTurn(['push', '-q', 'origin', `HEAD:refs/heads/job/a${i}`], root, { p: { ...PACING_DEFAULTS }, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, [], 'no wait, and no write spacing for a push');
+  assert.ok(usage(root, { t: c.t, seconds: 3600, rows: readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)) }).pushes >= 524, 'every push counted');
+  assert.equal(budgetGate(root, { p: P, now: c.t }), null, 'a new session starts at any push count');
   assert.equal(pushTurn(['push', '--dry-run', 'origin', 'HEAD'], root, { p: P, now: c.now, sleep: c.sleep }), null, 'a dry run is no push');
-  // A stopped account: the tool's own push (git()) is refused with the budget's words...
+  // GitHub's pause holds a push until it passes; its stop refuses it, the tool's own included...
+  const held = { at: new Date(c.t).toISOString(), until: new Date(c.t + 60e3).toISOString(), why: 'secondary rate limit', stopped: false };
+  useShared({ read: () => ({ pause: held, use: [] }), pause: () => null });
+  pushTurn(['push', '-q', 'origin', 'HEAD:refs/heads/job/b'], root, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, [60e3], 'held for GitHub\'s own pause');
   useShared({ read: () => ({ pause: { at: '2026-11-06T21:00:00Z', until: '2026-11-06T21:01:00Z', why: 'secondary rate limit', stopped: true }, use: [] }), pause: () => null });
   assert.throws(() => git(['push', '-q', 'origin', 'HEAD:refs/heads/x'], { cwd: root }), /GitHub budget: GitHub refused this account again/);
   // ...and only the ledger's own writes (exempt) pass, logged.
@@ -375,38 +395,57 @@ test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the 
   assert.equal(readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('"kind":"push"')).length, before + 1);
 });
 
-test('at the push ceiling a state write is held and kept for replay, never dropped; the ledger\'s pause write passes (coordinator, PR 206)', (t) => {
+test('the published limits still brake: content and primary at target hold a call and a new session; reads and pushes are never spaced, writes a second apart', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const c = clock();
+  const minute = new Date(c.t - 30e3).toISOString().replace(/\.\d+Z$/, 'Z');
+  // The hour's content-creating requests at GitHub's 500 a target 85% (425): a write waits, a start waits.
+  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute, calls: 425, points: 2125, content: 425, pushes: 0 }] }), pause: () => null });
+  assert.match(budgetGate(root, { p: P, now: c.t }) || '', /content-creating requests an hour used account-wide, the target 85%/);
+  assert.throws(() => ghTurn(['api', '-X', 'POST', 'repos/o/p/issues/1/comments'], root, { p: P, now: c.now, sleep: (ms) => { throw new Paced(`slept ${ms}`); } }), /slept|GitHub budget/);
+  // The primary limit at target (GitHub's own count): a read waits for its reset, a start waits.
+  useShared(null);
+  const rl = () => ({ limit: 5000, remaining: 700, reset: c.t + 600e3 });
+  assert.match(budgetGate(root, { p: P, now: c.t, rateLimit: rl }) || '', /of the primary limit's 5000 an hour used, the target 85%/);
+  const c2 = clock(c.t);
+  ghTurn(['api', 'repos/o/p'], root, { p: P, now: c2.now, sleep: c2.sleep, rateLimit: rl });
+  assert.deepEqual(c2.slept, [600e3]);
+  // The write spacing (GitHub's guidance: a second between mutative requests): writes only.
+  const c3 = clock(c.t + 3600e3);
+  const p1 = { ...PACING_DEFAULTS };
+  const rl2 = () => ({ limit: 5000, remaining: 5000, reset: c3.t + 3600e3 });
+  for (let i = 0; i < 3; i++) ghTurn(['api', 'repos/o/p'], root, { p: p1, now: c3.now, sleep: c3.sleep, rateLimit: rl2 });
+  assert.deepEqual(c3.slept, [], 'reads are never spaced');
+  ghTurn(['api', '-X', 'POST', 'repos/o/p/issues/1/comments'], root, { p: p1, now: c3.now, sleep: c3.sleep, rateLimit: rl2 });
+  ghTurn(['api', '-X', 'POST', 'repos/o/p/issues/1/comments'], root, { p: p1, now: c3.now, sleep: c3.sleep, rateLimit: rl2 });
+  assert.deepEqual(c3.slept, [1000], 'the second write a second after the first');
+});
+
+test('at GitHub\'s pause a state write is held and kept for replay, never dropped; the ledger\'s pause write passes (coordinator, PR 206)', (t) => {
   const f = logFile();
   env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
   const { root, bare } = withOrigin({ 'process/config.json': {} });
   const cfg = configOf({});
   writeState(root, 'process-state', 'seed', (wt) => { writeFileSync(join(wt, 'seed.txt'), 's\n'); return {}; });
-  // 120 pushes by another session in the last minute: the window frees none within 15 minutes.
-  const full = { pause: null, use: [{ session: 'cse_other', clone: 'elsewhere', minute: new Date(Date.now() - 30e3).toISOString(), calls: 0, points: 0, content: 0, pushes: 120 }] };
+  // GitHub refused this account and the tool is stopped: the write is kept, named for replay.
+  const stopped = { pause: { at: new Date().toISOString(), until: new Date(Date.now() + 60e3).toISOString(), why: 'secondary rate limit', stopped: true }, use: [] };
   const real = stateShare(root, cfg);
-  useShared({ read: () => full, pause: real.pause, resume: real.resume });
+  useShared({ read: () => stopped, pause: real.pause, resume: real.resume });
   assert.throws(() => writeState(root, 'process-state', 'held', (wt) => { writeFileSync(join(wt, 'held.txt'), 'h\n'); return {}; }),
-    /\d+ of the 120 pushes an hour.*the ceiling \(120\).*The write is kept: replay it with `node \.process\/tool\/p3\.mjs state replay refs\/p3\/unpushed\//s);
+    /GitHub refused this account again.*The write is kept: replay it with `node \.process\/tool\/p3\.mjs state replay refs\/p3\/unpushed\//s);
   assert.equal(git(['show', 'process-state:held.txt'], { cwd: bare, allowFail: true }).code, 128, 'not pushed');
   const kept = git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
   assert.equal(kept.length, 1);
   assert.equal(git(['show', `${kept[0]}:held.txt`], { cwd: root }), 'h', 'the write survives');
-  // A coalesced command's writes the same: kept, named for replay.
-  stateBatch(true);
-  t.after(() => stateBatch(false));
-  writeState(root, 'process-state', 'coalesced', (wt) => { writeFileSync(join(wt, 'c.txt'), 'c\n'); return {}; });
-  assert.throws(() => flushState(), /This command's 1 state write\(s\) are kept: replay them/);
-  stateBatch(false);
-  assert.equal(git(['for-each-ref', '--format=%(subject)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean).sort().join(','), 'coalesced,held');
-  // The ledger's own pause write goes through at the ceiling.
+  // The ledger's own pause write goes through while stopped.
   const rec = ghAfter(['pr', 'comment'], { code: 1, stderr: 'HTTP 403: You have exceeded a secondary rate limit' }, root);
   assert.equal(rec.unshared, undefined);
-  assert.equal(JSON.parse(git(['show', `process-state:${PAUSE_FILE}`], { cwd: bare })).stopped, false);
-  // Once there is room, the kept writes replay.
+  // Once resumed, the kept write replays.
   useShared(null);
   stateReplay(root, 'process-state', [], { log: () => {} });
   assert.equal(git(['show', 'process-state:held.txt'], { cwd: bare }), 'h');
-  assert.equal(git(['show', 'process-state:c.txt'], { cwd: bare }), 'c');
 });
 
 test('github note: a session\'s connector writes are reserved and logged before it makes them, waiting at the content target', (t) => {
@@ -538,4 +577,29 @@ test('github push names its refspec, refuses wildcards and main, and a remote wh
   } finally { process.chdir(cwd); console.log = log; console.error = err; }
   const text = errs.join('\n');
   for (const re of [/name what to push/, /no wildcard refspec/, /never to main/, /the flags take no value; put them after the refspecs/, /remote\.origin\.mirror is set in this clone \(true\): it can force or delete/]) assert.match(text, re);
+});
+
+// Cold review of R17g: a push GitHub refuses for its rate limit ("RPC failed; HTTP 429") pauses every
+// session and is never pushed again inside the refusal; a proxy's own 429 is no pause.
+test('a push refused by GitHub\'s rate limit pauses every session and is not retried; a server error still is', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const paused = [];
+  useShared({ read: () => ({ pause: null, use: [] }), pause: (rec) => { paused.push(rec); return null; } });
+  // git() records the pause on a refused push.
+  git(['remote', 'add', 'origin', join(tmpdir(), 'p3-no-such-origin.git')], { cwd: root });
+  const r = git(['push', '-q', 'origin', 'HEAD:refs/heads/x'], { cwd: root, allowFail: true });
+  assert.notEqual(r.code, 0);
+  assert.equal(paused.length, 0, 'a push that fails for another reason is no pause');
+  ghAfter(['push', 'origin', 'x'], { code: 1, stderr: 'error: RPC failed; HTTP 429 curl 22 The requested URL returned error: 429' }, root);
+  assert.equal(paused.length, 1);
+  assert.match(paused[0].why, /secondary rate limit on git push origin/);
+  // pushRetry: a rate-limit refusal stops at once; a 5xx is tried again.
+  let n = 0;
+  assert.throws(() => pushRetry(root, 'process-state', { push: () => { n++; return { code: 1, stderr: 'error: RPC failed; HTTP 429 curl 22 The requested URL returned error: 429' }; }, wait: 1, log: () => {} }), /refused by GitHub's rate limit; every session waits it out/);
+  assert.equal(n, 1, 'never pushed again inside the refusal');
+  n = 0;
+  assert.throws(() => pushRetry(root, 'process-state', { push: () => { n++; return { code: 1, stderr: 'remote: Internal Server Error\nerror: HTTP 500' }; }, tries: 3, wait: 1, log: () => {} }), /refused 3 times/);
+  assert.equal(n, 3, 'a server error is tried again');
 });

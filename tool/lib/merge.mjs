@@ -67,7 +67,7 @@ function transientPause(e, k, { until, log, wait = TRANSIENT_WAIT }) {
   log(`GitHub read failed (${e.message.split('\n')[0].slice(0, 160)}); transient: read again in ${Math.round(ms / 1000)} s (${k} in a row), still waiting on the same run`);
   sleep(ms);
 }
-// every: a fixed pause (the tests); unset, polls back off from pacing.poll_first_s to poll_most_s (R17).
+// every: a fixed pause (the tests); unset, a poll waits pacing.poll_first_s, fixed (PD-6).
 export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = null, read = checkRun, pr, was, log = console.log, transient } = {}) {
   let polls = 0;
   const until = Date.now() + minutes * MINUTE;

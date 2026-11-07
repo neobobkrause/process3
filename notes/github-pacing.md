@@ -41,11 +41,11 @@ A config that restates a limit must name its source and the date it was read. `p
   - The pause lasts until Retry-After, else x-ratelimit-reset, else, for the primary limit, rate_limit's reset, else one minute, as GitHub's docs say.
   - A second refusal within an hour stops the tool. Every call is then refused with "tell the coordinator", until the coordinator runs `p3 github resume --by <session>`.
 - **Session caps are derived.**
-  - There is no fixed job or lane cap: `pacing.jobs` and `pacing.lanes` are optional hard caps, off by default.
+  - There is no job or lane cap of GitHub pacing: `pacing.jobs` and `pacing.lanes` are retired (PD-6, 7 Nov), accepted and ignored.
   - `job start` and `lane start` refuse a new session while GitHub is paused, the tool is stopped, the hour's content-creating requests are at target, or the primary limit is.
 - **`p3 github budget`** shows the use against each published limit as a percentage, per window, with the pause and each session's calls.
 - **Kept from the first pass:**
-  - polls back off from 30 s to 5 min, never tighter;
+  - polls wait a fixed 30 s (PD-6, 7 Nov: the back-off to 5 min is retired);
   - state writes are coalesced into one push per command;
   - the job START says to push once per turn.
 
@@ -105,6 +105,7 @@ Open:
   - Where it is said: the lane START (push and note), the job START and rulebook (push only: a job's pull request writes are the tool's own gh calls), BOB's, ROOT's, the watcher's and the review worker's rulebooks, the pin-move and tranche steps, `found`'s steps, and job sync's hint.
   - ROOT's and BOB's STARTs are at their one-screen cap, so for those roles the line is in the rulebook each reads at start. ROOT and the watcher push nothing by hand: their acts are tool commands, which the tool paces.
 - **One ledger per account.** It is the product's state branch (neobobkrause/civicsmith-copy process-state, `github/`). A clone finds it in its config's `pacing.ledger`, else in the pinned process3's `pacing.json`, else in its own `pacing.json`. So process3's clones and every product (process3-probes among them) share it once their pin holds this change, and before that the probe keeps its own. The ledger is read fresh before every content-creating call and every push.
+- **Retired by PD-6 (7 Nov): the push ceiling below is no longer a brake.** Pushes are counted and shown in `github budget`; only GitHub's published limits and its own refusals brake (pace.mjs).
 - **The push ceiling, PD-3 in DECISIONS.md.**
   - `pacing.pushes_per_hour` is 120, account-wide, applied like a window. It covers every push the tool makes (gated in `git()`) and `p3 github push`.
   - State-branch pushes are held like any push (coordinator's ruling on PR 206: they were most of 6 Nov's volume). Only the ledger's pause, stop and resume writes pass while the account is paused, stopped or at the ceiling. A command whose state push would wait past 15 min keeps its writes under `refs/p3/unpushed/` for `state replay`, and says so. The usage share is gated but never waits.
