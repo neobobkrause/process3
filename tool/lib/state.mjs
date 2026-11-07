@@ -57,10 +57,13 @@ export const jsonl = (text) => (text || '').split('\n').filter(Boolean).flatMap(
 // The whole write (fetch, change, commit, push, read-back) holds the clone's state lock (util.mjs
 // withStateLock): a `change` makes no network call, so nothing but the state fetch and push is
 // waited on under it.
-export function writeState(root, sb, msg, change) {
+export function writeState(root, sb, msg, change, opts = {}) {
   if (batch.on) return withStateLock(root, () => writeStateLocal(root, sb, msg, change));
-  return withStateLock(root, () => writeStateNow(root, sb, msg, change));
+  return withStateLock(root, () => writeStateNow(root, sb, msg, change, opts));
 }
+// A change that does not apply to the state branch as it stands now (a kept write's replay, or a
+// change refused on a tip another writer moved): no other writer's failure, so a replay goes on past it.
+export class NotApplied extends Fail {}
 
 // Coalesced writes (R17, GitHub pacing; the copy pushed its state branch up to 173 times an hour,
 // 6 Nov). While a command runs (p3.mjs main turns it on), writeState commits onto the clone's copy
@@ -213,7 +216,9 @@ export function flushState({ log = () => {} } = {}) {
   return n;
 }
 
-function writeStateNow(root, sb, msg, change) {
+// park: false (a replay): a push given up leaves the write under the ref it is replayed from, never a
+// second one (cold review: a replay's failed push kept each write twice).
+function writeStateNow(root, sb, msg, change, { park = true } = {}) {
   const have = fetchState(root, sb, { fresh: true });
   const start = have ? ref(sb) : git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
   return withTemp('p3-state-', (tmp) => {
@@ -236,6 +241,7 @@ function writeStateNow(root, sb, msg, change) {
     const again = () => { lost = null; const r = applyOne(wt, { msg, change }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
     try { tip = pushRetry(wt, sb, { redo: again, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
+      if (!park) throw e;
       const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;
       git(['update-ref', name, 'HEAD'], { cwd: wt });
       fail(`${e.message}. The write is kept: replay it with \`node .process/tool/p3.mjs state replay ${name}\``);
@@ -243,7 +249,7 @@ function writeStateNow(root, sb, msg, change) {
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     // Refused on the tip another writer moved to (a reservation that lost: a lane's seat, an
     // address): nothing written, never kept, said plainly.
-    if (lost !== null) fail(`${msg}: refused on ${sb} as it stands now (another writer moved it first): ${lost}; nothing was written`);
+    if (lost !== null) throw new NotApplied(`${msg}: refused on ${sb} as it stands now (another writer moved it first): ${lost}; nothing was written`);
     return { ...out, tip };
   }, { root });
 }
@@ -302,7 +308,7 @@ function reapply(root, wt, c, r, sb) {
     if (m === null) other.push(f);
     else put(wt, f, m);
   }
-  if (other.length) fail(`${r} does not apply to ${sb} as it stands now (${other.join(', ')} changed there in a way its change cannot be merged into); it is kept`);
+  if (other.length) throw new NotApplied(`${r} does not apply to ${sb} as it stands now (${other.join(', ')} changed there in a way its change cannot be merged into); it is kept`);
 }
 
 // p3 state replay [<ref>...]: each kept write (refs/p3/unpushed/*, all when none is named) made again
@@ -312,48 +318,75 @@ const replayedFns = [];
 // A layer-flow event row: layerflow/<n>/<kind>/<name>.json (layerbase.mjs flowFile).
 const EVENT_ROW = /^layerflow\/\d+\/[^/]+\/[^/]+\.json$/;
 export function onReplayed(fn) { if (!replayedFns.includes(fn)) replayedFns.push(fn); }
+// Each ref on its own, never a queue (the coordinator, 7 Nov: on the copy an old kept pacing write
+// that no longer applied stopped the replay, and `layer merge 9`'s two newer kept writes never
+// replayed): one that does not apply is said and stays kept, the rest replay, and the command then
+// fails naming only the ones kept.
 export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
   const all = refs.length ? refs : git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
   if (!all.length) { log('no kept state writes to replay'); return []; }
   const done = [];
-  for (const r of all) {
-    const c = git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || fail(`no kept write ${r}`);
-    const msg = git(['log', '-1', '--format=%s', c], { cwd: root });
-    // A kept write a rerun has since made itself (cold review of R17d: layer sync's rerun records
-    // the sync row its refused push held): it only adds files, and each is on the tip already with
-    // the same content, or is a layer-flow event row (one file per event: the same path is the same
-    // event, recorded again with its own time). It is dropped, said, never picked into a conflict
-    // that holds it forever. An append-only file (messages, usage, metrics) another write created
-    // since is never this: its content differs, and it is picked as before (cold review).
-    const changes = git(['diff-tree', '--no-commit-id', '-r', '--name-status', '--root', c], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t'));
-    const have = fetchState(root, sb, { fresh: true });
-    const blob = (rev, p) => git(['rev-parse', '-q', '--verify', `${rev}:${p}`], { cwd: root, allowFail: true }).stdout.trim() || null;
-    const same = ([st, p]) => { if (st !== 'A') return false; const t = blob(ref(sb), p); return !!t && (t === blob(c, p) || EVENT_ROW.test(p)); };
-    if (have && changes.length && changes.every(same)) {
+  const kept = [];
+  // A command's kept writes share a time prefix (<ms>-<n>), each made on the one before: one that does
+  // not apply keeps the later ones of its command with it, never landing them without it (cold review).
+  const cmd = (r) => r.split('/').pop().split('-')[0];
+  const held = new Set();
+  const keptLine = () => (kept.length ? `${kept.length} kept state write(s) did not replay and stay kept: ${kept.map((k) => `${k.r}: ${k.why}`).join('; ')}` : '');
+  const summary = () => `${keptLine()}${done.length ? ` (the other ${done.length} replayed)` : ''}`;
+  for (const [i, r] of all.entries()) {
+    if (held.has(cmd(r))) { const why = `kept with its command's earlier write, which does not apply`; log(`kept ${r}: ${why}`); kept.push({ r, why }); continue; }
+    // Any failure but a write that does not apply (a push refused to the end, the pacing stop, a lock,
+    // a fetch): the replay stops there, every ref from there on left as it was (cold review: carried on,
+    // each later push failed too, and each failed write was kept twice).
+    const stop = (e) => fail([`the replay stopped at ${r}, which stays kept: ${e.message}`, all.length - i - 1 ? `${all.length - i - 1} later ref(s) not tried, kept` : '', done.length ? `${done.length} replayed before it` : '', keptLine()].filter(Boolean).join('. '));
+    try {
+      const c = git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || fail(`no kept write ${r}`);
+      const msg = git(['log', '-1', '--format=%s', c], { cwd: root });
+      // A kept write a rerun has since made itself (cold review of R17d: layer sync's rerun records
+      // the sync row its refused push held): it only adds files, and each is on the tip already with
+      // the same content, or is a layer-flow event row (one file per event: the same path is the same
+      // event, recorded again with its own time). It is dropped, said, never picked into a conflict
+      // that holds it forever. An append-only file (messages, usage, metrics) another write created
+      // since is never this: its content differs, and it is picked as before (cold review).
+      const changes = git(['diff-tree', '--no-commit-id', '-r', '--name-status', '--root', c], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t'));
+      const have = fetchState(root, sb, { fresh: true });
+      const blob = (rev, p) => git(['rev-parse', '-q', '--verify', `${rev}:${p}`], { cwd: root, allowFail: true }).stdout.trim() || null;
+      const same = ([st, p]) => { if (st !== 'A') return false; const t = blob(ref(sb), p); return !!t && (t === blob(c, p) || EVENT_ROW.test(p)); };
+      if (have && changes.length && changes.every(same)) {
+        git(['update-ref', '-d', r], { cwd: root });
+        log(`dropped ${r} (${msg}): ${changes.map(([, p]) => p).join(', ')} on ${sb} already, written by a rerun`);
+        for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
+        done.push(r);
+        continue;
+      }
+      // The kept commit's own change, as a function of the fresh worktree: picked onto it.
+      // Pushed at once, never coalesced: the kept ref goes only once its write is on origin.
+      // An idle check's row is a measurement of its window: a kept one is stale once another check
+      // has run, so it is dropped, never replayed (the next check measures again).
+      if (/^idle check: /.test(msg)) {
+        git(['update-ref', '-d', r], { cwd: root });
+        log(`dropped ${r} (${msg}): an idle check's row is stale once kept; the next check measures again`);
+        done.push(r);
+        continue;
+      }
+      // Batching off for this write only, restored whatever it meets (the idle check above no longer
+      // leaves it off).
+      const was = batch.on;
+      batch.on = false;
+      try { writeState(root, sb, msg, (wt) => { reapply(root, wt, c, r, sb); return {}; }, { park: false }); } catch (e) {
+        if (!(e instanceof NotApplied)) throw e;
+        log(`kept ${r} (${msg}): ${e.message}`);
+        kept.push({ r, why: e.message });
+        held.add(cmd(r));
+        continue;
+      } finally { batch.on = was; }
       git(['update-ref', '-d', r], { cwd: root });
-      log(`dropped ${r} (${msg}): ${changes.map(([, p]) => p).join(', ')} on ${sb} already, written by a rerun`);
+      log(`replayed ${r} (${msg})`);
       for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
       done.push(r);
-      continue;
-    }
-    // The kept commit's own change, as a function of the fresh worktree: picked onto it.
-    // Pushed at once, never coalesced: the kept ref goes only once its write is on origin.
-    const was = batch.on;
-    batch.on = false;
-    // An idle check's row is a measurement of its window: a kept one is stale once another check
-    // has run, so it is dropped, never replayed (the next check measures again).
-    if (/^idle check: /.test(msg)) {
-      git(['update-ref', '-d', r], { cwd: root });
-      log(`dropped ${r} (${msg}): an idle check's row is stale once kept; the next check measures again`);
-      done.push(r);
-      continue;
-    }
-    try { writeState(root, sb, msg, (wt) => { reapply(root, wt, c, r, sb); return {}; }); } finally { batch.on = was; }
-    git(['update-ref', '-d', r], { cwd: root });
-    log(`replayed ${r} (${msg})`);
-    for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
-    done.push(r);
+    } catch (e) { if (e instanceof Fail) stop(e); throw e; }
   }
+  if (kept.length) fail(summary());
   return done;
 }
 
