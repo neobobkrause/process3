@@ -1,6 +1,11 @@
 # R17c: the three repositories' `.claude/settings.json`, for Bob to apply
 
-**Apply these only after R17c is merged into process3's tranche and pinned on each product** (the
+**Apply now, on today's settings, apart from the rest (C15, 7 Nov):** add `"Artifact"` to
+`permissions.allow` in the copy's and the probes' `.claude/settings.json` (create `allow` if absent).
+It asks a person even in auto mode, and lanes keep their design documents as claude.ai artifacts: an
+investigation lane waited on it from ~00:31Z 7 Nov. Nothing else here needs it.
+
+**Apply the rest only after R17c is merged into process3's tranche and pinned on each product** (the
 copy's and the probe's `.process` at a process3 commit that holds `github hook`). Each file below
 is complete, ready to paste over the repository's `.claude/settings.json` on its tranche. They are
 Bob's files: no session writes them.
@@ -30,6 +35,11 @@ not by rule):
   `Bash(node tool/p3.mjs github push *)` in process3. Deny wins over allow in Claude Code, so the
   tool's push is allowed only because it is not a `git push` or `gh` command line; its own git push
   runs inside the tool, under the governor.
+- **Allow** `Artifact` in each product (C15, 7 Nov: an investigation lane waited from ~00:31Z on
+  "permission: Artifact", which asks a person even in auto mode; lanes keep their design documents
+  as claude.ai artifacts, within Bob's approvals for Process3 pages on claude.ai). process3 runs no
+  lanes and needs none. The suite (admit.test) holds these lists to every tool the process tells a
+  session to use.
 - Kept: every existing deny entry, and the copy's SessionStart hook
   (`bash "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"`).
 
@@ -80,7 +90,8 @@ Notes:
       "Bash(gh *)"
     ],
     "allow": [
-      "Bash(node .process/tool/p3.mjs github push *)"
+      "Bash(node .process/tool/p3.mjs github push *)",
+      "Artifact"
     ]
   },
   "hooks": {
@@ -201,7 +212,8 @@ Notes:
       "Bash(gh *)"
     ],
     "allow": [
-      "Bash(node .process/tool/p3.mjs github push *)"
+      "Bash(node .process/tool/p3.mjs github push *)",
+      "Artifact"
     ]
   },
   "hooks": {

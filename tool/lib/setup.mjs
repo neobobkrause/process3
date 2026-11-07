@@ -10,7 +10,7 @@ import { laneModuleGaps } from './ledger.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
-import { admitCheck, toldCommands } from './admit.mjs';
+import { admitCheck, admitTools, toldCommands, toldTools } from './admit.mjs';
 import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { address, fetchState } from './state.mjs';
@@ -446,14 +446,19 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
 
 // The told commands the product's .claude/settings.json denies, each a warning line naming where
 // the process tells it and the rule; none read when the file is absent or not JSON.
-export function admitLines(x, { log = console.log, told = toldCommands(TOOL) } = {}) {
+// The told tools (C15) too: one that a deny rule refuses, or that asks a person even in auto mode and
+// no allow rule admits, leaves an unattended session waiting on no one.
+export function admitLines(x, { log = console.log, told = toldCommands(TOOL), tools = toldTools(TOOL) } = {}) {
   let settings = null;
   try { settings = JSON.parse(x.file('.claude/settings.json') ?? 'null'); } catch { settings = null; }
   if (!settings) return [];
   const bad = admitCheck(settings, told);
   for (const b of bad) log(`warning: ${b.file}:${b.line} tells a session to run \`${b.cmd}\`, which .claude/settings.json denies (${b.rule}): the process's text is changed, or the rule, never the session's workaround`);
   if (!bad.length) log(`told commands: ${told.length}, each admitted by .claude/settings.json`);
-  return bad;
+  const stops = admitTools(settings, tools);
+  for (const b of stops) log(`warning: ${b.file}:${b.line} tells a session to use the ${b.tool} tool, which ${b.why === 'denied' ? `.claude/settings.json denies (${b.rule})` : `${b.evidence}, and no allow rule in .claude/settings.json admits: Bob adds "${b.tool}" to its permissions.allow`}`);
+  if (!stops.length) log(`told tools: ${new Set(tools.map((t) => t.tool)).size}, none denied and none left to a permission prompt`);
+  return [...bad, ...stops];
 }
 const ledgerEntries = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { return [JSON.parse(t)]; } catch { return []; } });
 // A lane whose folder lies under a ledger module's paths and that names no module (or another):
