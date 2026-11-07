@@ -334,15 +334,17 @@ function withOrigin(files) {
   return { root, bare };
 }
 const refs = (bare) => git(['for-each-ref', '--format=%(refname) %(objectname)'], { cwd: bare });
+// One clock for runs that are compared: a printed step reads it (run_once_at, a day on).
+const T0 = Date.parse('2026-11-07T00:00:00Z');
 const ACTS = ['push', 'pr-open', 'pr-comment', 'pr-merge', 'session-start', 'session-archive', 'task-create', 'task-delete'];
 
 test('tranche open: no GitHub act of its own (it prints the same steps, with the account stopped and again); --record\'s push refused, then rerun: one row per act, one refusal row', (t) => {
   t.after(() => useShared(null));
   const { root, bare } = withOrigin({ 'README.md': 'x\n' });
   const before = refs(bare);
-  const a = trancheOpen(root, { slug: 'o/p', log: quiet });
+  const a = trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 });
   useShared(stopped);
-  const b = trancheOpen(root, { slug: 'o/p', log: quiet });
+  const b = trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 });
   assert.deepEqual([b.n, b.steps, b.call], [a.n, a.steps, a.call], 'the same steps, the same throwaway branch');
   assert.equal(refs(bare), before, 'nothing pushed');
   // --record: its state write refused; nothing written, nothing counted; the rerun writes each once.

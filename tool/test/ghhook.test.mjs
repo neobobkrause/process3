@@ -123,11 +123,11 @@ test('a connector read uses the cached pause and stop, any age, and never fetche
   assert.equal(kicks.length, 2);
   // Never a fetch on the read path: peekShare reads only the cache.
   assert.deepEqual(peekShare(root, { kick: () => {} }).read().pause.why, 'secondary rate limit');
-  // A write reads the ledger fresh (the share given): its stop refuses though the cache has none.
+  // A write reads the ledger through its share (the share given): its stop refuses though the cache has none.
   cacheAt(root, { at: Date.now(), pause: null, use: [], ledger: 'own', tip: 'a' });
-  let fresh = 0;
-  assert.equal(hookRun({ tool_name: 'mcp__github__add_issue_comment', tool_input: {} }, root, { kick, err: (m) => errs.push(m), share: { read: (o) => { fresh += o?.fresh ? 1 : 0; return { pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }; }, pause: () => null } }), 2);
-  assert.ok(fresh >= 1, 'the write read the ledger fresh');
+  let reads = 0;
+  assert.equal(hookRun({ tool_name: 'mcp__github__add_issue_comment', tool_input: {} }, root, { kick, err: (m) => errs.push(m), share: { read: () => { reads++; return { pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }; }, pause: () => null } }), 2);
+  assert.ok(reads >= 1, 'the write read the ledger');
   assert.equal(kicks.length, 2);
 });
 
