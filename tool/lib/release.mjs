@@ -121,7 +121,7 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   if (taken) fail(`version ${v} is taken on origin (${taken.split('\n').map((l) => l.split('\t')[1]).join(', ')}); pass another --version`);
   log(`development release ${v} of ${cfg.tranche} ${tip.slice(0, 10)} (${ready.why}); development only, never published`);
   const steps = [
-    `\`node .process/tool/p3.mjs github note --content 1\`, then the GitHub connector's actions_run_trigger: run_workflow, workflow_id process-dev-release.yml, owner and repo ${slug}, ref ${cfg.tranche}, inputs {"version":"${v}","commit":"${tip}"} (${SHIM} on the tranche: checks, assemble, then the tag ${tagOf(v)} and a draft release)`,
+    `The GitHub connector's actions_run_trigger: run_workflow, workflow_id process-dev-release.yml, owner and repo ${slug}, ref ${cfg.tranche}, inputs {"version":"${v}","commit":"${tip}"} (${SHIM} on the tranche: checks, assemble, then the tag ${tagOf(v)} and a draft release)`,
     `watch the run: https://github.com/${slug}/actions/workflows/process-dev-release.yml?query=branch%3A${encodeURIComponent(cfg.tranche)}`,
     `\`${P3} release dev --record <that run's url>\` once it has finished, green or not`,
   ];

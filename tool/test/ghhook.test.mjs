@@ -8,12 +8,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { bashVerdict, hookDecision } from '../lib/ghhook.mjs';
-import { PACING_DEFAULTS, useShared } from '../lib/pace.mjs';
+import { bashVerdict, hookDecision, hookRun } from '../lib/ghhook.mjs';
+import { kickRefresh, LEDGER_CACHE, peekShare, refreshDone, remoteStore, stateShare } from '../lib/ghshare.mjs';
+import { git } from '../lib/util.mjs';
+import { commonDir, PACING_DEFAULTS, useShared } from '../lib/pace.mjs';
 import { makeRepo } from './helpers.mjs';
 
 const P = { ...PACING_DEFAULTS, gh_interval_ms: 0 };
 const P3 = join(dirname(fileURLToPath(import.meta.url)), '..', 'p3.mjs');
+const HOOK = join(dirname(fileURLToPath(import.meta.url)), '..', 'hook.mjs');
 function logTo(t) {
   const f = join(mkdtempSync(join(tmpdir(), 'p3-hook-')), 'log.jsonl');
   writeFileSync(f, '');
@@ -56,7 +59,10 @@ test('a paused or stopped account refuses the connector call (the hook exits 2);
 test('Bash: a raw git push, gh, or curl to GitHub is refused; the tool\'s own commands pass', () => {
   for (const c of ['git push origin job/x', 'git -c user.name=x push -u origin b', 'cd /x && git push', 'FOO=1 git push origin HEAD', 'gh pr create --title x', 'gh api repos/o/r', 'echo $(gh api user)', 'curl -s https://api.github.com/repos/o/r', 'wget https://github.com/o/r/archive/x.zip']) assert.ok(bashVerdict(c), c);
   for (const c of ['node .process/tool/p3.mjs github push origin job/x', 'node tool/p3.mjs github push origin build/x --set-upstream', 'cd /home/user/process3 && node tool/p3.mjs job sync alpha', 'git status', 'git fetch origin tranche', 'git commit -m "push the gh button"', 'npm test', 'curl -s https://registry.npmjs.org/x', 'node --test tool/test/*.test.mjs']) assert.equal(bashVerdict(c), null, c);
-  assert.match(bashVerdict('git push origin x'), /node \.process\/tool\/p3\.mjs github push <remote> <refspec>/);
+  // The refusal names the tool's path in this clone (R17d): process3's own, or a product's pinned one.
+  assert.match(bashVerdict('git push origin x'), /`node tool\/p3\.mjs github push <remote> <refspec>`/);
+  assert.match(bashVerdict('git push origin x', 0, 'node .process/tool/p3.mjs'), /`node \.process\/tool\/p3\.mjs github push <remote> <refspec>`/);
+  assert.doesNotMatch(bashVerdict('git push origin x'), /\.process/);
   // Read as the shell reads it (cold review of R17c): no way around it, and no false block.
   for (const c of ['(git push)', '(cd x && git push)', '/usr/bin/git push', '\\git push', '"git" push', 'bash -c "git push"', "sh -c 'git push origin x'", 'xargs git push', 'time git push', 'nohup git push', 'timeout 60 git push', 'env -i git push', '! git push', 'if true; then git push; fi', 'for x in a; do git push; done', 'sleep 1 & git push', 'git --git-dir x push', 'echo $(git push)', 'echo `git push`', 'git -c alias.p=push p', '/usr/bin/gh api x', 'node tool/p3.mjs x $(gh api y)', 'git -C dir push', 'eval git push']) assert.ok(bashVerdict(c), c);
   for (const c of ['git commit -m "note; git push later"', 'git commit -F - <<EOF\ngh pr create\ngit push\nEOF', 'echo hi # ; git push', 'git push --dry-run origin x', 'git log --grep push']) assert.equal(bashVerdict(c), null, c);
@@ -82,4 +88,87 @@ test('the hook command: exit 0 to allow, exit 2 with the reason on stderr to blo
   assert.equal(read.status, 0, read.stderr);
   const none = spawnSync(process.execPath, [P3, 'github', 'hook'], { cwd: root, input: '', encoding: 'utf8' });
   assert.equal(none.status, 2);
+  // The hook's own entry (R17d), which the settings call: the same answers.
+  const entry = (input) => spawnSync(process.execPath, [HOOK], { cwd: root, input: input === '' ? '' : JSON.stringify(input), encoding: 'utf8', env: { ...process.env, P3_GITHUB_LOG: '0' } });
+  assert.equal(entry({ tool_name: 'Bash', tool_input: { command: 'node tool/p3.mjs status' } }).status, 0);
+  const no2 = entry({ tool_name: 'Bash', tool_input: { command: 'gh pr list' } });
+  assert.equal(no2.status, 2);
+  assert.match(no2.stderr, /GitHub pacing \(P27\): a raw gh command/);
+  assert.equal(entry({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }).status, 0);
+  assert.equal(entry('').status, 2);
+});
+
+// The read path (R17d; coordinator: under 300 ms p95, no ledger fetch on a read, the pause and stop
+// cached and refreshed by ls-remote, fetched only when the ledger moved).
+const cacheAt = (root, c) => writeFileSync(join(commonDir(root), LEDGER_CACHE), JSON.stringify(c));
+test('a connector read uses the cached pause and stop, any age, and never fetches; a stale or missing cache starts one background refresh', (t) => {
+  logTo(t);
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const kicks = [];
+  const kick = () => kicks.push(1);
+  const errs = [];
+  const run = (op) => hookRun({ tool_name: `mcp__github__${op}`, tool_input: {} }, root, { kick, err: (m) => errs.push(m), opts: { sleep: () => assert.fail('a read never waits on the floor') } });
+  // No cache: the read passes at once, and a refresh is started.
+  assert.equal(run('pull_request_read'), 0);
+  assert.equal(kicks.length, 1);
+  // A fresh cache: nothing started; its stop refuses the read (a stop is cached too).
+  cacheAt(root, { at: Date.now(), pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'secondary rate limit', stopped: true }, use: [], ledger: 'own', tip: 'a' });
+  assert.equal(run('list_pull_requests'), 2);
+  assert.match(errs.pop(), /every GitHub call is stopped/);
+  assert.equal(kicks.length, 1);
+  // A stale cache still answers (here a pause past its wait cap: refused), and starts a refresh.
+  cacheAt(root, { at: Date.now() - 600e3, pause: { at: new Date().toISOString(), until: new Date(Date.now() + 600e3).toISOString(), why: 'secondary rate limit' }, use: [], ledger: 'own', tip: 'a' });
+  assert.equal(run('get_file_contents'), 2);
+  assert.match(errs.pop(), /GitHub rate-limited this account/);
+  assert.equal(kicks.length, 2);
+  // Never a fetch on the read path: peekShare reads only the cache.
+  assert.deepEqual(peekShare(root, { kick: () => {} }).read().pause.why, 'secondary rate limit');
+  // A write reads the ledger fresh (the share given): its stop refuses though the cache has none.
+  cacheAt(root, { at: Date.now(), pause: null, use: [], ledger: 'own', tip: 'a' });
+  let fresh = 0;
+  assert.equal(hookRun({ tool_name: 'mcp__github__add_issue_comment', tool_input: {} }, root, { kick, err: (m) => errs.push(m), share: { read: (o) => { fresh += o?.fresh ? 1 : 0; return { pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }; }, pause: () => null } }), 2);
+  assert.ok(fresh >= 1, 'the write read the ledger fresh');
+  assert.equal(kicks.length, 2);
+});
+
+test('the background refresh: the ledger unmoved, the cache is renewed without a fetch; moved, it is fetched and read again', () => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const ledger = join(mkdtempSync(join(tmpdir(), 'p3-ledger-')), 'l.git');
+  git(['init', '-q', '--bare', ledger], { cwd: root });
+  const put = (pause) => {
+    const w = makeRepo({ 'github/pause.json': JSON.stringify(pause) });
+    git(['push', '-q', '-f', ledger, 'HEAD:refs/heads/process-state'], { cwd: w });
+  };
+  put({ at: '2026-11-07T00:00:00Z', until: '2026-11-07T00:01:00Z', why: 'first' });
+  let t = Date.parse('2026-11-07T00:00:00Z');
+  const sh = stateShare(root, null, { url: ledger, now: () => t });
+  assert.equal(sh.refresh(), 'fetched');
+  const c1 = JSON.parse(readFileSync(join(commonDir(root), LEDGER_CACHE), 'utf8'));
+  assert.equal(c1.pause.why, 'first');
+  assert.equal(c1.tip, git(['ls-remote', ledger, 'refs/heads/process-state'], { cwd: root }).split('\t')[0]);
+  t += 60e3;
+  const fetches = git(['rev-parse', 'refs/p3/ledger/state'], { cwd: root });
+  assert.equal(sh.refresh(), 'unmoved');
+  assert.equal(JSON.parse(readFileSync(join(commonDir(root), LEDGER_CACHE), 'utf8')).at, t, 'renewed');
+  assert.equal(git(['rev-parse', 'refs/p3/ledger/state'], { cwd: root }), fetches);
+  put({ at: '2026-11-07T00:00:30Z', until: '2026-11-07T00:02:00Z', why: 'second', stopped: true });
+  assert.equal(sh.refresh(), 'fetched');
+  const c3 = JSON.parse(readFileSync(join(commonDir(root), LEDGER_CACHE), 'utf8'));
+  assert.equal(c3.pause.why, 'second');
+  assert.equal(c3.pause.stopped, true);
+  assert.equal(remoteStore(root, ledger).tip(), c3.tip);
+});
+
+test('one background refresh at a time per clone; a marker a minute old (a refresh killed) is taken over', () => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const entry = join(mkdtempSync(join(tmpdir(), 'p3-noop-')), 'noop.mjs');
+  writeFileSync(entry, '');
+  let t = 1e12;
+  assert.equal(kickRefresh(root, { now: () => t, entry }), true);
+  assert.equal(kickRefresh(root, { now: () => t + 5e3, entry }), false);
+  t += 61e3;
+  assert.equal(kickRefresh(root, { now: () => t, entry }), true);
+  refreshDone(root);
+  assert.equal(kickRefresh(root, { now: () => t + 1e3, entry }), true);
+  refreshDone(root);
 });

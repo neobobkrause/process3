@@ -10,7 +10,11 @@
 //                   (node .process/tool/p3.mjs, node tool/p3.mjs) pass, and everything else.
 // Exit 2 blocks the call, with the reason on stderr for the session (Claude Code's hook contract).
 // The settings that call it are Bob's (notes/r17c-settings.md).
-import { hookPacing, Paced, reserve } from './pace.mjs';
+import { existsSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { kickRefresh, LEDGER_CACHE, peekShare, refreshDone, stateShare } from './ghshare.mjs';
+import { commonDir, hookPacing, pacing, Paced, primaryState, reserve, TOOL, useShared } from './pace.mjs';
+import { CONFIG_FILE, loadConfig, repoRoot } from './util.mjs';
 
 // The connector's writes: each one content-creating request.
 const WRITE = /^(create|update|add|delete|merge|push|fork|assign|label_write|issue_write|sub_issue_write|pull_request_review_write|request_copilot_review|resolve_review_thread|unresolve_review_thread|enable_pr_auto_merge|disable_pr_auto_merge|actions_run_trigger|actions_rerun|rerun|cancel|run_secret_scanning|submit|dismiss|star|unstar|mark)/;
@@ -47,28 +51,29 @@ function words(cmd) {
   return segs;
 }
 const base = (x) => String(x).replace(/^\\/, '').split('/').pop();
-function segVerdict(seg, depth) {
+function segVerdict(seg, depth, tool) {
   let i = 0;
   while (i < seg.length && (/^\w+=/.test(seg[i]) || WRAPPERS.has(base(seg[i])) || (i > 0 && WRAPPERS.has(base(seg[i - 1])) && (/^-/.test(seg[i]) || /^\d+[smhd]?$/.test(seg[i]))))) i++;
   const cmd = base(seg[i] || '');
   const rest = seg.slice(i + 1);
-  if (SHELLS.has(cmd)) { const k = rest.findIndex((x) => /^-\w*c\w*$/.test(x)); return k >= 0 && rest[k + 1] && depth < 4 ? bashVerdict(rest[k + 1], depth + 1) : null; }
-  if (cmd === 'eval') return depth < 4 ? bashVerdict(rest.join(' '), depth + 1) : null;
+  if (SHELLS.has(cmd)) { const k = rest.findIndex((x) => /^-\w*c\w*$/.test(x)); return k >= 0 && rest[k + 1] && depth < 4 ? bashVerdict(rest[k + 1], depth + 1, tool) : null; }
+  if (cmd === 'eval') return depth < 4 ? bashVerdict(rest.join(' '), depth + 1, tool) : null;
   if (cmd === 'git') {
     let k = 0;
     while (k < rest.length && rest[k].startsWith('-')) {
-      if (rest[k] === '-c' && /^alias\.[^=]+=.*\bpush\b/.test(rest[k + 1] || '')) return 'a git alias for push goes around GitHub pacing (P27): push with `node .process/tool/p3.mjs github push <remote> <refspec>`';
+      if (rest[k] === '-c' && /^alias\.[^=]+=.*\bpush\b/.test(rest[k + 1] || '')) return `a git alias for push goes around GitHub pacing (P27): push with \`${tool} github push <remote> <refspec>\``;
       k += GIT_VALUED.has(rest[k]) ? 2 : 1;
     }
-    if (rest[k] === 'push' && !rest.slice(k + 1).some((x) => x === '--dry-run' || x === '-n')) return 'a raw git push goes around GitHub pacing (P27): push with `node .process/tool/p3.mjs github push <remote> <refspec>` (in process3: `node tool/p3.mjs github push ...`), or through the tool command that pushes for you (job sync, layer publish, job complete)';
+    if (rest[k] === 'push' && !rest.slice(k + 1).some((x) => x === '--dry-run' || x === '-n')) return `a raw git push goes around GitHub pacing (P27): push with \`${tool} github push <remote> <refspec>\`, or through the tool command that pushes for you (job sync, layer publish, job complete)`;
     return null;
   }
   if (cmd === 'gh') return 'a raw gh command goes around GitHub pacing (P27): use the tool command that makes the call, or the GitHub connector (counted by this hook)';
   if ((cmd === 'curl' || cmd === 'wget') && rest.some((x) => /^(https?:\/\/)?([\w-]+\.)?github\.com(\/|:|$)/.test(x))) return 'curl or wget to github.com goes around GitHub pacing (P27): use the tool, or the GitHub connector';
   return null;
 }
-export function bashVerdict(cmd, depth = 0) {
-  for (const seg of words(cmd)) { const v = segVerdict(seg, depth); if (v) return v; }
+// tool: the tool's command in this clone (pace.mjs TOOL), named in the refusal.
+export function bashVerdict(cmd, depth = 0, tool = TOOL) {
+  for (const seg of words(cmd)) { const v = segVerdict(seg, depth, tool); if (v) return v; }
   return null;
 }
 
@@ -95,4 +100,43 @@ export function hookDecision(input, cwd, opts = {}) {
     if (e instanceof Paced) return { block: e.message };
     throw e;
   }
+}
+
+// The hook as Claude Code runs it (R17d, tool/hook.mjs; `p3 github hook` runs the same): the
+// Bash check and other tools touch no git and no ledger; a connector read takes the read path
+// (ghshare peekShare: the cached pause and stop, GitHub's cached primary count, no fetch, no
+// network, no per-clone floor: under 300 ms); a connector write reads the ledger fresh and takes
+// the full path, waits included. Returns the exit code: 0 allows, 2 blocks (reason on stderr).
+const CONNECTOR = 'mcp__github__';
+export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick = process.env.NODE_TEST_CONTEXT ? () => false : kickRefresh, opts = {} } = {}) {
+  if (!input) { err('p3 github hook: no hook JSON on stdin'); return 2; }
+  const name = String(input.tool_name || '');
+  let d;
+  if (!name.startsWith(CONNECTOR)) d = hookDecision(input, cwd, opts);
+  else {
+    const root = repoRoot(cwd);
+    let cfg = null;
+    try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
+    const write = WRITE.test(name.slice(CONNECTOR.length));
+    const was = process.env.NODE_TEST_CONTEXT || process.env.GITHUB_ACTIONS === 'true';
+    useShared(share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : peekShare(root, { kick }));
+    try {
+      d = hookDecision(input, root, write ? opts : { p: { ...pacing(), gh_interval_ms: 0 }, rateLimit: () => undefined, ...opts });
+    } finally { useShared(null); }
+  }
+  if (d.block) { err(`GitHub pacing (P27): ${d.block}`); return 2; }
+  return 0;
+}
+// The background refresh the read path starts (tool/hook.mjs --refresh): the ledger's tip asked of
+// GitHub, fetched only when it moved; GitHub's primary count when a minute old. Never fails loudly.
+export function hookRefresh(cwd) {
+  try {
+    const root = repoRoot(cwd);
+    let cfg = null;
+    try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
+    const sh = stateShare(root, cfg);
+    if (sh) sh.refresh();
+    else writeFileSync(join(commonDir(root), LEDGER_CACHE), JSON.stringify({ at: Date.now(), pause: null, use: [], ledger: null }));
+    primaryState(root);
+  } catch { /* the next read starts another */ } finally { refreshDone(cwd); }
 }
