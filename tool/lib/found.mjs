@@ -174,7 +174,7 @@ export function found(root, module, finding, { from, write = false, offline = fa
   const remote = offline ? '' : git(['ls-remote', '--heads', 'origin', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
   const localHeads = git(['for-each-ref', '--format=%(objectname) %(refname)', `refs/heads/found/${key}-f*`], { cwd: root, allowFail: true }).stdout || '';
   const written = (sha) => !ref || git(['cat-file', '-e', `${sha}^{commit}`], { cwd: root, allowFail: true }).code !== 0
-    || git(['merge-base', '--is-ancestor', sha, ref], { cwd: root, allowFail: true }).code !== 0;
+    || git(['merge-base', '--is-ancestor', sha, ref], { deepen: true, cwd: root, allowFail: true }).code !== 0;
   const heads = `${remote}\n${localHeads}`.split('\n').map((l) => l.trim().split(/\s+/)).filter(([sha, name]) => sha && name && written(sha)).map(([, name]) => name).join('\n');
   const pending = [...heads.matchAll(new RegExp(`refs/heads/found/${key}-f(\\d+)$`, 'gm'))].map((m) => `**F${m[1]}**`).join(' ');
   const n = nextFound(...texts, ...local, pending);

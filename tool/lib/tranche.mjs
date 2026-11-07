@@ -172,7 +172,7 @@ const onBranch = (root, slug, base, sha, read) => {
   const c = slug ? read(slug, base, sha) : null;
   if (Number.isInteger(c?.ahead_by)) return c.ahead_by === 0;
   if (isShallow(root)) fail(`GitHub's compare of ${sha.slice(0, 10)} with ${base} could not be read, and this clone is shallow: run again`);
-  return git(['merge-base', '--is-ancestor', sha, `refs/remotes/origin/${base}`], { cwd: root, allowFail: true }).code === 0;
+  return git(['merge-base', '--is-ancestor', sha, `refs/remotes/origin/${base}`], { deepen: true, cwd: root, allowFail: true }).code === 0;
 };
 
 // tranche close: refused unless every layer is closed or the plan says close; prints BOB's acts.

@@ -358,7 +358,7 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     if (!h) return true;
     if (!has(h)) git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true });
     if (!has(h)) return false;
-    if (git(['merge-base', '--is-ancestor', h, sha], { cwd: root, allowFail: true }).code === 0) return true;
+    if (git(['merge-base', '--is-ancestor', h, sha], { deepen: true, cwd: root, allowFail: true }).code === 0) return true;
     // An attempt that gives its module new paths (and the import there) is not settled either.
     let atH = null;
     try { atH = JSON.parse(git(['show', `${h}:${cfg.modules_file}`], { cwd: root })).modules?.find((x) => x?.id === u)?.paths || null; } catch { atH = null; }

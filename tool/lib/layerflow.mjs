@@ -49,7 +49,7 @@ export const P3 = 'node .process/tool/p3.mjs';
 // status.mjs's CLOSED_FILE, named here: status.mjs reads job.mjs, which reads the gate, which reads this file.
 const CLOSED_FILE = 'layers/closed.jsonl';
 const short = (s) => String(s || '').slice(0, 10);
-const isAnc = (root, a, b) => !!a && !!b && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0;
+const isAnc = (root, a, b) => !!a && !!b && git(['merge-base', '--is-ancestor', a, b], { deepen: true, cwd: root, allowFail: true }).code === 0;
 const rev = (root, r) => git(['rev-parse', r], { cwd: root });
 const hasCommit = (root, c) => git(['cat-file', '-e', `${c}^{commit}`], { cwd: root, allowFail: true }).code === 0;
 const minutes = (a, b) => Math.round(((Date.parse(b) - Date.parse(a)) / MINUTE) * 10) / 10;
@@ -728,7 +728,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
     if (s && s.ok === false) fail('job sync did not finish; nothing was published');
     const testedOn = rev(root, lref);
     const entry = entryAt(root, 'HEAD', id) || fail(`no ledger entry for ${id} at HEAD`);
-    const out = outsideFiles(root, entry, git(['merge-base', 'HEAD', lref], { cwd: root }), 'HEAD');
+    const out = outsideFiles(root, entry, git(['merge-base', 'HEAD', lref], { deepen: true, cwd: root }), 'HEAD');
     if (out.length) fail(`refused: the publish touches files outside ${id} (ARC-2): ${out.slice(0, 10).join(', ')}${out.length > 10 ? ` and ${out.length - 10} more` : ''}; nothing was published`);
     const started = now();
     const pre = voiding(root, sb, n, id, testedOn, { fetch: push });
@@ -821,7 +821,7 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
     const t = rev(root, `refs/remotes/origin/${h}`);
     if (h === branch) at = t;
     const extra = isAnc(root, t, tip) ? [] : git(['rev-list', '--no-merges', '--format=%s', t, `^${tip}`], { cwd: root }).split('\n').filter((l) => l && !l.startsWith('commit '));
-    if (extra.length && (extra.some((l) => !l.startsWith(`layer retest ${id} `)) || diffNames(root, git(['merge-base', t, tip], { cwd: root }), t).some((f) => f !== metricsFile(id)))) {
+    if (extra.length && (extra.some((l) => !l.startsWith(`layer retest ${id} `)) || diffNames(root, git(['merge-base', t, tip], { deepen: true, cwd: root }), t).some((f) => f !== metricsFile(id)))) {
       fail(`origin's ${h} at ${short(t)} has work ${b0} lacks: a job re-tests it: ${reopen}`);
     }
   }
@@ -911,7 +911,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (g?.status !== 'completed' || g.conclusion !== 'success') fail(`the gate on ${short(head)} is ${g ? `${g.status}${g.conclusion ? ` ${g.conclusion}` : ''}` : 'not run'}: a publish lands only on a green gate on its tip`);
   const e = entryAt(root, head, id) || fail(`no ledger entry for ${id} at ${short(head)}`);
   before = rev(root, lref);
-  const out = outsideFiles(root, e, git(['merge-base', before, head], { cwd: root }), head);
+  const out = outsideFiles(root, e, git(['merge-base', before, head], { deepen: true, cwd: root }), head);
   if (out.length) fail(`refused: pull request ${n0} changes files outside ${id} (ARC-2): ${out.slice(0, 10).join(', ')}`);
   // A run that started before a provider's newest interface change never counts (Bob, 5 Nov).
   const late = outstanding(rows.reschedules, [], id, () => false).filter((r) => !isAnc(root, r.provider_land, head));
@@ -1061,7 +1061,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
     if (be?.status?.state === 'BLOCKED') {
       // BLOCKED only on the ledger-carry finding this sync cleared: its entry was carried (absent where
       // the branch left the layer) and the layer holds it now (coordinator, 6 Nov: layer 8's 658-661).
-      const mb = git(['merge-base', head, tip], { cwd: root, allowFail: true }).stdout.trim();
+      const mb = git(['merge-base', head, tip], { deepen: true, cwd: root, allowFail: true }).stdout.trim();
       const carried = !!mb && !entryAt(root, mb, id) && !!entryAt(root, tip, id);
       // Both the carry and a reason naming the ledger say so; the carry alone only suggests it
       // (cold review of PR 201: a job BLOCKED for a real reason may have carried its entry too).
@@ -1282,7 +1282,7 @@ export function carriedSync(root, cfg, n, L, log = console.log) {
       const m = git(['merge', '-q', '--no-ff', '--no-commit', tr], { cwd: w, allowFail: true });
       const conflicted = git(['diff', '--name-only', '--diff-filter=U'], { cwd: w }).split('\n').filter(Boolean);
       if (m.code === 0 || !conflicted.length) return null;
-      const mb = git(['merge-base', head, tr], { cwd: root });
+      const mb = git(['merge-base', head, tr], { deepen: true, cwd: root });
       const own = new Set(L.mods.flatMap((id) => [entryFile(id), ...(L.entries.get(id)?.requirements ? [L.entries.get(id).requirements] : [])]));
       const bad = conflicted.filter((f) => !own.has(f) || exists(root, mb, f));
       if (bad.length) {
