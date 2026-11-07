@@ -120,7 +120,9 @@ test('#4: job complete and test refuse at the start, naming job sync, when the t
   assert.equal(git(['rev-list', '--parents', '-1', 'HEAD'], { cwd: root }).split(' ').length, 3, 'a merge commit');
   assert.equal(head(toolRoot), p2, '.process updated to the merged pin');
   assert.equal(clean(root), '');
-  assert.match(said.join('\n'), /next: `node \.process\/tool\/p3\.mjs github push origin job\/alpha`/);
+  // Without origin nothing is pushed; with it, job sync pushes the branch itself (R17c, item G).
+  assert.match(said.join('\n'), /next: run your command again/);
+  assert.doesNotMatch(said.join('\n'), /git push|github push/);
   assert.equal(jobTest(root, 'alpha', { toolRoot, log: quiet }).ok, true);
   assert.equal(jobComplete(root, 'alpha', { push: false, toolRoot, log: quiet }).ok, true);
   // A tool newer than both pins stands (copy PR 40: a COMPLETE job amends with a newer tool).
@@ -253,6 +255,7 @@ test('#5: synced with BOB\'s push, the new attempt is checked and its receipt na
     const s = jobSync(root, 'alpha', { log: quiet });
     assert.deepEqual(s.merged, ['origin/job/alpha'], `fix ${fix}`);
     if (!fix) assert.equal(head(root), bobTip, 'a fast-forward when the job added nothing');
+    assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head(root), 'job sync pushed the branch itself, through the governed git (R17c, item G)');
     const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
     assert.equal(r.ok, true, `fix ${fix}`);
     assert.equal(r.receipt.attempt, 2, 'a new attempt: BOB\'s commits were never checked');
@@ -344,4 +347,41 @@ test('#5: block after BOB\'s push names job sync, not "run block again" forever'
   commit(other, { 'src/other/o.mjs': '1\n' }, 'pushed from elsewhere');
   git(['push', '-q', 'origin', 'job/alpha'], { cwd: other });
   assert.throws(() => jobBlock(root, 'alpha', { reason: 'waiting', log: quiet }), /origin's job\/alpha has commits this checkout lacks: run `node \.process\/tool\/p3\.mjs job sync alpha`, then block again/);
+});
+
+// Recovery after a governor refusal (R17c, item F): job complete refused at each GitHub step in turn
+// (its push through the governed git, and each gh call), then rerun: one receipt for the pushed
+// head, the pull request ready, nothing lost.
+test('job complete: refused at each GitHub step in turn, then rerun: one receipt for its head, ready, nothing lost', async (t) => {
+  const { useShared } = await import('../lib/pace.mjs');
+  const { Fail } = await import('../lib/util.mjs');
+  t.after(() => useShared(null));
+  const REFUSED = 'GitHub budget: 68 of the 80 content-creating requests a minute used account-wide, the target 85% (68): acts on GitHub wait until 2026-11-06T23:59:00Z (16 min); then rerun `node .process/tool/p3.mjs job complete alpha`';
+  const run = (refuseAt, pushRefused) => {
+    const { root, f } = bobMerged();
+    jobSync(root, 'alpha', { log: quiet });
+    commit(root, { 'test/alpha/c.test.mjs': passing }, 'the fix for the red gate');
+    let calls = 0;
+    const wrap = (fn) => (...a) => { calls++; if (calls === refuseAt) throw new Fail(REFUSED); return fn(...a); };
+    const gh1 = Object.fromEntries(Object.entries(f.gh).map(([k, v]) => [k, wrap(v)]));
+    if (pushRefused) useShared({ read: () => ({ pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }), pause: () => null });
+    let first = null;
+    try { jobComplete(root, 'alpha', { gh: gh1, log: quiet }); } catch (e) { first = e.message; }
+    useShared(null);
+    const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
+    return { root, f, r, first, calls };
+  };
+  const clean = run(0, false);
+  assert.equal(clean.r.ok, true);
+  const steps = clean.calls;
+  for (let k = 1; k <= steps + 1; k++) {
+    const { root, f, r, first } = run(k <= steps ? k : 0, k > steps);
+    if (first) assert.match(first, /GitHub budget|the push of job\/alpha failed/, `step ${k}`);
+    assert.equal(r.ok, true, `step ${k}: the rerun completes`);
+    const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
+    assert.equal(tip, head(root), `step ${k}: pushed`);
+    const receipts = f.state.comments.map((c) => parseBlock(c.body, 'p3:receipt')).filter((x) => x && x.sha === tip);
+    assert.equal(receipts.length, 1, `step ${k}: one receipt for the head, not ${receipts.length}`);
+    assert.equal(f.state.isDraft, false, `step ${k}: ready`);
+  }
 });

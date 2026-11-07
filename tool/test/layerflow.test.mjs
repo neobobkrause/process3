@@ -16,7 +16,7 @@ import {
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
-import { configOf, git } from '../lib/util.mjs';
+import { Fail, configOf, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -525,6 +525,18 @@ test('time budget: wall from each start to its complete, work is wall minus loca
   assert.deepEqual([none.total.wall_minutes, none.total.work_minutes, none.total.test_share, none.total.test_per_work], [null, null, null, null]);
 });
 
+test('layer merge refuses a committed generated file stale on the layer, naming the file and its regenerate (the coordinator, 6 Nov: order.mjs)', async () => {
+  const { root, bare } = product({ done: true, config: { generated: [{ paths: ['gen/order.mjs'], regenerate: ['node', '-e', "require('fs').writeFileSync('gen/order.mjs','new\\n')"], verify: ['node', '-e', '0'] }] } });
+  commit(root, { 'gen/order.mjs': 'old\n' }, 'a committed generated file, stale');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no PR on a stale file'), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  const lines = [];
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: (l) => lines.push(l) }), /layer 1 cannot merge: the layer checks found 1 finding/);
+  assert.ok(lines.some((l) => /^generated: gen\/order\.mjs: gen\/order\.mjs is stale on layer\/1 \S+: run node -e .* and commit it \(a plain pull request into layer\/1\), then .*layer merge 1 again$/.test(l)), lines.join('\n'));
+});
+
 test('layer merge runs the layer checks but no module suite: a red entry check refuses the merge; green, it merges and still no suite ran', async () => {
   const marker = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'suite-ran');
   const suite = { cwd: '.', command: ['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, '1')`, '--test'] };
@@ -578,6 +590,40 @@ test('the gate\'s layer trigger: each module covered by a verified green land; a
   const none = cover({ ...withRows, verify: () => false });
   assert.equal(none.covered.length, 0);
   assert.ok(none.findings.every((f) => f.check === 'layer'));
+});
+
+// C13 (the coordinator, 7 Nov): PR 696, opened by the suspended account, reads 404; layer 9's merge
+// gate failed on it. A landed PR GitHub no longer serves is judged from the state branch's land row
+// for that merge and its gate run's own artifact, recorded pr_unreadable; one with no land row fails closed.
+test('the layer gate: a landed PR that reads 404 is covered from its land row and its gate run artifact; with no land row, not covered', async () => {
+  const { root, bare } = await opened();
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
+  const prs = { 1: prOf(1, 'c', hc) };
+  const run = { sha: hc, ok: true, trigger: 'code', suite: 'pass', scope: ['c'], run_id: 77, run_attempt: 1, at: '2026-11-07T01:00:00Z' };
+  await layerLand(root, 1, { io: landIO(bare, prs, { comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [run] }, 'gate') }] }), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const gone = () => { throw new Fail('gh api repos/o/p/pulls/1 failed: gh: Not Found (HTTP 404)'); };
+  const seen = [];
+  const io = { getPR: gone, comments: gone, runArtifactRow: (s, id) => (id === 77 ? run : null), verify: (s, r, ctx) => { seen.push(ctx); return r.run_id === 77; } };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  const c = r.covered.find((x) => x.id === 'c');
+  assert.ok(c, JSON.stringify(r));
+  assert.match(c.pr_unreadable, /HTTP 404/);
+  assert.equal(seen[0].merged.branch, 'job/c', 'the run is bound to the module\'s job branch');
+  // Not a 404: fails closed, as before.
+  assert.throws(() => layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, getPR: () => { throw new Fail('gh api failed: HTTP 502'); } } }), /HTTP 502/);
+  // An artifact that is another run's: not covered (cold review of C13).
+  const other = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, runArtifactRow: () => ({ ...run, run_id: 78 }) } });
+  assert.ok(!other.covered.some((x) => x.id === 'c'));
+  // No verified run: not covered, said why.
+  const r2 = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, verify: () => false } });
+  assert.ok(!r2.covered.some((x) => x.id === 'c'));
+  assert.ok(r2.findings.some((f) => /c changed with no land|GitHub does not serve the PR/.test(f.message)), JSON.stringify(r2.findings));
 });
 
 test('trial measures: a reschedule that changed its user\'s result is counted, and halted minutes are summed', () => {
@@ -1223,6 +1269,8 @@ const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive
 const syncIO = (bare, made) => ({
   slug: 'o/p', openPRs: () => [], findPR: () => null,
   createPR: (s, p) => { made.push(p); return { number: 90 + made.length, ...p }; },
+  // Every pull request ever opened from a branch: the ones made here.
+  prsFromBranch: (s, b) => made.filter((p) => p.head === b),
   waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
   merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
 });
