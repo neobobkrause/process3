@@ -111,7 +111,9 @@ const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/wo
 // takes it cleanly (C19); this holds for every parent, the first included, so a merge that keeps
 // an old copy from either side is judged as its own change (confirming reviews of PR 16).
 // Paths read with -z, so any name is safe.
-function introduced(root, sha, parents, { guarded = () => false, judged = () => false, credited = () => false, base } = {}) {
+// A version set inside the range by the owner's own commit that the owner has since replaced (stale,
+// C21) is not carried: the merge that brings it is its own change.
+function introduced(root, sha, parents, { guarded = () => false, judged = () => false, credited = () => false, stale = () => false, base } = {}) {
   const names = (args) => git(['diff-tree', '-r', '-z', '--no-commit-id', '--name-only', '--no-renames', ...args], { cwd: root }).split('\0').filter(Boolean);
   if (parents.length <= 1) return names([...(parents.length ? [] : ['--root']), sha]);
   const fromBase = base ? names([base, sha]).filter(guarded) : [];
@@ -122,7 +124,7 @@ function introduced(root, sha, parents, { guarded = () => false, judged = () => 
     // A merge that takes a parent's version brings nothing of its own when that version was judged:
     // set inside the range, or set by a commit already judged behind the base, taken cleanly
     // (credited). A version that matches no parent is the merge's own change.
-    return !parents.some((p) => entryOf(root, p, f) === e && (judged(p, f) || credited(p, f, parents)));
+    return !parents.some((p) => entryOf(root, p, f) === e && ((judged(p, f) && !stale(p, f)) || credited(p, f, parents)));
   });
 }
 
@@ -320,6 +322,22 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     const e = entryOf(root, p, f);
     return parents.every((q) => q === p || entryOf(root, q, f) === e || (() => { const m = mbOf(p, q); return Boolean(m) && entryOf(root, m, f) === entryOf(root, q, f); })());
   };
+  // C21 (the coordinator, 7 Nov): a version of a guarded file that the owner's own website commit set
+  // inside the range, and so not in the base (a main-only owner commit merged in), and that landed on
+  // main or the tranche, is carried only while it is still current: the version on a trusted tip (main, the tranche, the base), as
+  // ownerSet holds the approvals block to the one the owner last set. An owner commit T1 the owner
+  // has since replaced by T2 on main is otherwise a rollback of the owner's settings that passes as
+  // the owner's own. A head that ends on a trusted tip's version again (a later sync brought T2)
+  // puts nothing back, as carried() for the approvals.
+  const currentOn = (f, e) => refs.some((r) => entryOf(root, r, f) === e);
+  const stale = (p, f) => {
+    const s = setBy(p, f);
+    // Replaced, not merely unlanded: the setter is on a trusted tip that has moved on from its version
+    // (an owner commit on a side branch, on no trusted tip, is judged as before).
+    if (!s || (base && anc(s, base)) || !refs.some((r) => anc(s, r))) return false;
+    if (currentOn(f, entryOf(root, p, f)) || currentOn(f, entryOf(root, head, f))) return false;
+    return ownerCommit(s).ok === true;
+  };
   // A commit where this shallow clone's history is cut shows no parents: diffed as a root
   // commit, every file would read as its change, named for a commit that never made it (copy,
   // 4 Nov). It is not judged; the check says it could not read it.
@@ -333,7 +351,10 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     }
     try {
       const parents = git(['rev-list', '--parents', '-n', '1', sha], { cwd: root }).split(' ').slice(1);
-      const files = introduced(root, sha, parents, { guarded, judged, credited, base });
+      const staleHere = landed(sha) ? () => false : stale;
+      const files = introduced(root, sha, parents, { guarded, judged, credited, stale: staleHere, base });
+      // A guarded file this merge carries from an owner commit since replaced (C21): one finding, named so.
+      const rolledBack = new Set(parents.length > 1 ? files.filter((f) => parents.some((p) => entryOf(root, p, f) === entryOf(root, sha, f) && judged(p, f) && staleHere(p, f))) : []);
       // The versions a merge's guarded file is compared with: the base's, any parent's that was
       // judged inside the range, and any parent's that is an ancestor of the base, whose version
       // was judged when it landed there, when the merge takes it cleanly (the copy, 4 Nov: a job's sync merge carrying the tranche's
@@ -362,12 +383,17 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
           approvalsTouched.push({ file: afile, line, message: `commit ${short} changes the approvals but is not ${ownerName}'s own commit through GitHub's website (${ownerCommit(sha).why}), and its block is not the one ${ownerName} last set there on main, the tranche or the base${t ? ` (commit ${t.sha.slice(0, 10)})` : ''}` });
         }
       }
+      for (const file of rolledBack) {
+        if (file === afile && approvalsTouched.length) continue; // the approvals finding names it
+        const p = parents.find((q) => entryOf(root, q, file) === entryOf(root, sha, file) && judged(q, file) && staleHere(q, file));
+        findings.push({ check: isOwnerSetting(file) ? 'settings' : 'approvals', file, line: 1, message: `commit ${short} carries ${file} as ${ownerName}'s commit ${setBy(p, file).slice(0, 10)} set it, a version ${ownerName} has since replaced: it is on none of main, the tranche or the base, and the head does not end on theirs` });
+      }
       for (const file of files) {
         const ls = git(['--literal-pathspecs', 'ls-tree', '-z', sha, '--', file], { cwd: root });
         if (PROTECTED.some((p) => underPath(file, p))) {
           notices.push({ check: 'protected', file, line: 1, message: `commit ${short} changes a protected path; it needs the fresh-context review (rule 5)` });
         }
-        if (isOwnerSetting(file)) approvalsTouched.push({ file, line: 1, check: 'settings', what: `${file}, which is the owner's setting,` });
+        if (isOwnerSetting(file) && !rolledBack.has(file)) approvalsTouched.push({ file, line: 1, check: 'settings', what: `${file}, which is the owner's setting,` });
         if (!ls) { // deleted
           if (KEEP.includes(file)) findings.push({ check: 'path', file, line: 1, message: `commit ${short} removes ${file}, which the checks stand on` });
           continue;

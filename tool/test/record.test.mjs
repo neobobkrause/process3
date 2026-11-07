@@ -922,3 +922,48 @@ test('a layer-sync merge carrying the owner\'s settings commit from the tranche 
   const back = git(['commit-tree', tree, '-p', `${synced}^1`, '-p', owner, '-m', 'puts the old settings back'], { cwd: root });
   assert.deepEqual(recordCheck(root, cfg, { base: owner2, head: back, lookup: session, trusted: ['tranche'] }).findings.map((x) => x.check), ['settings']);
 });
+
+// C21 (the coordinator, 7 Nov): a job merged the owner's website commit T1 from main, which the owner
+// had since replaced by T2 on main only. T1 lies in the range, so it was judged (the owner's own) and
+// carried: the job rolled the owner's settings back to T1 and passed. A carried owner version not in
+// the base must still be current on a trusted tip, as ownerSet holds the approvals block.
+test('a merge carrying the owner\'s settings commit that the owner has since replaced on main is refused', () => {
+  const root = makeRepo({ '.claude/settings.json': settings(['a']), 'a.txt': 'a' });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const t1 = commit(root, { '.claude/settings.json': settings(['a', 'old']) }, 'Bob T1 on main');
+  const t2 = commit(root, { '.claude/settings.json': settings(['a', 'new']) }, 'Bob T2 on main');
+  git(['checkout', '-q', '-b', 'job', 'tranche'], { cwd: root });
+  commit(root, { 'j.txt': 'job work' }, 'job work');
+  git(['merge', '-q', '--no-ff', '-m', 'merge T1', t1], { cwd: root });
+  const m = git(['rev-parse', 'HEAD'], { cwd: root });
+  const run = (head) => recordCheck(root, cfg, { base, head, lookup: webFor(t1, t2), trusted: ['main', 'tranche'] }).findings;
+  const f = run(m);
+  assert.deepEqual(f.map((x) => [x.check, x.file]), [['settings', '.claude/settings.json']]);
+  assert.match(f[0].message, /carries \.claude\/settings\.json as .*'s commit .* since replaced/);
+  // The owner's current version merged in: carried, no finding.
+  git(['reset', '-q', '--hard', `${m}^1`], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'merge T2', t2], { cwd: root });
+  assert.deepEqual(run('HEAD'), []);
+  // T1 then T2 merged: the head ends on the owner's current version, so the earlier merge puts nothing back.
+  git(['reset', '-q', '--hard', m], { cwd: root });
+  git(['merge', '-q', '--no-ff', '-m', 'merge T2', t2], { cwd: root });
+  assert.deepEqual(run('HEAD'), []);
+  // T1 still current (main has not moved on): carried as before.
+  git(['branch', '-f', 'main', t1], { cwd: root });
+  assert.deepEqual(run(m), []);
+});
+
+test('C21: an owner commit on no trusted tip (a side branch) is not called replaced', () => {
+  const root = makeRepo({ '.claude/settings.json': settings(['a']), 'a.txt': 'a' });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  git(['branch', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'side'], { cwd: root });
+  const t1 = commit(root, { '.claude/settings.json': settings(['a', 'side']) }, 'Bob on a side branch');
+  git(['checkout', '-q', 'main'], { cwd: root });
+  const t2 = commit(root, { '.claude/settings.json': settings(['a', 'main']) }, 'Bob on main');
+  git(['checkout', '-q', '-b', 'job', 'tranche'], { cwd: root });
+  commit(root, { 'j.txt': 'job work' }, 'job work');
+  git(['merge', '-q', '--no-ff', '-m', 'merge side', t1], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base, lookup: webFor(t1, t2), trusted: ['main', 'tranche'] }).findings, []);
+});
