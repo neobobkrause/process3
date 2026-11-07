@@ -8,27 +8,27 @@ import { gate } from '../lib/gate.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
-const W = "require('fs').writeFileSync('src/alpha/order.mjs', 'export const order = ' + JSON.stringify(require('./build/modules.json').modules.map((m) => m.id)) + ';\\n')";
+const W = (out = 'src/alpha/order.mjs') => "require('fs').writeFileSync('" + out + "', 'export const order = ' + JSON.stringify(require('./build/modules.json').modules.map((m) => m.id)) + ';\\n')";
 const MOD = (ids) => ({ modules: ids.map((id) => ({ id, paths: [`src/${id}/`], tests: [`test/${id}/`], uses: [] })), not_product: [] });
 const order = (ids) => `export const order = ${JSON.stringify(ids)};\n`;
 const io = { comments: () => [], getPR: () => ({ user: { login: 'u' }, draft: false }), addComment: () => ({}), verify: () => false };
 
 // The tranche with modules (ids) and order.mjs as committed (written); a plain branch with files.
-function run(ids, written, files) {
+function run(ids, written, files, { out = 'src/alpha/order.mjs', branch = 'plain/x' } = {}) {
   const root = makeRepo({
-    'process/config.json': { modules_file: 'build/modules.json', generated: [{ paths: ['src/alpha/order.mjs'], regenerate: ['node', '-e', W], verify: ['node', '-e', '0'] }] },
+    'process/config.json': { modules_file: 'build/modules.json', generated: [{ paths: [out], regenerate: ['node', '-e', W(out)], verify: ['node', '-e', '0'] }] },
     'build/modules.json': MOD(ids),
     ...Object.fromEntries(ids.map((id) => [`process/ledger/${id}.json`, entry(id, { status: { state: 'COMPLETE' } })])),
-    'src/alpha/order.mjs': order(written),
+    [out]: order(written),
     'test/alpha/a.test.mjs': "import test from 'node:test'; test('ok', () => {});\n",
     'docs/notes.md': 'notes\n',
   });
   git(['branch', 'tranche'], { cwd: root });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
-  git(['checkout', '-q', '-b', 'plain/x'], { cwd: root });
+  git(['checkout', '-q', '-b', branch === 'tranche' ? 'tranche-head' : branch], { cwd: root });
   const head = commit(root, files);
   const lines = [];
-  const r = gate(root, { base, head, branch: 'plain/x', pr: 5, slug: 'o/r', io, log: (l) => lines.push(l) });
+  const r = gate(root, { base, head, branch, pr: 5, slug: 'o/r', io, log: (l) => lines.push(l) });
   return { ...r, lines, gen: r.findings.filter((f) => f.check === 'generated') };
 }
 
@@ -60,4 +60,11 @@ test('stale on the base the same way: a notice, owed by a plain refresh, never t
   const worse = run(['alpha', 'beta'], ['alpha'], { 'build/modules.json': MOD(['alpha', 'beta', 'gamma']), 'process/ledger/gamma.json': entry('gamma', { status: { state: 'COMPLETE' } }) });
   assert.equal(worse.gen.length, 1, JSON.stringify(worse.findings));
   assert.equal(worse.run.stale_base, undefined);
+});
+
+test('the tolerance never covers a stale file the pull request edits itself (cold review)', () => {
+  // gen/order.mjs, no module's: stale on the base; the pull request hand-edits it to other bytes.
+  const hand = run(['alpha', 'beta'], ['alpha'], { 'docs/notes.md': 'x\n', 'gen/order.mjs': order(['zz']) }, { out: 'gen/order.mjs' });
+  assert.ok(hand.gen.some((f) => /gen\/order\.mjs is stale at this commit/.test(f.message)), JSON.stringify(hand.gen));
+  assert.equal(hand.run.stale_base, undefined);
 });

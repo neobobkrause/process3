@@ -253,7 +253,10 @@ export function gate(root, opts) {
       ? startBase(root, { base: revertBase, cfg, rows: gen.rows, timeout, log }) : null;
     // GAT-5: every lock file, installed where it sits.
     const inst = genRun ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
-    findings.push(...inst);
+    // A pull request run only for the generated rows (no module in scope) is not refused on an
+    // install it never ran before: logged, and its generated checks skipped (cold review).
+    if (scope.length) findings.push(...inst);
+    else for (const f of inst) log(`install failed (${f.message}): the generated rows were not regenerated for this change`);
     // Generated files the commit does not track are built before the checks and the suite, as
     // deploy and release build them (copy, 4 Nov: an untracked rows.mjs failed 41 of 113 tests).
     let builtRows = new Set();
@@ -332,7 +335,7 @@ export function gate(root, opts) {
       }
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
-    if (genRun && gen.rows.length) {
+    if (genRun && gen.rows.length && (scope.length || !inst.length)) {
       // A refreshed file is removed first, so a clean status after the regenerate means the
       // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
       if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
@@ -342,10 +345,12 @@ export function gate(root, opts) {
       // A committed file stale at the base too, the same file after the base's regenerate, is
       // inherited: a notice, owed by a plain refresh, not this pull request's finding (the
       // coordinator, 6 Nov, as base-red is). The base is regenerated only when the head made one stale.
-      const staleF = g.findings.filter((f) => / is stale at this commit: /.test(f.message));
+      // Never on the tranche into main, which tolerates nothing, and never a file this pull request
+      // changes itself (cold review: a hand-edited stale file the base's regenerate also differs from).
+      const staleF = branch === cfg.tranche ? [] : g.findings.filter((f) => / is stale at this commit: /.test(f.message) && !changed.includes(f.file));
       if (staleF.length) {
         const at = staleAtBase(root, base, gen.rows, staleF.map((f) => f.file), { lockfiles: cfg.lockfiles, timeout, ...(exec ? { exec } : {}), log });
-        if (!at.ok) log(`stale at the base: unread (${at.why}); the stale finding(s) stand`);
+        if (!at.ok) { runRow.stale_base_unread = String(at.why).slice(0, 200); log(`stale at the base: unread (${at.why}); the stale finding(s) stand`); }
         else if (at.files.length) {
           runRow.stale_base = at.files;
           for (const f of at.files) log(`notice: ${f} is stale on the base ${String(base).slice(0, 10)} too: owed by a plain refresh, not this pull request's`);
