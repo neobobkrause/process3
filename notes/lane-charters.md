@@ -1,4 +1,4 @@
-# Lane charters in earlier CivicSmith process versions
+# Lane charters in earlier Civicsmith process versions
 
 Research notes for SES-23 (Foundations, "Lane qualification", Bob's words of 6 Nov: "The lane charters used in earlier process versions included an investigation design lane and a publication design lane"). What each earlier design lane owned, what it was forbidden, how it started, and how it related to the others. Read-only research, 6 Nov 2026.
 

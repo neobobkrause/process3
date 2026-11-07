@@ -111,6 +111,17 @@ test('layer open (R15): a census gap in the layer refuses the open, naming the f
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }), '', 'nothing cut');
 });
 
+test('layer open (PD-4): a COMPLETE module off the layer map is a finding it prints, never a stop', () => {
+  const { root } = product();
+  commit(root, { 'process/ledger/f.json': entry('f', { layer: 1, status: { state: 'COMPLETE' } }), 'req/f.md': '# f\n', 'build/modules.json': { modules: [...modules.modules, { id: 'f', layer: 1, uses: [] }] } });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const lines = [];
+  layerOpen(root, 1, { io: openIO, log: (l) => lines.push(String(l)) });
+  assert.ok(lines.some((l) => /^finding: layer 1's module\(s\) f are on no line of build\/layers\.md; BOB names them there \(PD-4: this stops nothing\)/.test(l)), lines.join('\n'));
+  assert.notEqual(git(['ls-remote', 'origin', 'refs/heads/layer/1'], { cwd: root }), '', 'the layer is cut');
+});
+
 test('layer open: cuts layer/<n> from the tranche tip, records the open, and lists every module that can start', () => {
   const { root } = product();
   const lines = [];
