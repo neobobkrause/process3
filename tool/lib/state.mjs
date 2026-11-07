@@ -343,8 +343,6 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
     }
     // The kept commit's own change, as a function of the fresh worktree: picked onto it.
     // Pushed at once, never coalesced: the kept ref goes only once its write is on origin.
-    const was = batch.on;
-    batch.on = false;
     // An idle check's row is a measurement of its window: a kept one is stale once another check
     // has run, so it is dropped, never replayed (the next check measures again).
     if (/^idle check: /.test(msg)) {
@@ -353,6 +351,10 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
       done.push(r);
       continue;
     }
+    // Batching off for this write only, restored whatever it meets (the idle check above no longer
+    // leaves it off).
+    const was = batch.on;
+    batch.on = false;
     try { writeState(root, sb, msg, (wt) => { reapply(root, wt, c, r, sb); return {}; }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       log(`kept ${r} (${msg}): ${e.message}`);
