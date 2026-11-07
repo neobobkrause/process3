@@ -133,7 +133,7 @@ export function switchOut(root, { tasks, sessions, by, dryRun = false, read = st
   if (cut.length) log(`note: the prompts of ${cut.map((x) => x.name || x.id).join(', ')} end in "...", cut by the saved list_triggers; a real switch out refuses them`);
   // A job whose pull request GitHub did not answer for would be restarted by the wrong route (review of PR 149).
   const unread = m.jobs.filter((j) => /^unknown/.test(String(j.pr)));
-  if (unread.length) fail(`GitHub was not read for the pull requests of ${unread.map((j) => j.module).join(', ')}; nothing was written. Run switch out again once gh api user works on this account`);
+  if (unread.length) fail(`GitHub was not read for the pull requests of ${unread.map((j) => j.module).join(', ')}; nothing was written. Run switch out again once GitHub answers this account's reads`);
   // A dry run writes its manifest beside the real one, never over it, and stops nothing (R16).
   const file = dryRun ? `${DRY_RUN_DIR}/manifest-${m.at.replace(/[:.]/g, '-')}.json` : MANIFEST_FILE;
   const w = writeState(root, cfg.state_branch, `switch out${dryRun ? ' --dry-run' : ''}: manifest by ${by}`, (wt) => {

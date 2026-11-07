@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { UNMET, overCap, requirementMarks, unmetIds } from '../lib/util.mjs';
 import { markedIds } from '../lib/job.mjs';
+import './helpers.mjs'; // no machine git config (C2)
 
 // The one mark parser (util's requirementMarks), on the copy's real lines (build/requirements,
 // copy tranche, 4 Nov). Status, layer close, the report, the cap and job complete all use it.

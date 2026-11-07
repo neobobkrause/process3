@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { remoteStore, shareUsage, statePushes, stateShare } from '../lib/ghshare.mjs';
 import { cloneId, commonDir, PACING_DEFAULTS, PENDING_AT, readLog, reserve, sharesOf, usage, useShared } from '../lib/pace.mjs';
-import { flushState, pendingWrites, stateBatch, writeState } from '../lib/state.mjs';
+import { flushState, pendingWrites, stateBatch, stateReplay, writeState } from '../lib/state.mjs';
 import { git, PUSH_TRAILER } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -167,4 +167,29 @@ test('cold review of R17e: a riding share is made at most once a minute during a
     reserve({ push: true, points: 0, content: 0 }, 'push process-state', a, { p: P, kind: 'push', extra: { repo: 'o/process3', state: true } });
     assert.ok(shareUsage(a, null, { store: remoteStore(a, URL), ledgerRepo: 'o/ledger' }) >= 1);
   });
+});
+
+test('a share kept by a refused flush is settled when state replay pushes it: its rows are not counted twice', (t) => {
+  env(t);
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  const cfg = { state_branch: 'process-state' };
+  stateBatch(true);
+  try {
+    as('cse_r', () => {
+      content(root, 2);
+      writeState(root, 'process-state', 'a write of the command', (wt) => { writeFileSync(join(wt, 'x.txt'), 'x'); return {}; });
+      assert.ok(shareUsage(root, cfg, { pending: pendingWrites(), atEnd: true }) >= 1);
+      // The account stopped: the command's push is refused, its writes kept for replay.
+      useShared({ read: () => ({ pause: { at: '2026-11-07T00:00:00Z', until: '2026-11-07T00:01:00Z', why: 'x', stopped: true }, use: [] }), pause: () => null });
+      assert.throws(() => flushState(), /state replay/);
+      useShared(null);
+    });
+  } finally { stateBatch(false); }
+  assert.ok(sharesOf(root).some((x) => x.at === PENDING_AT), 'pending while its push is held');
+  stateReplay(root, 'process-state', [], { log: () => {} });
+  assert.ok(sharesOf(root).every((x) => x.at !== PENDING_AT), 'settled by the replay');
 });
