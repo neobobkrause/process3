@@ -112,19 +112,19 @@ test('a connector read uses the cached pause and stop, any age, and never fetche
   assert.equal(run('pull_request_read'), 0);
   assert.equal(kicks.length, 1);
   // A fresh cache: nothing started; its stop refuses the read (a stop is cached too).
-  cacheAt(root, { at: Date.now(), pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'secondary rate limit', stopped: true }, use: [], ledger: 'own', tip: 'a' });
+  cacheAt(root, { at: Date.now(), pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'secondary rate limit', stopped: true }, use: [], ledger: null, tip: 'a' });
   assert.equal(run('list_pull_requests'), 2);
   assert.match(errs.pop(), /every GitHub call is stopped/);
   assert.equal(kicks.length, 1);
   // A stale cache still answers (here a pause past its wait cap: refused), and starts a refresh.
-  cacheAt(root, { at: Date.now() - 600e3, pause: { at: new Date().toISOString(), until: new Date(Date.now() + 600e3).toISOString(), why: 'secondary rate limit' }, use: [], ledger: 'own', tip: 'a' });
+  cacheAt(root, { at: Date.now() - 600e3, pause: { at: new Date().toISOString(), until: new Date(Date.now() + 600e3).toISOString(), why: 'secondary rate limit' }, use: [], ledger: null, tip: 'a' });
   assert.equal(run('get_file_contents'), 2);
   assert.match(errs.pop(), /GitHub rate-limited this account/);
   assert.equal(kicks.length, 2);
   // Never a fetch on the read path: peekShare reads only the cache.
   assert.deepEqual(peekShare(root, { kick: () => {} }).read().pause.why, 'secondary rate limit');
   // A write reads the ledger through its share (the share given): its stop refuses though the cache has none.
-  cacheAt(root, { at: Date.now(), pause: null, use: [], ledger: 'own', tip: 'a' });
+  cacheAt(root, { at: Date.now(), pause: null, use: [], ledger: null, tip: 'a' });
   let reads = 0;
   assert.equal(hookRun({ tool_name: 'mcp__github__add_issue_comment', tool_input: {} }, root, { kick, err: (m) => errs.push(m), share: { read: () => { reads++; return { pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }; }, pause: () => null } }), 2);
   assert.ok(reads >= 1, 'the write read the ledger');
@@ -174,4 +174,32 @@ test('one background refresh at a time per clone; a marker a minute old (a refre
   refreshDone(root, String(t));
   assert.equal(kickRefresh(root, { now: () => t + 1e3, entry }), true);
   refreshDone(root);
+});
+
+test('the read path takes no cache of another ledger (a config changed); the background refresh, run as the hook runs it, fills this ledger\'s cache', () => {
+  const ledger = join(mkdtempSync(join(tmpdir(), 'p3-ledger-')), 'l.git');
+  const URL = 'https://github.com/o/ledger.git';
+  const seed = makeRepo({ 'github/pause.json': JSON.stringify({ at: '2026-11-07T00:00:00Z', until: '2099-01-01T00:00:00Z', why: 'from the ledger' }) });
+  git(['init', '-q', '--bare', ledger], { cwd: seed });
+  git(['push', '-q', ledger, 'HEAD:refs/heads/process-state'], { cwd: seed });
+  // A clone that names the ledger, reached by its GitHub name.
+  const root = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'o/ledger' }) });
+  git(['config', `url.${ledger}.insteadOf`, URL], { cwd: root });
+  // A cache of another ledger, fresh, with a stop: not this clone's, so not obeyed.
+  cacheAt(root, { at: Date.now(), pause: { at: '2026-11-07T00:00:00Z', until: '2026-11-07T00:01:00Z', why: 'elsewhere', stopped: true }, use: [], ledger: 'https://github.com/o/other.git', tip: 'a' });
+  const kicks = [];
+  assert.equal(hookRun({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }, root, { kick: () => kicks.push(1), err: () => {} }), 0);
+  assert.equal(kicks.length, 1, 'no cache of this ledger: a refresh is started');
+  // The refresh, as kickRefresh starts it: its own process, its marker cleared at the end.
+  const mark = String(Date.now());
+  writeFileSync(join(commonDir(root), 'p3-gh-refreshing'), mark);
+  const r = spawnSync(process.execPath, [HOOK, '--refresh'], { cwd: root, encoding: 'utf8', env: { ...process.env, P3_REFRESH_MARK: mark, P3_GITHUB_LOG: '0' } });
+  assert.equal(r.status, 0, r.stderr);
+  const c = JSON.parse(readFileSync(join(commonDir(root), LEDGER_CACHE), 'utf8'));
+  assert.deepEqual([c.ledger, c.pause.why, !!c.tip], [URL, 'from the ledger', true]);
+  assert.throws(() => readFileSync(join(commonDir(root), 'p3-gh-refreshing'), 'utf8'), /ENOENT/, 'the marker is cleared');
+  // Now the read obeys this ledger's pause (here past the hook's wait cap: refused).
+  const errs = [];
+  assert.equal(hookRun({ tool_name: 'mcp__github__pull_request_read', tool_input: {} }, root, { kick: () => kicks.push(1), err: (m) => errs.push(m) }), 2);
+  assert.match(errs.pop(), /GitHub rate-limited this account \(from the ledger\)/);
 });

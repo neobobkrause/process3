@@ -243,7 +243,7 @@ function withLanes(root, { layer = false } = {}) {
     mkdirSync(join(wt, 'lanes'), { recursive: true });
     mkdirSync(join(wt, 'layerflow', '2'), { recursive: true });
     writeFileSync(join(wt, LANE_SESSIONS_FILE), [{ row: 'start', at: '2026-11-06T10:00:00Z', tranche: 'tranche', lane: 'ux' }, { row: 'record', at: '2026-11-06T10:01:00Z', lane: 'ux', session: 'session_uxold' }, { row: 'start', at: '2026-11-06T10:00:00Z', tranche: 'tranche', lane: 'triage' }, { row: 'record', at: '2026-11-06T10:01:00Z', lane: 'triage', session: 'session_triageold' }].map((r) => JSON.stringify(r) + '\n').join(''));
-    writeFileSync(join(wt, LANES_FILE), JSON.stringify({ row: 'ask', at: '2026-11-06T11:00:00Z', tranche: 'tranche', lane: 'ux', question: 'which words?' }) + '\n');
+    writeFileSync(join(wt, LANES_FILE), JSON.stringify({ row: 'ask', at: '2026-11-06T11:00:00Z', tranche: 'tranche', lane: 'ux', question: 'which words?', context: ['docs/ux/brief.md'] }) + '\n');
     writeFileSync(join(wt, 'layerflow', '2', 'open.json'), '{}\n');
   });
   return root;
@@ -255,7 +255,9 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   // false, and one of Bob's own that is not the process's.
   const live = [...TASKS.triggers, { id: 'trig_lane', name: 'ux check-in', enabled: true, persist_session: true, persistent_session_id: 'session_uxold', run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'ux: next PR' } },
     { id: 'trig_bobs', name: 'alpha-pipeline-runner', enabled: true, persist_session: false, run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'not ours' } },
-    { id: 'trig_fresh', name: 'nightly census', enabled: true, persist_session: false, cron_expression: '7 3 * * *', derived_state: { prompt: 'Run node .process/tool/p3.mjs setup check' } }];
+    { id: 'trig_fresh', name: 'nightly census', enabled: true, persist_session: false, cron_expression: '7 3 * * *', derived_state: { prompt: 'Run node .process/tool/p3.mjs setup check' } },
+    // Bob's own, bound to a session of his that is not the process's: listed, its session never retired (cold review of R16).
+    { id: 'trig_reading', name: 'reading list', enabled: true, persistent_session_id: 'session_bobsown', run_once_at: '2099-01-01T00:00:00Z', prompt: 'remind me' }];
   // created_at as list_sessions gives it: a real read would record the live sessions; a dry run must not (cold review of R16).
   const { t, s } = files(root, { tasks: live, sessions: { data: SESSIONS.data.map((x) => ({ ...x, created_at: x.updated_at || '2026-11-05T05:00:00Z' })) } });
   const before = git(['rev-parse', 'origin/process-state'], { cwd: root });
@@ -270,6 +272,8 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   assert.deepEqual(m.lanes.map((x) => [x.lane, x.session]), [['ux', 'session_uxold'], ['triage', 'session_triageold']]);
   assert.deepEqual(m.asks.map((a) => [a.lane, a.question]), [['ux', 'which words?']]);
   for (const id of [COORD, ID.root, ID.bob, ID.watcher, 'session_jobalpha', 'session_uxold', 'session_triageold']) assert.ok(m.sessions.includes(id), id);
+  assert.equal(m.tasks.find((x) => x.id === 'trig_reading').role, 'unknown');
+  assert.ok(!m.sessions.includes('session_bobsown'), 'a session of a task not the process\'s is never retired');
   assert.match(out[0], /switch out --dry-run: .* 2 lane seat\(s\), 1 open ask\(s\), .* nothing was stopped$/);
   assert.ok(out.some((l) => /dry run: do none of them/.test(l)));
   const lane = m.tasks.find((x) => x.id === 'trig_lane'), bobs = m.tasks.find((x) => x.id === 'trig_bobs'), fresh = m.tasks.find((x) => x.id === 'trig_fresh');
@@ -351,6 +355,8 @@ test('switch in retires the old account\'s sessions: R13 ends a lane seat bound 
   assert.doesNotMatch(text, /job start --ready/);
   // The seat ends at ROOT's sweep, which can run before (h): a plain lane start, --replace only if still held.
   assert.match(text, /\(h\) BOB restarts each lane .*\n    - `node \.process\/tool\/p3\.mjs lane start ux` \(`--replace session_uxold` if it says the seat is still held\).*then send it its 1 open ask/);
+  // Each ask again with its own --context files (cold review of R16).
+  assert.match(text, /\n      `node \.process\/tool\/p3\.mjs lane ask ux "which words\?" --context docs\/ux\/brief\.md`/);
   // A lane-bound task waits for (h); a fresh process task is recreated as one.
   assert.match(text, /    - ux check-in \(lane ux\): created at \(h\)/);
   assert.match(text, /    - then ux check-in \(lane ux\): .*"persistent_session_id":"<the new lane ux id you recorded>","prompt":"ux <the new lane ux id>: next PR"/);
