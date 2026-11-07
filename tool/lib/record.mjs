@@ -110,7 +110,7 @@ const KEEP = ['tool/p3.mjs', '.process', '.github/workflows/ci.yml', '.github/wo
 // judged there; this holds for every parent, the first included, so a merge that keeps an
 // old copy from either side is judged as its own change (confirming reviews of PR 16).
 // Paths read with -z, so any name is safe.
-function introduced(root, sha, parents, { guarded = () => false, judged = () => false, base } = {}) {
+function introduced(root, sha, parents, { guarded = () => false, judged = () => false, credited = () => false, base } = {}) {
   const names = (args) => git(['diff-tree', '-r', '-z', '--no-commit-id', '--name-only', '--no-renames', ...args], { cwd: root }).split('\0').filter(Boolean);
   if (parents.length <= 1) return names([...(parents.length ? [] : ['--root']), sha]);
   const fromBase = base ? names([base, sha]).filter(guarded) : [];
@@ -118,7 +118,10 @@ function introduced(root, sha, parents, { guarded = () => false, judged = () => 
     const e = entryOf(root, sha, f);
     if (!guarded(f)) return !parents.some((p) => entryOf(root, p, f) === e);
     if (e === (base ? entryOf(root, base, f) : null)) return false;
-    return !parents.some((p) => entryOf(root, p, f) === e && judged(p, f));
+    // A merge that takes a parent's version brings nothing of its own when that version was judged:
+    // set inside the range, or set by a commit already judged elsewhere (credited: on a trusted ref,
+    // or the owner's own website commit). A version that matches no parent is the merge's own change.
+    return !parents.some((p) => entryOf(root, p, f) === e && (judged(p, f) || credited(p, f, parents)));
   });
 }
 
@@ -300,7 +303,22 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
   const inRange = new Set(commits);
   const guarded = (f) => isOwnerSetting(f) || isInstructionFile(f) || f === afile || f === CONFIG_FILE || KEEP.includes(f);
   // Another parent's version was judged when the last commit that set it lies in the range.
-  const judged = (p, f) => inRange.has(git(['--literal-pathspecs', 'log', '-1', '--format=%H', p, '--', f], { cwd: root }).trim());
+  const setter = new Map();
+  const setBy = (p, f) => { const k = `${p}\0${f}`; if (!setter.has(k)) setter.set(k, git(['--literal-pathspecs', 'log', '-1', '--format=%H', p, '--', f], { cwd: root }).trim()); return setter.get(k); };
+  const judged = (p, f) => inRange.has(setBy(p, f));
+  // ...or was judged where its setter landed (C19, the coordinator, 7 Nov: the copy's layer/10, 15
+  // layer-sync, land and job-sync merges each carrying the owner's own website commit 314c284a2d on
+  // the tranche into the layer, refused as settings changes not the owner's): a setter on a trusted
+  // ref (the base, main, the tranche), or the owner's own website commit, credits the merge that
+  // only carries its version. A merge that introduces its own version is still judged as its own,
+  // and so is one that puts an older version back: credited only when every other parent left the
+  // file as it was where the two diverged (what a three-way merge takes cleanly, as cleanFrom).
+  const credited = (p, f, parents) => {
+    const s = setBy(p, f);
+    if (!s || !(refs.some((r) => anc(s, r)) || ownerCommit(s).ok)) return false;
+    const e = entryOf(root, p, f);
+    return parents.every((q) => q === p || entryOf(root, q, f) === e || (() => { const m = mbOf(p, q); return Boolean(m) && entryOf(root, m, f) === entryOf(root, q, f); })());
+  };
   // A commit where this shallow clone's history is cut shows no parents: diffed as a root
   // commit, every file would read as its change, named for a commit that never made it (copy,
   // 4 Nov). It is not judged; the check says it could not read it.
@@ -314,7 +332,7 @@ export function recordCheck(root, cfg, { base, head = 'HEAD', branch, ledgerBase
     }
     try {
       const parents = git(['rev-list', '--parents', '-n', '1', sha], { cwd: root }).split(' ').slice(1);
-      const files = introduced(root, sha, parents, { guarded, judged, base });
+      const files = introduced(root, sha, parents, { guarded, judged, credited, base });
       // The versions a merge's guarded file is compared with: the base's, any parent's that was
       // judged inside the range, and any parent's that is an ancestor of the base, whose version
       // was judged when it landed there, when the merge takes it cleanly (the copy, 4 Nov: a job's sync merge carrying the tranche's
