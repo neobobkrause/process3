@@ -52,17 +52,20 @@ export function git(args, opts = {}) {
   try { pushTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
   // A merge base read on history that holds it (C8, the coordinator, 7 Nov: BOB's layer lands failed
   // in a shallow checkout; the train deepened, the layer flow did not): `deepen: true` deepens a
-  // shallow clone first. The modules that deepen by their own measure (merge, job, report, measures,
-  // record: GitHub's compare, never cutting history fetched deeper) do not ask it; shallow.test holds
-  // every other merge-base to asking.
+  // shallow clone first. Asked by the layer flow's writes (publish, land, retest, sync, merge), whose
+  // answer must be right; never by a read (cold review: an is-ancestor that answers no, or a commit
+  // long merged, pulled thousands of commits). shallow-mergebase.test holds every merge-base to
+  // asking or to a named reason.
   if (args[0] === 'merge-base' && opts.deepen && opts.cwd) deepenForBase(args, opts.cwd);
   const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
 }
 // In a shallow clone, a merge base asked of commits whose common history the cut hides: the clone
-// deepened (doubling, from 64, then whole) until the commits meet or it is shallow no more. Commits
-// the clone does not hold at all are left to git's own answer; a fetch that fails stops the deepening.
+// deepened (doubling, from 64, then whole) until the commits meet or it is shallow no more, then
+// marked deep (DEEP_MARK) so the next fetch does not cut it back to one commit (cold review). Commits
+// the clone does not hold at all are left to git's own answer. A fetch that fails is said, with the
+// lock note when a git lock caused it, never left to a merge base failing with no reason.
 const runGit = (args, cwd) => run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, unset: NO_TOKENS });
 export function deepenForBase(args, cwd) {
   const revs = args.slice(1).filter((x) => !String(x).startsWith('-'));
@@ -70,11 +73,14 @@ export function deepenForBase(args, cwd) {
   if (runGit(['rev-parse', '--is-shallow-repository'], cwd).stdout.trim() !== 'true') return;
   if (revs.some((r) => runGit(['cat-file', '-e', `${r}^{commit}`], cwd).code !== 0)) return;
   const meet = () => runGit(['merge-base', ...revs], cwd).code === 0;
+  let deepened = false;
   for (let n = 64; !meet(); n *= 2) {
-    if (runGit(['rev-parse', '--is-shallow-repository'], cwd).stdout.trim() !== 'true') return;
+    if (runGit(['rev-parse', '--is-shallow-repository'], cwd).stdout.trim() !== 'true') break;
     const f = runGit(['fetch', '-q', ...(n > 4096 ? ['--unshallow'] : [`--deepen=${n}`]), 'origin'], cwd);
-    if (f.code !== 0) return;
+    if (f.code !== 0) fail(`this clone is shallow and its history for a merge base of ${revs.join(' ')} could not be fetched (git fetch: ${f.stderr.trim().split('\n').pop()})${lockNote(f.stderr, cwd)}; run it again`);
+    deepened = true;
   }
+  if (deepened) runGit(['config', DEEP_MARK, 'true'], cwd);
 }
 // A git lock left in a clone (copy, 5 Nov: BOB's review worker deepened, notice triage and a job
 // start ran git at once in one shallow clone: "shallow file has changed", a stale shallow.lock,

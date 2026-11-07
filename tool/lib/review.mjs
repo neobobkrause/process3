@@ -51,7 +51,7 @@ function triggerLines(t) {
 export function localTriggers(root, cfg, branch, id) {
   try {
     git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
-    const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { deepen: true, cwd: root });
+    const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
     const entry = JSON.parse(git(['show', `${mb}:process/ledger/${id}.json`], { cwd: root }));
     return reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
   } catch (e) { return { error: String(e.message).split('\n')[0].slice(0, 200) }; }

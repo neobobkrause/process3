@@ -81,7 +81,7 @@ const wasTip = (root, head, name) => logOf(root, `refs/remotes/origin/${name}`).
   || logOf(root, 'HEAD').some((l) => /\tclone: /.test(l) && l.split(' ', 2)[1] === head);
 const movable = (root, head, tip, name) => !git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })
   && git(['ls-tree', head, '--', '.process'], { cwd: root }) === git(['ls-tree', tip, '--', '.process'], { cwd: root })
-  && (git(['merge-base', '--is-ancestor', head, tip], { deepen: true, cwd: root, allowFail: true }).code === 0 || wasTip(root, head, name));
+  && (git(['merge-base', '--is-ancestor', head, tip], { cwd: root, allowFail: true }).code === 0 || wasTip(root, head, name));
 
 export function startCheck(root, { branch, setup = false, anchor = false, log = console.log } = {}) {
   let { name, head, tip, file, loaded, atTip } = read(root, branch);

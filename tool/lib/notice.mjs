@@ -203,7 +203,7 @@ export function mergedRange(root, m, { slug, n, what = 'what it changed cannot b
   const h = head.stdout.trim();
   const p1 = git(['rev-parse', `${m}^1`], { cwd: root });
   if (!shallow) {
-    const mb = git(['merge-base', p1, h], { deepen: true, cwd: root, allowFail: true });
+    const mb = git(['merge-base', p1, h], { cwd: root, allowFail: true });
     if (mb.code !== 0) fail(`pull request ${n}: no merge base of ${p1.slice(0, 10)} and ${h.slice(0, 10)}; ${what}`);
     return { head: h, mb: mb.stdout.trim() };
   }

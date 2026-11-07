@@ -49,7 +49,7 @@ export const P3 = 'node .process/tool/p3.mjs';
 // status.mjs's CLOSED_FILE, named here: status.mjs reads job.mjs, which reads the gate, which reads this file.
 const CLOSED_FILE = 'layers/closed.jsonl';
 const short = (s) => String(s || '').slice(0, 10);
-const isAnc = (root, a, b) => !!a && !!b && git(['merge-base', '--is-ancestor', a, b], { deepen: true, cwd: root, allowFail: true }).code === 0;
+const isAnc = (root, a, b) => !!a && !!b && git(['merge-base', '--is-ancestor', a, b], { cwd: root, allowFail: true }).code === 0; // read: an is-ancestor of commits the layer's write has deepened for, or a read (status, layer jobs)
 const rev = (root, r) => git(['rev-parse', r], { cwd: root });
 const hasCommit = (root, c) => git(['cat-file', '-e', `${c}^{commit}`], { cwd: root, allowFail: true }).code === 0;
 const minutes = (a, b) => Math.round(((Date.parse(b) - Date.parse(a)) / MINUTE) * 10) / 10;

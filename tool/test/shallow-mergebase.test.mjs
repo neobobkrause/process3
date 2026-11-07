@@ -35,7 +35,14 @@ test('a merge base asked in a shallow clone deepens it until the commits meet; i
   const mb = git(['merge-base', 'origin/main', 'origin/layer/1'], { cwd: c, allowFail: true, deepen: true });
   assert.equal(mb.code, 0, mb.stderr);
   assert.equal(git(['log', '-1', '--format=%s', mb.stdout.trim()], { cwd: c }), 'main 2');
-  assert.equal(git(['merge-base', '--is-ancestor', mb.stdout.trim(), 'origin/main'], { cwd: c, allowFail: true, deepen: true }).code, 0);
+  assert.equal(git(['merge-base', '--is-ancestor', mb.stdout.trim(), 'origin/main'], { cwd: c, allowFail: true, deepen: true }).code, 0);  // Marked deep: the next fetch keeps the history it deepened to (cold review of C8).
+  assert.equal(git(['config', '--get', 'p3.deep'], { cwd: c }), 'true');
+});
+
+test('a deepen whose fetch fails is said, never left to a merge base failing with no reason', () => {
+  const c = shallowPair();
+  git(['remote', 'set-url', 'origin', join(tmpdir(), 'p3-no-such-origin.git')], { cwd: c });
+  assert.throws(() => git(['merge-base', 'origin/main', 'origin/layer/1'], { cwd: c, deepen: true }), /this clone is shallow and its history for a merge base of origin\/main origin\/layer\/1 could not be fetched \(git fetch: /);
 });
 
 test('a merge base of a commit the clone lacks is left to git\'s own answer, no deepening', () => {
@@ -45,7 +52,9 @@ test('a merge base of a commit the clone lacks is left to git\'s own answer, no 
   assert.equal(isShallow(c), true, 'still shallow');
 });
 
-// The modules that do not ask, each for its reason.
+// The modules whose merge bases do not ask, each for its reason; a single call elsewhere that does not
+// ask carries a `// read: <reason>` comment on its line (cold review of C8: only the layer flow's
+// writes deepen; a read must never pull a shallow clone's history).
 const OWN = {
   'merge.mjs': 'deepens by its own measure: GitHub\'s compare, then once whole (deepenToBase)',
   'job.mjs': 'deepens by its own measure (deepenUntil, shallowBase)',
@@ -53,17 +62,31 @@ const OWN = {
   'measures.mjs': 'fetches whole history first (--unshallow)',
   'record.mjs': 'deepens by its own measure (the record check)',
   'gate.mjs': 'runs in CI, on a checkout with the whole history',
-  'status.mjs': 'a read: "not yet on main" is the safe answer, and a status line never unshallows BOB\'s clone',
+  'p3.mjs': 'ledger check and record-check run in CI, on the whole history',
+  'status.mjs': 'a read: "not yet on main" is the safe answer',
   'ends.mjs': 'a read: an unproven end keeps the record, the safe side',
   'metrics.mjs': 'a read of a merge already in the branch it reads',
+  'anchor.mjs': 'a read: a commit not shown in the base is refused, the safe side',
+  'found.mjs': 'a read (and offline): an unproven ancestor counts the branch as holding work',
+  'notice.mjs': 'runs only in a clone that is not shallow',
+  'review.mjs': 'a worker brief\'s read, in the worker\'s own full clone',
+  'start.mjs': 'a read: an unproven ancestor is not movable, the safe side',
+  'tranche.mjs': 'refuses a shallow clone before it',
+  'triage.mjs': 'a read: an unproven ancestor is not settled, so the user stays owed',
   'util.mjs': 'the helper itself',
 };
-test('every merge-base in the tool asks util.git to deepen, or its module is named with its reason', () => {
+test('every merge-base in the tool asks util.git to deepen, or is a read named with its reason', () => {
   const lib = join(here, '..', 'lib');
-  const loose = [...readdirSync(lib).map((f) => join(lib, f)), join(here, '..', 'p3.mjs')].filter((f) => f.endsWith('.mjs') && !OWN[f.split('/').pop()])
-    .flatMap((f) => readFileSync(f, 'utf8').split('\n').map((l, i) => ({ f, i: i + 1, l })))
-    .filter(({ l }) => /git\(\['merge-base'/.test(l) && !/deepen: true/.test(l));
-  assert.deepEqual(loose.map((x) => `${x.f.split('/').slice(-2).join('/')}:${x.i}`), []);
+  const loose = [];
+  for (const f of [...readdirSync(lib).map((x) => join(lib, x)), join(here, '..', 'p3.mjs')].filter((x) => x.endsWith('.mjs') && !OWN[x.split('/').pop()])) {
+    const t = readFileSync(f, 'utf8');
+    for (const m of t.matchAll(/git\(\s*\[\s*(?:'-C'\s*,[^,]+,\s*)?['"]merge-base['"]/g)) {
+      const call = t.slice(m.index, t.indexOf('})', m.index) + 2);
+      const line = t.slice(t.lastIndexOf('\n', m.index) + 1, t.indexOf('\n', m.index));
+      if (!/deepen: true/.test(call) && !/\/\/ read: \S/.test(line)) loose.push(`${f.split('/').slice(-2).join('/')}:${t.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  assert.deepEqual(loose, []);
 });
 
 test('no tool code runs merge-base outside util.git', () => {

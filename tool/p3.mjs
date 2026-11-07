@@ -585,7 +585,7 @@ const commands = {
   // ledger check [--base <ref> --branch <name> [--home <tranche ref>]]: schema; on a job branch, own
   // status only; with --home (the layer flow), its own entry may be added as the tranche holds it.
   'ledger check': (a, root) => {
-    const base = a.base ? git(['merge-base', 'HEAD', a.base], { deepen: true, cwd: root }) : undefined;
+    const base = a.base ? git(['merge-base', 'HEAD', a.base], { cwd: root }) : undefined;
     return report(checkLedger(root, { base, branch: a.branch, home: typeof a.home === 'string' ? a.home : undefined }), a.out);
   },
 
@@ -598,12 +598,12 @@ const commands = {
     let base = a.base && !/^0+$/.test(a.base) ? a.base : null;
     if (!base) {
       for (const o of onto) {
-        const r = git(['merge-base', head, o], { deepen: true, cwd: root, allowFail: true });
+        const r = git(['merge-base', head, o], { cwd: root, allowFail: true });
         if (r.code === 0) { base = r.stdout.trim(); break; }
       }
       if (!base) fail(`no base: none of ${onto.join(', ')} shares history with ${head}`);
     }
-    const ledgerBase = git(['merge-base', head, base], { deepen: true, cwd: root });
+    const ledgerBase = git(['merge-base', head, base], { cwd: root });
     const cfg = loadConfig(root, base);
     const s = recordSince(root, { base, head });
     // A take-in's earlier work, before its start commit, is left out (takenIn): on job/<id> that

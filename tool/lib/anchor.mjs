@@ -49,7 +49,7 @@ export function unanchored(root, base, sha, ownerCommit, tip = base) {
     if (value === keyAt(root, was, key)) continue;
     if (ownerCommit && typeof value === 'string' && value !== 'unreadable') {
       const c = keySetAt(root, sha, key);
-      const inBase = c && git(['merge-base', '--is-ancestor', c, tip], { deepen: true, cwd: root, allowFail: true }).code === 0;
+      const inBase = c && git(['merge-base', '--is-ancestor', c, tip], { cwd: root, allowFail: true }).code === 0;
       if (c && !inBase && ownerCommit(c)?.ok === true) continue;
     }
     return key;
