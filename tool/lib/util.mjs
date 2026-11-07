@@ -354,15 +354,31 @@ export const OPEN_BY = ['uses', 'layer'];
 // (`**R36** *(not yet met: T40)*`), after a parenthetical (`**R23** (T53; DEC-151 (2)) *(not
 // yet met: T53)*`, PR 74), or at its end after the bold title (`**R127** (T53) **A piece is
 // read in bounds.** ... *(not yet met: T53)*`, 332 more marks on the copy's tranche, 4 Nov; the coordinator's
-// ruling under P17). Prose is never read: a line not starting with an id, a mark on another
-// line, or the words outside that italic form. A line ends at \n or \r (review of PR 77).
-const REQ_LINE = String.raw`^[ \t]*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([RF][\w.-]+)\*\*`;
+// ruling under P17). A mark on one of the requirement's sub-lines is its too (C24, the coordinator,
+// 7 Nov: record-core's R92, layer 11, carries its mark on its indented `Control:` line, so
+// `layer publish --test R92` was refused as no mark struck): a sub-line is a non-blank line right
+// under it, indented, that is not itself a requirement line (`  1. ...`, `  Test: ...`,
+// `  Control: ...`). A blank line, an unindented line or another requirement line ends it. Prose
+// is never read: a line not starting with an id and under none, or the words outside that italic
+// form. A line ends at \n or \r (review of PR 77).
+const REQ_LINE = new RegExp(String.raw`^[ \t]*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([RF][\w.-]+)\*\*`);
 const MARK_TEXT = '*(not yet met';
-export const UNMET = new RegExp(String.raw`${REQ_LINE}[^\r\n]*?\*\(not yet met`, 'gm');
-// Every requirement line's id, and those still unmet, in file order.
+// Every requirement, its id and its text (its line and sub-lines), in file order.
+export function requirementBlocks(text) {
+  const blocks = [];
+  let cur = null;
+  for (const l of String(text || '').split(/\r\n|\r|\n/)) {
+    const m = REQ_LINE.exec(l);
+    if (m) { cur = { id: m[1], text: l }; blocks.push(cur); continue; }
+    if (cur && /^[ \t]+\S/.test(l)) { cur.text += `\n${l}`; continue; }
+    cur = null;
+  }
+  return blocks;
+}
+// Every requirement's id, and those still unmet, in file order.
 export function requirementMarks(text) {
-  const lines = [...String(text || '').matchAll(new RegExp(String.raw`${REQ_LINE}([^\r\n]*)`, 'gm'))];
-  return { all: lines.map((m) => m[1]), unmet: lines.filter((m) => m[2].includes(MARK_TEXT)).map((m) => m[1]) };
+  const blocks = requirementBlocks(text);
+  return { all: blocks.map((b) => b.id), unmet: blocks.filter((b) => b.text.includes(MARK_TEXT)).map((b) => b.id) };
 }
 export const unmetIds = (text) => requirementMarks(text).unmet;
 // A mark id, met or not, as the struck-mark --test and the report read it.
