@@ -57,9 +57,113 @@ export function git(args, opts = {}) {
   // its stderr, so the caller says what to rerun; else the refusal itself (R17c, item F).
   try { pushTurn(args, opts.cwd); } catch (e) { if (!(e instanceof Paced)) throw e; if (opts.allowFail) return { code: 1, stdout: '', stderr: e.message, seconds: 0, timedOut: false, paced: true }; fail(e.message); }
   fetchSeen(args, opts.cwd);
-  const r = run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
+  // A merge base read on history that holds it (C8, the coordinator, 7 Nov: BOB's layer lands failed
+  // in a shallow checkout; the train deepened, the layer flow did not): `deepen: true` deepens a
+  // shallow clone first. Asked by the layer flow's writes (publish, land, retest, sync, merge), whose
+  // answer must be right; never by a read (cold review: a merge base of a commit long merged pulled
+  // thousands of commits). shallow-mergebase.test holds every merge-base to asking or to a named
+  // reason. An is-ancestor is settled below instead, for every caller.
+  const ancQ = args[0] === 'merge-base' && args[1] === '--is-ancestor' && args.length === 4 && opts.cwd;
+  if (args[0] === 'merge-base' && opts.deepen && opts.cwd && !ancQ) deepenForBase(args, opts.cwd);
+  const once = () => run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
+  let r = once();
+  // An is-ancestor that answers no in a shallow clone is the cut's answer, not the history's (C8, the
+  // coordinator, 7 Nov: in a --depth 1 copy clone `layer status 9` read 8 modules as rescheduled,
+  // the provider's land hidden behind the cut). Its no stands only when it is exact; else the clone
+  // deepens until it is, and a deepen that fails refuses the command (allowFail or not), never
+  // answering no. Every ancestry check in the tool asks here.
+  // `cut: true`: a caller that judges a shallow clone itself and reads the cut's no as "not vouched"
+  // (report tranche: unmeasured); shallow-mergebase.test holds each such caller to a named reason.
+  if (ancQ && r.code !== 0 && !opts.cut && settleAncestry(args.slice(2), opts.cwd)) r = once();
   if (r.code !== 0 && !opts.allowFail) fail(`git ${args.join(' ')} failed: ${r.stderr.trim()}${lockNote(r.stderr, opts.cwd)}`);
   return opts.allowFail ? r : r.stdout.replace(/\n$/, '');
+}
+// In a shallow clone, a merge base asked of commits whose common history the cut hides: the clone
+// deepened (doubling, from 64, then whole) until the commits meet or it is shallow no more, then
+// marked deep (DEEP_MARK) so the next fetch does not cut it back to one commit (cold review). Commits
+// the clone does not hold at all are left to git's own answer. A fetch that fails is said, with the
+// lock note when a git lock caused it, never left to a merge base failing with no reason.
+const runGit = (args, cwd) => run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, unset: NO_TOKENS });
+export function deepenForBase(args, cwd) {
+  const revs = args.slice(1).filter((x) => !String(x).startsWith('-'));
+  if (revs.length < 2) return;
+  if (runGit(['rev-parse', '--is-shallow-repository'], cwd).stdout.trim() !== 'true') return;
+  if (revs.some((r) => runGit(['cat-file', '-e', `${r}^{commit}`], cwd).code !== 0)) return;
+  const meet = () => runGit(['merge-base', ...revs], cwd).code === 0;
+  let deepened = false;
+  for (let n = 64; !meet(); n *= 2) {
+    if (!isShallowAt(cwd)) break;
+    const moved = deepenOnce(cwd, n > 4096 ? ['--unshallow'] : [`--deepen=${n}`], `this clone is shallow and its history for a merge base of ${revs.join(' ')} lies past its cut`);
+    deepened = true;
+    if (n > 4096 || !moved) break; // whole, or origin holds no more (a shallow origin): git answers on what there is
+  }
+  if (deepened) runGit(['config', DEEP_MARK, 'true'], cwd);
+}
+// One deepening fetch of a shallow clone, logged as every fetch is (fetchSeen); true when it changed
+// the cut. A fetch that fails refuses with `why`. (Cold review of the C8 ancestry fix: an origin itself
+// shallow left --unshallow changing nothing, and a loop asking again never ended.)
+const cutOf = (cwd) => { const f = runGit(['rev-parse', '--git-path', 'shallow'], cwd).stdout.trim(); try { return readFileSync(resolve(cwd, f), 'utf8'); } catch { return ''; } };
+function deepenOnce(cwd, how, why) {
+  const before = cutOf(cwd);
+  const args = ['fetch', '-q', ...how, 'origin'];
+  fetchSeen(args, cwd);
+  let f = runGit(args, cwd);
+  // A deepen refused on a cut another fetch made (--shallow-exclude: "error in object: unshallow"):
+  // the whole history once, before refusing.
+  if (f.code !== 0 && how[0] !== '--unshallow' && /error in object: unshallow/.test(f.stderr)) {
+    const u = ['fetch', '-q', '--unshallow', 'origin'];
+    fetchSeen(u, cwd);
+    f = runGit(u, cwd);
+  }
+  if (f.code !== 0) fail(`${why}; that history could not be fetched (git fetch: ${f.stderr.trim().split('\n').pop()})${lockNote(f.stderr, cwd)}; nothing was answered: run it again, or deepen the clone (git fetch --unshallow origin)`);
+  return cutOf(cwd) !== before;
+}
+// Whether is-ancestor's no for a b is the history's: the clone is not shallow; or a or b is not a commit
+// the clone holds and origin does not serve it either (a name the clone cannot resolve, or a full sha
+// a fetch of it by name does not bring: an unmerged PR's merge, a force-pushed commit); or no commit
+// b reaches past a is a shallow one, the only places a could hide behind the cut (a path from b down
+// to a meets its first shallow commit before a, and a commit on that path is not reachable from a).
+const SHA = /^[0-9a-f]{40}$/;
+const isShallowAt = (cwd) => runGit(['rev-parse', '--is-shallow-repository'], cwd).stdout.trim() === 'true';
+const holds = (x, cwd) => runGit(['cat-file', '-e', `${x}^{commit}`], cwd).code === 0;
+// A full sha the shallow clone lacks, fetched by itself (one commit, not the whole history): true when
+// the clone then holds it. A sha origin will not serve is left to git's own answer.
+function fetchSha(x, cwd) {
+  if (holds(x, cwd)) return true;
+  if (!SHA.test(String(x))) return false;
+  const args = ['fetch', '-q', '--depth=1', 'origin', x];
+  fetchSeen(args, cwd);
+  const f = runGit(args, cwd);
+  if (f.code === 0) return holds(x, cwd);
+  // Origin answered that it does not serve the sha: absent there too, so git's answer stands. Any
+  // other failure (origin unreachable, a lock) is no answer at all: refused.
+  if (/not our ref|couldn't find remote ref|no such remote ref|not a valid object|unadvertised object/i.test(f.stderr)) return false;
+  fail(`this clone is shallow and lacks ${x}, which could not be fetched (git fetch: ${f.stderr.trim().split('\n').pop()})${lockNote(f.stderr, cwd)}; nothing was answered: run it again, or deepen the clone (git fetch --unshallow origin)`);
+}
+function ancestryExact([a, b], cwd) {
+  if (!isShallowAt(cwd)) return true;
+  if (!holds(b, cwd) || !holds(a, cwd)) return true;
+  const cut = new Set(cutOf(cwd).split('\n').filter(Boolean));
+  const past = runGit(['rev-list', b, '--not', a], cwd);
+  return past.code === 0 && !past.stdout.split('\n').some((c) => cut.has(c));
+}
+// Deepens a shallow clone (doubling from 64, then whole) until is-ancestor a b is exact; marks it deep
+// (DEEP_MARK). A failed fetch refuses, and so does a deepen that leaves the answer unexact and the cut
+// unchanged (origin itself shallow). True when it fetched, so the caller asks again.
+export function settleAncestry(revs, cwd) {
+  if (!isShallowAt(cwd)) return false;
+  const lacked = revs.filter((x) => !holds(x, cwd));
+  const got = lacked.filter((x) => fetchSha(x, cwd));
+  let deepened = false;
+  const why = `this clone is shallow and cannot tell whether ${revs[1]} holds ${revs[0]} without more history`;
+  for (let n = 64; !ancestryExact(revs, cwd); n *= 2) {
+    const whole = n > 4096;
+    const moved = deepenOnce(cwd, whole ? ['--unshallow'] : [`--deepen=${n}`], why);
+    deepened = true;
+    if ((!moved || whole) && !ancestryExact(revs, cwd)) fail(`${why}: origin holds no more of it (a shallow origin); nothing was answered`);
+  }
+  if (deepened) runGit(['config', DEEP_MARK, 'true'], cwd);
+  return deepened || got.length > 0;
 }
 // A git lock left in a clone (copy, 5 Nov: BOB's review worker deepened, notice triage and a job
 // start ran git at once in one shallow clone: "shallow file has changed", a stale shallow.lock,

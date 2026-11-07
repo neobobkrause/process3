@@ -23,7 +23,9 @@ export function mergedPRs(slug, base) {
   return Array.isArray(pages) ? pages.flat().filter((p) => p.merged_at) : null;
 }
 
-const gitOut = (root, args) => { const r = git(args, { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; };
+// cut: report judges a shallow clone itself (deepen vouches a base; anything unvouched is unmeasured), so
+// an is-ancestor here answers on the history the clone holds, never deepened (C8).
+const gitOut = (root, args) => { const r = git(args, { cwd: root, allowFail: true, cut: true }); return r.code === 0 ? r.stdout.trim() : null; };
 
 // The tranche's span: from its first commit main lacks to now, or, once the tranche is merged
 // into main, to that merge. base is main before that first commit, when this clone holds it. In
