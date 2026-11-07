@@ -121,6 +121,14 @@ export function gateRuns(all) {
 // side workflow can post a bot comment, but it cannot upload into another workflow's run.
 export const GATE_WORKFLOW = '.github/workflows/process-gate.yml';
 export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}`], { allowFail: true });
+// Whether GitHub serves a run: 'served', 'gone' (404: a run the suspended account triggered is hidden
+// with its pull requests, copy run 42277392893, 7 Nov), or null for any other failure (unread: the
+// caller fails closed).
+export function runState(slug, id) {
+  const r = ghRun(['api', `repos/${slug}/actions/runs/${id}`]);
+  if (r.code === 0) return 'served';
+  return /HTTP 404|Not Found/i.test(`${r.stderr}\n${r.stdout}`) ? 'gone' : null;
+}
 export function runArtifactRow(slug, id) {
   return withTemp('p3-row-', (dir) => {
     try {

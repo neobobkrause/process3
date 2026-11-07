@@ -620,7 +620,7 @@ test('the layer gate: a landed PR that reads 404 is covered from its land row an
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
   const gone = () => { throw new Fail('gh api repos/o/p/pulls/1 failed: gh: Not Found (HTTP 404)'); };
   const seen = [];
-  const io = { getPR: gone, comments: gone, runArtifactRow: (s, id) => (id === 77 ? run : null), verify: (s, r, ctx) => { seen.push(ctx); return r.run_id === 77; } };
+  const io = { getPR: gone, comments: gone, runState: () => 'served', runArtifactRow: (s, id) => (id === 77 ? run : null), verify: (s, r, ctx) => { seen.push(ctx); return r.run_id === 77; } };
   const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
   const c = r.covered.find((x) => x.id === 'c');
   assert.ok(c, JSON.stringify(r));
@@ -635,6 +635,54 @@ test('the layer gate: a landed PR that reads 404 is covered from its land row an
   const r2 = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, verify: () => false } });
   assert.ok(!r2.covered.some((x) => x.id === 'c'));
   assert.ok(r2.findings.some((f) => /c changed with no land|GitHub does not serve the PR/.test(f.message)), JSON.stringify(r2.findings));
+});
+
+// Copy PR 735 (the coordinator, 7 Nov): with C13, action-records (PR 696) and actions (PR 715) were
+// still not credited. 696's gate run was the suspended account's, hidden with its PR (404); 715's run
+// was base-red, which the land takes as green and the cover did not; and 715's attempt ran on
+// job/actions-2, which the state's start row names and the ledger before the land did not. A land
+// the process recorded credits its commits from the land row and the merge's parents, its run
+// verified when GitHub serves it, else its recorded gate row; a read that fails, or a record red or
+// missing, is refused.
+test('the layer gate: a hidden PR whose run is hidden too stands on its land and gate rows; a base-red run is green; the job branch is the state start row\'s', async () => {
+  const { root, bare } = await opened();
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
+  const prs = { 1: prOf(1, 'c', hc) };
+  const run = { sha: hc, ok: true, trigger: 'code', suite: 'base-red', scope: ['c'], run_id: 77, run_attempt: 1, at: '2026-11-07T01:00:00Z' };
+  await layerLand(root, 1, { io: landIO(bare, prs, { comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [run] }, 'gate') }] }), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const gone = () => { throw new Fail('gh api repos/o/p/pulls/1 failed: gh: Not Found (HTTP 404)'); };
+  const seen = [];
+  const base = { getPR: gone, comments: gone, runArtifactRow: (s, id) => (id === 77 ? run : null), verify: (s, r, ctx) => { seen.push(ctx); return true; } };
+  const cover = (io) => layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...base, ...io } });
+  // Served: its artifact verified; base-red is green, as the land took it.
+  const served = cover({ runState: () => 'served' });
+  assert.ok(served.covered.some((x) => x.id === 'c'), JSON.stringify(served.findings));
+  // Hidden with the PR: credited from the land's gate row, said so; the artifact is never asked.
+  const hidden = cover({ runState: () => 'gone', runArtifactRow: () => { throw new Error('not asked'); } });
+  const c = hidden.covered.find((x) => x.id === 'c');
+  assert.ok(c, JSON.stringify(hidden.findings));
+  assert.match(c.run_unreadable, /run 77: GitHub does not serve it; the land's gate row, base-red/);
+  // A run that could not be read at all (not a 404): refused, said why.
+  const unread = cover({ runState: () => null });
+  assert.ok(!unread.covered.some((x) => x.id === 'c'));
+  assert.ok(unread.findings.some((f) => /c changed with no land/.test(f.message)), JSON.stringify(unread.findings));
+  // A red recorded run, hidden: refused.
+  writeRows(root, SB, 'a red rerun', [[flowFile(1, 'gate', 'c-1-78-1'), { row: 'gate', layer: 1, module: 'c', pr: 1, sha: hc, run_id: 78, run_attempt: 1, at: '2026-11-07T02:00:00Z', trigger: 'code', suite: 'fail', ok: false }]]);
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  const red = cover({ runState: () => 'gone' });
+  assert.ok(!red.covered.some((x) => x.id === 'c'), 'the newest recorded run is red');
+  // The job branch: the state's start row before the land, over the ledger's.
+  writeRows(root, SB, 'start', [[flowFile(1, 'start', 'c-2-1'), { row: 'start', layer: 1, module: 'c', attempt: 2, branch: 'job/c-2', at: '2000-01-01T00:00:00Z' }]]);
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  seen.length = 0;
+  cover({ runState: () => 'served', runArtifactRow: (s, id) => ({ ...run, run_id: id }) });
+  assert.equal(seen.at(-1)?.merged.branch, 'job/c-2');
 });
 
 test('trial measures: a reschedule that changed its user\'s result is counted, and halted minutes are summed', () => {
