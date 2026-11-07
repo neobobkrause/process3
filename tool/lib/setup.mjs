@@ -1,6 +1,7 @@
 // setup check (setup audit, 2 Nov): the product's setup, read and reported, one line per
 // condition of setup/conditions.json. Read-only. job start runs it first and stops on a gap.
 import { census } from './census.mjs';
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,25 +74,30 @@ export function cloudflareRead(path, env) {
   const status = Number(lines.pop());
   const ra = String(lines.pop() ?? '').trim();
   const retryAfter = /^\d+$/.test(ra) ? Number(ra) : null;
-  let success = false;
-  // Cloudflare's v4 envelope says success; a bare JSON answer (some newer APIs) counts on a 200.
+  // Cloudflare's v4 envelope says success; a bare JSON answer (some newer APIs) counts on a 200. A body
+  // that is not JSON (a proxy's page) says nothing: null, never a "no" (cold review of C20).
+  let success = null;
   try { const j = JSON.parse(lines.join('\n')); success = j?.success === true || (j !== null && typeof j === 'object' && j.success === undefined); } catch { /* not JSON */ }
   return { status: r.code === 0 ? status : 0, success, retryAfter };
 }
 // A present answer kept per clone for an hour (C20, the coordinator, 7 Nov: the product's Cloudflare
 // account at its API limit, 1200 requests in 5 min; setup check reads three scopes at every job
 // start, pin move and sweep). Only a present answer is kept: anything else is read again. Keyed by
-// the account and the read, never by the token.
+// the read (its account in the path) and a short one-way digest of the token, so a rotated or
+// revoked token, or another session's in the clone, is read again (cold review); never the token.
 export const CF_CACHE = 'p3-cf-present.json';
 export const CF_CACHE_MS = 3600e3;
-export function cachedCloudflare(read, root, { now = Date.now } = {}) {
+export function cachedCloudflare(read, root, { now = Date.now, token = '' } = {}) {
+  const tag = createHash('sha256').update(String(token)).digest('hex').slice(0, 16);
   const f = join(commonDir(root), CF_CACHE);
   let seen = {};
   try { seen = JSON.parse(readFileSync(f, 'utf8')) || {}; } catch { seen = {}; }
   return (path) => {
-    if (Number.isFinite(seen[path]) && now() - seen[path] < CF_CACHE_MS) return { status: 200, success: true, retryAfter: null, cached: true };
+    const k = `${tag} ${path}`;
+    const age = now() - seen[k];
+    if (Number.isFinite(age) && age >= 0 && age < CF_CACHE_MS) return { status: 200, success: true, retryAfter: null, cached: true };
     const r = read(path);
-    if (r.status === 200 && r.success) { seen[path] = now(); try { writeFileSync(f, JSON.stringify(seen)); } catch { /* the cache is a saving, not a record */ } }
+    if (r.status === 200 && r.success === true) { seen[k] = now(); try { writeFileSync(f, JSON.stringify(seen)); } catch { /* the cache is a saving, not a record */ } }
     return r;
   };
 }
@@ -279,7 +285,7 @@ export const readers = {
     // ten minutes after step 5 had read the token present).
     const res = c.value.map((s) => {
       const r = x.cf(s.read.replace('{account}', encodeURIComponent(String(acct))));
-      const state = r.status === 200 && r.success ? 'present' : r.status === 401 || r.status === 403 || (r.status === 200 && !r.success) ? 'missing' : 'unknown';
+      const state = r.status === 200 && r.success === true ? 'present' : r.status === 401 || r.status === 403 || (r.status === 200 && r.success === false) ? 'missing' : 'unknown';
       return { s, state, status: r.status, retryAfter: r.retryAfter ?? null };
     });
     const line = res.map(({ s, state, status, retryAfter }) => `${s.scope}: ${state === 'present' ? 'present' : state === 'missing' ? `missing (${status})` : `unknown (Cloudflare ${status || 'no answer'}${retryAfter !== null ? `, retry-after ${retryAfter}` : ''})`}`).join('; ');
@@ -424,7 +430,7 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
   x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, anchor, log: () => {} }));
   let pinned;
   x.pin = 'pin' in io ? () => io.pin : () => (pinned === undefined ? (pinned = pinOf(root, x.cfg.tranche, io.toolRoot || TOOL, sha || `origin/${x.cfg.tranche}`)) : pinned);
-  x.cf = io.cf || cachedCloudflare((path) => cloudflareRead(path, x.env), root);
+  x.cf = io.cf || cachedCloudflare((path) => cloudflareRead(path, x.env), root, { token: x.env.CLOUDFLARE_API_TOKEN || '' });
   x.address = 'address' in io ? io.address : (role) => (fetchState(root, local.state_branch) ? address(root, local.state_branch, role) : null);
   x.required = [].concat(x.cfg.required_check || 'gate');
   const cache = new Map();
