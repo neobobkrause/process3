@@ -139,6 +139,8 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
   try { ledgerRepo = (led.own ? repoSlug(root) : led.name || String(led.url).replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '')).toLowerCase(); } catch { ledgerRepo = null; }
   let cache = null;
   const load = () => {
+    // The read's time is taken before its fetch: what lands meanwhile is after it (cold review of R17e).
+    const t0 = now();
     store.fetch();
     // The tip the reads are of: one moved under them (another p3 process of the clone fetched)
     // is not recorded, so the next refresh fetches again (cold review of R17d: else old contents
@@ -149,7 +151,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
     const since = now() - 2 * 3600e3;
     const use = store.list(USE_DIR).flatMap((f) => (store.read(f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
     const resumed = (store.read(RESUMED_FILE) || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
-    cache = { at: now(), pause, use, resumed, state: statePushes(root, store.ref, ledgerRepo, since), ledger: key, tip: store.tip() === tip0 ? tip0 : null };
+    cache = { at: t0, pause, use, resumed, state: statePushes(root, store.ref, ledgerRepo, since), ledger: key, tip: store.tip() === tip0 ? tip0 : null };
     try { writeFileSync(diskCache, JSON.stringify(cache)); } catch { /* best effort */ }
     return cache;
   };
@@ -217,9 +219,9 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
     // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
     beforeWait: () => { if (pendingWrites()) flushState(); },
     // While a command runs (each reserve): riding its pending writes, else by shareUsage's rule; never inside a state write.
-    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pendingWrites() : 0 })),
+    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pendingWrites() : 0, ledgerRepo })),
     // At a command's end: with its own state push when it has one (pending), else by shareUsage's rule.
-    shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true })),
+    shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true, ledgerRepo })),
   };
 }
 
@@ -233,7 +235,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
 //   own pushes are counted from its history, statePushes).
 // Rows older than two hours are dropped from the file.
 export const SHARE_ALONE_S = 900;
-export function shareUsage(root, cfg, { force = false, now = Date.now, pending = 0, store, atEnd = false } = {}) {
+export function shareUsage(root, cfg, { force = false, now = Date.now, pending = 0, store, atEnd = false, ledgerRepo = null } = {}) {
   const shares = sharesOf(root);
   const after = lastShared(root);
   // The rows shared are those after the last share's last row, taken before the write: the
@@ -244,9 +246,10 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   if (!force) {
     // Riding the command's push: at its end, and at most once a minute while it runs (each share
     // during a command is a commit, though no push).
-    const lastAt = Math.max(0, ...shares.map((x) => (x.at === PENDING_AT ? 0 : x.at || 0)));
+    // When the last share was made (a riding one's push may not be made yet: cold review of R17e).
+    const lastAt = Math.max(0, ...shares.map((x) => x.made ?? (x.at === PENDING_AT ? 0 : x.at || 0)));
     if (now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
-    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !r.state))) return 0;
+    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && ledgerRepo && r.repo === ledgerRepo)))) return 0;
   }
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg.state_branch);
@@ -263,7 +266,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   }));
   // Pushed now (another repository's ledger, or unbatched), or with the command's push: until that
   // push is made the share is not in any read, and its rows count from this clone's log (usage).
-  if (st.ref !== LEDGER_REF && pendingWrites()) { noteShare(root, last, PENDING_AT); onFlushed(() => settleShare(root, last, Date.now())); } else noteShare(root, last, now());
+  if (st.ref !== LEDGER_REF && pendingWrites()) { noteShare(root, last, PENDING_AT, now()); onFlushed(root, cfg.state_branch, () => settleShare(root, last, Date.now())); } else noteShare(root, last, now());
   return rows.length;
 }
 

@@ -5,12 +5,13 @@
 // share can drift); and a usage share is never a push of its own unless it must be (bookkeeping is
 // never the dominant traffic).
 import assert from 'node:assert/strict';
-import { mkdtempSync, existsSync } from 'node:fs';
+import { mkdtempSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { remoteStore, shareUsage, statePushes, stateShare } from '../lib/ghshare.mjs';
-import { cloneId, commonDir, PACING_DEFAULTS, readLog, reserve, usage, useShared } from '../lib/pace.mjs';
+import { cloneId, commonDir, PACING_DEFAULTS, PENDING_AT, readLog, reserve, sharesOf, usage, useShared } from '../lib/pace.mjs';
+import { flushState, pendingWrites, stateBatch, writeState } from '../lib/state.mjs';
 import { git, PUSH_TRAILER } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -90,24 +91,24 @@ test('a share is no push of its own: it rides the command\'s push; alone, at mos
   const now = () => Date.now() + off;
   as('cse_a', () => {
     content(a, 1);
-    assert.ok(shareUsage(a, null, { force: true, store, now }) >= 1);
+    assert.ok(shareUsage(a, null, { force: true, store, now, ledgerRepo: 'o/ledger' }) >= 1);
     const n0 = pushes();
     // Reads only (no content, no push), 16 min on: not shared alone.
     reserve({ points: 1, content: 0 }, 'gh pr view', a, { p: P });
     off = 16 * 60e3;
-    assert.equal(shareUsage(a, null, { store, now }), 0, 'reads alone are no reason to push');
+    assert.equal(shareUsage(a, null, { store, now, ledgerRepo: 'o/ledger' }), 0, 'reads alone are no reason to push');
     // Content, 5 min after the last share: not yet.
     content(a, 1);
     off = 0;
-    assert.equal(shareUsage(a, null, { store, now: () => Date.now() + 5 * 60e3 }), 0, 'at most every 15 min');
+    assert.equal(shareUsage(a, null, { store, now: () => Date.now() + 5 * 60e3, ledgerRepo: 'o/ledger' }), 0, 'at most every 15 min');
     assert.equal(pushes(), n0);
     // 16 min on, with content: shared, one push.
     off = 16 * 60e3;
-    assert.ok(shareUsage(a, null, { store, now }) >= 1);
+    assert.ok(shareUsage(a, null, { store, now, ledgerRepo: 'o/ledger' }) >= 1);
     assert.equal(pushes(), n0 + 1);
     // Riding the command's push (pending), at its end: shared whatever it holds, at once.
     reserve({ points: 1, content: 0 }, 'gh pr view', a, { p: P });
-    assert.ok(shareUsage(a, null, { store, now, pending: 1, atEnd: true }) >= 1);
+    assert.ok(shareUsage(a, null, { store, now, pending: 1, atEnd: true, ledgerRepo: 'o/ledger' }) >= 1);
   });
 });
 
@@ -135,4 +136,35 @@ test('the ledger read is cheap (C12): within 30 s nothing is asked of GitHub; pa
   assert.deepEqual(seen().slice(3), ['ls-remote', 'fetch'], 'moved: fetched');
   assert.equal(usage(a, { seconds: 3600, read: s }).content, 2);
   assert.ok(bare);
+});
+
+test('cold review of R17e: a riding share is made at most once a minute during a command; another repository\'s state push is shared alone', (t) => {
+  env(t);
+  const { clone } = ledger();
+  // A product clone whose state branch is its own ledger, writes coalesced as in a command.
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  const cfg = { state_branch: 'process-state' };
+  stateBatch(true);
+  try {
+    as('cse_p', () => {
+      content(root, 1);
+      writeState(root, 'process-state', 'a write of the command', (wt) => { writeFileSync(join(wt, 'x.txt'), 'x'); return {}; });
+      assert.ok(shareUsage(root, cfg, { pending: pendingWrites() }) >= 1);
+      content(root, 1);
+      assert.equal(shareUsage(root, cfg, { pending: pendingWrites() }), 0, 'not again within the minute, though the first is not pushed yet');
+      assert.ok(shareUsage(root, cfg, { pending: pendingWrites(), atEnd: true }) >= 1, 'at the command\'s end, whatever the minute');
+      flushState();
+    });
+  } finally { stateBatch(false); }
+  assert.ok(sharesOf(root).every((x) => x.at !== PENDING_AT), 'settled by the push');
+  // A process3 clone (remote ledger): a push of its own state branch, another repository's, is shared alone.
+  const a = clone();
+  as('cse_q', () => {
+    reserve({ push: true, points: 0, content: 0 }, 'push process-state', a, { p: P, kind: 'push', extra: { repo: 'o/process3', state: true } });
+    assert.ok(shareUsage(a, null, { store: remoteStore(a, URL), ledgerRepo: 'o/ledger' }) >= 1);
+  });
 });

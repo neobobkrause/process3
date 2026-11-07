@@ -137,13 +137,13 @@ export function sharesOf(cwd) {
   if (typeof v === 'number') return [{ last: v, at: 0 }];
   return Array.isArray(v?.shares) ? v.shares : [];
 }
-export function noteShare(cwd, last, at) {
-  try { writeFileSync(join(commonDir(cwd), SHARED_MARK), JSON.stringify({ shares: [...sharesOf(cwd), { last, at }].slice(-50) })); } catch { /* best effort */ }
+export function noteShare(cwd, last, at, made = at) {
+  try { writeFileSync(join(commonDir(cwd), SHARED_MARK), JSON.stringify({ shares: [...sharesOf(cwd), { last, at, made }].slice(-50) })); } catch { /* best effort */ }
 }
 // A share pushed with the command's coalesced push records its time once that push is made.
 export const PENDING_AT = Number.MAX_SAFE_INTEGER;
 export function settleShare(cwd, last, at) {
-  try { writeFileSync(join(commonDir(cwd), SHARED_MARK), JSON.stringify({ shares: sharesOf(cwd).map((x) => (x.last === last && x.at === PENDING_AT ? { last, at } : x)) })); } catch { /* best effort */ }
+  try { writeFileSync(join(commonDir(cwd), SHARED_MARK), JSON.stringify({ shares: sharesOf(cwd).map((x) => (x.last === last && x.at === PENDING_AT ? { ...x, at } : x)) })); } catch { /* best effort */ }
 }
 export const lastShared = (cwd) => Math.max(0, ...sharesOf(cwd).map((x) => x.last || 0));
 const readJSON = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };

@@ -82,8 +82,10 @@ export function stateBatch(on = true) { batch.on = !!on; }
 // fn with writes pushed at once, whatever the command's batching (a pause every session must see).
 export function unbatched(fn) { const was = batch.on; batch.on = false; try { return fn(); } finally { batch.on = was; } }
 // fn() once the command's pending state writes are pushed (never, if they are not).
-const flushedFns = [];
-export function onFlushed(fn) { flushedFns.push(fn); }
+// Keyed by the clone and branch whose push it waits on (cold review of R17e); dropped if that push
+// is refused (its writes are kept for replay).
+const flushedFns = new Map();
+export function onFlushed(root, sb, fn) { const k = `${root}\0${sb}`; flushedFns.set(k, [...(flushedFns.get(k) || []), fn]); }
 export const pendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.length, 0);
 const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
 const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
@@ -159,6 +161,7 @@ export function flushState({ log = () => {} } = {}) {
         }, { root });
       });
     } catch (e) {
+      flushedFns.delete(key);
       const kept = git(['for-each-ref', '--format=%(refname)', PENDING], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
       const t = Date.now();
       const names = kept.map((r) => { const name = `${UNPUSHED}${t}-${r.split('/').pop()}`; git(['update-ref', name, r], { cwd: root }); git(['update-ref', '-d', r], { cwd: root }); return name; });
@@ -170,7 +173,8 @@ export function flushState({ log = () => {} } = {}) {
     n += list.length;
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(key); }
     // What waited on this push (R17e: a usage share carried by it records when it went).
-    for (const fn of flushedFns.splice(0)) { try { fn(); } catch { /* a record only */ } }
+    for (const fn of flushedFns.get(key) || []) { try { fn(); } catch { /* a record only */ } }
+    flushedFns.delete(key);
   }
   return n;
 }
