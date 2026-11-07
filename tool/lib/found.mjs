@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from 'node:path';
 import { LEDGER_DIR } from './ledger.mjs';
 import { readModules } from './notice.mjs';
-import { FOUND_MARK, depth, exists, fail, git, loadConfig } from './util.mjs';
+import { FOUND_MARK, depth, exists, fail, git, loadConfig, unmetIds } from './util.mjs';
 
 export const FOUND_DIR = 'process/found';
 export const NO_MODULE = `${FOUND_DIR}/no-module.md`;
@@ -58,7 +58,9 @@ export function foundLineId(line) {
 
 // Whether a diff of one file (git diff -U0 output) only adds found-mark lines whose ids the base
 // text lacks: nothing removed or changed, no other line added. { ok, why }.
-export function foundOnly(diff, baseText) {
+// headText, when given: every requirement unmet at the base stays unmet (C24: an F line put between
+// a requirement and its marked sub-line would take the sub-line, and the mark, from it).
+export function foundOnly(diff, baseText, headText) {
   const have = new Set([...String(baseText || '').matchAll(FOUND_MARK)].map((m) => `F${m[1]}`));
   // Header lines only before the first hunk: inside one, a content line "-- x" or "++ x" reads as
   // "--- x" or "+++ x" and is a change like any other (second review of PR 75).
@@ -77,6 +79,11 @@ export function foundOnly(diff, baseText) {
     added.push(id);
   }
   if (body.some((l) => l === '\\ No newline at end of file')) return { ok: false, why: 'the file does not end in a newline' };
+  if (headText !== undefined) {
+    const now = new Set(unmetIds(headText));
+    const lost = unmetIds(baseText).filter((id) => !now.has(id));
+    if (lost.length) return { ok: false, why: `it leaves ${lost.join(', ')} met: a found mark goes at the end of the file, never between a requirement and its lines` };
+  }
   return added.length ? { ok: true, added } : { ok: false, why: 'it adds no found mark' };
 }
 

@@ -21,7 +21,7 @@ import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
 import { FOUND_DIR, foundEntries, foundFile, noModuleFound, NO_MODULE } from './found.mjs';
-import { OPEN_BY, UNMET, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, unmetIds } from './util.mjs';
+import { OPEN_BY, depth, exists, isShallow, fail, fileBytes, git, isFound, jobCap, loadConfig, overCap, repoSlug, requirementBlocks, unmetIds } from './util.mjs';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -1050,9 +1050,9 @@ export function readyFound(root, cfg, ls, ref, owed = {}, rows = []) {
 
 // Debt: a requirement file whose unmet marks are all base-red found marks.
 export function isDebt(text) {
-  const line = new RegExp(UNMET.source);
-  const u = (text || '').split('\n').filter((l) => line.test(l));
-  return u.length > 0 && u.every((l) => /not yet met:[^)]*base-red/i.test(l));
+  // Each unmet requirement with its sub-lines (util's requirementBlocks, C24).
+  const u = requirementBlocks(text).filter((b) => b.text.includes('*(not yet met'));
+  return u.length > 0 && u.every((b) => [...b.text.matchAll(/\*\(not yet met([^)]*)\)/gi)].every((x) => /^:[^)]*base-red/i.test(x[1])));
 }
 
 // The release path as readiness knows it (nextWork's x.release), for modules whose job is open

@@ -11,16 +11,22 @@ import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
 import { compare } from './github.mjs';
 import { diffNames } from './gate.mjs';
-import { exists, fail, git, isRecordPath, isShallow, underPath } from './util.mjs';
+import { exists, fail, git, isRecordPath, isShallow, requirementBlocks, underPath } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
 export const noticeKey = (provider, pr) => `${provider}:${pr}`;
 
-// A requirement is a line holding `**R<id>**`; its text is the line. Changed: added, reworded,
-// struck (striking rewrites the line) or removed.
+// A requirement is a line holding `**R<id>**` anywhere (the copy's ooxml writes `- \`fn\` — **R1** ...`);
+// its text is the line, and for a requirement line with sub-lines, the line and its sub-lines (util's
+// requirementBlocks, C24: a mark struck or retired on a sub-line, as record-core R92's Control line,
+// is a change of that requirement). Changed: added, reworded, struck or removed.
 const REQ = /\*\*(R[\w.-]+)\*\*/;
-const reqLines = (text) => new Map(String(text || '').split('\n').map((l) => [l.match(REQ)?.[1], l.trim()]).filter(([id]) => id));
+const reqLines = (text) => {
+  const m = new Map(String(text || '').split('\n').map((l) => [l.match(REQ)?.[1], l.trim()]).filter(([id]) => id));
+  for (const b of requirementBlocks(text)) if (/^R/.test(b.id)) m.set(b.id, b.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join('\n'));
+  return m;
+};
 export function changedIds(before, after) {
   const a = reqLines(before);
   const b = reqLines(after);
