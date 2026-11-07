@@ -210,19 +210,19 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
   // '?' for pushes logged before R17c named theirs.
   // pushes_by keys: "<repo>", "<repo>#state" (its state branch), "?" (no repository logged);
   // content_by the same for content-creating requests.
-  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, fetches: 0, connector: 0, graphql: 0, pushes_by: {}, content_by: {} };
+  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, fetches: 0, connector: 0, graphql: 0, pushes_by: {}, content_by: {}, fetches_by: {} };
   const add = (repo, n, into = out.pushes_by) => { if (n) into[repo || '?'] = (into[repo || '?'] || 0) + n; };
   for (const r of rows) {
     const at = Date.parse(r.at);
     if (!(at > since) || !(at > covered)) continue;
     if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); add(r.repo, contentOf(r), out.content_by); if (r.free) out.free++; if (r.connector) out.connector++; if (r.graphql) out.graphql++; }
-    if (r.kind === 'fetch') out.fetches++;
+    if (r.kind === 'fetch') { out.fetches++; add(r.of || '?', 1, out.fetches_by); }
     if (r.kind === 'push' && !(isLedgerState(r, st) && at <= (s.at || 0))) { out.pushes++; add(r.repo ? `${r.repo}${r.state ? '#state' : ''}` : null, 1); }
   }
   for (const u of s.use || []) {
     if (!(Date.parse(u.minute) + 60e3 > since)) continue;
     const ledgerState = st ? (u.pushes_by || {})[`${st.repo}#state`] || 0 : 0;
-    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += (u.pushes || 0) - ledgerState; out.free += u.free || 0; out.fetches += u.fetches || 0; out.connector += u.connector || 0; out.graphql += u.graphql || 0;
+    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += (u.pushes || 0) - ledgerState; out.free += u.free || 0; out.fetches += u.fetches || 0; { const fb = Object.entries(u.fetches_by || {}); for (const [k, n] of fb) add(k, n, out.fetches_by); add('?', (u.fetches || 0) - fb.reduce((a, [, n]) => a + n, 0), out.fetches_by); } out.connector += u.connector || 0; out.graphql += u.graphql || 0;
     const cnamed = Object.entries(u.content_by || {});
     for (const [repo, n] of cnamed) add(repo, n, out.content_by);
     add('?', (u.content || 0) - cnamed.reduce((a, [, n]) => a + n, 0), out.content_by);
@@ -516,10 +516,21 @@ export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = 
 
 // git fetch, clone and ls-remote: logged (kind fetch), shown in the budget; GitHub publishes no
 // limit on them and the process sets no ceiling (R17c, coordinator's item B).
+// What a fetch is for (R17f, coordinator's C12 part 2: the shared rows could not say which fetches
+// remained): ledger (the account's GitHub ledger, read from another repository), state (the
+// product's state branch), other (branches, tags, clones). Kept on the row and in the shares.
+export function fetchKind(args) {
+  const all = args.map(String);
+  const remote = all.slice(1).find((x) => !x.startsWith('-')) || '';
+  const text = all.join(' ');
+  if (/refs\/p3\/ledger\//.test(text) || (/^https?:|^git@/.test(remote) && /process-state/.test(text))) return 'ledger';
+  if (/process-state/.test(text)) return 'state';
+  return 'other';
+}
 export function fetchSeen(args, cwd) {
   if (!['fetch', 'clone', 'ls-remote'].includes(args[0])) return;
   const remote = args.slice(1).find((x) => !String(x).startsWith('-'));
-  logEvent('fetch', `${args[0]} ${remote || ''}`.trim(), cwd);
+  logEvent('fetch', `${args[0]} ${remote || ''}`.trim(), cwd, { of: fetchKind(args) });
 }
 // git push (not --dry-run): logged with no gate (the tests' record of a push made elsewhere).
 export function pushSeen(args, cwd) {
@@ -536,7 +547,7 @@ export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
     const minute = iso(Math.floor(at / 60e3) * 60e3);
     const k = `${r.session}\0${minute}`;
     const x = by.get(k) || { session: r.session || null, clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0, pushes_by: {} };
-    if (r.kind === 'fetch') { x.fetches = (x.fetches || 0) + 1; by.set(k, x); continue; }
+    if (r.kind === 'fetch') { x.fetches = (x.fetches || 0) + 1; x.fetches_by = x.fetches_by || {}; x.fetches_by[r.of || '?'] = (x.fetches_by[r.of || '?'] || 0) + 1; by.set(k, x); continue; }
     if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); if (contentOf(r) && r.repo) { x.content_by = x.content_by || {}; x.content_by[r.repo] = (x.content_by[r.repo] || 0) + contentOf(r); } if (r.free) x.free = (x.free || 0) + 1; if (r.connector) x.connector = (x.connector || 0) + 1; if (r.graphql) x.graphql = (x.graphql || 0) + 1; } else { x.pushes++; if (r.repo) { const k2 = `${r.repo}${r.state ? '#state' : ''}`; x.pushes_by[k2] = (x.pushes_by[k2] || 0) + 1; } }
     by.set(k, x);
   }
@@ -559,7 +570,7 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   log(`- content-creating requests, the last minute: ${pct(m.content, lim.content_per_minute)}`);
   log(`- content-creating requests, the last hour: ${pct(h.content, lim.content_per_hour)}`);
   log(`- pushes, the last hour: ${pct(h.pushes, p.pushes_per_hour)} of the process's own ceiling (PD-3; GitHub publishes none; each push starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
-  log(`- fetches, the last hour: ${h.fetches} (git fetch, clone and ls-remote by the tool; GitHub publishes no limit, and the process sets none)`);
+  log(`- fetches, the last hour: ${h.fetches}${Object.keys(h.fetches_by).length ? ` (${Object.entries(h.fetches_by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ')})` : ''} (git fetch, clone and ls-remote by the tool; GitHub publishes no limit, and the process sets none)`);
   log(`- not counted here: ${lim.concurrent} concurrent requests (each session calls one at a time) and ${lim.cpu_seconds_per_minute} s of CPU a minute (GitHub's side)`);
   const pause = pauseOf(cwd, s);
   log(pause?.stopped ? `STOPPED: ${pause.why} at ${pause.at}, a refusal within an hour of an earlier one; the coordinator runs github resume` : pause && Date.parse(pause.until) > now ? `PAUSED until ${pause.until}: ${pause.why}` : 'no pause');

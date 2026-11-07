@@ -16,18 +16,35 @@ export const roleName = (v, what) => (typeof v === 'string' && NAME.test(v) ? v 
 const ref = (sb) => `refs/remotes/origin/${sb}`;
 
 // Fetches the state branch; false when origin has none. A failed read is a failure, not "none".
-// One fetch, no ls-remote (each round trip cost up to 26 s measured 3 Nov), and at most once per
+// One fetch, no ls-remote (each round trip cost up to 26 s measured 3 Nov), at most once per
 // command: readAddress, bobStatus and sweep in one run share it. writeState asks fresh, since it
 // must build on the latest tip.
 const fetched = new Map();
+// Across the clone's p3 processes too (R17f, coordinator's C12 part 2: 275 fetches an hour, most
+// of them the product's state branch, read by each command and each poll): a read that is not
+// fresh takes the clone's copy when another process fetched it within STATE_READ_S and the clone's
+// ref is still what that fetch left. A fresh read (every write, and what asks for one) always
+// fetches. Not ls-remote first: a fetch that finds nothing new costs GitHub what ls-remote does
+// (the ref advertisement), and one that finds something would cost two round trips.
+export const STATE_READ_S = 30;
+const stampOf = (root, sb) => join(git(['rev-parse', '--git-common-dir'], { cwd: root, allowFail: true }).stdout.trim().replace(/^(?!\/)/, `${root}/`), `p3-state-read-${sb.replace(/[^\w.-]/g, '_')}`);
+const localTip = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
+function recentRead(root, sb) {
+  try {
+    const st = JSON.parse(readFileSync(stampOf(root, sb), 'utf8'));
+    return Date.now() - st.at < STATE_READ_S * 1000 && st.at <= Date.now() && st.tip && st.tip === localTip(root, sb);
+  } catch { return false; }
+}
 export function fetchState(root, sb, { fresh = false } = {}) {
   const key = `${root}\0${sb}`;
   if (!fresh && fetched.has(key)) return fetched.get(key);
+  if (!fresh && !batch.pending.get(key)?.list.length && recentRead(root, sb)) { fetched.set(key, true); return true; }
   // Under the clone's state lock, a ref-lock clash retried (build train-robust: two p3 processes
   // in one clone failed "cannot lock ref" and the train refused a plain row, copy 5 Nov 12:36).
   const r = withStateLock(root, () => fetchRetry(['fetch', '-q', 'origin', `+refs/heads/${sb}:${ref(sb)}`], { cwd: root }));
   if (r.code !== 0 && !/couldn't find remote ref/i.test(r.stderr)) fail(`cannot read origin's ${sb}: ${r.stderr.trim()}`);
   fetched.set(key, r.code === 0);
+  if (r.code === 0) { try { writeFileSync(stampOf(root, sb), JSON.stringify({ at: Date.now(), tip: localTip(root, sb) })); } catch { /* a saving, not a gate */ } }
   // A coalesced command's writes not yet pushed (R17): made again on the tip just read.
   if (r.code === 0 && batch.pending.get(key)?.list.length) withStateLock(root, () => rebuild(root, sb, batch.pending.get(key)));
   return r.code === 0;
