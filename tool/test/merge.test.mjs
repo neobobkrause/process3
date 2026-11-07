@@ -343,7 +343,7 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   // printed (confirming review of PR 59: a literal <role> was refused by send).
   assert.equal(moved.wake, `node .process/tool/p3.mjs send bob "pin moved to ${p.pin}: run your wake steps (start check --wake prints a changed prompt), then status" --from pin`);
   assert.equal(logs.at(-1), `next act: wake BOB with \`${moved.wake}\`, delivered with send_message to the address it prints`);
-  // What the merge train's queued caller prints the same wake from (train.mjs plainViaTrain).
+  // The wake's words, returned with it.
   assert.equal(moved.what, `pin moved to ${p.pin}: run your wake steps (start check --wake prints a changed prompt), then status`);
   // BOB merging (the default) is awake: no wake.
   const own = pinMove(p.pin, shim);
@@ -366,9 +366,10 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   const nobob = pinMove(p.pin, shim);
   put(nobob.root, { 'heartbeat.json': '{}\n' });
   const nbLogs = [];
-  assert.equal(mergePlain(nobob.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(nobob, { repo: processRepo(p.dir) }).io, log: (m) => nbLogs.push(m) }).merged, true);
+  const nb = mergePlain(nobob.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(nobob, { repo: processRepo(p.dir) }).io, log: (m) => nbLogs.push(m) });
+  assert.deepEqual([nb.merged, nb.wake, nb.what], [true, null, null]);
   assert.doesNotMatch(nbLogs.join('\n'), /wake BOB/);
-  assert.equal(nbLogs.filter((l) => /^no BOB is addressed on process-state \(addresses\/bob\.json\): this product has no BOB, so there is no wake to send$/.test(l)).length, 1);
+  assert.equal(nbLogs.filter((l) => /^no BOB is addressed on process-state \(addresses\/bob\.json\): no wake to send \(a BOB started later reads the pin at its start\)$/.test(l)).length, 1);
   git(['fetch', '-q', 'origin', '+refs/heads/process-state:refs/remotes/origin/process-state'], { cwd: nobob.root });
   assert.equal(git(['cat-file', '-e', `refs/remotes/origin/process-state:${WAKES_FILE}`], { cwd: nobob.root, allowFail: true }).code !== 0, true, 'no wake recorded');
   const bob = pinMove(p.pin, shim);
@@ -376,6 +377,8 @@ test('a workflow changed to the process\'s own shim at a released pin is allowed
   const bLogs = [];
   mergePlain(bob.root, 4, { ...q, noReview: 'a pin move', as: 'pin', io: plainIO(bob, { repo: processRepo(p.dir) }).io, log: (m) => bLogs.push(m) });
   assert.match(bLogs.at(-1), /^next act: wake BOB with `.*send bob "pin moved to/);
+  // The state branch unread (none on origin, as in the first case above): addressed for all it
+  // knows, so the wake is printed (loud).
   // Not the shim byte for byte, or a pin that is not on process3's tranche or main: refused.
   const off = pinMove(p.pin, shim + ' ');
   assert.throws(() => mergePlain(off.root, 4, { ...q, noReview: 'x', io: plainIO(off, { repo: processRepo(p.dir) }).io }), /is not the process's own shim at/);

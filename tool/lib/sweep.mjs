@@ -234,8 +234,9 @@ export function senderFor(root, name, a) {
 }
 export function beforeAct(root, cfg, name, a, { env = process.env, io, log = console.log, err = console.error } = {}) {
   // Starts owed first for BOB's acts (status prints its own): a marker, never a refusal. Not in a
-  // product with no BOB addressed (C27: process3-probes' pin moves printed it), where no one owes them.
-  if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o && bobAddressed(root, cfg.state_branch, { fetch: false }) !== false) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
+  // product with no BOB addressed (C27: process3-probes' pin moves printed it), where no one owes them,
+  // nor to another role acting with --as (a pin session's merge --as pin: not BOB's act; cold review).
+  if (bobAct(name, a) && name !== 'status' && (a.as === undefined || a.as === 'bob')) { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o && bobAddressed(root, cfg.state_branch, { fetch: false }) !== false) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
   if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch') return null;
   // Not a job session's command (cold review of C18: with ok rows waiting in each clone, every
   // session would check every CHECK_MIN): BOB's and ROOT's commands, and the hourly sweep, keep it.

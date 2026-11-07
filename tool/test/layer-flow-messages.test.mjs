@@ -377,4 +377,8 @@ test('starts owed (C27): not printed where no BOB is addressed', async () => {
   assert.deepEqual(run(), [], 'no BOB addressed: no line');
   writeState(root, SB, 'bob', (d) => { mkdirSync(join(d, 'addresses'), { recursive: true }); writeFileSync(join(d, addressFile('bob')), '{"session":"s"}\n'); });
   assert.match(run()[0] || '', /^starts owed since 2026-11-05T23:56:53Z \(job complete a\)/);
+  // Another role's merge (a pin session's --as pin): not BOB's act, no line.
+  const out = [];
+  beforeAct(root, configOf({}), 'merge', { _: [], as: 'pin' }, { env: { GITHUB_ACTIONS: '1' }, log: (l) => out.push(String(l)) });
+  assert.deepEqual(out, []);
 });
