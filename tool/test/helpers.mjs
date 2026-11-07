@@ -12,6 +12,16 @@ import { writeState } from '../lib/state.mjs';
 // tool's), and the directories it made under the temp directory go at exit. tempdirs.test.mjs holds it.
 // GitHub pacing (R17, pace.mjs) is off in the tests unless a test sets it: no wait between gh
 // stand-ins, no log written into the clones.
+// No test reads the machine's git configuration (C2, the coordinator, 7 Nov: a test passed on a
+// builder whose global config gave it an identity and failed in CI, which has none): the global and
+// system files are cut off for the test process and every git it starts, as CI runs them. A repo a
+// test makes sets what it needs (makeRepo: an identity, no signing). isolation.test holds every
+// test file to importing this file. Configuration given by the environment goes too (cold review:
+// GIT_CONFIG_COUNT/KEY/VALUE and GIT_CONFIG_PARAMETERS still applied, and GIT_AUTHOR_* and
+// GIT_COMMITTER_* can give the identity a test must set itself).
+process.env.GIT_CONFIG_GLOBAL = '/dev/null';
+process.env.GIT_CONFIG_NOSYSTEM = '1';
+for (const k of Object.keys(process.env)) if (/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)$|^GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL|DATE)$/.test(k)) delete process.env[k];
 process.env.P3_GH_INTERVAL_MS ??= '0';
 process.env.P3_GITHUB_LOG ??= '0';
 export const MADE = new Set();
@@ -124,4 +134,22 @@ export function closeLayer(root, n, { tranche = 'tranche', sb = 'process-state',
     return {};
   });
   return { ok: true, row };
+}
+
+// Problem class C14 (a test read the wall clock twice: rerun-more.test.mjs on PR 211, 7 Nov): a
+// rerun whose output is compared with the first run's runs `later`, its clock 61 s on (Date.now and
+// new Date() both). A printed step that reads the wall clock then differs on every run, not once
+// in a thousand: the test fails at once, and the step takes an injected clock.
+export function later(fn, ms = 61e3) {
+  const Real = globalThis.Date;
+  class Shifted extends Real {
+    constructor(...a) { if (a.length) super(...a); else super(Real.now() + ms); }
+    static now() { return Real.now() + ms; }
+  }
+  globalThis.Date = Shifted;
+  let out;
+  try { out = fn(); } catch (e) { globalThis.Date = Real; throw e; }
+  if (out && typeof out.then === 'function') return out.finally(() => { globalThis.Date = Real; });
+  globalThis.Date = Real;
+  return out;
 }

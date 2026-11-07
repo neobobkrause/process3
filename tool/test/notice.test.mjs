@@ -12,7 +12,7 @@ import { readRows } from '../lib/metrics.mjs';
 import { changedIds, noticeFile, noticeLine, notices, providerChange, providerNotice, recordAtMerge, unanswered, withdrawNotice } from '../lib/notice.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { owedNotices, status } from '../lib/status.mjs';
-import { importFree, noticeTriage, parseTriage, recordTriage, shares, triageAtMerge } from '../lib/triage.mjs';
+import { importFree, noticeTriage, parseTriage, recordTriage, shares, sizes, triageAtMerge } from '../lib/triage.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed } from './helpers.mjs';
 
@@ -816,4 +816,36 @@ test('triage at the merge is never silent (copy, 4 Nov: question-explorer:199 le
   assert.equal(triageLast({ error: 'the push of process-state failed: Internal Server Error\nmore', next: 'node .process/tool/p3.mjs notice triage money:1' }), 'notice triage at the merge FAILED (the push of process-state failed: Internal Server Error); next act: node .process/tool/p3.mjs notice triage money:1');
   assert.equal(triageLast({ rows: [{}, {}], owed: [] }), 'notice triage at the merge: 2 row(s) written, none owed');
   assert.equal(triageLast({ rows: [], owed: [], why: 'all triaged' }), 'notice triage at the merge: all triaged, none owed');
+});
+
+// C11 b (the coordinator, 7 Nov): affordances' backing.test.mjs and t46.test.mjs and screens-action's
+// real.mjs import bio-plane/test/m/filings/fixture.mjs; the brief listed only users' source imports, and
+// triage at the merge read only users' paths, so a user importing only the provider's test fixture
+// was cleared "not affected".
+test('a user whose tests import the provider\'s test fixture is listed in the brief with that file, and never cleared at the merge', () => {
+  const root = makeRepo({
+    'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
+    'process/modules.json': { modules: [
+      { id: 'filings', paths: ['src/filings/'], tests: ['test/m/filings/'] },
+      { id: 'aff', paths: ['src/aff/'], tests: ['test/m/aff/'], uses: ['filings'] },
+      { id: 'quiet', paths: ['src/quiet/'], tests: ['test/m/quiet/'], uses: ['filings'] },
+    ] },
+    'src/filings/index.mjs': 'export const f = 1;\n',
+    'test/m/filings/fixture.mjs': 'export const rows = [];\n',
+    'src/aff/i.mjs': 'export const a = 1;\n',
+    'test/m/aff/backing.test.mjs': "import test from 'node:test';\nimport { rows } from '../filings/fixture.mjs';\ntest('x', () => rows);\n",
+    'src/quiet/i.mjs': 'export const q = 1;\n',
+    'test/m/quiet/q.test.mjs': "import test from 'node:test';\ntest('q', () => {});\n",
+  });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  const sha = git(['rev-parse', 'HEAD'], { cwd: root });
+  const cfg = loadConfig(root);
+  const whys = new Map();
+  assert.deepEqual(importFree(root, cfg, ['aff', 'quiet'], sha, 'filings', whys).map((m) => m.id), ['quiet']);
+  assert.match(whys.get('aff'), /test\/m\/aff\/backing\.test\.mjs imports filings/);
+  const s = sizes(root, cfg, ['aff', 'quiet'], sha, 'filings');
+  assert.deepEqual(s.map((m) => [m.id, m.imports.map((x) => `${x.file}:${x.lines.join(',')}`)]), [['aff', ['test/m/aff/backing.test.mjs:2']], ['quiet', []]]);
 });
