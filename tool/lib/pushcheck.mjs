@@ -44,5 +44,5 @@ export function refuseUnpushable(root, cfg, { branch }) {
   const bad = unpushable(root, cfg, { branch });
   if (!bad.length) return;
   const head = git(['rev-parse', 'HEAD'], { cwd: root });
-  fail(`nothing was pushed: ${bad.slice(0, 5).map((b) => `commit ${b.commit.slice(0, 10)} adds ${b.file} (${b.why})`).join('; ')}. Drop it from the commit and rebuild the commit before pushing: ${bad[0].commit === head ? `\`git reset HEAD~1 -- ${bad[0].file}\`, then \`git commit --amend --no-edit\`` : `\`git reset --soft ${bad[0].commit.slice(0, 10)}~1\`, \`git reset -- ${bad[0].file}\`, then commit again`}; a pushed commit cannot be taken back without a force-push`);
+  fail(`nothing was pushed: ${bad.slice(0, 5).map((b) => `commit ${b.commit.slice(0, 10)} adds ${b.file} (${b.why})`).join('; ')}. Drop it from the commit and rebuild the commit before pushing: ${bad[0].commit === head ? `\`git reset --soft HEAD~1\`, \`git reset -- ${bad[0].file}\`, then commit again` : `\`git reset --soft ${bad[0].commit.slice(0, 10)}~1\`, \`git reset -- ${bad[0].file}\`, then commit again`}; a pushed commit cannot be taken back without a force-push`);
 }

@@ -27,7 +27,7 @@ const refuse = (root) => () => refuseUnpushable(root, loadConfig(root), { branch
 test('a commit adding a file over max_file_bytes is refused, naming it and how to drop it (installer 3df99b92)', () => {
   const root = repo();
   commit(root, { 'src/alpha/big.json': 'x'.repeat(100) });
-  assert.throws(refuse(root), /nothing was pushed: commit \w+ adds src\/alpha\/big\.json \(100 bytes, over max_file_bytes \(64\)\)\. Drop it from the commit and rebuild the commit before pushing: `git reset HEAD~1 -- src\/alpha\/big\.json`, then `git commit --amend --no-edit`/);
+  assert.throws(refuse(root), /nothing was pushed: commit \w+ adds src\/alpha\/big\.json \(100 bytes, over max_file_bytes \(64\)\)\. Drop it from the commit and rebuild the commit before pushing: `git reset --soft HEAD~1`, `git reset -- src\/alpha\/big\.json`, then commit again; a pushed commit/);
 });
 
 test('a commit adding a generated path is refused, an older one named with its rebuild (newgroup 606/609)', () => {
