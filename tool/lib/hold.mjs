@@ -62,8 +62,8 @@ export function holdsOf(rows, t = Date.now(), landed = null, facts = null) {
   });
 }
 
-export function readHolds(root, sb, { offline = false, t = Date.now(), facts, listed = null } = {}) {
-  if (!offline) fetchState(root, sb);
+export function readHolds(root, sb, { offline = false, t = Date.now(), facts, listed = null, fresh = false } = {}) {
+  if (!offline) fetchState(root, sb, { fresh });
   const rows = jsonl(readState(root, sb, HOLDS_FILE));
   let landed = null;
   let cfg = null;

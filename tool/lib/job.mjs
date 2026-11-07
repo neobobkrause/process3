@@ -175,7 +175,8 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
 // With ROOT's address and decision_minutes, for the START's escalation (coordinator, 4 Nov).
 function jobCoordinator(root, cfg, given, fetch) {
   const addressed = (role) => { try { const s = JSON.parse(readState(root, cfg.state_branch, addressFile(role)) || 'null')?.session; return typeof s === 'string' && s ? s : null; } catch { return null; } };
-  if (fetch) fetchState(root, cfg.state_branch);
+  // Fresh: a handover confirmed in ROOT's clone a moment ago names the new BOB (cold review of R17f).
+  if (fetch) fetchState(root, cfg.state_branch, { fresh: true });
   const minutes = Number(cfg.targets?.decision_minutes ?? 30);
   if (!(minutes > 0)) fail(`targets.decision_minutes in process/config.json is a number of minutes, not ${JSON.stringify(cfg.targets?.decision_minutes)}`);
   const escalate = { rootId: addressed('root'), decisionMinutes: minutes };
