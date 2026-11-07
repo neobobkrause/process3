@@ -322,7 +322,7 @@ test('every jsonl file the state branch holds is declared a line log or named or
 // Cold review: a line log's rows merge in time order (a reader takes the last row as the newest); a row
 // repeated on purpose is kept; rows with no time go after the tip's; a file under metrics/
 // that is not a log (live-sessions.json, one object) is never a line log.
-test('a line log made again on a newer tip: time order, counted rows, a row with no time after the tip's; metrics/*.json is no log', async () => {
+test('a line log made again on a newer tip: time order, counted rows, a row with no time after the tip\'s; metrics/*.json is no log', async () => {
   const { logUnion, stateLog } = await import('../lib/state.mjs');
   const r = (at, x) => JSON.stringify({ at: `2026-11-07T0${at}:00:00Z`, x });
   const tip = [r(1, 'a'), r(3, 'c')].join('\n') + '\n';
