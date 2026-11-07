@@ -61,7 +61,7 @@ test('layer jobs lists a next-layer module whose providers are settled as an ear
   assert.equal(layerStartAct({ ...v, startable: [] }), `${P3} layer jobs 1, then each early start it lists (layer 2)`);
   const ic = layerIdle({ live: 0, cap: 4, view: v, t: Date.now() });
   assert.equal(ic.startable, 2, 'b, then c early');
-  assert.deepEqual(ic.reasons.slice(0, 2), [`1 x startable from ${P3} layer jobs 1, not started (start now: b; one listed after a provider in flight is an early start, R10, and only a recorded hold waits)`, `1 x early starts into layer 2 listed by ${P3} layer jobs 1, not started (c)`]);
+  assert.deepEqual(ic.reasons.slice(0, 2), [`1 x startable from ${P3} layer jobs 1, not started (start now: b; one listed after a provider in flight starts now with its plain job start, no --early: R10; only a recorded hold waits)`, `1 x early starts into layer 2 listed by ${P3} layer jobs 1, not started (c)`]);
 });
 
 // C16 (the copy, 7 Nov: 49 modules built before the ledger held every user back from an early

@@ -590,8 +590,8 @@ export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new 
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
 // the open layer's startable jobs (view: layerflow.mjs openLayer; unread, 0), and the jobs awaiting a ruling. The sweep records its numbers.
 export function flow(cfg, rows, next, live, listed = null, holds = [], { view = null } = {}) {
-  // The jobs that take a slot (C25: an additive retest runs in CI, with no job session), as the idle
-  // check counts them, so the flow line and IDLE CAPACITY agree.
+  // The open layer's jobs that take a slot (C25: an additive retest runs in CI, with no job session),
+  // as the idle check leaves retests out; the idle check also counts the early starts and less holds.
   const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), view?.kind === 'open' ? view.startable.filter(needsSlot).length : 0];
   const retests = view?.kind === 'open' ? view.startable.length - startable : 0;
   // Working against occupied (coordinator, 5 Nov): with list_sessions, each open job's live session

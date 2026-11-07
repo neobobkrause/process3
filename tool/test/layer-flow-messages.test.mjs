@@ -98,7 +98,7 @@ test('idle capacity: slots count against the open layer\'s startable jobs, never
   assert.equal(ic.kind, 'work');
   assert.equal(ic.alarm, true);
   assert.equal(ic.startable, 2);
-  assert.deepEqual(ic.reasons, [`2 x startable from ${P3} layer jobs 3, not started (start now: b, c; one listed after a provider in flight is an early start, R10, and only a recorded hold waits)`, '2 x no startable work: layer 3 lists no job to start']);
+  assert.deepEqual(ic.reasons, [`2 x startable from ${P3} layer jobs 3, not started (start now: b, c; one listed after a provider in flight starts now with its plain job start, no --early: R10; only a recorded hold waits)`, '2 x no startable work: layer 3 lists no job to start']);
   assert.deepEqual(ic.fill, ['b', 'c']);
   assert.ok(!ic.reasons.some((r) => /ready to close|job start --ready|train/.test(r)));
   // A module hold on a startable job: named; a hold of another layer's module: nothing.
@@ -107,7 +107,7 @@ test('idle capacity: slots count against the open layer\'s startable jobs, never
   assert.equal(layerIdle({ live: 2, cap: 6, holds, view: view(), prev, t }), null);
   const h = layerIdle({ live: 1, cap: 6, holds, view: view({ startable: [{ id: 'b', cmd: 'x' }, { id: 'c', cmd: 'y' }] }), prev, t });
   assert.equal(h.startable, 1);
-  assert.deepEqual(h.reasons, [`1 x startable from ${P3} layer jobs 3, not started (start now: c; one listed after a provider in flight is an early start, R10, and only a recorded hold waits)`, 'b: held by h1 (by bob): waits', '3 x no startable work: layer 3 lists no job to start']);
+  assert.deepEqual(h.reasons, [`1 x startable from ${P3} layer jobs 3, not started (start now: c; one listed after a provider in flight starts now with its plain job start, no --early: R10; only a recorded hold waits)`, 'b: held by h1 (by bob): waits', '3 x no startable work: layer 3 lists no job to start']);
   // The layer can merge, or the next is not open: said as the empty slots' reason.
   assert.match(layerIdle({ live: 0, cap: 4, view: view({ startable: [], ready: true }), t }).reasons[0], /^4 x no startable work: layer 3 can merge \(.*layer merge 3\)$/);
   assert.match(layerIdle({ live: 0, cap: 4, view: { kind: 'next', n: 4 }, t }).reasons[0], /layer 4 is next and not open/);
@@ -124,7 +124,7 @@ test('idle capacity (C25): the jobs that fill the empty slots are named, early o
   const ic = layerIdle({ live: 4, cap: 6, view: v, t });
   assert.equal(ic.startable, 3, 'the retest is not counted');
   assert.deepEqual(ic.fill, ['a', 'b'], 'two empty slots: the first two in the list, the early b among them');
-  assert.match(ic.reasons[0], /^2 x startable from .* layer jobs 3, not started \(start now: a, b; one listed after a provider in flight is an early start, R10, and only a recorded hold waits\)$/);
+  assert.match(ic.reasons[0], /^2 x startable from .* layer jobs 3, not started \(start now: a, b; one listed after a provider in flight starts now with its plain job start, no --early: R10; only a recorded hold waits\)$/);
   // Only retests listed: no idle capacity (they need no session).
   assert.equal(layerIdle({ live: 4, cap: 6, view: view({ startable: [{ id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }] }), t }), null);
 });
@@ -303,13 +303,18 @@ test('idle check (C25): starts recorded since the sweep measured count as live',
   writeRows(root, SB, 'starts', [
     start(11, 'old', '2026-11-07T15:40:00Z'),
     start(11, 'a', '2026-11-07T16:14:00Z'), start(11, 'b', '2026-11-07T16:20:00Z'),
-    [flowFile(12, 'early', 'e-1'), { row: 'early', layer: 12, module: 'e', at: '2026-11-07T16:30:00Z' }],
-    [flowFile(12, 'early', 'e-0'), { row: 'early', layer: 12, module: 'f', at: '2026-11-07T15:00:00Z' }],
+    start(12, 'e', '2026-11-07T16:30:00Z'), start(12, 'f', '2026-11-07T15:00:00Z'),
+    // A refused early start leaves an early row (written at the cut) and no start row: nothing.
+    [flowFile(12, 'early', 'g-1'), { row: 'early', layer: 12, module: 'g', at: '2026-11-07T16:31:00Z' }],
+    // A restart on a fresh branch replaces a session: not a new one.
+    [flowFile(11, 'start', 'c-r'), { row: 'start', layer: 11, module: 'c', restart: true, at: '2026-11-07T16:40:00Z' }],
+    // A start in the measurement's own second counts.
+    start(11, 'same', '2026-11-07T15:53:46Z'),
   ]);
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
   const v = { kind: 'open', n: 11, early_next: 12 };
-  assert.equal(startsSince(root, SB, v, '2026-11-07T15:53:46Z'), 3, 'a, b and the early e; not the starts before the measurement');
-  assert.equal(startsSince(root, SB, { kind: 'open', n: 11 }, '2026-11-07T15:53:46Z'), 2);
+  assert.equal(startsSince(root, SB, v, '2026-11-07T15:53:46Z'), 4, 'same, a, b and the early e; not the starts before, the refused early g or the restart c');
+  assert.equal(startsSince(root, SB, { kind: 'open', n: 11 }, '2026-11-07T15:53:46Z'), 3);
   assert.equal(startsSince(root, SB, v, 'unread'), 0);
   // The idle judged on the sum: the sweep's 4 and 3 since leave 13 empty of 20, not 16.
   const ic = layerIdle({ live: 4 + 3, cap: 20, view: view({ startable: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --live <n>` })) }), t: Date.parse('2026-11-07T16:18:37Z') });
@@ -324,4 +329,36 @@ test('flow line (C25): startable counts the jobs that take a slot, as the idle c
   assert.match(f.line, /startable 1 \(and 1 retest, no job session\)/);
   assert.ok(!/GitHub pacing/.test(f.line));
   assert.ok(!f.queued, 'one slot free, one job: none queued');
+});
+
+// Cold review of C25: the check itself, end to end on a state branch: the sweep's measured live,
+// the starts since, the alarm while slots stay empty, none once starts fill them, and an old
+// measurement judged as unmeasured.
+test('idle check (C25): live is the sweep\'s count and the starts since; the alarm ends when starts fill the slots', async () => {
+  const { idleCheck, SWEEP_ROWS_FILE } = await import('../lib/sweep.mjs');
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  // After the tranche's last commit (the idle can begin no earlier: idleSince's freed), whole seconds.
+  const T0 = Math.ceil((Date.now() + 120e3) / 1000) * 1000;
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(T0), row: 'sweep', live: 4, live_measured_at: iso(T0 - 60e3), job_cap: 20 }) + '\n'); });
+  const starts = (ids, at) => writeRows(root, SB, 'starts', ids.map((id) => [flowFile(11, 'start', `${id}-${at}`), { row: 'start', layer: 11, module: id, at: iso(at) }]));
+  starts(['a', 'b', 'c'], T0 + 5 * 6e4);
+  const jobs = Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --live <n>` }));
+  const opts = (t, lines = []) => ({ by: 'test', t, read: () => ({ open: { state: 'open' }, holds: [] }), readView: () => view({ n: 11, startable: jobs }), log: (l) => lines.push(String(l)) });
+  const cfg = configOf({});
+  const lines = [];
+  const r1 = idleCheck(root, cfg, opts(T0 + 25 * 6e4, lines));
+  assert.deepEqual([r1.live, r1.live_measured, r1.started_since, r1.startable, r1.idle_capacity.empty, r1.idle_capacity.alarm], [7, 4, 3, 30, 13, true]);
+  assert.match(lines.join('\n'), new RegExp(`IDLE CAPACITY: 7 job sessions live \\(4 measured at ${iso(T0)}, 3 started since\\) of the cap 20`));
+  // Starts fill every slot: no idle, no alarm.
+  starts(Array.from({ length: 13 }, (_, i) => `f${i}`), T0 + 27 * 6e4);
+  const r2 = idleCheck(root, cfg, opts(T0 + 31 * 6e4));
+  assert.deepEqual([r2.live, r2.started_since, r2.idle_capacity], [20, 16, undefined]);
+  // A measurement past LIVE_MIN: unmeasured, no judgment.
+  const r3 = idleCheck(root, cfg, opts(T0 + 70 * 6e4));
+  assert.equal(r3.live, 'unmeasured');
 });

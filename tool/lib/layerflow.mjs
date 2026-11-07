@@ -382,7 +382,7 @@ export const mergeReady = (states) => states.every((s) => DONE.includes(s.state)
 // Whether a listed act takes a job session (a slot under the cap): every job start does; an additive
 // change's `layer retest` runs in CI with none (C25: the idle check counted it as a slot's work).
 export const needsSlot = (j) => !j?.additive;
-export const afterNote = (after) => `   (early: ${after.join(', ')} not landed yet; start it now on a free slot, as an early start (R10); only a recorded hold waits)`;
+export const afterNote = (after) => `   (${after.join(', ')} not landed yet: start it now on a free slot, this plain job start, no --early (R10); only a recorded hold waits)`;
 export function startable(states) {
   const list = states.flatMap((s) => {
     if (s.state === 'not started' && s.join) return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.entry_state === 'COMPLETE' ? ` --reopen ${JSON.stringify(s.join.why)}` : ''}` }];
