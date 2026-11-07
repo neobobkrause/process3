@@ -14,8 +14,13 @@
 // - obeys GitHub's refusals: on a 403 or 429 rate-limit response, every session pauses until the
 //   reset (Retry-After, x-ratelimit-reset, else at least a minute) and never retries inside it; a
 //   second refusal within an hour stops the tool until the coordinator runs `github resume`.
-// The per-clone spacing (gh_interval_ms) is only a floor against bursts. Session caps are off by
-// default (pacing.jobs, pacing.lanes): the budget throttles. The shared store is an adapter
+// PD-6 (coordinator, 7 Nov; Bob: "make sure that this baseless overcaution NEVER happens"): a brake
+// acts only on (a) a limit GitHub publishes, at pacing.target, or (b) a refusal GitHub actually
+// returns (a secondary rate limit, a 403 or 429 naming a rate limit, abuse detection). Everything
+// else is counted and reported, never waited on or refused: pushes and fetches (GitHub publishes no
+// limit on them), session counts. The per-clone spacing (gh_interval_ms) spaces REST writes only,
+// as GitHub's guidance asks (at least a second between POST, PATCH, PUT and DELETE requests); reads,
+// pushes and notes are never spaced. The shared store is an adapter
 // (useShared): p3.mjs sets the state branch's (ghshare.mjs); with none, this clone's own log only.
 // No import from util.mjs (util imports this).
 import { spawnSync } from 'node:child_process';
@@ -37,11 +42,21 @@ export const GITHUB_LIMITS = {
   content_per_hour: 500,
   cpu_seconds_per_minute: 90,
 };
-// pushes_per_hour: the process's own account-wide push ceiling (decision PD-3, coordinator, 6 Nov):
-// GitHub publishes none, and push volume is the likely cause of the suspension (1,387 in 19 h).
 // ledger: the repository whose state branch holds the account's ledger (github/), "<owner>/<repo>";
-// null is this product's own (ghshare.mjs).
-export const PACING_DEFAULTS = { target: 0.85, jobs: null, lanes: null, gh_interval_ms: 1000, poll_first_s: 30, poll_most_s: 300, share_s: 900, pushes_per_hour: 120, ledger: null, github_limits: GITHUB_LIMITS };
+// null is this product's own (ghshare.mjs). A poll of GitHub waits poll_first_s (30 s), fixed, never
+// backing off on a number of the process's own (PD-6; GitHub's primary limit, governed at target,
+// is what bounds reads); poll_most_s is retired.
+export const PACING_DEFAULTS = { target: 0.85, gh_interval_ms: 1000, poll_first_s: 30, share_s: 900, ledger: null, github_limits: GITHUB_LIMITS };
+// Keys retired by PD-6, each a brake on a number GitHub does not publish: accepted in an old config
+// and ignored, with a note (github budget, the job cap's line).
+export const RETIRED_PACING = {
+  pushes_per_hour: 'the process\'s own push ceiling (PD-3); GitHub publishes no push limit',
+  jobs: 'a job cap set as GitHub pacing; the job cap is the account\'s own (jobCap)',
+  lanes: 'a lane cap set as GitHub pacing',
+  poll_most_s: 'a poll back-off past poll_first_s; a poll waits poll_first_s, fixed',
+};
+export const retiredPacing = (p) => Object.keys(RETIRED_PACING).filter((k) => p && p[k] !== undefined && p[k] !== null);
+export const retiredNote = (p) => { const r = retiredPacing(p); return r.length ? `pacing.${r.join(', pacing.')} ignored (PD-6: ${r.map((k) => RETIRED_PACING[k]).join('; ')})` : null; };
 export const TARGET_RANGE = [0.8, 0.9];
 export const POLL_FLOOR_S = 30;
 export const GH_FLOOR_MS = 1000;
@@ -52,29 +67,25 @@ const PRIMARY = 'p3-gh-primary.json';
 
 let current = { ...PACING_DEFAULTS };
 // The pacing in force: the defaults, the config's "pacing" over them (configOf sets it).
-export function setPacing(p) { current = { ...PACING_DEFAULTS, ...(p || {}), github_limits: { ...GITHUB_LIMITS, ...(p?.github_limits || {}) } }; }
+export function setPacing(p) { const q = { ...(p || {}) }; for (const k of Object.keys(RETIRED_PACING)) delete q[k]; current = { ...PACING_DEFAULTS, ...q, github_limits: { ...GITHUB_LIMITS, ...(p?.github_limits || {}) }, retired: retiredPacing(p) }; }
 // P3_GH_INTERVAL_MS (and P3_GITHUB_LOG) are read under the test runner only, never in a session.
 export function pacing(env = process.env) {
   const ms = env.NODE_TEST_CONTEXT ? env.P3_GH_INTERVAL_MS : undefined;
   return { ...current, ...(ms !== undefined && ms !== '' && /^\d+$/.test(ms) ? { gh_interval_ms: Number(ms) } : {}) };
 }
-// Optional hard caps (off by default): pacing.jobs on the job cap, pacing.lanes on lane seats.
-export const pacedJobs = (cfg = {}) => cfg.pacing?.jobs ?? null;
-export const pacedLanes = (cfg = {}) => cfg.pacing?.lanes ?? null;
+// pacing.jobs and pacing.lanes are retired (PD-6): no cap of GitHub pacing on sessions.
+export const pacedJobs = () => null;
+export const pacedLanes = () => null;
 // Checks a config's "pacing" block; returns the problem or null.
 export function pacingProblem(p) {
   if (p === undefined) return null;
   if (!p || typeof p !== 'object' || Array.isArray(p)) return 'pacing is an object';
-  for (const k of Object.keys(p)) if (!(k in PACING_DEFAULTS)) return `pacing.${k} is not a pacing key (${Object.keys(PACING_DEFAULTS).join(', ')})`;
+  for (const k of Object.keys(p)) if (!(k in PACING_DEFAULTS) && !(k in RETIRED_PACING)) return `pacing.${k} is not a pacing key (${Object.keys(PACING_DEFAULTS).join(', ')})`;
   if (p.target !== undefined && !(typeof p.target === 'number' && p.target >= TARGET_RANGE[0] && p.target <= TARGET_RANGE[1])) return `pacing.target is between ${TARGET_RANGE[0]} and ${TARGET_RANGE[1]}: the share of GitHub's published limits the tool uses (Bob, 6 Nov: "80% or 90%")`;
-  for (const k of ['jobs', 'lanes']) if (p[k] !== undefined && p[k] !== null && !(Number.isInteger(p[k]) && p[k] >= 1)) return `pacing.${k} is a whole number, 1 or more, or null (no cap)`;
   if (p.ledger !== undefined && p.ledger !== null && !(typeof p.ledger === 'string' && /^[\w.-]+\/[\w.-]+$/.test(p.ledger))) return 'pacing.ledger is "<owner>/<repo>": the repository whose state branch holds the account\'s GitHub ledger';
-  if (p.pushes_per_hour !== undefined && !(Number.isInteger(p.pushes_per_hour) && p.pushes_per_hour >= 1)) return 'pacing.pushes_per_hour is a whole number, 1 or more';
-  for (const k of ['gh_interval_ms', 'poll_first_s', 'poll_most_s', 'share_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= 0)) return `pacing.${k} is a whole number`;
-  if (p.gh_interval_ms !== undefined && p.gh_interval_ms < GH_FLOOR_MS) return `pacing.gh_interval_ms is ${GH_FLOOR_MS} or more: no more than one gh call a second per clone`;
-  if (p.poll_first_s !== undefined && p.poll_first_s < POLL_FLOOR_S) return `pacing.poll_first_s is ${POLL_FLOOR_S} or more: no wait on GitHub polls tighter than ${POLL_FLOOR_S} s`;
-  const first = p.poll_first_s ?? PACING_DEFAULTS.poll_first_s;
-  if (p.poll_most_s !== undefined && p.poll_most_s < first) return 'pacing.poll_most_s is at least pacing.poll_first_s';
+  for (const k of ['gh_interval_ms', 'poll_first_s', 'share_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= 0)) return `pacing.${k} is a whole number`;
+  if (p.gh_interval_ms !== undefined && p.gh_interval_ms < GH_FLOOR_MS) return `pacing.gh_interval_ms is ${GH_FLOOR_MS} or more: at least a second between GitHub writes per clone, as GitHub's guidance asks`;
+  if (p.poll_first_s !== undefined && p.poll_first_s < POLL_FLOOR_S) return `pacing.poll_first_s is ${POLL_FLOOR_S} or more: the poll cadence, no tighter than ${POLL_FLOOR_S} s`;
   if (p.github_limits !== undefined) {
     const g = p.github_limits;
     if (!g || typeof g !== 'object' || Array.isArray(g)) return 'pacing.github_limits is an object';
@@ -89,8 +100,7 @@ export function pacingProblem(p) {
 
 // The pause before the k-th poll in a row (k from 1): poll_first_s doubling to poll_most_s.
 export function pollMs(k, p = pacing()) {
-  const first = Math.max(POLL_FLOOR_S, p.poll_first_s) * 1000;
-  return Math.min(Math.max(first, p.poll_most_s * 1000), first * 2 ** Math.max(0, k - 1));
+  return Math.max(POLL_FLOOR_S, p.poll_first_s) * 1000;
 }
 
 // The clone's git directory (shared by its worktrees), where the stamps and the log live; the
@@ -329,7 +339,7 @@ function waitUntil(until, why, { now, sleep }) {
 // Before a gh call: the stop, the pause, the primary limit at target, each secondary window at
 // target, then the per-clone floor; logs the call with its cost. Throws Paced to refuse.
 // Paced acts (pushes, notes) run with no gate while exempt: only the ledger's own pause, stop and
-// resume writes, which must go through while the account is paused, stopped or at the ceiling
+// resume writes, which must go through while the account is paused or stopped
 // (coordinator's ruling on PR 206). Every other push, state-branch pushes included, waits its turn.
 let exempting = 0;
 export function exempt(fn) { exempting++; try { return fn(); } finally { exempting--; } }
@@ -342,8 +352,9 @@ let waitCap = 0;
 let rerunText = null;
 export function hookPacing(fn, { longestMs = 120e3, rerun = 'the tool call (retry it)' } = {}) { const was = [waitCap, rerunText]; waitCap = longestMs; rerunText = rerun; try { return fn(); } finally { [waitCap, rerunText] = was; } }
 
-// Before any act on GitHub: the stop, the pause, the primary limit, each window at target (and the
-// push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The ledger
+// Before any act on GitHub: the stop and the pause (GitHub's refusals), the primary limit and each of
+// GitHub's published windows at target, then the write spacing; logs the act. A push is logged, never
+// held but by GitHub's own pause or stop (PD-6). Throws Paced to refuse. The ledger
 // is read within READ_S (ls-remote past it, a fetch only when it moved), and again after each wait.
 export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit, kind = 'gh', extra = {} } = {}) {
   const content = cost.content === true ? 1 : Number(cost.content) || 0;
@@ -368,12 +379,11 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
         [60, 'points', lim.rest_points_per_minute, cost.points || 0, 'REST points a minute'],
         [60, 'content', lim.content_per_minute, content, 'content-creating requests a minute'],
         [3600, 'content', lim.content_per_hour, content, 'content-creating requests an hour'],
-        [3600, 'pushes', p.pushes_per_hour, cost.push ? 1 : 0, 'pushes an hour (the process\'s own ceiling, PD-3: GitHub publishes none)'],
       ]) {
         if (!add || wait) continue;
-        const max = field === 'pushes' ? cap : Math.floor(target * cap);
+        const max = Math.floor(target * cap);
         const used = usage(cwd, { t: now(), seconds, rows, read: s })[field];
-        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, read: s }), `${used} of the ${cap} ${name} used account-wide, ${field === 'pushes' ? 'the ceiling' : `the target ${Math.round(target * 100)}%`} (${max})`];
+        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, read: s }), `${used} of GitHub's ${cap} ${name} used account-wide, the target ${Math.round(target * 100)}% (${max})`];
       }
     }
     if (!wait) break;
@@ -381,7 +391,9 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
     shared.beforeWait?.();
     waitUntil(wait[0], wait[1], { now, sleep });
   }
-  const ms = p.gh_interval_ms;
+  // GitHub's guidance: at least a second between mutative requests (POST, PATCH, PUT, DELETE). Reads,
+  // pushes and notes (a record of connector writes the hook spaces itself) are never spaced (PD-6).
+  const ms = kind === 'gh' && !cost.note && (cost.points || 0) >= 5 ? p.gh_interval_ms : 0;
   if (ms > 0) {
     const f = join(commonDir(cwd), STAMP);
     let last = 0;
@@ -409,8 +421,8 @@ export function ghRepo(a, cwd) {
   if (ri >= 0 && a[ri + 1]) return slugOf(a[ri + 1]) || String(a[ri + 1]).toLowerCase();
   return pushRepo(['push', 'origin'], cwd);
 }
-// Before a git push (every one the tool makes, and \`p3 github push\`): the pause, the stop and the
-// push ceiling; logged. A --dry-run is no push. While exempt, logged only.
+// Before a git push (every one the tool makes, and \`p3 github push\`): GitHub's pause and stop only
+// (PD-6: GitHub publishes no push limit); logged. A --dry-run is no push. While exempt, logged only.
 export function pushTurn(args, cwd, opts = {}) {
   if (args[0] !== 'push' || args.includes('--dry-run') || args.includes('-n')) return null;
   const label = args.filter((x) => !String(x).startsWith('-')).slice(1).join(' ');
@@ -451,7 +463,14 @@ export function limitSignal(text) {
   const secondary = /secondary rate limit|abuse detection/i.test(t);
   const primary = /API rate limit exceeded|rate limit exceeded for/i.test(t) && !secondary;
   const http = /HTTP (403|429)\b/.test(t) || /\b429 Too Many Requests\b/i.test(t);
-  if (!secondary && !primary && !(http && /rate limit/i.test(t)) && !/\bHTTP 429\b/.test(t)) return null;
+  // GitHub's own refusal only (PD-6): its rate-limit or abuse words, a 403/429 that names a rate limit
+  // or carries GitHub's Retry-After or x-ratelimit headers, or any other 429 (every gh call and git
+  // push goes to GitHub; git prints "RPC failed; HTTP 429"), unless a proxy says it is its own (the
+  // agent proxy's "too many concurrent transfers"). A 5xx, or a 403 that names no rate limit, is a
+  // failed call, never a pause or a stop (cold review of R17g: a bare "gh: HTTP 429" was missed).
+  const headers = /retry-after:\s*\d+|x-ratelimit-remaining:\s*0\b/i.test(t);
+  const github429 = /\bHTTP 429\b|returned error: 429\b|\b429 Too Many Requests\b/i.test(t) && !/proxy|concurrent transfers/i.test(t);
+  if (!secondary && !primary && !(http && (/rate limit/i.test(t) || headers)) && !github429) return null;
   const ra = t.match(/retry-after:\s*(\d+)/i);
   const reset = t.match(/x-ratelimit-reset:\s*(\d+)/i);
   return { kind: primary ? 'primary' : 'secondary', retryAfter: ra ? Number(ra[1]) : null, reset: reset ? Number(reset[1]) * 1000 : null };
@@ -461,7 +480,15 @@ export function limitSignal(text) {
 // (Retry-After, else x-ratelimit-reset, else for the primary limit rate_limit's reset, else one
 // minute, as GitHub's docs say), this clone's own record first; a refusal after a pause had ended,
 // within an hour of it, stops the tool (nextPause). Returns the pause in force, or null.
-export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
+let inAfter = false;
+export function ghAfter(args, result, cwd, opts = {}) {
+  // The pause's own write is a push (the ledger): a refusal of it is never judged again inside this
+  // one, so no loop (cold review of R17g: git pushes now come here too).
+  if (inAfter) return null;
+  inAfter = true;
+  try { return ghAfterOnce(args, result, cwd, opts); } finally { inAfter = false; }
+}
+function ghAfterOnce(args, result, cwd, { now = Date.now, rateLimit } = {}) {
   const a = args.map(String);
   if (result?.code === 0) {
     // A merge (api PUT .../pulls/N/merge, pr merge) or a release's tag moves a ref on GitHub: a push
@@ -483,7 +510,7 @@ export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
   let until = sig.retryAfter !== null ? t + sig.retryAfter * 1000 : sig.reset;
   if (!until && sig.kind === 'primary') { const pr = (rateLimit || defaultRateLimit)(cwd); until = pr?.reset || null; }
   if (!until || until <= t) until = t + 60e3;
-  const rec = { at: iso(t), until: iso(until), why: `${sig.kind} rate limit on gh ${a.slice(0, 2).join(' ')}${sig.retryAfter !== null ? `, Retry-After ${sig.retryAfter} s` : ''}`, session: sessionId() };
+  const rec = { at: iso(t), until: iso(until), why: `${sig.kind} rate limit on ${a[0] === 'push' ? 'git' : 'gh'} ${a.slice(0, 2).join(' ')}${sig.retryAfter !== null ? `, Retry-After ${sig.retryAfter} s` : ''}`, session: sessionId() };
   // This clone's own record first: obeyed here whatever happens to the shared one.
   const mine = nextPause(localPause(cwd), rec, t);
   const writeMine = (x) => { try { writeFileSync(join(commonDir(cwd), PAUSE_LOCAL), JSON.stringify(x)); } catch { /* best effort */ } };
@@ -498,8 +525,9 @@ export function ghAfter(args, result, cwd, { now = Date.now, rateLimit } = {}) {
 }
 
 // Whether a new session may start (job start, lane start): not while GitHub is paused or the tool
-// stopped, nor while the last hour's content-creating requests or the primary limit are at target
-// (a new session adds both). Returns the reason, or null.
+// stopped (GitHub's refusals), nor while the last hour's content-creating requests or the primary
+// limit are at target (GitHub's published limits; a new session adds both); never on pushes (PD-6).
+// Returns the reason, or null.
 export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = {}) {
   const lim = p.github_limits || GITHUB_LIMITS;
   const s = shared.read();
@@ -507,7 +535,6 @@ export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = 
   if (pause?.stopped) return `GitHub refused this account again within an hour of an earlier refusal (${pause.why}): the tool is stopped until the coordinator runs github resume`;
   if (pause?.until && Date.parse(pause.until) > now) return `GitHub rate-limited this account until ${pause.until} (${pause.why})`;
   const h = usage(cwd, { t: now, seconds: 3600, read: s });
-  if (h.pushes >= p.pushes_per_hour) return `${h.pushes} pushes in the last hour account-wide, the process's own ceiling ${p.pushes_per_hour} (PD-3): a new session waits for the window`;
   if (h.content >= Math.floor(p.target * lim.content_per_hour)) return `${h.content} of GitHub's ${lim.content_per_hour} content-creating requests an hour used account-wide, the target ${Math.round(p.target * 100)}%: a new session waits for the window`;
   const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
   if (pr && pr.limit - pr.remaining >= Math.floor(p.target * pr.limit) && pr.reset > now) return `${pr.limit - pr.remaining} of the primary limit's ${pr.limit} an hour used, the target ${Math.round(p.target * 100)}%, until ${iso(pr.reset)}`;
@@ -569,7 +596,8 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   log(`- REST points, the last minute: ${pct(m.points, lim.rest_points_per_minute)}`);
   log(`- content-creating requests, the last minute: ${pct(m.content, lim.content_per_minute)}`);
   log(`- content-creating requests, the last hour: ${pct(h.content, lim.content_per_hour)}`);
-  log(`- pushes, the last hour: ${pct(h.pushes, p.pushes_per_hour)} of the process's own ceiling (PD-3; GitHub publishes none; each push starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
+  log(`- pushes, the last hour: ${h.pushes}; GitHub publishes no limit, so none is applied (PD-6; each push starts its workflows, whose GITHUB_TOKEN has ${lim.actions_token_per_hour} requests an hour per repository)`);
+  if (p.retired?.length) log(`- note: ${retiredNote(Object.fromEntries(p.retired.map((k) => [k, true])))}`);
   log(`- fetches, the last hour: ${h.fetches}${Object.keys(h.fetches_by).length ? ` (${Object.entries(h.fetches_by).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ')})` : ''} (git fetch, clone and ls-remote by the tool; GitHub publishes no limit, and the process sets none)`);
   log(`- not counted here: ${lim.concurrent} concurrent requests (each session calls one at a time) and ${lim.cpu_seconds_per_minute} s of CPU a minute (GitHub's side)`);
   const pause = pauseOf(cwd, s);

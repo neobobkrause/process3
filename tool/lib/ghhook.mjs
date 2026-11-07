@@ -4,7 +4,7 @@
 //                   call would (the pause, the stop, the windows, at most a 15 min wait): a read
 //                   1 point; a write (create, update, add, merge, comment, review, ...) one
 //                   content-creating request, 5 points; one that moves a ref on GitHub (a merge, a
-//                   file write, a branch) also a push against the ceiling. Refused: exit 2.
+//                   file write, a branch) also logged as a push (never held: PD-6). Refused: exit 2.
 //   Bash            a raw `git push`, any `gh` command, or curl or wget to github.com is refused
 //                   (exit 2), naming the tool's way instead; the tool's own commands
 //                   (node .process/tool/p3.mjs, node tool/p3.mjs) pass, and everything else.
