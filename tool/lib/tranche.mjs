@@ -73,7 +73,8 @@ export function openLine(o) {
 }
 
 // tranche open: the steps, nothing written. The throwaway branch's number is one past those origin has.
-export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(root) } = {}) {
+// now: the clock its printed steps read (a test fixes it: two runs compared read it once).
+export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(root), now = Date.now } = {}) {
   const cfg = loadConfig(root);
   const { tip } = tipApprovals(root, cfg);
   fetchState(root, cfg.state_branch);
@@ -103,7 +104,7 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
     `Then send BOB one message with send_message: one line per act, "<act>|${d + 1}|<ok, refused or declined>" (push, pr-open, pr-comment, pr-merge), and the exact words of any refusal. Then end.`,
   ].join('\n');
   const call = { title: `grants probe ${n}`, source_url: `https://github.com/${slug}`, source_revision: tip, clone_depth: 1, prompt: probe };
-  const at = new Date(Date.now() + 864e5).toISOString().replace(/\.\d+Z$/, 'Z');
+  const at = new Date(now() + 864e5).toISOString().replace(/\.\d+Z$/, 'Z');
   const steps = [
     `\`${P3} github push origin ${tip}:refs/heads/${base}\` (the throwaway base; kept, never deleted)`,
     ...gitActs('bob', d).slice(0, 1),

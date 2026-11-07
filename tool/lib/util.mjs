@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { fetchSeen, ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushTurn, setPacing } from './pace.mjs';
+import { fetchSeen, ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushTurn, sessionId, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -510,9 +510,20 @@ const jitter = (ms) => Math.round(ms * (0.75 + Math.random() * 0.5));
 // merge commit, never a rebase or a force; a conflict stops it). Then it pushes again, at most
 // `tries` times in all; the last refusal is reported in the remote's words. Returns the tip pushed.
 // `push` is for the tests: it stands in for one push and returns git's { code, stderr }.
-export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = console.log, redo, push } = {}) {
+// Each push of a state branch marks the commit it pushes (R17e, coordinator's C9/C10: a push
+// records itself in the push it makes): the ledger counts the branch's pushes from its own history
+// (ghshare.mjs statePushes), a source no share's lag or loss can drift.
+export const PUSH_TRAILER = 'P3-Push';
+export function stampPush(cwd, session = sessionId()) {
+  const msg = git(['log', '-1', '--format=%B'], { cwd });
+  if (new RegExp(`^${PUSH_TRAILER}:`, 'm').test(msg)) return false;
+  git(['commit', '-q', '--amend', '--allow-empty', '--no-verify', '-m', `${msg.trimEnd()}\n\n${PUSH_TRAILER}: ${session || 'no-session'}`], { cwd });
+  return true;
+}
+export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = console.log, redo, push, stamp = false } = {}) {
   const once = push || (() => git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd, allowFail: true }));
   for (let t = 1; ; t++) {
+    if (stamp) stampPush(cwd);
     const r = once();
     if (r.code === 0) return git(['rev-parse', 'HEAD'], { cwd });
     const why = r.stderr.trim();

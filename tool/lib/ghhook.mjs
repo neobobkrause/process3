@@ -105,7 +105,7 @@ export function hookDecision(input, cwd, opts = {}) {
 // The hook as Claude Code runs it (R17d, tool/hook.mjs; `p3 github hook` runs the same): the
 // Bash check and other tools touch no git and no ledger; a connector read takes the read path
 // (ghshare peekShare: the cached pause and stop, GitHub's cached primary count, no fetch, no
-// network, no per-clone floor: under 300 ms); a connector write reads the ledger fresh and takes
+// network, no per-clone floor: under 300 ms); a connector write reads the ledger through stateShare (within READ_S, else ls-remote) and takes
 // the full path, waits included. Returns the exit code: 0 allows, 2 blocks (reason on stderr).
 const CONNECTOR = 'mcp__github__';
 export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick = process.env.NODE_TEST_CONTEXT ? () => false : kickRefresh, opts = {} } = {}) {
