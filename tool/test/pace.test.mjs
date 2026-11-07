@@ -458,6 +458,8 @@ test('one ledger per account: a process3 clone reads and writes the product\'s s
   // The share is gated and never waits: refused while the account is paused, shared after.
   assert.throws(() => stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow(), /GitHub budget: GitHub rate-limited this account.*not now; tried again later/);
   stateShare(product, configOf({})).resume('session_coord');
+  // A reader sees the resume once its read is READ_S old (R17e, C12); this command's starts fresh.
+  useShared(stateShare(product, configOf({})));
   assert.ok(stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow() >= 1, 'shared once share_s has passed and the pause is lifted');
   assert.match(git(['ls-tree', '--name-only', 'process-state', `${USE_DIR}/`], { cwd: bare }), /github\/use\/cse_p3\.jsonl/);
 });
