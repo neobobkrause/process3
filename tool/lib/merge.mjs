@@ -954,7 +954,8 @@ export function mergePlain(root, n, opts = {}) {
       if (!e.requirements || f !== String(e.requirements).replace(/^\.\//, '')) return false;
       const diff = git(['diff', '--no-renames', '-U0', mb, pr.head.sha, '--', f], { cwd: root });
       const before = git(['show', `${mb}:${f}`], { cwd: root, allowFail: true });
-      const r = foundOnly(diff, before.code === 0 ? before.stdout : '');
+      const after = git(['show', `${pr.head.sha}:${f}`], { cwd: root, allowFail: true });
+      const r = foundOnly(diff, before.code === 0 ? before.stdout : '', after.code === 0 ? after.stdout : '');
       if (!r.ok) why.push(`${f}: ${r.why}`);
       return r.ok;
     };

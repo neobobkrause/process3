@@ -358,9 +358,11 @@ export const OPEN_BY = ['uses', 'layer'];
 // 7 Nov: record-core's R92, layer 11, carries its mark on its indented `Control:` line, so
 // `layer publish --test R92` was refused as no mark struck): a sub-line is a non-blank line right
 // under it, indented, that is not itself a requirement line (`  1. ...`, `  Test: ...`,
-// `  Control: ...`). A blank line, an unindented line or another requirement line ends it. Prose
-// is never read: a line not starting with an id and under none, or the words outside that italic
-// form. A line ends at \n or \r (review of PR 77).
+// `  Control: ...`), blank lines between them included (a loose list item's next paragraph: the
+// copy's journey-check R13 and installer R48, cold review of C24). An unindented line or another
+// requirement line ends it. So an indented note under a requirement is that requirement's, mark and
+// all, even one naming another id. Prose is never read: a line not starting with an id and under
+// none, or the words outside that italic form. A line ends at \n or \r (review of PR 77).
 const REQ_LINE = new RegExp(String.raw`^[ \t]*(?:[-*+][ \t]+|\d+\.[ \t]+)?\*\*([RF][\w.-]+)\*\*`);
 const MARK_TEXT = '*(not yet met';
 // Every requirement, its id and its text (its line and sub-lines), in file order.
@@ -371,6 +373,7 @@ export function requirementBlocks(text) {
     const m = REQ_LINE.exec(l);
     if (m) { cur = { id: m[1], text: l }; blocks.push(cur); continue; }
     if (cur && /^[ \t]+\S/.test(l)) { cur.text += `\n${l}`; continue; }
+    if (cur && /^[ \t]*$/.test(l)) continue;
     cur = null;
   }
   return blocks;
