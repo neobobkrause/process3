@@ -206,7 +206,16 @@ const deferredFile = (root, sb) => join(commonDir(root), `p3-deferred-${sb.repla
 function deferredOps(root, sb) {
   try { return readFileSync(deferredFile(root, sb), 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { const o = JSON.parse(l); return appliers.has(o.kind) ? [o] : []; } catch { return []; } }); } catch { return []; }
 }
-function deferOps(root, sb, ops) { if (ops.length) appendFileSync(deferredFile(root, sb), ops.map((o) => JSON.stringify(o) + '\n').join('')); }
+// Appended under the lock; an idle-check row an hour old is dropped (a later check measures again),
+// so a clone that only reads keeps a short file (cold review of C18).
+function deferOps(root, sb, ops) {
+  if (!ops.length) return;
+  const f = deferredFile(root, sb);
+  let old = [];
+  try { old = readFileSync(f, 'utf8').split('\n').filter(Boolean); } catch { old = []; }
+  const keep = old.filter((l) => { try { const o = JSON.parse(l); return !(o.kind === 'check' && Date.now() - Date.parse(o.payload?.row?.at) > 3600e3); } catch { return false; } });
+  writeFileSync(f, [...keep, ...ops.map((o) => JSON.stringify(o))].join('\n') + '\n');
+}
 // The ops pushed: removed from the file, ops another process added meanwhile kept.
 function dropDeferred(root, sb, ops) {
   const done = new Set(ops.map((o) => JSON.stringify(o)));

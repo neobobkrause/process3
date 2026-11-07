@@ -193,7 +193,11 @@ export function beforeAct(root, cfg, name, a, { env = process.env, io, log = con
   // Starts owed first for BOB's acts (status prints its own): a marker, never a refusal.
   if (bobAct(name, a) && name !== 'status') { try { if (fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* a marker, never a refusal */ } }
   if (env.GITHUB_ACTIONS || name === 'sweep' || name === 'switch') return null;
-  try { return idleCheck(root, cfg, { by: name, from: senderFor(root, name, a), io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
+  // Not a job session's command (cold review of C18: with ok rows waiting in each clone, every
+  // session would check every CHECK_MIN): BOB's and ROOT's commands, and the hourly sweep, keep it.
+  const from = senderFor(root, name, a);
+  if (/^job-/.test(String(from))) return null;
+  try { return idleCheck(root, cfg, { by: name, from, io, log }); } catch (e) { err(`idle check not run: ${e.message}`); return null; }
 }
 
 export function sweep(root, { session, live, sessions: sessionsFile, context, attempts = [], offline = false, io, log = console.log } = {}) {

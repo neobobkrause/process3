@@ -122,3 +122,25 @@ test('a write kept for replay leaves the waiting records in the clone: the repla
   assert.ok(bare);
 });
 
+
+test('a batched flush refused to the end keeps its own writes for replay and leaves the waiting records waiting, never in both', () => {
+  const { root, bare } = product();
+  bookkeep(root, SB, 'starts owed: merge 12', 'owe', { path: OWED_FILE, act: 'merge 12', at: now() });
+  const before = pushes(bare);
+  stateIO.push = () => ({ code: 1, stderr: 'remote: refused for the test' });
+  stateBatch(true);
+  try {
+    writeState(root, SB, 'a real write', (dir) => { writeFileSync(join(dir, 'r.txt'), 'r\n'); return {}; });
+    assert.throws(() => flushState(), /state replay/);
+  } finally { stateBatch(false); delete stateIO.push; }
+  assert.equal(pushes(bare), before);
+  const kept = git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
+  assert.equal(kept.length, 1, 'the real write kept, alone');
+  assert.equal(git(['log', '-1', '--format=%s', kept[0]], { cwd: root }), 'a real write');
+  assert.deepEqual(readOwed(root, SB).acts.map((a) => a.act), ['merge 12'], 'the record still waiting in the clone');
+  stateReplay(root, SB, [], { log: () => {} });
+  stateBatch(true);
+  try { writeState(root, SB, 'next', (dir) => { writeFileSync(join(dir, 'n.txt'), 'n\n'); return {}; }); flushState(); } finally { stateBatch(false); }
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  assert.deepEqual(JSON.parse(readState(root, SB, OWED_FILE)).acts.map((a) => a.act), ['merge 12'], 'pushed once');
+});
