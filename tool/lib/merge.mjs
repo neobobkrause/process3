@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { RECEIPT, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestBlock, latestReceipt, openPRs, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, jobBranch, ledgerIds, originJobs } from './ledger.mjs';
 import { appendRow, bobMetricsFile, metricsFile, readRows, rowsAt } from './metrics.mjs';
-import { PASS_BRANCH, diffNames, entriesAt, ownPaths } from './gate.mjs';
+import { PASS_BRANCH, addedRequirements, diffNames, entriesAt, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored } from './anchor.mjs';
 import { P3, START_FIRST, START_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, toolPin, wakeLine } from './job.mjs';
@@ -23,6 +23,8 @@ import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordPath, isShallow, laneOnly, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
 
 import { pollMs } from './pace.mjs';
+import { roundCloseRun } from './deploy.mjs';
+import { deploys } from './deploycfg.mjs';
 // Before a wait, the command's coalesced state writes are pushed (R17): others read them meanwhile.
 const sleep = (ms) => { if (pendingWrites()) flushState(); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 const MINUTE = 60000;
@@ -996,7 +998,7 @@ export function mergePlain(root, n, opts = {}) {
     const genOwned = passIds && changed.some((f) => isGenerated(gen, f) && entries.some((e) => owned(f, e)));
     refreshed = hits.length || genOwned ? changed.filter((f) => isGenerated(gen, f)) : [];
     untracked = refreshed.length ? removed : [];
-    const others = refreshed.length && !passIds ? refreshOthers(baseCfg, gen, changed, entries, ignores) : [];
+    const others = refreshed.length && !passIds ? refreshOthers(baseCfg, gen, changed, entries, ignores, { also: addedRequirements(root, baseCfg, { from: mb, to: pr.head.sha, before: entries }) }) : [];
     if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh may go beside only records, the modules file, the layers file and process/config.json; any other file could be what writes them`);
   }
 
@@ -1048,7 +1050,16 @@ export function mergePlain(root, n, opts = {}) {
   const wake = moved && as !== 'bob' ? bobWake(what, as) : null;
   // Printed once per merge commit (state.mjs wakeOnce).
   if (wake) printWake(root, baseCfg?.state_branch || DEFAULTS.state_branch, { pr: n, sha: r.sha, what, wake, as, by: 'merge', log });
-  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null, ...(passIds ? { pass, modules: passIds } : {}), ...(workflows.length ? { workflows } : {}) };
+  // A plain pull request into the tranche that can close a round (the plan made close in
+  // process/config.json, or a completion item done) starts the round-close run if it did (Bob,
+  // 7 Nov: required, tool-started); any other merge reads nothing more.
+  // Read from the merged config (the pull request's head), so one that adds the deploy block or
+  // renames completion_file with its close counts (cold review of C23).
+  let headCfg = baseCfg;
+  try { headCfg = loadConfig(root, pr.head.sha); } catch { headCfg = baseCfg; }
+  const closes = baseCfg && deploys(headCfg) && base === baseCfg.tranche && changed.some((f) => f === CONFIG_FILE || f === headCfg.completion_file || f === baseCfg.completion_file);
+  const round = closes ? (io.roundClose || roundCloseRun)(root, { log, io: io.round || {}, by: `merge ${n}` }) : null;
+  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null, ...(round ? { round } : {}), ...(passIds ? { pass, modules: passIds } : {}), ...(workflows.length ? { workflows } : {}) };
 }
 
 // A pin move's wake for BOB (build train-robust, option 2A): the same words wherever the move is

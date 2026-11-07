@@ -52,7 +52,7 @@ function world() {
     cfAsked: [],
     pin: PIN,
     files: { 'CLAUDE.md': `## Standing approvals from Bob\n\nThe owner's words.\n\n${LINES}`, '.claude/settings.json': JSON.stringify({ permissions: { deny: DENY }, hooks: HOOKS }),
-      '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml'), '.github/workflows/process-record.yml': PIN.file('shims/process-record.yml'), '.github/workflows/process-branch-prune.yml': PIN.file('shims/process-branch-prune.yml'), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123' }) },
+      '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml'), '.github/workflows/process-record.yml': PIN.file('shims/process-record.yml'), '.github/workflows/process-branch-prune.yml': PIN.file('shims/process-branch-prune.yml'), 'process/config.json': JSON.stringify({ tranche: 'tranche', coordinator: 'session_bob', environment: ['CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'], cloudflare_account: 'acc123', deploy: { internal_walk: { run: ['npm', 'run', 'walk:internal'] } } }) },
     env: { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value', CLOUDFLARE_ACCOUNT_ID: 'acc123' },
     asked: [],
   };
@@ -205,7 +205,7 @@ test('artifact retention: under 90 days is missing, and no artifact yet is unmea
 
 test('the tranche\'s config must name a coordinator', () => {
   const w = world();
-  w.files['process/config.json'] = JSON.stringify({ tranche: 'tranche' });
+  w.files['process/config.json'] = JSON.stringify({ tranche: 'tranche', deploy: { internal_walk: { run: ['x'] } } });
   assert.deepEqual(check(w).missing, ['coordinator']);
 });
 
@@ -294,7 +294,7 @@ test('environment: every listed variable is present, and only names are ever pri
   assert.doesNotMatch(out.join('\n'), /tok-|SECRET|value|\b16\b/, 'no value, prefix or length');
   // No list in the config: not configured, which does not stop a start.
   const n = world();
-  n.files['process/config.json'] = JSON.stringify({ coordinator: 's' });
+  n.files['process/config.json'] = JSON.stringify({ coordinator: 's', deploy: { internal_walk: { run: ['x'] } } });
   const r3 = check(n);
   assert.equal(r3.ok, true);
   assert.equal(state(r3, 'environment').state, 'not configured');
@@ -445,15 +445,15 @@ test('deploy-token: one harmless read per scope, each reported present or missin
   delete w.env.CLOUDFLARE_API_TOKEN;
   assert.equal(state(check(w), 'deploy-token').detail, "CLOUDFLARE_API_TOKEN is not in this session's environment");
   const n = world();
-  n.files['process/config.json'] = JSON.stringify({ coordinator: 's' });
+  n.files['process/config.json'] = JSON.stringify({ coordinator: 's', deploy: { internal_walk: { run: ['x'] } } });
   assert.equal(state(check(n), 'deploy-token').state, 'not configured');
   for (const [acct, envList] of [[null, null], ['', []], ['   ', null]]) {
-    n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: acct, environment: envList });
+    n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: acct, environment: envList, deploy: { internal_walk: { run: ['x'] } } });
     const rn = check(n);
     assert.equal(rn.ok, true, JSON.stringify(rn.missing));
     for (const id of ['deploy-token', 'deploy-account', 'environment']) assert.equal(state(rn, id).state, 'not configured', `${id} with ${JSON.stringify(acct)}`);
   }
-  n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: false });
+  n.files['process/config.json'] = JSON.stringify({ coordinator: 's', cloudflare_account: false, deploy: { internal_walk: { run: ['x'] } } });
   const rf = check(n);
   for (const id of ['deploy-token', 'deploy-account']) assert.equal(state(rf, id).detail, 'process/config.json cloudflare_account is not an account ID', id);
   assert.equal(n.cfAsked.length, 0);
@@ -697,4 +697,26 @@ test('deploy-token: a 200 whose body says nothing is unknown; the kept answer is
   assert.doesNotMatch(readFileSync(join(dir, '.git', 'p3-cf-present.json'), 'utf8'), /tok-/, 'the token is never kept');
   t -= 10_000; // the clock went back: an answer from the future is not fresh
   assert.equal(cachedCloudflare(read, dir, { now: () => t, token: 'tok-one' })('a').cached, undefined);
+});
+
+// C23 (Bob, 7 Nov: the internal walk "Required, tool-started", at "Round close only").
+test('internal-walk: set when the tranche config names a run, missing when not, and Bob\'s recorded exemption reads not configured', () => {
+  const base = (deploy) => { const w = world(); const c = JSON.parse(w.files['process/config.json']); w.files['process/config.json'] = JSON.stringify({ ...c, deploy }); return w; };
+  let r = check(base({ internal_walk: { run: [['npm', 'run', 'walk:internal']] } }));
+  assert.equal(state(r, 'internal-walk').state, 'set');
+  assert.match(state(r, 'internal-walk').detail, /runs npm run walk:internal/);
+  r = check(base(undefined));
+  assert.deepEqual(r.missing, ['internal-walk']);
+  assert.match(state(r, 'internal-walk').detail, /names no internal walk \(deploy\.internal_walk\.run\): it is required and runs at each round's close \(Bob, 7 Nov\)/);
+  r = check(base({ internal_walk: { none: 'the probe has no product to walk', by: 'Bob, 7 Nov' } }));
+  assert.equal(state(r, 'internal-walk').state, 'set');
+  assert.equal(state(r, 'internal-walk').detail, 'not configured: the probe has no product to walk (Bob, 7 Nov)');
+  r = check(base({ internal_walk: { none: 'no reason given by anyone' } }));
+  assert.deepEqual(r.missing, ['internal-walk'], 'an exemption is Bob\'s word: no "by", no exemption');
+  // What deploy dev refuses, setup check refuses (cold review of C23: one reading, internalWalkOf).
+  for (const bad of [{ none: 'x', by: 'Bob, 7 Nov', run: ['w'] }, { run: ['w'], timeout_minutes: 0 }, { run: 'npm run walk' }, { run: ['w'], extra: 1 }]) {
+    r = check(base({ internal_walk: bad }));
+    assert.deepEqual(r.missing, ['internal-walk'], JSON.stringify(bad));
+    assert.match(state(r, 'internal-walk').detail, /deploy\.internal_walk/);
+  }
 });

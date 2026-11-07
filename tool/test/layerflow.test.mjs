@@ -314,8 +314,8 @@ test('module states: rescheduled until a land holds the provider\'s land; deferr
   assert.deepEqual(s.map((x) => x.state), ['published', 'working']);
 });
 
-async function opened() {
-  const p = product();
+async function opened(config = {}) {
+  const p = product({ config });
   layerOpen(p.root, 1, { io: openIO, log: quiet });
   return p;
 }
@@ -437,7 +437,8 @@ test('land: a run that started before a provider\'s newest interface change neve
 });
 
 test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; the layer merges only when every module is complete or deferred', async () => {
-  const { root, bare } = await opened();
+  // A deploy block: the merge hands the round-close run its turn (Bob, 7 Nov: tool-started).
+  const { root, bare } = await opened({ deploy: { slug_prefix: 'p3dev-', dry_run: ['true'], deploy: ['true'], walk: ['true'], guard_line: 'ok' } });
   const hb = jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(6);\n" });
   const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
   const prs = { 1: prOf(1, 'b', hb), 2: prOf(2, 'c', hc) };
@@ -461,8 +462,10 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   await layerLand(root, 4, { io: landIO(bare, prs), log: quiet });
   // An open publish PR holds the merge.
   await assert.rejects(layerMerge(root, 1, { io: mio({ openPRs: () => [{ number: 60, draft: true, head: { ref: 'job/c' } }] }), wait: false, log: quiet }), /c is working/);
-  const m = await layerMerge(root, 1, { io: mio(), wait: false, log: quiet });
+  const asked = [];
+  const m = await layerMerge(root, 1, { io: mio({ roundClose: (r, o) => { asked.push(o.by); return { ran: false, owed: null }; } }), wait: false, log: quiet });
   assert.equal(m.ok, true);
+  assert.deepEqual([asked, m.round], [['layer merge 1'], { ran: false, owed: null }], 'the merge, recorded, asks the round-close run once');
   fetchState(root, SB, { fresh: true });
   assert.equal(JSON.parse(readState(root, SB, flowFile(1, 'merged'))).layer, 1);
   const closed = readState(root, SB, 'layers/closed.jsonl').trim().split('\n').map((l) => JSON.parse(l));

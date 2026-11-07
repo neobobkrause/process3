@@ -241,6 +241,14 @@
       "value": "each named module: process/ledger/<module>.json, a row in modules_file, its requirements file",
       "who": "BOB, through a plain pull request into the tranche (or dropping module from the lane's row)",
       "read": "process/config.json, the ledger entries, modules_file and the requirements files on origin/<tranche>, through git"
+    },
+    {
+      "id": "internal-walk",
+      "what": "process/config.json on the tranche names the product's internal walk (deploy.internal_walk.run), or records Bob's exemption ({\"none\": \"<reason>\", \"by\": \"Bob, <date>\"}).",
+      "why": "The internal walk is required and tool-started at each round's close (Bob, 7 Nov: \"Required, tool-started\", run at \"Round close only\"); a product with none would close rounds unwalked.",
+      "value": "deploy.internal_walk.run: an argv or a list of argvs; or the exemption, which reads \"not configured: <reason>\"",
+      "who": "BOB, through a plain pull request into the tranche; an exemption only on Bob's word",
+      "read": "process/config.json on origin/<tranche>, through git"
     }
   ]
 }
