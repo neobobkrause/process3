@@ -227,15 +227,15 @@ test('a regenerate that writes nothing cannot pass a hand-edited file, and a cha
   const g = gateIO();
   const r2 = gateOn(q2, g);
   assert.equal(r2.run.refresh.result, 'other files changed');
-  assert.match(r2.findings.find((f) => f.file === 'gen.mjs').message, /changes generated module files and gen\.mjs: a refresh changes only generated files/);
+  assert.match(r2.findings.find((f) => f.file === 'gen.mjs').message, /changes generated module files and gen\.mjs: a refresh may go beside only records, the modules file, the layers file and process\/config\.json; any other file could be what writes them/);
   back(q2);
-  assert.throws(() => mergePlain(q2.root, 148, { ...q, io: plainIO(q2, g.state.comments, g.io.verify).io }), /changes generated module files and gen\.mjs: a refresh changes only generated files \(and records\)/);
+  assert.throws(() => mergePlain(q2.root, 148, { ...q, io: plainIO(q2, g.state.comments, g.io.verify).io }), /changes generated module files and gen\.mjs: a refresh may go beside only records/);
   // Nor a file the generator imports, which no command names (review 2 of PR 95).
   const imp = product({ [BUNDLE]: '{"from":"evil"}\n', 'gen-lib.mjs': 'export default 1;\n' });
   const g3 = gateIO();
   assert.equal(gateOn(imp, g3).run.refresh.result, 'other files changed');
   back(imp);
-  assert.throws(() => mergePlain(imp.root, 148, { ...q, io: plainIO(imp, g3.state.comments, g3.io.verify).io }), /and gen-lib\.mjs: a refresh changes only/);
+  assert.throws(() => mergePlain(imp.root, 148, { ...q, io: plainIO(imp, g3.state.comments, g3.io.verify).io }), /and gen-lib\.mjs: a refresh may go beside only/);
 });
 
 // Build untrack-generated (copy PR 306, run 41905241074, 4 Nov): a committed generated file could
@@ -332,7 +332,7 @@ test('untracking: a .gitignore line other than the untracked path, or a .gitigno
     assert.equal(r.run.ok, false, what);
     assert.equal(r.run.refresh.result, 'other files changed', what);
     back(p);
-    assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /a refresh changes only|no green process-gate run|module files, which go through a job/, what);
+    assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /a refresh may go beside only|no green process-gate run|module files, which go through a job/, what);
   }
   // Its own path from a nested .gitignore, anchored, with a comment, is the untracking's.
   const n = product({ 'process/metrics/alpha.jsonl': '{}\n' });
@@ -356,9 +356,9 @@ test('untracking: a .gitignore change that drops or alters a line is another fil
   const g = gateIO();
   const r = gateOn(p, g);
   assert.equal(r.run.refresh.result, 'other files changed');
-  assert.match(r.findings.find((f) => /a refresh changes only/.test(f.message)).message, /and \.gitignore/);
+  assert.match(r.findings.find((f) => /a refresh may go beside only/.test(f.message)).message, /and \.gitignore/);
   back(p);
-  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /and \.gitignore: a refresh changes only/);
+  assert.throws(() => mergePlain(p.root, 148, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }), /and \.gitignore: a refresh may go beside only/);
 });
 
 test('a generated file no module owns is not the refresh check\'s: the gate stays green', () => {
@@ -433,7 +433,7 @@ test('a refresh\'s record files count as inert only outside every module and unn
   const head = git(['rev-parse', 'HEAD'], { cwd: p.root });
   const r = gate(p.root, { base: base2, head, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
   assert.equal(r.run.refresh.result, 'other files changed');
-  const others = r.findings.find((f) => /a refresh changes only/.test(f.message)).message;
+  const others = r.findings.find((f) => /a refresh may go beside only/.test(f.message)).message;
   assert.match(others, /src\/alpha\/notes\/n\.md/);
   assert.match(others, /process\/gen\.mjs/);
   assert.doesNotMatch(others, /process\/metrics/);

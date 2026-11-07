@@ -123,3 +123,68 @@ Left as they are:
 - a gated push made while the state lock is held can wait inside it, up to 15 min;
 - every gated push reads the ledger fresh;
 - sessions with no session id share one use file (conservative).
+
+## Risk: GitHub hides every pull request the suspended civicsmith account opened (R17c, item H)
+
+BOB is reopening job pull requests on the same head branches. The tool code below reads an old pull request by number, or through its comments. Each place can now find nothing, or the wrong one:
+
+- `tool/lib/job.mjs:369-373` (job start --reopen, an abandoned attempt): `prsFromBranch(state=all)` finds the branch's last merged PR and the closed one after it. With civicsmith's PRs hidden, no earlier merge is seen, so an attempt whose merge was hidden can be named "abandoned" and given a fresh branch it does not need.
+- `tool/lib/job.mjs:578` (job start --take-in #N): `getPR(N)` of a hidden PR fails as "not open". Take in by branch name instead.
+- `tool/lib/layerflow.mjs:800-810` (layer retest): the last receipt is read from the newest merged PR from the branch, through its comments. A receipt posted on a hidden PR is gone, and the retest refuses ("no receipt ... a job re-tests it").
+- `tool/lib/merge.mjs` and `tool/lib/gate.mjs:92` (a job merge, the gate): the receipt and gate blocks are read from the open PR's comments. A reopened PR on the same head has none until the job runs `job complete` again, which posts the receipt on the new PR. The gate then reads it.
+- `tool/lib/lead.mjs:281` (lead times): gate runs are read from the comments of the PR named in the COMPLETE row. On a hidden PR they read as unmeasured.
+- `tool/lib/carry.mjs:16-28` (take-in carry): the files of `take_in.pr` from the job rows. A hidden PR gives none, so the carry check sees no files.
+- `tool/lib/branches.mjs:84` (branch prune): `pulls?state=all` decides "open-pr" and "train-head-closed". Hidden PRs are simply absent, so a branch whose only PR is hidden is judged by its commits alone (it is kept if ahead or recent).
+- `tool/lib/measures.mjs:53-68` (survival): it uses the state rows' PR numbers and merge commits, not GitHub, so it is unaffected.
+
+## R17c: enforced, not by rule (coordinator's items A to H, 6 Nov)
+
+- **A. `p3 github hook`** is a PreToolUse hook. It counts every GitHub-connector call in the ledger: a read costs 1 point, a write is one content-creating request at 5 points, and a write that moves a ref is also a push. It waits or refuses exactly like a gh call, and exits 2 to block. It refuses a raw `git push`, any `gh`, and curl or wget to github.com. The ledger read is cached on disk for 30 s across the clone's processes, so a connector read fetches nothing. The settings that call it are Bob's, in notes/r17c-settings.md.
+- **B.** git fetch, clone and ls-remote are counted (kind fetch) and shown in `github budget`. There is no ceiling.
+- **D.** `github audit` shows the hook's connector count beside GitHub's primary count.
+- **E.** Jobs push only through `job sync`, `layer publish` and `job complete`, as the job START, acts and rulebook say. `p3 github push` stays for BOB, lanes, builders and the coordinator.
+- **F. Recovery after a refusal.**
+  - Every refusal names the limit, when it frees and the exact command to rerun (`rerunLine`), and says the work before it stands.
+  - A refused push reaches a caller that handles failures as a failed push, so the caller names its own rerun (job sync: "run job sync again").
+  - `status` and ROOT's sweep print state writes held in `refs/p3/unpushed/` as an act: `state replay`.
+  - Rerun-safety is proven by tests that inject a refusal at each GitHub step in turn, then rerun:
+    - `merge` of a job (every gh step, and the merge-row push): one merge, one merge row;
+    - `job sync`: the push on the rerun, the merge kept;
+    - `job complete` (every gh step, and its push): one receipt for the head, ready.
+  - Not yet covered by such tests: `merge --plain` (it shares the merge core), `layer publish`, `layer sync`, and the pin-move and tranche steps. Those are printed steps a session runs one at a time; each step's rerun is the step itself.
+- **G.** Job sync pushes the branch itself through the governed git (a fast-forward only, rerun-safe). No printed `git push` instruction remains in the tool.
+
+## R17e: one count for every clone; bookkeeping never the dominant traffic (C9, C10; 7 Nov)
+
+**C10, why clones disagreed.** `cloneId` was `${hostname()}:${git common dir}`. Every cloud container
+is hostname `vm` with the same paths, so every session's copy clone had one id, and `usage` skipped
+the ledger rows carrying its own id ("they are in my log"). Each copy clone so dropped every other
+copy-clone session's use. Measured 00:50Z on one ledger tip: process3 clone 124 pushes/h, copy clone
+8. The governor in copy clones saw about its own pushes only: the ceiling overshot (C9's 128/120).
+
+**Fix.**
+- `usage` counts every ledger row, and from this clone's log only the rows no share in the read
+  carried (the clone's share history, `p3-gh-shared-to`: `{ last, at }` per share; a share riding
+  a coalesced push records its time when that push is made). No exclusion by name.
+- `cloneId` gains a random id kept in the git directory (labels only).
+- Pushes of the ledger branch are counted from its history: each push stamps its last commit
+  `P3-Push: <session>` (state.mjs flush and writes through `pushRetry`; the remote ledger's writes).
+  Unmarked commits made within 10 s before a marked one are its push's; other unmarked commits
+  (before the mark, or a pin without it) count one push per second of commit time. The rows' own
+  count of those pushes is not used; this clone's own since the read come from its log.
+- After the fix, both clones at 01:2xZ: 184 pushes/h (103 process-state, from history), 40
+  content/h, equal. Calls/h differ by each clone's unshared rows (shown, not gated).
+
+**C9, shares.** Last hour before the fix (ledger history): 170 process-state commits, 86 of them
+usage shares; about 99 pushes (distinct commit seconds), 25 of them share-only (a push that carried
+nothing but a share; 9 sessions, at most 6 each). Now:
+- a share rides the command's own state push (at its end; at most once a minute during it, a commit,
+  no push);
+- alone, at most every 15 min (`SHARE_ALONE_S`, or `pacing.share_s` if longer; its default now 900),
+  and only when it holds what others must count: a content-creating call, or a push other than a
+  state branch's (those are counted from the branch itself);
+- bound: 12 to 4 share-only pushes an hour per session; read-only sessions (watchers' polls) none.
+
+**Class-level prevention.** The process's own bookkeeping (usage shares, ledger records) never makes
+a push of its own when a push is coming anyway, and a count that can be read from GitHub-side
+history (a branch's commits) is read there, not reconstructed from shares.

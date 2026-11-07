@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { P3, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
-import { fetchState, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
+import { fetchState, heldAct, heldWrites, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
 import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
@@ -340,6 +340,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     todo.push(`wake BOB with one message: ${P3} send bob ${JSON.stringify(text)} --from root, deliver it with send_message, then ${P3} send delivered <n> --from root`);
   }
   // Step 4: the heartbeat line.
+  // Held state writes are an act of the sweep's (R17c, item F).
+  { const h = heldWrites(root); if (h.length) todo.push(heldAct(h)); }
   const beat = { at: now(), session, found: found.length ? found : ['nothing'], done: todo.length ? todo.map((x) => x.split(':')[0]) : ['heartbeat only'] };
   const { tip } = writeState(root, sb, `heartbeat: ${beat.found.join('; ').slice(0, 60)}`, (dir) => {
     mkdirSync(dir, { recursive: true });
