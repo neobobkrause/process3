@@ -1124,7 +1124,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   const cfg = loadConfig(root);
   needLayerMode(cfg, 'layer sync');
   const slug = io.slug || repoSlug(root);
-  const x = { findPR, createPR, checkRun, getPR, openPRs, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
+  const x = { findPR, createPR, checkRun, getPR, openPRs, prsFromBranch, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   fetchLayer(root, cfg, n);
   const rows = flowRows(root, cfg.state_branch, n);
   if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
@@ -1156,6 +1156,22 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   let pr = into.find((p) => String(p.head?.ref || '').startsWith(stem)) || null;
   let head = pr?.head?.sha || null;
   let resolved = [];
+  // Whether origin's `branch` at `at` is the tool's merge of the tranche tip into the layer tip,
+  // tree for tree, with no pull request ever opened from it: { head, resolved }, else null (an
+  // unreadable list counts as one opened: the next name is taken, as before).
+  const unopened = (branch, at) => {
+    fetchBranch(root, branch, { allowFail: true });
+    if (!hasCommit(root, at)) return null;
+    const ps = git(['rev-list', '--parents', '-n', '1', at], { cwd: root }).split(' ').slice(1);
+    if (ps.length !== 2 || ps[0] !== tip || ps[1] !== ttip) return null;
+    const same = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try { const r = syncMerge(root, cfg, n, tip, ttip, w); return r.tree === git(['rev-parse', `${at}^{tree}`], { cwd: root }) ? r.resolved : null; } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    if (!same) return null;
+    const prs = x.prsFromBranch(slug, branch);
+    return Array.isArray(prs) && !prs.length ? { head: at, resolved: same } : null;
+  };
   if (pr) {
     // Its head must be the tool's own merge, tree for tree: a push to the branch is never landed.
     fetchBranch(root, pr.head.ref, { allowFail: true });
@@ -1168,9 +1184,21 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
     log(`layer sync ${n}: PR ${pr.number} from ${pr.head.ref} is open already, its head the tool's merge`);
   } else {
     // A closed or red attempt keeps its branch (no session deletes one): the next takes a new name.
+    // A branch an earlier run pushed and opened no pull request from (its create refused, R17d) is
+    // taken up again when its head is the tool's merge of these two tips: not a second branch.
     let branch = stem;
-    for (let k = 2; git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim(); k++) branch = `${stem}-${k}`;
-    ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
+    let again = null;
+    for (let k = 2; ; k++) {
+      const at = git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim().split('\t')[0];
+      if (!at) break;
+      again = unopened(branch, at);
+      if (again) break;
+      branch = `${stem}-${k}`;
+    }
+    if (again) {
+      ({ head, resolved } = again);
+      log(`layer sync ${n}: ${branch} holds the tool's merge already, with no pull request from it; it is opened, not pushed again`);
+    } else ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
       try {
         const r = syncMerge(root, cfg, n, tip, ttip, w);
