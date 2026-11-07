@@ -24,7 +24,7 @@ const ent = (id, layer, o = {}) => entry(id, { layer, paths: [`bio-plane/src/${i
 
 // A product shaped like the copy on 6 Nov: layers 1 to 4, layer 2 open.
 //   done1       layer 1, entry, met: fine
-//   old1        layer 1, no entry, all met: needs no job, no gap
+//   old1        layer 1, no entry, all met: built before the ledger: a no-entry gap, its COMPLETE entry ready (C16)
 //   owed1       layer 1, no entry, an unmet mark: no-entry, ready
 //   a2, b2      layer 2 (open), entries
 //   c3          layer 3, no entry, all met: no-entry, ready (lookahead: its layer is still to come)
@@ -60,14 +60,28 @@ function product() {
 }
 const kinds = (c) => c.gaps.map((g) => `${g.id}:${g.kind}`).sort();
 
-test('census: every gap kind, named with what BOB writes; a module that needs no job is no gap', () => {
+test('census: every gap kind, named with what BOB writes; a module with its entry that needs no job is no gap', () => {
   const root = product();
   const cfg = loadConfig(root);
   const c = census(root, cfg, { ref: 'origin/tranche', open: [2], now: NOW });
   assert.deepEqual(kinds(c), [
     'bad:entry-requirements', 'c3:no-entry', 'd3:no-entry', 'e4:entry-requirements', 'loose:not-in-layer-map', 'lost:no-modules-row',
-    'owed1:no-entry', 'skew:layer-mismatch', 'ux-design:no-entry',
+    'old1:no-entry', 'owed1:no-entry', 'skew:layer-mismatch', 'ux-design:no-entry',
   ].sort());
+  // C16: a module built before the ledger (no entry, its layer past, nothing unmet) is flagged.
+  // Its paths and tests are not on the tranche: whether it was built is BOB's to say, no entry ready.
+  const old0 = c.gaps.find((x) => x.id === 'old1');
+  assert.match(old0.fix, /write process\/ledger\/old1\.json recording it COMPLETE \(built before the ledger; .*\) \(not ready: bio-plane\/src\/old1\/, bio-plane\/test\/m\/old1\/ not on origin\/tranche: whether it was built is BOB's to say/);
+  assert.equal(old0.content, undefined);
+  // Once they are: its COMPLETE entry ready; done1, with its entry, is no gap.
+  commit(root, { 'bio-plane/src/old1/index.mjs': 'x\n', 'bio-plane/test/m/old1/t.test.mjs': 'x\n' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const old = census(root, cfg, { ref: 'origin/tranche', open: [2], now: NOW }).gaps.find((x) => x.id === 'old1');
+  assert.match(old.fix, /write process\/ledger\/old1\.json recording it COMPLETE \(built before the ledger; modules that use it wait for it as a provider until it has one\) \(ready below/);
+  assert.equal(old.done, true);
+  assert.deepEqual([old.content.status.state, old.content.layer, old.file], ['COMPLETE', 1, 'process/ledger/old1.json']);
+  assert.ok(!c.gaps.some((x) => x.id === 'done1'));
   const g = (id, k) => c.gaps.find((x) => x.id === id && x.kind === k);
   assert.match(g('lost', 'no-modules-row').fix, /add lost's row to build\/modules\.json .*build\/requirements\/lost\.md/);
   assert.match(g('loose', 'not-in-layer-map').fix, /name loose on its layer's line in build\/layers\.md \(its modules row says layer 2\)/);
@@ -86,8 +100,11 @@ test('census: every gap kind, named with what BOB writes; a module that needs no
     requirements: 'build/requirements/c3.md', uses: [], suite: SUITE, reading: ['build/requirements/c3.md', 'build/requirements/README.md', 'build/situations/job.md'], status: { state: 'OPEN', at: NOW },
   });
   assert.equal(g('d3', 'no-entry').content, undefined);
-  // With no open layer, only marks and lanes ask for an entry.
-  assert.deepEqual(census(root, cfg, { ref: 'origin/tranche' }).gaps.filter((x) => x.kind === 'no-entry').map((x) => x.id).sort(), ['d3', 'owed1', 'ux-design']);
+  // With no open layer, every modules row with no entry is flagged (C16); only marks and lanes give a ready OPEN entry, and none is written COMPLETE.
+  const none = census(root, cfg, { ref: 'origin/tranche' }).gaps.filter((x) => x.kind === 'no-entry');
+  assert.deepEqual(none.map((x) => x.id).sort(), ['c3', 'd3', 'old1', 'owed1', 'ux-design']);
+  assert.ok(none.every((x) => x.content?.status?.state !== 'COMPLETE'));
+  assert.match(none.find((x) => x.id === 'c3').fix, /COMPLETE if it was built before the ledger, else OPEN .*not ready: no layer is open/);
   // No modules file: no census.
   assert.match(census(root, configOf({ modules_file: 'nope.json' }), { ref: 'origin/tranche' }).skipped, /no nope\.json/);
 });
@@ -126,7 +143,7 @@ test('census lines: the open layer and lookahead first, the rest counted, the re
   const root = product();
   const c = census(root, loadConfig(root), { ref: 'origin/tranche', open: [2], now: NOW });
   const ls = censusLines(c, { layers: [2, 3, 4], tranche: 'tranche', label: 'gaps (layer 2 open; lookahead 3 and 4)' });
-  assert.equal(ls[0], 'gaps (layer 2 open; lookahead 3 and 4): 7 in layers 2, 3, 4 (2 elsewhere)');
+  assert.equal(ls[0], 'gaps (layer 2 open; lookahead 3 and 4): 7 in layers 2, 3, 4 (3 elsewhere)');
   assert.ok(ls.includes('ready entries (2), one plain pull request into tranche, no judgment in them:'));
   assert.ok(ls.some((l) => /^--- process\/ledger\/c3\.json\n\{\n  "id": "c3"/.test(l)));
   assert.deepEqual(censusLines({ gaps: [] }, { layers: [9] }), ['gaps: none in layer 9']);
@@ -207,7 +224,13 @@ test('status --role bob: the gaps block for the open layer and its lookahead, th
   const cfg = loadConfig(root);
   writeState(root, cfg.state_branch, 'seed', (dir) => { for (const p of ['layerflow/1/open.json', 'layerflow/1/merged.json', 'layerflow/2/open.json']) { mkdirSync(dirname(join(dir, p)), { recursive: true }); writeFileSync(join(dir, p), '{}\n'); } return {}; });
   const ls = gapLines(root, cfg, { tranche: 'origin/tranche' });
-  assert.equal(ls[0], 'gaps (layer 2 open; lookahead 3 and 4): 7 in layers 2, 3, 4 (2 elsewhere)');
+  assert.equal(ls[0], 'gaps (layer 2 open; lookahead 3 and 4): 7 in layers 2, 3, 4 (3 elsewhere)');
   assert.ok(ls.some((l) => /^preflight, layer 3: 2 start\(s\) would be refused$/.test(l)), ls.join('\n'));
   assert.ok(ls.some((l) => /^- c3: no-entry: .*; fix: write process\/ledger\/c3\.json/.test(l)));
+  // C16: the modules built before the ledger, outside the open layer and its lookahead, with their entries ready.
+  const at = ls.findIndex((l) => l.startsWith('built before the ledger (no entry: modules that use one wait for it as a provider): 1'));
+  assert.ok(at >= 0, ls.join('\n'));
+  assert.ok(ls.slice(at).some((l) => /^- old1 \(layer 1\), no-entry: write process\/ledger\/old1\.json recording it COMPLETE/.test(l)), ls.join('\n'));
+  // Its paths are not on the tranche here: listed, not ready (test 1 shows it ready once they are).
+  assert.ok(ls.slice(at).some((l) => /^- old1 .*not ready: .*not on origin\/tranche/.test(l)), ls.join('\n'));
 });

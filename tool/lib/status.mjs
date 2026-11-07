@@ -752,6 +752,10 @@ export function gapLines(root, cfg, { tranche = `origin/${cfg.tranche}`, holds =
   if (c.skipped) return [];
   const n = open.length ? Math.min(...open) : null;
   const out = censusLines(c, { layers: n === null ? null : [n, n + 1, n + 2], tranche: cfg.tranche, label: n === null ? 'gaps' : `gaps (layer ${n} open; lookahead ${n + 1} and ${n + 2})` });
+  // Modules built before the ledger, in earlier layers (C16): each with its ready COMPLETE entry, so
+  // the users waiting on them as providers can start early once they land.
+  const done = n === null ? [] : c.gaps.filter((g) => g.done && ![n, n + 1, n + 2].includes(g.layer));
+  if (done.length) out.push(...censusLines({ gaps: done }, { tranche: cfg.tranche, label: 'built before the ledger (no entry: modules that use one wait for it as a provider)' }));
   if (n !== null && layersAt(root, cfg, tranche).size) {
     const seat = (id) => { try { return laneSeatFor(root, cfg, id, { fetch: false }); } catch { return null; } };
     out.push(...preflightLines(n + 1, preflight(root, cfg, n + 1, { ref: tranche, census: c, holds, heldBy, seat, layers: layersAt(root, cfg, tranche) })));

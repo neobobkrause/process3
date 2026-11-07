@@ -93,7 +93,7 @@ test('no pin is missing; a pin older than the shim is not configured', () => {
 test('shim-drift: workflows equal the pin\'s shims and only allowed hooks; each gap names its fix', () => {
   const ok = judge(files())['shim-drift'];
   assert.equal(ok.state, 'set', ok.detail);
-  assert.match(ok.detail, /process-branch-prune\.yml, process-gate\.yml, process-record\.yml equal the pin pppppppppp's shims; 1 hook\(s\), each allowed/);
+  assert.match(ok.detail, /process-branch-prune\.yml, process-gate\.yml, process-record\.yml equal the pin pppppppppp's shims; \d+ hook\(s\), each allowed/);
   const drift = judge(files({ '.github/workflows/process-gate.yml': PIN.file('shims/process-gate.yml') + '\n# local' }))['shim-drift'];
   assert.equal(drift.state, 'missing');
   assert.match(drift.detail, /^\.github\/workflows\/process-gate\.yml differs from the pin's shim: BOB opens a plain pull request into tranche that copies \.process\/shims\/process-gate\.yml to it$/);

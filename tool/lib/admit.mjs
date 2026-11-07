@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 const esc = (s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
 export function ruleMatches(rule, cmd) {
+  if (rule === 'Bash') return true; // a bare Bash rule: every command (C17: setup's own matcher had it, admit's did not)
   const m = /^Bash\((.*)\)$/s.exec(String(rule || ''));
   if (!m) return false;
   const p = m[1];

@@ -134,6 +134,31 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
     if (r && !mapLayer.has(id) && map.length && !lane) gap(id, 'not-in-layer-map', `name ${id} on its layer's line in ${cfg.layers_file}${Number.isInteger(r.layer) ? ` (its modules row says layer ${r.layer})` : ''}${needs ? '' : ' (a finding: nothing waits on it, PD-4)'}: no layer's jobs list it`, { needs: !!needs });
     if (r && mapLayer.has(id) && Number.isInteger(r.layer) && r.layer !== mapLayer.get(id) && needs) gap(id, 'layer-mismatch', `${cfg.modules_file} says layer ${r.layer}, ${cfg.layers_file} says ${mapLayer.get(id)}: make them one`);
     if (e && e.requirements && text(String(e.requirements).replace(/^\.\//, '')) === null) gap(id, 'entry-requirements', `its entry names ${e.requirements}, which ${ref} does not hold: write it, or name the right file in ${entryFile(id)}`);
+    // A modules row with no entry, its layer past and nothing unmet: a module built before the
+    // ledger (C16, the copy 7 Nov: 49 of them; layer jobs read every module that uses one as not
+    // early, blocking early starts with no word why). Its entry records it COMPLETE.
+    if (!entries.has(id) && r && !(ahead(id) || marks.length || lane)) {
+      const n = layerOf(id);
+      const req = reqOf(id);
+      // Past only when a layer is open and this one is before it; with none open, which modules
+      // were built is BOB's to say: flagged, never written ready.
+      const past = first !== null && n !== null && n < first;
+      // Ready only when what it claims is there: every path and test of its row on the ref (cold
+      // review: a layer skipped, or a module dropped from a closed one, has a past layer number too).
+      const missing = [...(r.paths || []), ...(r.tests || [])].filter((p) => !exists(root, ref, String(p).replace(/\/$/, '')));
+      const why = !past ? 'no layer is open, so whether it was built is not known'
+        : !(r.paths || []).length ? 'its modules row has no paths' : !(r.tests || []).length ? 'its modules row has no tests'
+          : missing.length ? `${missing.slice(0, 2).join(', ')} not on ${ref}: whether it was built is BOB's to say`
+            : !req ? `no requirements file ${dir}/${id}.md` : !neighbourSuite(entries, r.tests) ? `no neighbour's suite to copy (its tests: ${r.tests.join(', ')})` : null;
+      const content = why ? null : {
+        id, title: `${id}: built before the ledger`, ...(n !== null ? { layer: n } : {}),
+        paths: [...new Set([...(r.paths || []), ...(req ? [req] : [])])], tests: r.tests, ...(req ? { requirements: req } : {}), uses: r.uses || [],
+        ...(neighbourSuite(entries, r.tests) ? { suite: neighbourSuite(entries, r.tests) } : {}),
+        reading: [req, readme, situation].filter(Boolean), status: { state: 'COMPLETE', at: now },
+      };
+      const bad = content ? validate(content) : [];
+      gap(id, 'no-entry', `write ${entryFile(id)}${past ? ' recording it COMPLETE (built before the ledger;' : ', COMPLETE if it was built before the ledger, else OPEN (no entry;'} modules that use it wait for it as a provider until it has one)${why || bad.length ? ` (not ready: ${why || `the schema refuses it: ${bad.slice(0, 2).join('; ')}`}; that is BOB's to write)` : ' (ready below: no judgment in it)'}`, { done: true, ...(content && !bad.length ? { content, file: entryFile(id) } : {}) });
+    }
     if (!entries.has(id) && (ahead(id) || marks.length || lane) && r) {
       // The entry, ready when nothing in it is a judgment.
       const suite = neighbourSuite(entries, r.tests);
