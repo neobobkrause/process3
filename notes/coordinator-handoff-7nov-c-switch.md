@@ -36,3 +36,12 @@ Runbook: rulebooks/account-switch.md on process3's tranche. Section 1 (switch ou
 4. One pin move (copy + probes) carrying C17, C19, C20 and R17g. Then BOB re-runs the PR 759 gate and `layer merge 10`.
 5. Recreate the coordinator's tasks: hourly (:51, with the PD-3 line replaced by PD-6), Phase 1 survival read (16 Nov 17:00Z), Phase 2 (18 Nov 17:00Z).
 6. Bob archives the old account's sessions and deletes its switched-off tasks once the new ones run.
+
+## R17g cold audit (build/limits-only-github e55bcd4c), relayed by ef7TXuV at 05:36Z
+Core is correct: pace.test 20/20; 524 pushes an hour pass with no wait; budgetGate admits at any push count; published limits and GitHub's pause and stop still brake. Fix before merging:
+1. Med: limitSignal misses a bare `gh: HTTP 429` (no message or URL). Treat any 429 from gh as GitHub's unless it names a proxy, and add a test.
+2. Med, pre-existing: git push `RPC failed; HTTP 429` matches SERVER_ERROR (util.mjs ~610), so pushRetry and ghshare's ledger write retry at 1/2/4/8 s inside GitHub's refusal. Route push stderr through limitSignal to a pause, and take 429/403 out of SERVER_ERROR.
+3. Low: an old config's poll_most_s 300 brings the 5-min back-off back; retire it. merge.mjs transientPause's TRANSIENT pattern matches proxy 429s and "rate limit".
+4. Low: reword POLL_FLOOR_S and `--every >= 30` (p3.mjs ~146) as poll cadence, not GitHub pacing.
+5. Low: stale text (merge.mjs:70, layerflow.mjs ~962, p3.mjs:144/530, pace.mjs:86/344, notes/github-pacing.md:44,48). Dead code: lane.mjs laneCap (~393-399), util.mjs lower/from (~470).
+6. Info: `gh api graphql -F query=@file` holding a mutation is counted as a read. Notes are not spaced (GitHub's 1-s write guidance).
