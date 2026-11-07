@@ -15,7 +15,8 @@ const at = (min) => new Date(NOW - min * 60e3).toISOString();
 const P3R = 'neobobkrause/process3';
 const COPY = 'neobobkrause/civicsmith-copy';
 const ME = 'believeinoakland';
-const P = { ...PACING_DEFAULTS, gh_interval_ms: 0 };
+// share_s pinned at 300 s: the windows below are the audit's at that setting (the default is 900 s since R17e).
+const P = { ...PACING_DEFAULTS, gh_interval_ms: 0, share_s: 300 };
 
 // The ledger: this clone's log, written as the tool writes it.
 function ledger(t, rows) {

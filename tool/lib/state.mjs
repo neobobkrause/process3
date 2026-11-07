@@ -81,6 +81,9 @@ const batch = { on: false, pending: new Map() };
 export function stateBatch(on = true) { batch.on = !!on; }
 // fn with writes pushed at once, whatever the command's batching (a pause every session must see).
 export function unbatched(fn) { const was = batch.on; batch.on = false; try { return fn(); } finally { batch.on = was; } }
+// fn() once the command's pending state writes are pushed (never, if they are not).
+const flushedFns = [];
+export function onFlushed(fn) { flushedFns.push(fn); }
 export const pendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.length, 0);
 const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
 const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
@@ -152,7 +155,7 @@ export function flushState({ log = () => {} } = {}) {
           git(['worktree', 'add', '-q', '--detach', wt, tipOf(root, sb) || emptyStart(root, sb)], { cwd: root });
           const redo = () => { for (const { msg, change } of list) { change(wt); git(['add', '-A'], { cwd: wt }); git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt }); } };
           redo();
-          pushRetry(wt, sb, { redo, log, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) });
+          pushRetry(wt, sb, { redo, log, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) });
         }, { root });
       });
     } catch (e) {
@@ -166,6 +169,8 @@ export function flushState({ log = () => {} } = {}) {
     dropPending(root);
     n += list.length;
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(key); }
+    // What waited on this push (R17e: a usage share carried by it records when it went).
+    for (const fn of flushedFns.splice(0)) { try { fn(); } catch { /* a record only */ } }
   }
   return n;
 }
@@ -187,7 +192,7 @@ function writeStateNow(root, sb, msg, change) {
     // one "fatal error in commit_refs"). Given up, the commit is kept under refs/p3/unpushed/ and the
     // refusal names the command that replays it.
     let tip;
-    try { tip = pushRetry(wt, sb, { redo: make, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
+    try { tip = pushRetry(wt, sb, { redo: make, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       const name = `refs/p3/unpushed/${Date.now()}-${git(['rev-parse', '--short', 'HEAD'], { cwd: wt })}`;
       git(['update-ref', name, 'HEAD'], { cwd: wt });

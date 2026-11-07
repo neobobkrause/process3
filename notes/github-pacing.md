@@ -153,3 +153,38 @@ BOB is reopening job pull requests on the same head branches. The tool code belo
     - `job complete` (every gh step, and its push): one receipt for the head, ready.
   - Not yet covered by such tests: `merge --plain` (it shares the merge core), `layer publish`, `layer sync`, and the pin-move and tranche steps. Those are printed steps a session runs one at a time; each step's rerun is the step itself.
 - **G.** Job sync pushes the branch itself through the governed git (a fast-forward only, rerun-safe). No printed `git push` instruction remains in the tool.
+
+## R17e: one count for every clone; bookkeeping never the dominant traffic (C9, C10; 7 Nov)
+
+**C10, why clones disagreed.** `cloneId` was `${hostname()}:${git common dir}`. Every cloud container
+is hostname `vm` with the same paths, so every session's copy clone had one id, and `usage` skipped
+the ledger rows carrying its own id ("they are in my log"). Each copy clone so dropped every other
+copy-clone session's use. Measured 00:50Z on one ledger tip: process3 clone 124 pushes/h, copy clone
+8. The governor in copy clones saw about its own pushes only: the ceiling overshot (C9's 128/120).
+
+**Fix.**
+- `usage` counts every ledger row, and from this clone's log only the rows no share in the read
+  carried (the clone's share history, `p3-gh-shared-to`: `{ last, at }` per share; a share riding
+  a coalesced push records its time when that push is made). No exclusion by name.
+- `cloneId` gains a random id kept in the git directory (labels only).
+- Pushes of the ledger branch are counted from its history: each push stamps its last commit
+  `P3-Push: <session>` (state.mjs flush and writes through `pushRetry`; the remote ledger's writes).
+  Unmarked commits made within 10 s before a marked one are its push's; other unmarked commits
+  (before the mark, or a pin without it) count one push per second of commit time. The rows' own
+  count of those pushes is not used; this clone's own since the read come from its log.
+- After the fix, both clones at 01:2xZ: 184 pushes/h (103 process-state, from history), 40
+  content/h, equal. Calls/h differ by each clone's unshared rows (shown, not gated).
+
+**C9, shares.** Last hour before the fix (ledger history): 170 process-state commits, 86 of them
+usage shares; about 99 pushes (distinct commit seconds), 25 of them share-only (a push that carried
+nothing but a share; 9 sessions, at most 6 each). Now:
+- a share rides the command's own state push (at its end; at most once a minute during it, a commit,
+  no push);
+- alone, at most every 15 min (`SHARE_ALONE_S`, or `pacing.share_s` if longer; its default now 900),
+  and only when it holds what others must count: a content-creating call, or a push other than a
+  state branch's (those are counted from the branch itself);
+- bound: 12 to 4 share-only pushes an hour per session; read-only sessions (watchers' polls) none.
+
+**Class-level prevention.** The process's own bookkeeping (usage shares, ledger records) never makes
+a push of its own when a push is coming anyway, and a count that can be read from GitHub-side
+history (a branch's commits) is read there, not reconstructed from shares.

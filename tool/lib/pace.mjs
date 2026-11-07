@@ -19,6 +19,7 @@
 // (useShared): p3.mjs sets the state branch's (ghshare.mjs); with none, this clone's own log only.
 // No import from util.mjs (util imports this).
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
@@ -40,7 +41,7 @@ export const GITHUB_LIMITS = {
 // GitHub publishes none, and push volume is the likely cause of the suspension (1,387 in 19 h).
 // ledger: the repository whose state branch holds the account's ledger (github/), "<owner>/<repo>";
 // null is this product's own (ghshare.mjs).
-export const PACING_DEFAULTS = { target: 0.85, jobs: null, lanes: null, gh_interval_ms: 1000, poll_first_s: 30, poll_most_s: 300, share_s: 300, pushes_per_hour: 120, ledger: null, github_limits: GITHUB_LIMITS };
+export const PACING_DEFAULTS = { target: 0.85, jobs: null, lanes: null, gh_interval_ms: 1000, poll_first_s: 30, poll_most_s: 300, share_s: 900, pushes_per_hour: 120, ledger: null, github_limits: GITHUB_LIMITS };
 export const TARGET_RANGE = [0.8, 0.9];
 export const POLL_FLOOR_S = 30;
 export const GH_FLOOR_MS = 1000;
@@ -112,7 +113,39 @@ export const githubLog = (cwd) => (process.env.NODE_TEST_CONTEXT && process.env.
 export const sessionId = () => process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null;
 // This clone, as the ledger's rows name it: one session can act from two clones (process3 and a
 // product), and only the clone's own rows are in its log (cold review of R17b).
-export const cloneId = (cwd) => `${hostname()}:${commonDir(cwd)}`;
+// R17e (coordinator's C10): every cloud container is hostname "vm" with the same paths, so the
+// name alone made every session's copy clone one clone; a random id kept in the git directory
+// tells them apart. Labels only: what is counted no longer turns on it (usage).
+const ids = new Map();
+export function cloneId(cwd) {
+  const dir = commonDir(cwd);
+  if (ids.has(dir)) return ids.get(dir);
+  const f = join(dir, 'p3-clone-id');
+  let id = null;
+  try { id = readFileSync(f, 'utf8').trim() || null; } catch { id = null; }
+  if (!id) { try { writeFileSync(f, randomUUID().slice(0, 8), { flag: 'wx' }); } catch { /* another process made it */ } try { id = readFileSync(f, 'utf8').trim(); } catch { id = 'x'; } }
+  const out = `${hostname()}:${dir}:${id}`;
+  ids.set(dir, out);
+  return out;
+}
+// This clone's shares (ghshare.mjs shareUsage): each { last: the last own row it carried, at: when
+// it was pushed }; a number is the record from before R17e (a share made long ago).
+export const SHARED_MARK = 'p3-gh-shared-to';
+export function sharesOf(cwd) {
+  let v = null;
+  try { v = JSON.parse(readFileSync(join(commonDir(cwd), SHARED_MARK), 'utf8')); } catch { v = null; }
+  if (typeof v === 'number') return [{ last: v, at: 0 }];
+  return Array.isArray(v?.shares) ? v.shares : [];
+}
+export function noteShare(cwd, last, at) {
+  try { writeFileSync(join(commonDir(cwd), SHARED_MARK), JSON.stringify({ shares: [...sharesOf(cwd), { last, at }].slice(-50) })); } catch { /* best effort */ }
+}
+// A share pushed with the command's coalesced push records its time once that push is made.
+export const PENDING_AT = Number.MAX_SAFE_INTEGER;
+export function settleShare(cwd, last, at) {
+  try { writeFileSync(join(commonDir(cwd), SHARED_MARK), JSON.stringify({ shares: sharesOf(cwd).map((x) => (x.last === last && x.at === PENDING_AT ? { last, at } : x)) })); } catch { /* best effort */ }
+}
+export const lastShared = (cwd) => Math.max(0, ...sharesOf(cwd).map((x) => x.last || 0));
 const readJSON = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
 
 // What a gh call costs against the secondary limits: its REST points (a read 1, a write 5) and
@@ -155,11 +188,24 @@ const LOCAL = { read: () => ({ pause: null, use: [] }), pause: () => null, resum
 let shared = LOCAL;
 export function useShared(s) { shared = s || LOCAL; }
 
-// Use in the window ending at t: the other sessions' shared rows plus this clone's own log. A
-// shared row covers a minute, counted whole while its minute is in the window.
-export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), others = shared.read().use || [] } = {}) {
+// Use in the window ending at t (R17e, coordinator's C10: every clone, the same number): the
+// ledger's rows, every one, plus this clone's own rows the ledger read lacks: those no share
+// carried, and those a share carried after the read (read.at). Never "the rows of my clone are in
+// my log" by name (it dropped every other cloud session's rows: all their clones had one name).
+// State-branch pushes of the ledger's repository are counted from the ledger branch itself (each
+// push marks its commit, ghshare.mjs statePushes; a source that cannot drift), with this clone's
+// own made since the read; the rows' count of them is not used. A shared row covers a minute,
+// counted whole while its minute is in the window.
+export function sharedIn(cwd, read) {
+  const s = read || shared.read();
+  const covered = s.at ? Math.max(0, ...sharesOf(cwd).filter((x) => (x.at || 0) <= s.at).map((x) => x.last || 0)) : -Infinity;
+  return { s, covered };
+}
+function isLedgerState(r, st) { return !!(st && r.kind === 'push' && r.state && r.repo && r.repo === st.repo); }
+export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), others, read } = {}) {
   const since = t - seconds * 1000;
-  const me = cloneId(cwd);
+  const { s, covered } = sharedIn(cwd, read || (others ? { use: others } : undefined));
+  const st = s.state || null;
   // free: rate_limit reads (not counted by GitHub's primary limit); pushes_by: per repository,
   // '?' for pushes logged before R17c named theirs.
   // pushes_by keys: "<repo>", "<repo>#state" (its state branch), "?" (no repository logged);
@@ -167,31 +213,35 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
   const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, fetches: 0, connector: 0, graphql: 0, pushes_by: {}, content_by: {} };
   const add = (repo, n, into = out.pushes_by) => { if (n) into[repo || '?'] = (into[repo || '?'] || 0) + n; };
   for (const r of rows) {
-    if (!(Date.parse(r.at) > since)) continue;
+    const at = Date.parse(r.at);
+    if (!(at > since) || !(at > covered)) continue;
     if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); add(r.repo, contentOf(r), out.content_by); if (r.free) out.free++; if (r.connector) out.connector++; if (r.graphql) out.graphql++; }
     if (r.kind === 'fetch') out.fetches++;
-    if (r.kind === 'push') { out.pushes++; add(r.repo ? `${r.repo}${r.state ? '#state' : ''}` : null, 1); }
+    if (r.kind === 'push' && !(isLedgerState(r, st) && at <= (s.at || 0))) { out.pushes++; add(r.repo ? `${r.repo}${r.state ? '#state' : ''}` : null, 1); }
   }
-  for (const u of others) {
-    if (u.clone && u.clone === me) continue; // this clone's own are in its log
+  for (const u of s.use || []) {
     if (!(Date.parse(u.minute) + 60e3 > since)) continue;
-    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += u.pushes || 0; out.free += u.free || 0; out.fetches += u.fetches || 0; out.connector += u.connector || 0; out.graphql += u.graphql || 0;
+    const ledgerState = st ? (u.pushes_by || {})[`${st.repo}#state`] || 0 : 0;
+    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += (u.pushes || 0) - ledgerState; out.free += u.free || 0; out.fetches += u.fetches || 0; out.connector += u.connector || 0; out.graphql += u.graphql || 0;
     const cnamed = Object.entries(u.content_by || {});
     for (const [repo, n] of cnamed) add(repo, n, out.content_by);
     add('?', (u.content || 0) - cnamed.reduce((a, [, n]) => a + n, 0), out.content_by);
-    const named = Object.entries(u.pushes_by || {});
+    const named = Object.entries(u.pushes_by || {}).filter(([repo]) => !(st && repo === `${st.repo}#state`));
     for (const [repo, n] of named) add(repo, n);
-    add('?', (u.pushes || 0) - named.reduce((s, [, n]) => s + n, 0));
+    add('?', (u.pushes || 0) - ledgerState - named.reduce((a, [, n]) => a + n, 0));
   }
+  if (st) { const n = (st.pushes || []).filter(([x]) => x > since && x <= t).length; out.pushes += n; add(`${st.repo}#state`, n); }
   return out;
 }
 // When the oldest counted call leaves the window, so the next fits: the first moment after t at
 // which the window's count drops by `need` (approximate for shared rows: their minute's end).
-function freedAt(cwd, { t, seconds, field, need, rows, others }) {
-  const me = cloneId(cwd);
+function freedAt(cwd, { t, seconds, field, need, rows, read }) {
+  const { s, covered } = sharedIn(cwd, read);
+  const st = s.state || null;
   const times = [];
-  for (const r of rows) if (Date.parse(r.at) > t - seconds * 1000 && (field === 'pushes' ? r.kind === 'push' : r.kind === 'gh')) times.push([Date.parse(r.at), field === 'points' ? (r.points ?? 1) : field === 'pushes' ? 1 : contentOf(r)]);
-  for (const u of others) if (!(u.clone && u.clone === me) && Date.parse(u.minute) + 60e3 > t - seconds * 1000) times.push([Date.parse(u.minute) + 59e3, u[field] || 0]);
+  for (const r of rows) { const at = Date.parse(r.at); if (at > t - seconds * 1000 && at > covered && (field === 'pushes' ? r.kind === 'push' && !(isLedgerState(r, st) && at <= (s.at || 0)) : r.kind === 'gh')) times.push([at, field === 'points' ? (r.points ?? 1) : field === 'pushes' ? 1 : contentOf(r)]); }
+  for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > t - seconds * 1000) times.push([Date.parse(u.minute) + 59e3, field === 'pushes' && st ? (u.pushes || 0) - ((u.pushes_by || {})[`${st.repo}#state`] || 0) : u[field] || 0]);
+  if (st && field === 'pushes') for (const [x] of st.pushes || []) if (x > t - seconds * 1000) times.push([x, 1]);
   times.sort((a, b) => a[0] - b[0]);
   let freed = 0;
   for (const [at, n] of times) { freed += n; if (freed >= need) return at + seconds * 1000 + 1000; }
@@ -313,7 +363,6 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
     }
     if (!wait) {
       const rows = readLog(cwd);
-      const others = s.use || [];
       for (const [seconds, field, cap, add, name] of [
         [60, 'points', lim.rest_points_per_minute, cost.points || 0, 'REST points a minute'],
         [60, 'content', lim.content_per_minute, content, 'content-creating requests a minute'],
@@ -322,8 +371,8 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
       ]) {
         if (!add || wait) continue;
         const max = field === 'pushes' ? cap : Math.floor(target * cap);
-        const used = usage(cwd, { t: now(), seconds, rows, others })[field];
-        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, others }), `${used} of the ${cap} ${name} used account-wide, ${field === 'pushes' ? 'the ceiling' : `the target ${Math.round(target * 100)}%`} (${max})`];
+        const used = usage(cwd, { t: now(), seconds, rows, read: s })[field];
+        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, read: s }), `${used} of the ${cap} ${name} used account-wide, ${field === 'pushes' ? 'the ceiling' : `the target ${Math.round(target * 100)}%`} (${max})`];
       }
     }
     if (!wait) break;
@@ -456,7 +505,7 @@ export function budgetGate(cwd, { p = pacing(), now = Date.now(), rateLimit } = 
   const pause = pauseOf(cwd, s);
   if (pause?.stopped) return `GitHub refused this account again within an hour of an earlier refusal (${pause.why}): the tool is stopped until the coordinator runs github resume`;
   if (pause?.until && Date.parse(pause.until) > now) return `GitHub rate-limited this account until ${pause.until} (${pause.why})`;
-  const h = usage(cwd, { t: now, seconds: 3600, others: s.use || [] });
+  const h = usage(cwd, { t: now, seconds: 3600, read: s });
   if (h.pushes >= p.pushes_per_hour) return `${h.pushes} pushes in the last hour account-wide, the process's own ceiling ${p.pushes_per_hour} (PD-3): a new session waits for the window`;
   if (h.content >= Math.floor(p.target * lim.content_per_hour)) return `${h.content} of GitHub's ${lim.content_per_hour} content-creating requests an hour used account-wide, the target ${Math.round(p.target * 100)}%: a new session waits for the window`;
   const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
@@ -499,8 +548,8 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   const lim = p.github_limits || GITHUB_LIMITS;
   const s = shared.read();
   const rows = readLog(cwd);
-  const m = usage(cwd, { t: now, seconds: 60, rows, others: s.use || [] });
-  const h = usage(cwd, { t: now, seconds: 3600, rows, others: s.use || [] });
+  const m = usage(cwd, { t: now, seconds: 60, rows, read: s });
+  const h = usage(cwd, { t: now, seconds: 3600, rows, read: s });
   const pct = (n, cap) => `${n}/${cap} (${Math.round((100 * n) / cap)}%)`;
   const pr = primaryState(cwd, { t: now, ...(rateLimit ? { read: rateLimit } : {}) });
   log(`github budget: the target is ${Math.round(p.target * 100)}% of GitHub's published limits (${lim.source}, read ${lim.read})`);
@@ -515,8 +564,14 @@ export function githubBudget(cwd, { now = Date.now(), log = console.log, p = pac
   log(pause?.stopped ? `STOPPED: ${pause.why} at ${pause.at}, a refusal within an hour of an earlier one; the coordinator runs github resume` : pause && Date.parse(pause.until) > now ? `PAUSED until ${pause.until}: ${pause.why}` : 'no pause');
   const by = new Map();
   const since = now - 3600e3;
-  for (const r of rows) if (Date.parse(r.at) > since && ['gh', 'push'].includes(r.kind)) { const k = r.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; if (r.kind === 'gh') { x.calls++; x.content += contentOf(r); } else x.pushes++; by.set(k, x); }
-  for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since && u.clone !== cloneId(cwd)) { const k = u.session || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += u.pushes || 0; by.set(k, x); }
+  // Per session, counted as usage counts (R17e): the ledger's rows, this clone's own the read lacks,
+  // and the ledger branch's own pushes by the session each names.
+  const { covered } = sharedIn(cwd, s);
+  const st = s.state || null;
+  const one = (k) => { k = k || '(no session id)'; const x = by.get(k) || { session: k, calls: 0, content: 0, pushes: 0 }; by.set(k, x); return x; };
+  for (const r of rows) { const at = Date.parse(r.at); if (at > since && at > covered && ['gh', 'push'].includes(r.kind) && !(isLedgerState(r, st) && at <= (s.at || 0))) { const x = one(r.session); if (r.kind === 'gh') { x.calls++; x.content += contentOf(r); } else x.pushes++; } }
+  for (const u of s.use || []) if (Date.parse(u.minute) + 60e3 > since) { const x = one(u.session); x.calls += u.calls || 0; x.content += u.content || 0; x.pushes += (u.pushes || 0) - (st ? (u.pushes_by || {})[`${st.repo}#state`] || 0 : 0); }
+  if (st) for (const [at, who] of st.pushes || []) if (at > since && at <= now) one(who).pushes++;
   for (const x of [...by.values()].sort((a, b) => b.calls - a.calls)) log(`  ${x.session}: ${x.calls} gh call(s), ${x.content} content-creating, ${x.pushes} push(es) in the hour`);
   return { minute: m, hour: h, primary: pr, pause: pause || null };
 }
