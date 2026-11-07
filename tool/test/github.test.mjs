@@ -48,3 +48,18 @@ test('toDraft fails, naming both routes, when neither works, and when still not 
     /could not make pull request 3 a draft: gh api -X POST: HTTP 403.*; gh api graphql -f: HTTP 403/);
   assert.throws(() => toDraft('o/r', { number: 3 }, { call: () => ok, read: () => ({ draft: false }) }), /still not a draft/);
 });
+
+// A run GitHub hides (the suspended account's, copy run 42277392893, 7 Nov) is gone only on GitHub's
+// own 404 Not Found while the repository reads; a proxy's or host's error, or a repository the token
+// cannot see, is unread (cold review of PR 735's fix).
+test('runState: served, gone only on GitHub\'s 404 with the repository readable, else unread', async () => {
+  const { runState } = await import('../lib/github.mjs');
+  const r404 = { code: 1, stdout: '{"message":"Not Found","documentation_url":"x","status":"404"}', stderr: 'gh: Not Found (HTTP 404)' };
+  const ok = { code: 0, stdout: '{}', stderr: '' };
+  const io = (run, repo) => ({ run: (a) => (a[1].includes('/actions/runs/') ? run : repo) });
+  assert.equal(runState('o/r', 1, io(ok, ok)), 'served');
+  assert.equal(runState('o/r', 1, io(r404, ok)), 'gone');
+  assert.equal(runState('o/r', 1, io(r404, r404)), null, 'the repository itself unreadable');
+  assert.equal(runState('o/r', 1, io({ code: 1, stdout: '', stderr: 'proxy: host not found' }, ok)), null);
+  assert.equal(runState('o/r', 1, io({ code: 1, stdout: '', stderr: 'gh: Bad Gateway (HTTP 502)' }, ok)), null);
+});
