@@ -608,7 +608,7 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { view = 
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
   // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
   const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
-  // The startable jobs past the cap's free slots wait their turn (R17: the cap is pacing.jobs at most).
+  // The startable jobs past the cap's free slots wait their turn (the job cap, jobCap).
   const queued = live === undefined || live === null ? 0 : Math.max(0, startable - Math.max(0, c.cap - Number(live)));
   const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
   const splits = owed.length ? `; ${free} slot${free === 1 ? '' : 's'} free: BOB's split acts would open them (split or consolidate: ${owed.join(', ')})` : '';

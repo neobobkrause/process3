@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { commonDir, fetchSeen, ghAfter, ghTurn, Paced, PACING_DEFAULTS, pacedJobs, pacingProblem, pushTurn, sessionId, setPacing } from './pace.mjs';
+import { commonDir, fetchSeen, ghAfter, ghTurn, limitSignal, Paced, PACING_DEFAULTS, pacingProblem, pushTurn, sessionId, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -52,7 +52,7 @@ export function run(cmd, args = [], opts = {}) {
 // product code may have written into .git/config while the gate ran it (review of build G).
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
-  // Every push waits its turn: the pause, the stop and the account's push ceiling (R17b, pace.mjs).
+  // Every push takes its turn: GitHub's pause and stop only (PD-6: no push ceiling; pace.mjs).
   // A refused push: a failed push to a caller that handles failures (allowFail), with the refusal as
   // its stderr, so the caller says what to rerun; else the refusal itself (R17c, item F).
   try { pushTurn(args, opts.cwd); } catch (e) { if (!(e instanceof Paced)) throw e; if (opts.allowFail) return { code: 1, stdout: '', stderr: e.message, seconds: 0, timedOut: false, paced: true }; fail(e.message); }
@@ -67,6 +67,9 @@ export function git(args, opts = {}) {
   if (args[0] === 'merge-base' && opts.deepen && opts.cwd && !ancQ) deepenForBase(args, opts.cwd);
   const once = () => run('git', ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', ...args], { ...opts, unset: [...NO_TOKENS, ...(opts.unset || [])] });
   let r = once();
+  // A push GitHub refused for its rate limit pauses every session, as a gh call's refusal does (cold
+  // review of R17g: a push's 429 was never read). A dry run pushes nothing.
+  if (args[0] === 'push' && r.code !== 0 && !args.includes('--dry-run')) { try { ghAfter(args, r, opts.cwd); } catch { /* the pause is a record; the push's own failure stands */ } }
   // An is-ancestor that answers no in a shallow clone is the cut's answer, not the history's (C8, the
   // coordinator, 7 Nov: in a --depth 1 copy clone `layer status 9` read 8 modules as rescheduled,
   // the provider's land hidden behind the cut). Its no stands only when it is exact; else the clone
@@ -473,13 +476,12 @@ export function jobCap(cfg = {}, env = process.env) {
   const cap = set ? (/^\d+$/.test(String(raw).trim()) ? Number(raw) : NaN) : JOB_CAP_DEFAULT;
   if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
   const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
-  // An optional hard cap (R17, off by default): pacing.jobs, when set and lower, is the cap in
-  // force; otherwise the budget of GitHub's published limits throttles (pace.mjs).
-  const paced = pacedJobs(cfg);
-  const lower = paced !== null && paced < cap;
-  const from = lower ? `pacing.jobs in ${CONFIG_FILE}` : set ? JOB_CAP_VAR : 'default';
+  // pacing.jobs (an R17 cap set as GitHub pacing) is retired by PD-6: ignored, with a note; the
+  // budget of GitHub's published limits throttles (pace.mjs).
+  if (cfg.pacing?.jobs !== undefined && cfg.pacing?.jobs !== null) old.push('pacing.jobs (PD-6: no session cap set as GitHub pacing)');
+  const from = set ? JOB_CAP_VAR : 'default';
   return {
-    cap: lower ? paced : cap, from, line: `job cap ${lower ? paced : cap} (${from})`,
+    cap, from, line: `job cap ${cap} (${from})`,
     note: old.length ? `${CONFIG_FILE}: ${old.join(', ')} ignored; the job cap now comes from ${JOB_CAP_VAR} (default ${JOB_CAP_DEFAULT})` : null,
   };
 }
@@ -645,6 +647,10 @@ export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = 
     const r = once();
     if (r.code === 0) return git(['rev-parse', 'HEAD'], { cwd });
     const why = r.stderr.trim();
+    // GitHub's own refusal (a 429, a secondary rate limit): obeyed, never retried inside it (cold review
+    // of R17g: git's "RPC failed; HTTP 429" matched SERVER_ERROR and was pushed again at 1, 2, 4, 8 s);
+    // git() has recorded the pause for every session.
+    if (limitSignal(why)) fail(`the push of ${branch} was refused by GitHub's rate limit; every session waits it out (p3 github budget shows it). The refusal: ${why}`);
     const moved = REF_MOVED.test(why);
     if (!moved && !SERVER_ERROR.test(why)) fail(`the push of ${branch} failed: ${why}`);
     if (t >= tries) {
