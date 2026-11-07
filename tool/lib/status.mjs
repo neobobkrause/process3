@@ -13,7 +13,7 @@ import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { addressFile, fetchState, handoffFile, heldAct, heldWrites, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
+import { ROUND_ACT, owedAt, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { laneSeatFor, lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { census, censusLines, openLayers, preflight, preflightLines } from './census.mjs';
@@ -529,22 +529,20 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     // No job work until the tranche open's grants check has passed (Build Plan Phase 3).
     out.open = openState(root, cfg);
     if (out.open.state !== 'open') log(openLine(out.open));
-    out.notices = owedNotices(root, cfg, rows, log);
-    // The deploy and walk at a round close only, never between layers (Bob, 4 Nov); it never
-    // holds job starts: next work is listed beside it. Its unrecorded findings hold tranche close.
+    // The deploy and walk at a round close only, never between layers (Bob, 4 Nov); the act that
+    // closes the round starts it (Bob, 7 Nov: required, tool-started). Owed and not run, it is the
+    // first act, printed before the notices and next work; it never holds job starts. Its
+    // unrecorded findings hold tranche close.
     out.deploy = null;
     // Not before the tranche open has passed (a tranche merged into main reads every row stale).
     if (cfg.deploy && !halt && out.open.state === 'open') {
-      const at = { ref: ref || 'HEAD', tip: git(['rev-parse', ref || 'HEAD'], { cwd: root }) };
-      const w = walkFindings(root, cfg, at.ref, { slug: offline ? null : slug, read: io.compare });
-      // The plan as the tranche holds it, as deploy dev and tranche close read it.
-      let plan = cfg.plan;
-      try { if (ref) plan = loadConfig(root, ref).plan; } catch { plan = cfg.plan; }
-      out.deploy = deployOwed(roundClose(root, cfg, { ls: out.layer, plan, closed, ref: at.ref, w }), w, at.tip);
-      if (out.deploy !== null) log(`deploy and walk at the round close: ${P3} deploy dev (${out.deploy}); job starts do not wait for it`);
+      const { owed, w } = owedAt(root, cfg, { ls: out.layer, ref: ref || 'HEAD', closed, at: { slug: offline ? null : slug, read: io.compare } });
+      out.deploy = owed;
+      if (owed !== null) log(`FIRST: the round-close run is owed (${owed}): ${ROUND_ACT} (the internal walk, then the deploy and its walk); job starts do not wait for it`);
       const hold = walkHold(w);
       if (hold) log(`tranche close waits: ${hold}`);
     }
+    out.notices = owedNotices(root, cfg, rows, log);
     out.live = live;
     out.next = halt || out.open.state !== 'open' ? [] : nextWork(root, cfg, rows, ref, { live: live === undefined ? undefined : Number(live), log, state: out.layer, notices: out.notices, view: out.flow_layer });
     markLaneHeld(cfg, seats, out.next);

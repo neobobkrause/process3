@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEPLOYS_FILE, checkSlug, deployConfig, deployDev, readReport, redact, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
+import { DEPLOYS_FILE, ROUND_ACT, checkSlug, deployConfig, deployDev, owedAt, readReport, redact, roundCloseRun, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
 import { status } from '../lib/status.mjs';
 import { trancheClose } from '../lib/tranche.mjs';
 import { DEFAULTS, git, loadConfig, run } from '../lib/util.mjs';
@@ -201,21 +201,21 @@ test('deploy dev between layers: layer 4 closed, 5 to 11 open (the first round o
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /no development deployment now: a deploy and walk belong to a round close, never between layers \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\); it becomes due when the round closes/);
   const before = see(root);
   assert.equal(before.s.deploy, null);
-  assert.doesNotMatch(before.text, /deploy and walk/);
+  assert.doesNotMatch(before.text, /round-close run is owed/);
   assert.match(before.text, /build\/requirements\/m5\.md: 1 \(layer 5\)/);
   // A partial close named by the plan: the end of the tranche. Owed, and next work still listed.
   git(['checkout', '-q', 'tranche'], { cwd: root });
   git(['reset', '-q', '--hard', 'origin/tranche'], { cwd: root });
   push(root, { 'process/config.json': { deploy: DEP, completion_file: 'build/round.md', plan: 'close' } });
   const after = see(root);
-  assert.match(after.text, /deploy and walk at the round close: node \.process\/tool\/p3\.mjs deploy dev \(the last round \(plan close\) closed, not yet deployed\); job starts do not wait for it/);
+  assert.match(after.text, /FIRST: the round-close run is owed \(the last round \(plan close\) closed, not yet deployed\): node \.process\/tool\/p3\.mjs deploy dev, from a clean checkout of the tranche tip \(the internal walk, then the deploy and its walk\); job starts do not wait for it/);
   assert.match(after.text, /build\/requirements\/m5\.md: 1 \(layer 5\)/, 'next work beside the deploy act');
   assert.ok(after.s.next.length);
   assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /the last round's deploy and walk are owed before the tranche closes/);
   const r = deployDev(root, { io, repo, log: quiet });
   assert.equal(r.ok, true);
   assert.equal(r.row.slug, 'p3dev-l4');
-  assert.doesNotMatch(see(root).text, /deploy and walk/);
+  assert.doesNotMatch(see(root).text, /round-close run is owed/);
 });
 
 test('a failed walk holds tranche close until its findings are recorded; a deploy row at the next round\'s close clears it', () => {
@@ -233,27 +233,27 @@ test('a failed walk holds tranche close until its findings are recorded; a deplo
   const held = /tranche close waits: the latest deploy and walk \(p3dev-end \w{10}\) stopped at walk with 2 finding\(s\), 0 recorded/;
   assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), held);
   assert.match(see(root).text, held);
-  assert.doesNotMatch(see(root).text, /deploy and walk: /, 'not owed again until its findings are worked');
+  assert.doesNotMatch(see(root).text, /round-close run is owed/, 'not owed again until its findings are worked');
   // One recorded: still held. Both (a found mark owed, and a known gap): the close goes on.
   push(root, { 'build/requirements/m5.md': `${unmet}- **F1** *(not yet met: walk ${run})* http-500 on /\n`, 'build/round.md': '- [ ] C-1 · m5 · F1\n' });
   assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /2 finding\(s\), 1 recorded/);
   push(root, { 'build/round.md': `- [ ] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on ${run}; deferred: a known gap (Bob)\n` });
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
-  assert.doesNotMatch(see(root).text, /deploy and walk: /, 'the round is open');
+  assert.doesNotMatch(see(root).text, /round-close run is owed/, 'the round is open');
   // The completion round's job merges: F1 met, its item ticked. Held again until a fresh deploy.
   push(root, { 'build/requirements/m5.md': unmet, 'build/round.md': `- [x] C-1 · m5 · F1\n- [ ] C-2 · whole product · layout on ${run}; deferred: a known gap (Bob)\n`, fixed: 'x\n' });
   const owed = see(root).text;
-  assert.match(owed, /deploy and walk at the round close: node \.process\/tool\/p3\.mjs deploy dev \(the last round \(plan close\) closed since \w+ was deployed\); job starts do not wait for it/);
+  assert.match(owed, /FIRST: the round-close run is owed \(the last round \(plan close\) closed since \w+ was deployed\): node \.process\/tool\/p3\.mjs deploy dev, from a clean checkout of the tranche tip \(the internal walk, then the deploy and its walk\); job starts do not wait for it/);
   const g = deployDev(root, { io, repo, log: quiet });
   assert.equal(g.ok, true);
   assert.equal(g.row.walk.failures, 0);
-  assert.doesNotMatch(see(root).text, /tranche close waits|deploy and walk: /);
+  assert.doesNotMatch(see(root).text, /tranche close waits|round-close run is owed/);
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /deployed and walked clean/);
 
   // A clean walk owes none when the tip moves after it (review: main into the tranche at its close).
   push(root, { 'y.txt': 'a plain pull request\n' });
-  assert.doesNotMatch(see(root).text, /deploy and walk at/);
+  assert.doesNotMatch(see(root).text, /round-close run is owed/);
   // A later run that fails, the same slug: the earlier run's known gap does not record its findings.
   git(['rm', '-q', 'fixed'], { cwd: root });
   push(root, {});
@@ -359,14 +359,14 @@ test('rounds: every layer closed is the first round\'s close; the walk\'s findin
   opened(root);
   git(['push', '-q', 'origin', 'main'], { cwd: root });
   push(root, { 'x.txt': 'the tranche past main\n' });
-  assert.match(see(root).text, /deploy and walk at the round close: .* \(the first round closed, not yet deployed\); job starts do not wait for it/);
+  assert.match(see(root).text, /FIRST: the round-close run is owed \(the first round closed, not yet deployed\): .* deploy dev, .*; job starts do not wait for it/);
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, false);
   const first = git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10);
   push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: walk p3dev-l1 ${first})* http-500\n`, 'build/round.md': '- [ ] C-1 · a · F1\n' });
   assert.throws(() => deployDev(root, { io, repo, log: quiet }), /never between layers \(the completion round is open: C-1 open in build\/round\.md; 1 found mark\(s\) of p3dev-l1 unmet\)/);
-  assert.doesNotMatch(see(root).text, /deploy and walk at/);
+  assert.doesNotMatch(see(root).text, /round-close run is owed/);
   push(root, { 'build/requirements/a.md': 'all met\n', 'build/round.md': '- [x] C-1 · a · F1\n', fixed: 'x\n' });
-  assert.match(see(root).text, /deploy and walk at the round close: .* \(the completion round closed since \w+ was deployed\)/);
+  assert.match(see(root).text, /FIRST: the round-close run is owed \(the completion round closed since \w+ was deployed\)/);
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, true);
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
 });
@@ -452,4 +452,58 @@ test('walk internal: the internal walk alone, any time; its reports under walks/
   assert.match(git(['show', `process-state:${r.internal_walk.reports[1].stored}`], { cwd: bare }), /FAIL s4/);
   assert.equal(git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare, allowFail: true }).code, 128, 'no deploy row');
   assert.match(out.join('\n'), /--from "internal walk \w{10}"/);
+});
+
+// Bob, 7 Nov: the internal walk is "Required, tool-started", at "Round close only" (his 4 Nov rule
+// stands). The act that closes a round starts the run itself, from a scratch worktree at the
+// tranche tip; between layers it runs nothing; when it cannot run, it is the one next act.
+test('round-close run: nothing between layers; at the round close it runs from the tranche tip (internal walk, deploy, walk) and is then not owed; when it cannot run, the one next act', () => {
+  const ILOCAL = node("require('fs').mkdirSync('out', { recursive: true }); require('fs').writeFileSync('out/inner.json', JSON.stringify({ steps: [{ ok: true }], failures: [] }))");
+  const dep = { ...DEP, internal_walk: { run: ILOCAL, reports: ['out/inner.json'] } };
+  const { root, bare } = withOrigin({ ...LIVE({ deploy: dep }), 'out/.gitignore': '*\n' });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  assert.equal(closeLayer(root, '4').ok, true);
+  const rio = { repo, compare: () => null, status: statusIO, deploy: io };
+  const head = git(['rev-parse', 'HEAD'], { cwd: root });
+  // Between layers: no walk, no deploy, nothing owed.
+  let called = 0;
+  const out = [];
+  const open = roundCloseRun(root, { log: (m) => out.push(m), io: { ...rio, deployDev: () => { called++; return { ok: true }; } }, by: 'layer merge 4' });
+  assert.deepEqual([open.ran, open.owed, called], [false, null, 0]);
+  assert.match(out.join('\n'), /no internal walk or deploy now: the round is open \(the first round is open: layers 5, 6, 7, 8, 9, 10, 11 not closed\)/);
+  // The round closes (plan close): the run starts itself, at the tip, the internal walk first.
+  push(root, { 'process/config.json': { deploy: dep, completion_file: 'build/round.md', plan: 'close' } });
+  const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  git(['checkout', '-q', '--detach', head], { cwd: root });
+  writeFileSync(join(root, 'scratch.txt'), 'the merging session\'s own checkout, untouched\n');
+  const said = [];
+  const r = roundCloseRun(root, { log: (m) => said.push(m), io: rio, by: 'merge 7' });
+  assert.equal(r.ran, true);
+  assert.equal(r.ok, true);
+  assert.match(said.join('\n'), /the last round \(plan close\) closed, not yet deployed: merge 7 starts the round-close run now \(Bob, 7 Nov: required, tool-started\)/);
+  const row = rows(bare).at(-1);
+  assert.equal(row.commit, tip);
+  assert.deepEqual(row.results.map((x) => x.stage), ['internal_walk', 'dry_run', 'dry_run', 'deploy', 'walk']);
+  assert.equal(row.internal_walk.ok, true);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head, 'the checkout stays where it was');
+  assert.equal(readFileSync(join(root, 'scratch.txt'), 'utf8'), 'the merging session\'s own checkout, untouched\n');
+  assert.equal(git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').filter((l) => l.startsWith('worktree ')).length, 1, 'the scratch worktree removed');
+  // Run and clean: not owed, nothing runs again.
+  const again = roundCloseRun(root, { log: quiet, io: { ...rio, deployDev: () => { called++; return { ok: true }; } } });
+  assert.deepEqual([again.ran, again.owed, called], [false, null, 0]);
+  // Cannot run here (no Cloudflare access, say): the one next act, still owed.
+  const { root: r2 } = withOrigin({ ...LIVE({ deploy: dep, plan: 'close' }), 'out/.gitignore': '*\n' });
+  opened(r2);
+  git(['push', '-q', 'origin', 'main'], { cwd: r2 });
+  push(r2, { 'x.txt': 'past main\n' });
+  const told = [];
+  const no = roundCloseRun(r2, { log: (m) => told.push(m), io: { ...rio, deployDev: () => { throw new (class extends Error {})('wrangler: not authenticated'); } } });
+  assert.equal(no.ran, false);
+  assert.equal(no.act, ROUND_ACT);
+  assert.match(no.owed, /the last round \(plan close\) closed, not yet deployed/);
+  assert.match(told.join('\n'), /the round-close run did not run here \(wrangler: not authenticated\); it is owed \(the last round \(plan close\) closed, not yet deployed\): the one next act is node \S+ deploy dev, from a clean checkout of the tranche tip; status puts it first and ROOT's sweep wakes BOB for it/);
+  assert.match(see(r2).text, /^FIRST: the round-close run is owed/m);
+  assert.equal(owedAt(r2, loadConfig(r2), { ls: null, ref: 'origin/tranche' }).owed, 'the last round (plan close) closed, not yet deployed');
 });

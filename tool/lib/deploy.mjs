@@ -14,7 +14,7 @@ import { completionItems, openItems } from './completion.mjs';
 import { FOUND_DIR, foundMarks } from './found.mjs';
 import { closedRows, layerState, onMainOf, status } from './status.mjs';
 import { install } from './suite.mjs';
-import { NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
+import { Fail, NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run, withTemp } from './util.mjs';
 
 export const DEPLOYS_FILE = 'deploys/dev.jsonl';
 export const SLUG_PREFIX = 'p3dev-';
@@ -193,6 +193,62 @@ export function walkFindings(root, cfg, ref, at = {}) {
 // it (its round's work merged). A clean walk owes none however the tip moves after it (review: a
 // plain pull request, main into the tranche at its close, would owe a deploy mid-close).
 export const deployOwed = (rc, w, tip) => (!rc.closed ? null : !w.last ? `${rc.round} closed, not yet deployed` : w.failing && w.last.commit !== tip ? `${rc.round} closed since ${String(w.last.commit).slice(0, 10)} was deployed` : null);
+// What is owed at `ref` (the tranche as status and ROOT's sweep read it): the round-close run's
+// reason, or null. The plan as the tranche holds it, as deploy dev reads it.
+export function owedAt(root, cfg, { ls, ref, closed = [], at = {} }) {
+  const w = walkFindings(root, cfg, ref, at);
+  let plan = cfg.plan;
+  try { plan = loadConfig(root, ref).plan; } catch { plan = cfg.plan; }
+  return { owed: deployOwed(roundClose(root, cfg, { ls, plan, closed, ref, w }), w, git(['rev-parse', ref], { cwd: root })), w };
+}
+// The one next act when the round-close run is owed and has not run.
+export const ROUND_ACT = `${P3} deploy dev, from a clean checkout of the tranche tip`;
+
+// The round-close run, tool-started (Bob, 7 Nov: the internal walk is "Required, tool-started",
+// and it runs at "Round close only"; his 4 Nov rule stands, no walk between layers). The act that
+// closes a round starts it, so BOB need not remember it: layer merge of the round's last layer, and
+// the merge of a plain pull request into the tranche that closes it (plan close, or the completion
+// round's last item done). It is deploy dev, inline in the merging session, from a scratch worktree
+// at the tranche tip: the internal walk first, then the dry run, the deploy and its walk, one row.
+// Inline, not a dispatched workflow: the session holds the product's Cloudflare access (injected
+// for it, never a secret a workflow could read under Bob's rules), and the run's row and reports go
+// on the state branch as deploy dev's always have. The merge is recorded before the run begins, so
+// a run cut short loses nothing: with no row the run stays owed. When it cannot run here, it is
+// the one next act: printed now, first in status, and ROOT's sweep wakes BOB for it. A round still
+// open runs nothing.
+export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merge' } = {}) {
+  let cfg;
+  try { cfg = loadConfig(root); } catch { return { ran: false, owed: null }; }
+  if (!cfg.deploy) return { ran: false, owed: null };
+  const t = `origin/${cfg.tranche}`;
+  let owed = null;
+  try {
+    git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${t}`], { cwd: root });
+    fetchState(root, cfg.state_branch, { fresh: true });
+    const tip = git(['rev-parse', t], { cwd: root });
+    const { rc, w } = roundAt(root, cfg, t, { io, slug: io.repo || repoSlug(root) });
+    owed = deployOwed(rc, w, tip);
+    if (!owed) {
+      if (!rc.closed) log(`no internal walk or deploy now: the round is open (${rc.why}); they run at its close, started by the act that closes it (Bob, 4 and 7 Nov)`);
+      return { ran: false, owed: null };
+    }
+    log(`${owed}: ${by} starts the round-close run now (Bob, 7 Nov: required, tool-started): the internal walk, then the deploy and its walk`);
+    const r = withTemp('p3-round-', (tmp) => {
+      const w = join(tmp, 'w');
+      git(['worktree', 'add', '-q', '--detach', w, tip], { cwd: root });
+      try {
+        if (git(['ls-tree', tip, '--', '.gitmodules'], { cwd: root })) git(['submodule', 'update', '--init', '-q'], { cwd: w, allowFail: true });
+        return (io.deployDev || deployDev)(w, { log, io: io.deploy || {}, repo: io.repo || repoSlug(root) });
+      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    return { ran: true, ok: r.ok, owed };
+  } catch (e) {
+    const why = String(e?.message || e).split('\n')[0].slice(0, 200);
+    if (!(e instanceof Fail)) log(`the round-close run stopped on an error: ${why}`);
+    log(`the round-close run did not run here (${why}); ${owed ? `it is owed (${owed})` : 'if the round closed, it is owed'}: the one next act is ${ROUND_ACT}; status puts it first and ROOT's sweep wakes BOB for it`);
+    return { ran: false, owed, act: ROUND_ACT, why };
+  }
+}
 // The hold on tranche close: the latest run failed or its walk found failures, not all recorded.
 export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's) with its completion item, or a known gap (its completion item "deferred: <reason>" naming ${runSource(w.last)}), or deploy dev again at the next round's close` : null);
 

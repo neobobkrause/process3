@@ -1592,7 +1592,12 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
     return {};
   });
   log(`layer ${n} merged into ${cfg.tranche}${r.sha ? ` at ${short(r.sha)}` : ''}, ${merged.hours} h after it opened; the next layer opens from the new tranche: ${P3} layer open ${n + 1}`);
-  return { ok: true, merged, closed };
+  // The round's last layer closes the round: the merge starts the round-close run itself (Bob,
+  // 7 Nov: required, tool-started); any other layer's merge runs no walk (Bob, 4 Nov). Its outcome
+  // never undoes the merge, which is recorded.
+  // deploy.mjs is imported here, not at the top: it reaches back into this module through status.mjs.
+  const round = cfg.deploy ? (io.roundClose || (await import('./deploy.mjs')).roundCloseRun)(root, { log, io: io.round || {}, by: `layer merge ${n}` }) : null;
+  return { ok: true, merged, closed, round };
 }
 // A module's entry (and requirements) carried from the tranche (job start, R4) is added on both
 // sides after the layer was cut: OPEN on the tranche, the job's state on the layer, an add/add
