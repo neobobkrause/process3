@@ -5,20 +5,24 @@
 //                            other sessions must stop calling before their next call);
 //   github/resumed.jsonl     the coordinator's resumes;
 //   github/use/<session>.jsonl  each session's calls a minute ({ session, minute, calls, points,
-//                            content, pushes }), appended with the command's one state push, and
-//                            at least every pacing.share_s (300 s) while it acts on GitHub.
+//                            content, pushes }), riding the command's own state push, else at
+//                            most every 15 min and only when it holds what others must count
+//                            (R17e, shareUsage); the ledger branch's own pushes are counted from
+//                            its history (statePushes), never from these rows.
 // Where (coordinator's ruling, 6 Nov): the product's state branch (neobobkrause/civicsmith-copy
 // process-state). A product's clone uses its own; a clone with no state branch of its own (process3,
 // process3-probes) names the ledger in pacing.ledger ("<owner>/<repo>"; process3's own in its root
 // pacing.json) and reads and writes it there, fetched into refs/p3/ledger/state.
-// Read fresh before every write to GitHub (a content-creating call, a push), and within READ_S
-// otherwise; another session's use is up to one command or share_s late, which the target's margin
+// Read once per READ_S for every check of the clone, writes included, and past it by the ledger's
+// tip asked of GitHub (ls-remote), fetched only when it moved (R17e, C12); another session's use is up to one command or share_s late, which the target's margin
 // covers. GitHub's own count stands in for the primary limit (pace.mjs primaryState).
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { fetchState, flushState, pendingWrites, readState, unbatched, writeState } from './state.mjs';
-import { fail, git, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
-import { exempt, nextPause, pacing, readLog, sessionId, usageRows, withoutWaiting } from './pace.mjs';
+import { fetchState, flushState, onFlushed, pendingWrites, readState, unbatched, writeState } from './state.mjs';
+import { fail, git, PUSH_TRAILER, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { commonDir, exempt, lastShared, nextPause, noteShare, pacing, PENDING_AT, settleShare, sharesOf, readLog, sessionId, usageRows, withoutWaiting } from './pace.mjs';
 import { PROCESS_ROOT } from './register.mjs';
 
 export const PAUSE_FILE = 'github/pause.json';
@@ -27,7 +31,8 @@ export const USE_DIR = 'github/use';
 export const READ_S = 30;
 export const LEDGER_REF = 'refs/p3/ledger/state';
 export const LEDGER_BRANCH = 'process-state';
-const MARK = 'p3-gh-shared-to';
+export const LEDGER_CACHE = 'p3-gh-ledger.json';
+const REFRESHING = 'p3-gh-refreshing';
 const safe = (s) => String(s || 'no-session').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
 
 // The ledger for a clone: its config's pacing.ledger, else the pinned process3's pacing.json (so
@@ -51,13 +56,24 @@ function ownStore(root, sb) {
     read: (path) => readState(root, sb, path),
     list: (dir) => git(['ls-tree', '--name-only', `refs/remotes/origin/${sb}`, `${dir}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean),
     write: (msg, change) => writeState(root, sb, msg, change),
+    ref: `refs/remotes/origin/${sb}`,
+    tip: () => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${sb}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null,
+    remoteTip: () => lsRemote(root, 'origin', sb),
   };
+}
+// The ledger branch's tip on GitHub, without fetching it (R17d): null when it cannot be read.
+function lsRemote(root, where, branch) {
+  const r = git(['ls-remote', where, `refs/heads/${branch}`], { cwd: root, allowFail: true, timeout: 30e3 });
+  return r.code === 0 ? (r.stdout.split('\t')[0].trim() || 'none') : null;
 }
 export function remoteStore(root, url) {
   const fetch = () => git(['fetch', '-q', url, `+refs/heads/${LEDGER_BRANCH}:${LEDGER_REF}`], { cwd: root, allowFail: true });
   const tip = () => git(['rev-parse', '-q', '--verify', `${LEDGER_REF}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
   return {
     fetch,
+    ref: LEDGER_REF,
+    tip,
+    remoteTip: () => lsRemote(root, url, LEDGER_BRANCH),
     read: (path) => { const r = git(['show', `${LEDGER_REF}:${path}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; },
     list: (dir) => git(['ls-tree', '--name-only', LEDGER_REF, `${dir}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean),
     // A change made on the ledger's tip and pushed, never forced; refused because the tip moved,
@@ -71,7 +87,7 @@ export function remoteStore(root, url) {
       for (let k = 1; ; k++) {
         out = change(wt);
         git(['add', '-A'], { cwd: wt });
-        git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
+        git(['commit', '-q', '--allow-empty', '-m', msg, '-m', `${PUSH_TRAILER}: ${sessionId() || 'no-session'}`], { cwd: wt });
         const p = git(['push', '-q', url, `HEAD:refs/heads/${LEDGER_BRANCH}`], { cwd: wt, allowFail: true });
         if (p.code === 0) { fetch(); return out; }
         // Only a moved tip is tried again, after 2, 4, 8 s; any other refusal (auth, network) at once.
@@ -85,27 +101,90 @@ export function remoteStore(root, url) {
   };
 }
 
+// The ledger branch's own pushes since `since` (R17e, coordinator's C9/C10): each push marks the
+// commit it pushes (util.mjs stampPush; the ledger's own writes here), so the branch's history is
+// the count, the same for every clone that reads it. An unmarked commit not part of a marked push
+// (one from before the mark, or a pin without it) counts one push per second of commit time (a
+// coalesced push's commits are made together). Returns
+// { repo, pushes: [[ms, session]], tip_at }, or null when unread.
+const PUSH_SPAN_S = 10;
+export function statePushes(root, ref, repo, since) {
+  if (!repo) return null;
+  const r = git(['log', `--since=${new Date(since).toISOString()}`, `--format=%ct%x1f%(trailers:key=${PUSH_TRAILER},valueonly,separator=%x2c)%x1e`, ref], { cwd: root, allowFail: true });
+  if (r.code !== 0) return null;
+  const pushes = [];
+  const seconds = new Set();
+  // Newest first. A push stamps only its last commit: an unmarked commit made within PUSH_SPAN_S
+  // before the marked one above it, with nothing unmarked between, is that push's own.
+  let anchor = null;
+  for (const rec of r.stdout.split('\x1e')) {
+    const [ct, who] = rec.trim().split('\x1f');
+    if (!ct) continue;
+    const at = Number(ct) * 1000;
+    if (who && who.trim()) { pushes.push([at, who.trim().split(',')[0]]); anchor = at; continue; }
+    if (anchor !== null && anchor - at <= PUSH_SPAN_S * 1000) continue;
+    anchor = null;
+    if (!seconds.has(at)) { seconds.add(at); pushes.push([at, null]); }
+  }
+  const tip = git(['log', '-1', '--format=%ct', ref], { cwd: root, allowFail: true });
+  return { repo, pushes, tip_at: tip.code === 0 && tip.stdout.trim() ? Number(tip.stdout.trim()) * 1000 : 0 };
+}
+
 export function stateShare(root, cfg, { now = Date.now, url } = {}) {
   const led = url ? { own: false, url } : ledgerOf(root, cfg);
   if (!led) return null;
   const store = led.own ? ownStore(root, cfg.state_branch) : remoteStore(root, led.url);
+  const key = led.own ? 'own' : led.url;
+  let ledgerRepo = null;
+  try { ledgerRepo = (led.own ? repoSlug(root) : led.name || String(led.url).replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '')).toLowerCase(); } catch { ledgerRepo = null; }
   let cache = null;
   const load = () => {
+    // The read's time is taken before its fetch: what lands meanwhile is after it (cold review of R17e).
+    const t0 = now();
     store.fetch();
+    // The tip the reads are of: one moved under them (another p3 process of the clone fetched)
+    // is not recorded, so the next refresh fetches again (cold review of R17d: else old contents
+    // under the new tip would be renewed as current, a stop hidden).
+    const tip0 = store.tip();
     let pause = null;
     try { pause = JSON.parse(store.read(PAUSE_FILE) || 'null'); } catch { pause = null; }
     const since = now() - 2 * 3600e3;
     const use = store.list(USE_DIR).flatMap((f) => (store.read(f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
     const resumed = (store.read(RESUMED_FILE) || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
-    cache = { at: now(), pause, use, resumed };
+    cache = { at: t0, pause, use, resumed, state: statePushes(root, store.ref, ledgerRepo, since), ledger: key, tip: store.tip() === tip0 ? tip0 : null };
+    try { writeFileSync(diskCache, JSON.stringify(cache)); } catch { /* best effort */ }
     return cache;
+  };
+  // Shared with this clone's other p3 processes (each hook call is one): a read within READ_S
+  // fetches nothing (R17c, the hook's fast path). A fresh read (before a write) always fetches.
+  const diskCache = join(commonDir(root), LEDGER_CACHE);
+  // Never a stop from disk (a resume elsewhere must show at once), nor another ledger's read.
+  const fromDisk = () => { try { const c = JSON.parse(readFileSync(diskCache, 'utf8')); return c && now() - c.at < READ_S * 1000 && !c.pause?.stopped && c.ledger === key ? c : null; } catch { return null; } };
+  // The ledger's tip asked of GitHub (ls-remote, no fetch); unmoved, the cache it was read into is
+  // current again as it stands, a stop included; moved (or unknown), fetched and read again.
+  const recheck = () => {
+    const t = store.remoteTip();
+    let c = cache && cache.tip ? cache : null;
+    if (!c) { try { c = JSON.parse(readFileSync(diskCache, 'utf8')); } catch { c = null; } }
+    if (t && c && c.tip && c.tip === t && c.ledger === key) {
+      cache = { ...c, at: now() };
+      try { writeFileSync(diskCache, JSON.stringify(cache)); } catch { /* best effort */ }
+      return { c: cache, how: 'unmoved' };
+    }
+    return { c: load(), how: 'fetched' };
   };
   // The ledger's own writes go through whatever the account's state (exempt): a pause must be
   // written while paused, and a resume while stopped. Pushed at once, never coalesced.
   const now1 = (msg, change) => exempt(() => unbatched(() => store.write(msg, change)));
   return {
     ledger: led.own ? 'own' : led.url,
-    read: ({ fresh = false } = {}) => (!fresh && cache && now() - cache.at < READ_S * 1000 ? cache : load()),
+    // R17e (coordinator's C12: 266 fetches an hour, most of them this read): one read serves every
+    // check of the clone's p3 processes within READ_S, writes included; past it, or fresh (after a
+    // wait), the ledger's tip is asked of GitHub (ls-remote) and fetched only when it moved.
+    read: ({ fresh = false } = {}) => {
+      if (!fresh) { if (cache && now() - cache.at < READ_S * 1000) return cache; const d = fromDisk(); if (d) return (cache = d); }
+      return recheck().c;
+    },
     // The account's pause, decided against the record as it stands on the tip written to (a burst
     // of refusals across sessions lengthens one pause; a refusal after it ended stops the tool:
     // pace.mjs nextPause). Returns the pause written.
@@ -120,6 +199,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
         return {};
       });
       cache = null;
+      try { writeFileSync(diskCache, 'null'); } catch { /* none */ }
       return out;
     },
     resume: (by) => {
@@ -130,36 +210,52 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
         return {};
       });
       cache = null;
+      try { writeFileSync(diskCache, 'null'); } catch { /* none */ }
     },
+    // The hook's background refresh (R17d): the ledger's tip asked of GitHub (ls-remote, no fetch);
+    // unmoved, the disk cache is current again as it stands, a stop included; moved, fetched and
+    // read again. Returns what it did.
+    refresh: () => recheck().how,
     // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
     beforeWait: () => { if (pendingWrites()) flushState(); },
-    // This clone's use shared at most every pacing.share_s; never inside a state write.
-    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store })),
-    // At a command's end: with its own state push when it has one (pending), else by share_s.
-    shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0 })),
+    // While a command runs (each reserve): riding its pending writes, else by shareUsage's rule; never inside a state write.
+    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pendingWrites() : 0, ledgerRepo })),
+    // At a command's end: with its own state push when it has one (pending), else by shareUsage's rule.
+    shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true, ledgerRepo })),
   };
 }
 
-// This clone's usage since it last shared, appended to its session's file in the ledger: with the
-// command's own push on the product's own state branch (writeState coalesces it), at once on another
-// repository's; when the command writes state anyway, or the last share is pacing.share_s old. Rows
-// older than two hours are dropped from the file.
-export function shareUsage(root, cfg, { force = false, now = Date.now, pending = 0, store } = {}) {
-  const dir = git(['rev-parse', '--git-common-dir'], { cwd: root, allowFail: true }).stdout.trim();
-  const mark = dir ? join(dir.startsWith('/') ? dir : join(root, dir), MARK) : null;
-  let after = 0;
-  try { after = Number(readFileSync(mark, 'utf8')) || 0; } catch { after = 0; }
-  if (!force && !pending && now() - after < pacing().share_s * 1000) return 0;
-  // The mark is the last row shared, taken before the write: the share's own push, logged during
-  // it, is shared next time (cold review of R17b).
-  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push'].includes(r.kind));
+// This clone's usage since it last shared, appended to its session's file in the ledger (R17e,
+// coordinator's C9: bookkeeping is never the dominant traffic, so a share is never a push of its own
+// but rides one):
+// - with the command's own state push on the product's own state branch (pending writes: writeState
+//   coalesces it), whenever there is new use;
+// - else at most every SHARE_ALONE_S (or share_s if longer), and only when others must count what
+//   it carries: a content-creating call, or a push other than a state branch's (the ledger branch's
+//   own pushes are counted from its history, statePushes).
+// Rows older than two hours are dropped from the file.
+export const SHARE_ALONE_S = 900;
+export function shareUsage(root, cfg, { force = false, now = Date.now, pending = 0, store, atEnd = false, ledgerRepo = null } = {}) {
+  const shares = sharesOf(root);
+  const after = lastShared(root);
+  // The rows shared are those after the last share's last row, taken before the write: the
+  // share's own push, logged during it, is shared next time (cold review of R17b).
+  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push', 'fetch'].includes(r.kind));
   const rows = usageRows(root, { after, rows: log });
   if (!rows.length) return 0;
+  if (!force) {
+    // Riding the command's push: at its end, and at most once a minute while it runs (each share
+    // during a command is a commit, though no push).
+    // When the last share was made (a riding one's push may not be made yet: cold review of R17e).
+    const lastAt = Math.max(0, ...shares.map((x) => x.made ?? (x.at === PENDING_AT ? 0 : x.at || 0)));
+    if (now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
+    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && ledgerRepo && r.repo === ledgerRepo)))) return 0;
+  }
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg.state_branch);
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
   // The share's push is gated like any push but never waits (coordinator's ruling on PR 206): where
-  // the account is paused or at the ceiling it is refused, the mark stays, and it is shared later.
+  // the account is paused or at the ceiling it is refused, nothing is recorded, and it is shared later.
   withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use`, (wt) => {
     mkdirSync(join(wt, USE_DIR), { recursive: true });
     const since = now() - 2 * 3600e3;
@@ -168,6 +264,42 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     writeFileSync(join(wt, file), [...kept, ...rows.map((r) => JSON.stringify(r))].join('\n') + '\n');
     return {};
   }));
-  try { writeFileSync(mark, String(last)); } catch { /* best effort */ }
+  // Pushed now (another repository's ledger, or unbatched), or with the command's push: until that
+  // push is made the share is not in any read, and its rows count from this clone's log (usage).
+  if (st.ref !== LEDGER_REF && pendingWrites()) { noteShare(root, last, PENDING_AT, now()); onFlushed(root, cfg.state_branch, () => settleShare(root, last, Date.now())); } else noteShare(root, last, now());
   return rows.length;
+}
+
+// The hook's read path (R17d; coordinator, 7 Nov: under 300 ms p95, never a ledger fetch on a
+// read): the account's pause, stop and use as the clone's disk cache holds them, at any age, a stop
+// included; when the cache is READ_S old or missing, a background refresh is started (one at a
+// time per clone) and the read goes on at once. A read can so pass a pause or stop written in the
+// last READ_S plus the refresh's few seconds; a write reads it through stateShare (a cache within READ_S, else ls-remote).
+export function peekShare(cwd, { now = Date.now, kick = kickRefresh } = {}) {
+  let c = null;
+  try { c = JSON.parse(readFileSync(join(commonDir(cwd), LEDGER_CACHE), 'utf8')); } catch { c = null; }
+  if (!c || !(now() - c.at < READ_S * 1000)) { try { kick(cwd, { now }); } catch { /* the next read tries again */ } }
+  const s = c ? { pause: c.pause || null, use: c.use || [], resumed: c.resumed || null, at: c.at, state: c.state || null } : { pause: null, use: [] };
+  return { read: () => s };
+}
+const HOOK_ENTRY = join(fileURLToPath(new URL('..', import.meta.url)), 'hook.mjs');
+// One refresh at a time per clone: a marker file, taken by its creation; one older than a minute
+// (a refresh killed) is taken over.
+export function kickRefresh(cwd, { now = Date.now, entry = HOOK_ENTRY } = {}) {
+  const f = join(commonDir(cwd), REFRESHING);
+  try { writeFileSync(f, String(now()), { flag: 'wx' }); } catch {
+    let at = 0;
+    try { at = Number(readFileSync(f, 'utf8')) || 0; } catch { at = 0; }
+    if (now() - at < 60e3) return false;
+    writeFileSync(f, String(now()));
+  }
+  // Its marker named, so a refresh taken over does not clear its successor's (cold review of R17d).
+  const child = spawn(process.execPath, [entry, '--refresh'], { cwd, detached: true, stdio: 'ignore', env: { ...process.env, P3_REFRESH_MARK: readFileSync(f, 'utf8') } });
+  child.on('error', () => { /* not started: the next read tries again */ });
+  child.unref();
+  return true;
+}
+export function refreshDone(cwd, mark = process.env.P3_REFRESH_MARK) {
+  const f = join(commonDir(cwd), REFRESHING);
+  try { if (mark === undefined || readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ }
 }

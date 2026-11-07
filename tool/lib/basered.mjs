@@ -25,7 +25,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { install, runSuite, testFiles, testTreeFiles } from './suite.mjs';
-import { buildGenerated } from './checks.mjs';
+import { buildGenerated, regenerate, staleFiles } from './checks.mjs';
 import { NO_TOKENS, exists, holdTemp, run, withTemp } from './util.mjs';
 
 // More tolerated failures than this is not a base that is a little red: the row stays small.
@@ -138,6 +138,31 @@ export function prepareTree(root, base, wt, { lockfiles = [], rows = [], timeout
     if (b.findings.length) return { ok: false, why: `the base's build failed: ${b.findings[0].message}` };
   }
   return { ok: true };
+}
+
+// Staleness the base had already (the coordinator, 6 Nov: tolerated as base-red is): the base's tree
+// prepared as prepareTree does, its generated rows regenerated there, and the files given that are
+// stale there too. Run only when the head's regenerate made a committed file stale (rare).
+// { ok, files } or { ok: false, why }: unread, the head's findings stand.
+export function staleAtBase(root, base, rows, files, { lockfiles = [], timeout, exec = run, log = () => {} }) {
+  const end = Date.now() + timeout;
+  const left = () => Math.max(1000, end - Date.now());
+  return withTemp('p3-base-red-', (tmp) => {
+    const wt = join(tmp, 'base');
+    try {
+      const p = prepareTree(root, base, wt, { lockfiles, rows, timeout: left(), exec, log });
+      if (!p.ok) return { ok: false, why: p.why };
+      const g = regenerate(wt, rows, { timeout: left(), exec, log: (l) => log(`base ${base.slice(0, 10)}: ${l}`) });
+      const at = new Set(rows.flatMap((r) => staleFiles(wt, r)));
+      // The same way: stale there, and the base's regenerate wrote the bytes the head's did (a
+      // pull request that changes what the generator writes made it stale itself).
+      const bytes = (d, f) => { try { return readFileSync(join(d, f)); } catch { return null; } };
+      const same = (f) => { const a = bytes(wt, f); const b = bytes(root, f); return a === null ? b === null : b !== null && a.equals(b); };
+      return { ok: true, files: files.filter((f) => at.has(f) && same(f)), failed: g.findings.length };
+    } catch (e) {
+      return { ok: false, why: `the base's tree could not be prepared: ${String(e.message).slice(0, 300)}` };
+    }
+  });
 }
 
 // The base's tree prepared off the critical path (build gate-speed, 5 Nov: base-red was 36 of 181

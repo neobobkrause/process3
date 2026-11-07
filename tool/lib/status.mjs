@@ -11,7 +11,7 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
-import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
+import { addressFile, fetchState, handoffFile, heldAct, heldWrites, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
@@ -272,6 +272,8 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
 // lines are held until the rows are read, then the count of acts is printed after the starts-owed
 // marker and the plan, before any hold or list. A run that stops prints what it held.
 export function status(root, opts = {}) {
+  // Held state writes, as an act, whatever the role (R17c, item F).
+  { const h = heldWrites(root); if (h.length) (opts.log || console.log)(`replay: ${heldAct(h)}`); }
   if (opts.role !== 'bob') return statusLines(root, opts);
   const log = opts.log || console.log;
   const held = [];

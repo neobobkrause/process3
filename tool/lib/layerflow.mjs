@@ -721,7 +721,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
   const { n } = cfg.layer;
   const sb = cfg.state_branch;
   const lref = push ? layerRef(n) : `refs/heads/${layerBranch(n)}`;
-  const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, log }); });
+  const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, pushBranch: false, log }); });
   const doComplete = complete || (() => spawnComplete(root, id, args));
   for (let round = 1; round <= rounds; round++) {
     const s = await doSync();
@@ -1119,12 +1119,15 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
 // p3 layer sync <n> [--no-wait] (BOB): the tranche into layer/<n> by a tool-made merge PR, landed by
 // the merge tool on a green gate (the gate runs layer/<n>'s own tool, which takes a plain PR's
 // ledger entries, pointer and shims). Nothing when layer/<n> already holds the tranche tip.
+// A commit's parents as its object names them: a shallow clone's boundary (a depth-1 fetch of the
+// merge) hides them from rev-list, never from the object (cold review of R17d).
+const parentsOf = (root, sha) => git(['cat-file', '-p', sha], { cwd: root }).split('\n\n')[0].split('\n').filter((l) => l.startsWith('parent ')).map((l) => l.slice(7));
 export async function layerSync(root, n, { io = {}, log = console.log, wait = true, by = 'bob' } = {}) {
   n = layerNum(n);
   const cfg = loadConfig(root);
   needLayerMode(cfg, 'layer sync');
   const slug = io.slug || repoSlug(root);
-  const x = { findPR, createPR, checkRun, getPR, openPRs, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
+  const x = { findPR, createPR, checkRun, getPR, openPRs, prsFromBranch, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   fetchLayer(root, cfg, n);
   const rows = flowRows(root, cfg.state_branch, n);
   if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
@@ -1156,10 +1159,26 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   let pr = into.find((p) => String(p.head?.ref || '').startsWith(stem)) || null;
   let head = pr?.head?.sha || null;
   let resolved = [];
+  // Whether origin's `branch` at `at` is the tool's merge of the tranche tip into the layer tip,
+  // tree for tree, with no pull request ever opened from it: { head, resolved }, else null (an
+  // unreadable list counts as one opened: the next name is taken, as before).
+  const unopened = (branch, at) => {
+    fetchBranch(root, branch, { allowFail: true });
+    if (!hasCommit(root, at)) return null;
+    const ps = parentsOf(root, at);
+    if (ps.length !== 2 || ps[0] !== tip || ps[1] !== ttip) return null;
+    const same = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try { const r = syncMerge(root, cfg, n, tip, ttip, w); return r.tree === git(['rev-parse', `${at}^{tree}`], { cwd: root }) ? r.resolved : null; } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    if (!same) return null;
+    const prs = x.prsFromBranch(slug, branch);
+    return Array.isArray(prs) && !prs.length ? { head: at, resolved: same } : null;
+  };
   if (pr) {
     // Its head must be the tool's own merge, tree for tree: a push to the branch is never landed.
     fetchBranch(root, pr.head.ref, { allowFail: true });
-    const ps = hasCommit(root, head) ? git(['rev-list', '--parents', '-n', '1', head], { cwd: root }).split(' ').slice(1) : [];
+    const ps = hasCommit(root, head) ? parentsOf(root, head) : [];
     const ok = ps.length === 2 && isAnc(root, ps[0], tip) && ps[1] === ttip && withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
       try { const r = syncMerge(root, cfg, n, ps[0], ttip, w); resolved = r.resolved; return r.tree === git(['rev-parse', `${head}^{tree}`], { cwd: root }); } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
@@ -1168,9 +1187,21 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
     log(`layer sync ${n}: PR ${pr.number} from ${pr.head.ref} is open already, its head the tool's merge`);
   } else {
     // A closed or red attempt keeps its branch (no session deletes one): the next takes a new name.
+    // A branch an earlier run pushed and opened no pull request from (its create refused, R17d) is
+    // taken up again when its head is the tool's merge of these two tips: not a second branch.
     let branch = stem;
-    for (let k = 2; git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim(); k++) branch = `${stem}-${k}`;
-    ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
+    let again = null;
+    for (let k = 2; ; k++) {
+      const at = git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim().split('\t')[0];
+      if (!at) break;
+      again = unopened(branch, at);
+      if (again) break;
+      branch = `${stem}-${k}`;
+    }
+    if (again) {
+      ({ head, resolved } = again);
+      log(`layer sync ${n}: ${branch} holds the tool's merge already, with no pull request from it; it is opened, not pushed again`);
+    } else ({ head, resolved } = withTemp('p3-layer-', (tmp) => {
       const w = join(tmp, 'w');
       try {
         const r = syncMerge(root, cfg, n, tip, ttip, w);
@@ -1229,7 +1260,10 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   const { layerChecks } = await import('./layer.mjs');
   const mods = L.states.map((s) => ({ id: s.id, blocked: s.state === 'deferred' ? s.why : null }));
   const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, log, ...(x.exec ? { exec: x.exec } : {}) });
-  const all = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
+  // A committed generated file stale on the layer refuses the merge, named with its regenerate (the
+  // coordinator, 6 Nov: the last gate before the tranche; order.mjs drifted this way).
+  const staleAt = new Set((lc.stale || []).map((x) => x.file));
+  const all = [...lc.findings, ...(lc.stale || []).map((x) => ({ check: 'generated', file: x.file, message: `${x.file} is stale on ${b} ${short(head)}: run ${x.regenerate} and commit it (a plain pull request into ${b}), then ${P3} layer merge ${n} again` })), ...lc.changed.filter((f) => !staleAt.has(f) && ![...staleAt].some((x) => underPath(x, f))).map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
   // SLB-7 (Bob): at close only the layer's own checks hold it. A generated row's verify failure
   // blocks only when its paths, or a module it names, are the closing layer's; any other is
   // printed for the module it names, for BOB's found mark there, and the merge goes on.

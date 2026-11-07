@@ -116,7 +116,9 @@ test('release dev at a closed round: refused until the round is deployed and wal
   assert.throws(() => releaseDev(root, { io: { ...io, status: { ...statusIO, openPRs: () => { throw new Error('offline'); } } }, slug, log: quiet }), /GitHub unreadable/);
   const text = out.join('\n');
   assert.match(text, /development only, never published/);
-  assert.ok(text.includes(`1. \`gh workflow run process-dev-release.yml --repo o/p --ref tranche -f version=${r.version} -f commit=${tip}\``), text);
+  // Through the GitHub connector (R17c: the settings refuse a raw gh), counted by the session hook.
+  assert.ok(text.includes(`1. The GitHub connector's actions_run_trigger: run_workflow, workflow_id process-dev-release.yml, owner and repo o/p, ref tranche, inputs {"version":"${r.version}","commit":"${tip}"}`), text);
+  assert.ok(!/gh workflow run/.test(text));
   assert.match(text, /2\. watch the run: https:\/\/github\.com\/o\/p\/actions\/workflows\/process-dev-release\.yml\?query=branch%3Atranche\n/);
   assert.match(text, /3\. `node \.process\/tool\/p3\.mjs release dev --record <that run's url>`/);
   assert.equal(releaseDev(root, { io, slug, version: '0.4.0-dev.1', log: quiet }).version, '0.4.0-dev.1');
