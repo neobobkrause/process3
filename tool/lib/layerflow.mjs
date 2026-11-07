@@ -376,6 +376,13 @@ export const mergeReady = (states) => states.every((s) => DONE.includes(s.state)
 
 // What BOB may start (the tool lists, BOB starts; Bob, 5 Nov): each module not started, and each
 // complete one a reschedule reopened (its PR landed, so a new attempt).
+// A listed job whose in-layer provider has not landed: listed after the rest, and startable now as an
+// early start (R10, Bob 6 Nov). Worded so it is not read as a wait (C25: on the copy's layer 11 BOB
+// held such jobs 20-108 min, "waiting on providers still in flight", with slots empty).
+// Whether a listed act takes a job session (a slot under the cap): every job start does; an additive
+// change's `layer retest` runs in CI with none (C25: the idle check counted it as a slot's work).
+export const needsSlot = (j) => !j?.additive;
+export const afterNote = (after) => `   (${after.join(', ')} not landed yet: start it now on a free slot, this plain job start, no --early (R10); only a recorded hold waits)`;
 export function startable(states) {
   const list = states.flatMap((s) => {
     if (s.state === 'not started' && s.join) return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.entry_state === 'COMPLETE' ? ` --reopen ${JSON.stringify(s.join.why)}` : ''}` }];
@@ -708,7 +715,7 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   if (v.kind === 'done') return ['layer flow: every layer has merged'];
   const L = [...(v.sync ? [v.sync.line] : []), `layer flow: layer ${n} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
-  if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? `   (after ${q.after.join(', ')})` : ''}`));
+  if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? afterNote(q.after) : ''}`));
   if (v.early?.length) L.push(earlyHead(n, v.early_next), ...v.early.map((q) => `- ${q.cmd}`));
   if (v.ready && merge) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
   return L;
@@ -853,7 +860,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startable(L.states);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
-  for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
+  for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
 }
 
@@ -869,7 +876,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   if (sync) log(sync.line);
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
-  for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
+  for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   // The early list is a suggestion: unread, layer jobs still lists the layer's own (cold review of R14).
   let e;
   try { e = earlyNext(root, cfg, n, L); } catch (err) { if (!(err instanceof Error)) throw err; e = { next: null, list: [], skipped: [] }; log(`note: the early starts were not read (${err.message})`); }

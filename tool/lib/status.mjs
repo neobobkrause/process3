@@ -3,7 +3,7 @@
 import { staleLines, staleRecords } from './expire.mjs';
 import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
-import { joinAct, layerLines, layerMergeLine, layerPlace, openLayer } from './layerflow.mjs';
+import { joinAct, layerLines, layerMergeLine, layerPlace, needsSlot, openLayer } from './layerflow.mjs';
 import { aheadBy, cachedComments, checkRun, COMMENTS_MERGED_MS, keptCompare, COMMENTS_OPEN_MS, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
@@ -590,7 +590,10 @@ export function blockedJobs(cfg, rows, t = Date.now(), holds = [], layers = new 
 // One flow line (coordinator, 5 Nov: cap use about 48%): the account's job sessions against the cap,
 // the open layer's startable jobs (view: layerflow.mjs openLayer; unread, 0), and the jobs awaiting a ruling. The sweep records its numbers.
 export function flow(cfg, rows, next, live, listed = null, holds = [], { view = null } = {}) {
-  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), view?.kind === 'open' ? view.startable.length : 0];
+  // The open layer's jobs that take a slot (C25: an additive retest runs in CI, with no job session),
+  // as the idle check leaves retests out; the idle check also counts the early starts and less holds.
+  const [c, b, startable] = [jobCap(cfg), blockedJobs(cfg, rows, Date.now(), holds), view?.kind === 'open' ? view.startable.filter(needsSlot).length : 0];
+  const retests = view?.kind === 'open' ? view.startable.length - startable : 0;
   // Working against occupied (coordinator, 5 Nov): with list_sessions, each open job's live session
   // running or waiting (idle), and what a waiting one waits on where status knows it.
   const wait = [];
@@ -612,7 +615,7 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { view = 
   const queued = live === undefined || live === null ? 0 : Math.max(0, startable - Math.max(0, c.cap - Number(live)));
   const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
   const splits = owed.length ? `; ${free} slot${free === 1 ? '' : 's'} free: BOB's split acts would open them (split or consolidate: ${owed.join(', ')})` : '';
-  return { startable, ...(queued ? { queued } : {}), blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}${queued ? `, queued ${queued} (each starts as a slot frees: GitHub pacing)` : ''}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
+  return { startable, ...(queued ? { queued } : {}), blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}${retests ? ` (and ${retests} retest${retests === 1 ? '' : 's'}, no job session)` : ''}${queued ? `, queued ${queued} (each starts as a slot frees: the job cap)` : ''}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last

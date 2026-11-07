@@ -540,7 +540,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
       git(['push', '-q', '-u', 'origin', branch], { cwd: root });
       if (remoteTip(root, branch) !== git(['rev-parse', 'HEAD'], { cwd: root })) fail(`the push of ${branch} did not land`);
       // The layer's own count of starts, early ones marked (layer report).
-      if (cfg.layer) { try { writeRows(root, cfg.state_branch, `layer ${cfg.layer.n}: ${id} started${early?.length ? ' early' : ''}`, [[flowFile(cfg.layer.n, 'start', `${safeName(id)}-${attempt}-${Date.now()}`), { row: 'start', layer: cfg.layer.n, module: id, attempt, branch, early, at: now() }]]); } catch (e) { log(`note: the layer's start row was not written (${e.message}); the start row on ${branch} has it`); } }
+      if (cfg.layer) { try { writeRows(root, cfg.state_branch, `layer ${cfg.layer.n}: ${id} started${early?.length ? ' early' : ''}`, [[flowFile(cfg.layer.n, 'start', `${safeName(id)}-${attempt}-${Date.now()}`), { row: 'start', layer: cfg.layer.n, module: id, attempt, branch, early, ...(restart !== undefined ? { restart: true } : {}), at: now() }]]); } catch (e) { log(`note: the layer's start row was not written (${e.message}); the start row on ${branch} has it`); } }
       result.pr = open(slug, { head: branch, base: cfg.tranche, title: `job: ${id}`, body: result.start, draft: true });
       log(`draft pull request: ${result.pr.html_url}`);
       const subscribe = subscribeFor(slug, result.pr);
