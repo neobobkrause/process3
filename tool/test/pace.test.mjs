@@ -114,7 +114,7 @@ test('each window waits at the target, account-wide: this clone\'s log and the o
   assert.deepEqual(c2.slept, [300e3]);
   // A wait longer than 15 minutes is refused, never slept through.
   const c3 = clock(c2.t + 120e3);
-  assert.throws(() => ghTurn(['api', 'user'], makeRepo({ 'a.md': 'x\n' }), { p: P, now: c3.now, sleep: c3.sleep, rateLimit: () => ({ limit: 5000, remaining: 10, reset: c3.t + 3000e3 }) }), (e) => e instanceof Paced && /run this again then/.test(e.message));
+  assert.throws(() => ghTurn(['api', 'user'], makeRepo({ 'a.md': 'x\n' }), { p: P, now: c3.now, sleep: c3.sleep, rateLimit: () => ({ limit: 5000, remaining: 10, reset: c3.t + 3000e3 }) }), (e) => e instanceof Paced && /acts on GitHub wait until .* then rerun .*; what this command did before the refusal stands/.test(e.message));
 });
 
 test('a 403 with Retry-After pauses every session until it passes, never a retry inside it; a second refusal within an hour stops the tool until the coordinator resumes it', (t) => {
@@ -224,7 +224,10 @@ test('github budget: use against each published limit, per window, as a percenta
   assert.match(git(['ls-tree', '--name-only', 'process-state', 'github/use/'], { cwd: bare }), /github\/use\/cse_me\.jsonl/);
   assert.equal(shareUsage(root, cfg, {}), 0, 'nothing new since');
   // Another session's shared rows count; this clone's own come from its log, never twice.
-  useShared({ read: () => ({ pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString().replace(/\.\d+Z$/, 'Z'), calls: 10, points: 50, content: 10, pushes: 2 }, { session: 'cse_me', clone: cloneId(root), minute: new Date(c.t).toISOString(), calls: 5, points: 21, content: 4, pushes: 1 }] }), pause: () => {} });
+  // R17e: the read holds this clone's share (its at after the share's), so the log adds nothing.
+  const readAt = Date.now();
+  const sharedPushes = readFileSync(f, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.kind === 'push' && Date.parse(r.at) <= lastShared(root)).length;
+  useShared({ read: () => ({ at: readAt, pause: null, use: [{ session: 'cse_other', minute: new Date(c.t).toISOString().replace(/\.\d+Z$/, 'Z'), calls: 10, points: 50, content: 10, pushes: 2 }, { session: 'cse_me', clone: cloneId(root), minute: new Date(c.t).toISOString(), calls: 5, points: 21, content: 4, pushes: sharedPushes }] }), pause: () => {} });
   const out = [];
   const r = githubBudget(root, { now: c.t, log: (l) => out.push(l), p: P, rateLimit: () => ({ limit: 5000, remaining: 4000, reset: c.t + 1800e3 }) });
   // Every push this clone made is in its log (the fixture's, the share's state push, job/a's).
@@ -343,7 +346,7 @@ test('coalesced writes survive another process resetting the clone\'s ref, a kil
 
 // R17b (coordinator's rulings, 6 Nov): pushes and connector writes in the ledger, one ledger per
 // account (process3's clones use the product's), and the process's own push ceiling (PD-3).
-import { cloneId, exempt, noteTurn, pushTurn } from '../lib/pace.mjs';
+import { cloneId, exempt, lastShared, noteShare, noteTurn, pushTurn } from '../lib/pace.mjs';
 import { ledgerOf, USE_DIR } from '../lib/ghshare.mjs';
 
 test('every push waits for the account\'s push ceiling (PD-3, 120 an hour), the tool\'s own included', (t) => {
@@ -455,6 +458,8 @@ test('one ledger per account: a process3 clone reads and writes the product\'s s
   // The share is gated and never waits: refused while the account is paused, shared after.
   assert.throws(() => stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow(), /GitHub budget: GitHub rate-limited this account.*not now; tried again later/);
   stateShare(product, configOf({})).resume('session_coord');
+  // A reader sees the resume once its read is READ_S old (R17e, C12); this command's starts fresh.
+  useShared(stateShare(product, configOf({})));
   assert.ok(stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow() >= 1, 'shared once share_s has passed and the pause is lifted');
   assert.match(git(['ls-tree', '--name-only', 'process-state', `${USE_DIR}/`], { cwd: bare }), /github\/use\/cse_p3\.jsonl/);
 });
@@ -490,7 +495,13 @@ test('a session\'s use from another clone counts here; the share\'s own push is 
   const minute = new Date(t0).toISOString();
   // The same session's 30 content-creating requests, made from its other clone.
   const others = [{ session: 'cse_same', clone: cloneId(elsewhere), minute, calls: 30, points: 150, content: 30, pushes: 0 }, { session: 'cse_same', clone: cloneId(here), minute, calls: 9, points: 9, content: 9, pushes: 0 }];
-  assert.equal(usage(here, { t: t0, seconds: 60, rows: [], others }).content, 30, 'the other clone\'s rows count; this clone\'s come from its log');
+  // R17e (C10): every ledger row counts, this clone's own too; its log adds only the rows no share
+  // in the read carried. Here its 9 were shared (at t0 - 500) before the read (at t0): 39, not 48.
+  const mine = Array.from({ length: 9 }, () => ({ kind: 'gh', at: new Date(t0 - 1000).toISOString(), points: 1, content: 1 }));
+  noteShare(here, t0 - 1000, t0 - 500);
+  assert.equal(usage(here, { t: t0, seconds: 60, rows: mine, read: { use: others, at: t0 } }).content, 39, 'each row once');
+  // A read from before the share lacks them: they count from the log.
+  assert.equal(usage(here, { t: t0, seconds: 60, rows: mine, read: { use: others.slice(0, 1), at: t0 - 600 } }).content, 39);
   // The share: its own push (logged during the write) is in the next share.
   const { root, bare } = withOrigin({ 'process/config.json': {} });
   writeFileSync(f, '');
