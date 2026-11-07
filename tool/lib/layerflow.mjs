@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
 import { classifyTestChange } from './testdiff.mjs';
-import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch } from './github.mjs';
+import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
@@ -40,7 +40,7 @@ import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor } from './hold.mjs';
-import { exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
+import { Fail, exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 export const LAND_TITLE = /^Merge layer PR (\d+)$/;
@@ -1371,6 +1371,36 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const chain = git(['rev-list', '--first-parent', head, '--not', mb], { cwd: root }).split('\n').filter(Boolean);
   const parents = (c) => git(['rev-list', '--parents', '-n', '1', c], { cwd: root }).split(' ').slice(1);
   const landOf = new Map(); // commit -> { pr, id, head } | { why }
+  const whole = (r, id) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
+  let stateRows = null;
+  const hidden = (c, k, p, why) => {
+    const no = (w) => { const v = { why: w }; landOf.set(c, v); return v; };
+    const n0 = Number(String(branch).match(/(\d+)$/)?.[1]);
+    // The state branch as fetched, or as the checkout already holds it (CI's checkout has the whole
+    // history and no credentials to fetch again: cold review of C13).
+    if (stateRows === null) {
+      try { fetchState(root, cfg.state_branch); } catch { /* read what the checkout holds */ }
+      try { stateRows = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 ? flowRows(root, cfg.state_branch, n0) : false; } catch { stateRows = false; }
+    }
+    const land = stateRows ? stateRows.lands.find((l) => l.pr === k && l.merge === c && l.head === p[1]) : null;
+    if (!land || !entries.some((e) => e.id === land.module)) return no(`is PR ${k}'s merge, but GitHub does not serve PR ${k} (${why}) and ${cfg.state_branch} holds no land row for this merge`);
+    const id = land.module;
+    const art = io.runArtifactRow || runArtifactRow;
+    // The run is bound to the module's own job branch by name (job/<id> or job/<id>-<n>), read from the
+    // start row on the layer before the land, never from the PR's own head (cold review of C13).
+    const jb = startBranch(rowsAt(root, p[0], id), id);
+    if (!new RegExp(`^job/${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-\\d+)?$`).test(jb)) return no(`is PR ${k}'s land (from ${cfg.state_branch}), but ${jb} is not ${id}'s job branch`);
+    const ctx = { pr: k, baseRef: branch, merged: { branch: jb } };
+    // Its newest run on the head by GitHub's own run id (and attempt), never a session-written time.
+    const rows = stateRows.gates.filter((g) => g.pr === k && g.sha === p[1] && g.run_id).sort((a, b) => (Number(a.run_id) - Number(b.run_id)) || ((a.run_attempt ?? 1) - (b.run_attempt ?? 1)));
+    const last = rows.at(-1);
+    let row = null;
+    try { row = last ? art(slug, last.run_id) : null; } catch { row = null; }
+    if (!row || Number(row.run_id) !== Number(last.run_id) || row.sha !== p[1] || !whole(row, id) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but its gate run on ${short(p[1])} ${last ? 'is not a verified green run of the whole suite' : 'is not recorded'}`);
+    const v = { pr: k, id, head: p[1], parent: p[0], pr_unreadable: why.slice(0, 200) };
+    landOf.set(c, v);
+    return v;
+  };
   const judge = (c) => {
     if (landOf.has(c)) return landOf.get(c);
     const no = (why) => { const v = { why }; landOf.set(c, v); return v; };
@@ -1378,7 +1408,15 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     if (!k) return no('is not a land of a publish PR');
     const p = parents(c);
     if (p.length !== 2) return no(`names PR ${k} but is not a merge of two parents`);
-    const pr = io.getPR(slug, k);
+    // A landed PR GitHub no longer serves (C13, the coordinator, 7 Nov: PR 696, opened by the suspended
+    // account, read 404 and failed layer 9's merge gate): its facts from the state branch's land row
+    // for this very merge and the gate's own run artifact, recorded pr_unreadable. Any other read
+    // failure, or a PR with no land row, fails closed.
+    let pr;
+    try { pr = io.getPR(slug, k); } catch (e) {
+      if (!(e instanceof Fail) || !/HTTP 404|Not Found/i.test(e.message)) throw e;
+      return hidden(c, k, p, e.message);
+    }
     const id = branchModule(pr?.head?.ref, new Set(entries.map((e) => e.id)));
     if (!pr?.merged || pr.merge_commit_sha !== c || pr.base?.ref !== branch || !id || pr.head.sha !== p[1]) return no(`is not GitHub's merge of job PR ${k} into ${branch}`);
     const runs = gateRuns(io.comments(slug, k));
@@ -1386,12 +1424,12 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     // The newest run on the head, as jobMerge reads it: green, verified, the module's whole suite
     // (not a run narrowed to the tests that read a requirements file).
     const row = runs.filter((r) => r.sha === p[1]).pop();
-    const whole = (r) => r?.ok && r.trigger === 'code' && r.suite === 'pass' && Array.isArray(r.scope) && r.scope.includes(id) && !(Array.isArray(r.requirements_only) && r.requirements_only.some((x) => x?.module === id));
+    const wholeOf = (r) => whole(r, id);
     // A records-since-green row (the PR edited, the layer tip unchanged) stands on the run it names,
     // as jobMerge follows it (confirming review N3).
     const tested = !row?.ok || !io.verify(slug, row, ctx) ? null
-      : row.trigger === 'record-since-green' ? runs.filter((r) => r.sha === row.after).reverse().find((r) => whole(r) && isAnc(root, r.sha, p[1]) && io.verify(slug, r, ctx)) || null
-        : whole(row) ? row : null;
+      : row.trigger === 'record-since-green' ? runs.filter((r) => r.sha === row.after).reverse().find((r) => wholeOf(r) && isAnc(root, r.sha, p[1]) && io.verify(slug, r, ctx)) || null
+        : wholeOf(row) ? row : null;
     if (!tested) return no(`is PR ${k}'s land, but the newest gate run on its head ${short(p[1])} is ${row ? 'not a verified green run of the whole suite' : 'missing'}`);
     const v = { pr: k, id, head: p[1], parent: p[0] };
     landOf.set(c, v);
@@ -1426,7 +1464,7 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
       }
     }
     if (late.length) findings.push({ check: 'layer', file: entryFile(e.id), line: 1, message: `${e.id}'s ${last ? `last green run (PR ${last.v.pr}, ${short(last.v.head)})` : 'work (no land on the layer)'} did not hold the interface change of ${late.join(', ')}: it never counts; ${e.id} re-runs and publishes again` });
-    else if (last) covered.push({ id: e.id, pr: last.v.pr, merge: last.c });
+    else if (last) covered.push({ id: e.id, pr: last.v.pr, merge: last.c, ...(last.v.pr_unreadable ? { pr_unreadable: last.v.pr_unreadable } : {}) });
   }
   const own = new Set(entries.flatMap((e) => need.filter((f) => inMod(e, f))));
   for (const f of need.filter((x) => !own.has(x))) findings.push({ check: 'layer', file: f, line: 1, message: `${f} is in no module: a plain change goes to ${cfg.tranche} between layers, not onto ${branch}` });
