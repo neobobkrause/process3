@@ -321,7 +321,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const c = jobCfg(root, loadConfig(root), id, { push });
     // A layer cut ahead for early starts and not open: only an early start of a listed module.
     // A joined module included (cold review of R14).
-    if (c.layer && !earlyStart) { const k = cutAhead(root, c.state_branch, c.layer.n); if (k !== null) fail(`layer ${c.layer.n} is not open (${c.tranche} was cut ahead for early starts while layer ${k} is open): ${id} starts early with --early when ${P3} layer jobs ${k} lists it, else from ${P3} layer jobs ${c.layer.n} once it opens; nothing was started`); }
+    if (c.layer && !earlyStart) { const k = cutAhead(root, c.state_branch, c.layer.n); if (k !== null) fail(`layer ${c.layer.n} is not open (${c.tranche} was cut ahead from layer ${k} for early starts): ${id} starts early with --early while ${P3} layer jobs ${k} lists it, else from ${P3} layer jobs ${c.layer.n} once it opens; nothing was started`); }
     // A job starts only in its layer, once that layer is open (layer open <n>); a product with no
     // layer map (layers_file) has no layer, and its jobs keep the tranche.
     if (layerMode(c) && !c.layer && !c.noLayers) fail(`${id}'s layer has no open branch (layer/<n> on origin, not merged), and it joined no open layer: a layer not yet open opens first (${P3} layer open <n>) and lists it (${P3} layer jobs <n>); a module whose layer is behind the open one joins the next to open (${P3} layer join ${id} --why "<the work>"), then starts from that layer's list once it opens; nothing was started`);

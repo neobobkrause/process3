@@ -550,12 +550,26 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
 // a module into another layer, and an early start stays in its own.
 // A layer branch cut ahead for early starts and not open: no open row for n, and an earlier layer
 // open and not merged (whether or not its early row was written: cold review of R14).
-export function cutAhead(root, sb, n) {
-  if (flowRows(root, sb, n).open) return null;
-  for (let k = n - 1; k >= 1; k--) { const r = flowRows(root, sb, k); if (r.open && !r.merged) return k; }
-  return null;
+// The users (of a land in layer n) that started early into a later layer not yet open: user -> that layer.
+export function earlyUsers(root, sb, n, users, home) {
+  const out = new Map();
+  for (const u of users) {
+    const k = home(u);
+    if (k === null || k <= n) continue;
+    const r = flowRows(root, sb, k);
+    if (!r.open && !r.merged && r.earlies.some((e) => e.module === u)) out.set(u, k);
+  }
+  return out;
 }
-const notOpen = (n, k) => `layer ${n} is not open: ${layerBranch(n)} was cut ahead for early starts while layer ${k} is open (${P3} layer jobs ${k} lists them); it opens with ${P3} layer open ${n} after layer ${k} merges`;
+// Layer n cut ahead and not open: early rows and neither an open nor a merged row, from layer n-1's
+// merge to n's open too (cold review of R14: the guards stopped at n-1's merge, and a plain start
+// then took the cut-ahead tip). Returns the layer it was cut from (the newest early row's), else null.
+export function cutAhead(root, sb, n) {
+  const r = flowRows(root, sb, n);
+  if (r.open || r.merged || !r.earlies.length) return null;
+  return r.earlies.at(-1).from ?? n - 1;
+}
+const notOpen = (n, k) => `layer ${n} is not open: ${layerBranch(n)} was cut ahead from layer ${k} for early starts (${P3} layer jobs ${k} lists them while layer ${k} is open); it opens with ${P3} layer open ${n} once layer ${k} has merged`;
 export const earlyHead = (n, next) => `early starts into layer ${next}, on idle capacity only, after layer ${n}'s own (Bob, 6 Nov; each logged, its rework counted): each provider landed or COMPLETE; cut from ${layerBranch(n)}'s tip, published once layer ${next} opens:`;
 export function earlyNext(root, cfg, n, L) {
   const tr = `refs/remotes/origin/${cfg.tranche}`;
@@ -618,7 +632,8 @@ export function earlyCut(root, cfg, id, { io = {}, by = 'bob', log = console.log
   fetchBranch(root, layerBranch(v.n));
   const e = earlyNext(root, cfg, v.n, readLayer(root, cfg, v.n, { io, slug: io.slug || repoSlug(root) }));
   const x = e.list.find((q) => q.id === id);
-  if (!x) fail(`${id} cannot start early${e.next !== null ? ` into layer ${e.next}` : ' (no layer follows the open one)'}: ${e.skipped.find((q) => q.id === id)?.why || 'it is not listed (started already, nothing to do, or not in the next layer)'}; ${P3} layer jobs ${v.n} lists the early starts; nothing was started`);
+  const startedEarly = e.next !== null && flowRows(root, cfg.state_branch, e.next).earlies.some((q) => q.module === id);
+  if (!x) fail(`${id} cannot start early${e.next !== null ? ` into layer ${e.next}` : ' (no layer follows the open one)'}: ${startedEarly ? `it started early already; an early start that did not finish resumes with ${P3} job start ${id} once layer ${e.next} opens` : e.skipped.find((q) => q.id === id)?.why || 'it is not listed (started already, nothing to do, or not in the next layer)'}; ${P3} layer jobs ${v.n} lists the early starts; nothing was started`);
   const t = e.next;
   const b = layerBranch(t);
   const from = rev(root, layerRef(v.n));
@@ -641,8 +656,9 @@ export function earlyRework(rows, notices = []) {
   const last = new Map(rows.earlies.map((r) => [r.module, r]));
   const live = notices.filter((k) => !k.withdrawn);
   const each = [...last.values()].map((r) => {
-    const resched = rows.reschedules.some((x) => x.user === r.module);
-    const retest = rows.retests.some((x) => x.module === r.module);
+    // Rework after the early start, cleared reschedules included (a cleared one was still rework).
+    const resched = (rows.reschedules_all || rows.reschedules).some((x) => x.user === r.module && String(x.at) > String(r.at));
+    const retest = rows.retests.some((x) => x.module === r.module && String(x.at) > String(r.at));
     const noticed = live.some((k) => (k.users || []).includes(r.module) && String(k.at) > String(r.at));
     return { module: r.module, from: r.from, at: r.at, rework: resched ? 'reschedule' : retest ? 'retest' : noticed ? 'notice' : null };
   });
@@ -847,7 +863,9 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
   for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
-  const e = earlyNext(root, cfg, n, L);
+  // The early list is a suggestion: unread, layer jobs still lists the layer's own (cold review of R14).
+  let e;
+  try { e = earlyNext(root, cfg, n, L); } catch (err) { if (!(err instanceof Error)) throw err; e = { next: null, list: [], skipped: [] }; log(`note: the early starts were not read (${err.message})`); }
   if (e.list.length) { log(earlyHead(n, e.next)); for (const x of e.list) log(`  ${x.cmd}`); }
   if (e.skipped.length) log(`not early (layer ${e.next}): ${e.skipped.map((x) => `${x.id} (${x.why})`).join('; ')}`);
   return { ok: true, startable: s, states: L.states, sync, early: e.list, early_next: e.next };
@@ -1197,6 +1215,17 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (ic.unread) log(`warning: ${id}'s exports could not be read on the land ${short(after)} (${ic.unread}): counted as breaking, each user in the layer rescheduled`);
   const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? sameAll : [], users_noticed: noticed };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land], ...gateFiles(n, id, n0, runs)];
+  // A user that started early into a later layer not yet open (R14) is working against this provider
+  // now: an interface change reschedules it there, as one in this layer, never a notice its own land
+  // would answer unseen (cold review of R14). Its layer's states hold it until its land holds this one.
+  const earlyAt = ic.changed ? earlyUsers(root, cfg.state_branch, n, later, home) : new Map();
+  const early = [...earlyAt.keys()];
+  if (early.length) land.users_rescheduled_early = early;
+  for (const u of early) {
+    const k = earlyAt.get(u);
+    files.push([flowFile(k, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: k, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class, early_from: n }]);
+    log(`${u} started early into layer ${k}: rescheduled there by ${id}'s interface change; its job brings ${layerBranch(k)} up once layer ${k} opens, and its run counts only on a head that holds ${short(after)}`);
+  }
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class }]);
   }
