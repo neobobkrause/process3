@@ -52,9 +52,9 @@ test('job start <id> checks the cap: --live or --sessions required, the cap less
   const root = product();
   assert.throws(() => capCheck(root, {}), /job start <id> --live <n> \(or --sessions <file>\)/);
   assert.equal(capCheck(root, { live: '3' }).n, 3);
-  assert.throws(() => capCheck(root, { live: '4' }), /the job cap is full: 4 job sessions live of the cap 4; nothing was started/);
+  assert.throws(() => capCheck(root, { live: '4' }), /the job cap is full: 4 job sessions working of the cap 4 \(4 live\); nothing was started/);
   hold(root, 'slots:1', { why: 'rehearsal', by: 'session_x1', until: '30m', log: quiet });
-  assert.throws(() => capCheck(root, { live: '3' }), /3 job sessions live of the cap 4 less 1 held/);
+  assert.throws(() => capCheck(root, { live: '3' }), /3 job sessions working of the cap 4 less 1 held \(3 live\)/);
 });
 
 test('flow: with slots free, the requirement files over the cap are named as BOB\'s split acts that would open them', (t) => {
