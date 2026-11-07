@@ -10,11 +10,12 @@ Runbook: rulebooks/account-switch.md on process3's tranche. Section 1 (switch ou
   - tasks switched off, never deleted: Phase 1/2 survival reads, coordinator hourly, ROOT sweep, watcher. Bob's alpha-pipeline-runner is not the process and was left as it is;
   - lanes investigation, publication and ux;
   - BOB, ROOT and the watcher.
-- Copy pin move to f6a9846 (session_018BhcegjKaqPTi4C3QLgA4d) stopped before pushing (Cloudflare 429 read as a missing token: C20). The copy is still pinned at 19fe9dd. The probes are at f6a9846 (PR 239).
+- Copy pin move to f6a9846: my STOP arrived after its push. Copy PR 761 (p3/pin-f6a9846db1, e4bbb2fe62) is OPEN and unmerged; no wake was sent. The new account reuses it or closes it in favour of a pin carrying C19/C20/R17g. The copy is still pinned at 19fe9dd.
+- Lanes: ux pushed (lane/ux cb138ca4b7, draft PR 762, open-work list in docs/development/ux-substrate-research/open-work-2026-11-07.md). Investigation's handoff 17908ea60 (open-asks A1–A10) was held by the old 120 ceiling; I told it to push with the tranche config. Check lane/investigation for it. If it's missing, the asks are in the artifacts THTtouNJzkhmHqyR4Pfa4g and UgRF58WWCfuDu88ztaKNbL. Publication had not replied at 05:34Z. Job op-capabilities pushed at 3a67501a07. The probes are at f6a9846 (PR 239).
 - Builders ef7TXuV (C19/C20, append-only-state) and ef1pxNY (R17g, C18) were told to push and write notes/builder-handoff-ef7.md / -ef1.md on their branches. Heads are below once they report.
 
 ## State at shutdown
-- process3 tranche: 7f4426b (C17 PR 230 f6a9846 and C16 PR 229 merged). Open PR 231 (PD-5, PD-6 decision records; CI was running). Merge it.
+- process3 tranche: 372438c (C17 PR 230, C16 PR 229, PD-5/PD-6 PR 231 merged).
 - Copy: layer 10 complete (4/4 landed). Layer PR 759 blocked by the record-check settings finding: C19 credits a settings change that a merge carries from an owner's commit already on tranche. PR 752 op-capabilities is parked for layer 11. Config PR 760 merged (pushes_per_hour 1000000, coordinator = the old coordinator's id, to be reset).
 - Bob's holds and decisions:
   - No layer 11 open until Bob says (account switch).
