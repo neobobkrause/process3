@@ -95,9 +95,10 @@ export function keptRead(root, key, ttl, read, { now = Date.now } = {}) {
   if (value !== null && value !== undefined) { try { mkdirSync(dir, { recursive: true }); writeFileSync(f, JSON.stringify({ at: now(), ttl: typeof ttl === 'function' ? ttl(value) : ttl, value })); } catch { /* a saving */ } }
   return value;
 }
-// GitHub's compare kept 5 min (a display's count: a status run takes over 2); a commit found on its base (ahead_by 0, base main) for a day: main
+// GitHub's compare kept 5 min for a commit (a status run takes over 2), 30 s for a branch name
+// (its tip moves: a job's ahead count, cold review of C18); a commit found on its base (ahead_by 0, base main) for a day: main
 // never moves back (C18: status read every closed layer's commit against main on every call).
-export const keptCompare = (root) => (slug, base, head) => keptRead(root, `compare-${slug}-${base}-${head}`, (c) => (base === 'main' && c?.ahead_by === 0 ? 24 * 3600e3 : 300e3), () => compare(slug, base, head));
+export const keptCompare = (root) => (slug, base, head) => keptRead(root, `compare-${slug}-${base}-${head}`, (c) => (base === 'main' && c?.ahead_by === 0 ? 24 * 3600e3 : /^[0-9a-f]{40}$/.test(String(head)) ? 300e3 : 30e3), () => compare(slug, base, head));
 export const COMMENTS_MERGED_MS = 6 * 3600e3;
 export const COMMENTS_OPEN_MS = 30e3;
 export function cachedComments(root, slug, n, { ttlMs = COMMENTS_OPEN_MS, now = Date.now, read = comments } = {}) {

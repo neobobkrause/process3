@@ -268,11 +268,12 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   // the account is paused or at the ceiling it is refused, nothing is recorded, and it is shared later.
   // A share whose own push is refused and kept for replay is recorded pending (cold review): not
   // sent again by the next share, and settled when state replay pushes it.
-  // On the product's own state branch a share is bookkeeping (C18): it rides the command's real
-  // write, or waits in the clone for the next one; never a push of its own. Recorded pending, and
-  // settled when the write that carries it is pushed (onFlushed, or the clone's next write).
+  // On the product's own state branch, with a real write pending, a share is bookkeeping (C18): it
+  // rides that write. With none, the share-alone rule above stands (at most every SHARE_ALONE_S, only
+  // for what others must count), a push of its own, so a clone that mostly reads still reaches the
+  // ledger (cold review of C18: deferred, its use never reached the other clones).
   const msg = `github: ${rows.length} minute(s) of use (rows to ${last})`;
-  if (st.ref !== LEDGER_REF) {
+  if (st.ref !== LEDGER_REF && pending > 0) {
     bookkeep(root, cfg.state_branch, msg, 'share', { path: file, rows, since: now() - 2 * 3600e3 });
     noteShare(root, last, PENDING_AT, now());
     if (pendingWrites()) onFlushed(root, cfg.state_branch, () => settleShare(root, last, Date.now()));

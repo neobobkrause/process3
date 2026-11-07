@@ -156,9 +156,20 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   }
   const { reasons = [], ...rec } = ic || {};
   const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
-  // Bookkeeping (C18): the row never pushes on its own; it rides the command's or the clone's next
-  // real write, and is left out there if another session's row landed within CHECK_MIN of it.
-  try { bookkeep(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, 'check', { path: SWEEP_ROWS_FILE, row }); } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
+  // An ok row is bookkeeping (C18): it never pushes on its own; it rides the command's or the
+  // clone's next real write, left out there if another session's row landed within CHECK_MIN. An
+  // alarm is a real write, as before: only the session whose row lands prints it, wakes BOB and
+  // tells the coordinator, never every session at once (cold review of C18).
+  if (!ic?.alarm) { try { bookkeep(root, sb, 'idle check: ok', 'check', { path: SWEEP_ROWS_FILE, row }); } catch (e) { if (!(e instanceof Fail)) throw e; return null; } return row; }
+  const LOST = new Superseded('another check landed first');
+  try {
+    writeState(root, sb, 'idle check: IDLE CAPACITY', (dir) => {
+      const p = join(dir, SWEEP_ROWS_FILE);
+      if (fresh(lastRow(existsSync(p) ? readFileSync(p, 'utf8') : ''), t)) throw LOST;
+      mkdirSync(join(dir, 'metrics'), { recursive: true });
+      appendFileSync(p, JSON.stringify(row) + '\n');
+    });
+  } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
   if (ic?.alarm) {
     const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${reasons.join('; ')}`;
     log(line);
