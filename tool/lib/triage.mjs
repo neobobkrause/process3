@@ -110,7 +110,7 @@ function changes(root, cfg, n, { slug, read, compare }) {
 // coordinator); the judgement needs only where a module reaches the provider. git grep for the
 // provider's directory names narrows the read, as exports.mjs entryFiles does.
 const CODE_FILE = /\.(m|c)?(j|t)sx?$/;
-function sizes(root, cfg, users, ref, provider) {
+export function sizes(root, cfg, users, ref, provider) {
   let modules = [];
   try { modules = JSON.parse((exists(root, ref, cfg.modules_file) ? git(['show', `${ref}:${cfg.modules_file}`], { cwd: root }) : null) || '{}').modules || []; } catch { modules = []; }
   if (!Array.isArray(modules)) modules = [];
@@ -118,8 +118,12 @@ function sizes(root, cfg, users, ref, provider) {
   const provPaths = [...(prov?.paths || [])];
   const inProvider = (f) => !!prov && ownerOf(modules, f)?.id === provider;
   const pathsOf = (u) => modules.find((m) => m?.id === u)?.paths || [];
-  const userPaths = [...new Set(users.flatMap(pathsOf))];
-  const words = [...new Set(provPaths.map((p) => String(p).replace(/\/$/, '').split('/').pop()).filter((w) => w && w !== '.'))];
+  // A user's tests are read too, and the provider's tests are the provider's (C11 b, the coordinator,
+  // 7 Nov: affordances' backing.test.mjs and t46.test.mjs and screens-action's real.mjs import
+  // bio-plane/test/m/filings/fixture.mjs, and the brief listed only users' source imports).
+  const testsOf = (u) => modules.find((m) => m?.id === u)?.tests || [];
+  const userPaths = [...new Set(users.flatMap((u) => [...pathsOf(u), ...testsOf(u)]))];
+  const words = [...new Set([...provPaths, ...(prov?.tests || [])].map((p) => String(p).replace(/\/$/, '').split('/').pop()).filter((w) => w && w !== '.'))];
   const hits = new Map(users.map((u) => [u, []]));
   if (words.length && userPaths.length) {
     const all = new Set(git(['ls-tree', '-r', '--name-only', '-z', ref], { cwd: root }).split('\0').filter(Boolean));
@@ -353,7 +357,7 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
   const ids = ledgerIds(root, sha);
   const fetched = (h) => has(h) || (git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true }), has(h));
   const branchOf = (u) => jobBranch(u, heads.keys(), ids, (b) => fetched(heads.get(b)) && startBranch(rowsAt(root, heads.get(b), u), u) === b);
-  const settled = (u, paths) => {
+  const settled = (u, paths, roots = paths) => {
     const h = heads.get(branchOf(u));
     if (!h) return true;
     if (!has(h)) git(['fetch', '-q', ...(isShallow(root) ? ['--depth=1'] : []), 'origin', h], { cwd: root, allowFail: true });
@@ -363,18 +367,20 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
     let atH = null;
     try { atH = JSON.parse(git(['show', `${h}:${cfg.modules_file}`], { cwd: root })).modules?.find((x) => x?.id === u)?.paths || null; } catch { atH = null; }
     if (JSON.stringify(atH) !== JSON.stringify(paths)) return false;
-    return git(['diff', '--quiet', h, sha, '--', ...paths], { cwd: root, allowFail: true }).code === 0;
+    return git(['diff', '--quiet', h, sha, '--', ...roots], { cwd: root, allowFail: true }).code === 0;
   };
   const out = [];
   for (const u of users) {
     const m = modules.find((x) => x?.id === u);
     const paths = m?.paths || [];
+    // Its tests too (C11 b): a user test importing the provider's test fixture is a use of it.
+    const roots = [...paths, ...(m?.tests || [])];
     const i = text.findIndex((l) => new RegExp(`"id"\\s*:\\s*"${u.replace(/[-]/g, '\\-')}"`).test(l));
     if (!m) { whys.set(u, `no entry in ${cfg.modules_file}`); continue; }
     if (!paths.length) { whys.set(u, `no paths in ${cfg.modules_file}`); continue; }
     if (i < 0) { whys.set(u, `no "id" line for it in ${cfg.modules_file}`); continue; }
-    if (!settled(u, paths)) { whys.set(u, `${branchOf(u)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
-    const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...paths], { cwd: root, allowFail: true });
+    if (!settled(u, paths, roots)) { whys.set(u, `${branchOf(u)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)`); continue; }
+    const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...roots], { cwd: root, allowFail: true });
     if (g.code !== 0 && g.code !== 1) { whys.set(u, `git grep under its paths failed (exit ${g.code}: ${String(g.stderr || '').trim().split('\n').pop()})`); continue; }
     const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);
     let hit = false;
