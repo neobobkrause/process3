@@ -110,7 +110,8 @@ test('a told tool stops when denied, or when it asks in auto mode and no allow r
 test('every tool the process tells a session to use runs unattended under the R17c settings; today\'s copy settings leave only the lanes\' Artifact to a prompt', () => {
   const told = toldTools(ROOT);
   for (const repo of ['copy', 'probes']) assert.deepEqual(admitTools(R17C[repo], told), [], repo);
-  // Until Bob applies them (register C15, fix 1): exactly the lanes' Artifact, nothing else.
+  // Until Bob applies them (register C15, fix 1): exactly the lanes' Artifact, nothing else. Brittle on
+  // purpose: once the copy allows Artifact, COPY above is updated and this assertion dropped.
   const now = admitTools(COPY, told);
   assert.deepEqual([...new Set(now.map((x) => `${x.tool}: ${x.why}`))], ['Artifact: prompts']);
   assert.ok(now.every((x) => x.file === 'tool/lib/lane.mjs'), JSON.stringify(now));

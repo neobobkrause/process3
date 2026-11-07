@@ -1,6 +1,11 @@
 # R17c: the three repositories' `.claude/settings.json`, for Bob to apply
 
-**Apply these only after R17c is merged into process3's tranche and pinned on each product** (the
+**Apply now, on today's settings, apart from the rest (C15, 7 Nov):** add `"Artifact"` to
+`permissions.allow` in the copy's and the probes' `.claude/settings.json` (create `allow` if absent).
+It asks a person even in auto mode, and lanes keep their design documents as claude.ai artifacts: an
+investigation lane waited on it from ~00:31Z 7 Nov. Nothing else here needs it.
+
+**Apply the rest only after R17c is merged into process3's tranche and pinned on each product** (the
 copy's and the probe's `.process` at a process3 commit that holds `github hook`). Each file below
 is complete, ready to paste over the repository's `.claude/settings.json` on its tranche. They are
 Bob's files: no session writes them.

@@ -70,16 +70,21 @@ export function admitCheck(settings, told) {
 // session_018BhcecAwJP5DnnQjPq4JTZ, "Waiting on permission: Artifact" from ~00:31Z 7 Nov: lanes are
 // told their design documents are claude.ai artifacts). The process tells tools by what they make
 // or by their names; each wording below maps to the tool.
-const REMOTE = ['send_message', 'create_session', 'archive_session', 'interrupt_session', 'get_session', 'list_sessions', 'list_events', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'create_trigger', 'delete_trigger', 'update_trigger', 'send_later'];
+const REMOTE = ['send_message', 'create_session', 'archive_session', 'interrupt_session', 'get_session', 'list_sessions', 'list_events', 'subscribe_pr_activity', 'unsubscribe_pr_activity', 'create_trigger', 'delete_trigger', 'update_trigger', 'list_triggers', 'get_trigger', 'send_later'];
+// Not mapped: the docs connector ("the docs connector", "claude.ai ... documents"), whose tools are
+// mcp__<id>__* with an id per account, so no rule in a product's settings can be read for it here.
 export const TOOL_WORDS = [
   { said: /\bclaude\.ai artifacts?\b/gi, tool: () => 'Artifact' },
   { said: new RegExp(`\\b(${REMOTE.join('|')})\\b`, 'g'), tool: (m) => `mcp__claude-code-remote__${m[1]}` },
   { said: /\bGitHub connector's `?([a-z][a-z0-9_]*)`?/g, tool: (m) => `mcp__github__${m[1]}` },
+  { said: /\b(?:the Agent tool|subagents?)\b/gi, tool: () => 'Agent' },
+  { said: /\bpush notifications?\b/gi, tool: () => 'PushNotification' },
 ];
 // The tools that ask a person even in auto mode, each with its evidence; a told one needs an allow
-// rule. Any other told tool runs unasked in auto mode unless a deny rule refuses it. A new prompt
-// met by an unattended session is added here with its evidence, and the suite then holds every
-// product's settings to it.
+// rule. What the check guarantees (cold review): no deny rule refuses a told tool, and every tool
+// named here is allowed. That any other tool runs unasked is an assumption, not a proof (auto mode's
+// classifier can still ask): a prompt an unattended session meets is added here with its evidence,
+// and the suite then holds every product's settings to it.
 export const PROMPTS_IN_AUTO = {
   Artifact: 'asks a person even in auto mode (C15: an investigation lane waited on "permission: Artifact" from ~00:31Z 7 Nov)',
 };
@@ -100,14 +105,15 @@ export function toolStops(tool, settings) {
   if (PROMPTS_IN_AUTO[tool] && !(p.allow || []).some((r) => toolRuleMatches(r, tool))) return { why: 'prompts', evidence: PROMPTS_IN_AUTO[tool] };
   return null;
 }
-// The tools a file's text tells a session to use: in a .mjs file only what its printed strings say
-// (template and quoted strings on a line that is not a comment), in a .md file any line.
+// The tools a file's text tells a session to use: any line but a comment (in a .mjs file a printed
+// string may span lines or nest templates, so the whole line is read: cold review; a name in code
+// that tells no one is harmless unless denied, and then it is worth a look).
 export function toolsIn(text, file) {
   const out = [];
   const code = file.endsWith('.mjs');
   for (const [i, l] of text.split('\n').entries()) {
     if (code && /^\s*(\/\/|\*|\/\*)/.test(l)) continue;
-    const said = code ? [...l.matchAll(/`((?:[^`\\]|\\.)*)`|'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g)].map((q) => q[1] ?? q[2] ?? q[3]).join('\n') : l;
+    const said = code ? l.replace(/\s\/\/ .*$/, '') : l;
     const seen = new Set();
     for (const w of TOOL_WORDS) for (const m of said.matchAll(w.said)) { const t = w.tool(m); if (!seen.has(t)) { seen.add(t); out.push({ file, line: i + 1, tool: t }); } }
   }
