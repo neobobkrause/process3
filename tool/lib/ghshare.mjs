@@ -13,8 +13,8 @@
 // process-state). A product's clone uses its own; a clone with no state branch of its own (process3,
 // process3-probes) names the ledger in pacing.ledger ("<owner>/<repo>"; process3's own in its root
 // pacing.json) and reads and writes it there, fetched into refs/p3/ledger/state.
-// Read fresh before every write to GitHub (a content-creating call, a push), and within READ_S
-// otherwise; another session's use is up to one command or share_s late, which the target's margin
+// Read once per READ_S for every check of the clone, writes included, and past it by the ledger's
+// tip asked of GitHub (ls-remote), fetched only when it moved (R17e, C12); another session's use is up to one command or share_s late, which the target's margin
 // covers. GitHub's own count stands in for the primary limit (pace.mjs primaryState).
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -134,6 +134,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
   const led = url ? { own: false, url } : ledgerOf(root, cfg);
   if (!led) return null;
   const store = led.own ? ownStore(root, cfg.state_branch) : remoteStore(root, led.url);
+  const key = led.own ? 'own' : led.url;
   let ledgerRepo = null;
   try { ledgerRepo = (led.own ? repoSlug(root) : led.name || String(led.url).replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '')).toLowerCase(); } catch { ledgerRepo = null; }
   let cache = null;
@@ -148,21 +149,40 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
     const since = now() - 2 * 3600e3;
     const use = store.list(USE_DIR).flatMap((f) => (store.read(f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
     const resumed = (store.read(RESUMED_FILE) || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
-    cache = { at: now(), pause, use, resumed, state: statePushes(root, store.ref, ledgerRepo, since) };
-    try { writeFileSync(diskCache, JSON.stringify({ ...cache, ledger: led.own ? 'own' : led.url, tip: store.tip() === tip0 ? tip0 : null })); } catch { /* best effort */ }
+    cache = { at: now(), pause, use, resumed, state: statePushes(root, store.ref, ledgerRepo, since), ledger: key, tip: store.tip() === tip0 ? tip0 : null };
+    try { writeFileSync(diskCache, JSON.stringify(cache)); } catch { /* best effort */ }
     return cache;
   };
   // Shared with this clone's other p3 processes (each hook call is one): a read within READ_S
   // fetches nothing (R17c, the hook's fast path). A fresh read (before a write) always fetches.
   const diskCache = join(commonDir(root), LEDGER_CACHE);
   // Never a stop from disk (a resume elsewhere must show at once), nor another ledger's read.
-  const fromDisk = () => { try { const c = JSON.parse(readFileSync(diskCache, 'utf8')); return c && now() - c.at < READ_S * 1000 && !c.pause?.stopped && c.ledger === (led.own ? 'own' : led.url) ? c : null; } catch { return null; } };
+  const fromDisk = () => { try { const c = JSON.parse(readFileSync(diskCache, 'utf8')); return c && now() - c.at < READ_S * 1000 && !c.pause?.stopped && c.ledger === key ? c : null; } catch { return null; } };
+  // The ledger's tip asked of GitHub (ls-remote, no fetch); unmoved, the cache it was read into is
+  // current again as it stands, a stop included; moved (or unknown), fetched and read again.
+  const recheck = () => {
+    const t = store.remoteTip();
+    let c = cache && cache.tip ? cache : null;
+    if (!c) { try { c = JSON.parse(readFileSync(diskCache, 'utf8')); } catch { c = null; } }
+    if (t && c && c.tip && c.tip === t && c.ledger === key) {
+      cache = { ...c, at: now() };
+      try { writeFileSync(diskCache, JSON.stringify(cache)); } catch { /* best effort */ }
+      return { c: cache, how: 'unmoved' };
+    }
+    return { c: load(), how: 'fetched' };
+  };
   // The ledger's own writes go through whatever the account's state (exempt): a pause must be
   // written while paused, and a resume while stopped. Pushed at once, never coalesced.
   const now1 = (msg, change) => exempt(() => unbatched(() => store.write(msg, change)));
   return {
     ledger: led.own ? 'own' : led.url,
-    read: ({ fresh = false } = {}) => (!fresh && cache && now() - cache.at < READ_S * 1000 ? cache : (!fresh && (cache = fromDisk())) || load()),
+    // R17e (coordinator's C12: 266 fetches an hour, most of them this read): one read serves every
+    // check of the clone's p3 processes within READ_S, writes included; past it, or fresh (after a
+    // wait), the ledger's tip is asked of GitHub (ls-remote) and fetched only when it moved.
+    read: ({ fresh = false } = {}) => {
+      if (!fresh) { if (cache && now() - cache.at < READ_S * 1000) return cache; const d = fromDisk(); if (d) return (cache = d); }
+      return recheck().c;
+    },
     // The account's pause, decided against the record as it stands on the tip written to (a burst
     // of refusals across sessions lengthens one pause; a refusal after it ended stops the tool:
     // pace.mjs nextPause). Returns the pause written.
@@ -193,17 +213,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
     // The hook's background refresh (R17d): the ledger's tip asked of GitHub (ls-remote, no fetch);
     // unmoved, the disk cache is current again as it stands, a stop included; moved, fetched and
     // read again. Returns what it did.
-    refresh: () => {
-      const t = store.remoteTip();
-      let c = null;
-      try { c = JSON.parse(readFileSync(diskCache, 'utf8')); } catch { c = null; }
-      if (t && c && c.tip && c.tip === t && c.ledger === (led.own ? 'own' : led.url)) {
-        try { writeFileSync(diskCache, JSON.stringify({ ...c, at: now() })); } catch { /* best effort */ }
-        return 'unmoved';
-      }
-      load();
-      return 'fetched';
-    },
+    refresh: () => recheck().how,
     // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
     beforeWait: () => { if (pendingWrites()) flushState(); },
     // While a command runs (each reserve): riding its pending writes, else by shareUsage's rule; never inside a state write.
@@ -261,7 +271,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
 // read): the account's pause, stop and use as the clone's disk cache holds them, at any age, a stop
 // included; when the cache is READ_S old or missing, a background refresh is started (one at a
 // time per clone) and the read goes on at once. A read can so pass a pause or stop written in the
-// last READ_S plus the refresh's few seconds; a write always reads the ledger fresh (stateShare).
+// last READ_S plus the refresh's few seconds; a write reads it through stateShare (a cache within READ_S, else ls-remote).
 export function peekShare(cwd, { now = Date.now, kick = kickRefresh } = {}) {
   let c = null;
   try { c = JSON.parse(readFileSync(join(commonDir(cwd), LEDGER_CACHE), 'utf8')); } catch { c = null; }

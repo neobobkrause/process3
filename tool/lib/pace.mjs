@@ -343,8 +343,8 @@ let rerunText = null;
 export function hookPacing(fn, { longestMs = 120e3, rerun = 'the tool call (retry it)' } = {}) { const was = [waitCap, rerunText]; waitCap = longestMs; rerunText = rerun; try { return fn(); } finally { [waitCap, rerunText] = was; } }
 
 // Before any act on GitHub: the stop, the pause, the primary limit, each window at target (and the
-// push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The pause
-// is read fresh before a write (content-creating or a push), within READ_S otherwise.
+// push ceiling for a push), then the per-clone floor; logs the act. Throws Paced to refuse. The ledger
+// is read within READ_S (ls-remote past it, a fetch only when it moved), and again after each wait.
 export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep = nap, rateLimit, kind = 'gh', extra = {} } = {}) {
   const content = cost.content === true ? 1 : Number(cost.content) || 0;
   const lim = p.github_limits || GITHUB_LIMITS;
@@ -352,7 +352,8 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
   // Every check again after each wait (cold review of R17): a pause or stop another session wrote
   // while this one slept is obeyed. Four waits at most, then the call is refused.
   for (let round = 0; ; round++) {
-    const s = shared.read({ fresh: round > 0 || content > 0 || !!cost.push });
+    // Fresh after a wait (a pause another session wrote meanwhile); else within READ_S (C12).
+    const s = shared.read({ fresh: round > 0 });
     const pause = pauseOf(cwd, s);
     if (pause?.stopped) throw new Paced(`GitHub budget: GitHub refused this account again within an hour of an earlier refusal (${pause.why}; at ${pause.at} by ${pause.session || 'a session'}): every GitHub call is stopped. Tell the coordinator; it runs \`${TOOL} github resume --by <its session>\` once the account is in good standing; then rerun ${rerunLine()}`);
     let wait = null;

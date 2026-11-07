@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { remoteStore, shareUsage, statePushes, stateShare } from '../lib/ghshare.mjs';
-import { cloneId, commonDir, PACING_DEFAULTS, reserve, usage, useShared } from '../lib/pace.mjs';
+import { cloneId, commonDir, PACING_DEFAULTS, readLog, reserve, usage, useShared } from '../lib/pace.mjs';
 import { git, PUSH_TRAILER } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
@@ -109,4 +109,30 @@ test('a share is no push of its own: it rides the command\'s push; alone, at mos
     reserve({ points: 1, content: 0 }, 'gh pr view', a, { p: P });
     assert.ok(shareUsage(a, null, { store, now, pending: 1, atEnd: true }) >= 1);
   });
+});
+
+test('the ledger read is cheap (C12): within 30 s nothing is asked of GitHub; past it, ls-remote, and a fetch only when the ledger moved', (t) => {
+  env(t);
+  const { clone, bare } = ledger();
+  const a = clone();
+  const b = clone();
+  as('cse_b', () => { content(b, 1); shareUsage(b, null, { force: true, store: remoteStore(b, URL) }); });
+  let off = 0;
+  const sh = stateShare(a, null, { url: URL, now: () => Date.now() + off });
+  const seen = () => readLog(a).filter((r) => r.kind === 'fetch').map((r) => r.what.split(' ')[0]);
+  sh.read({ fresh: true });
+  assert.deepEqual(seen(), ['ls-remote', 'fetch'], 'first read: asked, then fetched');
+  for (let i = 0; i < 5; i++) sh.read();
+  // A second process of the clone reads the disk cache.
+  stateShare(a, null, { url: URL, now: () => Date.now() + off }).read();
+  assert.equal(seen().length, 2, 'within READ_S: no network');
+  off = 31e3;
+  sh.read();
+  assert.deepEqual(seen().slice(2), ['ls-remote'], 'past it, unmoved: no fetch');
+  as('cse_b', () => { content(b, 1); shareUsage(b, null, { force: true, store: remoteStore(b, URL) }); });
+  off = 62e3;
+  const s = sh.read();
+  assert.deepEqual(seen().slice(3), ['ls-remote', 'fetch'], 'moved: fetched');
+  assert.equal(usage(a, { seconds: 3600, read: s }).content, 2);
+  assert.ok(bare);
 });
