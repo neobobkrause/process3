@@ -44,3 +44,11 @@ test('setup check names a told command the product\'s settings deny, with where 
   assert.match(lines[0], /^warning: tool\/lib\/pushcheck\.mjs:47 tells a session to run `git commit --amend --no-edit`, which \.claude\/settings\.json denies \(Bash\(git commit --amend \*\)\)/);
   assert.deepEqual(admitLines({ file: () => null }, { log: () => {} }), [], 'no settings file: nothing read');
 });
+
+test('a told command behind cd, an assignment, a subshell or sh -c, and a span in a plain-quoted string, are all read and judged (cold review)', () => {
+  assert.deepEqual(deniedBy('(cd x && git push origin main)', COPY)?.rule, 'Bash(git push origin main)');
+  assert.deepEqual(deniedBy('GIT_DIR=x git rebase main', COPY)?.rule, 'Bash(git rebase *)');
+  assert.deepEqual(deniedBy("sh -c 'git tag v1'", COPY)?.rule, 'Bash(git tag *)');
+  assert.deepEqual(toldIn("x('run `git submodule update .process` first');\n", 'a.mjs').map((t) => t.cmd), ['git submodule update .process']);
+  assert.deepEqual(toldIn('fail(`do \\`cd x && git rebase main\\``);\n', 'a.mjs').map((t) => t.cmd), ['cd x && git rebase main']);
+});

@@ -27,7 +27,7 @@ const refuse = (root) => () => refuseUnpushable(root, loadConfig(root), { branch
 test('a commit adding a file over max_file_bytes is refused, naming it and how to drop it (installer 3df99b92)', () => {
   const root = repo();
   commit(root, { 'src/alpha/big.json': 'x'.repeat(100) });
-  assert.throws(refuse(root), /nothing was pushed: commit \w+ adds src\/alpha\/big\.json \(100 bytes, over max_file_bytes \(64\)\)\. Drop it from the commit and rebuild the commit before pushing: `git reset --soft HEAD~1`, `git reset -- src\/alpha\/big\.json`, then commit again; a pushed commit/);
+  assert.throws(refuse(root), /nothing was pushed: commit \w+ adds src\/alpha\/big\.json \(100 bytes, over max_file_bytes \(64\)\)\. Drop them from the commits and rebuild before pushing: `git reset --soft HEAD~1`, `git reset -- src\/alpha\/big\.json`, then commit again; a pushed commit/);
 });
 
 test('a commit adding a generated path is refused, an older one named with its rebuild (newgroup 606/609)', () => {
@@ -43,4 +43,25 @@ test('a commit adding a file under dist/ is refused; a dist/ file the tranche tr
   assert.deepEqual(unpushable(root, loadConfig(root), { branch: 'job/alpha' }), []);
   commit(root, { 'agent-runner/dist/agent-runner.bundled.mjs': 'export {};\n' });
   assert.throws(refuse(root), /adds agent-runner\/dist\/agent-runner\.bundled\.mjs \(under a dist\/ directory: a build output, never committed\)/);
+});
+
+// Cold review of C3: one act clears every bad commit and file; a merge in the range is never flattened.
+test('two bad commits: the reset goes before the oldest and unstages every bad file; a merge in the range points to a fresh branch', () => {
+  const root = repo();
+  commit(root, { 'src/alpha/rows.mjs': 'export const rows = [];\n' });
+  commit(root, { 'src/alpha/big.json': 'x'.repeat(100) });
+  let msg = '';
+  try { refuse(root)(); } catch (e) { msg = e.message; }
+  const oldest = git(['rev-parse', '--short=10', 'HEAD~1'], { cwd: root });
+  assert.ok(msg.includes(`\`git reset --soft ${oldest}~1\`, \`git reset -- src/alpha/big.json\`, \`git reset -- src/alpha/rows.mjs\`, then commit again`), msg);
+  // The tranche merged in after the bad commit: a reset would flatten it.
+  const m = repo();
+  commit(m, { 'src/alpha/rows.mjs': 'export const rows = [];\n' });
+  git(['checkout', '-q', 'tranche'], { cwd: m });
+  commit(m, { 'docs/x.md': 'x\n' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: m });
+  git(['fetch', '-q', 'origin'], { cwd: m });
+  git(['checkout', '-q', 'job/alpha'], { cwd: m });
+  git(['merge', '-q', '--no-ff', '--no-edit', 'origin/tranche'], { cwd: m });
+  assert.throws(refuse(m), /include a merge, so a reset would flatten them: start the work again on a fresh branch \(`job start <id> --fresh-branch "<why>"` for a job\), leaving out src\/alpha\/rows\.mjs/);
 });

@@ -16,15 +16,20 @@ export function ruleMatches(rule, cmd) {
   if (p.endsWith(' *') && cmd === p.slice(0, -2)) return true;
   return new RegExp(`^${p.split('*').map(esc).join('.*')}$`, 's').test(cmd);
 }
-// Each part of a told line (split at &&, ;, ||, |), trimmed.
-const parts = (cmd) => cmd.split(/\s*(?:&&|\|\||;|\|)\s*/).map((x) => x.trim()).filter(Boolean);
+// Each part of a told line (split at &&, ;, ||, |), trimmed, a subshell's parentheses and the
+// leading VAR=value assignments taken off (cold review: `(cd x && git push origin main)` and
+// `GIT_DIR=x git rebase` were missed); `sh -c '<line>'` judged as its line.
+const parts = (cmd) => cmd.replace(/\b(?:ba)?sh\s+-c\s+(['"])(.*?)\1/g, '$2').split(/\s*(?:&&|\|\||;|\|)\s*/)
+  .map((x) => x.trim().replace(/^\(+\s*|\s*\)+$/g, '').replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, '').trim()).filter(Boolean);
 // The deny rule refusing cmd (any part of it), or null.
 export function deniedBy(cmd, settings) {
   const deny = settings?.permissions?.deny || [];
-  for (const c of parts(cmd)) for (const r of deny) if (ruleMatches(r, c)) return { part: c, rule: r };
+  for (const c of new Set([cmd.trim(), ...parts(cmd)])) for (const r of deny) if (ruleMatches(r, c)) return { part: c, rule: r };
   return null;
 }
 const TOLD = /^(?:git|gh|curl|rm|npm|npx)\s/;
+// A span tells a command when any of its parts does (`cd x && git rebase main`).
+const tells = (raw) => parts(raw).some((p) => TOLD.test(p));
 // The commands told in a file's text: code spans, `${...}` read as X; error texts (`... failed`) left
 // out. In a .mjs file only the escaped spans a printed string holds (\`...\`), what a session reads:
 // a comment's spans name commands, they tell a session none. In a .md file, its plain spans.
@@ -33,10 +38,12 @@ export function toldIn(text, file) {
   const lines = text.split('\n');
   const code = file.endsWith('.mjs');
   for (const [i, l] of lines.entries()) {
-    const spans = code ? l.matchAll(/\\`((?:(?!\\`).)*?)\\`/g) : l.matchAll(/`([^`]+)`/g);
+    // In a .mjs file also the spans a plain-quoted string holds ('... `git ...` ...'), never on a comment line.
+    const quoted = code && !/^\s*(\/\/|\*)/.test(l) ? [...l.matchAll(/'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g)].flatMap((q) => [...(q[1] ?? q[2]).matchAll(/`([^`]+)`/g)]) : [];
+    const spans = code ? [...l.matchAll(/\\`((?:(?!\\`).)*?)\\`/g), ...quoted] : l.matchAll(/`([^`]+)`/g);
     for (const m of spans) {
       const raw = m[1].replace(/\$\{[^}]*\}/g, 'X').trim();
-      if (!TOLD.test(raw) || / failed\b/.test(raw)) continue;
+      if (!tells(raw) || / failed\b/.test(raw)) continue;
       out.push({ file, line: i + 1, cmd: raw });
     }
   }
@@ -47,7 +54,8 @@ export function toldCommands(root) {
   const files = [
     ...readdirSync(join(root, 'rulebooks')).filter((f) => f.endsWith('.md')).map((f) => `rulebooks/${f}`),
     'shims/CLAUDE.process.md',
-    ...readdirSync(join(root, 'tool/lib')).filter((f) => f.endsWith('.mjs')).map((f) => `tool/lib/${f}`),
+    'tool/p3.mjs',
+    ...readdirSync(join(root, 'tool/lib'), { recursive: true }).map(String).filter((f) => f.endsWith('.mjs')).map((f) => `tool/lib/${f}`),
   ];
   return files.flatMap((f) => { try { return toldIn(readFileSync(join(root, f), 'utf8'), f); } catch { return []; } });
 }
