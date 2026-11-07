@@ -232,29 +232,44 @@ export function capLine(cfg, live, listed) {
   const seen = listed ? `: ${live} job sessions live, ${listed.filter((x) => !isArchived(x)).length} sessions live in the account (every product, every role)` : live !== undefined ? `: ${live} job sessions live` : '';
   return { ...c, line: `${c.line}${seen}` };
 }
-// Problem class C15 (7 Nov: the investigation lane sat ~2 h REQUIRES_ACTION, "Waiting on
-// permission: Artifact", with nobody to answer): a process session waiting on a permission prompt.
-// No session answers one (only Bob, in the app), so each is named with its role, the tool it waits
-// on, since when, and the act: report it to the coordinator, and for a job or a lane tell BOB.
-// Process sessions only: an addressed role, the coordinator, a job (title `job <id>`), a lane (its
-// seat, or title `lane <name>`). Read from the list_sessions entry as given: its status
-// REQUIRES_ACTION, or "Waiting on permission: <tool>" anywhere in it.
-export function permissionWaits(list, { roles = {}, coordinator = null, seats = null } = {}) {
+// Problem class C15 (7 Nov: the investigation lane sat ~2 h waiting on a permission prompt,
+// "Waiting on permission: Artifact", with nobody to answer): a process session waiting on one. No
+// session answers a permission prompt (only Bob, in the app), so each is named with its role, the
+// tool, since when, and the act: report it to the coordinator, and for a job or a lane tell BOB.
+// Read from list_sessions as it gives a session (measured 7 Nov): waiting, its status_bucket is
+// BLOCKED (or its status REQUIRES_ACTION) and post_turn_summary says what it needs (needs_action,
+// recent_action): a permission prompt when that says "waiting on permission: <tool>" or asks to
+// allow a command or add a permission rule. A BLOCKED session asking a question is not this (the
+// tell acts carry it); a running one was answered. Process sessions only: an addressed role, the
+// coordinator, a lane (its seat, or title `lane <name>`), a job of this product (its row).
+const permissionNeed = (x) => {
+  const p = x.post_turn_summary || {};
+  const text = [p.needs_action, p.recent_action, x.status_detail, x.requires_action].filter((v) => typeof v === 'string').join(' \n ');
+  const tool = text.match(/waiting on permission:\s*([A-Za-z][\w.:-]*)/i)?.[1];
+  if (tool) return { tool };
+  const cmd = text.match(/\ballow\s+`([^`]{1,120})`/i)?.[1];
+  if (cmd) return { tool: `Bash \`${cmd}\`` };
+  if (/permission (rule|prompt)|waiting on permission/i.test(text)) return { tool: null };
+  return state(x) === 'requires_action' ? { tool: null } : null;
+};
+export function permissionWaits(list, { roles = {}, coordinator = null, seats = null, jobs = null } = {}) {
   const roleOf = new Map([['root', roles.root?.session], ['bob', roles.bob?.session], ['watcher', roles.watcher?.session], ['coordinator', coordinator || roles.coordinator?.session]].filter(([, id]) => id).map(([r, id]) => [id, r.toUpperCase()]));
   for (const [lane, seat] of seats instanceof Map ? seats : new Map()) if (seat?.session) roleOf.set(seat.session, `lane ${lane}`);
   const out = [];
   for (const x of list || []) {
     if (isArchived(x) || x.carried) continue;
-    const text = JSON.stringify(x);
-    const tool = text.match(/[Ww]aiting on permission:?\s*([A-Za-z0-9_.:-]+)/)?.[1] || null;
-    if (state(x) !== 'requires_action' && !tool) continue;
+    const waiting = state(x) === 'requires_action' || lower(x.status_bucket).replace(/^session_status_bucket_/, '') === 'blocked';
+    if (!waiting || state(x) === 'running') continue;
+    const need = permissionNeed(x);
+    if (!need) continue;
     const id = sessionId(x);
     const title = String(x.title || '').trim();
     const job = title.match(/^job (\S+)( \(restart\))?$/)?.[1];
-    const role = roleOf.get(id) || (job ? `job ${job}` : /^lane \S+$/.test(title) ? title : null);
+    const role = roleOf.get(id) || (job && (!jobs || jobs.has(job)) ? `job ${job}` : /^lane \S+$/.test(title) ? title : null);
     if (!role) continue;
-    const worker = /^(job|lane) /.test(role);
-    out.push({ id, role, tool, since: x.updated_at || null, line: `permission: ${id} (${role}) waits on ${tool ? `permission for ${tool}` : 'an action (REQUIRES_ACTION)'}${x.updated_at ? ` since ${x.updated_at}` : ''}; no session answers a permission prompt: report it to the coordinator${worker ? `, and \`${P3} send bob "${role} ${id} waits on ${tool ? `permission for ${tool}` : 'an action'}: Bob answers it in the app, or the work goes on without it" --from root\`` : ''}` });
+    const what = need.tool ? `permission for ${need.tool}` : 'a permission prompt';
+    const tell = `${role} ${id} waits on ${what}: Bob answers it in the app, or the work goes on without it`;
+    out.push({ id, role, tool: need.tool, since: x.updated_at || null, line: `permission: ${id} (${role}) waits on ${what}${x.updated_at ? ` since ${x.updated_at}` : ''}; no session answers a permission prompt: ${role === 'COORDINATOR' ? 'tell Bob (push notification)' : 'report it to the coordinator'}${/^(job|lane) /.test(role) ? `, and \`${P3} send bob ${JSON.stringify(tell)} --from root\`` : ''}` });
   }
   return out;
 }

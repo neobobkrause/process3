@@ -317,7 +317,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen, seats });
       found.push(s.line);
       // A process session waiting on a permission prompt (C15): named, with its act.
-      for (const w of permissionWaits(listed, { roles: addr, coordinator: cfg.coordinator, seats })) { found.push(w.line); todo.push(w.line); }
+      for (const w of permissionWaits(listed, { roles: addr, coordinator: cfg.coordinator, seats, jobs: new Set(rows.map((r) => r.id)) })) todo.push(w.line);
       // A job session archived since the last sweep freed a slot: starts owed (hold.mjs).
       const since = Date.parse(jsonl(readState(root, sb, SWEEP_ROWS_FILE)).filter((r) => r.row === 'sweep').at(-1)?.at) || 0;
       archived = listed.some((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim()) && Date.parse(x.updated_at) > since);
