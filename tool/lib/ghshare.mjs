@@ -98,14 +98,20 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
     const use = store.list(USE_DIR).flatMap((f) => (store.read(f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
     const resumed = (store.read(RESUMED_FILE) || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
     cache = { at: now(), pause, use, resumed };
+    try { writeFileSync(diskCache, JSON.stringify({ ...cache, ledger: led.own ? 'own' : led.url })); } catch { /* best effort */ }
     return cache;
   };
+  // Shared with this clone's other p3 processes (each hook call is one): a read within READ_S
+  // fetches nothing (R17c, the hook's fast path). A fresh read (before a write) always fetches.
+  const diskCache = join(git(['rev-parse', '--git-common-dir'], { cwd: root, allowFail: true }).stdout.trim().replace(/^(?!\/)/, `${root}/`), 'p3-gh-ledger.json');
+  // Never a stop from disk (a resume elsewhere must show at once), nor another ledger's read.
+  const fromDisk = () => { try { const c = JSON.parse(readFileSync(diskCache, 'utf8')); return c && now() - c.at < READ_S * 1000 && !c.pause?.stopped && c.ledger === (led.own ? 'own' : led.url) ? c : null; } catch { return null; } };
   // The ledger's own writes go through whatever the account's state (exempt): a pause must be
   // written while paused, and a resume while stopped. Pushed at once, never coalesced.
   const now1 = (msg, change) => exempt(() => unbatched(() => store.write(msg, change)));
   return {
     ledger: led.own ? 'own' : led.url,
-    read: ({ fresh = false } = {}) => (!fresh && cache && now() - cache.at < READ_S * 1000 ? cache : load()),
+    read: ({ fresh = false } = {}) => (!fresh && cache && now() - cache.at < READ_S * 1000 ? cache : (!fresh && (cache = fromDisk())) || load()),
     // The account's pause, decided against the record as it stands on the tip written to (a burst
     // of refusals across sessions lengthens one pause; a refusal after it ended stops the tool:
     // pace.mjs nextPause). Returns the pause written.
@@ -120,6 +126,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
         return {};
       });
       cache = null;
+      try { writeFileSync(diskCache, 'null'); } catch { /* none */ }
       return out;
     },
     resume: (by) => {
@@ -130,6 +137,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
         return {};
       });
       cache = null;
+      try { writeFileSync(diskCache, 'null'); } catch { /* none */ }
     },
     // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
     beforeWait: () => { if (pendingWrites()) flushState(); },
@@ -152,7 +160,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   if (!force && !pending && now() - after < pacing().share_s * 1000) return 0;
   // The mark is the last row shared, taken before the write: the share's own push, logged during
   // it, is shared next time (cold review of R17b).
-  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push'].includes(r.kind));
+  const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push', 'fetch'].includes(r.kind));
   const rows = usageRows(root, { after, rows: log });
   if (!rows.length) return 0;
   const last = Math.max(...log.map((r) => Date.parse(r.at)));

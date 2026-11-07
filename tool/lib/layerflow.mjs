@@ -721,7 +721,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
   const { n } = cfg.layer;
   const sb = cfg.state_branch;
   const lref = push ? layerRef(n) : `refs/heads/${layerBranch(n)}`;
-  const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, log }); });
+  const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, pushBranch: false, log }); });
   const doComplete = complete || (() => spawnComplete(root, id, args));
   for (let round = 1; round <= rounds; round++) {
     const s = await doSync();

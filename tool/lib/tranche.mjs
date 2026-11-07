@@ -105,7 +105,7 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
   const call = { title: `grants probe ${n}`, source_url: `https://github.com/${slug}`, source_revision: tip, clone_depth: 1, prompt: probe };
   const at = new Date(Date.now() + 864e5).toISOString().replace(/\.\d+Z$/, 'Z');
   const steps = [
-    `\`git push origin ${tip}:refs/heads/${base}\` (the throwaway base; kept, never deleted)`,
+    `\`${P3} github push origin ${tip}:refs/heads/${base}\` (the throwaway base; kept, never deleted)`,
     ...gitActs('bob', d).slice(0, 1),
     ...gitActs('bob', d).slice(1).map((s) => `${s}; then ${rec(s.split(':')[0], d)}`),
     `session-start: create_session with the call below; then ${rec('session-start', d)}`,

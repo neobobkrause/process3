@@ -32,9 +32,11 @@ import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, pro
 import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
 import { stateShare } from './lib/ghshare.mjs';
+import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
+import { hookDecision } from './lib/ghhook.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
-import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
+import { PROCESS_ROOT, triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
@@ -495,6 +497,30 @@ const commands = {
   // github budget (R17): use against each of GitHub's published limits, per window, account-wide
   // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
   'github budget': (a, root) => { githubBudget(root); return 0; },
+  // github audit [--since <iso>] [--repo <owner/repo>]... (R17c): GitHub's own evidence of calls,
+  // pushes and writes against the account's ledger; exit 1 on an unexplained push or write gap.
+  'github audit': (a, root) => {
+    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
+    let slug = null;
+    try { slug = repoSlug(root); } catch { slug = null; }
+    const processOrigin = git(['config', '--get', 'remote.origin.url'], { cwd: PROCESS_ROOT, allowFail: true }).stdout.trim();
+    const repos = [...auditRepos({ slug, cfg, processOrigin }), ...list(a.repo).filter((x) => typeof x === 'string')];
+    // Against the account's ledger, never this clone's log alone (cold review of R17c).
+    const sh = stateShare(root, cfg);
+    if (!sh) fail('github audit: no GitHub ledger here (a product\'s clone, or one whose pacing.json names it): nothing to audit against');
+    useShared(sh);
+    try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch, login: typeof a.login === 'string' ? a.login : null }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
+  },
+  // github hook (R17c): the Claude Code PreToolUse hook; the hook's JSON on stdin. Exit 2 blocks the
+  // call (a governor refusal, or a raw push, gh or curl to GitHub), with the reason on stderr.
+  'github hook': (a, root) => {
+    let input = null;
+    try { input = JSON.parse(readFileSync(0, 'utf8') || 'null'); } catch { input = null; }
+    if (!input) { console.error('p3 github hook: no hook JSON on stdin'); return 2; }
+    const d = hookDecision(input, root);
+    if (d.block) { console.error(`GitHub pacing (P27): ${d.block}`); return 2; }
+    return 0;
+  },
   // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
   // through this: it waits its turn against the pause, the stop and the account's push ceiling,
   // and is logged and shared. Never a force or a delete (Bob's standing approvals).
@@ -659,7 +685,8 @@ export async function main(argv) {
     if (flushed || !batched) return null;
     flushed = true;
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
-    if (ledger) { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
+    if (ledger && name !== 'github hook') { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -677,14 +704,14 @@ export async function main(argv) {
     root = repoRoot();
     // A p3 command killed in this clone before its flush left its writes kept (state.mjs): moved
     // for replay, and said.
-    try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
+    if (name !== 'github hook') try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
     // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else. A
     // clone with no product config (process3) uses the ledger its pacing.json names (R17b).
     if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch { ledger = null; } }
-    if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
+    if (cfg && !process.env.NODE_TEST_CONTEXT && name !== 'github hook') beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
     // BOB acted on the start list: the acts owed before this began are paid (hold.mjs).

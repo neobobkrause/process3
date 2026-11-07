@@ -114,7 +114,7 @@ test('each window waits at the target, account-wide: this clone\'s log and the o
   assert.deepEqual(c2.slept, [300e3]);
   // A wait longer than 15 minutes is refused, never slept through.
   const c3 = clock(c2.t + 120e3);
-  assert.throws(() => ghTurn(['api', 'user'], makeRepo({ 'a.md': 'x\n' }), { p: P, now: c3.now, sleep: c3.sleep, rateLimit: () => ({ limit: 5000, remaining: 10, reset: c3.t + 3000e3 }) }), (e) => e instanceof Paced && /run this again then/.test(e.message));
+  assert.throws(() => ghTurn(['api', 'user'], makeRepo({ 'a.md': 'x\n' }), { p: P, now: c3.now, sleep: c3.sleep, rateLimit: () => ({ limit: 5000, remaining: 10, reset: c3.t + 3000e3 }) }), (e) => e instanceof Paced && /acts on GitHub wait until .* then rerun .*; what this command did before the refusal stands/.test(e.message));
 });
 
 test('a 403 with Retry-After pauses every session until it passes, never a retry inside it; a second refusal within an hour stops the tool until the coordinator resumes it', (t) => {
