@@ -602,7 +602,9 @@ export function earlyNext(root, cfg, n, L) {
     if (st) return st.state === 'complete' ? null : `${p} is ${st.state} in layer ${n}`;
     if (joined.has(p)) return `${p} joined layer ${nx.n}: its work is pending`;
     const e = entryOf(p);
-    if (e?.status?.state !== 'COMPLETE') return `${p} is ${e?.status?.state || 'without a ledger entry'}`;
+    // No entry at all (C16, the copy 7 Nov: 49 modules built before the ledger): named with its act.
+    if (!e) return `${p} has no ledger entry (${entryFile(p)}): \`${P3} status --role bob\` prints it under "built before the ledger", BOB lands it, then it counts as COMPLETE`;
+    if (e.status?.state !== 'COMPLETE') return `${p} is ${e.status?.state}`;
     return marksOf(p, e).length ? `${p} has unmet marks` : null;
   };
   const entries = new Map(nx.mods.map((id) => [id, entryOf(id)]));
