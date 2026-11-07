@@ -92,22 +92,32 @@ test('census: every gap kind, named with what BOB writes; a module that needs no
   assert.match(census(root, configOf({ modules_file: 'nope.json' }), { ref: 'origin/tranche' }).skipped, /no nope\.json/);
 });
 
-test('census (cold review): a lane\'s module and a COMPLETE module with no work are never refused for the layer map; an odd row is not ready, never a throw', () => {
+// The copy's 8 that the census missed (coordinator, 6 Nov), less ux-design, the ux lane's module.
+const COPY_MISSED = [['jurisdictions-b', 2], ['acquisition-owed', 4], ['acquisition-archives', 4], ['held-captures', 4], ['control-plane-door-reading', 11], ['control-plane-door-pages', 11], ['control-plane-store-request', 11]];
+
+test('census: every modules row off the layer map is a gap, COMPLETE with no mark too (copy, 6 Nov: BOB found 8 by hand); a lane\'s module never; an odd row is not ready, never a throw', () => {
   const root = product();
   const cfg = loadConfig(root);
   const rows = JSON.parse(git(['show', 'HEAD:build/modules.json'], { cwd: root })).modules;
   commit(root, {
     'build/layers.md': '| layer | name | modules |\n| --- | --- | --- |\n| 1 | One | done1, old1, owed1 |\n| 2 | Two | a2, b2 |\n| 3 | Three | c3, d3 |\n| 4 | Four | e4, skew, bad |\n',
-    'build/modules.json': { modules: [...rows, row('finished', 2), row('odd', 3, { uses: 'not-a-list' })] },
+    'build/modules.json': { modules: [...rows, row('finished', 2), row('odd', 3, { uses: 'not-a-list' }), ...COPY_MISSED.map(([id, n]) => row(id, n))] },
     'process/ledger/ux-design.json': ent('ux-design', 4, { status: { state: 'COMPLETE' } }),
     'process/ledger/finished.json': ent('finished', 2, { status: { state: 'COMPLETE' } }),
     'build/requirements/finished.md': req('finished', false),
+    ...Object.fromEntries(COPY_MISSED.flatMap(([id, n]) => [[`process/ledger/${id}.json`, ent(id, n, { status: { state: 'COMPLETE' } })], [`build/requirements/${id}.md`, req(id, false)]])),
     'build/requirements/odd.md': req('odd'),
   });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
   const c = census(root, cfg, { ref: 'origin/tranche', open: [2] });
-  assert.deepEqual(c.gaps.filter((g) => ['ux-design', 'finished'].includes(g.id)), [], 'the lane\'s module (off the map) and a COMPLETE module with no unmet mark (off the map) are no gap');
+  assert.deepEqual(c.gaps.filter((g) => g.id === 'ux-design'), [], 'the lane\'s module is off the map and no gap');
+  // A COMPLETE module off the map still matters: a later found mark or --reopen never shows in layer jobs.
+  for (const [id, n] of [['finished', 2], ...COPY_MISSED]) {
+    const g = c.gaps.filter((x) => x.id === id);
+    assert.deepEqual(g.map((x) => [x.kind, x.layer]), [['not-in-layer-map', n]], id);
+    assert.match(g[0].fix, new RegExp(`name ${id} on its layer's line in build/layers\\.md \\(its modules row says layer ${n}\\)`));
+  }
   assert.deepEqual(c.gaps.filter((g) => g.id === 'odd').map((g) => [g.kind, !!g.content]), [['not-in-layer-map', false], ['no-entry', false]]);
   assert.match(c.gaps.find((g) => g.id === 'odd' && g.kind === 'no-entry').fix, /not ready: its modules row gives an entry the schema refuses/);
 });
