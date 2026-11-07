@@ -1229,7 +1229,10 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   const { layerChecks } = await import('./layer.mjs');
   const mods = L.states.map((s) => ({ id: s.id, blocked: s.state === 'deferred' ? s.why : null }));
   const lc = layerChecks(root, cfg, head, mods, { timeout: (cfg.suite_timeout_minutes || 20) * MINUTE, log, ...(x.exec ? { exec: x.exec } : {}) });
-  const all = [...lc.findings, ...lc.changed.map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
+  // A committed generated file stale on the layer refuses the merge, named with its regenerate (the
+  // coordinator, 6 Nov: the last gate before the tranche; order.mjs drifted this way).
+  const staleAt = new Set((lc.stale || []).map((x) => x.file));
+  const all = [...lc.findings, ...(lc.stale || []).map((x) => ({ check: 'generated', file: x.file, message: `${x.file} is stale on ${b} ${short(head)}: run ${x.regenerate} and commit it (a plain pull request into ${b}), then ${P3} layer merge ${n} again` })), ...lc.changed.filter((f) => !staleAt.has(f) && ![...staleAt].some((x) => underPath(x, f))).map((f) => ({ check: 'generated', file: f, message: `${f} differs when regenerated on ${b} ${short(head)}` }))];
   // SLB-7 (Bob): at close only the layer's own checks hold it. A generated row's verify failure
   // blocks only when its paths, or a module it names, are the closing layer's; any other is
   // printed for the module it names, for BOB's found mark there, and the merge goes on.

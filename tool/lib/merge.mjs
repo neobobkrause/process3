@@ -983,7 +983,7 @@ export function mergePlain(root, n, opts = {}) {
     refreshed = hits.length || genOwned ? changed.filter((f) => isGenerated(gen, f)) : [];
     untracked = refreshed.length ? removed : [];
     const others = refreshed.length && !passIds ? refreshOthers(baseCfg, gen, changed, entries, ignores) : [];
-    if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`);
+    if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh may go beside only records, the modules file, the layers file and process/config.json; any other file could be what writes them`);
   }
 
   const names = [...new Set(readRules().checks.map((c) => c.context))];

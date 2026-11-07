@@ -19,6 +19,7 @@ export function layerChecks(root, cfg, sha, mods, { timeout, exec = run, log = c
   const findings = [];
   let changed = [];
   let built = [];
+  const stale = [];
   withTemp('p3-layer-', (tmp) => {
     const wt = join(tmp, 'w');
     git(['worktree', 'add', '-q', '--detach', wt, sha], { cwd: root });
@@ -39,9 +40,12 @@ export function layerChecks(root, cfg, sha, mods, { timeout, exec = run, log = c
       const g = regenerate(wt, gen.rows, { timeout, exec, log });
       findings.push(...g.findings);
       // Only committed paths can differ from the tranche; the rest are built.
-      for (const r of g.ran.filter((x) => x.changed)) {
+      for (const [i, r] of g.ran.entries()) {
+        if (!r.changed) continue;
         const mine = committedPaths(wt, sha, r);
         changed.push(...mine.filter((p) => git(['status', '--porcelain', '-z', '--untracked-files=all', '--', normPath(p)], { cwd: wt }) !== ''));
+        // Each stale tracked file with its regenerate command (layer merge names both).
+        for (const f of r.stale || []) stale.push({ file: f, regenerate: gen.rows[i].regenerate.join(' ') });
       }
       built = gen.rows.flatMap((r) => { const c = new Set(committedPaths(wt, sha, r)); return r.paths.filter((p) => !c.has(p)); });
       // A built row is verified even when git shows no change (its paths ignored by .gitignore).
@@ -52,5 +56,5 @@ export function layerChecks(root, cfg, sha, mods, { timeout, exec = run, log = c
       }
     }
   }, { root });
-  return { findings, changed, built };
+  return { findings, changed, built, stale };
 }
