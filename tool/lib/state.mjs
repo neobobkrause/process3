@@ -296,13 +296,15 @@ export const stateIO = { push: null, wait: null };
 // "does not apply" under a plain cherry-pick).
 // The state branch's line logs, declared once (the coordinator, 7 Nov: a kept github/use share
 // refused at replay, "changed there in a way its change cannot be merged into", where only metrics/
-// was re-appended): files of whole rows that no reader counts an id from, reserves by, or reads in
-// order, so a kept write's rows are added to whatever another writer appended since. Any other file
+// was re-appended): files of whole rows, each with its time (at, or minute), that no reader counts
+// an id from or reserves by; a reader that takes the last row takes the newest, so a kept write's
+// rows are merged into whatever another writer appended since in time order (cold review: appended
+// at the end, an older deploy or tranche-open row read as the latest). Any other file
 // (STATE_ORDERED) goes through git's three-way merge, which refuses when another writer appended too.
 export const STATE_LOGS = [
-  { match: (f) => f.startsWith('metrics/'), why: 'measurement rows (runs, sweeps, refusals, wakes), each read as a set' },
+  { match: (f) => /^metrics\/[^/]+\.jsonl$/.test(f), why: 'measurement rows (sweeps, refusals, wakes, restarts, tranche opens), each read as a set or by its newest time' },
   { match: (f) => /^github\/use\/[^/]+\.jsonl$/.test(f), why: "a session's minutes of GitHub use, read as a set by minute; a refused share is marked pending, never sent again, so shares never overlap" },
-  { match: (f) => f === 'deploys/dev.jsonl', why: 'development deploy records, each read on its own' },
+  { match: (f) => f === 'deploys/dev.jsonl', why: 'development deploy records, the newest by time last' },
 ];
 // The jsonl files the state branch holds that are not line logs, each with why (state-logs.test holds
 // every jsonl the tool writes to one list or the other).
@@ -320,6 +322,21 @@ export const STATE_ORDERED = {
   'merger/wakes.jsonl': 'read in order',
 };
 export const stateLog = (f) => STATE_LOGS.some((x) => x.match(f));
+// A line log made again on a newer tip: the rows the kept commit added (after less before, counted, so
+// a row repeated on purpose is kept) less those the tip added since (counted), merged with the tip's rows by their
+// time, stably; when a row has no time, the kept rows after the tip's (as metrics/ was before).
+const lines = (t) => t.split('\n').filter(Boolean);
+const less = (a, b) => { const n = new Map(); for (const l of b) n.set(l, (n.get(l) || 0) + 1); return a.filter((l) => { const k = n.get(l) || 0; if (k) { n.set(l, k - 1); return false; } return true; }); };
+const timeOf = (l) => { try { const r = JSON.parse(l); const t = Date.parse(r?.at ?? r?.minute); return Number.isFinite(t) ? t : null; } catch { return null; } };
+export function logUnion(tip, before, after) {
+  const have = lines(tip);
+  // What the kept commit added, less what the tip added since the same base (a replay already made).
+  const add = less(less(lines(after), lines(before)), less(have, lines(before)));
+  if (!add.length) return tip;
+  const all = [...have.map((l, i) => ({ l, i, t: timeOf(l) })), ...add.map((l, j) => ({ l, i: have.length + j, t: timeOf(l) }))];
+  if (all.some((x) => x.t === null)) return `${[...have, ...add].join('\n')}\n`;
+  return `${all.sort((a, b) => a.t - b.t || a.i - b.i).map((x) => x.l).join('\n')}\n`;
+}
 function reapply(root, wt, c, r, sb) {
   const parent = git(['rev-parse', '-q', '--verify', `${c}^`], { cwd: root, allowFail: true }).stdout.trim() || null;
   const raw = (rev, f) => { const x = git(['cat-file', 'blob', `${rev}:${f}`], { cwd: root, allowFail: true }); return x.code === 0 ? x.stdout : null; };
@@ -335,11 +352,8 @@ function reapply(root, wt, c, r, sb) {
     // A line log (stateLog): each line the kept commit added that the tip lacks, appended; what it
     // took away was its writer's trim (github/use keeps its last 2 h), never replayed.
     if (stateLog(f)) {
-      const have = now ?? '';
-      const there = new Set(have.split('\n'));
-      const gone = new Set((before ?? '').split('\n'));
-      const add = (after ?? '').split('\n').filter((l) => l && !gone.has(l) && !there.has(l));
-      if (add.length) put(wt, f, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${add.join('\n')}\n`);
+      const merged = logUnion(now ?? '', before ?? '', after ?? '');
+      if (merged !== (now ?? '')) put(wt, f, merged);
       continue;
     }
     if (before === null) {

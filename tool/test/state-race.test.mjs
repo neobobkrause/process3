@@ -274,7 +274,7 @@ test('state replay: a kept github/use share replays onto rows another writer app
   onReplayed((subject) => seen.push(subject));
   assert.deepEqual(stateReplay(root, SB, [], { log: () => {} }), [k]);
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
-  assert.deepEqual(readState(root, SB, USE).trim().split('\n').map((l) => JSON.parse(l).minute.slice(11, 13)), ['01', '02', '04', '03']);
+  assert.deepEqual(readState(root, SB, USE).trim().split('\n').map((l) => JSON.parse(l).minute.slice(11, 13)), ['01', '02', '03', '04'], 'merged in time order');
   assert.ok(seen.includes('github: 1 minute(s) of use (rows to 1794019144175)'), 'onReplayed fired for the share');
   assert.equal(unpushed(root), '');
   assert.equal(stateLog(USE), true);
@@ -310,11 +310,27 @@ test('every jsonl file the state branch holds is declared a line log or named or
   for (const f of readdirSync(lib).filter((x) => x.endsWith('.mjs'))) {
     const t = readFileSync(join(lib, f), 'utf8');
     for (const m of t.matchAll(/['`]([a-z][a-z0-9_./-]*\.jsonl)['`]/g)) paths.add(m[1]);
-    for (const m of t.matchAll(/`\$\{(METRICS_DIR|USE_DIR)\}\/[^`]*\.jsonl`/g)) paths.add(m[1] === 'USE_DIR' ? 'github/use/x.jsonl' : 'metrics/x.jsonl');
+    for (const m of t.matchAll(/`\$\{USE_DIR\}\/[^`]*\.jsonl`/g)) paths.add('github/use/x.jsonl');
   }
   paths.add('messages/bob.jsonl');
   const ordered = (p) => Object.keys(STATE_ORDERED).some((k) => (k.endsWith('/') ? p.startsWith(k) : p === k));
   const loose = [...paths].filter((p) => !NOT_STATE[p] && !stateLog(p) && !ordered(p));
   assert.deepEqual(loose, []);
   assert.deepEqual([...paths].filter((p) => stateLog(p) && ordered(p)), [], 'never both');
+});
+
+// Cold review: a line log's rows merge in time order (a reader takes the last row as the newest); a row
+// repeated on purpose is kept; rows with no time go after the tip's; a file under metrics/
+// that is not a log (live-sessions.json, one object) is never a line log.
+test('a line log made again on a newer tip: time order, counted rows, a row with no time after the tip's; metrics/*.json is no log', async () => {
+  const { logUnion, stateLog } = await import('../lib/state.mjs');
+  const r = (at, x) => JSON.stringify({ at: `2026-11-07T0${at}:00:00Z`, x });
+  const tip = [r(1, 'a'), r(3, 'c')].join('\n') + '\n';
+  assert.equal(logUnion(tip, r(1, 'a') + '\n', [r(1, 'a'), r(2, 'b')].join('\n') + '\n'), [r(1, 'a'), r(2, 'b'), r(3, 'c')].join('\n') + '\n', 'the older replayed row before the newer');
+  assert.equal(logUnion(tip, '', r(3, 'c') + '\n'), tip, 'a row the tip holds is not added twice');
+  assert.equal(logUnion(r(1, 'a') + '\n', r(1, 'a') + '\n', [r(1, 'a'), r(1, 'a')].join('\n') + '\n'), [r(1, 'a'), r(1, 'a')].join('\n') + '\n', 'a row the kept commit repeated is kept');
+  assert.equal(logUnion(tip, '', '{"no":"time"}\n'), `${tip}{"no":"time"}\n`, 'a row with no time: after the tip\'s');
+  assert.equal(stateLog('metrics/live-sessions.json'), false);
+  assert.equal(stateLog('metrics/sweep.jsonl'), true);
+  assert.equal(stateLog('metrics/x/y.jsonl'), false);
 });
