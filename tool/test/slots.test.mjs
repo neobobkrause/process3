@@ -8,10 +8,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { capCheck } from '../lib/cap.mjs';
-import { gateRed, publishedJobs, slotUse } from '../lib/slots.mjs';
+import { gateRed, newestGate, publishedJobs, slotUse } from '../lib/slots.mjs';
 import { writeState } from '../lib/state.mjs';
 import { flow, liveJobIds } from '../lib/status.mjs';
-import { SWEEP_ROWS_FILE, idleCheck } from '../lib/sweep.mjs';
+import { SWEEP_ROWS_FILE, idleCheck, knownJobIds } from '../lib/sweep.mjs';
+import { flowFile } from '../lib/layerbase.mjs';
+import { writeRows } from '../lib/layerflow.mjs';
 import { configOf, fail, git } from '../lib/util.mjs';
 import { makeRepo, setJobCap } from './helpers.mjs';
 
@@ -33,7 +35,8 @@ const gate = (pr) => (pr.head in gates ? gates[pr.head] : run('success'));
 test('PD-7: a published job holds no slot while its gate is pending or green; red, it resumes and holds one; unread, it holds one', () => {
   assert.equal(gateRed(run('failure')), true);
   assert.equal(gateRed(run('timed_out')), true);
-  assert.equal(gateRed(run('cancelled')), false, 'cancelled: superseded by a newer push, waiting on its gate');
+  assert.equal(gateRed(run('cancelled')), true, 'cancelled and newest: nothing will finish it, the job re-runs it');
+  assert.equal(gateRed(run('stale')), true);
   assert.equal(gateRed(run(null, 'in_progress')), false);
   assert.equal(gateRed(null), false, 'not yet run: waiting on its gate');
   const pub = publishedJobs(view(), { gate });
@@ -45,9 +48,21 @@ test('PD-7: a published job holds no slot while its gate is pending or green; re
   const listed = [{ title: 'job p1', session_status: 'SESSION_STATUS_IDLE' }, { title: 'job p2 (restart)' }, { title: 'job p4', session_status: 'SESSION_STATUS_ARCHIVED' }, { title: 'job w' }];
   assert.deepEqual([...liveJobIds(listed)].sort(), ['p1', 'p2', 'w']);
   assert.deepEqual(slotUse(4, pub, { jobIds: liveJobIds(listed) }).free, ['p1', 'p2']);
-  // A gate read that fails: the job holds a slot (the safe side).
+  // A gate read that fails: the job holds a slot (the safe side), named. GitHub unreadable reads as
+  // undefined (checkRuns null), not as "no run" (null): the default reader tells them apart.
   const unread = publishedJobs(view(2), { gate: () => { throw new Error('gh: 502'); } });
-  assert.deepEqual(slotUse(5, unread).working, 5);
+  assert.deepEqual([slotUse(5, unread).working, slotUse(5, unread).unread], [5, ['p1', 'p2']]);
+  let reads = 0;
+  assert.equal(newestGate('o/p', 'x1', { read: () => { reads++; return null; } }), undefined, 'unreadable');
+  assert.equal(newestGate('o/p', 'x2', { read: () => [] }), null, 'no run yet');
+  const viaDefault = publishedJobs(view(1), { gate: (pr) => newestGate('o/p', pr.head, { read: () => null }) });
+  assert.deepEqual([viaDefault[0].unread, slotUse(3, viaDefault).working], [true, 3]);
+  // A completed run on a head is read once per command; one still running is read again.
+  newestGate('o/p', 'x3', { read: () => { reads++; return [run('success')]; } });
+  newestGate('o/p', 'x3', { read: () => { reads++; return [run('failure')]; } });
+  newestGate('o/p', 'x4', { read: () => { reads++; return [run(null, 'in_progress')]; } });
+  newestGate('o/p', 'x4', { read: () => { reads++; return [run(null, 'in_progress')]; } });
+  assert.equal(reads, 1 + 1 + 2);
   assert.equal(slotUse(undefined, pub).working, null, 'unmeasured: no count');
 });
 
@@ -86,10 +101,50 @@ test('PD-7: the idle check judges empty slots on the jobs working toward publish
   git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
   const T0 = Math.ceil((Date.now() + 120e3) / 1000) * 1000;
   const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
-  writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(T0), row: 'sweep', live: 20, live_measured_at: iso(T0 - 60e3), job_cap: 20 }) + '\n'); });
+  writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(T0), row: 'sweep', live: 20, live_measured_at: iso(T0 - 60e3), job_cap: 20, job_ids: ['p1', 'p2', 'p3', 'p4', 'p5', 'w'] }) + '\n'); });
   const lines = [];
   const r = idleCheck(root, configOf({}), { by: 'test', t: T0 + 25 * 6e4, read: () => ({ open: { state: 'open' }, holds: [] }), readView: () => view(), io: { gate, slug: 'o/p' }, log: (l) => lines.push(String(l)) });
   // 20 live, 4 published holding none: 16 working, 4 empty slots, 30 startable: the alarm.
   assert.deepEqual([r.live, r.slots_working, r.published_free, r.resumed, r.idle_capacity.empty, r.idle_capacity.alarm], [20, 16, 4, ['p3'], 4, true]);
   assert.match(lines.join('\n'), /IDLE CAPACITY: 16 job sessions working toward publish \(20 live; 4 published holding no slot \(PD-7\); resumed on a red gate: p3\) of the cap 20/);
+});
+
+// Cold review of C26: a published job whose session the record does not know as live subtracts
+// nothing from the idle check (no false alarm); a sweep given --live alone records no job ids.
+test('PD-7: the idle check subtracts only published jobs the measuring sweep saw live (or started since)', () => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['update-ref', 'refs/remotes/origin/tranche', 'HEAD'], { cwd: root });
+  const T0 = Math.ceil((Date.now() + 120e3) / 1000) * 1000;
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  const sweepRow = (ids) => writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(T0), row: 'sweep', live: 20, live_measured_at: iso(T0 - 60e3), job_cap: 20, ...(ids ? { job_ids: ids } : {}) }) + '\n'); });
+  const check = () => idleCheck(root, configOf({}), { by: 'test', t: T0 + 25 * 6e4, read: () => ({ open: { state: 'open' }, holds: [] }), readView: () => view(), io: { gate, slug: 'o/p' }, log: () => {} });
+  // p1 and p2's sessions were seen; p4 and p5's were not (archived): 2 subtracted.
+  sweepRow(['p1', 'p2', 'w']);
+  assert.equal(check().slots_working, 18);
+  // --live alone: no ids known, nothing subtracted, no alarm on 20 of 20.
+  sweepRow(null);
+  const r = check();
+  assert.deepEqual([r.slots_working, r.idle_capacity], [undefined, undefined]);
+  // A published job started since the sweep is live.
+  sweepRow([]);
+  writeRows(root, SB, 'starts', [[flowFile(11, 'start', 'p4-x'), { row: 'start', layer: 11, module: 'p4', at: iso(T0 + 5 * 6e4) }]]);
+  assert.deepEqual(knownJobIds(root, SB, view(), { at: iso(T0), live_measured_at: iso(T0 - 60e3), job_ids: [] }), new Set(['p4']));
+});
+
+// job start --live: the latest sweep's job ids within its hour narrow the subtraction; with none,
+// every published job is taken as live (PD-7's default), said in the README.
+test('PD-7: job start --live subtracts the published jobs the latest sweep saw live', (t) => {
+  setJobCap(t, 20);
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  const io = { view: view(), gate, slug: 'o/p' };
+  assert.equal(capCheck(root, { live: '20', io }).working, 16, 'no sweep row: all 4 published taken as live');
+  writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(Date.now()), row: 'sweep', live: 20, live_measured_at: iso(Date.now()), job_cap: 20, job_ids: ['p1', 'w'] }) + '\n'); });
+  assert.deepEqual(capCheck(root, { live: '20', io }).free, ['p1'], 'the sweep saw only p1 of the published live');
 });

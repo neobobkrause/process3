@@ -5,23 +5,38 @@
 // resumed job is never refused (it starts nothing), so it goes ahead of new starts even when no slot
 // is free. The account's live sessions stay printed beside the count, so a platform limit shows.
 // One reading for job start's cap check, status's flow and cap lines, and the idle checks.
-import { checkRun } from './github.mjs';
+import { checkRuns } from './github.mjs';
 
-// A gate run read red: it finished and did not pass. Not yet run, running, cancelled (superseded by
-// a newer push) or passed: the job waits on its gate or its land.
-const RED = new Set(['failure', 'timed_out', 'action_required', 'startup_failure']);
+// A gate run that leaves the job work to do: it finished and did not pass, or was cancelled or went
+// stale with no newer run after it (nothing will finish it: the job re-runs it). Not yet run,
+// queued, running or passed: the job waits on its gate or its land (cold review of C26).
+const RED = new Set(['failure', 'timed_out', 'action_required', 'startup_failure', 'cancelled', 'stale']);
 export const gateRed = (run) => run?.status === 'completed' && RED.has(run.conclusion);
 
+// The newest gate run on a head: null when none ran, undefined when GitHub could not be read. A
+// completed run on a sha never changes: kept for the command's life, so a burst reads each once.
+const done = new Map();
+export function newestGate(slug, head, { read = checkRuns } = {}) {
+  const key = `${slug}@${head}`;
+  if (done.has(key)) return done.get(key);
+  const runs = read(slug, head, 'gate');
+  if (runs === null || runs === undefined) return undefined;
+  const run = runs[0] || null;
+  if (run?.status === 'completed') done.set(key, run);
+  return run;
+}
+
 // The open layer's published jobs, each with its newest gate run on its head (read by `gate(pr)`,
-// default the gate check run on GitHub). A read that throws is unknown: the job holds a slot, the
-// safe side for the cap.
-export function publishedJobs(view, { slug, gate = (pr) => checkRun(slug, pr.head, 'gate') } = {}) {
+// default newestGate). A read that fails (undefined, or a throw) is unknown: the job holds a slot,
+// the safe side for the cap.
+export function publishedJobs(view, { slug, gate = (pr) => newestGate(slug, pr.head) } = {}) {
   if (view?.kind !== 'open') return [];
   return (view.states || []).filter((s) => s.state === 'published').map((s) => {
     const pr = (view.prs || []).find((p) => p.number === s.pr) || null;
     let run = null;
     let unread = false;
-    try { run = pr?.head ? gate(pr) : null; } catch { unread = true; }
+    try { run = pr?.head ? gate(pr) : undefined; } catch { run = undefined; }
+    if (run === undefined) unread = true;
     return { id: s.id, pr: s.pr, red: gateRed(run), unread };
   });
 }
@@ -34,8 +49,9 @@ export function slotUse(live, published = [], { jobIds = null } = {}) {
   const mine = published.filter((p) => !jobIds || jobIds.has(p.id));
   const free = mine.filter((p) => !p.red && !p.unread).map((p) => p.id);
   const resumed = mine.filter((p) => p.red).map((p) => p.id);
-  return { live: live_, working: live_ === null ? null : Math.max(0, live_ - free.length), free, resumed };
+  const unread = mine.filter((p) => p.unread).map((p) => p.id);
+  return { live: live_, working: live_ === null ? null : Math.max(0, live_ - free.length), free, resumed, unread };
 }
 
 // The words beside a count: how many published jobs hold no slot, and which resumed on a red gate.
-export const slotNote = (u) => [u.free.length ? `${u.free.length} published holding no slot (PD-7)` : '', u.resumed.length ? `resumed on a red gate: ${u.resumed.join(', ')}` : ''].filter(Boolean).join('; ');
+export const slotNote = (u) => [u.free.length ? `${u.free.length} published holding no slot (PD-7)` : '', u.resumed.length ? `resumed on a red gate: ${u.resumed.join(', ')}` : '', u.unread?.length ? `gate unread, holding a slot: ${u.unread.join(', ')}` : ''].filter(Boolean).join('; ');

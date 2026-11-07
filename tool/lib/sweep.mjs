@@ -126,6 +126,15 @@ export function startsSince(root, sb, view, at) {
   const count = (n) => (n !== undefined && n !== null ? flowRows(root, sb, n).starts.filter((r) => Date.parse(r.at) >= t && !r.restart).length : 0);
   return count(view.n) + (view.early_next !== view.n ? count(view.early_next) : 0);
 }
+// The modules with a live job session as the record knows them (cold review of C26): the ones the
+// measuring sweep row saw (job_ids, with list_sessions) and those started since. A row without
+// job_ids (a sweep given --live alone) knows none: nothing is subtracted, the safe side for an alarm.
+export function knownJobIds(root, sb, view, m) {
+  if (!m || !Array.isArray(m.job_ids)) return new Set();
+  const t = Date.parse(m.live_measured_at || m.at);
+  const since = (n) => (n !== undefined && n !== null && Number.isFinite(t) ? flowRows(root, sb, n).starts.filter((r) => Date.parse(r.at) >= t).map((r) => r.module) : []);
+  return new Set([...m.job_ids, ...(view ? [...since(view.n), ...(view.early_next !== view.n ? since(view.early_next) : [])] : [])]);
+}
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
 // command any role runs, before its act, evaluates idle capacity when the last sweep row is
 // CHECK_MIN old (read from the local ref first: no fetch while it is fresh), on the live count the
@@ -181,7 +190,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
         const holds = out.holds || [];
         const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
         // PD-7: the published jobs whose gate is not red hold no slot (slots.mjs).
-        use = slotUse(live, publishedJobs(view, { slug: io?.slug || repoSlug(root), ...(io?.gate ? { gate: io.gate } : {}) }));
+        use = slotUse(live, publishedJobs(view, { slug: io?.slug || repoSlug(root), ...(io?.gate ? { gate: io.gate } : {}) }), { jobIds: knownJobIds(root, sb, view, m) });
         ic = layerIdle({ live: use.working, cap: jobCap(cfg).cap, holds, view, layers, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), t });
         // One count, the idle check's: the jobs that take a slot, early starts included, less those held.
         count = ic ? ic.startable : view.kind === 'open' ? [...view.startable, ...(view.early || [])].filter(needsSlot).filter((j) => !heldBy(holds, j.id, layers)).length : 0;
@@ -260,6 +269,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
   // The account's job count and the cap go in the sweep row (live, job_cap, and with --sessions the
   // account's sessions, every product and role, so a platform limit would show): lead times names a full cap as a wait's cause.
   let liveRow = {};
+  let overCap = null;
   if (live !== undefined) {
     const n = Number(live);
     if (live === true || !Number.isInteger(n) || n < 0) fail(`--live <n>, the account's job sessions you count, not ${JSON.stringify(live)}`);
@@ -267,8 +277,12 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     const cap = c.cap;
     if (c.note) found.push(c.note);
     found.push(c.line);
-    liveRow = { live: n, live_measured_at: now(), job_cap: cap, ...(listed ? { sessions: listed.filter((x) => !isArchived(x)).length } : {}) };
-    if (n > cap) owed.push(`${n} job sessions, over the job cap of ${cap}: archive finished ones before starting more`);
+    // With list_sessions, the modules whose job sessions it saw: the idle check and job start --live
+    // subtract only a published job with a live session (cold review of C26).
+    liveRow = { live: n, live_measured_at: now(), job_cap: cap, ...(listed ? { sessions: listed.filter((x) => !isArchived(x)).length, job_ids: [...liveJobIds(listed)].sort() } : {}) };
+    // Over the cap: judged on the jobs working toward publish once the open layer is read below (PD-7:
+    // published jobs keep their sessions), on every live one when it is not.
+    if (n > cap) { overCap = { n, cap, at: owed.length }; owed.push(`${n} job sessions, over the job cap of ${cap}: archive finished ones before starting more`); }
   }
   const plan = cfg.plan;
   let nothingToStart = false;
@@ -323,7 +337,12 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         next = view && ['open', 'next'].includes(view.kind) ? (view.kind === 'open' && (view.startable.length > 0 || view.ready || view.early?.length > 0)) || view.kind === 'next' : work.some((x) => !x.after && !x.owed_layer); // unmet after its job, or owed to a later layer: no act
         // The flow's numbers in the sweep row (coordinator, 5 Nov): starvation and ruling waits measured.
         // PD-7: the open layer's published jobs hold no slot unless their gate went red (slots.mjs).
-        const use = slotUse(liveRow.live, view && !offline ? publishedJobs(view, { slug: io?.slug || repoSlug(root), ...(io?.gate ? { gate: io.gate } : {}) }) : [], { jobIds: listed ? liveJobIds(listed) : null });
+        const use = slotUse(liveRow.live, view && !offline && liveRow.live !== undefined ? publishedJobs(view, { slug: io?.slug || repoSlug(root), ...(io?.gate ? { gate: io.gate } : {}) }) : [], { jobIds: listed ? liveJobIds(listed) : null });
+        // The over-cap line, judged again on the jobs working toward publish (PD-7), in its place.
+        if (overCap && (use.free.length || use.resumed.length || use.unread.length)) {
+          if (use.working > overCap.cap) owed[overCap.at] = `${use.working} job sessions working toward publish, over the job cap of ${overCap.cap} (${overCap.n} live; ${slotNote(use)}): archive finished ones before starting more`;
+          else owed.splice(overCap.at, 1);
+        }
         const f = flow(cfg, rows, work, liveRow.live, listed, holds, { view, use });
         if (use.free.length || use.resumed.length) liveRow = { ...liveRow, slots_working: use.working, published_free: use.free.length, ...(use.resumed.length ? { resumed: use.resumed } : {}) };
         liveRow = { ...liveRow, startable: f.startable, blocked: f.blocked, blocked_oldest_min: f.blocked_oldest_min, ...(listed ? { working: f.working, waiting: f.waiting } : {}) };
