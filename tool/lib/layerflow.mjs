@@ -28,6 +28,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { fileURLToPath } from 'node:url';
 import { dirname, join, posix } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
+import { deploys } from './deploycfg.mjs';
 import { classifyTestChange } from './testdiff.mjs';
 import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
@@ -1596,7 +1597,7 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   // 7 Nov: required, tool-started); any other layer's merge runs no walk (Bob, 4 Nov). Its outcome
   // never undoes the merge, which is recorded.
   // deploy.mjs is imported here, not at the top: it reaches back into this module through status.mjs.
-  const round = cfg.deploy ? (io.roundClose || (await import('./deploy.mjs')).roundCloseRun)(root, { log, io: io.round || {}, by: `layer merge ${n}` }) : null;
+  const round = deploys(cfg) ? (io.roundClose || (await import('./deploy.mjs')).roundCloseRun)(root, { log, io: io.round || {}, by: `layer merge ${n}` }) : null;
   return { ok: true, merged, closed, round };
 }
 // A module's entry (and requirements) carried from the tranche (job start, R4) is added on both

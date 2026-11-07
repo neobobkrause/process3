@@ -15,7 +15,7 @@ import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { layerMergeLine, layerStartAct, readOpenLayer } from './layerflow.mjs';
-import { ROUND_ACT, owedAt } from './deploy.mjs';
+import { ROUND_ACT, deploys, owedAt } from './deploy.mjs';
 import { openState } from './tranche.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -273,9 +273,14 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
         if (mergeLine) found.push(mergeLine);
         // The round-close run owed and not run (the act that closed the round could not run it):
         // BOB's first act, and the sweep wakes BOB for it (Bob, 7 Nov: required, tool-started).
-        if (cfg.deploy && openState(root, cfg).state === 'open') {
-          const o = owedAt(root, cfg, { ls, ref: tranche }).owed;
-          if (o) owed.push(`the round-close run is owed (${o}): ${ROUND_ACT}, first`);
+        // Unread, it is a finding, and next work is still read (cold review of C23).
+        if (deploys(cfg)) {
+          try {
+            if (openState(root, cfg).state === 'open') {
+              const o = owedAt(root, cfg, { ls, ref: tranche }).owed;
+              if (o) owed.push(`the round-close run is owed (${o}): ${ROUND_ACT}, first`);
+            }
+          } catch (e) { if (!(e instanceof Fail)) throw e; found.push(`round-close run: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); }
         }
         const work = nextWork(root, cfg, rows, tranche, { log: () => {}, state: ls, notices: owedNotices(root, cfg, rows, () => {}) });
         markLaneHeld(cfg, seats, work);

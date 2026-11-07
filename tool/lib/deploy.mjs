@@ -7,9 +7,10 @@ import { appendFileSync, closeSync, constants, fstatSync, mkdirSync, mkdtempSync
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, sep } from 'node:path';
 import { buildGenerated, generatedRows } from './checks.mjs';
+import { deploys, internalWalkOf, reportPaths, stepsOf } from './deploycfg.mjs';
 import { P3 } from './job.mjs';
 import { readLedgerTexts } from './ledger.mjs';
-import { fetchState, jsonl, readState, writeState } from './state.mjs';
+import { fetchState, flushState, jsonl, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { FOUND_DIR, foundMarks } from './found.mjs';
 import { closedRows, layerState, onMainOf, status } from './status.mjs';
@@ -31,6 +32,7 @@ export function checkSlug(s) {
 
 // The `deploy` block of process/config.json, validated. dry_run, deploy and walk are each an
 // argv, or a list of argvs run in order; {slug} in any argument is the slug.
+export { deploys, internalWalkOf };
 export function deployConfig(cfg) {
   const d = cfg.deploy;
   if (d === undefined || d === null) fail('process/config.json has no "deploy" block: no development deployment is made');
@@ -38,36 +40,12 @@ export function deployConfig(cfg) {
   const bad = Object.keys(d).filter((k) => !KEYS.includes(k));
   if (bad.length) fail(`"deploy" has unknown keys: ${bad.join(', ')} (known: ${KEYS.join(', ')})`);
   if (typeof d.slug_prefix !== 'string' || !d.slug_prefix.startsWith(SLUG_PREFIX) || !/^[a-z0-9-]+$/.test(d.slug_prefix)) fail(`deploy.slug_prefix must begin with ${SLUG_PREFIX} (lower case letters, digits and dashes), not ${JSON.stringify(d.slug_prefix)}`);
-  const isArgv = (a) => Array.isArray(a) && a.length && a.every((x) => typeof x === 'string' && x.length);
-  const steps = (v, what) => {
-    if (isArgv(v)) return [v];
-    if (Array.isArray(v) && v.length && v.every(isArgv)) return v;
-    return fail(`deploy.${what} must be an argv (a list of strings) or a non-empty list of argvs`);
-  };
   if (typeof d.guard_line !== 'string' || !d.guard_line.trim()) fail('deploy.guard_line must be the text each dry-run step prints, for example "p3dev guard: passed"');
   const t = d.timeout_minutes;
   if (t !== undefined && !(Number.isInteger(t) && t > 0 && t <= 360)) fail('deploy.timeout_minutes must be whole minutes from 1 to 360');
-  // walk_reports: the files the walk writes, relative to the checkout, kept on the state branch.
-  const part = (x) => x && x !== '.' && x !== '..';
-  const paths = (wr, what) => {
-    if (!Array.isArray(wr) || !wr.every((p) => typeof p === 'string' && p.split('/').every(part) && !basename(p).startsWith('.git')) || new Set(wr.map((p) => basename(p))).size !== wr.length) fail(`deploy.${what} must be a list of file paths in the checkout (no leading /, no empty, . or .. part, no file name starting .git), no two with the same file name`);
-    return wr;
-  };
-  const wr = paths(d.walk_reports ?? [], 'walk_reports');
-  // internal_walk (Bob, 4 Nov; K4111, K4162, K4781): the product's offline walk, run at the round
-  // close before the dry run, never a gate. {run: argv or argvs, timeout_minutes (whole run), reports}.
-  // An exemption Bob records instead ({none: "<reason>", by: "Bob, <date>"}; Bob, 7 Nov: the internal
-  // walk is required, its exemption his word): no internal walk, said in setup check.
-  let iw = null;
-  const i = d.internal_walk;
-  if (i && typeof i === 'object' && !Array.isArray(i) && 'none' in i) {
-    if (Object.keys(i).some((k) => !['none', 'by'].includes(k)) || typeof i.none !== 'string' || !i.none.trim() || typeof i.by !== 'string' || !i.by.trim()) fail('deploy.internal_walk\'s exemption is {"none": "<reason>", "by": "Bob, <date>"}');
-  } else if (i !== undefined && i !== null) {
-    if (typeof i !== 'object' || Array.isArray(i) || Object.keys(i).some((k) => !['run', 'timeout_minutes', 'reports'].includes(k))) fail('deploy.internal_walk must be an object with run, timeout_minutes and reports');
-    if (i.timeout_minutes !== undefined && !(Number.isInteger(i.timeout_minutes) && i.timeout_minutes > 0 && i.timeout_minutes <= 360)) fail('deploy.internal_walk.timeout_minutes must be whole minutes from 1 to 360');
-    iw = { run: steps(i.run, 'internal_walk.run'), timeout_minutes: i.timeout_minutes || 30, reports: paths(i.reports ?? [], 'internal_walk.reports') };
-  }
-  return { internal_walk: iw, walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: steps(d.dry_run, 'dry_run'), deploy: steps(d.deploy, 'deploy'), walk: steps(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
+  const wr = reportPaths(d.walk_reports ?? [], 'walk_reports');
+  const iw = internalWalkOf(d.internal_walk)?.walk || null;
+  return { internal_walk: iw, walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: stepsOf(d.dry_run, 'dry_run'), deploy: stepsOf(d.deploy, 'deploy'), walk: stepsOf(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
 }
 
 // A step marks a value secret with a line `::add-mask::<value>`, as GitHub Actions does. The
@@ -139,7 +117,14 @@ export function deployRows(root, cfg, at = {}) {
 // close is a deploy and walk owed or allowed; the tranche's end is its last round's close.
 export function roundClose(root, cfg, { ls, plan = cfg.plan, closed = [], ref, w }) {
   const top = Math.max(0, ...closed.map((r) => r.layer)) || null;
-  if (plan === 'close') return { closed: true, round: 'the last round (plan close)', layer: top };
+  // Under plan close the round after a walk is its completion round still: open while its items or
+  // the walk's found marks are, so recording the findings starts no fresh run (cold review of
+  // C23: the tool-started run would otherwise deploy again at the merge that records them).
+  if (plan === 'close') {
+    const items = w?.last ? openItems(completionItems(root, cfg, ref)).map((x) => x.id) : [];
+    if (items.length || (w?.last && w.marks)) return { closed: false, why: `the last round (plan close) is open: ${[items.length ? `${items.join(', ')} open in ${cfg.completion_file}` : '', w.marks ? `${w.marks} found mark(s) of ${w.last.slug} unmet` : ''].filter(Boolean).join('; ')}` };
+    return { closed: true, round: 'the last round (plan close)', layer: top };
+  }
   if (!ls) return { closed: false, why: `there is no layer map (${cfg.layers_file}) and the plan is not close` };
   const open = ls.layers.filter((L) => !L.closed).map((L) => L.n);
   if (open.length) return { closed: false, why: `the first round is open: layer${open.length > 1 ? 's' : ''} ${open.join(', ')} not closed` };
@@ -194,12 +179,25 @@ export function walkFindings(root, cfg, ref, at = {}) {
 // plain pull request, main into the tranche at its close, would owe a deploy mid-close).
 export const deployOwed = (rc, w, tip) => (!rc.closed ? null : !w.last ? `${rc.round} closed, not yet deployed` : w.failing && w.last.commit !== tip ? `${rc.round} closed since ${String(w.last.commit).slice(0, 10)} was deployed` : null);
 // What is owed at `ref` (the tranche as status and ROOT's sweep read it): the round-close run's
-// reason, or null. The plan as the tranche holds it, as deploy dev reads it.
+// reason, or null; and a run started and not yet recorded (`running`), which owes nothing more
+// while it may still be going. The plan as the tranche holds it, as deploy dev reads it.
 export function owedAt(root, cfg, { ls, ref, closed = [], at = {} }) {
   const w = walkFindings(root, cfg, ref, at);
   let plan = cfg.plan;
   try { plan = loadConfig(root, ref).plan; } catch { plan = cfg.plan; }
-  return { owed: deployOwed(roundClose(root, cfg, { ls, plan, closed, ref, w }), w, git(['rev-parse', ref], { cwd: root })), w };
+  const tip = git(['rev-parse', ref], { cwd: root });
+  const running = runningAt(root, cfg, tip);
+  return { owed: running ? null : deployOwed(roundClose(root, cfg, { ls, plan, closed, ref, w }), w, tip), w, running };
+}
+// A deploy dev started at `tip` and not recorded, within the longest it can run (each step's
+// timeout, the internal walk's, and the install and build): it is running, or was cut short.
+export function runningAt(root, cfg, tip) {
+  const rows = jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.tranche === cfg.tranche);
+  const start = rows.filter((r) => r.row === 'dev-deploy-start' && r.commit === tip).at(-1);
+  if (!start || rows.some((r) => r.row === 'dev-deploy' && r.commit === tip && r.at >= start.at)) return null;
+  let minutes = 180;
+  try { const d = deployConfig(cfg); minutes = d.timeout_minutes * (d.dry_run.length + d.deploy.length + d.walk.length + 2) + (d.internal_walk?.timeout_minutes || 0); } catch { minutes = 180; }
+  return Date.now() - Date.parse(start.at) < minutes * MINUTE ? { ...start, until: new Date(Date.parse(start.at) + minutes * MINUTE).toISOString() } : null;
 }
 // The one next act when the round-close run is owed and has not run.
 export const ROUND_ACT = `${P3} deploy dev, from a clean checkout of the tranche tip`;
@@ -217,30 +215,37 @@ export const ROUND_ACT = `${P3} deploy dev, from a clean checkout of the tranche
 // the one next act: printed now, first in status, and ROOT's sweep wakes BOB for it. A round still
 // open runs nothing.
 export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merge' } = {}) {
-  let cfg;
-  try { cfg = loadConfig(root); } catch { return { ran: false, owed: null }; }
-  if (!cfg.deploy) return { ran: false, owed: null };
-  const t = `origin/${cfg.tranche}`;
   let owed = null;
   try {
+    let cfg = loadConfig(root);
+    const t = `origin/${cfg.tranche}`;
     git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${t}`], { cwd: root });
+    // The tranche's config, as merged, not this checkout's (cold review of C23).
+    try { cfg = loadConfig(root, t); } catch { /* the checkout's */ }
+    if (!deploys(cfg)) return { ran: false, owed: null };
+    // The command's held state writes (the merge's close row) go first: the run reads the round
+    // from origin, and its own writes are pushed as made, while its worktree exists (cold review
+    // of C23: held, they were read back stale, and pushed from a removed worktree).
+    if (pendingWrites()) flushState({ log });
     fetchState(root, cfg.state_branch, { fresh: true });
     const tip = git(['rev-parse', t], { cwd: root });
     const { rc, w } = roundAt(root, cfg, t, { io, slug: io.repo || repoSlug(root) });
+    const run = runningAt(root, cfg, tip);
+    if (run) { log(`the round-close run at ${tip.slice(0, 10)} was started by ${run.session || 'a session'} at ${run.at} and is not recorded: running, or cut short; owed again after ${run.until}`); return { ran: false, owed: null, running: run }; }
     owed = deployOwed(rc, w, tip);
     if (!owed) {
       if (!rc.closed) log(`no internal walk or deploy now: the round is open (${rc.why}); they run at its close, started by the act that closes it (Bob, 4 and 7 Nov)`);
       return { ran: false, owed: null };
     }
-    log(`${owed}: ${by} starts the round-close run now (Bob, 7 Nov: required, tool-started): the internal walk, then the deploy and its walk`);
-    const r = withTemp('p3-round-', (tmp) => {
-      const w = join(tmp, 'w');
-      git(['worktree', 'add', '-q', '--detach', w, tip], { cwd: root });
+    log(`${owed}: ${by} starts the round-close run now (Bob, 7 Nov: required, tool-started): the internal walk, then the deploy and its walk; if it is cut short, the run stays owed: ${ROUND_ACT}`);
+    const r = unbatched(() => withTemp('p3-round-', (tmp) => {
+      const wt = join(tmp, 'w');
+      git(['worktree', 'add', '-q', '--detach', wt, tip], { cwd: root });
       try {
-        if (git(['ls-tree', tip, '--', '.gitmodules'], { cwd: root })) git(['submodule', 'update', '--init', '-q'], { cwd: w, allowFail: true });
-        return (io.deployDev || deployDev)(w, { log, io: io.deploy || {}, repo: io.repo || repoSlug(root) });
-      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
-    }, { root });
+        if (git(['ls-tree', tip, '--', '.gitmodules'], { cwd: root })) git(['submodule', 'update', '--init', '-q'], { cwd: wt, allowFail: true });
+        return (io.deployDev || deployDev)(wt, { log, io: io.deploy || {}, repo: io.repo || repoSlug(root) });
+      } finally { git(['worktree', 'remove', '--force', wt], { cwd: root, allowFail: true }); }
+    }, { root }));
     return { ran: true, ok: r.ok, owed };
   } catch (e) {
     const why = String(e?.message || e).split('\n')[0].slice(0, 200);
@@ -271,6 +276,22 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   if (w.last && w.last.ok && !w.failing && w.last.commit === tip) fail(`no development deployment now: ${tip.slice(0, 10)} is deployed and walked clean (${w.last.slug}); the next round's close makes the next one`);
   const layer = rc.layer;
   const s = checkSlug(slug === undefined ? `${dep.slug_prefix}${layer === null ? 'end' : `l${layer}`}` : String(slug));
+  // One run at a time per tip: a run started and not recorded is running, or was cut short; the
+  // start is pushed at once so status and ROOT's sweep owe nothing while it runs (cold review of C23).
+  const going = runningAt(root, cfg, tip);
+  if (going) fail(`no development deployment now: ${going.session || 'a session'} started one at ${tip.slice(0, 10)} (${going.slug}) at ${going.at}, not yet recorded: it is running, or was cut short; run deploy dev again after ${going.until}`);
+  const session = (process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '').replace(/^cse_/, 'session_') || null;
+  // Best effort: the marker only holds off a second run; a state branch that refuses it refuses the
+  // run's row too, and that failure is reported where the row is kept.
+  try {
+    unbatched(() => writeState(root, cfg.state_branch, `development deployment ${s} started`, (wt) => {
+      mkdirSync(dirname(join(wt, DEPLOYS_FILE)), { recursive: true });
+      appendFileSync(join(wt, DEPLOYS_FILE), JSON.stringify({ row: 'dev-deploy-start', tranche: cfg.tranche, slug: s, commit: tip, session, at: now() }) + '\n');
+    }));
+  } catch (e) {
+    if (!(e instanceof Fail)) throw e;
+    log(`the start was not recorded on the state branch (${String(e.message).split('\n')[0].slice(0, 160)}): a second run is not held off`);
+  }
   log(`development deployment ${s} of ${cfg.tranche} ${tip.slice(0, 10)}, ${rc.round} closed; development only`);
   const t0 = Date.now();
   const masks = new Set();

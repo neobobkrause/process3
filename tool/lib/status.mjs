@@ -13,7 +13,7 @@ import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
 import { addressFile, fetchState, handoffFile, heldAct, heldWrites, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
-import { ROUND_ACT, owedAt, walkHold } from './deploy.mjs';
+import { ROUND_ACT, deploys, owedAt, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { laneSeatFor, lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { census, censusLines, openLayers, preflight, preflightLines } from './census.mjs';
@@ -535,9 +535,10 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     // unrecorded findings hold tranche close.
     out.deploy = null;
     // Not before the tranche open has passed (a tranche merged into main reads every row stale).
-    if (cfg.deploy && !halt && out.open.state === 'open') {
-      const { owed, w } = owedAt(root, cfg, { ls: out.layer, ref: ref || 'HEAD', closed, at: { slug: offline ? null : slug, read: io.compare } });
+    if (deploys(cfg) && !halt && out.open.state === 'open') {
+      const { owed, w, running } = owedAt(root, cfg, { ls: out.layer, ref: ref || 'HEAD', closed, at: { slug: offline ? null : slug, read: io.compare } });
       out.deploy = owed;
+      if (running) log(`the round-close run at ${String(running.commit).slice(0, 10)} (${running.slug}) was started by ${running.session || 'a session'} at ${running.at}, not yet recorded: running, or cut short; owed again after ${running.until}`);
       if (owed !== null) log(`FIRST: the round-close run is owed (${owed}): ${ROUND_ACT} (the internal walk, then the deploy and its walk); job starts do not wait for it`);
       const hold = walkHold(w);
       if (hold) log(`tranche close waits: ${hold}`);

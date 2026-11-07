@@ -5,8 +5,9 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { DEPLOYS_FILE, ROUND_ACT, checkSlug, deployConfig, deployDev, owedAt, readReport, redact, roundCloseRun, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
+import { DEPLOYS_FILE, ROUND_ACT, checkSlug, deployConfig, deployDev, deploys, owedAt, readReport, redact, roundCloseRun, walkFindings, walkInternal, walkSummary } from '../lib/deploy.mjs';
 import { status } from '../lib/status.mjs';
+import { flushState, stateBatch, writeState } from '../lib/state.mjs';
 import { trancheClose } from '../lib/tranche.mjs';
 import { DEFAULTS, git, loadConfig, run } from '../lib/util.mjs';
 import { commit, entry, makeRepo, onState, openPassed, closeLayer } from './helpers.mjs';
@@ -71,7 +72,7 @@ function withOrigin(files) {
 const statusIO = { openPRs: () => [], checkRun: () => null, compare: () => null };
 const io = { compare: () => null };
 const repo = 'o/p';
-const rows = (bare) => git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare }).split('\n').map((l) => JSON.parse(l));
+const rows = (bare) => git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare }).split('\n').map((l) => JSON.parse(l)).filter((r) => r.row === 'dev-deploy');
 
 test('deploy dev at a round close: dry run, deploy, walk, one row; secrets never printed; then refused while that tip is deployed clean', () => {
   const { root, bare } = withOrigin(product());
@@ -506,4 +507,63 @@ test('round-close run: nothing between layers; at the round close it runs from t
   assert.match(told.join('\n'), /the round-close run did not run here \(wrangler: not authenticated\); it is owed \(the last round \(plan close\) closed, not yet deployed\): the one next act is node \S+ deploy dev, from a clean checkout of the tranche tip; status puts it first and ROOT's sweep wakes BOB for it/);
   assert.match(see(r2).text, /^FIRST: the round-close run is owed/m);
   assert.equal(owedAt(r2, loadConfig(r2), { ls: null, ref: 'origin/tranche' }).owed, 'the last round (plan close) closed, not yet deployed');
+});
+
+// Cold review of C23: the merge commands hold their state writes until they end. The round-close
+// run pushes them first (the last layer's close row, read back from origin by the run), and pushes
+// its own as made, while its worktree exists: the row reaches origin.
+test('round-close run inside a batched command: the held close row is pushed first and the run\'s row reaches origin', () => {
+  const { root, bare } = withOrigin({ ...product(DEP, {}), 'build/requirements/d.md': 'all met\n' });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  assert.equal(closeLayer(root, '1').ok, true);
+  const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  let r;
+  stateBatch(true);
+  try {
+    closeLayer(root, '2');
+    r = roundCloseRun(root, { log: quiet, io: { repo, compare: () => null, status: statusIO, deploy: io }, by: 'layer merge 2' });
+    flushState();
+  } finally { stateBatch(false); }
+  assert.deepEqual([r.ran, r.ok], [true, true]);
+  assert.deepEqual(rows(bare).map((x) => [x.commit, x.layer, x.ok]), [[tip, 2, true]]);
+  assert.match(git(['show', 'process-state:layers/closed.jsonl'], { cwd: bare }), /"layer":2/);
+  assert.equal(git(['worktree', 'list', '--porcelain'], { cwd: root }).split('\n').filter((l) => l.startsWith('worktree ')).length, 1);
+});
+
+// A run started and not recorded owes nothing more while it may be going: no second run from the
+// tool, a refusal by hand, and status says so (cold review of C23).
+test('a run started and not recorded: the round-close run and deploy dev hold off, status says it is running', () => {
+  const { root } = withOrigin(product());
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  writeState(root, 'process-state', 'started (test)', (w) => { mkdirSync(join(w, 'deploys'), { recursive: true }); writeFileSync(join(w, DEPLOYS_FILE), JSON.stringify({ row: 'dev-deploy-start', tranche: 'tranche', slug: 'p3dev-l1', commit: tip, session: 'session_other', at: new Date().toISOString() }) + '\n'); });
+  let called = 0;
+  const r = roundCloseRun(root, { log: quiet, io: { repo, compare: () => null, status: statusIO, deployDev: () => { called++; return { ok: true }; } } });
+  assert.deepEqual([r.ran, r.owed, r.running.session, called], [false, null, 'session_other', 0]);
+  git(['checkout', '-q', 'origin/tranche'], { cwd: root });
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /session_other started one at \w{10} \(p3dev-l1\) at .*, not yet recorded: it is running, or was cut short/);
+  const t = see(root).text;
+  assert.match(t, /the round-close run at \w{10} \(p3dev-l1\) was started by session_other at .*, not yet recorded: running, or cut short/);
+  assert.doesNotMatch(t, /FIRST: the round-close run is owed/);
+});
+
+// Bob's exemption (or an internal walk alone) on a product with no deployment configures no
+// deploy: nothing owed, nothing run, tranche close not held (cold review of C23).
+test('the exemption alone configures no deploy: no run, nothing owed', () => {
+  const ex = { internal_walk: { none: 'no product to walk', by: 'Bob, 7 Nov' } };
+  assert.equal(deploys({ deploy: ex }), false);
+  assert.equal(deploys({ deploy: { internal_walk: { run: ['true'] } } }), false);
+  assert.equal(deploys({ deploy: DEP }), true);
+  const { root } = withOrigin(product(ex));
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  let called = 0;
+  const r = roundCloseRun(root, { log: quiet, io: { repo, compare: () => null, status: statusIO, deployDev: () => { called++; return { ok: true }; } } });
+  assert.deepEqual([r.ran, r.owed, called], [false, null, 0]);
+  assert.doesNotMatch(see(root).text, /round-close run/);
 });

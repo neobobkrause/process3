@@ -713,4 +713,10 @@ test('internal-walk: set when the tranche config names a run, missing when not, 
   assert.equal(state(r, 'internal-walk').detail, 'not configured: the probe has no product to walk (Bob, 7 Nov)');
   r = check(base({ internal_walk: { none: 'no reason given by anyone' } }));
   assert.deepEqual(r.missing, ['internal-walk'], 'an exemption is Bob\'s word: no "by", no exemption');
+  // What deploy dev refuses, setup check refuses (cold review of C23: one reading, internalWalkOf).
+  for (const bad of [{ none: 'x', by: 'Bob, 7 Nov', run: ['w'] }, { run: ['w'], timeout_minutes: 0 }, { run: 'npm run walk' }, { run: ['w'], extra: 1 }]) {
+    r = check(base({ internal_walk: bad }));
+    assert.deepEqual(r.missing, ['internal-walk'], JSON.stringify(bad));
+    assert.match(state(r, 'internal-walk').detail, /deploy\.internal_walk/);
+  }
 });

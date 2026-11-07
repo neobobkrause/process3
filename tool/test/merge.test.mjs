@@ -251,6 +251,8 @@ test('merge --plain: a change to the config or the completion file asks for the 
   assert.deepEqual(ask({ deploy: D }, { 'process/config.json': { deploy: D, plan: 'close' } }), [['merge 4'], { ran: true, ok: true }]);
   assert.deepEqual(ask({ deploy: D, completion_file: 'build/round.md' }, { 'pin.txt': 'moved' }), [[], null]);
   assert.deepEqual(ask(true, { 'process/config.json': { plan: 'close' } }), [[], null], 'no deploy block');
+  assert.deepEqual(ask(true, { 'process/config.json': { deploy: D, plan: 'close' } }), [['merge 4'], { ran: true, ok: true }], 'the deploy block added with the close: read from the merged config');
+  assert.deepEqual(ask({ deploy: { internal_walk: { none: 'x', by: 'Bob, 7 Nov' } } }, { 'process/config.json': { deploy: { internal_walk: { none: 'x', by: 'Bob, 7 Nov' } }, plan: 'close' } }), [[], null], 'the exemption alone deploys nothing');
 });
 
 test('merge --plain works in process3 itself, with no config and no ledger', () => {

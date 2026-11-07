@@ -12,10 +12,11 @@ import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
 import { admitCheck, admitTools, ruleMatches, toldCommands, toldTools } from './admit.mjs';
-import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, Fail, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { address, fetchState } from './state.mjs';
 import { commonDir } from './pace.mjs';
+import { internalWalkOf } from './deploycfg.mjs';
 
 export const CONDITIONS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'setup', 'conditions.json');
 export const loadConditions = (file = CONDITIONS) => JSON.parse(readFileSync(file, 'utf8')).conditions;
@@ -347,11 +348,11 @@ export const readers = {
 
   // C23 (Bob, 7 Nov: the internal walk "Required, tool-started", at "Round close only").
   'internal-walk': (c, x) => {
-    const i = x.cfg.deploy?.internal_walk;
-    if (i && typeof i === 'object' && !Array.isArray(i) && typeof i.none === 'string' && i.none.trim()) return typeof i.by === 'string' && i.by.trim() ? set(`not configured: ${i.none.trim()} (${i.by.trim()})`) : missing('deploy.internal_walk records an exemption with no "by": an exemption is Bob\'s word, {"none": "<reason>", "by": "Bob, <date>"}');
-    const run = i && typeof i === 'object' ? i.run : undefined;
-    const argv = (a) => Array.isArray(a) && a.length && a.every((s) => typeof s === 'string' && s.length);
-    if (argv(run) || (Array.isArray(run) && run.length && run.every(argv))) return set(`deploy.internal_walk runs ${(argv(run) ? [run] : run).map((a) => a.join(' ')).join('; ')}`);
+    // One reading with deploy dev's (deploy.mjs internalWalkOf): what one refuses, the other does.
+    let i = null;
+    try { i = internalWalkOf(x.cfg.deploy?.internal_walk); } catch (e) { if (e instanceof Fail) return missing(e.message); throw e; }
+    if (i?.exempt) return set(`not configured: ${i.exempt.none} (${i.exempt.by})`);
+    if (i?.walk) return set(`deploy.internal_walk runs ${i.walk.run.map((a) => a.join(' ')).join('; ')}`);
     return missing(`process/config.json on ${x.where} names no internal walk (deploy.internal_walk.run): it is required and runs at each round's close (Bob, 7 Nov); BOB adds it through a plain pull request, or Bob records an exemption {"none": "<reason>", "by": "Bob, <date>"}`);
   },
 
