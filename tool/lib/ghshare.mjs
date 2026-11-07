@@ -18,7 +18,7 @@
 // covers. GitHub's own count stands in for the primary limit (pace.mjs primaryState).
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { fetchState, flushState, onFlushed, pendingWrites, readState, unbatched, writeState } from './state.mjs';
+import { fetchState, flushState, onFlushed, onReplayed, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { fail, git, PUSH_TRAILER, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -235,6 +235,10 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
 //   own pushes are counted from its history, statePushes).
 // Rows older than two hours are dropped from the file.
 export const SHARE_ALONE_S = 900;
+// A share kept by a refused flush and pushed later by `state replay` is settled then (cold review
+// of R17e: left pending, its rows counted from this clone's log and again from the ledger).
+export const SHARE_SUBJECT = /^github: \d+ minute\(s\) of use \(rows to (\d+)\)/;
+onReplayed((subject, root) => { const m = String(subject).match(SHARE_SUBJECT); if (m) settleShare(root, Number(m[1]), Date.now()); });
 export function shareUsage(root, cfg, { force = false, now = Date.now, pending = 0, store, atEnd = false, ledgerRepo = null } = {}) {
   const shares = sharesOf(root);
   const after = lastShared(root);
@@ -256,14 +260,16 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
   // The share's push is gated like any push but never waits (coordinator's ruling on PR 206): where
   // the account is paused or at the ceiling it is refused, nothing is recorded, and it is shared later.
-  withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use`, (wt) => {
+  // A share whose own push is refused and kept for replay is recorded pending (cold review): not
+  // sent again by the next share, and settled when state replay pushes it.
+  try { withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use (rows to ${last})`, (wt) => {
     mkdirSync(join(wt, USE_DIR), { recursive: true });
     const since = now() - 2 * 3600e3;
     let kept = [];
     try { kept = readFileSync(join(wt, file), 'utf8').split('\n').filter(Boolean).filter((l) => { try { return Date.parse(JSON.parse(l).minute) > since; } catch { return false; } }); } catch { kept = []; }
     writeFileSync(join(wt, file), [...kept, ...rows.map((r) => JSON.stringify(r))].join('\n') + '\n');
     return {};
-  }));
+  })); } catch (e) { if (/state replay/.test(String(e?.message))) noteShare(root, last, PENDING_AT, now()); throw e; }
   // Pushed now (another repository's ledger, or unbatched), or with the command's push: until that
   // push is made the share is not in any read, and its rows count from this clone's log (usage).
   if (st.ref !== LEDGER_REF && pendingWrites()) { noteShare(root, last, PENDING_AT, now()); onFlushed(root, cfg.state_branch, () => settleShare(root, last, Date.now())); } else noteShare(root, last, now());

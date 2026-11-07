@@ -135,3 +135,21 @@ export function closeLayer(root, n, { tranche = 'tranche', sb = 'process-state',
   });
   return { ok: true, row };
 }
+
+// Problem class C14 (a test read the wall clock twice: rerun-more.test.mjs on PR 211, 7 Nov): a
+// rerun whose output is compared with the first run's runs `later`, its clock 61 s on (Date.now and
+// new Date() both). A printed step that reads the wall clock then differs on every run, not once
+// in a thousand: the test fails at once, and the step takes an injected clock.
+export function later(fn, ms = 61e3) {
+  const Real = globalThis.Date;
+  class Shifted extends Real {
+    constructor(...a) { if (a.length) super(...a); else super(Real.now() + ms); }
+    static now() { return Real.now() + ms; }
+  }
+  globalThis.Date = Shifted;
+  let out;
+  try { out = fn(); } catch (e) { globalThis.Date = Real; throw e; }
+  if (out && typeof out.then === 'function') return out.finally(() => { globalThis.Date = Real; });
+  globalThis.Date = Real;
+  return out;
+}
