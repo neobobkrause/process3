@@ -42,7 +42,7 @@ export function readTasks(file) {
 
 // The role a session id holds: an addressed role, the coordinator (config's, or --by when it is
 // no role), or unknown.
-const roleOf = (id, addresses, coordinators, seats = []) => ROLES.find((r) => addresses[r]?.session === id) || (id && coordinators.includes(id) ? 'coordinator' : seats.find((x) => x.session === id) ? `lane ${seats.find((x) => x.session === id).lane}` : 'unknown');
+const roleOf = (id, addresses, coordinators, seats = []) => ROLES.find((r) => addresses[r]?.session === id) || (id && coordinators.includes(id) ? 'coordinator' : id && seats.find((x) => x.session === id) ? `lane ${seats.find((x) => x.session === id).lane}` : 'unknown'); // a pending seat has no session: never a task bound to none (cold review of R16)
 
 // Every unanswered message the record holds: sent and not recorded delivered, and job reports to
 // BOB that no later BOB message names. One row per <from>-<n>.
@@ -122,9 +122,15 @@ export function switchOut(root, { tasks, sessions, by, dryRun = false, read = st
   const t = readTasks(tasks);
   // One page stands when it reaches as far back as the record needs (status's rule, readSessions):
   // this account held 1,800+ sessions, and paging them all took about 5 min (copy, 5 Nov).
-  const s = readSessions(sessions, { root });
+  // A dry run writes only its manifest: not the live-session record either (cold review of R16).
+  const s = readSessions(sessions, dryRun ? { offline: true } : { root });
   const { rows } = read(root, { log: () => {} });
   const m = manifest(root, { tasks: t, sessions: s, by, rows, cfg });
+  // A task recreated from a cut prompt runs the stub (cold review of R16: a saved list_triggers held
+  // prompts ending in "..."): the whole prompt, or nothing written.
+  const cut = m.tasks.filter((x) => x.role !== 'not the process' && /(\.\.\.|…)\s*$/.test(String(x.prompt || '')));
+  if (cut.length && !dryRun) fail(`the prompts of ${cut.map((x) => x.name || x.id).join(', ')} end in "...": the saved list_triggers cut them. Save each task's whole prompt (get_trigger) into the file, then run switch out again; nothing was written`);
+  if (cut.length) log(`note: the prompts of ${cut.map((x) => x.name || x.id).join(', ')} end in "...", cut by the saved list_triggers; a real switch out refuses them`);
   // A job whose pull request GitHub did not answer for would be restarted by the wrong route (review of PR 149).
   const unread = m.jobs.filter((j) => /^unknown/.test(String(j.pr)));
   if (unread.length) fail(`GitHub was not read for the pull requests of ${unread.map((j) => j.module).join(', ')}; nothing was written. Run switch out again once gh api user works on this account`);
@@ -213,7 +219,7 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   L.push(coordinatorOf(cfg, addresses) === by
     ? `(a) The coordinator id: ${by} is already the coordinator (\`${P3} address coordinator\`).`
     : stale && cfg.coordinator === by ? `(a) The coordinator id: ${by} is \`coordinator\` in process/config.json on ${cfg.tranche}; then ${repoint}.`
-    : `(a) The coordinator records its id: on a branch cut from origin/${cfg.tranche}, set "coordinator": "${by}" in process/config.json, push it, open a pull request into ${cfg.tranche}, and merge it: \`${P3} merge <pr> --plain --no-review "coordinator id after the account switch"\`. The same on each product this coordinator holds (the probe too).${stale ? ` Then ${repoint}.` : ''}`);
+    : `(a) The coordinator records its id: on a branch cut from origin/${cfg.tranche}, set "coordinator": "${by}" in process/config.json, push it with \`${P3} github push origin <branch>\`, open a pull request into ${cfg.tranche}, and merge it: \`${P3} merge <pr> --plain --no-review "coordinator id after the account switch"\`. The same on each product this coordinator holds (the probe too).${stale ? ` Then ${repoint}.` : ''}`);
   L.push(`(b) Wait for a quiet tranche: \`${P3} switch quiet\`, again until it exits 0 (the tip unmoved ${QUIET_MIN} min). Start nothing before.`);
   L.push(`(c) \`${P3} start root\`, then create_session with the call it prints; ROOT records its own address. Then send ROOT, each its own command for it:`);
   L.push(old('bob') ? `    - \`${P3} handover begin\` (old BOB ${old('bob')}), its create_session and \`handover confirm <new id>\`; skip the message to the old BOB and its archive: it is on the old account` : `    - \`${P3} start bob\`, its create_session and \`start record bob <new id>\``);
@@ -323,7 +329,8 @@ export function switchIn(root, { sessions, by, approvals, preflight: only = fals
   // The old account's sessions, retired: R13's session_gone holds for each from now (ends.mjs),
   // so a lane seat or anything else bound to one is ended by the tool, not by hand.
   const retired = (m.sessions || []).filter((x) => x !== by);
-  if (retired.length) {
+  // Written even when it names none: it marks the manifest spent (cold review of R16).
+  {
     writeState(root, cfg.state_branch, `switch in: ${retired.length} session(s) of the old account retired`, (wt) => {
       mkdirSync(dirname(join(wt, RETIRED_FILE)), { recursive: true });
       let prev = [];

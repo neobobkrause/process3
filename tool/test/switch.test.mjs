@@ -2,7 +2,7 @@
 // branch, switch in's preflight and its restart in order, switch quiet, and the train's lease release.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -256,7 +256,8 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   const live = [...TASKS.triggers, { id: 'trig_lane', name: 'ux check-in', enabled: true, persist_session: true, persistent_session_id: 'session_uxold', run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'ux: next PR' } },
     { id: 'trig_bobs', name: 'alpha-pipeline-runner', enabled: true, persist_session: false, run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'not ours' } },
     { id: 'trig_fresh', name: 'nightly census', enabled: true, persist_session: false, cron_expression: '7 3 * * *', derived_state: { prompt: 'Run node .process/tool/p3.mjs setup check' } }];
-  const { t, s } = files(root, { tasks: live, sessions: SESSIONS });
+  // created_at as list_sessions gives it: a real read would record the live sessions; a dry run must not (cold review of R16).
+  const { t, s } = files(root, { tasks: live, sessions: { data: SESSIONS.data.map((x) => ({ ...x, created_at: x.updated_at || '2026-11-05T05:00:00Z' })) } });
   const before = git(['rev-parse', 'origin/process-state'], { cwd: root });
   const out = [];
   const r = switchOut(root, { tasks: t, sessions: s, by: COORD, dryRun: true, read, log: (l) => out.push(l) });
@@ -280,6 +281,24 @@ test('switch out --dry-run writes beside the manifest, never over it, names ever
   assert.ok(out.some((l) => /not the process's, left as it is.*trig_bobs/.test(l)));
   assert.ok(!out.some((l) => /^\s*- trig_bobs/.test(l)), 'never switched off');
   assert.ok(out.some((l) => /2b\. Each lane's session.*lane ux: session_uxold; lane triage: session_triageold/.test(l)));
+});
+
+test('cold review of R16: a pending lane seat never claims a task bound to no session; a cut prompt is refused by a real switch out', () => {
+  const root = withLanes(product());
+  // The ux seat started again and not yet recorded: a pending seat, with no session.
+  writeState(root, 'process-state', 'ux restarting', (wt) => { writeFileSync(join(wt, LANE_SESSIONS_FILE), readFileSync(join(wt, LANE_SESSIONS_FILE), 'utf8') + JSON.stringify({ row: 'start', at: '2026-11-06T12:00:00Z', tranche: 'tranche', lane: 'ux' }) + '\n'); return {}; });
+  const live = [...TASKS.triggers,
+    { id: 'trig_bobs', name: 'alpha-pipeline-runner', enabled: true, persist_session: false, run_once_at: '2099-01-01T00:00:00Z', derived_state: { prompt: 'not ours' } },
+    { id: 'trig_fresh', name: 'nightly census', enabled: true, persist_session: false, cron_expression: '7 3 * * *', derived_state: { prompt: 'Run node .process/tool/p3.mjs setup check' } }];
+  const { t, s } = files(root, { tasks: live, sessions: SESSIONS });
+  const m = switchOut(root, { tasks: t, sessions: s, by: COORD, dryRun: true, read, log: () => {} }).manifest;
+  assert.equal(m.tasks.find((x) => x.id === 'trig_bobs').role, 'not the process');
+  assert.equal(m.tasks.find((x) => x.id === 'trig_fresh').role, 'fresh');
+  const cut = [...TASKS.triggers.slice(0, 1).map((x) => ({ ...x, prompt: 'Sweep. sweep --session ...' }))];
+  const c = files(root, { tasks: cut, sessions: SESSIONS });
+  const before = git(['rev-parse', 'origin/process-state'], { cwd: root });
+  assert.throws(() => switchOut(root, { tasks: c.t, sessions: c.s, by: COORD, read, log: () => {} }), /end in "\.\.\.": the saved list_triggers cut them/);
+  assert.equal(git(['rev-parse', 'origin/process-state'], { cwd: root }), before, 'nothing written');
 });
 
 test('switch in --preflight: read-only, with or without a manifest, the process repository checked, the session checks listed', () => {

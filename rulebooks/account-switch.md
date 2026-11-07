@@ -57,11 +57,11 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
 Problem class C6 (civicsmith, 6 Nov): GitHub hides every pull request a suspended account opened, with its comments and reviews, from everyone. Its branches, commits, tags and the state branch's rows stay. The switch above moves the Claude account. This route moves the GitHub account and recovers what it held.
 
 1. Bob connects the new GitHub account (2.1, 2.2). No session pushes before `switch in --preflight` passes on it.
-2. Each job whose pull request is hidden: its branch on origin holds its work. Its session (BOB restarts it if it ended) runs `job complete` again. That posts the receipt on a new pull request from the same head branch, which the coordinator opens. The gate then reads it there.
+2. Each job whose pull request is hidden: its branch on origin holds its work. The coordinator first opens a new pull request from the same head branch (`job complete` needs an open one). Then the job's session (BOB restarts it if it ended) runs `job complete` again, which posts the receipt there, and the gate reads it.
 3. Take in by branch name, never by a hidden PR's number. `job start --reopen` can call an attempt abandoned when its merge PR is hidden: check the branch against the tranche before giving it a new branch.
 4. A layer retest whose receipt was on a hidden PR refuses: the job is re-run.
 5. Lead times and the take-in carry read hidden PRs as unmeasured or empty. Note it in the layer report; nothing is lost from the state rows.
-6. Open layer, tranche and pin-move PRs: reopen each from its branch, with the same title and body.
+6. Open layer, tranche and pin-move PRs: open a new one from each one's branch, with the same title and body (a hidden PR cannot be reopened).
 
 The full list of tool reads a hidden PR affects is in notes/github-pacing.md ("Risk: GitHub hides every pull request").
 
