@@ -1,8 +1,9 @@
 // GitHub acts and reads, all through gh (platform rows 13, 14). Every remote act is recorded
 // only from its result (REC-5): callers use the returned objects, never their own intent.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fail, gh, ghRun, git, isShallow, run, withTemp } from './util.mjs';
+import { commonDir } from './pace.mjs';
 
 export const RECEIPT = 'p3:receipt';
 export const GATE = 'p3:gate';
@@ -79,6 +80,30 @@ const commentsArgs = (slug, n) => ['api', '--paginate', '--slurp', `repos/${slug
 export function comments(slug, n) {
   const pages = gh(commentsArgs(slug, n));
   return Array.isArray(pages) ? pages.flat() : [];
+}
+// A pull request's comments kept in the clone (C18, 7 Nov: status --role bob re-read every PR merged
+// since the tranche opened, ~260 requests a call, for gate rows that no longer change): served
+// while ttlMs old, for every p3 process of the clone. The caller says how long: a merged PR's for
+// hours, an open one's for seconds. A failed read is never kept.
+// A read kept in the clone's git directory for ttlMs (ttl(value) may give a value its own), for
+// every p3 process of the clone; a failed read (null, undefined) is never kept.
+export function keptRead(root, key, ttl, read, { now = Date.now } = {}) {
+  const dir = join(commonDir(root), 'p3-gh-cache');
+  const f = join(dir, `${String(key).replace(/[^\w.-]/g, '_').slice(0, 180)}.json`);
+  try { const c = JSON.parse(readFileSync(f, 'utf8')); if (c.at <= now() && now() - c.at < c.ttl) return c.value; } catch { /* not kept */ }
+  const value = read();
+  if (value !== null && value !== undefined) { try { mkdirSync(dir, { recursive: true }); writeFileSync(f, JSON.stringify({ at: now(), ttl: typeof ttl === 'function' ? ttl(value) : ttl, value })); } catch { /* a saving */ } }
+  return value;
+}
+// GitHub's compare kept 5 min for a commit (a status run takes over 2), 30 s for a branch name
+// (its tip moves: a job's ahead count, cold review of C18); a commit found on its base (ahead_by 0, base main) for a day: main
+// never moves back (C18: status read every closed layer's commit against main on every call).
+export const keptCompare = (root) => (slug, base, head) => keptRead(root, `compare-${slug}-${base}-${head}`, (c) => (base === 'main' && c?.ahead_by === 0 && /^[0-9a-f]{40}$/.test(String(head)) ? 24 * 3600e3 : /^[0-9a-f]{7,40}$/.test(String(head)) ? 300e3 : 30e3), () => compare(slug, base, head));
+export const COMMENTS_MERGED_MS = 6 * 3600e3;
+export const COMMENTS_OPEN_MS = 30e3;
+export function cachedComments(root, slug, n, { ttlMs = COMMENTS_OPEN_MS, now = Date.now, read = comments } = {}) {
+  const got = keptRead(root, `comments-${slug}-${Number(n)}`, ttlMs, () => { const c = read(slug, n); return Array.isArray(c) ? c : null; }, { now });
+  return got;
 }
 
 export function addComment(slug, n, body) {

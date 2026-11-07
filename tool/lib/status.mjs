@@ -4,7 +4,7 @@ import { staleLines, staleRecords } from './expire.mjs';
 import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { joinAct, layerLines, layerMergeLine, layerPlace, openLayer } from './layerflow.mjs';
-import { aheadBy, checkRun, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
+import { aheadBy, cachedComments, checkRun, COMMENTS_MERGED_MS, keptCompare, COMMENTS_OPEN_MS, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
 import { readAddress } from './roles.mjs';
@@ -348,7 +348,7 @@ export function actOf(r) {
 export const actsCount = (acts) => `acts now: ${acts.length}${acts.length ? ` (${acts.map((r) => r.id).slice(0, 8).join(', ')}): see red gates: act now` : ''}`;
 
 function statusLines(root, { role, module, context, live, sessions: sessionsFile, listed: givenListed, offline = false, jobRefs = false, heads: givenHeads, log = console.log, io: given, top = () => {} } = {}) {
-  const io = { openPRs, checkRun, compare, prFiles, ...given };
+  const io = { openPRs, checkRun, compare: keptCompare(root), prFiles, ...given }; // compare kept in the clone (C18)
   let cfg = loadConfig(root);
   // Starts owed, the first line (hold.mjs): a marker, never a refusal; paid by a module's land (R10).
   try { if (offline || fetchState(root, cfg.state_branch)) { const o = readOwed(root, cfg.state_branch); if (o) log(startsOwedLine(o)); } } catch { /* the holds line says the state branch is unread */ }
@@ -519,7 +519,10 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     for (const f of set.files) log(`  ${f.bytes}\t${f.file}`);
   }
   if (role === 'bob') {
-    const out = { sessions, rows, holds, prs, heads: idsOn(originHeads), ...bobStatus(root, cfg, { rows, prs: offline ? null : prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, holds, comments: slug && (io.comments || ((pr) => ghComments(slug, pr))) }), tranche: haveTranche ? tranche : 'HEAD' };
+    // PRs merged into the tranche: their gate rows no longer change (C18: kept in the clone for hours).
+    let mergedPrs = new Set();
+    try { mergedPrs = new Set(rowsAt(root, haveTranche ? tranche : 'HEAD').filter((r) => r.row === 'merge' && r.pr).map((r) => Number(r.pr))); } catch { mergedPrs = new Set(); }
+    const out = { sessions, rows, holds, prs, heads: idsOn(originHeads), ...bobStatus(root, cfg, { rows, prs: offline ? null : prs, offline, context, log, slug, tranche: haveTranche ? tranche : 'HEAD', files: io.prFiles, holds, comments: slug && (io.comments || ((pr) => cachedComments(root, slug, pr, { ttlMs: mergedPrs.has(Number(pr)) ? COMMENTS_MERGED_MS : COMMENTS_OPEN_MS }))) }), tranche: haveTranche ? tranche : 'HEAD' };
     const ref = haveTranche ? tranche : null;
     const closed = closedRows(root, cfg, { slug: offline ? null : slug, read: io.compare });
     out.layer = layerState(root, cfg, rows, ref, { closed });
