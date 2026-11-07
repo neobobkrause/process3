@@ -13,7 +13,7 @@ import { openPinMoves } from './pin.mjs';
 import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, laneDefects, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
-import { Fail, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
+import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { layerMergeLine, layerStartAct, readOpenLayer } from './layerflow.mjs';
 
 export const HEARTBEAT_FILE = 'heartbeat.json';
@@ -146,7 +146,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   const { reasons = [], ...rec } = ic || {};
   const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
   // Another session's row landed first: nothing written, nothing pushed, nothing printed.
-  const LOST = new Fail('another check landed first');
+  const LOST = new Superseded('another check landed first');
   try {
     writeState(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, (dir) => {
       const p = join(dir, SWEEP_ROWS_FILE);

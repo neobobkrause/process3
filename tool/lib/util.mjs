@@ -26,6 +26,10 @@ export function keepStep(dir, n, name, out, err, put, max = 20000) {
 }
 
 export class Fail extends Error {}
+// A refusal that means the write is no longer wanted on the state branch as it stands (another
+// writer did its work: the idle check's "another check landed first"). Only these are dropped when
+// met on a newer tip; any other refusal there is reported (state.mjs applyOne; cold review of C5).
+export class Superseded extends Fail {}
 export const fail = (msg) => { throw new Fail(msg); };
 
 // Run a program. Never throws on a non-zero exit; returns code, stdout, stderr, seconds.
