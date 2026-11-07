@@ -25,6 +25,21 @@ export { NO_TOKENS };
 // The ledger entries at ref; a read failure is an error, unreadable JSON is checkLedger's finding.
 // The ledger entries a change adds: at the head, with no entry of that id at the base.
 export const addedEntries = (before, after) => after.filter((e) => e?.id && !before.some((b) => b?.id === e.id));
+// The requirements files of the modules a change adds (C22), which may go beside a refresh: for each
+// added entry only <requirements_dir>/<id>.md, and only when the entry names that path (or none), the
+// change adds the file (absent where it started: never an existing file, whatever entry claims it),
+// and no entry at the base names it (cold review of C22: a head entry could name any file).
+export function addedRequirements(root, cfg, { from, to, before = entriesAt(root, from) }) {
+  const dir = String(cfg.requirements_dir || '').replace(/\/$/, '');
+  if (!dir) return [];
+  const taken = new Set(before.map((b) => normPath(String(b?.requirements || ''))).filter(Boolean));
+  return addedEntries(before, entriesAt(root, to)).flatMap((e) => {
+    const want = normPath(`${dir}/${e.id}.md`);
+    if (e.requirements !== undefined && normPath(String(e.requirements)) !== want) return [];
+    if (taken.has(want) || exists(root, from, want) || !exists(root, to, want)) return [];
+    return [want];
+  });
+}
 export const entriesAt = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const e = JSON.parse(t); return e ? [e] : []; } catch { return []; } });
 
 // No rename detection: a rename lists both the removed and the added path (confirming review
@@ -36,11 +51,17 @@ export const PASS_BRANCH = /^pass\/[A-Za-z0-9._-]+$/;
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
 // A module with no code yet (C22, the coordinator, 7 Nov: BOB's funding-register, BD-15 PF-6, could
 // not enter the copy: its gate ran the suite over folders that did not exist yet, "failed (exit 1):
-// {total:0}"): no file under any of its paths or tests in the checkout. Its suite is skipped with
-// the reason recorded, until its job's first commit adds code; from then on a suite with no test is
-// refused as before.
-export const noCodeYet = (root, e) => [...(e.paths || []), ...(e.tests || [])]
-  .every((p) => git(['ls-files', '-z', '--', normPath(p)], { cwd: root }) === '' && !existsSync(join(root, normPath(p))));
+// {total:0}"): no tracked file under any of its paths or tests in the checkout, and none where the
+// change started (at): a module that had code and lost it is not a new one (cold review of C22: a
+// job deleting its module passed green). Its suite is skipped with the reason recorded, until its
+// job's first commit adds code; from then on a suite with no test is refused as before. Tracked
+// files only: a folder a build step makes is no code (cold review).
+export const noCodeYet = (root, e, { at } = {}) => {
+  const ps = [...(e.paths || []), ...(e.tests || [])].map(normPath);
+  if (!ps.length) return true;
+  if (git(['ls-files', '-z', '--', ...ps], { cwd: root }) !== '') return false;
+  return !at || git(['ls-tree', '-r', '-z', '--name-only', at, '--', ...ps], { cwd: root }) === '';
+};
 // A job strikes the marks it meets in its requirements file, so that file is its own too.
 export const ownPaths = (e) => [...e.paths, ...e.tests, ...(e.requirements ? [e.requirements] : []), entryFile(e.id), metricsFile(e.id)];
 
@@ -285,7 +306,8 @@ export function gate(root, opts) {
       const only = onlyAt(e, log);
       if (only && !only.length) { (runRow.requirements_only ||= []).push({ module: e.id, files: [] }); results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
       if (only) (runRow.requirements_only ||= []).push({ module: e.id, files: only });
-      if (!only && noCodeYet(root, e)) {
+      // Never for the tranche into main, which tolerates nothing (a new module is never in its scope).
+      if (!only && branch !== cfg.tranche && noCodeYet(root, e, { at: mb })) {
         const why = `no file under its paths or tests yet (${[...(e.paths || []), ...(e.tests || [])].join(', ') || 'none named'}): skipped until its job's first commit adds code and tests`;
         (runRow.no_code ||= []).push({ module: e.id, why });
         log(`the ${e.id} suite: ${why}`);
@@ -382,7 +404,7 @@ export function gate(root, opts) {
     // --plain reads it.
     if (plain) {
       if (untracked.length && runRow.generated) findings.push(...verifyUntracked(root, gen.rows, untracked, { timeout, log, ...(exec ? { exec } : {}) }));
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: passPR ? [] : refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores, { added: addedEntries(entriesAt(root, base), entriesAt(root, head)) }), untracked });
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: passPR ? [] : refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores, { also: addedRequirements(root, cfg, { from: mb, to: head, before: entriesAt(root, base) }) }), untracked });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }
