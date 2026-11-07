@@ -197,7 +197,8 @@ test('sweep online: BOB is woken to open the next layer, then to start the open 
   const rows = readState(root, SB, 'metrics/sweep.jsonl').trim().split('\n').map((l) => JSON.parse(l));
   const last = rows.at(-1);
   assert.equal(last.startable, 2);
-  assert.equal(last.idle_capacity.startable, 2);
+  // b and a, then d early into layer 2 (no providers: R14).
+  assert.equal(last.idle_capacity.startable, 3);
   assert.equal(last.idle_capacity.layer, 1);
 });
 

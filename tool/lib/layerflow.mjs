@@ -273,7 +273,7 @@ export function flowRows(root, sb, n) {
   // A reschedule cleared for its user by a recorded ruling (layer clear) is outstanding no more.
   const clears = by('clear');
   const cleared = (r) => clears.some((c) => c.user === r.user && c.provider === r.provider && c.provider_land === r.provider_land);
-  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule').filter((r) => !cleared(r)), reschedules_all: by('reschedule'), clears, retests: by('retest'), retest_refusals: by('retest-refused'), starts: by('start'), syncs: by('sync'), tests: by('test'), gates: by('gate'), joins: by('join') };
+  return { open: by('open')[0] || null, merged: by('merged')[0] || null, runs: by('run'), lands: by('land'), reschedules: by('reschedule').filter((r) => !cleared(r)), reschedules_all: by('reschedule'), clears, retests: by('retest'), retest_refusals: by('retest-refused'), starts: by('start'), syncs: by('sync'), tests: by('test'), gates: by('gate'), joins: by('join'), earlies: by('early') };
 }
 // One file per event, added and never edited: an existing file is the same event, kept.
 function addFiles(w, files) {
@@ -300,7 +300,7 @@ export const outstanding = (reschedules, lands, user, anc) => reschedules.filter
 //                do (COMPLETE before the layer opened, no unmet requirement mark);
 //   not started  no job yet: one can start; a module that joined the layer from a layer behind it
 //                (layer join: the coordinator's ruling, 6 Nov) is not started until it lands here.
-export function moduleStates({ mods, entries, marks, prs, lands, reschedules, anc, joins = new Map() }) {
+export function moduleStates({ mods, entries, marks, prs, lands, reschedules, anc, joins = new Map(), earlies = new Map() }) {
   return mods.map((id) => {
     const e = entries.get(id);
     const pr = (prs || []).find((p) => p.module === id) || null;
@@ -314,6 +314,9 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     if (pr && !pr.draft) return { ...base, state: 'published', why: `PR ${pr.number} ready into the layer` };
     if (pr) return { ...base, state: 'working', why: `PR ${pr.number}, a draft` };
     if (mine.length) return { ...base, state: 'complete', why: `landed ${mine.length} time(s), last PR ${mine.at(-1).pr}` };
+    // Started early (R14) and no pull request into the layer: its start did not finish, or its PR
+    // closed; job start resumes it as any unfinished start (cold review of R14).
+    if (earlies.has(id) && !j) return { ...base, state: 'not started', early: earlies.get(id).from, why: `started early while layer ${earlies.get(id).from} was open; no pull request into the layer: job start resumes it` };
     if (j) return { ...base, state: 'not started', why: `joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}: ${j.why}` };
     if (e?.status?.state === 'COMPLETE' && !m.length) return { ...base, state: 'complete', why: 'COMPLETE before the layer opened, no unmet mark' };
     return { ...base, state: 'not started', why: e ? `${e.status?.state}${m.length ? `, unmet ${m.join(', ')}` : ''}` : 'no ledger entry' };
@@ -452,7 +455,7 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
     else if (runs.some((r) => whole(r, id))) doneWork.set(id, { pr: k });
   }
   const anc = (a, b) => isAnc(root, a, b);
-  let states = moduleStates({ mods, joins, entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
+  let states = moduleStates({ mods, joins, earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
     .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)`, ...(doneWork.has(x.id) ? { done_work: doneWork.get(x.id).pr, ...(doneWork.get(x.id).unknown ? { done_unknown: true } : {}) } : {}) } : x))
     // A retest refused since its newest outstanding reschedule: a job re-tests it.
     .map((x) => (x.outstanding?.length && (rows.retest_refusals || []).some((r) => r.module === x.id && String(r.at) >= String(x.outstanding.map((o) => o.at).sort().at(-1))) ? { ...x, retest_refused: true } : x));
@@ -526,10 +529,143 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     if (!r.open) return { kind: 'next', n };
     fetchBranch(root, layerBranch(n), { allowFail: true });
     const x = readLayer(root, cfg, n, { io, slug });
-    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startable(x.states), ready: mergeReady(x.states) && !x.holding.length, sync: syncOwed(root, cfg, n) };
+    let early = { next: null, list: [], skipped: [] };
+    try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
+    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startable(x.states), ready: mergeReady(x.states) && !x.holding.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
   }
   return { kind: 'done' };
 }
+// ---- early starts into the next layer (R14) ----------------------------------------------
+
+// Bob, 6 Nov ~18:55: "Why didn't the early starts launch before layer 8 closed?" While layer n is
+// open, a module of the next layer to open whose providers have all landed or are COMPLETE (none
+// in layer n still working, rescheduled or deferred) can start early, on idle capacity only, after
+// layer n's own starts (Bob, 15:36), each logged and its rework counted.
+// The mechanism: layer/<next> is cut ahead from layer/<n>'s tip by the first early start (and moved
+// forward to that tip by each later one, a fast-forward: nothing lands on it before its open). The
+// job's branch and draft pull request are on it, as any job of that layer's, so job sync, job test
+// and the gate need nothing new; its publish waits for layer open <next>, which brings the branch
+// up to the tranche tip (a fast-forward: layer n's merge holds every tip it was cut from). One
+// layer stays open at a time; nothing lands out of order. Join rows (R12) were not used: they move
+// a module into another layer, and an early start stays in its own.
+// A layer branch cut ahead for early starts and not open: no open row for n, and an earlier layer
+// open and not merged (whether or not its early row was written: cold review of R14).
+// The users (of a land in layer n) that started early into a later layer not yet open: user -> that layer.
+export function earlyUsers(root, sb, n, users, home) {
+  const out = new Map();
+  for (const u of users) {
+    const k = home(u);
+    if (k === null || k <= n) continue;
+    const r = flowRows(root, sb, k);
+    if (!r.open && !r.merged && r.earlies.some((e) => e.module === u)) out.set(u, k);
+  }
+  return out;
+}
+// Layer n cut ahead and not open: early rows and neither an open nor a merged row, from layer n-1's
+// merge to n's open too (cold review of R14: the guards stopped at n-1's merge, and a plain start
+// then took the cut-ahead tip). Returns the layer it was cut from (the newest early row's), else null.
+export function cutAhead(root, sb, n) {
+  const r = flowRows(root, sb, n);
+  if (r.open || r.merged || !r.earlies.length) return null;
+  return r.earlies.at(-1).from ?? n - 1;
+}
+const notOpen = (n, k) => `layer ${n} is not open: ${layerBranch(n)} was cut ahead from layer ${k} for early starts (${P3} layer jobs ${k} lists them while layer ${k} is open); it opens with ${P3} layer open ${n} once layer ${k} has merged`;
+export const earlyHead = (n, next) => `early starts into layer ${next}, on idle capacity only, after layer ${n}'s own (Bob, 6 Nov; each logged, its rework counted): each provider landed or COMPLETE; cut from ${layerBranch(n)}'s tip, published once layer ${next} opens:`;
+export function earlyNext(root, cfg, n, L) {
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const ref = layerRef(n);
+  const layers = layersAt(root, cfg, ref);
+  const closed = closedLayers(root, cfg.state_branch, cfg);
+  const nx = layers.find((x) => x.n > n && !closed.has(x.n) && !flowRows(root, cfg.state_branch, x.n).merged && !layerBehind(root, cfg, x, closed, tr));
+  if (!nx) return { next: null, list: [], skipped: [] };
+  const rows = flowRows(root, cfg.state_branch, nx.n);
+  if (rows.open) return { next: nx.n, list: [], skipped: [] };
+  const dir = cfg.requirements_dir.replace(/\/$/, '');
+  const entryOf = (id) => entryAt(root, ref, id) || entryAt(root, tr, id);
+  const marksOf = (id, e) => { const f = e?.requirements || `${dir}/${id}.md`; return unmetIds(textAt(root, ref, f) ?? textAt(root, tr, f) ?? '').filter((x) => !isFound(x)); };
+  const modules = readModules(root, cfg, ref);
+  const named = new Map((modules || []).filter((m) => m?.id).map((m) => [m.id, m.uses || []]));
+  const here = new Map(L.states.map((x) => [x.id, x]));
+  // Started: a start row in the next layer, or an early row whose job branch reached origin (a start
+  // that failed before its push is listed again: cold review of R14).
+  const onOrigin = (id) => git(['ls-remote', '--heads', 'origin', `refs/heads/job/${id}`, `refs/heads/job/${id}-*`], { cwd: root, allowFail: true }).stdout.trim() !== '';
+  const started = new Set([...rows.starts.map((r) => r.module), ...rows.earlies.map((r) => r.module).filter(onOrigin)]);
+  // Work joined into the next layer (R12) is pending: its users wait for it; joined modules
+  // themselves start from that layer's list once it opens, never early.
+  const joined = new Set(rows.joins.map((j) => j.module));
+  // A provider is settled when it is complete in layer n (landed, no reschedule outstanding), or,
+  // outside layer n, COMPLETE with no unmet mark; a provider with a breaking change owed is
+  // rescheduled in layer n, so never settled.
+  const unsettled = (p) => {
+    const st = here.get(p);
+    if (st) return st.state === 'complete' ? null : `${p} is ${st.state} in layer ${n}`;
+    if (joined.has(p)) return `${p} joined layer ${nx.n}: its work is pending`;
+    const e = entryOf(p);
+    if (e?.status?.state !== 'COMPLETE') return `${p} is ${e?.status?.state || 'without a ledger entry'}`;
+    return marksOf(p, e).length ? `${p} has unmet marks` : null;
+  };
+  const entries = new Map(nx.mods.map((id) => [id, entryOf(id)]));
+  const list = [];
+  const skipped = [];
+  for (const id of totalOrder(nx.mods, layerProviders(nx.mods, modules, entries))) {
+    const e = entries.get(id);
+    if (started.has(id) || joined.has(id)) continue;
+    if (!e) { skipped.push({ id, why: 'no ledger entry' }); continue; }
+    if (e.status?.state === 'BLOCKED') { skipped.push({ id, why: 'BLOCKED' }); continue; }
+    const m = marksOf(id, e);
+    if (e.status?.state === 'COMPLETE' && !m.length) continue;
+    const uses = [...new Set(named.get(id) || e.uses || [])].filter((u) => u !== id);
+    const why = uses.map(unsettled).filter(Boolean);
+    if (why.length) { skipped.push({ id, why: why.join('; ') }); continue; }
+    list.push({ id, providers: uses, cmd: `${P3} job start ${id} --live <n> --early${e.status?.state === 'COMPLETE' ? ` --reopen ${JSON.stringify(`meet the unmet requirement marks ${m.join(', ')}`)}` : ''}` });
+  }
+  return { next: nx.n, list, skipped };
+}
+// job start <id> --early: the module listed early by the open layer's read, layer/<next> cut ahead
+// (or moved forward to layer/<n>'s tip), and an early row (layerflow/<next>/early/) recorded.
+export function earlyCut(root, cfg, id, { io = {}, by = 'bob', log = console.log } = {}) {
+  needLayerMode(cfg, 'job start --early');
+  fetchBranch(root, cfg.tranche, { allowFail: true });
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const v = openLayer(root, cfg, { slug: io.slug || repoSlug(root), io });
+  if (v.kind !== 'open') fail(`--early starts a job of the layer after the open one, and no layer is open${v.kind === 'next' ? ` (layer ${v.n} is next: ${P3} layer open ${v.n})` : ''}; nothing was started`);
+  fetchBranch(root, layerBranch(v.n));
+  const e = earlyNext(root, cfg, v.n, readLayer(root, cfg, v.n, { io, slug: io.slug || repoSlug(root) }));
+  const x = e.list.find((q) => q.id === id);
+  const startedEarly = e.next !== null && flowRows(root, cfg.state_branch, e.next).earlies.some((q) => q.module === id);
+  if (!x) fail(`${id} cannot start early${e.next !== null ? ` into layer ${e.next}` : ' (no layer follows the open one)'}: ${startedEarly ? `it started early already; an early start that did not finish resumes with ${P3} job start ${id} once layer ${e.next} opens` : e.skipped.find((q) => q.id === id)?.why || 'it is not listed (started already, nothing to do, or not in the next layer)'}; ${P3} layer jobs ${v.n} lists the early starts; nothing was started`);
+  const t = e.next;
+  const b = layerBranch(t);
+  const from = rev(root, layerRef(v.n));
+  fetchBranch(root, b, { allowFail: true });
+  const have = git(['rev-parse', '-q', '--verify', layerRef(t)], { cwd: root, allowFail: true }).code === 0;
+  if (have && !isAnc(root, rev(root, layerRef(t)), from)) fail(`${b} is on origin and ${layerBranch(v.n)} does not hold it (something was pushed or merged into it before its open): ask the coordinator; nothing was started`);
+  if (!have || rev(root, layerRef(t)) !== from) {
+    const p = git(['push', '-q', 'origin', `${from}:refs/heads/${b}`], { cwd: root, allowFail: true });
+    if (p.code !== 0) fail(`the push of ${b} failed (${p.stderr.trim()}); nothing was started`);
+    fetchBranch(root, b);
+    log(`${b} ${have ? 'moved forward' : 'cut ahead'} to ${layerBranch(v.n)} ${short(from)} for early starts (layer ${t} is not open)`);
+  }
+  writeRows(root, cfg.state_branch, `layer ${t}: ${id} starts early (layer ${v.n} open)`, [[flowFile(t, 'early', `${safeName(id)}-${Date.now()}`), { row: 'early', layer: t, module: id, from: v.n, base: from, providers: x.providers, at: now(), by }]]);
+  fetchState(root, cfg.state_branch, { fresh: true });
+  return { layer: t, from: v.n, base: from };
+}
+// Each early start's rework (R7 retest, R8 reschedule, or a provider notice after it started),
+// and the rate, from the layer's rows and the notices.
+export function earlyRework(rows, notices = []) {
+  const last = new Map(rows.earlies.map((r) => [r.module, r]));
+  const live = notices.filter((k) => !k.withdrawn);
+  const each = [...last.values()].map((r) => {
+    // Rework after the early start, cleared reschedules included (a cleared one was still rework).
+    const resched = (rows.reschedules_all || rows.reschedules).some((x) => x.user === r.module && String(x.at) > String(r.at));
+    const retest = rows.retests.some((x) => x.module === r.module && String(x.at) > String(r.at));
+    const noticed = live.some((k) => (k.users || []).includes(r.module) && String(k.at) > String(r.at));
+    return { module: r.module, from: r.from, at: r.at, rework: resched ? 'reschedule' : retest ? 'retest' : noticed ? 'notice' : null };
+  });
+  const rw = each.filter((x) => x.rework).length;
+  return { early: each.length, rework: rw, rate: each.length ? Math.round((rw / each.length) * 1000) / 10 : null, each };
+}
+
 // openLayer after fetching the tranche and the state branch (the sweep, the idle check).
 // fetch false: the refs this clone has.
 export function readOpenLayer(root, cfg, { slug = null, io = {}, fetch = true } = {}) {
@@ -548,6 +684,7 @@ export const layerMergeLine = (v) => (v?.kind === 'open' && v.ready ? `layer ${v
 // The act owed: start the listed jobs, merge the layer, or open the next; unread, status says.
 export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
   : v?.kind === 'open' && v.ready ? `${P3} layer merge ${v.n}`
+    : v?.kind === 'open' && v.early?.length ? `${P3} layer jobs ${v.n}, then each early start it lists (layer ${v.early_next})`
     : v?.kind === 'next' ? `${P3} layer open ${v.n}`
       : `${P3} status --role bob (the layer flow's next act)`);
 
@@ -565,6 +702,7 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   const L = [...(v.sync ? [v.sync.line] : []), `layer flow: layer ${n} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
   if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? `   (after ${q.after.join(', ')})` : ''}`));
+  if (v.early?.length) L.push(earlyHead(n, v.early_next), ...v.early.map((q) => `- ${q.cmd}`));
   if (v.ready && merge) L.push(`layer ${n} can merge: \`${P3} layer merge ${n}\``);
   return L;
 }
@@ -660,7 +798,8 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   // Every module of the layer has its ledger entry on the tranche before the branch is cut (copy,
   // 6 Nov: layer/8 was cut before four of its entries landed, and their jobs could not start).
   const bare = [...mine].filter((id) => !ids.has(id));
-  const cut = git(['ls-remote', '--heads', 'origin', layerBranch(n)], { cwd: root, allowFail: true }).stdout.trim() !== '';
+  // A branch cut ahead for early starts (R14) is not the layer's cut: the checks of an open apply.
+  const cut = git(['ls-remote', '--heads', 'origin', layerBranch(n)], { cwd: root, allowFail: true }).stdout.trim() !== '' && !!flowRows(root, cfg.state_branch, n).open;
   if (bare.length && cut) log(`warning: layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; ${layerBranch(n)} is cut already, so their jobs cannot start until the entries land`);
   if (bare.length && !cut) fail(`layer ${n}'s module(s) have no ledger entry on ${cfg.tranche}: ${bare.map((id) => entryFile(id)).join(', ')}; land their entries first, then open the layer; nothing was opened`);
   // The census of the layer (R15, census.mjs): a layer opens with no gap in it, each named with
@@ -680,7 +819,20 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche} (${short(rows.merged.commit)})`);
   const b = layerBranch(n);
   fetchBranch(root, b, { allowFail: true });
-  const have = git(['rev-parse', '-q', '--verify', layerRef(n)], { cwd: root, allowFail: true }).code === 0;
+  let have = git(['rev-parse', '-q', '--verify', layerRef(n)], { cwd: root, allowFail: true }).code === 0;
+  // Cut ahead for early starts (R14) and never opened: brought up to the tranche tip, a fast-forward
+  // (nothing lands on it before the open, and the layer it was cut from merged into the tranche).
+  if (have && !rows.open) {
+    const was = rev(root, layerRef(n));
+    if (!isAnc(root, was, tr)) fail(`${b} was cut ahead for early starts at ${short(was)}, and the tranche ${cfg.tranche} does not hold it: the layer it was cut from has not merged, or something was pushed or merged into the branch before its open: ask the coordinator; nothing was opened`);
+    if (was !== rev(root, tr)) {
+      const p = git(['push', '-q', 'origin', `${rev(root, tr)}:refs/heads/${b}`], { cwd: root, allowFail: true });
+      if (p.code !== 0) fail(`the fast-forward of ${b} to ${cfg.tranche} failed (${p.stderr.trim()}); nothing recorded`);
+      fetchBranch(root, b);
+      log(`${b}, cut ahead for early starts at ${short(was)}, brought up to ${cfg.tranche} ${short(rev(root, tr))}`);
+    }
+    have = true;
+  }
   const at = have ? rev(root, layerRef(n)) : rev(root, tr);
   if (!have) {
     const p = git(['push', '-q', 'origin', `${at}:refs/heads/${b}`], { cwd: root, allowFail: true });
@@ -703,13 +855,20 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const cfg = loadConfig(root);
   needLayerMode(cfg, 'layer jobs');
   fetchLayer(root, cfg, n);
+  const ahead = cutAhead(root, cfg.state_branch, n);
+  if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   const sync = syncOwed(root, cfg, n);
   if (sync) log(sync.line);
   const s = startable(L.states);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
   for (const x of s) log(`  ${x.cmd}${x.after ? `   (after ${x.after.join(', ')})` : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
-  return { ok: true, startable: s, states: L.states, sync };
+  // The early list is a suggestion: unread, layer jobs still lists the layer's own (cold review of R14).
+  let e;
+  try { e = earlyNext(root, cfg, n, L); } catch (err) { if (!(err instanceof Error)) throw err; e = { next: null, list: [], skipped: [] }; log(`note: the early starts were not read (${err.message})`); }
+  if (e.list.length) { log(earlyHead(n, e.next)); for (const x of e.list) log(`  ${x.cmd}`); }
+  if (e.skipped.length) log(`not early (layer ${e.next}): ${e.skipped.map((x) => `${x.id} (${x.why})`).join('; ')}`);
+  return { ok: true, startable: s, states: L.states, sync, early: e.list, early_next: e.next };
 }
 
 export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
@@ -717,6 +876,8 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   const cfg = loadConfig(root);
   needLayerMode(cfg, 'layer status');
   fetchLayer(root, cfg, n);
+  const ahead = cutAhead(root, cfg.state_branch, n);
+  if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   for (const s of L.states) log(`${s.id}: ${s.state} (${s.why})`);
   const ready = mergeReady(L.states) && !L.holding.length;
@@ -775,6 +936,10 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
   if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged): publish needs an open layer/<n>`);
   const { n } = cfg.layer;
   const sb = cfg.state_branch;
+  // An early start (R14) works on the branch cut ahead; it publishes once its layer opens.
+  if (push) { try { fetchState(root, sb, { fresh: true }); } catch { /* read below as fetched */ } }
+  const ahead = cutAhead(root, sb, n);
+  if (ahead !== null) fail(`${id}: ${notOpen(n, ahead)}; an early start publishes once it opens; keep working and testing (${P3} job test ${id}); nothing was published`);
   const lref = push ? layerRef(n) : `refs/heads/${layerBranch(n)}`;
   const doSync = sync || (async () => { const { jobSync } = await import('./job.mjs'); return jobSync(root, id, { push, pushBranch: false, log }); });
   const doComplete = complete || (() => spawnComplete(root, id, args));
@@ -1050,6 +1215,17 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (ic.unread) log(`warning: ${id}'s exports could not be read on the land ${short(after)} (${ic.unread}): counted as breaking, each user in the layer rescheduled`);
   const land = { row: 'land', layer: n, module: id, pr: n0, head, before, merge: after, at, by, ...(rows.retests.some((r) => r.pr === n0) ? { retest: true } : {}), gate_runs: runs.length, interface: ic, users_rescheduled: ic.changed ? same : [], users_rescheduled_old_rule: ic.triggers_old?.length ? sameAll : [], users_noticed: noticed };
   const files = [[flowFile(n, 'land', `${safeName(id)}-${n0}-${short(head)}`), land], ...gateFiles(n, id, n0, runs)];
+  // A user that started early into a later layer not yet open (R14) is working against this provider
+  // now: an interface change reschedules it there, as one in this layer, never a notice its own land
+  // would answer unseen (cold review of R14). Its layer's states hold it until its land holds this one.
+  const earlyAt = ic.changed ? earlyUsers(root, cfg.state_branch, n, later, home) : new Map();
+  const early = [...earlyAt.keys()];
+  if (early.length) land.users_rescheduled_early = early;
+  for (const u of early) {
+    const k = earlyAt.get(u);
+    files.push([flowFile(k, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: k, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class, early_from: n }]);
+    log(`${u} started early into layer ${k}: rescheduled there by ${id}'s interface change; its job brings ${layerBranch(k)} up once layer ${k} opens, and its run counts only on a head that holds ${short(after)}`);
+  }
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class }]);
   }
@@ -1785,6 +1961,10 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
   const c = m.reschedule_changed_result;
   log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.lands_breaking} breaking and ${m.lands_additive} additive land(s); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests_owed} retest(s) owed by additive changes, ${m.retests} retest(s), ${m.retest_lands} landed; ${m.starts} job start(s), ${m.early_starts} early; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
   log(budgetLine(m.time_budget));
+  let notices = [];
+  try { notices = noticeRecords(root, cfg.state_branch); } catch { notices = []; }
+  m.next_layer_early = earlyRework(rows, notices);
+  if (m.next_layer_early.early) log(`early starts into layer ${n}: ${m.next_layer_early.early}; rework ${m.next_layer_early.rework} (${m.next_layer_early.rate}%): ${m.next_layer_early.each.map((x) => `${x.module} ${x.rework || 'none'}`).join(', ')}`);
   log('the baseline: the same layer\'s history under the serial train (the merge rows on the state branch)');
   log(JSON.stringify(m, null, 2));
   return { ok: true, measures: m };
