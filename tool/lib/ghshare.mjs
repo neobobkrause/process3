@@ -18,7 +18,7 @@
 // covers. GitHub's own count stands in for the primary limit (pace.mjs primaryState).
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
-import { fetchState, flushState, onFlushed, onReplayed, pendingWrites, readState, unbatched, writeState } from './state.mjs';
+import { bookkeep, fetchState, flushState, onBookkeeping, onFlushed, onReplayed, pendingWrites, readState, realPendingWrites, unbatched, writeState } from './state.mjs';
 import { fail, git, PUSH_TRAILER, repoSlug, stateLockHeld, withStateLock, withTemp } from './util.mjs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -219,7 +219,7 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
     // The command's own state writes pushed before it waits on GitHub (others read them meanwhile).
     beforeWait: () => { if (pendingWrites()) flushState(); },
     // While a command runs (each reserve): riding its pending writes, else by shareUsage's rule; never inside a state write.
-    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pendingWrites() : 0, ledgerRepo })),
+    share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? realPendingWrites() : 0, ledgerRepo })),
     // At a command's end: with its own state push when it has one (pending), else by shareUsage's rule.
     shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true, ledgerRepo })),
   };
@@ -234,6 +234,12 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
 //   it carries: a content-creating call, or a push other than a state branch's (the ledger branch's
 //   own pushes are counted from its history, statePushes).
 // Rows older than two hours are dropped from the file.
+onBookkeeping('share', (dir, { path, rows, since }) => {
+  mkdirSync(join(dir, USE_DIR), { recursive: true });
+  let kept = [];
+  try { kept = readFileSync(join(dir, path), 'utf8').split('\n').filter(Boolean).filter((l) => { try { return Date.parse(JSON.parse(l).minute) > since; } catch { return false; } }); } catch { kept = []; }
+  writeFileSync(join(dir, path), [...kept, ...rows.map((r) => JSON.stringify(r))].join('\n') + '\n');
+});
 export const SHARE_ALONE_S = 900;
 // A share kept by a refused flush and pushed later by `state replay` is settled then (cold review
 // of R17e: left pending, its rows counted from this clone's log and again from the ledger).
@@ -253,7 +259,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     // When the last share was made (a riding one's push may not be made yet: cold review of R17e).
     const lastAt = Math.max(0, ...shares.map((x) => x.made ?? (x.at === PENDING_AT ? 0 : x.at || 0)));
     if (now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
-    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && ledgerRepo && r.repo === ledgerRepo)))) return 0;
+    if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || (r.kind === 'push' && !(r.state && (r.repo || null) === (ledgerRepo || null))))) return 0;
   }
   const last = Math.max(...log.map((r) => Date.parse(r.at)));
   const st = store || ownStore(root, cfg.state_branch);
@@ -262,7 +268,18 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   // the account is paused or stopped (GitHub's refusals) it is refused, nothing is recorded, and it is shared later.
   // A share whose own push is refused and kept for replay is recorded pending (cold review): not
   // sent again by the next share, and settled when state replay pushes it.
-  try { withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use (rows to ${last})`, (wt) => {
+  // On the product's own state branch, with a real write pending, a share is bookkeeping (C18): it
+  // rides that write. With none, the share-alone rule above stands (at most every SHARE_ALONE_S, only
+  // for what others must count), a push of its own, so a clone that mostly reads still reaches the
+  // ledger (cold review of C18: deferred, its use never reached the other clones).
+  const msg = `github: ${rows.length} minute(s) of use (rows to ${last})`;
+  if (st.ref !== LEDGER_REF && pending > 0) {
+    bookkeep(root, cfg.state_branch, msg, 'share', { path: file, rows, since: now() - 2 * 3600e3 });
+    noteShare(root, last, PENDING_AT, now());
+    if (pendingWrites()) onFlushed(root, cfg.state_branch, () => settleShare(root, last, Date.now()));
+    return rows.length;
+  }
+  try { withoutWaiting(() => st.write(msg, (wt) => {
     mkdirSync(join(wt, USE_DIR), { recursive: true });
     const since = now() - 2 * 3600e3;
     let kept = [];

@@ -475,15 +475,16 @@ const tip = (r, ref = 'HEAD') => git(['rev-parse', ref], { cwd: r });
 test('cloudflareRead gives curl the token on stdin, never in its arguments, and reads status and success', () => {
   const dir = mkdtempSync(join(tmpdir(), 'p3-curl-'));
   const fake = join(dir, 'curl');
-  writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' "$@" > "${dir}/argv"\ncat > "${dir}/stdin"\nprintf '%s\\n%s' "$FAKE_BODY" "$FAKE_STATUS"\n`);
+  writeFileSync(fake, `#!/bin/sh\nprintf '%s\\n' "$@" > "${dir}/argv"\ncat > "${dir}/stdin"\nprintf '%s\\n%s\\n%s' "$FAKE_BODY" "$FAKE_RETRY" "$FAKE_STATUS"\n`);
   chmodSync(fake, 0o755);
   const saved = { PATH: process.env.PATH, FAKE_BODY: process.env.FAKE_BODY, FAKE_STATUS: process.env.FAKE_STATUS };
   try {
     process.env.PATH = `${dir}:${saved.PATH}`;
     const env = { CLOUDFLARE_API_TOKEN: 'tok-SECRET-value' };
-    for (const [body, status, want] of [['{"success":true,"result":[]}', '200', { status: 200, success: true }], ['[]', '200', { status: 200, success: true }], ['{"success":false}', '403', { status: 403, success: false }], ['not json', '502', { status: 502, success: false }]]) {
+    for (const [body, status, want, retry = ''] of [['{"success":true,"result":[]}', '200', { status: 200, success: true, retryAfter: null }], ['[]', '200', { status: 200, success: true, retryAfter: null }], ['{"success":false}', '403', { status: 403, success: false, retryAfter: null }], ['not json', '502', { status: 502, success: null, retryAfter: null }], ['{"success":false}', '429', { status: 429, success: false, retryAfter: 155 }, '155']]) {
       process.env.FAKE_BODY = body;
       process.env.FAKE_STATUS = status;
+      process.env.FAKE_RETRY = retry;
       assert.deepEqual(cloudflareRead('accounts/acc/r2/buckets', env), want, body);
     }
     const argv = readFileSync(join(dir, 'argv'), 'utf8');
@@ -637,4 +638,63 @@ test('setup check --at HEAD judges the checkout\'s pin and files, not the tranch
   git(['commit', '-q', '-m', 'drop settings'], { cwd: r });
   assert.match(state(setupCheck(r, { slug: 'o/r', at: 'HEAD', io, log: quiet }), 'deny-list').detail, /^no \.claude\/settings\.json on HEAD \([0-9a-f]{10}\)$/);
   assert.throws(() => setupCheck(r, { slug: 'o/r', at: 'nope', io, log: quiet }), /setup check --at nope: not a commit here/);
+});
+
+// C20 (the coordinator, 7 Nov): Cloudflare's 429 (retry-after 155) read as "missing" and stopped the
+// copy's pin move at step 7, ten minutes after step 5 read the token present. Only Cloudflare's definite
+// answer (401, 403, or a 200 that says no) is missing; a 429, a 5xx or no answer is unknown, printed, no gap.
+test('deploy-token: a Cloudflare 429, 5xx or no answer is unknown (never a gap); 401, 403 or a 200 that says no is missing', () => {
+  const w = world();
+  w.cf = { r2: { status: 429, success: false, retryAfter: 155 }, containers: { status: 503, success: false } };
+  let r = setupCheck(root(), { slug: 'o/r', io: w.io, log: () => {} });
+  assert.equal(state(r, 'deploy-token').state, 'unmeasured');
+  assert.equal(state(r, 'deploy-token').detail, 'Workers Scripts: present; Workers R2 Storage: unknown (Cloudflare 429, retry-after 155); Containers: unknown (Cloudflare 503)');
+  assert.ok(!r.missing.includes('deploy-token'), 'no gap: the start goes on');
+  w.cf = { r2: { status: 0, success: false } };
+  assert.match(state(setupCheck(root(), { slug: 'o/r', io: w.io, log: () => {} }), 'deploy-token').detail, /Workers R2 Storage: unknown \(Cloudflare no answer\)/);
+  // A definite no beside an unknown: missing.
+  w.cf = { r2: { status: 401, success: false }, containers: { status: 429, success: false } };
+  r = setupCheck(root(), { slug: 'o/r', io: w.io, log: () => {} });
+  assert.deepEqual(r.missing, ['deploy-token']);
+  assert.match(state(r, 'deploy-token').detail, /Workers R2 Storage: missing \(401\); Containers: unknown \(Cloudflare 429\)/);
+});
+
+test('a present Cloudflare answer is kept per clone for an hour; anything else is read again', async () => {
+  const { cachedCloudflare } = await import('../lib/setup.mjs');
+  const dir = makeRepo({ 'a.txt': 'a' });
+  let t = 1_000_000;
+  const asked = [];
+  const answers = { a: { status: 200, success: true }, b: { status: 429, success: false, retryAfter: 9 } };
+  const read = (p) => { asked.push(p); return answers[p]; };
+  const cf = cachedCloudflare(read, dir, { now: () => t });
+  assert.equal(cf('a').success, true);
+  assert.equal(cf('a').cached, true, 'kept');
+  assert.equal(cf('b').status, 429);
+  assert.equal(cf('b').status, 429);
+  assert.deepEqual(asked, ['a', 'b', 'b'], 'a 429 is never kept');
+  // Another process in the clone reads the kept answer; past the hour, it reads again.
+  const cf2 = cachedCloudflare(read, dir, { now: () => t });
+  assert.equal(cf2('a').cached, true);
+  t += 3600e3;
+  assert.equal(cachedCloudflare(read, dir, { now: () => t })('a').cached, undefined);
+  assert.deepEqual(asked, ['a', 'b', 'b', 'a']);
+});
+
+// Cold review of C20: a 200 that is not JSON says nothing (unknown, never missing); the cache is keyed
+// by a digest of the token (another token reads again) and never trusts a timestamp from the future.
+test('deploy-token: a 200 whose body says nothing is unknown; the kept answer is the token\'s own, never from the future', async () => {
+  const w = world();
+  w.cf = { r2: { status: 200, success: null } };
+  assert.equal(state(setupCheck(root(), { slug: 'o/r', io: w.io, log: () => {} }), 'deploy-token').state, 'unmeasured');
+  const { cachedCloudflare } = await import('../lib/setup.mjs');
+  const dir = makeRepo({ 'a.txt': 'a' });
+  let t = 5_000_000;
+  const asked = [];
+  const read = (p) => { asked.push(p); return { status: 200, success: true }; };
+  cachedCloudflare(read, dir, { now: () => t, token: 'tok-one' })('a');
+  assert.equal(cachedCloudflare(read, dir, { now: () => t, token: 'tok-one' })('a').cached, true);
+  assert.equal(cachedCloudflare(read, dir, { now: () => t, token: 'tok-two' })('a').cached, undefined, 'another token reads again');
+  assert.doesNotMatch(readFileSync(join(dir, '.git', 'p3-cf-present.json'), 'utf8'), /tok-/, 'the token is never kept');
+  t -= 10_000; // the clock went back: an answer from the future is not fresh
+  assert.equal(cachedCloudflare(read, dir, { now: () => t, token: 'tok-one' })('a').cached, undefined);
 });

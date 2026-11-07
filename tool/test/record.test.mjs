@@ -881,3 +881,44 @@ test('review of PR 101: a merge of a main-only owner commit whose block the owne
   const f = recordCheck(root, cfg, { base, lookup: webFor(pA, pB), trusted: ['main', 'tranche'] }).findings;
   assert.deepEqual(f.map((x) => x.check), ['approvals']);
 });
+
+// C19 (the coordinator, 7 Nov): the copy's layer/10 (PR 759) carried the owner's website commit on
+// the tranche (314c284a2d, copy PR 755) into the layer by layer-sync, land and job-sync merges; the
+// tranche then moved on, and each merge read as a settings change that was not the owner's. A merge
+// that only carries a version a trusted ref (or the owner's own commit) set is credited; one that
+// writes its own version, or puts an older one back over a newer, is still the merge's own change.
+test('a layer-sync merge carrying the owner\'s settings commit from the tranche is credited, the tranche having moved on since', () => {
+  const root = makeRepo({ '.claude/settings.json': settings(['a']), 'a.txt': 'a' });
+  git(['branch', 'tranche'], { cwd: root });
+  git(['checkout', '-q', '-b', 'layer'], { cwd: root });
+  commit(root, { 'l.txt': 'layer work' }, 'a land');
+  // The owner's website commit on the tranche, then the layer sync that carries it.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const owner = commit(root, { '.claude/settings.json': settings(['a', 'b']) }, 'Bob, on the website');
+  git(['checkout', '-q', 'layer'], { cwd: root });
+  git(['merge', '-q', '--no-edit', 'tranche', '-m', 'layer sync'], { cwd: root });
+  const synced = git(['rev-parse', 'HEAD'], { cwd: root });
+  commit(root, { 'l2.txt': 'more' }, 'another land');
+  // The tranche moves on: another owner edit, so the base's settings are not the layer's.
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  const owner2 = commit(root, { '.claude/settings.json': settings(['a', 'b', 'c']) }, 'Bob again');
+  git(['checkout', '-q', 'layer'], { cwd: root });
+  const head = git(['rev-parse', 'HEAD'], { cwd: root });
+  // GitHub unread (every commit reads as not the owner's): the setter on the tranche credits the merge.
+  const r = recordCheck(root, cfg, { base: owner2, head, lookup: session, trusted: ['tranche'] });
+  assert.deepEqual(r.findings, []);
+  // The base alone credits it (the setter lies behind it), with no other trusted ref named.
+  assert.deepEqual(recordCheck(root, cfg, { base: owner2, head, lookup: webFor(owner), trusted: [] }).findings, []);
+  // A sync merge that writes its own settings is its own change.
+  git(['reset', '-q', '--hard', synced + '^1'], { cwd: root });
+  git(['merge', '-q', '--no-commit', 'tranche~1'], { cwd: root });
+  write(root, { '.claude/settings.json': settings(['mine']) });
+  git(['add', '-A'], { cwd: root });
+  git(['commit', '-q', '-m', 'a sync that rewrites the settings'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: owner2, head: 'HEAD', lookup: session, trusted: ['tranche'] }).findings.map((x) => x.check), ['settings']);
+  // A merge that puts the older version back over the owner's newer one (both parents' setters
+  // trusted) is its own change: the other parent changed the file since they diverged.
+  const tree = git(['rev-parse', `${synced}^1^{tree}`], { cwd: root });
+  const back = git(['commit-tree', tree, '-p', `${synced}^1`, '-p', owner, '-m', 'puts the old settings back'], { cwd: root });
+  assert.deepEqual(recordCheck(root, cfg, { base: owner2, head: back, lookup: session, trusted: ['tranche'] }).findings.map((x) => x.check), ['settings']);
+});

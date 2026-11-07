@@ -20,7 +20,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { capCheck } from './lib/cap.mjs';
 import { deployDev, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
-import { hold, owe, owes, paidUpTo, paysOwed } from './lib/hold.mjs';
+import { hold, OWED_FILE, owe, owes, paidUpTo, paysOwed } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
 import { reviewBrief } from './lib/review.mjs';
@@ -29,7 +29,7 @@ import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
+import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrites, realPendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
 import { stateShare } from './lib/ghshare.mjs';
 import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
@@ -43,7 +43,7 @@ import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { switchIn, switchOut, switchQuiet } from './lib/switch.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
-import { CONFIG_FILE, Fail, fail, git, list, loadConfig, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
+import { CONFIG_FILE, Fail, fail, git, list, loadConfig, now, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -690,7 +690,7 @@ export async function main(argv) {
     flushed = true;
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
     // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
-    if (ledger && name !== 'github hook') { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    if (ledger && name !== 'github hook') { try { ledger.shareNow({ pending: realPendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -719,9 +719,9 @@ export async function main(argv) {
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
     // BOB acted on the start list: the acts owed before this began are paid (hold.mjs).
-    if (cfg && code === 0 && paysOwed(name)) { try { writeState(root, cfg.state_branch, `starts owed: paid by ${name}`, (dir) => { paidUpTo(dir, begun); return {}; }); } catch (e) { console.error(`starts owed not updated: ${e.message}`); } }
+    if (cfg && code === 0 && paysOwed(name)) { try { bookkeep(root, cfg.state_branch, `starts owed: paid by ${name}`, 'paid', { path: OWED_FILE, begun }); } catch (e) { console.error(`starts owed not updated: ${e.message}`); } }
     const act = cfg && code === 0 ? owes(name, a) : null;
-    if (act) { try { writeState(root, cfg.state_branch, `starts owed: ${act}`, (dir) => owe(dir, act)); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); } }
+    if (act) { try { bookkeep(root, cfg.state_branch, `starts owed: ${act}`, 'owe', { path: OWED_FILE, act, at: now() }); } catch (e) { console.error(`starts owed not recorded: ${e.message}`); } }
     // Records whose condition is met end at the tool's writes (R13, expire.mjs): after each act
     // that writes, the holds met end, recorded; never a refusal of the act. The sweep does the
     // same with the session list (lane seats).

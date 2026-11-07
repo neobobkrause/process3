@@ -1,9 +1,9 @@
 // Shared helpers: running programs, git, GitHub through gh, config, arguments.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { fetchSeen, ghAfter, ghTurn, limitSignal, Paced, PACING_DEFAULTS, pacingProblem, pushTurn, sessionId, setPacing } from './pace.mjs';
+import { dirname, join, resolve } from 'node:path';
+import { commonDir, fetchSeen, ghAfter, ghTurn, limitSignal, Paced, PACING_DEFAULTS, pacingProblem, pushTurn, sessionId, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -257,7 +257,17 @@ export function fetchJobRefs(root, refs, main = 'main') {
   }
   return ok;
 }
-export const fetchBranch = (root, branch, opts = {}) => git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root, ...opts });
+// within (ms, a read's choice: C18, 7 Nov, branch fetches the biggest kind of an hour's 912): the
+// clone's copy serves when any p3 process of the clone fetched the branch that recently and the
+// ref is still what that fetch left. Without it, a fetch, as ever.
+export function fetchBranch(root, branch, { within = 0, ...opts } = {}) {
+  const stamp = join(commonDir(root), 'p3-gh-cache', `branch-${String(branch).replace(/[^\w.-]/g, '_')}.json`);
+  const tip = () => git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${branch}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
+  if (within > 0) { try { const s = JSON.parse(readFileSync(stamp, 'utf8')); if (s.at <= Date.now() && Date.now() - s.at < within && s.tip && s.tip === tip()) return opts.allowFail ? { code: 0, stdout: '', stderr: '', seconds: 0, timedOut: false, kept: true } : ''; } catch { /* fetch */ } }
+  const r = git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root, ...opts });
+  if (!opts.allowFail || r.code === 0) { try { mkdirSync(dirname(stamp), { recursive: true }); writeFileSync(stamp, JSON.stringify({ at: Date.now(), tip: tip() })); } catch { /* a saving */ } }
+  return r;
+}
 
 export function repoRoot(cwd = process.cwd()) {
   return git(['rev-parse', '--show-toplevel'], { cwd });
