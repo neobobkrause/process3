@@ -259,7 +259,7 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   const st = store || ownStore(root, cfg.state_branch);
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
   // The share's push is gated like any push but never waits (coordinator's ruling on PR 206): where
-  // the account is paused or at the ceiling it is refused, nothing is recorded, and it is shared later.
+  // the account is paused or stopped (GitHub's refusals) it is refused, nothing is recorded, and it is shared later.
   // A share whose own push is refused and kept for replay is recorded pending (cold review): not
   // sent again by the next share, and settled when state replay pushes it.
   try { withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use (rows to ${last})`, (wt) => {

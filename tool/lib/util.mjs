@@ -52,7 +52,7 @@ export function run(cmd, args = [], opts = {}) {
 // product code may have written into .git/config while the gate ran it (review of build G).
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 export function git(args, opts = {}) {
-  // Every push waits its turn: the pause, the stop and the account's push ceiling (R17b, pace.mjs).
+  // Every push takes its turn: GitHub's pause and stop only (PD-6: no push ceiling; pace.mjs).
   // A refused push: a failed push to a caller that handles failures (allowFail), with the refusal as
   // its stderr, so the caller says what to rerun; else the refusal itself (R17c, item F).
   try { pushTurn(args, opts.cwd); } catch (e) { if (!(e instanceof Paced)) throw e; if (opts.allowFail) return { code: 1, stdout: '', stderr: e.message, seconds: 0, timedOut: false, paced: true }; fail(e.message); }
@@ -463,9 +463,10 @@ export function jobCap(cfg = {}, env = process.env) {
   const cap = set ? (/^\d+$/.test(String(raw).trim()) ? Number(raw) : NaN) : JOB_CAP_DEFAULT;
   if (!Number.isInteger(cap) || cap < 1) fail(`${JOB_CAP_VAR}=${JSON.stringify(raw)}: the job cap is a whole number of job sessions, 1 or more; the account owner sets it in the environment's variables, or leaves it unset for ${JOB_CAP_DEFAULT}`);
   const old = ['live_cap', 'job_cap'].filter((k) => cfg[k] !== undefined);
-  // An optional hard cap (R17, off by default): pacing.jobs, when set and lower, is the cap in
-  // force; otherwise the budget of GitHub's published limits throttles (pace.mjs).
+  // pacing.jobs (an R17 cap set as GitHub pacing) is retired by PD-6: ignored, with a note; the
+  // budget of GitHub's published limits throttles (pace.mjs).
   const paced = pacedJobs(cfg);
+  if (cfg.pacing?.jobs !== undefined && cfg.pacing?.jobs !== null) old.push('pacing.jobs (PD-6: no session cap set as GitHub pacing)');
   const lower = paced !== null && paced < cap;
   const from = lower ? `pacing.jobs in ${CONFIG_FILE}` : set ? JOB_CAP_VAR : 'default';
   return {
