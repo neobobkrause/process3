@@ -362,3 +362,23 @@ test('idle check (C25): live is the sweep\'s count and the starts since; the ala
   const r3 = idleCheck(root, cfg, opts(T0 + 70 * 6e4));
   assert.equal(r3.live, 'unmeasured');
 });
+
+// C27: a product with no BOB addressed (process3-probes) prints no starts owed before a BOB act
+// (the merge tool's own line); with a BOB addressed, as before.
+test('starts owed (C27): not printed where no BOB is addressed', async () => {
+  const { beforeAct } = await import('../lib/sweep.mjs');
+  const { addressFile } = await import('../lib/state.mjs');
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  writeState(root, SB, 'owed', (d) => { owe(d, 'job complete a', '2026-11-05T23:56:53Z'); });
+  const run = () => { const out = []; beforeAct(root, configOf({}), 'merge', { _: [] }, { env: { GITHUB_ACTIONS: '1' }, log: (l) => out.push(String(l)) }); return out; };
+  assert.deepEqual(run(), [], 'no BOB addressed: no line');
+  writeState(root, SB, 'bob', (d) => { mkdirSync(join(d, 'addresses'), { recursive: true }); writeFileSync(join(d, addressFile('bob')), '{"session":"s"}\n'); });
+  assert.match(run()[0] || '', /^starts owed since 2026-11-05T23:56:53Z \(job complete a\)/);
+  // Another role's merge (a pin session's --as pin): not BOB's act, no line.
+  const out = [];
+  beforeAct(root, configOf({}), 'merge', { _: [], as: 'pin' }, { env: { GITHUB_ACTIONS: '1' }, log: (l) => out.push(String(l)) });
+  assert.deepEqual(out, []);
+});

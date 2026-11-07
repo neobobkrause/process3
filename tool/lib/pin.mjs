@@ -37,8 +37,8 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   L.push(`9. \`${P3} github push origin ${branch} --set-upstream\``);
   L.push(`10. create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
   L.push(`11. \`${P3} merge <that pull request> --plain --as pin --no-review "a process pin move; the fix was reviewed in process3"\` (a pull request that conflicts with ${tranche} is refused at once: send the refusal and end)`);
-  L.push(`12. It prints the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`.`);
-  L.push(`13. Send \`${report}\` one message with send_message: the pull request, the merge commit, and the wake's number. Then end.`);
+  L.push(`12. It prints the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`. If it says no BOB is addressed, there is no wake: send nothing.`);
+  L.push(`13. Send \`${report}\` one message with send_message: the pull request, the merge commit, and the wake's number (or "no BOB"). Then end.`);
   return L.join('\n') + '\n';
 }
 
