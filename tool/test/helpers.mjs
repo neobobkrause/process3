@@ -12,6 +12,16 @@ import { writeState } from '../lib/state.mjs';
 // tool's), and the directories it made under the temp directory go at exit. tempdirs.test.mjs holds it.
 // GitHub pacing (R17, pace.mjs) is off in the tests unless a test sets it: no wait between gh
 // stand-ins, no log written into the clones.
+// No test reads the machine's git configuration (C2, the coordinator, 7 Nov: a test passed on a
+// builder whose global config gave it an identity and failed in CI, which has none): the global and
+// system files are cut off for the test process and every git it starts, as CI runs them. A repo a
+// test makes sets what it needs (makeRepo: an identity, no signing). isolation.test holds every
+// test file to importing this file. Configuration given by the environment goes too (cold review:
+// GIT_CONFIG_COUNT/KEY/VALUE and GIT_CONFIG_PARAMETERS still applied, and GIT_AUTHOR_* and
+// GIT_COMMITTER_* can give the identity a test must set itself).
+process.env.GIT_CONFIG_GLOBAL = '/dev/null';
+process.env.GIT_CONFIG_NOSYSTEM = '1';
+for (const k of Object.keys(process.env)) if (/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)$|^GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL|DATE)$/.test(k)) delete process.env[k];
 process.env.P3_GH_INTERVAL_MS ??= '0';
 process.env.P3_GITHUB_LOG ??= '0';
 export const MADE = new Set();
