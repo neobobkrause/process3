@@ -10,6 +10,10 @@ import { writeState } from '../lib/state.mjs';
 // suite left about 70,000 p3-* directories in a builder's /tmp, and filled its disk). fs.mkdtempSync
 // is wrapped once, for every caller in the process (a test's own import of it, the fixtures', the
 // tool's), and the directories it made under the temp directory go at exit. tempdirs.test.mjs holds it.
+// GitHub pacing (R17, pace.mjs) is off in the tests unless a test sets it: no wait between gh
+// stand-ins, no log written into the clones.
+process.env.P3_GH_INTERVAL_MS ??= '0';
+process.env.P3_GITHUB_LOG ??= '0';
 export const MADE = new Set();
 if (!fs.mkdtempSync.p3Tracked) {
   const made = fs.mkdtempSync;

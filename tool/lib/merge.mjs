@@ -13,7 +13,7 @@ import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored 
 import { P3, START_FIRST, START_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, toolPin, wakeLine } from './job.mjs';
 import { mergedRange, noticeLine, notices, providerChange, recordAtMerge } from './notice.mjs';
 import { triageAtMerge } from './triage.mjs';
-import { wakeOnce } from './state.mjs';
+import { flushState, pendingWrites, wakeOnce } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
@@ -22,7 +22,9 @@ import { OUTSIDE, judgeWorkflow, refusal } from './workflow-limits.mjs';
 import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordPath, isShallow, laneOnly, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
 
-const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+import { pollMs } from './pace.mjs';
+// Before a wait, the command's coalesced state writes are pushed (R17): others read them meanwhile.
+const sleep = (ms) => { if (pendingWrites()) flushState(); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 const MINUTE = 60000;
 // Whether the job's metrics at rev hold a merge row for pull request n after its last receipt
 // (complete row): the tip an earlier merge run pushed, or one that brought it up to the tranche.
@@ -49,10 +51,14 @@ const stillRunning = (run, t) => run?.status === 'in_progress'
 // 290, 5 Nov 13:15, one HTTP 503 ended a 38-minute gate wait): a 5xx, a rate limit, a timeout or a
 // dropped connection. The waits read again with a growing pause instead of failing.
 export const TRANSIENT = (msg) => SERVER_ERROR.test(String(msg)) || /rate limit|HTTP 429|\b429 Too Many|timed out|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|connection reset|socket hang up|Bad Gateway|Service Unavailable|Gateway Time-?out|unexpected EOF|TLS handshake|context deadline exceeded|connection refused/i.test(String(msg));
-export const TRANSIENT_WAIT = { first: 15000, most: 120000 };
+// No GitHub read again sooner than 30 s (R17, pace.mjs).
+export const TRANSIENT_WAIT = { first: 30000, most: 300000 };
 // Runs f; a transient Fail is returned as { err } for the caller's loop to read again, anything
 // else is thrown.
-const guarded = (f) => { try { return { v: f() }; } catch (e) { if (e instanceof Fail && TRANSIENT(e.message)) return { err: e }; throw e; } };
+// The budget's own refusals (pace.mjs) and GitHub's rate-limit refusals are never read again here:
+// every later call waits for GitHub's reset itself, and a stop must show at once (cold review of R17).
+const BUDGET = /^GitHub budget:|GitHub refused gh .* with a rate limit/;
+const guarded = (f) => { try { return { v: f() }; } catch (e) { if (e instanceof Fail && TRANSIENT(e.message) && !BUDGET.test(e.message)) return { err: e }; throw e; } };
 // The pause before the k-th read again in a row (15 s, 30 s, 60 s, then every 2 min by default),
 // and the end: past the wait and the gate's own cap after it, the last error stands.
 function transientPause(e, k, { until, log, wait = TRANSIENT_WAIT }) {
@@ -61,7 +67,9 @@ function transientPause(e, k, { until, log, wait = TRANSIENT_WAIT }) {
   log(`GitHub read failed (${e.message.split('\n')[0].slice(0, 160)}); transient: read again in ${Math.round(ms / 1000)} s (${k} in a row), still waiting on the same run`);
   sleep(ms);
 }
-export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = 15000, read = checkRun, pr, was, log = console.log, transient } = {}) {
+// every: a fixed pause (the tests); unset, polls back off from pacing.poll_first_s to poll_most_s (R17).
+export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = null, read = checkRun, pr, was, log = console.log, transient } = {}) {
+  let polls = 0;
   const until = Date.now() + minutes * MINUTE;
   let hard = null;
   let k = 0;
@@ -83,7 +91,7 @@ export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = 15
       }
     }
     log(`waiting for the gate on ${sha.slice(0, 10)} (${run ? run.conclusion || run.status : 'not started'})${t > until ? '; past the wait, still in progress' : ''}`);
-    sleep(every);
+    sleep(every ?? pollMs(++polls));
   }
 }
 
@@ -92,14 +100,15 @@ export function waitForGate(slug, sha, { minutes = GATE_WAIT_MINUTES, every = 15
 // waited 10+ minutes on "gate: not started" (copy PR 108, 4 Nov). Not yet computed (null), it is
 // read again briefly, as checks are waited on; still unknown after `minutes`, it is refused.
 // Returns the pull request as last read.
-export function waitMergeable(slug, n, pr, { minutes = 2, every = 5000, read = getPR, log = console.log } = {}) {
+export function waitMergeable(slug, n, pr, { minutes = 3, every = null, read = getPR, log = console.log } = {}) {
+  let polls = 0;
   const until = Date.now() + minutes * MINUTE;
   for (;;) {
     if (pr.mergeable === false || pr.mergeable_state === 'dirty') fail(`pull request ${n} conflicts with ${pr.base?.ref}; nothing was merged`);
     if (pr.mergeable !== null) return pr;
     if (Date.now() > until) fail(`GitHub has not said whether pull request ${n} can merge after ${minutes} min; nothing was merged`);
     log(`waiting for GitHub to compute whether pull request ${n} can merge`);
-    sleep(every);
+    sleep(every ?? pollMs(++polls));
     pr = read(slug, n);
   }
 }
@@ -569,8 +578,12 @@ function noticesOnly(root, cfg, { id, n, pr, slug, log, compare: compareRead }) 
 // input", the pull request left unmerged, and the same run again merged it): with `reread`
 // ({ read, sha }), the pull request is read again. Merged with this head is success; open with the
 // head unchanged tries the PUT once more; anything else stops. A refusal GitHub stated (a JSON
-// body, which gh prints with its HTTP status) is not this case.
+// body, which gh prints with its HTTP status) is not this case. Nor is a refusal of the budget's
+// or of GitHub's rate limit (R17d): the merge was never made, and the reply is no unread one; read
+// as one, the PUT was sent again at once into the same refusal, and the stop named an unread
+// reply, not the refusal and its rerun.
 export const unreadable = (msg) => {
+  if (BUDGET.test(String(msg))) return false;
   const body = String(msg).replace(/^gh api -X PUT failed:\s*/, '').trim();
   if (!body) return true;
   if (/\(HTTP \d{3}\)/.test(body)) return false;
@@ -768,7 +781,8 @@ export function bootstrapHead(root, sha, { base, head, log = () => {} }) {
 // defect sweep 4 Nov, #13; the tranche into main now runs only the suites its job merges did not
 // gate, gate.mjs trancheCover). Each round reads the pull request
 // (`pr`): a head that moved off sha stops the wait at once. GitHub judges the result.
-export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = 30000, read = checkRuns, pr, log = console.log, transient } = {}) {
+export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, every = null, read = checkRuns, pr, log = console.log, transient } = {}) {
+  let polls = 0;
   const until = Date.now() + minutes * MINUTE;
   const extended = new Map();
   let k = 0;
@@ -793,7 +807,7 @@ export function waitForChecks(slug, sha, names, { minutes = GATE_WAIT_MINUTES, e
       if (!going) fail(`required checks still running on ${sha.slice(0, 10)} after ${minutes} min: ${pending.map(([n, st]) => `${n} ${st}`).join(', ')}`);
     }
     log(`waiting for ${pending.map(([n, st]) => `${n} (${st})`).join(', ')} on ${sha.slice(0, 10)}${t > until ? '; past the wait, still in progress' : ''}`);
-    sleep(every);
+    sleep(every ?? pollMs(++polls));
   }
 }
 
@@ -982,7 +996,7 @@ export function mergePlain(root, n, opts = {}) {
     refreshed = hits.length || genOwned ? changed.filter((f) => isGenerated(gen, f)) : [];
     untracked = refreshed.length ? removed : [];
     const others = refreshed.length && !passIds ? refreshOthers(baseCfg, gen, changed, entries, ignores) : [];
-    if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh changes only generated files (and records), since any other file could be what writes them`);
+    if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh may go beside only records, the modules file, the layers file and process/config.json; any other file could be what writes them`);
   }
 
   const names = [...new Set(readRules().checks.map((c) => c.context))];

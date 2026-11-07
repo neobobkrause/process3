@@ -9,7 +9,7 @@ import { branchModule, checkLedger, entryFile, homeRef, ledgerIds, readLedgerTex
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
 import { LOAD } from './fail-reporter.mjs';
-import { SCRIPT, baseRed, reachers, startBase, testId } from './basered.mjs';
+import { SCRIPT, baseRed, reachers, staleAtBase, startBase, testId } from './basered.mjs';
 import { layerMode, layerOfBranch } from './layerbase.mjs';
 import { layerCover } from './layerflow.mjs';
 import { buildGenerated, committedGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
@@ -215,7 +215,9 @@ export function gate(root, opts) {
   else if (layerPR) {
     runRow.trigger = 'layer';
     const lc = layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io });
-    runRow.layer = { n: layerOfBranch(branch), covered: lc.covered.map((c) => c.id), findings: lc.findings.length };
+    const unreadable = lc.covered.filter((c) => c.pr_unreadable).map((c) => ({ id: c.id, pr: c.pr, why: c.pr_unreadable }));
+    runRow.layer = { n: layerOfBranch(branch), covered: lc.covered.map((c) => c.id), findings: lc.findings.length, ...(unreadable.length ? { pr_unreadable: unreadable } : {}) };
+    for (const u of unreadable) log(`${u.id}: PR ${u.pr} is not served by GitHub (${u.why}); covered from the state branch's land row and its gate run's artifact`);
     for (const c of lc.covered) log(`${c.id}: covered by its land of PR ${c.pr} (${String(c.merge).slice(0, 10)}); no suite runs`);
     findings.push(...lc.findings);
   }
@@ -234,6 +236,11 @@ export function gate(root, opts) {
     }
     const scope = entry ? [entry] : entries.filter((e) => touched.some((f) => inModule(e, f)));
     runRow.scope = scope.map((e) => e.id);
+    // A pull request that is not a job's, touching no module's files, still has the generated rows
+    // regenerated when it changes anything but records: a generator reads files outside every module
+    // (the copy, 6 Nov: modules.json gained 7 rows and order.mjs went stale while the gate passed).
+    const genRun = scope.length > 0 || (!job && gen.rows.length > 0 && touched.some((f) => !isRecordPath(cfg, f)));
+    if (genRun && !scope.length) log('no module in scope: the generated rows are regenerated, as this change may be one a generator reads');
     // Base-red's tree (basered.mjs startBase): its install and build beside the head's, ready if
     // the suite fails. Not for the tranche into main, which tolerates nothing, nor with a stand-in
     // exec (the tests'), which a process of its own cannot use.
@@ -247,12 +254,15 @@ export function gate(root, opts) {
     const prepared = mayBaseRed && branch !== cfg.tranche && !exec && opts.prepareBase !== false
       ? startBase(root, { base: revertBase, cfg, rows: gen.rows, timeout, log }) : null;
     // GAT-5: every lock file, installed where it sits.
-    const inst = scope.length ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
-    findings.push(...inst);
+    const inst = genRun ? install(root, cfg.lockfiles, exec ? { exec } : {}).findings : [];
+    // A pull request run only for the generated rows (no module in scope) is not refused on an
+    // install it never ran before: logged, and its generated checks skipped (cold review).
+    if (scope.length) findings.push(...inst);
+    else for (const f of inst) log(`install failed (${f.message}): the generated rows were not regenerated for this change`);
     // Generated files the commit does not track are built before the checks and the suite, as
     // deploy and release build them (copy, 4 Nov: an untracked rows.mjs failed 41 of 113 tests).
     let builtRows = new Set();
-    if (scope.length && !inst.length && gen.rows.length) {
+    if (genRun && !inst.length && gen.rows.length) {
       const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
       runRow.built = b.built;
       builtRows = b.ran;
@@ -327,13 +337,28 @@ export function gate(root, opts) {
       }
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
-    if (scope.length && gen.rows.length) {
+    if (genRun && gen.rows.length && (scope.length || !inst.length)) {
       // A refreshed file is removed first, so a clean status after the regenerate means the
       // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
       if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
       // A row built before the suite runs again when it writes a refreshed file just removed.
-      const g = regenerate(root, gen.rows, { timeout, log, skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
+      const g = regenerate(root, gen.rows, { timeout, log, stale: !job, judged: [...(plain || []), ...findings.filter((f) => f.check === 'generated').map((f) => f.file)], skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
       runRow.generated = g.ran;
+      // A committed file stale at the base too, the same file after the base's regenerate, is
+      // inherited: a notice, owed by a plain refresh, not this pull request's finding (the
+      // coordinator, 6 Nov, as base-red is). The base is regenerated only when the head made one stale.
+      // Never on the tranche into main, which tolerates nothing, and never a file this pull request
+      // changes itself (cold review: a hand-edited stale file the base's regenerate also differs from).
+      const staleF = branch === cfg.tranche ? [] : g.findings.filter((f) => / is stale at this commit: /.test(f.message) && !changed.includes(f.file));
+      if (staleF.length) {
+        const at = staleAtBase(root, base, gen.rows, staleF.map((f) => f.file), { lockfiles: cfg.lockfiles, timeout, ...(exec ? { exec } : {}), log });
+        if (!at.ok) { runRow.stale_base_unread = String(at.why).slice(0, 200); log(`stale at the base: unread (${at.why}); the stale finding(s) stand`); }
+        else if (at.files.length) {
+          runRow.stale_base = at.files;
+          for (const f of at.files) log(`notice: ${f} is stale on the base ${String(base).slice(0, 10)} too: owed by a plain refresh, not this pull request's`);
+          g.findings = g.findings.filter((f) => !(staleF.includes(f) && at.files.includes(f.file)));
+        }
+      }
       findings.push(...g.findings);
     }
     // A plain pull request may change a module's committed generated files only to what this

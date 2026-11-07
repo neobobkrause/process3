@@ -29,10 +29,14 @@ import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
 import { startCheck, wakeCheck } from './lib/start.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { fetchState, handoff, jsonl, outcome, readState, send, writeState, stateReplay } from './lib/state.mjs';
+import { fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
+import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
+import { stateShare } from './lib/ghshare.mjs';
+import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
+import { hookRun } from './lib/ghhook.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
-import { triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
+import { PROCESS_ROOT, triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
 import { withdrawNotice } from './lib/notice.mjs';
 import { getPR } from './lib/github.mjs';
 import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep.mjs';
@@ -137,9 +141,11 @@ const commands = {
   'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
   'layer publish': async (a, root) => {
     const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
-    const every = a.every === undefined ? 30 : Number(a.every);
-    if (!Number.isFinite(every) || every <= 0) fail(`--every <seconds>, not ${JSON.stringify(a.every)}`);
-    return (await layerPublish(root, one(a, 'module'), { every: every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
+    // Unset, the run's check of the layer branch backs off from 30 s to 5 min (R17); --every fixes
+    // it, at 30 s or more.
+    const every = a.every === undefined ? null : Number(a.every);
+    if (every !== null && !(Number.isFinite(every) && every >= 30)) fail(`--every <seconds>, 30 or more (GitHub pacing), not ${JSON.stringify(a.every)}`);
+    return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
   'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
@@ -489,6 +495,78 @@ const commands = {
   //   failure, then the restart's acts in order. Writes nothing.
   // switch quiet [--minutes 2]: exit 0 only when the tranche's tip has not moved for that long.
   // The runbook: rulebooks/account-switch.md.
+  // github budget (R17): use against each of GitHub's published limits, per window, account-wide
+  // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
+  'github budget': (a, root) => { githubBudget(root); return 0; },
+  // github audit [--since <iso>] [--repo <owner/repo>]... (R17c): GitHub's own evidence of calls,
+  // pushes and writes against the account's ledger; exit 1 on an unexplained push or write gap.
+  'github audit': (a, root) => {
+    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
+    let slug = null;
+    try { slug = repoSlug(root); } catch { slug = null; }
+    const processOrigin = git(['config', '--get', 'remote.origin.url'], { cwd: PROCESS_ROOT, allowFail: true }).stdout.trim();
+    const repos = [...auditRepos({ slug, cfg, processOrigin }), ...list(a.repo).filter((x) => typeof x === 'string')];
+    // Against the account's ledger, never this clone's log alone (cold review of R17c).
+    const sh = stateShare(root, cfg);
+    if (!sh) fail('github audit: no GitHub ledger here (a product\'s clone, or one whose pacing.json names it): nothing to audit against');
+    useShared(sh);
+    try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch, login: typeof a.login === 'string' ? a.login : null }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
+  },
+  // github hook (R17c): the Claude Code PreToolUse hook; the hook's JSON on stdin. Exit 2 blocks the
+  // call (a governor refusal, or a raw push, gh or curl to GitHub), with the reason on stderr.
+  'github hook': (a, root) => {
+    let input = null;
+    try { input = JSON.parse(readFileSync(0, 'utf8') || 'null'); } catch { input = null; }
+    // The same as tool/hook.mjs (R17d), which the settings call: this command stays for older ones.
+    return hookRun(input, root);
+  },
+  // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
+  // through this: it waits its turn against the pause, the stop and the account's push ceiling,
+  // and is logged and shared. Never a force or a delete (Bob's standing approvals).
+  'github push': (a, root) => {
+    if (Object.keys(a).some((k) => k !== '_' && !['set-upstream', 'quiet'].includes(k))) fail('github push <remote> <refspec>... [--set-upstream] [--quiet]: no other flag (never --force, --delete, --mirror or --all)');
+    if (['set-upstream', 'quiet'].some((k) => a[k] !== undefined && a[k] !== true)) fail('github push <remote> <refspec>... --set-upstream --quiet: the flags take no value; put them after the refspecs');
+    // An explicit refspec always (cold review of R17b): a bare remote pushes what the clone's config
+    // says, which can mirror (delete) or force. No wildcard, no force, no delete, never main.
+    const [remote, ...specs] = a._.map(String);
+    if (!remote || !specs.length) fail('github push <remote> <refspec>...: name what to push (e.g. HEAD:refs/heads/<your branch>); a bare remote pushes whatever the clone\'s config says');
+    if ([remote, ...specs].some((x) => /^[+:-]/.test(x))) fail('github push <remote> <refspec>...: a refspec never starts with + (a force) or : (a delete)');
+    for (const x of specs) {
+      if (x.includes('*')) fail(`github push: ${x}: no wildcard refspec; push one branch at a time`);
+      const dst = (x.includes(':') ? x.split(':').pop() : x).replace(/^refs\/heads\//, '');
+      if (!dst) fail(`github push: ${x}: no empty destination (a delete)`);
+      if (dst === 'main') fail(`github push: ${x}: never to main; main moves only through the tranche's pull request (Bob's standing approvals)`);
+    }
+    for (const k of [`remote.${remote}.mirror`, `remote.${remote}.push`]) {
+      const v = git(['config', '--get-all', k], { cwd: root, allowFail: true }).stdout.trim();
+      if (v && !(k.endsWith('.mirror') && v === 'false')) fail(`github push: ${k} is set in this clone (${v.split('\n')[0]}): it can force or delete; unset it first`);
+    }
+    const r = git(['push', ...(a['set-upstream'] ? ['-u'] : []), ...(a.quiet ? ['-q'] : []), remote, ...specs], { cwd: root, allowFail: true });
+    if (r.stdout.trim()) console.log(r.stdout.trim());
+    if (r.stderr.trim()) console.error(r.stderr.trim());
+    return r.code === 0 ? 0 : 1;
+  },
+  // github note --content <n> [--points <n>] [--what <text>] (R17b): a session records the
+  // connector writes it is about to make (a PR created, edited or marked ready, a comment, a
+  // review: each one content-creating request, 5 points), before making them; it waits or refuses
+  // as a gh call would. Connector reads stay on GitHub's primary count, which sees them.
+  'github note': (a, root) => {
+    try { noteTurn(root, { content: a.content ?? 0, ...(a.points !== undefined ? { points: a.points } : {}), ...(typeof a.what === 'string' ? { what: a.what } : {}) }); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
+    console.log(`github: ${a.content ?? 0} connector write(s) recorded; make them now`);
+    return 0;
+  },
+  // github resume --by <session> (R17): the coordinator clears a stop (two refusals within an
+  // hour) once the account is in good standing; every session may call GitHub again.
+  'github resume': (a, root) => {
+    const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
+    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
+    const sh = stateShare(root, cfg) || fail('no GitHub ledger here: a product\'s clone, or a clone whose pacing.json names one');
+    sh.resume(by);
+    clearLocalPause(root);
+    console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
+    return 0;
+  },
+
   switch: (a, root) => {
     const sub = a._[0];
     if (sub === 'out') return (switchOut(root, { tasks: a.tasks, sessions: a.sessions, by: a.by }), 0);
@@ -579,6 +657,10 @@ export function endsAfter(root, cfg, name, code, { expire = expireRecords, err =
 }
 // The acts after which the tool ends the records whose condition is met (R13).
 export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete', 'block', 'layer open', 'layer land', 'layer merge', 'layer join', 'layer publish', 'tranche open', 'tranche close', 'lane start', 'lane end', 'lane ask', 'notice triage']);
+// The commands whose state writes push at once (R17): see main.
+let endFlush = () => {};
+let endHooked = false;
+export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay']);
 export async function main(argv) {
   const a = parseArgs(argv);
   const two = a._.slice(0, 2).join(' ');
@@ -591,11 +673,44 @@ export async function main(argv) {
   a._ = a._.slice(name.split(' ').length);
   let root = null;
   let cfg = null;
+  let ledger = null;
+  // One state push per command (R17, GitHub pacing): the writes are coalesced and pushed at its
+  // end. Not the commands whose write reserves a session they then hand out (a seat, a start, a
+  // handover) or that replay kept writes: theirs push at once, as before (cold review of R17).
+  const batched = process.env.P3_STATE_BATCH !== '0' && !UNBATCHED.has(name);
+  if (batched) stateBatch(true);
+  let flushed = false;
+  const flush = () => {
+    if (flushed || !batched) return null;
+    flushed = true;
+    // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
+    // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
+    if (ledger && name !== 'github hook') { try { ledger.shareNow({ pending: pendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    stateBatch(false);
+    try { flushState(); return null; } catch (e) { return e; }
+  };
+  // A command ended early still pushes what it wrote: at exit, and on SIGTERM, SIGHUP or SIGINT
+  // (a timeout, or publish halting its run); a SIGKILL's writes stay kept for the next command.
+  if (batched) {
+    endFlush = () => { const e = flush(); if (e) console.error(`p3 ${name}: ${e.message}`); };
+    if (!endHooked) {
+      endHooked = true;
+      process.on('exit', () => endFlush());
+      for (const [sig, n] of [['SIGTERM', 15], ['SIGHUP', 1], ['SIGINT', 2]]) if (!process.listenerCount(sig)) process.once(sig, () => { endFlush(); process.exit(128 + n); });
+    }
+  }
   try {
     root = repoRoot();
+    // A p3 command killed in this clone before its flush left its writes kept (state.mjs): moved
+    // for replay, and said.
+    if (name !== 'github hook') try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
-    if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
+    // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
+    // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else. A
+    // clone with no product config (process3) uses the ledger its pacing.json names (R17b).
+    if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch { ledger = null; } }
+    if (cfg && !process.env.NODE_TEST_CONTEXT && name !== 'github hook') beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
     // BOB acted on the start list: the acts owed before this began are paid (hold.mjs).
@@ -606,8 +721,14 @@ export async function main(argv) {
     // that writes, the holds met end, recorded; never a refusal of the act. The sweep does the
     // same with the session list (lane seats).
     if (cfg && !process.env.NODE_TEST_CONTEXT) endsAfter(root, cfg, name, code);
+    const lost = flush();
+    if (lost) throw lost;
     return code;
   } catch (e) {
+    // A refusal after writes: they are pushed, as they were before the writes were coalesced.
+    const lost = flush();
+    if (lost instanceof Fail) console.error(`p3 ${name}: ${lost.message}`);
+    else if (lost) throw lost;
     if (e instanceof Fail) {
       console.error(`p3 ${name}: ${e.message}`);
       if (a.out) writeFileSync(a.out, JSON.stringify({ error: e.message, findings: [{ check: 'tool', file: '(tool)', line: 1, message: e.message }] }, null, 2) + '\n');

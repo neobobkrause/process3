@@ -11,7 +11,7 @@ import { readAddress } from './roles.mjs';
 import { REFRESH_AT, jobBranchAt, metricsFile, readRows, refusalCounts, rowsAt, rowsHere } from './metrics.mjs';
 import { noticeLine, noticeRecords, notices, readModules } from './notice.mjs';
 import { triageRows } from './triage.mjs';
-import { addressFile, fetchState, handoffFile, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
+import { addressFile, fetchState, handoffFile, heldAct, heldWrites, jsonl, readState, toRoute, undelivered, withCoordinator, writeState } from './state.mjs';
 import { openLine, openState } from './tranche.mjs';
 import { deployOwed, roundClose, walkFindings, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
@@ -272,6 +272,8 @@ export function sessionActs(list, { rows = [], roles = {}, coordinator = null, p
 // lines are held until the rows are read, then the count of acts is printed after the starts-owed
 // marker and the plan, before any hold or list. A run that stops prints what it held.
 export function status(root, opts = {}) {
+  // Held state writes, as an act, whatever the role (R17c, item F).
+  { const h = heldWrites(root); if (h.length) (opts.log || console.log)(`replay: ${heldAct(h)}`); }
   if (opts.role !== 'bob') return statusLines(root, opts);
   const log = opts.log || console.log;
   const held = [];
@@ -563,9 +565,11 @@ export function flow(cfg, rows, next, live, listed = null, holds = [], { view = 
   const split = listed ? ` (working ${working}, waiting ${wait.length}${wait.length ? `: ${wait.join(', ')}` : ''})` : '';
   // Slots left free with files over the requirements cap: BOB's split acts, the work that would open them (coordinator, 5 Nov).
   const free = live === undefined || live === null ? 0 : c.cap - Number(live) - startable;
+  // The startable jobs past the cap's free slots wait their turn (R17: the cap is pacing.jobs at most).
+  const queued = live === undefined || live === null ? 0 : Math.max(0, startable - Math.max(0, c.cap - Number(live)));
   const owed = free > 0 ? (next || []).filter((x) => x.over && x.file).map((x) => x.file) : [];
   const splits = owed.length ? `; ${free} slot${free === 1 ? '' : 's'} free: BOB's split acts would open them (split or consolidate: ${owed.join(', ')})` : '';
-  return { startable, blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
+  return { startable, ...(queued ? { queued } : {}), blocked: b.length, blocked_oldest_min: b[0]?.min ?? null, ...(listed ? { working, waiting: wait.length } : {}), ...(owed.length ? { splits_owed: owed } : {}), line: `flow: live ${live ?? '?'}/${c.cap} (${c.from})${split}, startable ${startable}${queued ? `, queued ${queued} (each starts as a slot frees: GitHub pacing)` : ''}, blocked ${b.length}${b.length ? ` (oldest ${b[0].min ?? '?'} min)` : ''}${splits}` };
 }
 
 // status --role bob: one screen. Open, idle, owed and blocked jobs with each pull request's last

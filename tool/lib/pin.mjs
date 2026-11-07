@@ -11,7 +11,7 @@
 // which closes it with a comment (its branch kept); the session checks again right before it
 // pushes, and branches from the tranche tip it fetches then. Nothing else is written.
 import { P3, TOOL_ROOT } from './job.mjs';
-import { addComment, editPR } from './github.mjs';
+import { addComment, comments, editPR } from './github.mjs';
 import { processRepo } from './merge.mjs';
 import { fail, gh, git } from './util.mjs';
 
@@ -34,7 +34,7 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   L.push(`6. \`git fetch origin ${tranche} --depth 1\`, then \`git checkout -q -b ${branch} FETCH_HEAD\`, then \`git cherry-pick refs/p3/pin-base..p3-pin-work\`. If the cherry-pick stops (a conflict, or nothing left to pick: the tip already carries the pin), \`git cherry-pick --abort\`, send \`${report}\` what it said and end.`);
   L.push(`7. \`${P3} setup check --at HEAD\` again: a gap, as in step 5.`);
   L.push(`8. \`${P3} pin check ${slug}\` (a pin move must not run beside another): if it refuses, send its exact words to \`${report}\` and end.`);
-  L.push(`9. \`git push -u origin ${branch}\``);
+  L.push(`9. \`${P3} github push origin ${branch} --set-upstream\``);
   L.push(`10. create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
   L.push(`11. \`${P3} merge <that pull request> --plain --as pin --no-review "a process pin move; the fix was reviewed in process3"\` (a pull request that conflicts with ${tranche} is refused at once: send the refusal and end)`);
   L.push(`12. It prints the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`.`);
@@ -48,7 +48,7 @@ const listOpen = (slug) => {
   const pages = gh(['api', '--paginate', '--slurp', `repos/${slug}/pulls?state=open&per_page=100`], { allowFail: true });
   return Array.isArray(pages) ? pages.flat() : null;
 };
-export const PIN_IO = { list: listOpen, comment: addComment, close: (slug, n) => editPR(slug, n, { state: 'closed' }) };
+export const PIN_IO = { list: listOpen, comments, comment: addComment, close: (slug, n) => editPR(slug, n, { state: 'closed' }) };
 export const UNLISTED = (slug) => `could not list ${slug}'s open pull requests, so whether a pin move is open is unknown`;
 // null: unread, when `unread` allows it (pin move); pin check, the guard, always refuses then.
 export function openPinMoves(slug, { list = PIN_IO.list } = {}, { unread = false } = {}) {
@@ -90,7 +90,9 @@ export function pinMove(root, slug, { pin, rest = [], tranche = 'tranche', repor
     if (!old) fail(`--supersedes ${n}: pull request ${n} is not an open pin move on ${slug}${open.length ? ` (open: ${named(open)})` : ''}`);
     if (old.head.ref === `p3/pin-${pin.slice(0, 10)}`) fail(`pull request ${n} already moves the pin to ${pin.slice(0, 10)}; wait for it`);
     refuseOpen(open.filter((p) => p !== old));
-    io.comment(slug, n, `Superseded by a newer pin move, to process3 ${pin}. Closed by \`pin move --supersedes ${n}\`; the branch ${old.head.ref} is kept.`);
+    // A rerun after a refused close (R17d) finds its comment there already: it is not posted twice.
+    const note = `Superseded by a newer pin move, to process3 ${pin}. Closed by \`pin move --supersedes ${n}\`; the branch ${old.head.ref} is kept.`;
+    if (!(io.comments?.(slug, n) || []).some((c) => c?.body === note)) io.comment(slug, n, note);
     io.close(slug, n);
     log(`closed pull request ${n} (${old.head.ref}) as superseded; its branch is kept`);
   } else refuseOpen(open);

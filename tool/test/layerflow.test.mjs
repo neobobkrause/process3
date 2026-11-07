@@ -16,7 +16,7 @@ import {
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
-import { configOf, git } from '../lib/util.mjs';
+import { Fail, configOf, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -246,6 +246,42 @@ test('interface signal (R8): a provider test naming a Provides requirement count
   // A test of a requirement not in Provides changes nothing.
   const priv = commit(root, { 'test/a/other.test.mjs': "import test from 'node:test'; test('R9 private, again', () => {});\n" }, 'private test');
   assert.equal(interfaceChange(root, cfg, 'a', shape, priv).changed, false);
+});
+
+test('interface signal (R8): a new test file naming a Provides requirement is additive; one replacing a deleted file is compared with it (copy PR 696)', () => {
+  const { root } = product();
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const t = (name, want) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../../src/a/index.mjs';\ntest('${name}', () => { assert.deepEqual(a(1), ${want}); });\n`;
+  const base = commit(root, { 'req/a.md': req('a', '- **R2** `a(x)` answers the list of materials\n- **R3** more'), 'test/a/r2.test.mjs': t('R2 answers a list', '[1]') }, 'R2 in Provides');
+  const added = commit(root, { 'test/a/t53-layer.test.mjs': t('R2 per layer', '[1]') }, 'a new test file');
+  const x = interfaceChange(root, cfg, 'a', base, added);
+  assert.deepEqual(x.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/t53-layer.test.mjs', 'additive']]);
+  assert.equal(x.class, 'additive');
+  // A new file replacing a deleted one (a rename) is compared with it: its changed answer is breaking.
+  git(['rm', '-q', 'test/a/r2.test.mjs'], { cwd: root });
+  const moved = commit(root, { 'test/a/r2-list.test.mjs': t('R2 answers a list', '{ materials: [1] }') }, 'renamed and changed');
+  const y = interfaceChange(root, cfg, 'a', added, moved);
+  assert.deepEqual(y.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r2-list.test.mjs', 'breaking'], ['test/a/r2.test.mjs', 'none']]);
+  assert.match(y.provides_test_changes[0].why, /^replaces test\/a\/r2\.test\.mjs: /);
+  assert.equal(y.class, 'breaking');  // A Provides requirement renamed (R2 to R5), its test deleted and a new one added: the deleted test
+  // is examined by the ids before, so the change is breaking, never additive (cold review of R8).
+  git(['rm', '-q', 'test/a/r2-list.test.mjs'], { cwd: root });
+  const renamed = commit(root, { 'req/a.md': req('a', '- **R5** `a(x)` answers the materials\n- **R3** more'), 'test/a/r5.test.mjs': t('R5 answers', '{ materials: [1] }') }, 'R2 renamed R5');
+  const z = interfaceChange(root, cfg, 'a', moved, renamed);
+  assert.deepEqual(z.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r2-list.test.mjs', 'breaking'], ['test/a/r5.test.mjs', 'additive']]);
+  assert.equal(z.class, 'breaking');  // The coordinator's ruling (6 Nov): a new file naming an existing Provides requirement while the
+  // provider's source changed may assert a changed answer ({materials: [...]}, exports unchanged):
+  // breaking. One naming only a requirement new in this land stays additive.
+  const shape = commit(root, { 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\n', 'test/a/r5-shape.test.mjs': t('R5 answers {materials}', '{ materials: [1] }') }, 'shape, a new test');
+  const w = interfaceChange(root, cfg, 'a', renamed, shape);
+  assert.equal(w.exports, null, 'exports unchanged');
+  assert.deepEqual(w.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r5-shape.test.mjs', 'breaking']]);
+  assert.match(w.provides_test_changes[0].why, /^added, naming R5 \(Provides before this land\) while a's source changed: it may assert a changed answer$/);
+  assert.equal(w.class, 'breaking');
+  const fresh = commit(root, { 'req/a.md': req('a', '- **R5** `a(x)` answers the materials\n- **R3** more\n- **R7** `a2()` is new'), 'src/a/index.mjs': 'export function a(x) { return { materials: [x] }; }\nexport const a2 = () => 1;\n', 'test/a/r7.test.mjs': t('R7 answers', '1') }, 'a new requirement, its new test');
+  const v = interfaceChange(root, cfg, 'a', shape, fresh);
+  assert.deepEqual(v.provides_test_changes.map((c) => [c.file, c.class]), [['test/a/r7.test.mjs', 'additive']]);
+  assert.equal(v.class, 'additive');
 });
 
 test('module states: rescheduled until a land holds the provider\'s land; deferred when BLOCKED; complete after a land', () => {
@@ -489,6 +525,18 @@ test('time budget: wall from each start to its complete, work is wall minus loca
   assert.deepEqual([none.total.wall_minutes, none.total.work_minutes, none.total.test_share, none.total.test_per_work], [null, null, null, null]);
 });
 
+test('layer merge refuses a committed generated file stale on the layer, naming the file and its regenerate (the coordinator, 6 Nov: order.mjs)', async () => {
+  const { root, bare } = product({ done: true, config: { generated: [{ paths: ['gen/order.mjs'], regenerate: ['node', '-e', "require('fs').writeFileSync('gen/order.mjs','new\\n')"], verify: ['node', '-e', '0'] }] } });
+  commit(root, { 'gen/order.mjs': 'old\n' }, 'a committed generated file, stale');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no PR on a stale file'), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
+  const lines = [];
+  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: (l) => lines.push(l) }), /layer 1 cannot merge: the layer checks found 1 finding/);
+  assert.ok(lines.some((l) => /^generated: gen\/order\.mjs: gen\/order\.mjs is stale on layer\/1 \S+: run node -e .* and commit it \(a plain pull request into layer\/1\), then .*layer merge 1 again$/.test(l)), lines.join('\n'));
+});
+
 test('layer merge runs the layer checks but no module suite: a red entry check refuses the merge; green, it merges and still no suite ran', async () => {
   const marker = join(mkdtempSync(join(tmpdir(), 'p3-mark-')), 'suite-ran');
   const suite = { cwd: '.', command: ['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, '1')`, '--test'] };
@@ -542,6 +590,40 @@ test('the gate\'s layer trigger: each module covered by a verified green land; a
   const none = cover({ ...withRows, verify: () => false });
   assert.equal(none.covered.length, 0);
   assert.ok(none.findings.every((f) => f.check === 'layer'));
+});
+
+// C13 (the coordinator, 7 Nov): PR 696, opened by the suspended account, reads 404; layer 9's merge
+// gate failed on it. A landed PR GitHub no longer serves is judged from the state branch's land row
+// for that merge and its gate run's own artifact, recorded pr_unreadable; one with no land row fails closed.
+test('the layer gate: a landed PR that reads 404 is covered from its land row and its gate run artifact; with no land row, not covered', async () => {
+  const { root, bare } = await opened();
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' });
+  const prs = { 1: prOf(1, 'c', hc) };
+  const run = { sha: hc, ok: true, trigger: 'code', suite: 'pass', scope: ['c'], run_id: 77, run_attempt: 1, at: '2026-11-07T01:00:00Z' };
+  await layerLand(root, 1, { io: landIO(bare, prs, { comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [run] }, 'gate') }] }), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const gone = () => { throw new Fail('gh api repos/o/p/pulls/1 failed: gh: Not Found (HTTP 404)'); };
+  const seen = [];
+  const io = { getPR: gone, comments: gone, runArtifactRow: (s, id) => (id === 77 ? run : null), verify: (s, r, ctx) => { seen.push(ctx); return r.run_id === 77; } };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  const c = r.covered.find((x) => x.id === 'c');
+  assert.ok(c, JSON.stringify(r));
+  assert.match(c.pr_unreadable, /HTTP 404/);
+  assert.equal(seen[0].merged.branch, 'job/c', 'the run is bound to the module\'s job branch');
+  // Not a 404: fails closed, as before.
+  assert.throws(() => layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, getPR: () => { throw new Fail('gh api failed: HTTP 502'); } } }), /HTTP 502/);
+  // An artifact that is another run's: not covered (cold review of C13).
+  const other = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, runArtifactRow: () => ({ ...run, run_id: 78 }) } });
+  assert.ok(!other.covered.some((x) => x.id === 'c'));
+  // No verified run: not covered, said why.
+  const r2 = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, verify: () => false } });
+  assert.ok(!r2.covered.some((x) => x.id === 'c'));
+  assert.ok(r2.findings.some((f) => /c changed with no land|GitHub does not serve the PR/.test(f.message)), JSON.stringify(r2.findings));
 });
 
 test('trial measures: a reschedule that changed its user\'s result is counted, and halted minutes are summed', () => {
@@ -1187,6 +1269,8 @@ const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive
 const syncIO = (bare, made) => ({
   slug: 'o/p', openPRs: () => [], findPR: () => null,
   createPR: (s, p) => { made.push(p); return { number: 90 + made.length, ...p }; },
+  // Every pull request ever opened from a branch: the ones made here.
+  prsFromBranch: (s, b) => made.filter((p) => p.head === b),
   waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
   merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
 });
