@@ -617,6 +617,9 @@ test('the layer gate: a landed PR that reads 404 is covered from its land row an
   assert.equal(seen[0].merged.branch, 'job/c', 'the run is bound to the module\'s job branch');
   // Not a 404: fails closed, as before.
   assert.throws(() => layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, getPR: () => { throw new Fail('gh api failed: HTTP 502'); } } }), /HTTP 502/);
+  // An artifact that is another run's: not covered (cold review of C13).
+  const other = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, runArtifactRow: () => ({ ...run, run_id: 78 }) } });
+  assert.ok(!other.covered.some((x) => x.id === 'c'));
   // No verified run: not covered, said why.
   const r2 = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io: { ...io, verify: () => false } });
   assert.ok(!r2.covered.some((x) => x.id === 'c'));

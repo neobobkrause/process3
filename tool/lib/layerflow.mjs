@@ -1376,17 +1376,27 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const hidden = (c, k, p, why) => {
     const no = (w) => { const v = { why: w }; landOf.set(c, v); return v; };
     const n0 = Number(String(branch).match(/(\d+)$/)?.[1]);
-    if (stateRows === null) { try { fetchState(root, cfg.state_branch); stateRows = flowRows(root, cfg.state_branch, n0); } catch { stateRows = false; } }
+    // The state branch as fetched, or as the checkout already holds it (CI's checkout has the whole
+    // history and no credentials to fetch again: cold review of C13).
+    if (stateRows === null) {
+      try { fetchState(root, cfg.state_branch); } catch { /* read what the checkout holds */ }
+      try { stateRows = git(['rev-parse', '-q', '--verify', `refs/remotes/origin/${cfg.state_branch}`], { cwd: root, allowFail: true }).code === 0 ? flowRows(root, cfg.state_branch, n0) : false; } catch { stateRows = false; }
+    }
     const land = stateRows ? stateRows.lands.find((l) => l.pr === k && l.merge === c && l.head === p[1]) : null;
     if (!land || !entries.some((e) => e.id === land.module)) return no(`is PR ${k}'s merge, but GitHub does not serve PR ${k} (${why}) and ${cfg.state_branch} holds no land row for this merge`);
     const id = land.module;
     const art = io.runArtifactRow || runArtifactRow;
-    const ctx = { pr: k, baseRef: branch, merged: { branch: startBranch(rowsAt(root, p[1], id), id) } };
-    const rows = stateRows.gates.filter((g) => g.pr === k && g.sha === p[1] && g.run_id).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+    // The run is bound to the module's own job branch by name (job/<id> or job/<id>-<n>), read from the
+    // start row on the layer before the land, never from the PR's own head (cold review of C13).
+    const jb = startBranch(rowsAt(root, p[0], id), id);
+    if (!new RegExp(`^job/${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-\\d+)?$`).test(jb)) return no(`is PR ${k}'s land (from ${cfg.state_branch}), but ${jb} is not ${id}'s job branch`);
+    const ctx = { pr: k, baseRef: branch, merged: { branch: jb } };
+    // Its newest run on the head by GitHub's own run id (and attempt), never a session-written time.
+    const rows = stateRows.gates.filter((g) => g.pr === k && g.sha === p[1] && g.run_id).sort((a, b) => (Number(a.run_id) - Number(b.run_id)) || ((a.run_attempt ?? 1) - (b.run_attempt ?? 1)));
     const last = rows.at(-1);
     let row = null;
     try { row = last ? art(slug, last.run_id) : null; } catch { row = null; }
-    if (!row || row.sha !== p[1] || !whole(row, id) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but its gate run on ${short(p[1])} ${last ? 'is not a verified green run of the whole suite' : 'is not recorded'}`);
+    if (!row || Number(row.run_id) !== Number(last.run_id) || row.sha !== p[1] || !whole(row, id) || !io.verify(slug, row, ctx)) return no(`is PR ${k}'s land (from ${cfg.state_branch}: GitHub does not serve the PR), but its gate run on ${short(p[1])} ${last ? 'is not a verified green run of the whole suite' : 'is not recorded'}`);
     const v = { pr: k, id, head: p[1], parent: p[0], pr_unreadable: why.slice(0, 200) };
     landOf.set(c, v);
     return v;
