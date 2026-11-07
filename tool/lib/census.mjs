@@ -143,7 +143,13 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
       // Past only when a layer is open and this one is before it; with none open, which modules
       // were built is BOB's to say: flagged, never written ready.
       const past = first !== null && n !== null && n < first;
-      const why = !past ? 'no layer is open, so whether it was built is not known' : !(r.paths || []).length ? 'its modules row has no paths' : !(r.tests || []).length ? 'its modules row has no tests' : null;
+      // Ready only when what it claims is there: every path and test of its row on the ref (cold
+      // review: a layer skipped, or a module dropped from a closed one, has a past layer number too).
+      const missing = [...(r.paths || []), ...(r.tests || [])].filter((p) => !exists(root, ref, String(p).replace(/\/$/, '')));
+      const why = !past ? 'no layer is open, so whether it was built is not known'
+        : !(r.paths || []).length ? 'its modules row has no paths' : !(r.tests || []).length ? 'its modules row has no tests'
+          : missing.length ? `${missing.slice(0, 2).join(', ')} not on ${ref}: whether it was built is BOB's to say`
+            : !req ? `no requirements file ${dir}/${id}.md` : !neighbourSuite(entries, r.tests) ? `no neighbour's suite to copy (its tests: ${r.tests.join(', ')})` : null;
       const content = why ? null : {
         id, title: `${id}: built before the ledger`, ...(n !== null ? { layer: n } : {}),
         paths: [...new Set([...(r.paths || []), ...(req ? [req] : [])])], tests: r.tests, ...(req ? { requirements: req } : {}), uses: r.uses || [],

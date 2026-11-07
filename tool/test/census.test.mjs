@@ -68,9 +68,16 @@ test('census: every gap kind, named with what BOB writes; a module with its entr
     'bad:entry-requirements', 'c3:no-entry', 'd3:no-entry', 'e4:entry-requirements', 'loose:not-in-layer-map', 'lost:no-modules-row',
     'old1:no-entry', 'owed1:no-entry', 'skew:layer-mismatch', 'ux-design:no-entry',
   ].sort());
-  // C16: a module built before the ledger (no entry, its layer past, nothing unmet) is flagged, its
-  // COMPLETE entry ready; done1, with its entry, is no gap.
-  const old = c.gaps.find((x) => x.id === 'old1');
+  // C16: a module built before the ledger (no entry, its layer past, nothing unmet) is flagged.
+  // Its paths and tests are not on the tranche: whether it was built is BOB's to say, no entry ready.
+  const old0 = c.gaps.find((x) => x.id === 'old1');
+  assert.match(old0.fix, /write process\/ledger\/old1\.json recording it COMPLETE \(built before the ledger; .*\) \(not ready: bio-plane\/src\/old1\/, bio-plane\/test\/m\/old1\/ not on origin\/tranche: whether it was built is BOB's to say/);
+  assert.equal(old0.content, undefined);
+  // Once they are: its COMPLETE entry ready; done1, with its entry, is no gap.
+  commit(root, { 'bio-plane/src/old1/index.mjs': 'x\n', 'bio-plane/test/m/old1/t.test.mjs': 'x\n' });
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const old = census(root, cfg, { ref: 'origin/tranche', open: [2], now: NOW }).gaps.find((x) => x.id === 'old1');
   assert.match(old.fix, /write process\/ledger\/old1\.json recording it COMPLETE \(built before the ledger; modules that use it wait for it as a provider until it has one\) \(ready below/);
   assert.equal(old.done, true);
   assert.deepEqual([old.content.status.state, old.content.layer, old.file], ['COMPLETE', 1, 'process/ledger/old1.json']);
@@ -224,5 +231,6 @@ test('status --role bob: the gaps block for the open layer and its lookahead, th
   const at = ls.findIndex((l) => l.startsWith('built before the ledger (no entry: modules that use one wait for it as a provider): 1'));
   assert.ok(at >= 0, ls.join('\n'));
   assert.ok(ls.slice(at).some((l) => /^- old1 \(layer 1\), no-entry: write process\/ledger\/old1\.json recording it COMPLETE/.test(l)), ls.join('\n'));
-  assert.ok(ls.slice(at).some((l) => /^--- process\/ledger\/old1\.json/.test(l) && /"state": "COMPLETE"/.test(l)), ls.join('\n'));
+  // Its paths are not on the tranche here: listed, not ready (test 1 shows it ready once they are).
+  assert.ok(ls.slice(at).some((l) => /^- old1 .*not ready: .*not on origin\/tranche/.test(l)), ls.join('\n'));
 });

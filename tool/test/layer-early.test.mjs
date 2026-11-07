@@ -71,7 +71,7 @@ test('a provider with no ledger entry: not early, naming the missing entry and t
   const out = [];
   const r = layerJobs(root, 1, { io, log: (l) => out.push(l) });
   assert.deepEqual(r.early.map((x) => x.id), []);
-  assert.ok(out.some((l) => l.startsWith(`not early (layer 2): c (legacy has no ledger entry (process/ledger/legacy.json): \`${P3} status --role bob\` prints it under "built before the ledger", BOB lands it, then it counts as COMPLETE)`)), out.join('\n'));
+  assert.ok(out.some((l) => l.startsWith(`not early (layer 2): c (legacy has no ledger entry (process/ledger/legacy.json): it is settled once BOB lands one (the census in \`${P3} status --role bob\` lists the module and its fix))`)), out.join('\n'));
 });
 
 test('job start --early: layer/2 cut ahead from layer/1\'s tip, the early row recorded; the job\'s base is layer/2; once only; an unsettled module refused', () => {

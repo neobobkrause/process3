@@ -603,7 +603,7 @@ export function earlyNext(root, cfg, n, L) {
     if (joined.has(p)) return `${p} joined layer ${nx.n}: its work is pending`;
     const e = entryOf(p);
     // No entry at all (C16, the copy 7 Nov: 49 modules built before the ledger): named with its act.
-    if (!e) return `${p} has no ledger entry (${entryFile(p)}): \`${P3} status --role bob\` prints it under "built before the ledger", BOB lands it, then it counts as COMPLETE`;
+    if (!e) return `${p} has no ledger entry (${entryFile(p)}): it is settled once BOB lands one (the census in \`${P3} status --role bob\` lists the module and its fix)`;
     if (e.status?.state !== 'COMPLETE') return `${p} is ${e.status?.state}`;
     return marksOf(p, e).length ? `${p} has unmet marks` : null;
   };
