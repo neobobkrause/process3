@@ -14,7 +14,7 @@ import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwe
 import { markLaneHeld } from './lane.mjs';
 import { SILENT_HOURS, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
-import { layerMergeLine, layerStartAct, readOpenLayer } from './layerflow.mjs';
+import { flowRows, layerMergeLine, layerStartAct, needsSlot, readOpenLayer } from './layerflow.mjs';
 import { ROUND_ACT, deploys, owedAt } from './deploy.mjs';
 import { openState } from './tranche.mjs';
 
@@ -83,7 +83,9 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
   const held = slotsHeld(holds);
   const open = view?.kind === 'open';
   // The open layer's own starts first, then its early starts into the next layer (R14): idle capacity.
-  const st = open ? [...view.startable, ...(view.early || [])] : [];
+  // An additive retest (`layer retest`) runs in CI with no job session: it fills no slot, so it is
+  // no idle capacity's work (C25).
+  const st = open ? [...view.startable, ...(view.early || [])].filter(needsSlot) : [];
   const inWork = st.map((j) => ({ j, h: heldBy(holds, j.id, layers) })).filter((x) => x.h);
   const go = st.filter((j) => !inWork.some((x) => x.j === j));
   const n = go.length;
@@ -98,15 +100,29 @@ export function layerIdle({ live, cap, holds = [], view, layers = new Map(), pre
   const why = [];
   // The layer's own starts first, then its early starts (R14), as the fill takes them.
   const own = go.filter((j) => !(view.early || []).includes(j)).length;
-  if (Math.min(k, own)) why.push(`${Math.min(k, own)} x startable from ${P3} layer jobs ${view.n}, not started`);
-  if (k > own) why.push(`${k - own} x early starts into layer ${view.early_next} listed by ${P3} layer jobs ${view.n}, not started`);
+  // The jobs that fill the empty slots, named (C25: on the copy's layer 11 BOB read "(after X)" as
+  // a wait and left slots empty 20-108 min; only a recorded hold waits, and a start before a
+  // provider lands is an early start, R10): the first k, in the list's order.
+  const fill = go.slice(0, k).map((j) => j.id);
+  if (Math.min(k, own)) why.push(`${Math.min(k, own)} x startable from ${P3} layer jobs ${view.n}, not started (start now: ${fill.slice(0, Math.min(k, own)).join(', ')}; one listed after a provider in flight is an early start, R10, and only a recorded hold waits)`);
+  if (k > own) why.push(`${k - own} x early starts into layer ${view.early_next} listed by ${P3} layer jobs ${view.n}, not started (${fill.slice(own).join(', ')})`);
   for (const y of inWork.slice(0, empty - k)) why.push(`${y.j.id}: held by ${y.h.id} (by ${y.h.by}): ${y.h.why}`);
   const rest = empty - k - Math.min(inWork.length, empty - k);
   if (rest > 0) {
     const where = open ? (view.ready ? `layer ${view.n} can merge (${P3} layer merge ${view.n})` : `layer ${view.n} lists no job to start`) : view?.kind === 'next' ? `layer ${view.n} is next and not open (${P3} layer open ${view.n})` : 'no open layer';
     why.push(`${rest} x no startable work: ${where}`);
   }
-  return { kind, since: iso(since), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind], ...(open ? { layer: view.n } : {}), reasons: why };
+  return { kind, since: iso(since), min, live, cap, held, startable: n, empty, alarm: min >= IDLE_MIN[kind], ...(open ? { layer: view.n } : {}), ...(fill.length ? { fill } : {}), reasons: why };
+}
+// The job starts recorded since a time: the open layer's start rows and its early starts' rows
+// into the next layer (layerflow.mjs flowRows), each a job session the sweep's live count lacks.
+export function startsSince(root, sb, view, at) {
+  const t = Date.parse(at);
+  if (!view || !Number.isFinite(t)) return 0;
+  const after = (r) => Date.parse(r.at) > t;
+  const own = view.n !== undefined && view.n !== null ? flowRows(root, sb, view.n).starts.filter(after).length : 0;
+  const early = view.early_next !== undefined && view.early_next !== null ? flowRows(root, sb, view.early_next).earlies.filter(after).length : 0;
+  return own + early;
 }
 // Between sweeps (coordinator, 5 Nov: a scheduled task runs at most hourly, measured): every p3
 // command any role runs, before its act, evaluates idle capacity when the last sweep row is
@@ -137,7 +153,9 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   const rows = jsonl(readStateWith(root, sb, SWEEP_ROWS_FILE));
   if (fresh(rows.at(-1), t)) return null;
   const m = [...rows].reverse().find((r) => r.row === 'sweep' && Number.isInteger(r.live));
-  const live = m && t - Date.parse(m.at) < LIVE_MIN * 6e4 ? m.live : null;
+  const measured = m && t - Date.parse(m.at) < LIVE_MIN * 6e4 ? m.live : null;
+  let live = measured;
+  let since = 0;
   let ic = null;
   let count = null;
   let unread = null;
@@ -149,6 +167,12 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
     if (out.open?.state === 'open') {
       try {
         view = readOpenLayer(root, cfg, { io: io || {} });
+        // The sweep's count, and every job started since it measured (C25: on the copy's layer 11
+        // the checks from 16:18 to 16:50 judged 16 slots empty on the 15:53 sweep's live 4 while BOB
+        // started about 20 jobs): an upper bound, so a slot a start filled is never called empty.
+        // An end frees a slot only when the next sweep measures it.
+        since = startsSince(root, cfg.state_branch, view, m.at);
+        live = measured + since;
         const holds = out.holds || [];
         const layers = holds.some((h) => h.live && h.kind === 'layer') ? layersAt(root, cfg) : new Map();
         ic = layerIdle({ live, cap: jobCap(cfg).cap, holds, view, layers, prev: judged(rows), freed: ct(root, [`origin/${cfg.tranche}`]), t });
@@ -157,7 +181,7 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
     }
   }
   const { reasons = [], ...rec } = ic || {};
-  const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
+  const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), ...(since ? { live_measured: measured, started_since: since } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
   // An ok row is bookkeeping (C18): it never pushes on its own; it rides the command's or the
   // clone's next real write, left out there if another session's row landed within CHECK_MIN. An
   // alarm is a real write, as before: only the session whose row lands prints it, wakes BOB and

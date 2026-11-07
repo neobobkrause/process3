@@ -98,7 +98,8 @@ test('idle capacity: slots count against the open layer\'s startable jobs, never
   assert.equal(ic.kind, 'work');
   assert.equal(ic.alarm, true);
   assert.equal(ic.startable, 2);
-  assert.deepEqual(ic.reasons, [`2 x startable from ${P3} layer jobs 3, not started`, '2 x no startable work: layer 3 lists no job to start']);
+  assert.deepEqual(ic.reasons, [`2 x startable from ${P3} layer jobs 3, not started (start now: b, c; one listed after a provider in flight is an early start, R10, and only a recorded hold waits)`, '2 x no startable work: layer 3 lists no job to start']);
+  assert.deepEqual(ic.fill, ['b', 'c']);
   assert.ok(!ic.reasons.some((r) => /ready to close|job start --ready|train/.test(r)));
   // A module hold on a startable job: named; a hold of another layer's module: nothing.
   const holds = [{ live: true, kind: 'module', value: 'b', id: 'h1', by: 'bob', why: 'waits' }, { live: true, kind: 'module', value: 'zz', id: 'h2', by: 'bob', why: 'other' }];
@@ -106,12 +107,26 @@ test('idle capacity: slots count against the open layer\'s startable jobs, never
   assert.equal(layerIdle({ live: 2, cap: 6, holds, view: view(), prev, t }), null);
   const h = layerIdle({ live: 1, cap: 6, holds, view: view({ startable: [{ id: 'b', cmd: 'x' }, { id: 'c', cmd: 'y' }] }), prev, t });
   assert.equal(h.startable, 1);
-  assert.deepEqual(h.reasons, [`1 x startable from ${P3} layer jobs 3, not started`, 'b: held by h1 (by bob): waits', '3 x no startable work: layer 3 lists no job to start']);
+  assert.deepEqual(h.reasons, [`1 x startable from ${P3} layer jobs 3, not started (start now: c; one listed after a provider in flight is an early start, R10, and only a recorded hold waits)`, 'b: held by h1 (by bob): waits', '3 x no startable work: layer 3 lists no job to start']);
   // The layer can merge, or the next is not open: said as the empty slots' reason.
   assert.match(layerIdle({ live: 0, cap: 4, view: view({ startable: [], ready: true }), t }).reasons[0], /^4 x no startable work: layer 3 can merge \(.*layer merge 3\)$/);
   assert.match(layerIdle({ live: 0, cap: 4, view: { kind: 'next', n: 4 }, t }).reasons[0], /layer 4 is next and not open/);
   // Full: none.
   assert.equal(layerIdle({ live: 6, cap: 6, view: view(), t }), null);
+});
+
+// C25 (the coordinator, 7 Nov): on the copy's layer 11 IDLE CAPACITY ran 141 min while BOB held jobs
+// listed "(after <provider>)" as waits. The alarm names the jobs that fill the empty slots, says an
+// early start is BOB's now, and counts no additive retest (CI's, no job session) as a slot's work.
+test('idle capacity (C25): the jobs that fill the empty slots are named, early ones included; a retest fills no slot', () => {
+  const t = Date.parse('2026-11-07T18:37:00Z');
+  const v = view({ startable: [{ id: 'a', cmd: `${P3} job start a --live <n>` }, { id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }, { id: 'b', cmd: `${P3} job start b --live <n>`, after: ['q'] }, { id: 'c', cmd: `${P3} job start c --live <n>`, after: ['q'] }] });
+  const ic = layerIdle({ live: 4, cap: 6, view: v, t });
+  assert.equal(ic.startable, 3, 'the retest is not counted');
+  assert.deepEqual(ic.fill, ['a', 'b'], 'two empty slots: the first two in the list, the early b among them');
+  assert.match(ic.reasons[0], /^2 x startable from .* layer jobs 3, not started \(start now: a, b; one listed after a provider in flight is an early start, R10, and only a recorded hold waits\)$/);
+  // Only retests listed: no idle capacity (they need no session).
+  assert.equal(layerIdle({ live: 4, cap: 6, view: view({ startable: [{ id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }] }), t }), null);
 });
 
 const run = (root, o = {}) => sweep(root, { session: R, offline: true, log: quiet, ...o });
@@ -273,4 +288,40 @@ test('starts owed are paid: a job start or layer open pays what was owed before 
   run(root, { offline: false, io: IO, live: 0 });
   fetchState(root, SB, { fresh: true });
   assert.equal(readState(root, SB, OWED_FILE), null, 'every layer merged: paid');
+});
+
+// C25: between sweeps the check judged on the sweep's live count alone (the copy, 16:18-16:50: 16
+// slots "empty" on the 15:53 sweep's live 4 while BOB started about 20 jobs). Every start recorded
+// since the measurement counts: the open layer's start rows and the early starts into the next.
+test('idle check (C25): starts recorded since the sweep measured count as live', async () => {
+  const { startsSince } = await import('../lib/sweep.mjs');
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const start = (n, id, at) => [flowFile(n, 'start', `${id}-${Date.parse(at)}`), { row: 'start', layer: n, module: id, at }];
+  writeRows(root, SB, 'starts', [
+    start(11, 'old', '2026-11-07T15:40:00Z'),
+    start(11, 'a', '2026-11-07T16:14:00Z'), start(11, 'b', '2026-11-07T16:20:00Z'),
+    [flowFile(12, 'early', 'e-1'), { row: 'early', layer: 12, module: 'e', at: '2026-11-07T16:30:00Z' }],
+    [flowFile(12, 'early', 'e-0'), { row: 'early', layer: 12, module: 'f', at: '2026-11-07T15:00:00Z' }],
+  ]);
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  const v = { kind: 'open', n: 11, early_next: 12 };
+  assert.equal(startsSince(root, SB, v, '2026-11-07T15:53:46Z'), 3, 'a, b and the early e; not the starts before the measurement');
+  assert.equal(startsSince(root, SB, { kind: 'open', n: 11 }, '2026-11-07T15:53:46Z'), 2);
+  assert.equal(startsSince(root, SB, v, 'unread'), 0);
+  // The idle judged on the sum: the sweep's 4 and 3 since leave 13 empty of 20, not 16.
+  const ic = layerIdle({ live: 4 + 3, cap: 20, view: view({ startable: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --live <n>` })) }), t: Date.parse('2026-11-07T16:18:37Z') });
+  assert.equal(ic.empty, 13);
+});
+
+test('flow line (C25): startable counts the jobs that take a slot, as the idle check does; retests apart', async () => {
+  const { flow } = await import('../lib/status.mjs');
+  const v = view({ startable: [{ id: 'a', cmd: `${P3} job start a --live <n>` }, { id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }] });
+  const f = flow(configOf({}), [], [], 19, null, [], { view: v });
+  assert.equal(f.startable, 1);
+  assert.match(f.line, /startable 1 \(and 1 retest, no job session\)/);
+  assert.ok(!/GitHub pacing/.test(f.line));
+  assert.ok(!f.queued, 'one slot free, one job: none queued');
 });

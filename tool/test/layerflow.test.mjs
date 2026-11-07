@@ -1275,13 +1275,13 @@ test('layer jobs (R10): startable in the layer\'s total order, a module whose in
   const lines = [];
   const o = layerOpen(root, 1, { io: openIO, log: (l) => lines.push(l) });
   assert.deepEqual(o.startable.map((x) => [x.id, x.after || null]), [['a', null], ['c', null], ['b', ['a']], ['e', ['b']]]);
-  assert.ok(lines.some((l) => /job start b --live <n>\s+\(after a\)/.test(l)));
+  assert.ok(lines.some((l) => /job start b --live <n>\s+\(early: a not landed yet; start it now on a free slot, as an early start \(R10\); only a recorded hold waits\)/.test(l)));
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.deepEqual(j.states.map((s) => s.id), ['a', 'c', 'b', 'e'], 'layer status reads in the same order');
   const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
   const at = st.findIndex((l) => /^jobs to start/.test(l));
   assert.deepEqual(st.slice(at + 1, at + 5).map((l) => l.match(/job start (\w)/)[1]), ['a', 'c', 'b', 'e']);
-  assert.match(st[at + 3], /\(after a\)$/);
+  assert.match(st[at + 3], /\(early: a not landed yet; start it now.*only a recorded hold waits\)$/);
   // a lands: b is ready now, e still after b.
   const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
   await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', ha) }), log: quiet });
