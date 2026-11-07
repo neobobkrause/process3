@@ -6,6 +6,7 @@ import { classifyTestChange, tokens } from '../lib/testdiff.mjs';
 
 const base = `import test from 'node:test';
 import assert from 'node:assert/strict';
+import './helpers.mjs'; // no machine git config (C2)
 const input = 3;
 const expected = { status: 200 };
 test('R3 answers', () => { assert.deepEqual(f(input), expected); });

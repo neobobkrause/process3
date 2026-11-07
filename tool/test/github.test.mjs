@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { markReady, toDraft } from '../lib/github.mjs';
+import './helpers.mjs'; // no machine git config (C2)
 
 const ok = { code: 0, stdout: '', stderr: '' };
 const no = (msg) => ({ code: 1, stdout: '', stderr: msg });
