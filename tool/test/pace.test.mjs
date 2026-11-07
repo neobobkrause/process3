@@ -221,6 +221,7 @@ test('github budget: use against each published limit, per window, as a percenta
   assert.deepEqual(usageRows(root).map((r) => [r.calls, r.points, r.content]).reduce((s, x) => s.map((v, i) => v + x[i]), [0, 0, 0]), [5, 21, 4]);
   const cfg = configOf({});
   assert.ok(shareUsage(root, cfg, { force: true }) >= 1);
+  writeState(root, 'process-state', 'a real write', (wt) => { writeFileSync(join(wt, `real-${Math.random()}.txt`), 'r'); return {}; }); // a share rides a real write (C18)
   assert.match(git(['ls-tree', '--name-only', 'process-state', 'github/use/'], { cwd: bare }), /github\/use\/cse_me\.jsonl/);
   assert.equal(shareUsage(root, cfg, {}), 0, 'nothing new since');
   // Another session's shared rows count; this clone's own come from its log, never twice.
@@ -508,9 +509,11 @@ test('a session\'s use from another clone counts here; the share\'s own push is 
   ghTurn(['pr', 'comment', '1'], root, { p: P });
   const cfg = configOf({});
   assert.ok(shareUsage(root, cfg, { force: true }) >= 1);
+  writeState(root, 'process-state', 'a real write', (wt) => { writeFileSync(join(wt, `real-${Math.random()}.txt`), 'r'); return {}; }); // a share rides a real write (C18)
   const pushed = readFileSync(f, 'utf8').split('\n').filter((l) => l.includes('"kind":"push"')).length;
   assert.ok(pushed >= 1, 'the share pushed, logged');
   assert.ok(shareUsage(root, cfg, { force: true }) >= 1, 'that push is shared next time');
+  writeState(root, 'process-state', 'a real write', (wt) => { writeFileSync(join(wt, `real-${Math.random()}.txt`), 'r'); return {}; }); // a share rides a real write (C18)
   const rows = git(['show', `process-state:${USE_DIR}/cse_same.jsonl`], { cwd: bare }).split('\n').map((l) => JSON.parse(l));
   assert.ok(rows.reduce((n, r) => n + r.pushes, 0) >= 1);
 });

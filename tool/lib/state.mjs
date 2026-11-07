@@ -112,6 +112,8 @@ export function unbatched(fn) { const was = batch.on; batch.on = false; try { re
 // is refused (its writes are kept for replay).
 const flushedFns = new Map();
 export function onFlushed(root, sb, fn) { const k = `${root}\0${sb}`; flushedFns.set(k, [...(flushedFns.get(k) || []), fn]); }
+// Pending writes that are not bookkeeping: what a usage share may ride (C18).
+export const realPendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.filter((w) => !w.book).length, 0);
 export const pendingWrites = () => [...batch.pending.values()].reduce((n, x) => n + x.list.length, 0);
 const tipOf = (root, sb) => git(['rev-parse', '-q', '--verify', `${ref(sb)}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
 const emptyStart = (root, sb) => git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${sb}: the state branch`], { cwd: root });
@@ -159,7 +161,7 @@ function rebuild(root, sb, entry) {
 function writeStateLocal(root, sb, msg, change) {
   const key = `${root}\0${sb}`;
   const entry = batch.pending.get(key) || { root, sb, list: [], tip: null };
-  if (!entry.list.length) fetchState(root, sb);
+  if (!entry.list.length) { fetchState(root, sb); entry.base = tipOf(root, sb); }
   else if (tipOf(root, sb) !== entry.tip) rebuild(root, sb, entry); // the ref moved under this command
   const { tip, made } = commitAll(root, sb, tipOf(root, sb) || emptyStart(root, sb), [{ msg, change }]);
   // Refused on the clone's tip: as writeStateNow refuses, nothing kept or pending.
@@ -191,13 +193,70 @@ const dropPending = (root) => { for (const r of git(['for-each-ref', '--format=%
 // Pushes every pending write, one push per state branch. Refused to the end, or a change refusing
 // on origin's tip, its own kept commits move to refs/p3/unpushed/ and the refusal names the replay.
 // Returns the writes pushed.
+// Bookkeeping (C18, 7 Nov: the account at its push ceiling, BOB's clone 10 of 26 pushes nothing
+// but the tool's own records: idle-check rows, starts owed after a merge had pushed, paid after a
+// job start): a record the tool keeps for itself never makes a push of its own. It rides the
+// command's real write; with none, it waits in the clone (DEFERRED) and rides the next real write
+// any p3 process of the clone makes. The clone's own reads see it meanwhile (readStateWith). A
+// kind is applied by the function its module registers: fn(dir, payload), payload.path the file.
+const appliers = new Map();
+export function onBookkeeping(kind, fn) { appliers.set(kind, fn); }
+const deferredFile = (root, sb) => join(commonDir(root), `p3-deferred-${sb.replace(/[^\w.-]/g, '_')}.jsonl`);
+function deferredOps(root, sb) {
+  try { return readFileSync(deferredFile(root, sb), 'utf8').split('\n').filter(Boolean).flatMap((l) => { try { const o = JSON.parse(l); return appliers.has(o.kind) ? [o] : []; } catch { return []; } }); } catch { return []; }
+}
+function deferOps(root, sb, ops) { if (ops.length) appendFileSync(deferredFile(root, sb), ops.map((o) => JSON.stringify(o) + '\n').join('')); }
+// The ops pushed: removed from the file, ops another process added meanwhile kept.
+function dropDeferred(root, sb, ops) {
+  const done = new Set(ops.map((o) => JSON.stringify(o)));
+  try {
+    const left = readFileSync(deferredFile(root, sb), 'utf8').split('\n').filter(Boolean).filter((l) => !done.has(l));
+    if (left.length) writeFileSync(deferredFile(root, sb), left.join('\n') + '\n'); else rmSync(deferredFile(root, sb), { force: true });
+  } catch { /* none */ }
+}
+// Waiting records pushed by a later write: what waited on them is told, as by a replay.
+const pushedBooks = (root, ops) => { for (const o of ops) for (const fn of replayedFns) { try { fn(o.msg, root); } catch { /* a record only */ } } };
+const asWrite = (o) => ({ msg: o.msg, change: (dir) => { appliers.get(o.kind)(dir, o.payload); return {}; }, book: o });
+export function bookkeep(root, sb, msg, kind, payload) {
+  if (!appliers.has(kind)) fail(`bookkeeping ${kind}: no applier registered`);
+  const o = { kind, msg, payload };
+  if (batch.on) { writeStateLocal(root, sb, msg, asWrite(o).change); batch.pending.get(`${root}\0${sb}`).list.at(-1).book = o; return; }
+  withStateLock(root, () => deferOps(root, sb, [o]));
+}
+// A state file as the clone knows it: the branch's, with the clone's bookkeeping not yet pushed.
+export function readStateWith(root, sb, path) {
+  const text = readState(root, sb, path);
+  const ops = deferredOps(root, sb).filter((o) => o.payload?.path === path);
+  if (!ops.length) return text;
+  return withTemp('p3-state-', (tmp) => {
+    mkdirSync(dirname(join(tmp, path)), { recursive: true });
+    if (text !== null) writeFileSync(join(tmp, path), text);
+    for (const o of ops) { try { appliers.get(o.kind)(tmp, o.payload); } catch { /* a record only */ } }
+    return existsSync(join(tmp, path)) ? readFileSync(join(tmp, path), 'utf8') : null;
+  }, { root });
+}
 export function flushState({ log = () => {} } = {}) {
   let n = 0;
   const lost = [];
   for (const [key, entry] of [...batch.pending]) {
     batch.pending.delete(key);
     if (!entry.list.length) continue;
-    const { root, sb, list } = entry;
+    const { root, sb } = entry;
+    // Bookkeeping alone: no push; it waits in the clone for a real write (C18).
+    if (entry.list.every((x) => x.book)) {
+      withStateLock(root, () => {
+        deferOps(root, sb, entry.list.map((x) => x.book));
+        // The clone's copy of the branch back to origin's as read: the records live in DEFERRED only.
+        if (tipOf(root, sb) === entry.tip) git(['update-ref', ...(entry.base ? [ref(sb), entry.base] : ['-d', ref(sb)])], { cwd: root, allowFail: true });
+      });
+      dropPending(root);
+      fetched.delete(key);
+      flushedFns.delete(key); // settled when a later write pushes them (pushedBooks)
+      continue;
+    }
+    // A real write: the clone's waiting bookkeeping rides it.
+    const waiting = deferredOps(root, sb);
+    const list = [...entry.list, ...waiting.map(asWrite)];
     const refused = [];
     const dropped = [];
     const out = new Set(); // the indexes of the writes left out, never kept for a replay
@@ -228,6 +287,7 @@ export function flushState({ log = () => {} } = {}) {
       throw e;
     }
     dropPending(root);
+    if (waiting.length) { dropDeferred(root, sb, waiting); pushedBooks(root, waiting); }
     n += list.length - refused.length - dropped.length;
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(key); }
     lost.push(...refused);
@@ -248,8 +308,12 @@ function writeStateNow(root, sb, msg, change, { park = true } = {}) {
     const wt = join(tmp, 's');
     git(['worktree', 'add', '-q', '--detach', wt, start], { cwd: root });
     let out;
+    // The clone's waiting bookkeeping rides this write (C18).
+    const waiting = deferredOps(root, sb);
+    const books = () => { for (const o of waiting) { try { appliers.get(o.kind)(wt, o.payload); } catch { /* a record only */ } } };
     const make = () => {
       out = change(wt);
+      books();
       git(['add', '-A'], { cwd: wt });
       git(['commit', '-q', '--allow-empty', '-m', msg], { cwd: wt });
     };
@@ -261,7 +325,7 @@ function writeStateNow(root, sb, msg, change, { park = true } = {}) {
     // Made again on a tip another writer moved: a change that refuses there is dropped and logged,
     // never kept for a replay that would refuse it too.
     let lost = null;
-    const again = () => { lost = null; const r = applyOne(wt, { msg, change }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
+    const again = () => { lost = null; const r = applyOne(wt, { msg, change: (d) => { const o = change(d); books(); return o; } }); if (r.o !== undefined) out = r.o; if (r.refused !== undefined) lost = r.refused; };
     try { tip = pushRetry(wt, sb, { redo: again, stamp: true, wait: stateIO.wait ?? 2000, ...(stateIO.push ? { push: () => stateIO.push(wt, sb) } : {}) }); } catch (e) {
       if (!(e instanceof Fail)) throw e;
       if (!park) throw e;
@@ -269,6 +333,7 @@ function writeStateNow(root, sb, msg, change, { park = true } = {}) {
       git(['update-ref', name, 'HEAD'], { cwd: wt });
       fail(`${e.message}. The write is kept: replay it with \`node .process/tool/p3.mjs state replay ${name}\``);
     }
+    if (waiting.length) { dropDeferred(root, sb, waiting); pushedBooks(root, waiting); }
     try { fetchState(root, sb, { fresh: true }); } catch { fetched.delete(`${root}\0${sb}`); } // pushed: a failed read-back is not a failed write
     // Refused on the tip another writer moved to (a reservation that lost: a lane's seat, an
     // address): nothing written, never kept, said plainly.

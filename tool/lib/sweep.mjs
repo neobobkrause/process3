@@ -4,11 +4,11 @@
 // address and prints the watcher's decision. The session makes every call.
 import { expireRecords, staleRecords } from './expire.mjs';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { P3, jobSender, wakeLine } from './job.mjs';
 import { rowsAt } from './metrics.mjs';
 import { readAddress, senderOf, wakeSteps } from './roles.mjs';
-import { fetchState, heldAct, heldWrites, jsonl, messages, messagesFile, readState, withCoordinator, writeState } from './state.mjs';
+import { bookkeep, fetchState, heldAct, heldWrites, jsonl, messages, messagesFile, onBookkeeping, readState, readStateWith, withCoordinator, writeState } from './state.mjs';
 import { openPinMoves } from './pin.mjs';
 import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
@@ -120,12 +120,19 @@ const lastRow = (text) => jsonl(text).at(-1);
 const fresh = (row, t) => t - (Date.parse(row?.at) || 0) < CHECK_MIN * 6e4;
 // The row an idle continues from: the last that judged on a measured count (sweep or check).
 export const judged = (rows) => [...rows].reverse().find((r) => ['sweep', 'check'].includes(r.row) && Number.isInteger(r.live));
+onBookkeeping('check', (dir, { path, row }) => {
+  const p = join(dir, path);
+  if (fresh(lastRow(existsSync(p) ? readFileSync(p, 'utf8') : ''), Date.parse(row.at))) return;
+  mkdirSync(dirname(p), { recursive: true });
+  appendFileSync(p, JSON.stringify(row) + '\n');
+});
 export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = status, io, log = console.log } = {}) {
   const sb = cfg.state_branch;
   if (cfg.plan === 'pause' || cfg.plan === 'stop') return null;
-  if (fresh(lastRow(readState(root, sb, SWEEP_ROWS_FILE)), t) || !fetchState(root, sb)) return null;
+  // The clone's own check not yet pushed counts (C18: its row rides the next real write).
+  if (fresh(lastRow(readStateWith(root, sb, SWEEP_ROWS_FILE)), t) || !fetchState(root, sb)) return null;
   cfg = withCoordinator(root, cfg);
-  const rows = jsonl(readState(root, sb, SWEEP_ROWS_FILE));
+  const rows = jsonl(readStateWith(root, sb, SWEEP_ROWS_FILE));
   if (fresh(rows.at(-1), t)) return null;
   const m = [...rows].reverse().find((r) => r.row === 'sweep' && Number.isInteger(r.live));
   const live = m && t - Date.parse(m.at) < LIVE_MIN * 6e4 ? m.live : null;
@@ -149,16 +156,9 @@ export function idleCheck(root, cfg, { by, from = 'bob', t = Date.now(), read = 
   }
   const { reasons = [], ...rec } = ic || {};
   const row = { at: new Date(t).toISOString().replace(/\.\d+Z$/, 'Z'), row: 'check', by, live: live ?? 'unmeasured', ...(m ? { live_at: m.at } : {}), job_cap: jobCap(cfg).cap, startable: count, ...(unread ? { unread } : {}), ...(ic ? { idle_capacity: rec } : {}) };
-  // Another session's row landed first: nothing written, nothing pushed, nothing printed.
-  const LOST = new Superseded('another check landed first');
-  try {
-    writeState(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, (dir) => {
-      const p = join(dir, SWEEP_ROWS_FILE);
-      if (fresh(lastRow(existsSync(p) ? readFileSync(p, 'utf8') : ''), t)) throw LOST;
-      mkdirSync(join(dir, 'metrics'), { recursive: true });
-      appendFileSync(p, JSON.stringify(row) + '\n');
-    });
-  } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
+  // Bookkeeping (C18): the row never pushes on its own; it rides the command's or the clone's next
+  // real write, and is left out there if another session's row landed within CHECK_MIN of it.
+  try { bookkeep(root, sb, `idle check: ${ic?.alarm ? 'IDLE CAPACITY' : 'ok'}`, 'check', { path: SWEEP_ROWS_FILE, row }); } catch (e) { if (!(e instanceof Fail)) throw e; return null; }
   if (ic?.alarm) {
     const line = `IDLE CAPACITY: ${ic.live} job sessions live of the cap ${ic.cap}${ic.held ? ` less ${ic.held} held` : ''}, ${ic.startable} startable, for ${ic.min} min; ${reasons.join('; ')}`;
     log(line);

@@ -402,6 +402,8 @@ export function startable(states) {
 
 // ---- reading a layer ------------------------------------------------------------------------
 
+// The reads of status, layer jobs and the idle check: a clone's copy this recent serves (C18).
+const READ_MS = 30e3;
 function fetchLayer(root, cfg, n) {
   fetchBranch(root, cfg.tranche, { allowFail: true });
   fetchBranch(root, layerBranch(n), { allowFail: true });
@@ -477,7 +479,7 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
 // Only this tranche's close rows, as status's closedRows keeps them: its name, a commit not on main
 // (an earlier tranche of the same name closed its layers before it reached main: confirming review N4).
 export function closedLayers(root, sb, cfg) {
-  fetchBranch(root, 'main', { allowFail: true });
+  fetchBranch(root, 'main', { allowFail: true, within: READ_MS });
   const main = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 ? 'refs/remotes/origin/main' : null;
   return new Set((readState(root, sb, CLOSED_FILE) || '').split('\n').filter(Boolean).flatMap((l) => {
     try { const r = JSON.parse(l); return r.row === 'closed' && (!cfg || r.tranche === cfg.tranche) && !(main && r.commit && hasCommit(root, r.commit) && isAnc(root, r.commit, main)) ? [r.layer] : []; } catch { return []; }
@@ -493,7 +495,7 @@ const mainFetched = new Map();
 function staleFlow(root, rows) {
   const c = rows.merged?.commit;
   if (!c || !hasCommit(root, c)) return false;
-  if (Date.now() - (mainFetched.get(root) || 0) > 60000) { fetchBranch(root, 'main', { allowFail: true }); mainFetched.set(root, Date.now()); }
+  if (Date.now() - (mainFetched.get(root) || 0) > 60000) { fetchBranch(root, 'main', { allowFail: true, within: 60e3 }); mainFetched.set(root, Date.now()); }
   return git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0 && isAnc(root, c, 'refs/remotes/origin/main');
 }
 function layerBehind(root, cfg, L, closed, ref) {
@@ -528,7 +530,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     if (staleFlow(root, r)) return { kind: 'stale', n };
     if (r.merged) continue;
     if (!r.open) return { kind: 'next', n };
-    fetchBranch(root, layerBranch(n), { allowFail: true });
+    fetchBranch(root, layerBranch(n), { allowFail: true, within: READ_MS });
     const x = readLayer(root, cfg, n, { io, slug });
     let early = { next: null, list: [], skipped: [] };
     try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
@@ -670,9 +672,10 @@ export function earlyRework(rows, notices = []) {
 // openLayer after fetching the tranche and the state branch (the sweep, the idle check).
 // fetch false: the refs this clone has.
 export function readOpenLayer(root, cfg, { slug = null, io = {}, fetch = true } = {}) {
+  // A read: the clone's copies within READ_MS serve (C18); every act re-reads what it acts on.
   if (fetch) {
-    fetchBranch(root, cfg.tranche, { allowFail: true });
-    fetchState(root, cfg.state_branch, { fresh: true });
+    fetchBranch(root, cfg.tranche, { allowFail: true, within: READ_MS });
+    fetchState(root, cfg.state_branch);
   }
   return openLayer(root, cfg, { slug: slug || io.slug || repoSlug(root), io });
 }
