@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { makeRepo } from './helpers.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { sweep } from '../lib/sweep.mjs';
-import { sessionActs } from '../lib/status.mjs';
+import { permissionWaits, sessionActs } from '../lib/status.mjs';
 import { git } from '../lib/util.mjs';
 
 const NOW = Date.parse('2026-11-04T15:50:00Z');
@@ -100,12 +100,31 @@ test('sweep --sessions: prints each act, the line in found, and counts live from
   writeFileSync(file, JSON.stringify({ ccr: { data: [ // raw, as the tool returns it
     s('session_ROOT', 'ROOT', '01:00'), s('session_gone', 'x', '01:00', { state: 'archived' }),
     s('session_o', 'stray', '01:00', { updated_at: '2026-01-01T00:00:00Z', parent: 'session_gone' }),
-    s('session_q', 'build z', '01:00', { updated_at: '2026-01-01T00:00:00Z', parent: 'session_gone', asking: true })] } }));
+    s('session_q', 'build z', '01:00', { updated_at: '2026-01-01T00:00:00Z', parent: 'session_gone', asking: true }),
+    // C15: a job session stuck on a permission prompt (as the investigation lane was, 7 Nov).
+    s('session_perm', 'job m7', '01:10', { state: 'requires_action', parent: 'session_BOB', post_turn_summary: { recent_action: 'Waiting on permission: Artifact' } })] } }));
   const out = [];
   const r = sweep(root, { session: 'session_ROOT', sessions: file, offline: true, log: (l) => out.push(l) });
-  assert.ok(r.found.includes('job cap 20 (default): 0 job sessions live, 3 sessions live in the account (every product, every role)'));
-  assert.ok(r.found.includes('sessions: 3 live (roles 1, jobs 0, builds 1, other 1); leftovers 2'));
+  assert.ok(r.found.includes('job cap 20 (default): 1 job sessions live, 4 sessions live in the account (every product, every role)'));
+  assert.ok(r.found.includes('sessions: 4 live (roles 1, jobs 1, builds 1, other 1); leftovers 2'));
   assert.ok(r.todo.some((t) => /^archive session_o: archive_session session_o/.test(t)));
   assert.ok(r.todo.some((t) => t.startsWith(`tell ${C} session_q asks: (read its last message with list_events) (send it to ${C}`)));
+  assert.ok(r.found.some((l) => /^permission: session_perm \(job m7\) waits on permission for Artifact since 2026-11-04T01:10:00Z; no session answers a permission prompt: report it to the coordinator, and `node \.process\/tool\/p3\.mjs send bob "job m7 session_perm waits on permission for Artifact/.test(l)), r.found.join('\n'));
+  assert.ok(r.todo.some((t) => t.startsWith('permission: session_perm (job m7)')));
   assert.throws(() => sweep(root, { session: 'session_ROOT', sessions: true, offline: true, log: () => {} }), /--sessions <file>/);
+});
+
+test('permission waits (C15): each process session on a permission prompt, named with its role, tool and act; never another session, nor one archived', () => {
+  const seats = new Map([['investigation', { lane: 'investigation', session: 'session_lane' }]]);
+  const list = [
+    s('session_lane', 'lane investigation', '13:00', { state: 'requires_action', post_turn_summary: { recent_action: 'Waiting on permission: Artifact' } }),
+    s('session_BOB', 'BOB', '13:05', { state: 'requires_action' }),
+    s('session_j', 'job m1', '13:10', { state: 'running' }),
+    s('session_x', 'someone else', '13:10', { state: 'requires_action', post_turn_summary: { recent_action: 'Waiting on permission: Bash' } }),
+    s('session_old', 'job m2', '12:00', { state: 'archived', post_turn_summary: { recent_action: 'Waiting on permission: Bash' } }),
+  ];
+  const w = permissionWaits(list, { roles, coordinator: C, seats });
+  assert.deepEqual(w.map((x) => [x.id, x.role, x.tool]), [['session_lane', 'lane investigation', 'Artifact'], ['session_BOB', 'BOB', null]]);
+  assert.match(w[0].line, /report it to the coordinator, and `.*send bob "lane investigation session_lane waits on permission for Artifact: Bob answers it in the app, or the work goes on without it" --from root`$/);
+  assert.match(w[1].line, /^permission: session_BOB \(BOB\) waits on an action \(REQUIRES_ACTION\) since .*: report it to the coordinator$/);
 });

@@ -12,7 +12,7 @@ import { fetchState, heldAct, heldWrites, jsonl, messages, messagesFile, readSta
 import { openPinMoves } from './pin.mjs';
 import { bobAct, heldBy, layersAt, owe, paidUpTo, readOwed, slotsHeld, startsOwedLine } from './hold.mjs';
 import { markLaneHeld } from './lane.mjs';
-import { SILENT_HOURS, laneDefects, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
+import { SILENT_HOURS, laneDefects, permissionWaits, blockedJobs, capLine, holdLayers, flow, isArchived, layerState, nextWork, owedNotices, readSessions, refOf, sessionActs, sessionsCount, status } from './status.mjs';
 import { Fail, Superseded, fail, git, jobCap, loadConfig, now, repoSlug } from './util.mjs';
 import { layerMergeLine, layerStartAct, readOpenLayer } from './layerflow.mjs';
 
@@ -316,6 +316,8 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
       if (!offline && listed.some((x) => /^pin move\b/.test(String(x.title || '').trim()) && !isArchived(x))) { try { pinOpen = (io?.pins || openPinMoves)(repoSlug(root)).length > 0; } catch { pinOpen = null; } }
       const s = sessionActs(listed, { rows, roles: addr, coordinator: cfg.coordinator, pinOpen, seats });
       found.push(s.line);
+      // A process session waiting on a permission prompt (C15): named, with its act.
+      for (const w of permissionWaits(listed, { roles: addr, coordinator: cfg.coordinator, seats })) { found.push(w.line); todo.push(w.line); }
       // A job session archived since the last sweep freed a slot: starts owed (hold.mjs).
       const since = Date.parse(jsonl(readState(root, sb, SWEEP_ROWS_FILE)).filter((r) => r.row === 'sweep').at(-1)?.at) || 0;
       archived = listed.some((x) => isArchived(x) && /^job \S+/.test(String(x.title || '').trim()) && Date.parse(x.updated_at) > since);

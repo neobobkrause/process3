@@ -232,6 +232,32 @@ export function capLine(cfg, live, listed) {
   const seen = listed ? `: ${live} job sessions live, ${listed.filter((x) => !isArchived(x)).length} sessions live in the account (every product, every role)` : live !== undefined ? `: ${live} job sessions live` : '';
   return { ...c, line: `${c.line}${seen}` };
 }
+// Problem class C15 (7 Nov: the investigation lane sat ~2 h REQUIRES_ACTION, "Waiting on
+// permission: Artifact", with nobody to answer): a process session waiting on a permission prompt.
+// No session answers one (only Bob, in the app), so each is named with its role, the tool it waits
+// on, since when, and the act: report it to the coordinator, and for a job or a lane tell BOB.
+// Process sessions only: an addressed role, the coordinator, a job (title `job <id>`), a lane (its
+// seat, or title `lane <name>`). Read from the list_sessions entry as given: its status
+// REQUIRES_ACTION, or "Waiting on permission: <tool>" anywhere in it.
+export function permissionWaits(list, { roles = {}, coordinator = null, seats = null } = {}) {
+  const roleOf = new Map([['root', roles.root?.session], ['bob', roles.bob?.session], ['watcher', roles.watcher?.session], ['coordinator', coordinator || roles.coordinator?.session]].filter(([, id]) => id).map(([r, id]) => [id, r.toUpperCase()]));
+  for (const [lane, seat] of seats instanceof Map ? seats : new Map()) if (seat?.session) roleOf.set(seat.session, `lane ${lane}`);
+  const out = [];
+  for (const x of list || []) {
+    if (isArchived(x) || x.carried) continue;
+    const text = JSON.stringify(x);
+    const tool = text.match(/[Ww]aiting on permission:?\s*([A-Za-z0-9_.:-]+)/)?.[1] || null;
+    if (state(x) !== 'requires_action' && !tool) continue;
+    const id = sessionId(x);
+    const title = String(x.title || '').trim();
+    const job = title.match(/^job (\S+)( \(restart\))?$/)?.[1];
+    const role = roleOf.get(id) || (job ? `job ${job}` : /^lane \S+$/.test(title) ? title : null);
+    if (!role) continue;
+    const worker = /^(job|lane) /.test(role);
+    out.push({ id, role, tool, since: x.updated_at || null, line: `permission: ${id} (${role}) waits on ${tool ? `permission for ${tool}` : 'an action (REQUIRES_ACTION)'}${x.updated_at ? ` since ${x.updated_at}` : ''}; no session answers a permission prompt: report it to the coordinator${worker ? `, and \`${P3} send bob "${role} ${id} waits on ${tool ? `permission for ${tool}` : 'an action'}: Bob answers it in the app, or the work goes on without it" --from root\`` : ''}` });
+  }
+  return out;
+}
 export function sessionActs(list, { rows = [], roles = {}, coordinator = null, pinOpen = null, seats = null, now = Date.now() } = {}) {
   const byId = new Map(list.map((x) => [sessionId(x), x]));
   const roleIds = new Set([roles.root?.session, roles.bob?.session, roles.watcher?.session, coordinator].filter(Boolean));
