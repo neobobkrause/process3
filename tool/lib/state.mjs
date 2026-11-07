@@ -307,10 +307,15 @@ function reapply(root, wt, c, r, sb) {
 
 // p3 state replay [<ref>...]: each kept write (refs/p3/unpushed/*, all when none is named) made again
 // on the state branch's fresh tip (its own commit picked onto it) and pushed; its ref then dropped.
+// Each ref on its own, never a queue (the coordinator, 7 Nov: on the copy an old kept pacing write
+// that no longer applied stopped the replay, and `layer merge 9`'s two newer kept writes never
+// replayed): one that does not apply is said and stays kept, the rest replay, and the command then
+// fails naming only the ones kept.
 export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
   const all = refs.length ? refs : git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
   if (!all.length) { log('no kept state writes to replay'); return []; }
   const done = [];
+  const kept = [];
   for (const r of all) {
     const c = git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || fail(`no kept write ${r}`);
     const msg = git(['log', '-1', '--format=%s', c], { cwd: root });
@@ -326,11 +331,17 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
       done.push(r);
       continue;
     }
-    try { writeState(root, sb, msg, (wt) => { reapply(root, wt, c, r, sb); return {}; }); } finally { batch.on = was; }
+    try { writeState(root, sb, msg, (wt) => { reapply(root, wt, c, r, sb); return {}; }); } catch (e) {
+      if (!(e instanceof Fail)) throw e;
+      log(`kept ${r} (${msg}): ${e.message}`);
+      kept.push({ r, why: e.message });
+      continue;
+    } finally { batch.on = was; }
     git(['update-ref', '-d', r], { cwd: root });
     log(`replayed ${r} (${msg})`);
     done.push(r);
   }
+  if (kept.length) fail(`${kept.length} kept state write(s) did not replay and stay kept${done.length ? ` (the other ${done.length} replayed)` : ''}: ${kept.map((k) => k.why).join('; ')}`);
   return done;
 }
 

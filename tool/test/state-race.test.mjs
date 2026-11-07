@@ -172,3 +172,35 @@ test('state replay keeps a write whose append another writer raced outside the m
   assert.throws(() => stateReplay(root, SB, [name], { log: () => {} }), /does not apply to process-state as it stands now \(holds\.jsonl changed there in a way its change cannot be merged into\); it is kept/);
   assert.equal(unpushed(root), name, 'kept');
 });
+
+// The coordinator, 7 Nov (the copy, BOB): an old kept write that no longer applied stopped `state
+// replay`, and the two newer writes `layer merge 9` kept never replayed. Each ref replays on its
+// own: the one that does not apply is said and stays kept; the others replay; the command fails
+// naming only the kept one.
+test('state replay: a kept write that does not apply stays kept and the newer ones replay on their own', () => {
+  const { root, other } = withOrigin();
+  writeState(root, SB, 'seed', (wt) => { mkdirSync(join(wt, 'lanes'), { recursive: true }); writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"a"}\n'); return append({ row: 'seed' })(wt); });
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  const keep = (name, msg, change) => {
+    const wt = join(mkdtempSync(join(tmpdir(), 'p3-keep-')), 'w');
+    git(['worktree', 'add', '-q', '--detach', wt, `refs/remotes/origin/${SB}`], { cwd: root });
+    change(wt);
+    git(['add', '-A'], { cwd: wt });
+    git(['-c', 'user.name=t', '-c', 'user.email=t@x', 'commit', '-q', '-m', msg], { cwd: wt });
+    git(['update-ref', `refs/p3/unpushed/${name}`, 'HEAD'], { cwd: wt });
+    git(['worktree', 'remove', '--force', wt], { cwd: root });
+    return `refs/p3/unpushed/${name}`;
+  };
+  // The oldest: a change to a file another writer then changed in a way it cannot merge into.
+  const old = keep('1000-0000', 'pacing: lane seat', (wt) => writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"b"}\n'));
+  const n1 = keep('2000-0000', 'layer merge 9: row 1', append({ row: 'merged', n: 1 }));
+  const n2 = keep('2000-0001', 'layer merge 9: row 2', append({ row: 'merged', n: 2 }));
+  writeState(other, SB, 'another writer', (wt) => { writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"c"}\n'); return {}; });
+  const lines = [];
+  assert.throws(() => stateReplay(root, SB, [], { log: (l) => lines.push(l) }), new RegExp(`1 kept state write\\(s\\) did not replay and stay kept \\(the other 2 replayed\\): ${old} does not apply`));
+  assert.ok(lines.some((l) => l.startsWith(`kept ${old} (pacing: lane seat): `) && /does not apply/.test(l)), lines.join('\n'));
+  assert.ok(lines.includes(`replayed ${n1} (layer merge 9: row 1)`) && lines.includes(`replayed ${n2} (layer merge 9: row 2)`), lines.join('\n'));
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  assert.deepEqual(readState(root, SB, ROWS).trim().split('\n').map((l) => JSON.parse(l)).map((x) => x.n ?? x.row), ['seed', 1, 2]);
+  assert.equal(unpushed(root), old, 'only the one that does not apply stays kept');
+});
