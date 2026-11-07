@@ -44,5 +44,15 @@ export function refuseUnpushable(root, cfg, { branch }) {
   const bad = unpushable(root, cfg, { branch });
   if (!bad.length) return;
   const head = git(['rev-parse', 'HEAD'], { cwd: root });
-  fail(`nothing was pushed: ${bad.slice(0, 5).map((b) => `commit ${b.commit.slice(0, 10)} adds ${b.file} (${b.why})`).join('; ')}. Drop it from the commit and rebuild the commit before pushing: ${bad[0].commit === head ? `\`git reset HEAD~1 -- ${bad[0].file}\`, then \`git commit --amend --no-edit\`` : `\`git reset --soft ${bad[0].commit.slice(0, 10)}~1\`, \`git reset -- ${bad[0].file}\`, then commit again`}; a pushed commit cannot be taken back without a force-push`);
+  // One act clears them all (cold review of C3): back to before the oldest bad commit, every bad
+  // file unstaged, one commit again. A merge between there and HEAD (the tranche brought in) would be
+  // flattened into it, and a bad first commit has no parent: then a fresh branch, never that reset.
+  const oldest = bad.at(-1).commit;
+  const files = [...new Set(bad.map((b) => b.file))];
+  const parent = git(['rev-parse', '-q', '--verify', `${oldest}^`], { cwd: root, allowFail: true }).stdout.trim();
+  const merges = parent ? git(['rev-list', '--merges', `${parent}..HEAD`], { cwd: root, allowFail: true }).stdout.trim() : '';
+  const act = !parent || merges
+    ? `the commits since ${oldest.slice(0, 10)} ${!parent ? 'start the branch' : 'include a merge'}, so a reset would flatten them: start the work again on a fresh branch (\`job start <id> --fresh-branch "<why>"\` for a job), leaving out ${files.join(', ')}`
+    : `\`git reset --soft ${oldest === head ? 'HEAD~1' : `${oldest.slice(0, 10)}~1`}\`, ${files.map((f) => `\`git reset -- ${f}\``).join(', ')}, then commit again`;
+  fail(`nothing was pushed: ${bad.slice(0, 5).map((b) => `commit ${b.commit.slice(0, 10)} adds ${b.file} (${b.why})`).join('; ')}. Drop them from the commits and rebuild before pushing: ${act}; a pushed commit cannot be taken back without a force-push`);
 }
