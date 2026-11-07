@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { RECEIPT, checkRun, checkRuns, compare, comments, gateRuns, getPR, latestBlock, latestReceipt, openPRs, requiredChecks, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, jobBranch, ledgerIds, originJobs } from './ledger.mjs';
 import { appendRow, bobMetricsFile, metricsFile, readRows, rowsAt } from './metrics.mjs';
-import { PASS_BRANCH, diffNames, entriesAt, ownPaths } from './gate.mjs';
+import { PASS_BRANCH, diffNames, addedEntries, entriesAt, ownPaths } from './gate.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { blobAt, isBootstrap, lastConfigAt, mergedUnanchored, pinAt, unanchored } from './anchor.mjs';
 import { P3, START_FIRST, START_NEXT, TOOL_ROOT, bobWake, costDelta, jobCostCall, sessionForm, toolPin, wakeLine } from './job.mjs';
@@ -995,7 +995,7 @@ export function mergePlain(root, n, opts = {}) {
     const genOwned = passIds && changed.some((f) => isGenerated(gen, f) && entries.some((e) => owned(f, e)));
     refreshed = hits.length || genOwned ? changed.filter((f) => isGenerated(gen, f)) : [];
     untracked = refreshed.length ? removed : [];
-    const others = refreshed.length && !passIds ? refreshOthers(baseCfg, gen, changed, entries, ignores) : [];
+    const others = refreshed.length && !passIds ? refreshOthers(baseCfg, gen, changed, entries, ignores, { added: addedEntries(entries, entriesAt(root, pr.head.sha)) }) : [];
     if (others.length) fail(`pull request ${n} changes generated module files and ${others.slice(0, 5).join(', ')}: a refresh may go beside only records, the modules file, the layers file and process/config.json; any other file could be what writes them`);
   }
 

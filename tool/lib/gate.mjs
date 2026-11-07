@@ -23,6 +23,8 @@ const MINUTE = 60000;
 export { NO_TOKENS };
 
 // The ledger entries at ref; a read failure is an error, unreadable JSON is checkLedger's finding.
+// The ledger entries a change adds: at the head, with no entry of that id at the base.
+export const addedEntries = (before, after) => after.filter((e) => e?.id && !before.some((b) => b?.id === e.id));
 export const entriesAt = (root, ref) => Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const e = JSON.parse(t); return e ? [e] : []; } catch { return []; } });
 
 // No rename detection: a rename lists both the removed and the added path (confirming review
@@ -32,6 +34,13 @@ export const isAnc = (root, a, b) => typeof a === 'string' && /^[0-9a-f]{40}$/.t
 const F = (check, file, message, line = 1) => ({ check, file, line, message });
 export const PASS_BRANCH = /^pass\/[A-Za-z0-9._-]+$/;
 const inModule = (e, f) => [...e.paths, ...e.tests].some((p) => underPath(f, p));
+// A module with no code yet (C22, the coordinator, 7 Nov: BOB's funding-register, BD-15 PF-6, could
+// not enter the copy: its gate ran the suite over folders that did not exist yet, "failed (exit 1):
+// {total:0}"): no file under any of its paths or tests in the checkout. Its suite is skipped with
+// the reason recorded, until its job's first commit adds code; from then on a suite with no test is
+// refused as before.
+export const noCodeYet = (root, e) => [...(e.paths || []), ...(e.tests || [])]
+  .every((p) => git(['ls-files', '-z', '--', normPath(p)], { cwd: root }) === '' && !existsSync(join(root, normPath(p))));
 // A job strikes the marks it meets in its requirements file, so that file is its own too.
 export const ownPaths = (e) => [...e.paths, ...e.tests, ...(e.requirements ? [e.requirements] : []), entryFile(e.id), metricsFile(e.id)];
 
@@ -276,6 +285,13 @@ export function gate(root, opts) {
       const only = onlyAt(e, log);
       if (only && !only.length) { (runRow.requirements_only ||= []).push({ module: e.id, files: [] }); results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' }); continue; }
       if (only) (runRow.requirements_only ||= []).push({ module: e.id, files: only });
+      if (!only && noCodeYet(root, e)) {
+        const why = `no file under its paths or tests yet (${[...(e.paths || []), ...(e.tests || [])].join(', ') || 'none named'}): skipped until its job's first commit adds code and tests`;
+        (runRow.no_code ||= []).push({ module: e.id, why });
+        log(`the ${e.id} suite: ${why}`);
+        results.push({ exit: 0, seconds: 0, tests: { total: 0, pass: 0, fail: 0 }, passing: [], output: '' });
+        continue;
+      }
       const s = withEvents((events) => runSuite(root, e, only || undefined, { timeout, events }));
       results.push(s);
       if (s.exit !== 0) {
@@ -366,7 +382,7 @@ export function gate(root, opts) {
     // --plain reads it.
     if (plain) {
       if (untracked.length && runRow.generated) findings.push(...verifyUntracked(root, gen.rows, untracked, { timeout, log, ...(exec ? { exec } : {}) }));
-      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: passPR ? [] : refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores), untracked });
+      const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: passPR ? [] : refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores, { added: addedEntries(entriesAt(root, base), entriesAt(root, head)) }), untracked });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);
     }

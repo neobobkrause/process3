@@ -95,14 +95,19 @@ export const isGenerated = (rows, f) => rows.some((r) => r.paths.some((p) => und
 // (entries: the base's ledger) and is no file a row's commands name; the generated paths are
 // compared anyway. Residual: a record a generator reads without naming it (review 3 of PR 95).
 // ignores: the .gitignore files an untracking adds its ignore lines to (ignoreLines), not others.
-export function refreshOthers(cfg, rows, changed, entries = [], ignores = []) {
+// added: ledger entries the change adds (C22): a new module's requirements file goes beside its row,
+// ledger entry and layer line in one pull request; it is a module's own record, read by no generator
+// a row names (named stays refused), and the module has no code yet to write anything.
+export function refreshOthers(cfg, rows, changed, entries = [], ignores = [], { added = [] } = {}) {
   const named = new Set(rows.flatMap((r) => [...r.regenerate.slice(1), ...r.verify.slice(1)]).map((a) => normPath(a)));
   const inModule = (f) => entries.some((e) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, normPath(p))));
   // Beside a refresh go only records, the modules file, the layers file and process/config.json (the
   // coordinator's ruling (A), 6 Nov: modules.json gained rows and order.mjs could be refreshed
   // neither in the same pull request nor before it); any other file (a module's own, a generator
   // its row names or one it imports) could be what writes them.
-  const beside = new Set([CONFIG_FILE, cfg.modules_file, cfg.layers_file].filter(Boolean).map((x) => normPath(x)));
+  const dir = String(cfg.requirements_dir || '').replace(/\/$/, '');
+  const reqs = added.map((e) => normPath(String(e.requirements || (dir ? `${dir}/${e.id}.md` : '')))).filter(Boolean);
+  const beside = new Set([CONFIG_FILE, cfg.modules_file, cfg.layers_file, ...reqs].filter(Boolean).map((x) => normPath(x)));
   return changed.filter((f) => !isGenerated(rows, f) && !ignores.includes(f) && (!(cfg.records.some((r) => underPath(f, r)) || beside.has(f)) || inModule(f) || named.has(f)));
 }
 
