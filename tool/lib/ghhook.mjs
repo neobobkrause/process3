@@ -130,6 +130,9 @@ export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick
 // The background refresh the read path starts (tool/hook.mjs --refresh): the ledger's tip asked of
 // GitHub, fetched only when it moved; GitHub's primary count when a minute old. Never fails loudly.
 export function hookRefresh(cwd) {
+  // A stalled transfer gives up (cold review of R17d: a hung fetch held the clone's state lock).
+  process.env.GIT_HTTP_LOW_SPEED_LIMIT ||= '1000';
+  process.env.GIT_HTTP_LOW_SPEED_TIME ||= '20';
   try {
     const root = repoRoot(cwd);
     let cfg = null;

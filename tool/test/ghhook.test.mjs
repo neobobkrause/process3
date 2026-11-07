@@ -168,7 +168,10 @@ test('one background refresh at a time per clone; a marker a minute old (a refre
   assert.equal(kickRefresh(root, { now: () => t + 5e3, entry }), false);
   t += 61e3;
   assert.equal(kickRefresh(root, { now: () => t, entry }), true);
-  refreshDone(root);
+  // The refresh taken over clears no successor's marker; its own it clears.
+  refreshDone(root, String(t - 61e3));
+  assert.equal(kickRefresh(root, { now: () => t + 1e3, entry }), false);
+  refreshDone(root, String(t));
   assert.equal(kickRefresh(root, { now: () => t + 1e3, entry }), true);
   refreshDone(root);
 });

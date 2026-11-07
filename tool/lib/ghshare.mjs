@@ -61,7 +61,7 @@ function ownStore(root, sb) {
 }
 // The ledger branch's tip on GitHub, without fetching it (R17d): null when it cannot be read.
 function lsRemote(root, where, branch) {
-  const r = git(['ls-remote', where, `refs/heads/${branch}`], { cwd: root, allowFail: true });
+  const r = git(['ls-remote', where, `refs/heads/${branch}`], { cwd: root, allowFail: true, timeout: 30e3 });
   return r.code === 0 ? (r.stdout.split('\t')[0].trim() || 'none') : null;
 }
 export function remoteStore(root, url) {
@@ -105,13 +105,17 @@ export function stateShare(root, cfg, { now = Date.now, url } = {}) {
   let cache = null;
   const load = () => {
     store.fetch();
+    // The tip the reads are of: one moved under them (another p3 process of the clone fetched)
+    // is not recorded, so the next refresh fetches again (cold review of R17d: else old contents
+    // under the new tip would be renewed as current, a stop hidden).
+    const tip0 = store.tip();
     let pause = null;
     try { pause = JSON.parse(store.read(PAUSE_FILE) || 'null'); } catch { pause = null; }
     const since = now() - 2 * 3600e3;
     const use = store.list(USE_DIR).flatMap((f) => (store.read(f) || '').split('\n').filter(Boolean).flatMap((l) => { try { const r = JSON.parse(l); return Date.parse(r.minute) > since ? [r] : []; } catch { return []; } }));
     const resumed = (store.read(RESUMED_FILE) || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l).at; } catch { return null; } }).filter(Boolean).pop() || null;
     cache = { at: now(), pause, use, resumed };
-    try { writeFileSync(diskCache, JSON.stringify({ ...cache, ledger: led.own ? 'own' : led.url, tip: store.tip() })); } catch { /* best effort */ }
+    try { writeFileSync(diskCache, JSON.stringify({ ...cache, ledger: led.own ? 'own' : led.url, tip: store.tip() === tip0 ? tip0 : null })); } catch { /* best effort */ }
     return cache;
   };
   // Shared with this clone's other p3 processes (each hook call is one): a read within READ_S
@@ -230,7 +234,13 @@ export function kickRefresh(cwd, { now = Date.now, entry = HOOK_ENTRY } = {}) {
     if (now() - at < 60e3) return false;
     writeFileSync(f, String(now()));
   }
-  spawn(process.execPath, [entry, '--refresh'], { cwd, detached: true, stdio: 'ignore' }).unref();
+  // Its marker named, so a refresh taken over does not clear its successor's (cold review of R17d).
+  const child = spawn(process.execPath, [entry, '--refresh'], { cwd, detached: true, stdio: 'ignore', env: { ...process.env, P3_REFRESH_MARK: readFileSync(f, 'utf8') } });
+  child.on('error', () => { /* not started: the next read tries again */ });
+  child.unref();
   return true;
 }
-export function refreshDone(cwd) { try { rmSync(join(commonDir(cwd), REFRESHING), { force: true }); } catch { /* none */ } }
+export function refreshDone(cwd, mark = process.env.P3_REFRESH_MARK) {
+  const f = join(commonDir(cwd), REFRESHING);
+  try { if (mark === undefined || readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ }
+}
