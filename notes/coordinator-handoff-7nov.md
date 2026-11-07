@@ -1,4 +1,4 @@
-# Coordinator handoff, 7 Nov 2026 ~01:30 UTC (session_018BhcedK5yPyjY6UfMKmxzM)
+# Coordinator handoff, 7 Nov 2026 ~01:45 UTC (session_018BhcedK5yPyjY6UfMKmxzM)
 
 Full log: notes/coordinator-findings-3-4nov.md (entries from 22:20 on 6 Nov). Problem-class register: notes/problem-classes.md (Bob, 7 Nov: find root causes so problem types tend to zero; every fix brief states root cause and class prevention). Bob's words are quoted there with times.
 
@@ -9,13 +9,15 @@ Full log: notes/coordinator-findings-3-4nov.md (entries from 22:20 on 6 Nov). Pr
 - Bob waits for R17d+ pinned before applying the hook settings: send him the three complete files from notes/r17c-settings.md (process3 tranche) once R17e is pinned on the copy AND probes; then live-test (raw git push blocked, connector call counted) and run `p3 github audit`.
 
 ## In flight (in order)
-1. process3 PR 211 R17e (C9 shares ride pushes, C10 one budget for every clone — copy clones were blind: same clone id 'vm', C12 cheap ledger reads). Subscribed. Merge with `merge 211 --plain --rounds 1 --reviewed ...` from a tranche worktree (/home/user/p3-base) when ci is green.
-2. Builder ef7TXuV (session_018Bhcef7TXuVjVZ4eN1SCzE): C13 gate fix (landed-PR 404 falls back to merge commit/state rows) — URGENT, blocks `layer merge 9` (copy layer PR 735 gate red on pulls/696 404). Told to push at once; open its PR, merge.
-3. Then ONE pin move (copy + probes; `node tool/p3.mjs pin move ... --pin <tranche>` prints the session prompt; create_session with it) carrying R17d (1cbf056), R17e, C13. Probe pin to 46cf3f5 failed earlier (our ceiling); redo with this one.
+1. process3 PR 211 R17e (C9 shares ride pushes, C10 one budget for every clone — copy clones were blind: same clone id 'vm', C12 cheap ledger reads). First ci red: rerun-more.test.mjs:339 compared two wall-clock readings (C14, came in with R17d); fixed at 52a7563 (injectable clock). Merge with `merge 211 --plain --rounds 2 --reviewed "..."` from a tranche worktree when ci is green. Re-subscribe (subscribe_pr_activity) first.
+2. process3 PR 212 C13 (builder ef7TXuV, session_018Bhcef7TXuVjVZ4eN1SCzE): the layer gate covers a landed PR GitHub hides (land row + run artifact; pr_unreadable); head d334d38; cold review running, fixes to follow on the branch. URGENT: blocks `layer merge 9` (copy layer PR 735 gate red on pulls/696 404). Merge when green with the review in; the other landed-PR readers (receipts, --reopen, --take-in, prsFromBranch) follow as a separate PR. Re-subscribe first.
+3. Then ONE pin move (after BOTH 211 and 212 merge) (copy + probes; `node tool/p3.mjs pin move ... --pin <tranche>` prints the session prompt; create_session with it) carrying R17d (1cbf056), R17e, C13. Probe pin to 46cf3f5 failed earlier (our ceiling); redo with this one.
 4. BOB re-runs 735's gate; layer merge 9; layer open 10 and start its 3 jobs (monitoring, following, link-sweep; scheduler complete). Layer 11 (~60 modules) after R17e pinned and budget readable.
 5. Builder ef7TXuV queue after C13, each its own PR via `node tool/p3.mjs github push`, I open PRs: C5 state-race (a6654bcb), C2 test git isolation (e85b1e66), C3 settings-admit (948d8d12), C11 test-only change + `layer clear` (bdd83b45), C8 unshallow, then R14 1b layer-prestart.
 6. Builder ef1pxNY (session_018Bhcef1pxNYJCcaejqj138): after R17e, R16 switch-ready (held branch build/switch-ready).
 - Push ceiling: TRUE rate was ~184/h at 01:0x (above the 6 Nov peak ~173). Keep PD-3 at 120; let the window drain after R17e pins. Read the budget only from a process3 clone until R17e is pinned (copy clones undercount).
+
+- Problem classes added since the register was written: C8 unshallow (builder ef7TXuV, narrowing per its review), C9 bookkeeping as dominant traffic, C10 clone id collision, C11 test-only provider change, C12 fetch volume, C13 hidden landed PRs, C14 tests reading the wall clock twice. Add them to notes/problem-classes.md.
 
 ## Rules in force
 - Jobs push only through their tool commands (layer publish, job sync, job complete); never retry a push a session's own permission check refused — restart.
