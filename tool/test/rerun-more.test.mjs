@@ -7,7 +7,7 @@
 // or state write, and nothing lost. A command that only prints a session's steps prints the same
 // steps again. rerun.test.mjs holds the job merge and job sync.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -16,7 +16,7 @@ import { mergePlain, processRepo } from '../lib/merge.mjs';
 import { REFUSALS_FILE } from '../lib/metrics.mjs';
 import { useShared } from '../lib/pace.mjs';
 import { pinMove } from '../lib/pin.mjs';
-import { WAKES_FILE, fetchState, heldWrites, stateReplay } from '../lib/state.mjs';
+import { WAKES_FILE, fetchState, heldWrites, stateReplay, writeState } from '../lib/state.mjs';
 import { OPEN_FILE, TRANCHE_CLOSED_FILE, recordOpen, trancheClose, trancheOpen } from '../lib/tranche.mjs';
 import { Fail, git } from '../lib/util.mjs';
 import { commit, entry, later, makeRepo, write } from './helpers.mjs';
@@ -416,4 +416,23 @@ test('a compared rerun runs later (C14): a printed step reading the wall clock d
   assert.notDeepEqual(b.steps, a.steps, 'the wall clock read: caught');
   const c = later(() => trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 }));
   assert.deepEqual(c.steps, trancheOpen(root, { slug: 'o/p', log: quiet, now: () => T0 }).steps);
+});
+
+// Cold review of the leftovers: replay drops a kept write only when the tip holds the same thing.
+test('state replay never drops a kept write whose file another write created since with other content (an append-only file)', () => {
+  const { root } = withOrigin({ 'README.md': 'x\n' });
+  writeState(root, 'process-state', 'seed', (wt) => { writeFileSync(join(wt, 'seed.txt'), 's\n'); return {}; });
+  // A kept write: the sender's first message, its push refused.
+  fetchState(root, 'process-state', { fresh: true });
+  const wt = join(mkdtempSync(join(tmpdir(), 'p3-kept-')), 'w');
+  git(['worktree', 'add', '-q', '--detach', wt, 'refs/remotes/origin/process-state'], { cwd: root });
+  mkdirSync(join(wt, 'messages'), { recursive: true });
+  writeFileSync(join(wt, 'messages', 'bob.jsonl'), '{"n":1,"text":"first"}\n');
+  git(['add', '-A'], { cwd: wt });
+  git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'message 1'], { cwd: wt });
+  git(['update-ref', 'refs/p3/unpushed/1-a', git(['rev-parse', 'HEAD'], { cwd: wt })], { cwd: root });
+  // A later send from the same sender, pushed: the file now holds only its message.
+  writeState(root, 'process-state', 'message 2', (w) => { mkdirSync(join(w, 'messages'), { recursive: true }); writeFileSync(join(w, 'messages', 'bob.jsonl'), '{"n":2,"text":"second"}\n'); return {}; });
+  assert.throws(() => stateReplay(root, 'process-state', [], { log: quiet }), /does not apply/);
+  assert.ok(git(['for-each-ref', 'refs/p3/unpushed/'], { cwd: root }).includes('1-a'), 'kept, not dropped as a rerun\'s');
 });

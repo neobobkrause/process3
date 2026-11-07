@@ -260,14 +260,16 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
   const file = `${USE_DIR}/${safe(sessionId())}.jsonl`;
   // The share's push is gated like any push but never waits (coordinator's ruling on PR 206): where
   // the account is paused or at the ceiling it is refused, nothing is recorded, and it is shared later.
-  withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use (rows to ${last})`, (wt) => {
+  // A share whose own push is refused and kept for replay is recorded pending (cold review): not
+  // sent again by the next share, and settled when state replay pushes it.
+  try { withoutWaiting(() => st.write(`github: ${rows.length} minute(s) of use (rows to ${last})`, (wt) => {
     mkdirSync(join(wt, USE_DIR), { recursive: true });
     const since = now() - 2 * 3600e3;
     let kept = [];
     try { kept = readFileSync(join(wt, file), 'utf8').split('\n').filter(Boolean).filter((l) => { try { return Date.parse(JSON.parse(l).minute) > since; } catch { return false; } }); } catch { kept = []; }
     writeFileSync(join(wt, file), [...kept, ...rows.map((r) => JSON.stringify(r))].join('\n') + '\n');
     return {};
-  }));
+  })); } catch (e) { if (/state replay/.test(String(e?.message))) noteShare(root, last, PENDING_AT, now()); throw e; }
   // Pushed now (another repository's ledger, or unbatched), or with the command's push: until that
   // push is made the share is not in any read, and its rows count from this clone's log (usage).
   if (st.ref !== LEDGER_REF && pendingWrites()) { noteShare(root, last, PENDING_AT, now()); onFlushed(root, cfg.state_branch, () => settleShare(root, last, Date.now())); } else noteShare(root, last, now());

@@ -223,6 +223,8 @@ export const stateIO = { push: null, wait: null };
 // on the state branch's fresh tip (its own commit picked onto it) and pushed; its ref then dropped.
 // fn(subject, root) after each kept write replay pushes (R17e: a usage share it carried is settled).
 const replayedFns = [];
+// A layer-flow event row: layerflow/<n>/<kind>/<name>.json (layerbase.mjs flowFile).
+const EVENT_ROW = /^layerflow\/\d+\/[^/]+\/[^/]+\.json$/;
 export function onReplayed(fn) { if (!replayedFns.includes(fn)) replayedFns.push(fn); }
 export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
   const all = refs.length ? refs : git(['for-each-ref', '--format=%(refname)', 'refs/p3/unpushed/'], { cwd: root }).split('\n').filter(Boolean);
@@ -232,14 +234,19 @@ export function stateReplay(root, sb, refs = [], { log = console.log } = {}) {
     const c = git(['rev-parse', '-q', '--verify', `${r}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || fail(`no kept write ${r}`);
     const msg = git(['log', '-1', '--format=%s', c], { cwd: root });
     // A kept write a rerun has since made itself (cold review of R17d: layer sync's rerun records
-    // the sync row its refused push held): every file it adds is on the tip already, and it changes
-    // nothing else. It is dropped, said, never picked into a conflict that holds it forever.
+    // the sync row its refused push held): it only adds files, and each is on the tip already with
+    // the same content, or is a layer-flow event row (one file per event: the same path is the same
+    // event, recorded again with its own time). It is dropped, said, never picked into a conflict
+    // that holds it forever. An append-only file (messages, usage, metrics) another write created
+    // since is never this: its content differs, and it is picked as before (cold review).
     const changes = git(['diff-tree', '--no-commit-id', '-r', '--name-status', '--root', c], { cwd: root }).split('\n').filter(Boolean).map((l) => l.split('\t'));
-    fetchState(root, sb, { fresh: true });
-    const onTip = (p) => git(['cat-file', '-e', `${ref(sb)}:${p}`], { cwd: root, allowFail: true }).code === 0;
-    if (changes.length && changes.every(([st, p]) => st === 'A' && onTip(p))) {
+    const have = fetchState(root, sb, { fresh: true });
+    const blob = (rev, p) => git(['rev-parse', '-q', '--verify', `${rev}:${p}`], { cwd: root, allowFail: true }).stdout.trim() || null;
+    const same = ([st, p]) => { if (st !== 'A') return false; const t = blob(ref(sb), p); return !!t && (t === blob(c, p) || EVENT_ROW.test(p)); };
+    if (have && changes.length && changes.every(same)) {
       git(['update-ref', '-d', r], { cwd: root });
       log(`dropped ${r} (${msg}): ${changes.map(([, p]) => p).join(', ')} on ${sb} already, written by a rerun`);
+      for (const fn of replayedFns) { try { fn(msg, root); } catch { /* a record only */ } }
       done.push(r);
       continue;
     }
