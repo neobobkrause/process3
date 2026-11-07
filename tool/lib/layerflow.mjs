@@ -35,6 +35,7 @@ import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
+import { landedFrom, receiptAt } from './landed.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
@@ -909,14 +910,16 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
       fail(`origin's ${h} at ${short(t)} has work ${b0} lacks: a job re-tests it: ${reopen}`);
     }
   }
-  const prs = x.prsFromBranch(slug, branch);
+  // GitHub's list, with each land the state branch recorded that GitHub no longer lists (hidden).
+  const prs = landedFrom(root, cfg0.state_branch, id, at || null, x.prsFromBranch(slug, branch));
   if (prs === null) fail(`GitHub unreadable: the pull requests from ${branch} are not known; nothing was done`);
   const open = prs.find((p) => p.state === 'open');
   if (open) fail(`${branch} has pull request ${open.number} open: land or close it first`);
-  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer.
+  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer: a
+  // hidden one's from its COMPLETE commit at the land's head (GitHub serves none of its comments).
   let receipt = null;
   for (const p of prs.filter((q) => q.merged_at).sort((a, c) => c.number - a.number)) {
-    const r = latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
+    const r = p.hidden ? receiptAt(root, id, p.head.sha) : latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
     if (r?.module === id && r.sha && hasCommit(root, r.sha) && isAnc(root, r.sha, tip)) { receipt = { ...r, retest: { from_pr: p.number } }; break; }
   }
   if (!receipt) fail(`no receipt of ${id} on a merged pull request from ${branch} that ${b0} holds: a job re-tests it: ${reopen}`);

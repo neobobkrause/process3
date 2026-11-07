@@ -17,6 +17,7 @@ import { install, moduleLocks, runSuite } from './suite.mjs';
 import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
 import { standingFor } from './register.mjs';
+import { landedFrom } from './landed.mjs';
 import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
 import { earlyProviders, writeRows } from './layerflow.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
@@ -367,7 +368,8 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const state = (() => { try { return JSON.parse(git(['show', `origin/${branch}:${entryFile(id)}`], { cwd: root })).status?.state; } catch { return null; } })();
     if (n > 0 && !(state === 'WORKING' && n === 1) && !find(slug, branch)) {
       // The pull requests of the abandoned attempt: those after the branch's last merged one.
-      const all = (prs(slug, branch) || []).sort((a, b) => b.number - a.number);
+      // A merged one GitHub no longer lists (hidden) still ends the abandoned run: the state's lands.
+      const all = (landedFrom(root, cfg.state_branch, id, `origin/${branch}`, prs(slug, branch)) || []).sort((a, b) => b.number - a.number);
       const merge = all.find((p) => p.merged_at)?.number ?? 0;
       const last = all.find((p) => p.number > merge && p.state === 'closed' && !p.merged_at);
       abandoned = { branch, pr: last?.number ?? null };
@@ -575,7 +577,11 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   let pr = null;
   if (/^#?\d+$/.test(source)) {
     if (!push) fail('--take-in <number> reads the pull request from GitHub');
-    pr = x.getPR(slug, Number(source.replace('#', '')));
+    try { pr = x.getPR(slug, Number(source.replace('#', ''))); } catch (e) {
+      // A pull request GitHub hides (its opener's account suspended, 6 Nov) cannot be read by number.
+      if (/HTTP 404|Not Found/i.test(e?.message || '')) fail(`GitHub does not serve pull request ${source} (hidden, or no such pull request); take in its branch by name: --take-in <branch>`);
+      throw e;
+    }
     if (!pr?.number || pr.state !== 'open') fail(`pull request ${source} is not open; take in an open pull request or its branch`);
     if (pr.head?.repo?.full_name !== slug) fail(`pull request #${pr.number} comes from ${pr.head?.repo?.full_name || 'a deleted fork'}; only a branch of ${slug} is taken in`);
     source = pr.head.ref;
