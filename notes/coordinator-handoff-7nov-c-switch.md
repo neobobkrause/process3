@@ -48,6 +48,6 @@ Full suite 1114/1114 at e55bcd4c (finished after shutdown). Core is correct: pac
 
 ## Builder ef1pxNY at shutdown (05:45Z)
 - Handoff notes/builder-handoff-ef1.md on build/github-no-overcaution 796b2b60 (brief only). R17g itself is ef7's build/limits-only-github e55bcd4c, above: use that one.
-- C18 is on build/read-no-push 08105d31. Full suite 1112/1112; cold review unread; no PR. `status --role bob` warm: 21 requests (from 357), 144 s (from 399).
+- C18 is on build/read-no-push 08105d31. DO NOT MERGE AS IS: the cold review found 6 bugs (double push after replay or concurrency, a lost waiting record on an unlocked rewrite, an unlocked state-ref move, idle-check alarms from every session, usage shares no longer reaching other clones). Fixes are in notes/builder-handoff-ef1.md on build/github-no-overcaution d16ea49c. The caching half is sound. `status --role bob` warm: 21 requests (from 357), 144 s (from 399).
 - C16 is merged (PR 229). C15's build/sweep-permission 0be0b850 is an old branch (C15 merged as PR 219); drop it unless its handoff says otherwise.
 - New PRs carrying the claude.ai documents into git: process3 233 (governing/: Foundations and Ledger map), copy 765 (Q9 paper and BD-14 requirements), copy 766 (Q9.1 walkthrough HTML). Merge any still open.
