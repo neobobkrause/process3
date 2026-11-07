@@ -62,3 +62,12 @@ test('setup check still refuses settings that block the tool\'s push, refuse a t
   t.hooks.PreToolUse.push({ matcher: 'Write', hooks: [{ type: 'command', command: 'echo hi' }] });
   assert.match(judge(t)['shim-drift'].detail, /carries a PreToolUse hook the pin does not allow \(echo hi\)/);
 });
+
+// One matcher (cold review of C17): setup's Bash rules are admit's.
+test('setup check and admit match a Bash rule the same way', async () => {
+  const { bashRuleMatches } = await import('../lib/setup.mjs');
+  const { ruleMatches } = await import('../lib/admit.mjs');
+  assert.equal(bashRuleMatches, ruleMatches);
+  assert.equal(ruleMatches('Bash', 'git fetch origin x'), true, 'a bare Bash rule');
+  assert.equal(ruleMatches('Bash(no:*)', 'node .process/tool/p3.mjs github push origin job/x'), false, ':* at a word');
+});

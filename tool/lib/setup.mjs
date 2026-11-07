@@ -10,7 +10,7 @@ import { laneModuleGaps } from './ledger.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
-import { admitCheck, admitTools, toldCommands, toldTools } from './admit.mjs';
+import { admitCheck, admitTools, ruleMatches, toldCommands, toldTools } from './admit.mjs';
 import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { address, fetchState } from './state.mjs';
@@ -85,18 +85,9 @@ const unread = (what) => missing(`could not read ${what}`);
 // (confirming review of PR 15).
 const noBypass = (rs) => rs.current_user_can_bypass === 'never';
 
-// A deny rule as Claude Code matches a Bash command: a bare Bash denies every command; a
-// trailing ":*" is a prefix match; otherwise "*" is a wildcard over the whole command, and a
-// trailing " *" also matches the command without arguments.
-export function bashRuleMatches(rule, cmd) {
-  if (rule === 'Bash') return true;
-  const m = String(rule).match(/^Bash\((.*)\)$/s);
-  if (!m) return false;
-  const pat = m[1];
-  if (pat.endsWith(':*')) return cmd.startsWith(pat.slice(0, -2));
-  const re = new RegExp(`^${pat.split('*').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 's');
-  return re.test(cmd) || (pat.endsWith(' *') && cmd === pat.slice(0, -2));
-}
+// A deny rule as Claude Code matches a Bash command: admit's one matcher (C17: setup kept a second,
+// whose `:*` matched without a word boundary).
+export const bashRuleMatches = ruleMatches;
 
 // One reader per condition that can be read; each returns { state, detail }.
 export const readers = {
