@@ -74,8 +74,8 @@
     },
     {
       "id": "deny-list",
-      "what": "The tranche's .claude/settings.json denies force-push, branch deletion, writing files through GitHub, and every merge route but the tool; and no rule in it blocks a session's push of its own branch.",
-      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob's CLAUDE.md approvals, 2 Nov). A rule such as Bash(git push origin :*) matches every push, so sessions could not push their own branches; each Bash rule is matched against the START's push as Claude Code matches it. Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
+      "what": "The tranche's .claude/settings.json denies force-push, branch deletion, writing files through GitHub, and every merge route but the tool; and no rule in it refuses a command the process tells a session to run (its push is `p3 github push`).",
+      "why": "The deny list holds the standing safety rules in every session; the tool's merge is the one route (Bob's CLAUDE.md approvals, 2 Nov). A rule that refuses a told command (its push among them) leaves a session at a refusal no one sees; each Bash rule is matched against every command the process tells, as Claude Code matches it, by the one check admit.mjs holds (C3, C17). Changes to the settings file itself are held by the record check, which finds any change that is not the owner's own website commit.",
       "value": {
         "deny": [
           "Bash(git push --force *)",
@@ -90,13 +90,10 @@
           "Bash(gh pr merge *)",
           "Bash(gh api *pulls/*/merge*)"
         ],
-        "push_commands": [
-          "git push origin job/x",
-          "git push -u origin job/x"
-        ]
+        "push": "node .process/tool/p3.mjs github push origin job/x"
       },
       "who": "the developer, committing it on the tranche through GitHub's website; a session cannot edit its own settings file",
-      "read": "the file on origin/<tranche>, through git: permissions.deny, each Bash rule matched against the push commands"
+      "read": "the file on origin/<tranche>, through git: permissions.deny, each Bash rule matched against the commands the pinned tool and its rulebooks tell a session to run (admit.mjs)"
     },
     {
       "id": "approvals",

@@ -10,7 +10,7 @@ import { laneModuleGaps } from './ledger.mjs';
 import { approvalsBlock, ownerBlock, webCommitByOwner } from './record.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './size.mjs';
 import { startCheck } from './start.mjs';
-import { admitCheck, admitTools, toldCommands, toldTools } from './admit.mjs';
+import { admitCheck, admitTools, ruleMatches, toldCommands, toldTools } from './admit.mjs';
 import { CONFIG_FILE, DEFAULTS, OPEN_BY, configOf, exists, fail, fetchBranch, gh, git, isShallow, laneDirs, loadConfig, run, underPath } from './util.mjs';
 import { readLedgerTexts } from './ledger.mjs';
 import { address, fetchState } from './state.mjs';
@@ -85,18 +85,9 @@ const unread = (what) => missing(`could not read ${what}`);
 // (confirming review of PR 15).
 const noBypass = (rs) => rs.current_user_can_bypass === 'never';
 
-// A deny rule as Claude Code matches a Bash command: a bare Bash denies every command; a
-// trailing ":*" is a prefix match; otherwise "*" is a wildcard over the whole command, and a
-// trailing " *" also matches the command without arguments.
-export function bashRuleMatches(rule, cmd) {
-  if (rule === 'Bash') return true;
-  const m = String(rule).match(/^Bash\((.*)\)$/s);
-  if (!m) return false;
-  const pat = m[1];
-  if (pat.endsWith(':*')) return cmd.startsWith(pat.slice(0, -2));
-  const re = new RegExp(`^${pat.split('*').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 's');
-  return re.test(cmd) || (pat.endsWith(' *') && cmd === pat.slice(0, -2));
-}
+// A deny rule as Claude Code matches a Bash command: admit's one matcher (C17: setup kept a second,
+// whose `:*` matched without a word boundary).
+export const bashRuleMatches = ruleMatches;
 
 // One reader per condition that can be read; each returns { state, detail }.
 export const readers = {
@@ -158,14 +149,23 @@ export const readers = {
     return wrong.length ? missing(wrong.join('; ')) : set(Object.entries(c.value).map(([k, v]) => `${k} ${v}`).join(', '));
   },
 
+  // A deny rule that refuses a command the process tells a session to run is judged by the one rule
+  // C3 holds (admit.mjs): the told commands, never a list of its own (C17, the coordinator, 7 Nov: this
+  // condition still took a raw `git push` as the session's push, refused Bob's R17c settings, which
+  // deny it and allow `p3 github push`, the route the process tells, and stopped every job start).
   'deny-list': (c, x) => {
     const text = x.file('.claude/settings.json');
     if (text === null) return missing(`no .claude/settings.json on ${x.where}`);
-    let deny;
-    try { deny = JSON.parse(text).permissions?.deny || []; } catch { return missing(`.claude/settings.json on ${x.where} is not JSON`); }
+    let settings;
+    try { settings = JSON.parse(text); } catch { return missing(`.claude/settings.json on ${x.where} is not JSON`); }
+    const deny = settings.permissions?.deny || [];
+    const told = x.told || toldCommands(TOOL);
     const gaps = [
       ...c.value.deny.filter((d) => !deny.includes(d)).map((d) => `lacks ${d}`),
-      ...deny.filter((d) => c.value.push_commands.some((cmd) => bashRuleMatches(d, cmd))).map((d) => `holds ${d}, which blocks a session's push of its own branch`),
+      // The session's push is the tool's (`p3 github push`, the route the process tells): a rule that
+      // matches it blocks every push (admit's reader reads git, gh, curl, rm, npm and npx spans only).
+      ...deny.filter((d) => bashRuleMatches(d, c.value.push)).map((d) => `holds ${d}, which blocks a session's push of its own branch (\`${c.value.push}\`)`),
+      ...[...new Map(admitCheck(settings, told).map((b) => [b.rule, b])).values()].map((b) => `holds ${b.rule}, which refuses \`${b.cmd}\`, a command the process tells a session to run (${b.file}:${b.line})`),
     ];
     return gaps.length ? missing(gaps.join('; ')) : set(`${deny.length} deny rules on ${x.where}`);
   },
