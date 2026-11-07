@@ -42,7 +42,7 @@ test('lane ask: refused until the lane names its directory; the brief carries th
   const text = out.join('\n');
   assert.match(text, /recorded open on process-state:lanes\/asks\.jsonl/);
   assert.match(text, /BOB's act: start one read-only worker \(a subagent; no long-lived session\)/);
-  assert.match(text, /lane ask ux "Where does sign-in go\?" --record "<the decision/);
+  assert.match(text, /lane ask ux 'Where does sign-in go\?' --record '<the decision/);
   assert.match(r.brief, /The lane's directory `design\/ux\/`: 2 files, 20 bytes/);
   assert.match(r.brief, /- `build\/q\.md` 8/);
   assert.match(r.brief, /- decision: <one line>\n- why: .*\n- what changes in `design\/ux\/`/);

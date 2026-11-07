@@ -281,9 +281,12 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
 // included; when the cache is READ_S old or missing, a background refresh is started (one at a
 // time per clone) and the read goes on at once. A read can so pass a pause or stop written in the
 // last READ_S plus the refresh's few seconds; a write reads it through stateShare (a cache within READ_S, else ls-remote).
-export function peekShare(cwd, { now = Date.now, kick = kickRefresh } = {}) {
+// key: the ledger this clone reads now ('own', its URL, or null for none): a cache of another
+// (the config changed) is no cache (cold review of R17d).
+export function peekShare(cwd, { now = Date.now, kick = kickRefresh, key } = {}) {
   let c = null;
   try { c = JSON.parse(readFileSync(join(commonDir(cwd), LEDGER_CACHE), 'utf8')); } catch { c = null; }
+  if (c && key !== undefined && (c.ledger ?? null) !== key) c = null;
   if (!c || !(now() - c.at < READ_S * 1000)) { try { kick(cwd, { now }); } catch { /* the next read tries again */ } }
   const s = c ? { pause: c.pause || null, use: c.use || [], resumed: c.resumed || null, at: c.at, state: c.state || null } : { pause: null, use: [] };
   return { read: () => s };

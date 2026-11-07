@@ -92,9 +92,10 @@ export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(roo
   // asks, which the new account restarts from git.
   try { out.layers = layerMode(cfg) ? openLayers(root, cfg, (p) => readState(root, sb, p)) : []; } catch { out.layers = []; }
   try { out.lanes = [...readSeats(root, cfg).values()].map((x) => ({ lane: x.lane, session: x.session || null, at: x.at })); } catch { out.lanes = []; }
-  try { out.asks = openAsks(root, cfg).map((a) => ({ lane: a.lane, question: a.question, at: a.at })); } catch { out.asks = []; }
+  try { out.asks = openAsks(root, cfg).map((a) => ({ lane: a.lane, question: a.question, at: a.at, ...(Array.isArray(a.context) && a.context.length ? { context: a.context } : {}) })); } catch { out.asks = []; }
   // Every session of the old account the record names: on the new account each is gone (R13).
-  out.sessions = [...new Set([...ROLES.map((r) => addresses[r]?.session), addresses.coordinator?.session, cfg.coordinator, by, ...out.tasks.map((t) => t.session), ...out.jobs.map((j) => j.session), ...out.lanes.map((x) => x.session)].filter((x) => SESSION.test(String(x))))];
+  out.sessions = [...new Set([...ROLES.map((r) => addresses[r]?.session), addresses.coordinator?.session, cfg.coordinator, by, ...out.tasks.filter((t) => !['not the process', 'unknown'].includes(t.role)).map((t) => t.session), // a task bound to a session no role holds retires nothing (cold review of R16)
+ ...out.jobs.map((j) => j.session), ...out.lanes.map((x) => x.session)].filter((x) => SESSION.test(String(x))))];
   return out;
 }
 
@@ -199,6 +200,9 @@ export function preflight(root, m, { slug, approvals, api = (p) => gh(['api', p]
   return out;
 }
 
+// A word for the shell as it is: single-quoted, so $, backticks and $( ) stay text (cold review:
+// a question "a $5 tier?" reached lane ask changed, and opened a second ask).
+const shq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 // The old prompt with the old role ids named as the new role's and the old approvals hash as the tip's.
 const freshPrompt = (m, prompt, approvals) => {
   let p = String(prompt).split(m.approvals).join(approvals);
@@ -264,7 +268,9 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
     const asks = (m.asks || []).filter((a) => a.lane === x.lane).length;
     // The retired seat ends at ROOT's first sweep (expire.mjs), which can run before (h): then a
     // plain lane start; --replace only while the seat still shows the old session (review of R16).
-    L.push(`    - \`${P3} lane start ${x.lane}\` (\`--replace ${x.session}\` if it says the seat is still held), then \`${P3} lane start ${x.lane} --record <new id>\`${asks ? `; then send it its ${asks} open ask(s) (\`${P3} lane ask ${x.lane} "<question>"\` prints each brief)` : ''}`);
+    L.push(`    - \`${P3} lane start ${x.lane}\` (\`--replace ${x.session}\` if it says the seat is still held), then \`${P3} lane start ${x.lane} --record <new id>\`${asks ? `; then send it its ${asks} open ask(s), each brief printed by:` : ''}`);
+    // Each ask with its own --context files, as first asked (cold review of R16: a bare re-ask lost them).
+    for (const a of (m.asks || []).filter((y) => y.lane === x.lane)) L.push(`      ${P3} lane ask ${x.lane} ${shq(a.question)}${(a.context || []).map((c) => ` --context ${shq(c)}`).join('')}`);
   }
   // The tasks bound to a lane's session, now that its new id is recorded.
   for (const k of m.tasks.filter((x) => x.role.startsWith('lane '))) {

@@ -12,7 +12,7 @@
 // The settings that call it are Bob's (notes/r17c-settings.md).
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { kickRefresh, LEDGER_CACHE, peekShare, refreshDone, stateShare } from './ghshare.mjs';
+import { kickRefresh, LEDGER_CACHE, ledgerOf, peekShare, refreshDone, stateShare } from './ghshare.mjs';
 import { commonDir, hookPacing, pacing, Paced, primaryState, reserve, TOOL, useShared } from './pace.mjs';
 import { CONFIG_FILE, loadConfig, repoRoot } from './util.mjs';
 
@@ -108,6 +108,7 @@ export function hookDecision(input, cwd, opts = {}) {
 // network, no per-clone floor: under 300 ms); a connector write reads the ledger through stateShare (within READ_S, else ls-remote) and takes
 // the full path, waits included. Returns the exit code: 0 allows, 2 blocks (reason on stderr).
 const CONNECTOR = 'mcp__github__';
+const ledgerKey = (root, cfg) => { try { const l = ledgerOf(root, cfg); return l ? (l.own ? 'own' : l.url) : null; } catch { return undefined; } };
 export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick = process.env.NODE_TEST_CONTEXT ? () => false : kickRefresh, opts = {} } = {}) {
   if (!input) { err('p3 github hook: no hook JSON on stdin'); return 2; }
   const name = String(input.tool_name || '');
@@ -119,7 +120,7 @@ export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     const write = WRITE.test(name.slice(CONNECTOR.length));
     const was = process.env.NODE_TEST_CONTEXT || process.env.GITHUB_ACTIONS === 'true';
-    useShared(share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : peekShare(root, { kick }));
+    useShared(share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : peekShare(root, { kick, key: ledgerKey(root, cfg) }));
     try {
       d = hookDecision(input, root, write ? opts : { p: { ...pacing(), gh_interval_ms: 0 }, rateLimit: () => undefined, ...opts });
     } finally { useShared(null); }
