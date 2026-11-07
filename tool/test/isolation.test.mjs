@@ -12,7 +12,9 @@ import { git } from '../lib/util.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 
 test('every test file imports helpers.mjs, so none reads the machine\'s git configuration', () => {
-  const bare = readdirSync(here).filter((f) => f.endsWith('.test.mjs')).filter((f) => !/from '\.\/helpers\.mjs'|import '\.\/helpers\.mjs'/.test(readFileSync(join(here, f), 'utf8')));
+  // An import statement at a line's start, either quote; a commented-out one does not count.
+  const imports = (t) => /^import\s+(?:[^'"\n]*\s+from\s+)?['"]\.\/helpers\.mjs['"]/m.test(t);
+  const bare = readdirSync(here).filter((f) => f.endsWith('.test.mjs')).filter((f) => !imports(readFileSync(join(here, f), 'utf8')));
   assert.deepEqual(bare, []);
 });
 
@@ -20,4 +22,5 @@ test('the global and system git configuration are cut off for the tests and the 
   assert.equal(process.env.GIT_CONFIG_GLOBAL, '/dev/null');
   assert.equal(process.env.GIT_CONFIG_NOSYSTEM, '1');
   assert.equal(git(['config', '--global', '--list'], { cwd: here, allowFail: true }).stdout.trim(), '');
+  assert.deepEqual(Object.keys(process.env).filter((k) => /^GIT_CONFIG_(COUNT|KEY_|VALUE_|PARAMETERS)|^GIT_(AUTHOR|COMMITTER)_/.test(k)), [], 'no configuration or identity from the environment');
 });
