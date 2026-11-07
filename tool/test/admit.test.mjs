@@ -2,7 +2,7 @@
 // product's .claude/settings.json (C3, the coordinator, 7 Nov): the push check told a session to run
 // `git commit --amend --no-edit`, which the copy's settings deny.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -51,4 +51,34 @@ test('a told command behind cd, an assignment, a subshell or sh -c, and a span i
   assert.deepEqual(deniedBy("sh -c 'git tag v1'", COPY)?.rule, 'Bash(git tag *)');
   assert.deepEqual(toldIn("x('run `git submodule update .process` first');\n", 'a.mjs').map((t) => t.cmd), ['git submodule update .process']);
   assert.deepEqual(toldIn('fail(`do \\`cd x && git rebase main\\``);\n', 'a.mjs').map((t) => t.cmd), ['cd x && git rebase main']);
+});
+
+// The deny lists Bob applies with R17c (notes/r17c-settings.md, 7 Nov): every raw `git push` and every
+// `gh` is refused; the tool's own push is allowed. The coordinator, 7 Nov: no told command may need
+// either. The docs (README.md, setup/*.md) are read too: a span there addressed to a session is a
+// told command; those that only name a command (said to a person, or what a workflow or the tool
+// runs itself) are listed below with why, so a new one is judged here.
+const R17C_ADD = ['Bash(git push)', 'Bash(git push *)', 'Bash(gh *)'];
+const R17C = {
+  copy: { permissions: { deny: [...COPY.permissions.deny, ...R17C_ADD], allow: ['Bash(node .process/tool/p3.mjs github push *)'] } },
+  process3: { permissions: { deny: ['mcp__github__merge_pull_request', 'Bash(gh pr merge *)', 'Bash(gh api *pulls/*/merge*)', 'Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push origin --delete *)', 'Bash(git push origin main)', 'Bash(git push origin HEAD:main)', 'Bash(gh api *contents/*)', 'Bash(gh api *git/blobs*)', 'Bash(gh api *git/trees*)', 'Bash(gh api *git/commits*)', 'Bash(gh api *git/refs*)', 'Bash(curl *api.github.com*)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file', ...R17C_ADD], allow: ['Bash(node tool/p3.mjs github push *)'] } },
+  probes: { permissions: { deny: ['Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push origin --delete *)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file', 'Bash(gh api *contents/*)', 'mcp__github__merge_pull_request', 'Bash(gh pr merge *)', 'Bash(gh api *pulls/*/merge*)', ...R17C_ADD], allow: ['Bash(node .process/tool/p3.mjs github push *)'] } },
+};
+const NAMED = {
+  'README.md gh pr ready': 'what job complete runs itself, outside a session',
+  'README.md git push --force-with-lease=<ref>:<sha> origin :<ref>': 'what the branch cleanup workflow runs',
+  'README.md git push': 'what the hook refuses',
+  'setup/DEVELOPER.md git push': 'said to the developer: a push does not count',
+};
+const docs = () => ['README.md', ...readdirSync(join(ROOT, 'setup')).filter((f) => f.endsWith('.md')).map((f) => `setup/${f}`)]
+  .flatMap((f) => toldIn(readFileSync(join(ROOT, f), 'utf8'), f));
+
+test('the R17c deny lists (no raw git push, no gh) refuse no command the process tells a session to run', () => {
+  const told = toldCommands(ROOT);
+  for (const [repo, s] of Object.entries(R17C)) {
+    assert.deepEqual(admitCheck(s, told), [], repo);
+    assert.equal(deniedBy('node tool/p3.mjs github push origin b', s), null, `${repo}: the tool's push is no git push`);
+    const named = admitCheck(s, docs()).map((x) => `${x.file} ${x.cmd}`);
+    assert.deepEqual(named.filter((k) => !NAMED[k]), [], `${repo}: a doc tells a session a command these settings refuse`);
+  }
 });
