@@ -26,8 +26,8 @@ const CFG = { tranche: 'tranche', modules_file: 'build/modules.json' };
 const cfgOf = () => configOf(CFG);
 
 // a COMPLETE (settled), b OPEN with an unmet mark (layer 1's own work), c and d OPEN in layer 2.
-function product() {
-  const files = { 'process/config.json': CFG, 'build/layers.md': LAYERS, 'build/modules.json': MODULES };
+function product(modules = MODULES) {
+  const files = { 'process/config.json': CFG, 'build/layers.md': LAYERS, 'build/modules.json': modules };
   for (const id of ['a', 'b', 'c', 'd']) {
     files[`process/ledger/${id}.json`] = entry(id, { layer: id < 'c' ? 1 : 2, ...(id === 'a' ? { status: { state: 'COMPLETE' } } : {}) });
     files[`req/${id}.md`] = `# ${id}\n\n- **R1** a requirement${id === 'a' ? '' : ' *(not yet met: T1)*'}\n`;
@@ -62,6 +62,16 @@ test('layer jobs lists a next-layer module whose providers are settled as an ear
   const ic = layerIdle({ live: 0, cap: 4, view: v, t: Date.now() });
   assert.equal(ic.startable, 2, 'b, then c early');
   assert.deepEqual(ic.reasons.slice(0, 2), [`1 x startable from ${P3} layer jobs 1, not started`, `1 x early starts into layer 2 listed by ${P3} layer jobs 1, not started`]);
+});
+
+// C16 (the copy, 7 Nov: 49 modules built before the ledger held every user back from an early
+// start, the reason reading "without a ledger entry"): the provider and the act are named.
+test('a provider with no ledger entry: not early, naming the missing entry and the census that writes it', () => {
+  const { root } = product({ modules: [...MODULES.modules.map((m) => (m.id === 'c' ? { ...m, uses: ['a', 'legacy'] } : m)), { id: 'legacy', layer: 0, uses: [] }] });
+  const out = [];
+  const r = layerJobs(root, 1, { io, log: (l) => out.push(l) });
+  assert.deepEqual(r.early.map((x) => x.id), []);
+  assert.ok(out.some((l) => l.startsWith(`not early (layer 2): c (legacy has no ledger entry (process/ledger/legacy.json): it is settled once BOB lands one (the census in \`${P3} status --role bob\` lists the module and its fix))`)), out.join('\n'));
 });
 
 test('job start --early: layer/2 cut ahead from layer/1\'s tip, the early row recorded; the job\'s base is layer/2; once only; an unsettled module refused', () => {

@@ -97,8 +97,8 @@ test('setup check reports the census (R15), never refusing on it', () => {
   const out = [];
   const r = makeRepo({ 'README.md': 'x', 'process/config.json': { modules_file: 'build/modules.json' }, 'build/modules.json': { modules: [{ id: 'lost', layer: 1, paths: ['src/lost/'], tests: ['test/lost/'] }] }, 'build/layers.md': '| 1 | One | other |\n' });
   const res = setupCheck(r, { slug: 'o/r', io: w.io, log: (m) => out.push(m) });
-  assert.match(out.join('\n'), /census: 2 gap\(s\) at HEAD \(not-in-layer-map, no-modules-row\); status --role bob lists the open layer's with their fixes/);
-  assert.equal(res.census, 2, 'other, named by the layer map, has no modules row; lost is off the map, a gap whatever its state (coordinator, 6 Nov)');
+  assert.match(out.join('\n'), /census: 3 gap\(s\) at HEAD \(not-in-layer-map, no-entry, no-modules-row\); status --role bob lists the open layer's with their fixes/);
+  assert.equal(res.census, 3, 'other, named by the layer map, has no modules row; lost is off the map, a gap whatever its state (coordinator, 6 Nov), and has no ledger entry (C16)');
   // Nothing in the census changes whether setup is complete.
   assert.equal(res.ok, setupCheck(root(), { slug: 'o/r', io: w.io, log: quiet }).ok);
 });
