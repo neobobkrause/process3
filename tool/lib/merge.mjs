@@ -23,6 +23,8 @@ import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordPath, isShallow, laneOnly, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
 
 import { pollMs } from './pace.mjs';
+import { roundCloseRun } from './deploy.mjs';
+import { deploys } from './deploycfg.mjs';
 // Before a wait, the command's coalesced state writes are pushed (R17): others read them meanwhile.
 const sleep = (ms) => { if (pendingWrites()) flushState(); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
 const MINUTE = 60000;
@@ -1047,7 +1049,16 @@ export function mergePlain(root, n, opts = {}) {
   const wake = moved && as !== 'bob' ? bobWake(what, as) : null;
   // Printed once per merge commit (state.mjs wakeOnce).
   if (wake) printWake(root, baseCfg?.state_branch || DEFAULTS.state_branch, { pr: n, sha: r.sha, what, wake, as, by: 'merge', log });
-  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null, ...(passIds ? { pass, modules: passIds } : {}), ...(workflows.length ? { workflows } : {}) };
+  // A plain pull request into the tranche that can close a round (the plan made close in
+  // process/config.json, or a completion item done) starts the round-close run if it did (Bob,
+  // 7 Nov: required, tool-started); any other merge reads nothing more.
+  // Read from the merged config (the pull request's head), so one that adds the deploy block or
+  // renames completion_file with its close counts (cold review of C23).
+  let headCfg = baseCfg;
+  try { headCfg = loadConfig(root, pr.head.sha); } catch { headCfg = baseCfg; }
+  const closes = baseCfg && deploys(headCfg) && base === baseCfg.tranche && changed.some((f) => f === CONFIG_FILE || f === headCfg.completion_file || f === baseCfg.completion_file);
+  const round = closes ? (io.roundClose || roundCloseRun)(root, { log, io: io.round || {}, by: `merge ${n}` }) : null;
+  return { merged: true, sha: r.sha, checks: names, wake, what: wake ? what : null, ...(round ? { round } : {}), ...(passIds ? { pass, modules: passIds } : {}), ...(workflows.length ? { workflows } : {}) };
 }
 
 // A pin move's wake for BOB (build train-robust, option 2A): the same words wherever the move is

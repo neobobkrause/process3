@@ -188,7 +188,7 @@ import { mergePlain, processRepo } from '../lib/merge.mjs';
 function plainRepo({ config = true, ledger = true, head = 'bob/pin', files = { 'pin.txt': 'moved' } } = {}) {
   const root = makeRepo({
     'README.md': 'x', '.github/workflows/process-gate.yml': 'on: pull_request\n',
-    ...(config ? { 'process/config.json': {} } : {}), ...(ledger ? { 'process/ledger/alpha.json': entry('alpha') } : {}),
+    ...(config ? { 'process/config.json': config === true ? {} : config } : {}), ...(ledger ? { 'process/ledger/alpha.json': entry('alpha') } : {}),
   });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -232,6 +232,27 @@ test('merge --plain merges a pin move pinned to its head, with the review in the
   assert.equal(f.calls.merged.message, 'Reviewed: fresh reader, no gaps\nReview rounds: 1');
   assert.equal(refs(r.root), before, 'no branch moved, here or on origin: no merge row, no push');
   assert.equal(git(['worktree', 'list'], { cwd: r.root }).split('\n').length, 1);
+});
+
+// Bob, 7 Nov: the round-close run is tool-started. A plain pull request into the tranche that can
+// close a round (the plan made close, a completion item done) asks for it after the merge; any
+// other plain merge, or a product with no deploy block, reads nothing more.
+test('merge --plain: a change to the config or the completion file asks for the round-close run after the merge; others do not', () => {
+  const D = { slug_prefix: 'p3dev-', dry_run: ['true'], deploy: ['true'], walk: ['true'], guard_line: 'ok' };
+  const ask = (config, files) => {
+    const r = plainRepo({ config, files });
+    const f = plainIO(r);
+    const asked = [];
+    const out = mergePlain(r.root, 4, { ...q, noReview: 'a test', io: { ...f.io, roundClose: (root, o) => { asked.push(o.by); return { ran: true, ok: true }; } } });
+    assert.equal(out.merged, true);
+    return [asked, out.round || null];
+  };
+  assert.deepEqual(ask({ deploy: D, completion_file: 'build/round.md' }, { 'build/round.md': '- [x] C-1 · a · F1\n' }), [['merge 4'], { ran: true, ok: true }]);
+  assert.deepEqual(ask({ deploy: D }, { 'process/config.json': { deploy: D, plan: 'close' } }), [['merge 4'], { ran: true, ok: true }]);
+  assert.deepEqual(ask({ deploy: D, completion_file: 'build/round.md' }, { 'pin.txt': 'moved' }), [[], null]);
+  assert.deepEqual(ask(true, { 'process/config.json': { plan: 'close' } }), [[], null], 'no deploy block');
+  assert.deepEqual(ask(true, { 'process/config.json': { deploy: D, plan: 'close' } }), [['merge 4'], { ran: true, ok: true }], 'the deploy block added with the close: read from the merged config');
+  assert.deepEqual(ask({ deploy: { internal_walk: { none: 'x', by: 'Bob, 7 Nov' } } }, { 'process/config.json': { deploy: { internal_walk: { none: 'x', by: 'Bob, 7 Nov' } }, plan: 'close' } }), [[], null], 'the exemption alone deploys nothing');
 });
 
 test('merge --plain works in process3 itself, with no config and no ledger', () => {

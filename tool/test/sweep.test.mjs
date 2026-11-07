@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { commit, entry, makeRepo } from './helpers.mjs';
+import { commit, entry, makeRepo, openPassed } from './helpers.mjs';
 import { handoverConfirm, promptRefresh, readAddress, recordStart, rootPrompt, startRole } from '../lib/roles.mjs';
 import { readState, writeState } from '../lib/state.mjs';
 import { HEARTBEAT_FILE, SWEEP_ROWS_FILE, sweep, sweepTask, watch } from '../lib/sweep.mjs';
@@ -420,4 +420,22 @@ test('sweep: a live layer hold on a BLOCKED job\'s layer holds it as a module ho
   const r = run(root);
   assert.ok(!r.todo.some((x) => /ruling owed/.test(x)), r.todo.join('\n'));
   assert.ok(r.found.some((x) => x.startsWith(`m1: BLOCKED; blocked 60 min; held (${h.id} layer:2, by session_coord1)`)), r.found.join('\n'));
+});
+
+// Bob, 7 Nov: the round-close run is tool-started; owed and not run (the act that closed the round
+// could not run it), the sweep wakes BOB for it, first.
+const opened = (root) => { openPassed(root); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
+test('sweep: a round-close run owed and not run wakes BOB for it; none owed while the round is open', () => {
+  const D = { slug_prefix: 'p3dev-', dry_run: ['true'], deploy: ['true'], walk: ['true'], guard_line: 'ok' };
+  const root = withOrigin({ 'process/config.json': { tranche: 'tranche', deploy: D, plan: 'close' } });
+  opened(root);
+  recordStart(root, 'root', R, { log: quiet });
+  recordStart(root, 'bob', B, { log: quiet });
+  const s = run(root);
+  assert.match(s.todo.join('\n'), /wake BOB with one message: .*send bob "Sweep: the round-close run is owed \(the last round \(plan close\) closed, not yet deployed\): node \S+ deploy dev, from a clean checkout of the tranche tip, first/);
+  const open = withOrigin({ 'process/config.json': { tranche: 'tranche', deploy: D }, 'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | m |\n', 'build/requirements/m.md': '- **R1** *(not yet met: x)* y\n' });
+  opened(open);
+  recordStart(open, 'root', R, { log: quiet });
+  recordStart(open, 'bob', B, { log: quiet });
+  assert.doesNotMatch(run(open).todo.join('\n'), /round-close run/);
 });

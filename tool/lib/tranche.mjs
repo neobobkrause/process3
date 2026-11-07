@@ -14,7 +14,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { walkFindings, walkHold } from './deploy.mjs';
+import { deploys, walkFindings, walkHold } from './deploy.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
@@ -212,7 +212,7 @@ export function trancheClose(root, { record = false, report = false, log = conso
   }
   // The last round's deploy and walk (Bob, 4 Nov): one run at least, and the latest's findings
   // each recorded, as a found mark owed or a known gap, or a fresh run at the next round's close.
-  if (cfg.deploy) {
+  if (deploys(cfg)) {
     const w = walkFindings(root, cfg, t, { slug, read });
     if (!w.last) fail(`the last round's deploy and walk are owed before the tranche closes: ${P3} deploy dev`);
     const hold = walkHold(w);

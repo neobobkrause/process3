@@ -99,7 +99,7 @@ test('deploy dev and release run build the uncommitted generated files before th
   const r = deployDev(root, { io: { compare: () => null }, repo: 'o/p', log: (m) => out.push(m) });
   assert.equal(r.ok, true, out.join('\n'));
   assert.deepEqual(r.row.results.map((x) => [x.stage, x.exit]), [['build', 0], ['dry_run', 0], ['deploy', 0], ['walk', 0]]);
-  assert.ok(JSON.parse(git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare })).ok);
+  assert.ok(JSON.parse(git(['show', `process-state:${DEPLOYS_FILE}`], { cwd: bare }).split('\n').at(-1)).ok, 'the run\'s row, after its start row');
   assert.match(out.join('\n'), /findings of the walk, if any, enter by the route for work found elsewhere: `node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "walk p3dev-l1 \w{10}"`/);
   // The release's checks job, on its own checkout, builds them too.
   const rel = makeRepo(product({ release: { checks: [node("if (!require('fs').existsSync('gen/big.txt')) process.exit(6)")], assemble: node('0'), out: 'rel' } }));
