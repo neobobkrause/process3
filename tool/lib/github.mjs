@@ -124,10 +124,14 @@ export const getRun = (slug, id) => gh(['api', `repos/${slug}/actions/runs/${id}
 // Whether GitHub serves a run: 'served', 'gone' (404: a run the suspended account triggered is hidden
 // with its pull requests, copy run 42277392893, 7 Nov), or null for any other failure (unread: the
 // caller fails closed).
-export function runState(slug, id) {
-  const r = ghRun(['api', `repos/${slug}/actions/runs/${id}`]);
+// Gone only when GitHub itself answers 404 Not Found for the run while it serves the repository (not a
+// proxy's or a host's error, not a token that cannot see the repository: cold review).
+const notFound = (r) => /\(HTTP 404\)/.test(r.stderr || '') && /"message"\s*:\s*"Not Found"/.test(`${r.stdout || ''}${r.stderr || ''}`);
+export function runState(slug, id, { run = ghRun } = {}) {
+  const r = run(['api', `repos/${slug}/actions/runs/${id}`]);
   if (r.code === 0) return 'served';
-  return /HTTP 404|Not Found/i.test(`${r.stderr}\n${r.stdout}`) ? 'gone' : null;
+  if (!notFound(r)) return null;
+  return run(['api', `repos/${slug}`]).code === 0 ? 'gone' : null;
 }
 export function runArtifactRow(slug, id) {
   return withTemp('p3-row-', (dir) => {

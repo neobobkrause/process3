@@ -672,13 +672,28 @@ test('the layer gate: a hidden PR whose run is hidden too stands on its land and
   const unread = cover({ runState: () => null });
   assert.ok(!unread.covered.some((x) => x.id === 'c'));
   assert.ok(unread.findings.some((f) => /c changed with no land/.test(f.message)), JSON.stringify(unread.findings));
-  // A red recorded run, hidden: refused.
-  writeRows(root, SB, 'a red rerun', [[flowFile(1, 'gate', 'c-1-78-1'), { row: 'gate', layer: 1, module: 'c', pr: 1, sha: hc, run_id: 78, run_attempt: 1, at: '2026-11-07T02:00:00Z', trigger: 'code', suite: 'fail', ok: false }]]);
-  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
-  const red = cover({ runState: () => 'gone' });
-  assert.ok(!red.covered.some((x) => x.id === 'c'), 'the newest recorded run is red');
+  const row = (run_id, over) => [flowFile(1, 'gate', `x-1-${run_id}-1`), { row: 'gate', layer: 1, module: 'c', pr: 1, sha: hc, run_id, run_attempt: 1, at: '2026-11-08T02:00:00Z', trigger: 'code', suite: 'pass', ok: true, whole: true, ...over }];
+  const add = (r) => { writeRows(root, SB, 'gate row', [r]); git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root }); };
+  const hid = () => cover({ runState: () => 'gone' }).covered.some((x) => x.id === 'c');
+  // A newer row of another module, or of another PR, is not this land's run.
+  add(row(90, { module: 'd', suite: 'fail', ok: false }));
+  add(row(91, { pr: 2, suite: 'fail', ok: false }));
+  assert.equal(hid(), true, 'another module\'s or PR\'s row is not read');
+  // The newest recorded run red: refused.
+  add(row(92, { suite: 'fail', ok: false }));
+  assert.equal(hid(), false, 'the newest recorded run is red');
+  // The newest recorded run green but narrowed to a requirements file's tests: refused (cold review).
+  add(row(93, { whole: false }));
+  assert.equal(hid(), false, 'a narrowed run is not the whole suite');
+  // A row written since rows say `whole`, without it: refused; one from before, taken as written.
+  add(row(94, { whole: undefined }));
+  assert.equal(hid(), false, 'a new row without whole');
+  add(row(95, { whole: undefined, at: '2026-11-06T19:12:11Z' }));
+  assert.equal(hid(), true, 'a legacy row (the copy\'s PR 696) is taken as written');
   // The job branch: the state's start row before the land, over the ledger's.
   writeRows(root, SB, 'start', [[flowFile(1, 'start', 'c-2-1'), { row: 'start', layer: 1, module: 'c', attempt: 2, branch: 'job/c-2', at: '2000-01-01T00:00:00Z' }]]);
+  // A start row after the land is not the land's attempt.
+  writeRows(root, SB, 'start', [[flowFile(1, 'start', 'c-9-1'), { row: 'start', layer: 1, module: 'c', attempt: 9, branch: 'job/c-9', at: '2999-01-01T00:00:00Z' }]]);
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
   seen.length = 0;
   cover({ runState: () => 'served', runArtifactRow: (s, id) => ({ ...run, run_id: id }) });
