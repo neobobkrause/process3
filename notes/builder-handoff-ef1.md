@@ -35,3 +35,18 @@ Open questions for C18's reviewer: a clone that never makes a real state write n
 ## What an account switch mid-push would lose
 
 Nothing of this builder's: every branch above is on origin. Clone-local only, by design: the GitHub caches (p3-gh-cache/), the read stamps, and in a clone running C18, waiting bookkeeping records (p3-deferred-*). Those records (idle-check rows, starts owed, usage shares) would be lost with the container. They are bookkeeping, not work.
+
+## C18 cold review of 08105d31 (arrived after the handoff): do not merge until fixed
+
+Six real bugs, three risks. Its tests pass (46/46), but none covers a refused flush or two processes at once.
+
+1. **A record pushed twice when a write is kept for replay** (state.mjs `writeStateNow`, park path): `books()` puts the waiting records in the kept commit, and `fail()` runs before `dropDeferred`, so they stay in the file too; replay and the next real write both push them (shares counted double; owed listed twice; the share never settled).
+2. **Two processes push the same waiting record** (`flushState`): `waiting` is read before `withStateLock`.
+3. **A waiting record lost** (`flushState`): `dropDeferred` runs outside the lock; a concurrent append is overwritten. Fix 2 and 3 together: read `waiting` and drop it under the lock that pushes.
+4. **Batched `bookkeep` moves the state ref without the lock** (calls `writeStateLocal` directly; `writeState` wraps it in `withStateLock`).
+5. **Idle-check alarms from every session** (sweep.mjs `idleCheck`): the LOST dedup across sessions is gone, so each clone can raise IDLE CAPACITY and message the coordinator every 5 min. Needs a cross-session dedup (e.g. print only when no fresh row on the branch and none waiting locally, plus a cheap shared marker), or keep the check row a real write.
+6. **Usage shares stop reaching other clones** (ghshare.mjs `shareUsage`): a mostly-reading clone never shares, so the account budget undercounts. Keep the share-alone rule (a push at most every 15 min, only with content or non-state pushes) instead of deferring it.
+
+Risks: (7) the bookkeeping-only flush restores `entry.base`, which can be older than a later fresh fetch; (8) status's job "ahead" count can be 5 min stale (cache keyed by branch name); (9) the waiting file shrinks only on a real write, and `readStateWith` re-applies it on each read.
+
+Checked fine: fetchBranch return shapes; a refused batched flush keeps records only in the file; JSON-line removal; late check rows skipped; readOpenLayer non-fresh is used only by sweep and the idle check; the comment cache key holds the slug.
