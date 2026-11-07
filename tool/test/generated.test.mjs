@@ -54,6 +54,7 @@ test('layer checks: a generated path the tranche does not commit is built and ve
   const r = layerChecks(root, cfg, git(['rev-parse', 'HEAD'], { cwd: root }), [{ id: 'a' }], { timeout: 60000, log: (m) => out.push(m) });
   assert.deepEqual(r.findings, [], out.join('\n'));
   assert.deepEqual(r.changed, ['gen/small.txt'], 'only the committed path is compared');
+  assert.deepEqual(r.stale, [{ file: 'gen/small.txt', regenerate: 'node gen.mjs' }], 'named with its regenerate for layer merge');
   assert.deepEqual(r.built, ['gen/big.txt']);
   // A built file whose verify fails is a finding, even when .gitignore hides it from git.
   const bad = withOrigin(product({ generated: [{ ...ROWS[0], verify: ['node', '-e', 'process.exit(4)'] }] }, { '.gitignore': 'gen/big.txt\n' }));
