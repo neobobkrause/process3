@@ -17,6 +17,7 @@ import { flushState, pendingWrites, wakeOnce } from './state.mjs';
 import { foundOnly } from './found.mjs';
 import { generatedRows, ignoreLines, isGenerated, refreshOthers, removedGenerated } from './checks.mjs';
 import { closeWorkflows, isJob } from './workflows.mjs';
+import { flowFile, layerOfBranch } from './layerbase.mjs';
 import { OUTSIDE, judgeWorkflow, refusal } from './workflow-limits.mjs';
 import { reviewTriggers } from './triggers.mjs';
 import { BASE_MOVED, CONFIG_FILE, DEFAULTS, Fail, RETRIES, SERVER_ERROR, fail, fetchJobRefs, gh, git, isRecordPath, isShallow, laneOnly, loadConfig, now, repoSlug, shallowCuts, underPath, withTemp } from './util.mjs';
@@ -882,6 +883,14 @@ export function mergePlain(root, n, opts = {}) {
   if (!pr.head.repo?.full_name || pr.head.repo.full_name !== slug) fail(`pull request ${n} comes from ${pr.head.repo?.full_name || 'a repository that no longer exists'}, not ${slug}`);
   if (isJob(head)) fail(`pull request ${n} is a job's (${head}); merge it without --plain`);
   if (isJob(base)) fail(`pull request ${n} is into ${base}, a job's branch`);
+  // A layer branch cut ahead for early starts (R14) takes nothing before its open: its open is a
+  // fast-forward to the tranche (cold review of R14).
+  const lk = layerOfBranch(base);
+  if (lk !== null) {
+    const sb = loadConfig(root).state_branch;
+    git(['fetch', '-q', 'origin', `+refs/heads/${sb}:refs/remotes/origin/${sb}`], { cwd: root, allowFail: true });
+    if (git(['cat-file', '-e', `refs/remotes/origin/${sb}:${flowFile(lk, 'open')}`], { cwd: root, allowFail: true }).code !== 0) fail(`pull request ${n} is into ${base}, and layer ${lk} is not open (cut ahead for early starts, or never opened): nothing merges into it before ${P3} layer open ${lk}`);
+  }
   const main = base === 'main' || base === pr.base.repo?.default_branch;
   // Before anything waits on checks: a conflicted pull request gets none (copy PR 108, 4 Nov).
   waitMergeable(slug, n, pr, { every: opts.mergeableEvery, read: io.getPR, log });

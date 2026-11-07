@@ -18,7 +18,7 @@ import { buildGenerated, committedPaths, generatedRows } from './checks.mjs';
 import { laneForStart, laneSeatFor } from './lane.mjs';
 import { standingFor } from './register.mjs';
 import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
-import { earlyProviders, writeRows } from './layerflow.mjs';
+import { cutAhead, earlyCut, earlyProviders, writeRows } from './layerflow.mjs';
 import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -291,7 +291,7 @@ export function routeFor(id, { state, ahead, open }) {
 // it starts on the next free job/<id>-<n>, as --fresh-branch does, the old branch kept.
 // It runs the setup check first and starts nothing while a condition is missing (setup audit,
 // 2 Nov); without a push (tests) there is no GitHub to read.
-export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, still, push = true, open = createPR, find = findPR, prs = prsFromBranch, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
+export function jobStart(root, id, { coordinator, model, reopen, restart, stop, takeIn, fresh, overCap: overWhy, still, early: earlyStart, layerIO = {}, push = true, open = createPR, find = findPR, prs = prsFromBranch, setup = setupCheck, notes = comments, compare: cmp = compare, gh: ghIO = {}, log = console.log } = {}) {
   // --restart with --fresh-branch (coordinator, 4 Nov): an OPEN module's new attempt on a fresh
   // branch; the start row records the restart's why with the fresh branch's.
   if (restart !== undefined && fresh !== undefined) {
@@ -314,8 +314,14 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   // module's facts), judged at the tip the job is cut from (confirming review of the anchor).
   const anchor = () => {
     if (push) setupOrStop(root, loadConfig(root), slug, setup, log);
+    // An early start (R14): the next layer's branch cut ahead, the early row recorded, before the
+    // base is read; that branch is then the job's, as any of its layer's jobs.
+    if (earlyStart) earlyCut(root, loadConfig(root), id, { io: layerIO, log });
     // The anchored checkout's; in the layer flow, the open layer's branch is the job's base.
     const c = jobCfg(root, loadConfig(root), id, { push });
+    // A layer cut ahead for early starts and not open: only an early start of a listed module.
+    // A joined module included (cold review of R14).
+    if (c.layer && !earlyStart) { const k = cutAhead(root, c.state_branch, c.layer.n); if (k !== null) fail(`layer ${c.layer.n} is not open (${c.tranche} was cut ahead from layer ${k} for early starts): ${id} starts early with --early while ${P3} layer jobs ${k} lists it, else from ${P3} layer jobs ${c.layer.n} once it opens; nothing was started`); }
     // A job starts only in its layer, once that layer is open (layer open <n>); a product with no
     // layer map (layers_file) has no layer, and its jobs keep the tranche.
     if (layerMode(c) && !c.layer && !c.noLayers) fail(`${id}'s layer has no open branch (layer/<n> on origin, not merged), and it joined no open layer: a layer not yet open opens first (${P3} layer open <n>) and lists it (${P3} layer jobs <n>); a module whose layer is behind the open one joins the next to open (${P3} layer join ${id} --why "<the work>"), then starts from that layer's list once it opens; nothing was started`);
