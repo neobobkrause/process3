@@ -11,7 +11,7 @@ import { laneStart } from '../lib/lane.mjs';
 import { budgetGate, classify, ghAfter, ghTurn, usage, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
 import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
 import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, stateReplay, strandedWrites, writeState } from '../lib/state.mjs';
-import { configOf, git, jobCap } from '../lib/util.mjs';
+import { configOf, git, jobCap, pushRetry } from '../lib/util.mjs';
 import { makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
@@ -57,8 +57,8 @@ test('GitHub\'s published limits are data with their source and date; the target
   assert.equal(pacingProblem({ github_limits: { content_per_minute: 60, source: 'x', read: '2027-01-01' } }), null);
   assert.match(pacingProblem({ github_limits: { content_per_day: 1, source: 'x', read: 'y' } }), /not one of GitHub's published limits/);
   assert.equal(configOf({ pacing: { github_limits: { content_per_minute: 60, source: 'x', read: 'y' } } }).pacing.github_limits.content_per_hour, 500, 'a limit not restated keeps GitHub\'s');
-  assert.match(pacingProblem({ gh_interval_ms: 500 }), /gh_interval_ms is 1000 or more/);
-  assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /no wait on GitHub polls tighter than 30 s/);
+  assert.match(pacingProblem({ gh_interval_ms: 500 }), /gh_interval_ms is 1000 or more: at least a second between GitHub writes/);
+  assert.throws(() => configOf({ pacing: { poll_first_s: 10 } }), /the poll cadence, no tighter than 30 s/);
   // The test stand-in is read under the test runner only, never in a session.
   assert.equal(pacing({ P3_GH_INTERVAL_MS: '0' }).gh_interval_ms, 1000);
   configOf({});
@@ -66,6 +66,11 @@ test('GitHub\'s published limits are data with their source and date; the target
 
 test('polls wait a fixed 30 s (PD-6: no back-off on a number of the process\'s own), never tighter than 30 s', () => {
   assert.deepEqual([1, 2, 3, 4, 5, 6, 9].map((k) => pollMs(k, P) / 1000), [30, 30, 30, 30, 30, 30, 30]);
+  // An old config's poll_most_s is accepted and ignored: no back-off returns.
+  assert.equal(pacingProblem({ poll_most_s: 300 }), null);
+  configOf({ pacing: { poll_most_s: 300 } });
+  assert.deepEqual([1, 5].map((k) => pollMs(k) / 1000), [30, 30]);
+  configOf({});
   assert.equal(pollMs(1, { ...P, poll_first_s: 5 }), 30000);
 });
 
@@ -141,9 +146,10 @@ test('a 403 with Retry-After pauses every session until it passes, never a retry
   assert.deepEqual(limitSignal('gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 120'), { kind: 'secondary', retryAfter: 120, reset: null });
   assert.equal(limitSignal('HTTP 404: Not Found'), null);
   assert.equal(limitSignal('HTTP 403: Resource not accessible by integration'), null, 'a permission 403 is no rate limit');
-  // PD-6: only GitHub's own refusal pauses or stops; a 5xx, a proxy's 403 or its own 429 never does.
-  for (const t2 of ['HTTP 502: Bad Gateway (https://api.github.com/repos/o/p)', 'HTTP 500: Internal Server Error', 'HTTP 403: Forbidden', 'HTTP 429: Too Many Requests', 'proxy: 429 too many concurrent transfers']) assert.equal(limitSignal(t2), null, t2);
-  assert.equal(limitSignal('HTTP 429: Too Many Requests (https://api.github.com/repos/o/p)').kind, 'secondary');
+  // PD-6: only GitHub's own refusal pauses or stops; a 5xx, a 403 naming no rate limit, or a proxy's
+  // own 429 never does. A bare 429 from gh or git is GitHub's (cold review of R17g).
+  for (const t2 of ['HTTP 502: Bad Gateway (https://api.github.com/repos/o/p)', 'HTTP 500: Internal Server Error', 'HTTP 403: Forbidden', 'proxy: HTTP 429 too many concurrent transfers for this repository']) assert.equal(limitSignal(t2), null, t2);
+  for (const t2 of ['gh: HTTP 429', 'HTTP 429: Too Many Requests (https://api.github.com/repos/o/p)', 'error: RPC failed; HTTP 429 curl 22 The requested URL returned error: 429']) assert.equal(limitSignal(t2)?.kind, 'secondary', t2);
   // Session A is refused.
   useShared(sharedA);
   const rec = ghAfter(['pr', 'comment'], { code: 1, stderr: 'gh: You have exceeded a secondary rate limit. (HTTP 403)\nRetry-After: 120' }, a, { now: c.now });
@@ -568,4 +574,29 @@ test('github push names its refspec, refuses wildcards and main, and a remote wh
   } finally { process.chdir(cwd); console.log = log; console.error = err; }
   const text = errs.join('\n');
   for (const re of [/name what to push/, /no wildcard refspec/, /never to main/, /the flags take no value; put them after the refspecs/, /remote\.origin\.mirror is set in this clone \(true\): it can force or delete/]) assert.match(text, re);
+});
+
+// Cold review of R17g: a push GitHub refuses for its rate limit ("RPC failed; HTTP 429") pauses every
+// session and is never pushed again inside the refusal; a proxy's own 429 is no pause.
+test('a push refused by GitHub\'s rate limit pauses every session and is not retried; a server error still is', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const paused = [];
+  useShared({ read: () => ({ pause: null, use: [] }), pause: (rec) => { paused.push(rec); return null; } });
+  // git() records the pause on a refused push.
+  git(['remote', 'add', 'origin', join(tmpdir(), 'p3-no-such-origin.git')], { cwd: root });
+  const r = git(['push', '-q', 'origin', 'HEAD:refs/heads/x'], { cwd: root, allowFail: true });
+  assert.notEqual(r.code, 0);
+  assert.equal(paused.length, 0, 'a push that fails for another reason is no pause');
+  ghAfter(['push', 'origin', 'x'], { code: 1, stderr: 'error: RPC failed; HTTP 429 curl 22 The requested URL returned error: 429' }, root);
+  assert.equal(paused.length, 1);
+  assert.match(paused[0].why, /secondary rate limit on git push origin/);
+  // pushRetry: a rate-limit refusal stops at once; a 5xx is tried again.
+  let n = 0;
+  assert.throws(() => pushRetry(root, 'process-state', { push: () => { n++; return { code: 1, stderr: 'error: RPC failed; HTTP 429 curl 22 The requested URL returned error: 429' }; }, wait: 1, log: () => {} }), /refused by GitHub's rate limit; every session waits it out/);
+  assert.equal(n, 1, 'never pushed again inside the refusal');
+  n = 0;
+  assert.throws(() => pushRetry(root, 'process-state', { push: () => { n++; return { code: 1, stderr: 'remote: Internal Server Error\nerror: HTTP 500' }; }, tries: 3, wait: 1, log: () => {} }), /refused 3 times/);
+  assert.equal(n, 3, 'a server error is tried again');
 });

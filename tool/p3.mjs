@@ -141,10 +141,10 @@ const commands = {
   'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
   'layer publish': async (a, root) => {
     const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
-    // Unset, the run's check of the layer branch backs off from 30 s to 5 min (R17); --every fixes
-    // it, at 30 s or more.
+    // Unset, the run's check of the layer branch waits pacing.poll_first_s (30 s), fixed (PD-6);
+    // --every sets it, at 30 s or more.
     const every = a.every === undefined ? null : Number(a.every);
-    if (every !== null && !(Number.isFinite(every) && every >= 30)) fail(`--every <seconds>, 30 or more (GitHub pacing), not ${JSON.stringify(a.every)}`);
+    if (every !== null && !(Number.isFinite(every) && every >= 30)) fail(`--every <seconds>, 30 or more (the poll cadence), not ${JSON.stringify(a.every)}`);
     return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
   'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
@@ -527,8 +527,7 @@ const commands = {
     return hookRun(input, root);
   },
   // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
-  // through this: it waits its turn against the pause, the stop and the account's push ceiling,
-  // and is logged and shared. Never a force or a delete (Bob's standing approvals).
+  // through this: it waits only for GitHub's own pause or stop (PD-6), and is logged and shared. Never a force or a delete (Bob's standing approvals).
   'github push': (a, root) => {
     if (Object.keys(a).some((k) => k !== '_' && !['set-upstream', 'quiet'].includes(k))) fail('github push <remote> <refspec>... [--set-upstream] [--quiet]: no other flag (never --force, --delete, --mirror or --all)');
     if (['set-upstream', 'quiet'].some((k) => a[k] !== undefined && a[k] !== true)) fail('github push <remote> <refspec>... --set-upstream --quiet: the flags take no value; put them after the refspecs');

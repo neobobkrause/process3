@@ -961,8 +961,8 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
     if (pendingWrites()) flushState();
     const c = doComplete();
     let halted = null;
-    // The layer branch read again while the run goes: from pacing.poll_first_s (30 s) doubling to
-    // poll_most_s (5 min), never tighter (R17); every, a fixed pause, for the tests.
+    // The layer branch read again while the run goes: every pacing.poll_first_s (30 s), fixed (PD-6);
+    // every, a fixed pause, for the tests.
     let k = 0;
     let timer = null;
     const check = () => {

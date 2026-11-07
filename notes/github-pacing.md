@@ -41,11 +41,11 @@ A config that restates a limit must name its source and the date it was read. `p
   - The pause lasts until Retry-After, else x-ratelimit-reset, else, for the primary limit, rate_limit's reset, else one minute, as GitHub's docs say.
   - A second refusal within an hour stops the tool. Every call is then refused with "tell the coordinator", until the coordinator runs `p3 github resume --by <session>`.
 - **Session caps are derived.**
-  - There is no fixed job or lane cap: `pacing.jobs` and `pacing.lanes` are optional hard caps, off by default.
+  - There is no job or lane cap of GitHub pacing: `pacing.jobs` and `pacing.lanes` are retired (PD-6, 7 Nov), accepted and ignored.
   - `job start` and `lane start` refuse a new session while GitHub is paused, the tool is stopped, the hour's content-creating requests are at target, or the primary limit is.
 - **`p3 github budget`** shows the use against each published limit as a percentage, per window, with the pause and each session's calls.
 - **Kept from the first pass:**
-  - polls back off from 30 s to 5 min, never tighter;
+  - polls wait a fixed 30 s (PD-6, 7 Nov: the back-off to 5 min is retired);
   - state writes are coalesced into one push per command;
   - the job START says to push once per turn.
 
