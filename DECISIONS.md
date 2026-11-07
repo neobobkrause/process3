@@ -30,3 +30,8 @@ Consequences: the layer flow can be throttled at busy hours, and `p3 github budg
 Context: R16's census found COMPLETE modules missing from the copy's build/layers.md; its first form refused `layer open` for any layer holding one, which would stop the copy's layers 2, 4 and 11 until the map is fixed (builder ef1pxNY's cold review, 7 Nov).
 Decision: the gap is a finding the census and `layer open` print, naming the modules; it stops nothing. Options weighed: refuse (protects against a module silently left out of a layer's order, but a COMPLETE module has no job to order, and the stop costs a layer's start on a map edit); flag (the map is fixed by the product's own PR, BOB's).
 Consequences: layer 11 can open on time; BOB fixes build/layers.md from the finding. Serves Bob's 7 Nov words that too much caution destroys productivity.
+
+## PD-5: The governor is the only push brake; no hand-held windows (coordinator, 7 Nov)
+Context: at 04:51Z the account read 121/120 pushes, and BOB deferred `layer merge 10` and the found-mark PRs 756/757 by hand for ~20 min. At 05:17Z the readings were pushes 89/120 (74%), primary 6%, content 6%, no pause. Bob asked whether this was velocity lost to baseless caution (7 Nov).
+Decision: no session defers pushes by hand on top of PD-3. The governor refuses a push over the ceiling and keeps held state writes replayable, so a refusal costs one rerun. A session stops only on a governor refusal, a GitHub rate-limit or abuse response, or an unexplained refusal.
+Consequences: lands and merges are not queued behind manual windows. Bob's 6 Nov "BE CAREFUL" is served by the governor's ceiling, not by sessions' guesses. Each new caution must name what it protects and what it costs.
