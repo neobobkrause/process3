@@ -38,7 +38,7 @@ Runbook: rulebooks/account-switch.md on process3's tranche. Section 1 (switch ou
 6. Bob archives the old account's sessions and deletes its switched-off tasks once the new ones run.
 
 ## R17g cold audit (build/limits-only-github e55bcd4c), relayed by ef7TXuV at 05:36Z
-Core is correct: pace.test 20/20; 524 pushes an hour pass with no wait; budgetGate admits at any push count; published limits and GitHub's pause and stop still brake. Fix before merging:
+Full suite 1114/1114 at e55bcd4c (finished after shutdown). Core is correct: pace.test 20/20; 524 pushes an hour pass with no wait; budgetGate admits at any push count; published limits and GitHub's pause and stop still brake. Fix before merging:
 1. Med: limitSignal misses a bare `gh: HTTP 429` (no message or URL). Treat any 429 from gh as GitHub's unless it names a proxy, and add a test.
 2. Med, pre-existing: git push `RPC failed; HTTP 429` matches SERVER_ERROR (util.mjs ~610), so pushRetry and ghshare's ledger write retry at 1/2/4/8 s inside GitHub's refusal. Route push stderr through limitSignal to a pause, and take 429/403 out of SERVER_ERROR.
 3. Low: an old config's poll_most_s 300 brings the 5-min back-off back; retire it. merge.mjs transientPause's TRANSIENT pattern matches proxy 429s and "rate limit".
