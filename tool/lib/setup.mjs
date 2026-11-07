@@ -345,6 +345,16 @@ export const readers = {
     return gaps.length ? missing(gaps.join('; ')) : set(`${shims.join(', ')} equal the pin ${pin.sha.slice(0, 10)}'s shims; ${hookKeys(hooks).length} hook(s), each allowed`);
   },
 
+  // C23 (Bob, 7 Nov: the internal walk "Required, tool-started", at "Round close only").
+  'internal-walk': (c, x) => {
+    const i = x.cfg.deploy?.internal_walk;
+    if (i && typeof i === 'object' && !Array.isArray(i) && typeof i.none === 'string' && i.none.trim()) return typeof i.by === 'string' && i.by.trim() ? set(`not configured: ${i.none.trim()} (${i.by.trim()})`) : missing('deploy.internal_walk records an exemption with no "by": an exemption is Bob\'s word, {"none": "<reason>", "by": "Bob, <date>"}');
+    const run = i && typeof i === 'object' ? i.run : undefined;
+    const argv = (a) => Array.isArray(a) && a.length && a.every((s) => typeof s === 'string' && s.length);
+    if (argv(run) || (Array.isArray(run) && run.length && run.every(argv))) return set(`deploy.internal_walk runs ${(argv(run) ? [run] : run).map((a) => a.join(' ')).join('; ')}`);
+    return missing(`process/config.json on ${x.where} names no internal walk (deploy.internal_walk.run): it is required and runs at each round's close (Bob, 7 Nov); BOB adds it through a plain pull request, or Bob records an exemption {"none": "<reason>", "by": "Bob, <date>"}`);
+  },
+
   'lane-modules': (c, x) => {
     const gaps = laneModuleGaps((f) => x.file(f), x.cfg);
     const named = (Array.isArray(x.cfg.lanes) ? x.cfg.lanes : []).filter((l) => typeof l?.module === 'string' && l.module.trim()).length;

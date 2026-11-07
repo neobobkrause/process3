@@ -56,9 +56,13 @@ export function deployConfig(cfg) {
   const wr = paths(d.walk_reports ?? [], 'walk_reports');
   // internal_walk (Bob, 4 Nov; K4111, K4162, K4781): the product's offline walk, run at the round
   // close before the dry run, never a gate. {run: argv or argvs, timeout_minutes (whole run), reports}.
+  // An exemption Bob records instead ({none: "<reason>", by: "Bob, <date>"}; Bob, 7 Nov: the internal
+  // walk is required, its exemption his word): no internal walk, said in setup check.
   let iw = null;
   const i = d.internal_walk;
-  if (i !== undefined && i !== null) {
+  if (i && typeof i === 'object' && !Array.isArray(i) && 'none' in i) {
+    if (Object.keys(i).some((k) => !['none', 'by'].includes(k)) || typeof i.none !== 'string' || !i.none.trim() || typeof i.by !== 'string' || !i.by.trim()) fail('deploy.internal_walk\'s exemption is {"none": "<reason>", "by": "Bob, <date>"}');
+  } else if (i !== undefined && i !== null) {
     if (typeof i !== 'object' || Array.isArray(i) || Object.keys(i).some((k) => !['run', 'timeout_minutes', 'reports'].includes(k))) fail('deploy.internal_walk must be an object with run, timeout_minutes and reports');
     if (i.timeout_minutes !== undefined && !(Number.isInteger(i.timeout_minutes) && i.timeout_minutes > 0 && i.timeout_minutes <= 360)) fail('deploy.internal_walk.timeout_minutes must be whole minutes from 1 to 360');
     iw = { run: steps(i.run, 'internal_walk.run'), timeout_minutes: i.timeout_minutes || 30, reports: paths(i.reports ?? [], 'internal_walk.reports') };
