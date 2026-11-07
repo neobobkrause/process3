@@ -617,7 +617,12 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   // what BOB writes (the entries that need no judgment printed ready).
   if (!cut) {
     const c = census(root, cfg, { ref: tr, open: [n] });
-    const mineGaps = c.gaps.filter((g) => g.layer === n && g.kind !== 'not-on-layer');
+    // A module off the layer map that needs no job (COMPLETE, no unmet mark) is a finding, printed;
+    // it stops nothing (PD-4). One that still needs a job refuses, as before: its job would never start.
+    const finding = (g) => g.kind === 'not-in-layer-map' && !g.needs;
+    const found = c.gaps.filter((g) => g.layer === n && finding(g));
+    if (found.length) log(`finding: layer ${n}'s module(s) ${found.map((g) => g.id).join(', ')} are on no line of ${cfg.layers_file}; BOB names them there (PD-4: this stops nothing)`);
+    const mineGaps = c.gaps.filter((g) => g.layer === n && g.kind !== 'not-on-layer' && !finding(g));
     if (mineGaps.length) fail(`layer ${n} has ${mineGaps.length} gap(s) on ${cfg.tranche}; land the fixes first, then open the layer; nothing was opened:\n${censusLines({ gaps: mineGaps }, { tranche: cfg.tranche }).slice(1).join('\n')}`);
   }
   const rows = flowRows(root, cfg.state_branch, n);
