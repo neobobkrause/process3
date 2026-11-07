@@ -197,10 +197,58 @@ test('state replay: a kept write that does not apply stays kept and the newer on
   const n2 = keep('2000-0001', 'layer merge 9: row 2', append({ row: 'merged', n: 2 }));
   writeState(other, SB, 'another writer', (wt) => { writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"c"}\n'); return {}; });
   const lines = [];
-  assert.throws(() => stateReplay(root, SB, [], { log: (l) => lines.push(l) }), new RegExp(`1 kept state write\\(s\\) did not replay and stay kept \\(the other 2 replayed\\): ${old} does not apply`));
+  assert.throws(() => stateReplay(root, SB, [], { log: (l) => lines.push(l) }), new RegExp(`1 kept state write\\(s\\) did not replay and stay kept: ${old}: ${old} does not apply .* \\(the other 2 replayed\\)$`));
   assert.ok(lines.some((l) => l.startsWith(`kept ${old} (pacing: lane seat): `) && /does not apply/.test(l)), lines.join('\n'));
   assert.ok(lines.includes(`replayed ${n1} (layer merge 9: row 1)`) && lines.includes(`replayed ${n2} (layer merge 9: row 2)`), lines.join('\n'));
   git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
   assert.deepEqual(readState(root, SB, ROWS).trim().split('\n').map((l) => JSON.parse(l)).map((x) => x.n ?? x.row), ['seed', 1, 2]);
   assert.equal(unpushed(root), old, 'only the one that does not apply stays kept');
+});
+
+// Cold review of the per-ref replay: the writes one command kept (<ms>-0000, -0001, each made on the one
+// before) stay together: one that does not apply keeps its command's later ones. A failure that is not
+// "does not apply" (a push refused to the end) stops the replay: that ref stays as it was, never kept
+// twice, and later refs are not tried.
+function keeper(root) {
+  return (name, msg, change) => {
+    const wt = join(mkdtempSync(join(tmpdir(), 'p3-keep-')), 'w');
+    git(['worktree', 'add', '-q', '--detach', wt, `refs/remotes/origin/${SB}`], { cwd: root });
+    change(wt);
+    git(['add', '-A'], { cwd: wt });
+    git(['-c', 'user.name=t', '-c', 'user.email=t@x', 'commit', '-q', '-m', msg], { cwd: wt });
+    git(['update-ref', `refs/p3/unpushed/${name}`, 'HEAD'], { cwd: wt });
+    git(['worktree', 'remove', '--force', wt], { cwd: root });
+    return `refs/p3/unpushed/${name}`;
+  };
+}
+test('state replay: a command\'s later kept write stays with its earlier one that does not apply; another command\'s replays', () => {
+  const { root, other } = withOrigin();
+  writeState(root, SB, 'seed', (wt) => { mkdirSync(join(wt, 'lanes'), { recursive: true }); writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"a"}\n'); return {}; });
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  const keep = keeper(root);
+  const seat = keep('1000-0000', 'lane seat', (wt) => writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"b"}\n'));
+  const row = keep('1000-0001', 'row naming the seat', append({ row: 'seat', who: 'b' }));
+  const own = keep('2000-0000', 'another command', append({ row: 'other' }));
+  writeState(other, SB, 'another writer', (wt) => { writeFileSync(join(wt, 'lanes/ux.json'), '{"who":"c"}\n'); return {}; });
+  const lines = [];
+  assert.throws(() => stateReplay(root, SB, [], { log: (l) => lines.push(l) }), /^Error: 2 kept state write\(s\) did not replay/);
+  assert.ok(lines.includes(`kept ${row}: kept with its command's earlier write, which does not apply`), lines.join('\n'));
+  assert.ok(lines.includes(`replayed ${own} (another command)`), lines.join('\n'));
+  assert.equal(unpushed(root), [seat, row].join('\n'));
+});
+
+test('state replay: a push refused to the end stops the replay; the ref stays as it was, never kept twice; later refs are not tried', (t) => {
+  const { root } = withOrigin();
+  writeState(root, SB, 'seed', append({ row: 'seed' }));
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  const keep = keeper(root);
+  const a = keep('1000-0000', 'row a', append({ row: 'a' }));
+  const b = keep('2000-0000', 'row b', append({ row: 'b' }));
+  let pushes = 0;
+  stateIO.push = () => { pushes++; return { code: 1, stdout: '', stderr: 'remote: fatal error in commit_refs' }; };
+  stateIO.wait = 1;
+  t.after(() => { stateIO.push = null; stateIO.wait = null; });
+  assert.throws(() => stateReplay(root, SB, [], { log: () => {} }), new RegExp(`the replay stopped at ${a}, which stays kept: .*1 later ref\\(s\\) not tried, kept`));
+  assert.equal(unpushed(root), [a, b].join('\n'), 'the same two refs, none added');
+  assert.ok(pushes > 0 && pushes <= 5, `${pushes} pushes: one write's retries only`);
 });
