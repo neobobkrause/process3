@@ -847,14 +847,6 @@ function struckTests(root, entry, base, given) {
   return { tests: struck.map((r) => holds(r, named.get(r))), moved: movedOut };
 }
 
-// The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
-// and the branch is deepened down to it (its commits beyond the tranche, plus one), so the range
-// base..HEAD the checks walk is whole and the base's tree is here. The base's own history is
-// deepened too, until base..origin/<branch> holds exactly the commits GitHub counts ahead: a
-// job that merged the tranche reaches, through its first attempt, tranche commits below the
-// base's cut, which a cut base cannot exclude, so the record check judged them again, against
-// the base or as root commits (copy, 4 Nov, PR 81 path). Deepened by doubling, then whole; if
-// the range still differs, it says so and judges nothing.
 // The base after the job's own merge of its tranche or layer (C36, the coordinator, 8 Nov: on the
 // copy a layer-12 job's publish refused "job screens-inquiry may change only its own entry" for
 // provenance.json, which provenance's land changed on layer/12 itself: publish's job sync merges the
@@ -863,7 +855,8 @@ function struckTests(root, entry, base, given) {
 // whatever the layer already holds is not the job's: the base moves to the merge base with that tip
 // (deepened in a shallow clone, as layer publish reads it). A base never moves back, nor to a tip
 // HEAD does not hold. Every check reading the base follows: the ledger's, struckTests, recordSince,
-// takenIn and the record check.
+// takenIn and the record check. In a shallow clone a fetch that fails while deepening refuses
+// (util's deepen), as everywhere else: fail-closed, never a silent fall back to the stale base.
 export function baseAfterMerge(root, base, tipRef, { log = () => {} } = {}) {
   if (git(['rev-parse', '-q', '--verify', `${tipRef}^{commit}`], { cwd: root, allowFail: true }).code !== 0) return base;
   const r = git(['merge-base', 'HEAD', tipRef], { cwd: root, allowFail: true, deepen: true });
@@ -873,6 +866,14 @@ export function baseAfterMerge(root, base, tipRef, { log = () => {} } = {}) {
   log(`base: ${String(base).slice(0, 10)} moved to ${mb.slice(0, 10)}, the ${tipRef.replace(/^refs\/(remotes\/origin|heads)\//, '')} tip this branch merged: what it already holds is not this job's`);
   return mb;
 }
+// The merge base in a shallow clone, where the local history is cut: GitHub's compare names it,
+// and the branch is deepened down to it (its commits beyond the tranche, plus one), so the range
+// base..HEAD the checks walk is whole and the base's tree is here. The base's own history is
+// deepened too, until base..origin/<branch> holds exactly the commits GitHub counts ahead: a
+// job that merged the tranche reaches, through its first attempt, tranche commits below the
+// base's cut, which a cut base cannot exclude, so the record check judged them again, against
+// the base or as root commits (copy, 4 Nov, PR 81 path). Deepened by doubling, then whole; if
+// the range still differs, it says so and judges nothing.
 export function shallowBase(root, slug, tranche, branch, read = compare) {
   const c = read(slug, tranche, branch);
   const sha = c?.merge_base_commit?.sha;
