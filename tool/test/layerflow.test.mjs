@@ -1704,3 +1704,78 @@ test('layer clear: one user\'s reschedule from one provider cleared with the rul
   assert.equal(rows.reschedules_all.length, 2, 'the trial still counts both');
   assert.notEqual(layerJobs(root, 1, { io: openIO, log: quiet }).states.find((x) => x.id === 'b').state, 'rescheduled');
 });
+
+// C32 (copy layer 11, 8 Nov): a land changed files its module's paths held at the land's parent;
+// the ledger at the head credits them to another module (paths moved since, as BOB's ledger
+// widening PR 865 gave op-grades the files op-grades-folds owns at the head). Each file is credited
+// per commit, by the paths at that land's parent: covered. A file changed by a land of a module
+// whose paths never held it stays a finding.
+test('C32: a file changed by a verified land is covered by the paths its module held at the land\'s parent, whoever owns it at the head', async () => {
+  const { root, bare } = await opened();
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  let mergedAs = null;
+  const io0 = landIO(bare, prs);
+  await layerLand(root, 1, { io: { ...io0, merge: (s, k, sha, t) => { const r = io0.merge(s, k, sha, t); mergedAs = r.sha; return r; } }, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const at = (id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root }));
+  // At the head the ledger gives src/a/ to a new module a2, and a's paths moved elsewhere.
+  const moved = [{ ...at('a'), paths: ['src/a-old/'] }, { ...at('a'), id: 'a2', paths: ['src/a/'], tests: [], requirements: null }, at('b'), at('c'), at('d')];
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const green = { sha: ha, ok: true, trigger: 'code', suite: 'pass', scope: ['a'] };
+  const io = { getPR: () => ({ ...prs[1], merged: true, merge_commit_sha: mergedAs }), verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [green] }, 'gate') }] };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries: moved, slug: 'o/p', io });
+  assert.deepEqual(r.findings.filter((f) => f.file === 'src/a/index.mjs'), [], 'a\'s land, a\'s paths at its parent: covered though a2 owns it now');
+});
+
+// C32's other side: a verified land of a module whose paths at the land's parent never held the file
+// covers nothing for it, whoever owns it at the head: a finding naming the land and why.
+test('C32: a file changed by another module\'s verified land stays a finding, naming the land', async () => {
+  const { root, bare } = await opened();
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n', 'src/c/index.mjs': 'export const c = 7;\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  let mergedAs = null;
+  const io0 = landIO(bare, prs);
+  // layer land refuses it (ARC-2); a merge made around the tool is what the gate must still catch.
+  mergedAs = io0.merge('o/p', 1, ha, 'Merge layer PR 1').sha;
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  assert.ok(mergedAs, 'the land merged the cross-module change, as GitHub would');
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const green = { sha: ha, ok: true, trigger: 'code', suite: 'pass', scope: ['a'] };
+  const io = { getPR: () => ({ ...prs[1], merged: true, merge_commit_sha: mergedAs }), verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [green] }, 'gate') }] };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  assert.ok(r.findings.some((f) => f.file === 'src/c/index.mjs' && /c changed with no land of its publish on layer\/1: src\/c\/index\.mjs by \w{10}, which is a's land \(PR 1\), whose paths at \w{10} did not hold src\/c\/index\.mjs/.test(f.message)), JSON.stringify(r.findings));
+});
+
+// Cold review of C32: the per-commit credit is stricter than the old after-the-last-land test: a
+// commit on the layer that is not a sync or a verified land, before a module's last land, fails too.
+test('C32: a hand-made commit on the layer before a module\'s last land is still a finding', async () => {
+  const { root, bare } = await opened();
+  // A commit pushed straight to layer/1, changing a's file: no sync, no land.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'layer/1', 'origin/layer/1'], { cwd: d });
+  const hand = commit(d, { 'src/a/index.mjs': 'export function a(x) { return x - 1; }\n' }, 'by hand');
+  git(['push', '-q', 'origin', 'layer/1'], { cwd: d });
+  // Then a's land, which holds the hand commit.
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  const io0 = landIO(bare, prs);
+  const mergedAs = io0.merge('o/p', 1, ha, 'Merge layer PR 1').sha;
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const green = { sha: ha, ok: true, trigger: 'code', suite: 'pass', scope: ['a'] };
+  const io = { getPR: () => ({ ...prs[1], merged: true, merge_commit_sha: mergedAs }), verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [green] }, 'gate') }] };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  assert.ok(r.findings.some((f) => f.file === 'src/a/index.mjs' && f.message.includes(`by ${hand.slice(0, 10)}, which is not a land of a publish PR: not a layer sync or a verified land`)), JSON.stringify(r.findings));
+});

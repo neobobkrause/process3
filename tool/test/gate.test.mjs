@@ -582,3 +582,22 @@ test('a job may not remove a committed generated file', () => {
   const r = gate(s.root, { base: s.base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: ioFor(head).io, log: quiet });
   assert.ok(r.findings.some((f) => f.check === 'generated' && /a job does not remove it/.test(f.message)), JSON.stringify(r.findings));
 });
+
+// C32 (copy, 8 Nov): a merged land's job branch reused by a later PR (the reopen PR 850, a draft
+// from job/queue-producers-2, after PR 805 landed from it): GitHub lists the later PR on the
+// merged PR's runs. A run listing only PRs from the merged PR's own branch into the same base is
+// bound as a merged PR's run is; any other listing is refused.
+test('C32: verifyRow binds a merged PR\'s run that GitHub lists under a later PR from the same branch', () => {
+  const sha = 'a'.repeat(40);
+  const row = { run_id: 7, sha, base: 'b'.repeat(40), trigger: 'code', ok: true, suite: 'pass', scope: ['q'] };
+  const run = (prs, over = {}) => ({ path: GATE_WORKFLOW, head_sha: sha, status: 'completed', conclusion: 'success', event: 'pull_request', head_branch: 'job/q-2', head_repository: { full_name: 'o/r' }, pull_requests: prs, ...over });
+  const io = (r) => ({ getRun: () => r, runArtifactRow: () => ({ ...row }) });
+  const merged = { pr: 805, baseRef: 'layer/11', merged: { branch: 'job/q-2' } };
+  const later = { number: 850, head: { ref: 'job/q-2' }, base: { ref: 'layer/11' } };
+  assert.equal(verifyRow('o/r', row, merged, io(run([later]))), true, 'the reopen from the same branch is listed: bound');
+  assert.equal(verifyRow('o/r', row, merged, io(run([]))), true, 'none listed: bound as before');
+  assert.equal(verifyRow('o/r', row, merged, io(run([{ ...later, head: { ref: 'job/other' } }]))), false, 'a PR from another branch is listed');
+  assert.equal(verifyRow('o/r', row, merged, io(run([{ ...later, base: { ref: 'tranche' } }]))), false, 'into another base');
+  assert.equal(verifyRow('o/r', row, merged, io(run([later], { conclusion: 'failure' }))), false, 'the run did not pass');
+  assert.equal(verifyRow('o/r', row, { pr: 805, baseRef: 'layer/11' }, io(run([later]))), false, 'not read as a merged PR: the listing must name it');
+});

@@ -1771,6 +1771,42 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     return v;
   };
   const byId = new Map(entries.map((e) => [e.id, e]));
+  // A layer sync's merge brings the tranche's own changes (tool-made, its tree checked): not a stray.
+  const synced = (c) => SYNC_TITLE.test(git(['log', '-1', '--format=%s', c], { cwd: root }));
+  // Each changed file is credited per commit (C32, copy layer 11, 8 Nov: op-grades's land changed
+  // files its ledger widening (PR 865) gave it, which the ledger at the head credits to
+  // op-grades-folds; store-assembly's and instance-setup's lands changed files other modules own at
+  // the head): covered when every commit on the chain that changed it is a layer sync or a verified
+  // land of a module whose paths held it in the ledger at that land's parent, whoever owns it now.
+  const needSet = new Set(need);
+  const touched = new Map();
+  for (const c of chain) {
+    if (synced(c)) continue;
+    for (const f of diffNames(root, parents(c)[0], c)) if (needSet.has(f)) touched.set(f, [...(touched.get(f) || []), c]);
+  }
+  // The landing module's own entry at the land's parent (the layer before it, never the job's head),
+  // read once per parent and module.
+  const entryAt = new Map();
+  const ownedAt = (ref, id, f) => {
+    const key = `${ref}:${id}`;
+    if (!entryAt.has(key)) {
+      const r = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true });
+      let e = null;
+      try { e = r.code === 0 ? JSON.parse(r.stdout) : null; } catch { e = null; }
+      entryAt.set(key, e);
+    }
+    const e = entryAt.get(key);
+    return !!e && inMod(e, f);
+  };
+  // The first commit that does not cover f, with why, or null.
+  const uncovered = (f) => {
+    for (const c of touched.get(f) || []) {
+      const v = judge(c);
+      if (!v.id) return { c, why: v.why };
+      if (!ownedAt(v.parent, v.id, f)) return { c, v, why: `is ${v.id}'s land (PR ${v.pr}), whose paths at ${short(v.parent)} did not hold ${f}` };
+    }
+    return null;
+  };
   // Its providers as the modules file names them (notice.mjs usersOf's source), else the entry's own.
   const named = new Map((readModules(root, cfg, head) || []).filter((m) => m?.id).map((m) => [m.id, m.uses || []]));
   const usesOf = (e) => named.get(e.id) || e.uses || [];
@@ -1781,16 +1817,29 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const inLayer = new Set(layersAt(root, cfg, head).find((L) => L.n === n)?.mods || []);
   for (const e of entries) {
     const fs = need.filter((f) => inMod(e, f));
-    if (!fs.length && !inLayer.has(e.id)) continue;
+    // A module with a land on the chain is judged against its providers whatever it owns now: its
+    // landed files may have moved to another module since (cold review of C32).
+    const landed = lands.some((x) => x.v.id === e.id);
+    if (!fs.length && !inLayer.has(e.id) && !landed) continue;
     // A BLOCKED module that changed nothing on the layer is deferred, as layer status counts it,
     // and holds nothing (confirming review N2); one whose code is on the layer is judged as any.
-    if (!fs.length && e.status?.state === 'BLOCKED') continue;
+    if (!fs.length && e.status?.state === 'BLOCKED' && !landed) continue;
     const last = lands.find((x) => x.v.id === e.id) || null; // newest first
-    if (fs.length && !last) { for (const f of fs) findings.push({ check: 'layer', file: f, line: 1, message: `${e.id} changed with no land of its publish on ${branch}` }); continue; }
-    // A layer sync's merge brings the tranche's own changes (tool-made, its tree checked): not a stray.
-    const synced = (c) => SYNC_TITLE.test(git(['log', '-1', '--format=%s', c], { cwd: root }));
-    const stray = last ? fs.filter((f) => chain.slice(0, chain.indexOf(last.c)).some((c) => !synced(c) && diffNames(root, parents(c)[0], c).includes(f))) : [];
-    if (stray.length) { for (const f of stray) findings.push({ check: 'layer', file: f, line: 1, message: `${f} changed on ${branch} after ${e.id}'s last land (PR ${last.v.pr}) by a commit that is not its land` }); continue; }
+    // Each of its files covered commit by commit (above); a file no commit covers is named with the
+    // commit that does not, and why.
+    const bad = fs.map((f) => ({ f, u: uncovered(f) })).filter((x) => x.u);
+    if (bad.length) {
+      // The words BOB knows (no land of its publish; after its last land), with the commit and why.
+      const after = (c) => last && chain.indexOf(c) < chain.indexOf(last.c);
+      for (const { f, u } of bad) {
+        const which = `${short(u.c)}, which ${u.v ? u.why : `${u.why}: not a layer sync or a verified land`}`;
+        findings.push({ check: 'layer', file: f, line: 1, message: !last ? `${e.id} changed with no land of its publish on ${branch}: ${f} by ${which}` : after(u.c) ? `${f} changed on ${branch} after ${e.id}'s last land (PR ${last.v.pr}) by a commit that is not its land: ${which}` : `${f} (${e.id}'s at the head) changed on ${branch} by ${which}` });
+      }
+      continue;
+    }
+    // Its files all came by other modules' verified lands (paths moved to it since): those lands
+    // carry the provider checks; with no land of its own and no layer place, nothing more is owed.
+    if (!last && fs.length && !inLayer.has(e.id)) continue;
     // Each provider in the layer: its interface-changing lands are held by this module's last green head.
     const late = [];
     for (const p of usesOf(e).filter((u) => byId.has(u) && u !== e.id)) {
