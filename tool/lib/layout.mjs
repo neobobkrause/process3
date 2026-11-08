@@ -6,7 +6,8 @@
 //
 // The built-in moves (coordinator, 8 Nov) are only what the tool itself reads as process-only:
 // layers_file and situations_dir. Anything else (a plan, job notes, the modules file) moves only by
-// --also, once BOB has confirmed from the product that the product itself does not rely on it. The
+// --also, once BOB has confirmed from the product that the product itself does not rely on it,
+// and only when no tracked file outside process/ names it. The
 // requirements (requirements_dir) are product content and never move here; nor do the paths the
 // platform reads from fixed places (.process, .github, .claude, CLAUDE.md), nor a lane's folder.
 //
@@ -34,7 +35,7 @@ export function layoutPlan(root, { cfg = loadConfig(root), also = [] } = {}) {
   const skipped = [];
   const lanes = laneDirs(cfg).flatMap((l) => [l.dir, l.research]).filter(Boolean).map(norm);
   const req = norm(cfg.requirements_dir || DEFAULTS.requirements_dir);
-  const add = (from, key) => {
+  const add = (from, key, also = false) => {
     const p = norm(from);
     if (!p || p.startsWith('/') || p.split('/').includes('..')) fail(`layout move: ${JSON.stringify(from)} is not a path inside the repository`);
     if (underPath(p, PROCESS_DIR)) { skipped.push({ from: p, why: `already under ${PROCESS_DIR}/` }); return; }
@@ -44,6 +45,15 @@ export function layoutPlan(root, { cfg = loadConfig(root), also = [] } = {}) {
     if (lane) fail(`layout move: ${p} overlaps the lane folder ${lane}/, which its lane owns; it stays where it is`);
     if (!existsSync(join(root, p)) || !tracked(root, p)) { skipped.push({ from: p, why: 'not in this checkout' }); return; }
     if (moves.some((m) => m.from === p)) return;
+    // An --also path that a tracked file outside process/ names in its text (coordinator, 8 Nov,
+    // from BOB's read of the product: product tests read build/plan/ and docs/requirements-notes/):
+    // refused, with the files, so a reference never breaks silently. Its own files are not asked.
+    if (also) {
+      const r = git(['grep', '-l', '-F', '-e', p, '--', '.', `:(exclude)${PROCESS_DIR}`, `:(exclude)${p}`], { cwd: root, allowFail: true });
+      if (r.code > 1) fail(`layout move: could not search the tracked files for ${p} (${r.stderr.trim()}); nothing was moved`);
+      const named = r.stdout.split('\n').filter(Boolean);
+      if (named.length) fail(`layout move: ${p} is named by ${named.length} tracked file(s) outside ${PROCESS_DIR}/, which would break: ${named.slice(0, 20).join(', ')}${named.length > 20 ? ', ...' : ''}; move it with a change that updates them (as round work), not by --also`);
+    }
     const to = `${PROCESS_DIR}/${basename(p)}`;
     if (existsSync(join(root, to)) || moves.some((m) => m.to === to)) fail(`layout move: ${to} is taken; move ${p} by hand or rename one of them first`);
     const keyOf = key || MOVABLE_KEYS.find((k) => typeof cfg[k] === 'string' && norm(cfg[k]) === p) || null;
@@ -58,7 +68,7 @@ export function layoutPlan(root, { cfg = loadConfig(root), also = [] } = {}) {
   }
   for (const p of list(also)) {
     if (typeof p !== 'string') fail('layout move --also <path>: name the path');
-    add(p, null);
+    add(p, null, true);
   }
   return { moves, skipped };
 }

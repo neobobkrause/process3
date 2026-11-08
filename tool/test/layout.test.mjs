@@ -143,3 +143,21 @@ test('census (C41): the job situation is read from situations_dir, at its defaul
   assert.equal(situationFile(root, { ...cfg, situations_dir: 'process/situations/' }, 'HEAD'), 'process/situations/job.md');
   assert.equal(situationFile(root, { ...cfg, situations_dir: 'process/nowhere' }, 'HEAD'), null);
 });
+
+test('layout move (C41): an --also path a tracked file outside process/ names is refused, with the files; its own files and process/ do not count', () => {
+  // BOB's read of the product (coordinator, 8 Nov): product tests read build/plan/ and docs/requirements-notes/.
+  const root = product(CFG, {
+    'build/plan/beta/limits.md': 'see build/plan/beta/limits.md\n',
+    'test/op-grades.test.mjs': "read('build/plan/beta/limits.md')\n",
+    'docs/requirements-notes/ids.md': 'ids\n',
+    'test/requirements-ids.test.mjs': "read('docs/requirements-notes/ids.md')\n",
+    'process/notes.md': 'build/jobs is moving\n',
+    'build/jobs/j1.md': 'job notes; build/jobs\n',
+  });
+  assert.throws(() => layoutPlan(root, { also: ['build/plan/'] }), /^Error: layout move: build\/plan is named by 1 tracked file\(s\) outside process\/, which would break: test\/op-grades\.test\.mjs; move it with a change that updates them \(as round work\), not by --also$/);
+  assert.throws(() => layoutMove(root, { apply: true, also: ['build/jobs', 'docs/requirements-notes'], log: () => {} }), /docs\/requirements-notes is named by 1 tracked file\(s\) outside process\/, which would break: test\/requirements-ids\.test\.mjs/);
+  assert.ok(existsSync(join(root, 'build/layers.md')), 'a refusal moves nothing');
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '');
+  // Named only inside itself and under process/: it moves.
+  assert.deepEqual(layoutPlan(root, { also: ['build/jobs'] }).moves.map((m) => m.from), ['build/layers.md', 'build/situations', 'build/jobs']);
+});
