@@ -12,7 +12,7 @@ import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap, layersAt } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
-  layerClear, layerJoin, layerStatus, layerSync, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
+  layerClear, layerJoin, layerStatus, layerSync, itemsOwed, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -1945,4 +1945,59 @@ test('C35: a module with a completion item added after the open joins the open c
   const round = git(['show', `origin/tranche:${ROUND}`], { cwd: root });
   assert.match(round, /- \[x\] CR-2 · a/);
   assert.match(round, /- \[x\] CR-6 · c/);
+});
+
+// PD-14 (i): an item added later for a module already in the open completion layer (its own, here
+// one that landed already) joins it the same way: named as a join, holds the merge, recorded as an
+// item row; the module runs again with all its items' words; a land of a job started before the row
+// does not do the item; the merge ticks it only after a land that did.
+test('PD-14 (i): a later item for a module already in the open completion layer joins it, re-runs the module, and is ticked only after', async () => {
+  const { root, bare } = completed('- [ ] CR-2 · a · strengthen the R1 test\n');
+  layerOpen(root, 3, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' }, { n: 3 });
+  const prs = { 7: prOf(7, 'a', ha, { base: { ref: 'layer/3' } }) };
+  const lio = { ...landIO(bare, prs), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) };
+  // a's job starts (its start row), and lands.
+  writeRows(root, SB, 'start a', [[flowFile(3, 'start', 'a-1'), { row: 'start', layer: 3, module: 'a', attempt: 1, at: '2026-01-01T00:00:00.000Z' }]]);
+  await layerLand(root, 7, { io: lio, log: quiet });
+  // BOB adds CR-7 for a on the tranche; the layer syncs it in.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'tranche', 'origin/tranche'], { cwd: d });
+  commit(d, { [ROUND]: '- [ ] CR-2 · a · strengthen the R1 test\n- [ ] CR-7 · a · and the R2 one\n' }, 'CR-7');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: d });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  await layerSync(root, 3, { io: { ...syncIO(bare, []), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) }, log: quiet });
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND });
+  // Named as a join (a, complete, has nothing else to start), and it holds the merge.
+  const j0 = layerJobs(root, 3, { io: openIO, log: quiet });
+  assert.deepEqual(j0.startable.filter((x) => x.id === 'a'), [{ id: 'a', join: true, more: true, items: ['CR-7'], cmd: 'node .process/tool/p3.mjs layer join a --why "CR-7: and the R2 one", then node .process/tool/p3.mjs layer jobs 3 and its job start' }]);
+  assert.equal(openLayer(root, cfg, { slug: 'o/p', io: openIO }).ready, false);
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
+  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /layer 3 cannot merge: a has open completion item\(s\) CR-7 not yet joined into the layer: node \S+ layer join a/);
+  // The join: an item row; a again, with both items' words.
+  const said = [];
+  const r = layerJoin(root, 'a', { why: 'CR-7', log: (l) => said.push(String(l)) });
+  assert.deepEqual([r.layer, r.recorded, r.items], [3, true, ['CR-7']]);
+  assert.match(said.join('\n'), /a joins CR-7 into layer 3, where it is already: CR-7/);
+  assert.deepEqual(flowRows(root, SB, 3).items.map((x) => [x.module, x.items.map((y) => y.id)]), [['a', ['CR-7']]]);
+  assert.throws(() => layerJoin(root, 'a', { why: 'CR-7', log: quiet }), /a is in layer 3, the open layer: it starts from node \S+ layer jobs 3; nothing recorded/, 'joined once: nothing new');
+  const j1 = layerJobs(root, 3, { io: openIO, log: quiet });
+  assert.deepEqual(j1.startable.map((x) => x.cmd), ['node .process/tool/p3.mjs job start a --sessions <file> --reopen "CR-2: strengthen the R1 test; CR-7: and the R2 one"']);
+  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /a is not started/);
+  // A land of a job started before the row (the first job, landing again) does not do CR-7.
+  const rows = (lands, starts) => ({ items: [{ module: 'a', at: '2026-06-01' }], lands: lands.map((at) => ({ module: 'a', at })), starts: starts.map((at) => ({ module: 'a', at })) });
+  assert.equal(itemsOwed(rows(['2026-07-01'], ['2026-05-01']), 'a').length, 1, 'its job started before the row');
+  assert.equal(itemsOwed(rows(['2026-07-01'], ['2026-05-01', '2026-06-15']), 'a').length, 0, 'a job started after the row landed');
+  assert.equal(itemsOwed(rows(['2026-07-01'], []), 'a').length, 0, 'no start row: the land counts');
+  assert.equal(itemsOwed(rows(['2026-05-15'], []), 'a').length, 1, 'a land before the row');
+  // a's new job starts after the row and lands; the merge ticks CR-2 and CR-7.
+  writeRows(root, SB, 'start a', [[flowFile(3, 'start', 'a-2'), { row: 'start', layer: 3, module: 'a', attempt: 2, at: new Date().toISOString() }]]);
+  const ha2 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 2; }\n' }, { n: 3 });
+  prs[8] = prOf(8, 'a', ha2, { base: { ref: 'layer/3' } });
+  await layerLand(root, 8, { io: lio, log: quiet });
+  await layerMerge(root, 3, { io: mio, wait: false, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const round = git(['show', `origin/tranche:${ROUND}`], { cwd: root });
+  assert.match(round, /- \[x\] CR-2 · a/);
+  assert.match(round, /- \[x\] CR-7 · a/);
 });
