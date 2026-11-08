@@ -31,7 +31,7 @@ import { anyExportChange, exportChanges } from './exports.mjs';
 import { deploys } from './deploycfg.mjs';
 import { classifyTestChange } from './testdiff.mjs';
 import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
-import { diffNames, entriesAt, ownPaths } from './gate.mjs';
+import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
@@ -1784,10 +1784,18 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
     if (synced(c)) continue;
     for (const f of diffNames(root, parents(c)[0], c)) if (needSet.has(f)) touched.set(f, [...(touched.get(f) || []), c]);
   }
-  const ledgerAt = new Map();
+  // The landing module's own entry at the land's parent (the layer before it, never the job's head),
+  // read once per parent and module.
+  const entryAt = new Map();
   const ownedAt = (ref, id, f) => {
-    if (!ledgerAt.has(ref)) ledgerAt.set(ref, new Map(entriesAt(root, ref).map((e) => [e.id, e])));
-    const e = ledgerAt.get(ref).get(id);
+    const key = `${ref}:${id}`;
+    if (!entryAt.has(key)) {
+      const r = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true });
+      let e = null;
+      try { e = r.code === 0 ? JSON.parse(r.stdout) : null; } catch { e = null; }
+      entryAt.set(key, e);
+    }
+    const e = entryAt.get(key);
     return !!e && inMod(e, f);
   };
   // The first commit that does not cover f, with why, or null.
@@ -1809,10 +1817,13 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const inLayer = new Set(layersAt(root, cfg, head).find((L) => L.n === n)?.mods || []);
   for (const e of entries) {
     const fs = need.filter((f) => inMod(e, f));
-    if (!fs.length && !inLayer.has(e.id)) continue;
+    // A module with a land on the chain is judged against its providers whatever it owns now: its
+    // landed files may have moved to another module since (cold review of C32).
+    const landed = lands.some((x) => x.v.id === e.id);
+    if (!fs.length && !inLayer.has(e.id) && !landed) continue;
     // A BLOCKED module that changed nothing on the layer is deferred, as layer status counts it,
     // and holds nothing (confirming review N2); one whose code is on the layer is judged as any.
-    if (!fs.length && e.status?.state === 'BLOCKED') continue;
+    if (!fs.length && e.status?.state === 'BLOCKED' && !landed) continue;
     const last = lands.find((x) => x.v.id === e.id) || null; // newest first
     // Each of its files covered commit by commit (above); a file no commit covers is named with the
     // commit that does not, and why.

@@ -1753,3 +1753,29 @@ test('C32: a file changed by another module\'s verified land stays a finding, na
   const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
   assert.ok(r.findings.some((f) => f.file === 'src/c/index.mjs' && /c changed with no land of its publish on layer\/1: src\/c\/index\.mjs by \w{10}, which is a's land \(PR 1\), whose paths at \w{10} did not hold src\/c\/index\.mjs/.test(f.message)), JSON.stringify(r.findings));
 });
+
+// Cold review of C32: the per-commit credit is stricter than the old after-the-last-land test: a
+// commit on the layer that is not a sync or a verified land, before a module's last land, fails too.
+test('C32: a hand-made commit on the layer before a module\'s last land is still a finding', async () => {
+  const { root, bare } = await opened();
+  // A commit pushed straight to layer/1, changing a's file: no sync, no land.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'layer/1', 'origin/layer/1'], { cwd: d });
+  const hand = commit(d, { 'src/a/index.mjs': 'export function a(x) { return x - 1; }\n' }, 'by hand');
+  git(['push', '-q', 'origin', 'layer/1'], { cwd: d });
+  // Then a's land, which holds the hand commit.
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' });
+  const prs = { 1: prOf(1, 'a', ha) };
+  const io0 = landIO(bare, prs);
+  const mergedAs = io0.merge('o/p', 1, ha, 'Merge layer PR 1').sha;
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const mb = git(['merge-base', head, 'origin/tranche'], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const green = { sha: ha, ok: true, trigger: 'code', suite: 'pass', scope: ['a'] };
+  const io = { getPR: () => ({ ...prs[1], merged: true, merge_commit_sha: mergedAs }), verify: () => true, comments: () => [{ user: { login: BOT }, body: block(GATE, { runs: [green] }, 'gate') }] };
+  const r = layerCover(root, cfg, { head, mb, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  assert.ok(r.findings.some((f) => f.file === 'src/a/index.mjs' && f.message.includes(`by ${hand.slice(0, 10)}, which is not a land of a publish PR: not a layer sync or a verified land`)), JSON.stringify(r.findings));
+});
