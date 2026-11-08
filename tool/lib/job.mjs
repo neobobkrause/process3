@@ -138,12 +138,14 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   L.push(`| total | ${reading.bytes} |`);
   if (reading.cap) L.push('', `Requirement file \`${reading.cap.file}\`: ${reading.cap.bytes} bytes against the cap of ${reading.cap.cap}${reading.cap.over ? ', over it' : ''}.`);
   L.push('', '## Commands, in order', '');
-  const n = restart ? 2 : 1;
+  // A restart or a reopen runs job sync first: its container may hold an earlier attempt's job/<id>
+  // beside HEAD detached at origin's (C29); job sync puts the branch at origin's tip.
+  const n = restart || reopen ? 2 : 1;
   // A replacement fills .process at the launch commit, the tranche tip, and job sync checks out
   // the branch and brings the tranche in: it runs from the tranche's pin, whatever the branch pins.
   // Shallow, as the session's clone is: job sync and job complete deepen what they need.
   L.push('1. `git submodule update --init .process`');
-  if (restart) L.push(`2. \`${P3} job sync ${id}\``);
+  if (restart || reopen) L.push(`2. \`${P3} job sync ${id}\``);
   L.push(`${n + 1}. \`${P3} status --role job --module ${id}\``);
   L.push(`${n + 2}. Do the work. Run the module's suite with \`${P3} test ${id}\`. Commit; \`${P3} job sync ${id}\` pushes it each turn (JOB-9). To bring in the tranche or BOB's pushes: \`${P3} job sync ${id}\`, never a merge by hand.`);
   // The shared layer branch (layerflow.mjs): the job publishes onto its layer; the merge tool lands it.
@@ -1000,11 +1002,34 @@ export function jobSync(root, id, { push = true, pushBranch = true, compare: cmp
   if (dirty(root, true)) fail('commit your work first: tracked files have changes; nothing was merged');
   const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], { cwd: root, allowFail: true }).stdout.trim();
   if (cur !== branch) {
-    if (git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true }).code === 0) onBranch(root, id);
+    const local = git(['rev-parse', '-q', '--verify', `refs/heads/${branch}`], { cwd: root, allowFail: true });
+    let switchTo = false;
+    if (local.code === 0) {
+      // A reopened or restarted job's container starts with HEAD detached at origin's job/<id> and
+      // can hold a stale local job/<id> from an earlier attempt (C29, copy 8 Nov: store-door's
+      // attempt 4 beside origin's 10, installer-copies' 1 beside 3; checking the local branch out
+      // merged into the stale ref, 25-60 conflicts). Detached at a commit origin's branch holds, the
+      // stale branch is moved aside under a dated name, never reset or deleted, and the branch is
+      // checked out at origin's tip. On another branch, or detached with commits origin lacks: refused.
+      if (cur || !push || !remoteTip(root, branch)) onBranch(root, id);
+      fetchRef(root, branch);
+      const tip = git(['rev-parse', `refs/remotes/origin/${branch}`], { cwd: root });
+      const head = git(['rev-parse', 'HEAD'], { cwd: root });
+      if (git(['merge-base', '--is-ancestor', head, tip], { cwd: root, allowFail: true }).code !== 0) fail(`HEAD is detached at ${short(head)}, which holds commits origin's ${branch} (${short(tip)}) lacks; nothing was moved: put them on a branch first (\`git switch -c <name>\`), then run job sync again`);
+      const old = local.stdout.trim();
+      if (old === tip) switchTo = true;
+      else {
+        const aside = `aside/${branch}-${now().replace(/[-:]/g, '')}`;
+        git(['branch', '-m', branch, aside], { cwd: root });
+        const extra = Number(git(['rev-list', '--count', old, `^${tip}`], { cwd: root }));
+        log(`the local ${branch} (${short(old)}) was an earlier attempt's, not origin's (${short(tip)}): moved aside to ${aside}, nothing reset or deleted${extra ? `; it holds ${extra} commit(s) origin's ${branch} lacks: kept there, bring any you need in by hand (\`git cherry-pick\`) and say so in your report` : ' (it holds nothing origin lacks)'}`);
+      }
+    }
     if (!push || !remoteTip(root, branch)) fail(`no branch ${branch} on origin; run this on branch ${branch}`);
     fetchRef(root, branch);
-    git(['checkout', '-q', '-b', branch, `refs/remotes/origin/${branch}`], { cwd: root });
-    log(`checked out ${branch} from origin`);
+    if (switchTo) git(['checkout', '-q', branch], { cwd: root });
+    else git(['checkout', '-q', '-b', branch, `refs/remotes/origin/${branch}`], { cwd: root });
+    log(`checked out ${branch} ${switchTo ? '(already at origin\'s tip)' : 'from origin'}`);
   }
   const tr = push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`;
   const mine = `refs/remotes/origin/${branch}`;

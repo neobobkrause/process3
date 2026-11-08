@@ -650,6 +650,8 @@ test('--reopen starts attempt 2 from the tranche, with a fast-forward push and t
   assert.equal(r.attempt, 2);
   assert.match(r.start, /attempt 2/);
   assert.match(r.start, /What it must do: strengthen the R1 test/);
+  // C29: its container may hold an earlier attempt's job/alpha beside HEAD detached at origin's: job sync first puts the branch at origin's tip.
+  assert.match(r.start, /\n1\. `git submodule update --init \.process`\n2\. `node \.process\/tool\/p3\.mjs job sync alpha`\n3\. /);
   const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
   assert.notEqual(tip, old);
   assert.equal(git(['merge-base', '--is-ancestor', old, tip], { cwd: root, allowFail: true }).code, 0, 'a fast-forward');

@@ -190,10 +190,59 @@ test('#3: a replacement session at the tranche tip: job sync checks out job/<id>
   assert.equal(head(c, 'HEAD^1'), head(c, 'refs/remotes/origin/job/alpha'), 'from origin\'s job/alpha, which send and job complete read');
   assert.deepEqual(s.merged, ['tranche']);
   assert.equal(head(c, 'HEAD^1'), head(src, 'job/alpha'));
-  // A local job/<id> that is not checked out is refused, as job complete refuses it.
+  // Detached with work of its own origin's job/<id> lacks: refused, nothing moved.
   git(['checkout', '-q', '--detach'], { cwd: c });
-  assert.throws(() => jobSync(c, 'alpha', { compare, log: quiet }), /run this on branch job\/alpha/);
+  commit(c, { 'src/alpha/loose.mjs': 'x\n' }, 'work on a detached HEAD');
+  assert.throws(() => jobSync(c, 'alpha', { compare, log: quiet }), /HEAD is detached at \w{10}, which holds commits origin's job\/alpha \(\w{10}\) lacks; nothing was moved/);
+  assert.equal(git(['rev-parse', '--verify', '-q', 'refs/heads/job/alpha'], { cwd: c, allowFail: true }).code, 0, 'the local branch is where it was');
+  // On another branch: refused, as job complete refuses it.
+  git(['checkout', '-q', '-b', 'elsewhere'], { cwd: c });
+  assert.throws(() => jobSync(c, 'alpha', { compare, log: quiet }), /run this on branch job\/alpha, not elsewhere/);
 });
+
+// C29 (copy, 8 Nov: store-door's attempt 4 beside origin's 10, installer-copies' 1 beside 3): a
+// reopened job's container starts with HEAD detached at origin's job/<id> and a stale local job/<id>
+// from an earlier attempt. job sync moves the stale branch aside under a dated name (never a reset
+// or a delete), checks the branch out at origin's tip and syncs; the stale branch's own commits are kept, said.
+test('C29: detached at origin\'s job/<id> beside a stale local job/<id>: moved aside, checked out at origin\'s tip, synced; nothing reset or deleted', () => {
+  const { src, compare } = shallowJob();
+  const bare = git(['remote', 'get-url', 'origin'], { cwd: src });
+  const c = join(mkdtempSync(join(tmpdir(), 'p3-c29-')), 'c');
+  git(['clone', '-q', '--branch', 'job/alpha', `file://${bare}`, c], { cwd: src });
+  git(['config', 'user.email', 'job@example.com'], { cwd: c });
+  git(['config', 'user.name', 'Job'], { cwd: c });
+  // An earlier attempt's local job/alpha: one commit back, plus a commit of its own origin never got.
+  git(['reset', '-q', '--hard', 'HEAD~1'], { cwd: c });
+  const stale = commit(c, { 'src/alpha/old.mjs': 'stale\n' }, 'earlier attempt');
+  git(['checkout', '-q', '--detach', 'refs/remotes/origin/job/alpha'], { cwd: c });
+  const said = [];
+  const s = jobSync(c, 'alpha', { compare, log: (l) => said.push(String(l)) });
+  assert.equal(git(['symbolic-ref', '--short', 'HEAD'], { cwd: c }), 'job/alpha');
+  assert.equal(head(c, 'HEAD^1'), head(src, 'job/alpha'), 'at origin\'s tip, then the tranche merged');
+  assert.deepEqual(s.merged, ['tranche']);
+  const aside = git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/aside/'], { cwd: c }).split('\n').filter(Boolean);
+  assert.equal(aside.length, 1);
+  assert.match(aside[0], /^aside\/job\/alpha-\d{8}T\d{6}Z$/);
+  assert.equal(head(c, aside[0]), stale, 'the earlier attempt kept whole');
+  assert.match(said.join('\n'), new RegExp(`the local job/alpha \\(${stale.slice(0, 10)}\\) was an earlier attempt's, not origin's \\(\\w{10}\\): moved aside to ${aside[0].replace(/\//g, '\\/')}, nothing reset or deleted; it holds 1 commit\\(s\\) origin's job/alpha lacks: kept there`));
+  assert.equal(git(['show', 'HEAD:src/alpha/old.mjs'], { cwd: c, allowFail: true }).code, 128, 'its stale work is not merged in');
+});
+
+test('C29: detached at origin\'s tip with the local job/<id> already there: switched, nothing moved aside', () => {
+  const { src, compare } = shallowJob();
+  const bare = git(['remote', 'get-url', 'origin'], { cwd: src });
+  const c = join(mkdtempSync(join(tmpdir(), 'p3-c29-')), 'c');
+  git(['clone', '-q', '--branch', 'job/alpha', `file://${bare}`, c], { cwd: src });
+  git(['config', 'user.email', 'job@example.com'], { cwd: c });
+  git(['config', 'user.name', 'Job'], { cwd: c });
+  git(['checkout', '-q', '--detach'], { cwd: c });
+  const said = [];
+  jobSync(c, 'alpha', { compare, log: (l) => said.push(String(l)) });
+  assert.equal(git(['symbolic-ref', '--short', 'HEAD'], { cwd: c }), 'job/alpha');
+  assert.equal(git(['for-each-ref', 'refs/heads/aside/'], { cwd: c }), '');
+  assert.match(said.join('\n'), /checked out job\/alpha \(already at origin's tip\)/);
+});
+
 
 test('#3: a conflict is left for the job to resolve, naming its files and the next step', () => {
   const root = makeRepo({ 'process/ledger/alpha.json': entry('alpha'), 'req/alpha.md': '# alpha\n', 'test/alpha/a.test.mjs': passing, 'src/alpha/a.mjs': '0\n' });
