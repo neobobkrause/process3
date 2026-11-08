@@ -115,9 +115,9 @@ test('found: a module whose test pins its requirement ids is refused with the re
     'test/m/requirements-ids.test.mjs': pin, 'test/n/n.test.mjs': titles.replace(req, 'build/requirements/n.md'),
   });
   assert.throws(() => found(root, 'm', 'the walk found "Save" at $HOME', { write: true, offline: true, log: quiet }),
-    /test\/m\/requirements-ids\.test\.mjs pins the ids of build\/requirements\/m\.md.*nothing was written\. The route: `node \.process\/tool\/p3\.mjs job start m --reopen 'the walk found "Save" at \$HOME'`, the job adding its own F mark and admitting it in that test/);
+    /test\/m\/requirements-ids\.test\.mjs pins the ids of build\/requirements\/m\.md.*nothing was written\. The route: `node \.process\/tool\/p3\.mjs job start m --sessions <file> --reopen 'the walk found "Save" at \$HOME'`, the job adding its own F mark and admitting it in that test/);
   // Quoted for the shell; a module not COMPLETE is routed to its job, not to a reopen it would refuse.
-  assert.throws(() => found(root, 'o', "it's broken", { offline: true, log: quiet }), /The route: its job \(OPEN\) takes it: give the finding to its session, or once it is COMPLETE, `node \.process\/tool\/p3\.mjs job start o --reopen 'it'\\''s broken'`/);
+  assert.throws(() => found(root, 'o', "it's broken", { offline: true, log: quiet }), /The route: its job \(OPEN\) takes it: give the finding to its session, or once it is COMPLETE, `node \.process\/tool\/p3\.mjs job start o --sessions <file> --reopen 'it'\\''s broken'`/);
   assert.equal(readFileSync(join(root, req), 'utf8'), ids, 'nothing written');
   assert.equal(found(root, 'n', 'the walk found y', { write: true, offline: true, log: quiet }).mark, 'F1');
 });

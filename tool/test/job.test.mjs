@@ -1162,7 +1162,7 @@ test('--restart on a COMPLETE job whose pull request is open gives it a replacem
   assert.match(r.start, /BOB saw: failed only the revert check; session archived/);
   assert.equal(r.launch.title, 'job alpha (restart)');
   // A plain start names --restart for that state.
-  assert.throws(() => jobStart(abandonedComplete().root, 'alpha', { coordinator: 's', setup: ready, open: s.f.open, find: () => pr, prs: noPRs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); a job whose session stopped is restarted with job start alpha --sessions <file> --restart/);
+  assert.throws(() => jobStart(abandonedComplete().root, 'alpha', { coordinator: 's', setup: ready, open: s.f.open, find: () => pr, prs: noPRs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); a job whose session stopped is restarted with job start alpha --restart/);
 });
 
 // Every refusal of job start and --restart on an existing branch names a route; that route, run

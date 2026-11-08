@@ -1561,7 +1561,7 @@ test('a module deferred at its PR head with a green suite there is deferred with
   const st = layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr, comments }, log: (l) => lines.push(l) });
   assert.deepEqual(st.deferred_done, ['c']);
   assert.ok(lines.some((l) => /^1 deferred with work done \(suite green, BLOCKED only on a process finding\): restart to publish/.test(l)));
-  assert.ok(lines.some((l) => /job start c --sessions <file> --restart ".*"\s+\(PR 658\)/.test(l)));
+  assert.ok(lines.some((l) => /job start c --restart ".*"\s+\(PR 658\)/.test(l)));
   const mio = { slug: 'o/p', openPRs: () => pr, comments, findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
   await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: c \(PR 658\) is deferred with work done .*restart it to publish .*or merge with --defer-done "<why>"/);
   await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet, deferDone: true }), /--defer-done needs why/);
@@ -1595,7 +1595,7 @@ test('layer sync names a job BLOCKED only on the ledger-carry finding it just cl
   const open = [{ number: 658, draft: true, head: { ref: 'job/e', sha: null } }];
   const r = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: quiet });
   assert.equal(r.jobs.left.length, 1);
-  assert.match(r.jobs.left[0].why, /^BLOCKED only on the ledger-carry finding this sync cleared \(process\/ledger\/e\.json is on layer\/1 now\): restart it to publish: .*job start e --sessions <file> --restart "/);
+  assert.match(r.jobs.left[0].why, /^BLOCKED only on the ledger-carry finding this sync cleared \(process\/ledger\/e\.json is on layer\/1 now\): restart it to publish: .*job start e --restart "/);
 });
 
 test('land: a user joined to this layer (R12) is rescheduled with the layer\'s own, not noticed as a later layer\'s (cold review of PR 191)', async () => {
