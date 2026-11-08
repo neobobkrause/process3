@@ -10,8 +10,8 @@
 // no such record (PR 38 note), so the starting prompts and task prompts carry the hash of the
 // tip's block at prompt time (--approvals <hash>), and --wake compares the tip's with that.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { approvalsBlock } from './record.mjs';
 import { exists, fail, git, loadConfig, run } from './util.mjs';
 
@@ -127,4 +127,25 @@ export function wakeCheck(root, { branch, approvals, log = console.log } = {}) {
   const ok = readFileSync(rec, 'utf8').trim() === hash(atTip);
   log(ok ? 'start check --wake: ok, the approvals are those this session started with' : 'approvals changed since this session started: it is replaced');
   return { ok, tip };
+}
+
+// C42 (BD-R2, one repository per session; PD-13: a session started with more than one repository
+// loads no repository's .claude/settings.json, PLT-7): start check's warnings, never a refusal.
+// - The project directory Claude Code names (CLAUDE_PROJECT_DIR, where it sets one) is not inside
+//   this repository's root: the session was started somewhere else, as a container rooted above
+//   its repositories is.
+// - The root's parent holds more than one git checkout: the container layout of a session started
+//   with several repositories (/home/user/<repo>, one per repository).
+// C34's hook line (ghhook.mjs hookLoadedLine) says whether the hooks loaded; these say why.
+const inside = (dir, root) => { const d = resolve(dir); const r = resolve(root); return d === r || d.startsWith(r.endsWith(sep) ? r : r + sep); };
+export function workdirLines(root, { env = process.env, real = (p) => { try { return realpathSync(p); } catch { return resolve(p); } } } = {}) {
+  const L = [];
+  const top = real(root);
+  const project = env.CLAUDE_PROJECT_DIR;
+  if (project && !inside(real(project), top)) L.push(`working directory: the session's project directory ${project} is not inside ${top}, the repository it works in: start each session with that one repository (BD-R2), or its .claude/settings.json does not load (PD-13)`);
+  const parent = dirname(top);
+  let repos = [];
+  try { repos = readdirSync(parent, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(join(parent, e.name, '.git'))).map((e) => e.name).sort(); } catch { repos = []; }
+  if (repos.length > 1) L.push(`working directory: ${repos.length} repositories at ${parent} (${repos.join(', ')}): this session looks started with more than one, and such a session loads no repository's .claude/settings.json (PD-13). Work in ${basename(top)} only; the rest goes through a session started in its own repository (BD-R2)`);
+  return L;
 }

@@ -44,7 +44,7 @@ import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor } from './hold.mjs';
-import { Fail, exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
+import { Fail, LEDGER_DIR, exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 export const LAND_TITLE = /^Merge layer PR (\d+)$/;
@@ -1491,7 +1491,10 @@ export function syncOwed(root, cfg, n) {
 const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
 // The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
 // ledger entry as the layer has it (its jobs' states; R4's carried entries). Any other refuses.
-const syncSide = (f, cfg = null) => (f === '.process' || (cfg && f === cfg.completion_file) || (SHIMS.has(f.split('/').pop()) && (f.startsWith('.github/') || f.startsWith('.claude/') || !f.includes('/'))) ? 'theirs' : /^process\/ledger\/[^/]+\.json$/.test(f) ? 'ours' : null);
+// A ledger entry, process/ledger/<id>.json, directly in the ledger directory.
+const ENTRY_FILE = new RegExp(`^${LEDGER_DIR.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}/[^/]+\\.json$`);
+const isEntryFile = (f) => ENTRY_FILE.test(f);
+const syncSide = (f, cfg = null) => (f === '.process' || (cfg && f === cfg.completion_file) || (SHIMS.has(f.split('/').pop()) && (f.startsWith('.github/') || f.startsWith('.claude/') || !f.includes('/'))) ? 'theirs' : isEntryFile(f) ? 'ours' : null);
 
 export const SYNC_TITLE = /^Merge layer sync PR (\d+)$/;
 // The completion layer's tick (C33): one tool commit on layer/<n> at its merge, flipping `[ ]` to
@@ -1558,7 +1561,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
   const tip = rev(root, layerRef(n));
   const out = { merged: [], left: [] };
   // Records (other modules' metrics rows and the like) are no code: a receipt stands over them.
-  const allowed = (f) => f === '.process' || syncSide(f, cfg) === 'theirs' || /^process\/ledger\/[^/]+\.json$/.test(f) || isRecordPath(cfg, f);
+  const allowed = (f) => f === '.process' || syncSide(f, cfg) === 'theirs' || isEntryFile(f) || isRecordPath(cfg, f);
   for (const p of prs) {
     const id = branchModule(p.head?.ref, ids);
     if (!id || !String(p.head.ref).startsWith('job/')) continue;

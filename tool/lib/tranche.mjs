@@ -18,11 +18,11 @@ import { deploys, roundsAt, walkFindings, walkHold } from './deploy.mjs';
 import { RELEASES_FILE } from './release.mjs';
 import { RELEASE_WALKS_FILE, internalRequired, releaseWalks, roundLine, runPassed, runSource, unplaced } from './rounds.mjs';
 import { P3, wakeLine } from './job.mjs';
-import { recordRefusal } from './metrics.mjs';
+import { REFUSALS_FILE, recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { closedRows, layerState, status } from './status.mjs';
-import { depth as fetchDepth, fail, git, isShallow, loadConfig, repoSlug } from './util.mjs';
+import { depth as fetchDepth, sessionCall, fail, git, isShallow, loadConfig, repoSlug } from './util.mjs';
 
 export const OPEN_FILE = 'metrics/tranche-open.jsonl';
 export const TRANCHE_CLOSED_FILE = 'tranches/closed.jsonl';
@@ -105,7 +105,7 @@ export function trancheOpen(root, { depth, log = console.log, slug = repoSlug(ro
     ...gitActs('probe', d + 1).map((s, i) => `${i + 2}. ${s}`), '',
     `Then send BOB one message with send_message: one line per act, "<act>|${d + 1}|<ok, refused or declined>" (push, pr-open, pr-comment, pr-merge), and the exact words of any refusal. Then end.`,
   ].join('\n');
-  const call = { title: `grants probe ${n}`, source_url: `https://github.com/${slug}`, source_revision: tip, clone_depth: 1, prompt: probe };
+  const call = sessionCall({ slug, revision: tip, title: `grants probe ${n}`, prompt: probe, clone: { clone_depth: 1 } });
   const at = new Date(now() + 864e5).toISOString().replace(/\.\d+Z$/, 'Z');
   const steps = [
     `\`${P3} github push origin ${tip}:refs/heads/${base}\` (the throwaway base; kept, never deleted)`,
@@ -150,7 +150,7 @@ export function recordOpen(root, records, { session, depth, bob, as = 'bob', log
   writeState(root, cfg.state_branch, `tranche open: ${rows.map((r) => `${r.act} ${r.depth} ${r.outcome}`).join(', ')}`, (wt) => put(wt, OPEN_FILE, rows.map((r) => JSON.stringify(r) + '\n').join('')));
   // The refusal row after the push, so a failed push rerun does not count one refusal twice.
   for (const r of rows.filter((x) => x.outcome === 'refused')) recordRefusal(root, { session: r.session, act: `tranche open: ${r.act}`, depth: r.depth });
-  for (const r of rows) log(`recorded ${r.act} at depth ${r.depth}: ${r.outcome}${r.outcome === 'refused' ? ` (and in ${'process/metrics/refusals.bob.jsonl'}; commit it by BOB's plain pull request)` : ''}`);
+  for (const r of rows) log(`recorded ${r.act} at depth ${r.depth}: ${r.outcome}${r.outcome === 'refused' ? ` (and in ${REFUSALS_FILE}; commit it by BOB's plain pull request)` : ''}`);
   // The record that passes the open lets jobs start: the wake of BOB is the last line.
   const wake = before.state !== 'open' && openState(root, cfg, { depth: d }).state === 'open' ? wakeLine('tranche open passed', as) : null;
   if (wake) log(wake);

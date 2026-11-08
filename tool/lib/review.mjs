@@ -6,7 +6,7 @@ import { generatedRows } from './checks.mjs';
 import { rulebook } from './job.mjs';
 import { normPath } from './suite.mjs';
 import { ASSERT_RULE, reviewTriggers } from './triggers.mjs';
-import { fail, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
+import { LEDGER_DIR, fail, gh, git, loadConfig, repoSlug, underPath } from './util.mjs';
 
 // The files whose change earns a second review: the gate, the record check, the approvals
 // check and the merge tool, with the workflows that run them.
@@ -52,7 +52,7 @@ export function localTriggers(root, cfg, branch, id) {
   try {
     git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/origin/${cfg.tranche}`, `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd: root });
     const mb = git(['merge-base', `origin/${branch}`, `origin/${cfg.tranche}`], { cwd: root });
-    const entry = JSON.parse(git(['show', `${mb}:process/ledger/${id}.json`], { cwd: root }));
+    const entry = JSON.parse(git(['show', `${mb}:${LEDGER_DIR}/${id}.json`], { cwd: root }));
     return reviewTriggers(root, { base: mb, head: `origin/${branch}`, entry, cfg: loadConfig(root, `origin/${cfg.tranche}`) });
   } catch (e) { return { error: String(e.message).split('\n')[0].slice(0, 200) }; }
 }
@@ -124,9 +124,9 @@ export function reviewBrief(root, n, { scope, log = console.log, io = {} } = {})
   let job = null;
   const id = branchModule(pr.head?.ref, ledgerIds(root, `origin/${cfg.tranche}`));
   if (id) {
-    const entry = contents(slug, `process/ledger/${id}.json`, pr.head.sha);
+    const entry = contents(slug, `${LEDGER_DIR}/${id}.json`, pr.head.sha);
     let e = entry;
-    if (typeof entry === 'string') { try { e = JSON.parse(entry); } catch { fail(`process/ledger/${id}.json at the head is not JSON`); } }
+    if (typeof entry === 'string') { try { e = JSON.parse(entry); } catch { fail(`${LEDGER_DIR}/${id}.json at the head is not JSON`); } }
     if (e?.requirements) job = { id, file: e.requirements, ids: requirementIds(contents(slug, e.requirements, pr.head.sha)), receipt: latestReceipt(notes(slug, pr.number), pr.user?.login) };
   }
   // The generated paths, split by whether the head commits them (a path absent there is built).

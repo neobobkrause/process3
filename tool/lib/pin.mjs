@@ -13,7 +13,7 @@
 import { P3, TOOL_ROOT } from './job.mjs';
 import { addComment, comments, editPR } from './github.mjs';
 import { processRepo } from './merge.mjs';
-import { fail, gh, git } from './util.mjs';
+import { fail, sessionCall, gh, git } from './util.mjs';
 
 const SLUG = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const SESSION = /^session_[A-Za-z0-9]+$/;
@@ -98,7 +98,7 @@ export function pinMove(root, slug, { pin, rest = [], tranche = 'tranche', repor
   } else refuseOpen(open);
   const prompt = pinMoveText({ slug, pin, tranche, report, why: why.trim().replace(/\s+/g, ' ') });
   // From the product's tranche by name: the session's first command fetches the tip and checks it out.
-  const call = { title: `pin move ${pin.slice(0, 10)}`, source_url: `https://github.com/${slug}`, source_revision: tranche, clone_depth: 1, prompt };
+  const call = sessionCall({ slug, revision: tranche, title: `pin move ${pin.slice(0, 10)}`, prompt, clone: { clone_depth: 1 } });
   log(prompt);
   log(`next act: start the pin move with create_session:\n${JSON.stringify(call, null, 2)}`);
   return { prompt, call, pin };
