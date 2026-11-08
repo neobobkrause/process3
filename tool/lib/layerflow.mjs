@@ -303,7 +303,10 @@ export const outstanding = (reschedules, lands, user, anc) => reschedules.filter
 //                do (COMPLETE before the layer opened, no unmet requirement mark);
 //   not started  no job yet: one can start; a module that joined the layer from a layer behind it
 //                (layer join: the coordinator's ruling, 6 Nov) is not started until it lands here.
-export function moduleStates({ mods, entries, marks, prs, lands, reschedules, anc, joins = new Map(), earlies = new Map(), items = new Map(), owed = new Set() }) {
+export function moduleStates({ mods, entries, marks, prs, lands, reschedules, anc, joins = new Map(), earlies = new Map(), items = new Map(), itemIds = new Map(), owed = new Set() }) {
+  // A module's item ids, from the items themselves: their words may hold '; ' and ': ' (copy, 8 Nov:
+  // interface-assets read "CR2-3, CR2-21, today mk-updband is drawn ..."); split only without them.
+  const idsOf = (id) => (itemIds.get(id) || items.get(id).split('; ').map((x) => x.split(': ')[0])).join(', ');
   return mods.map((id) => {
     const e = entries.get(id);
     const pr = (prs || []).find((p) => p.module === id) || null;
@@ -316,7 +319,7 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     // An item joined after its job started (PD-14 (i)): it runs again with the item's words, ahead
     // of a reschedule (a re-test's job has no item words, and its land would tick the item: cold
     // review of (i)); its job starts on the layer tip, so it holds the provider's land too.
-    if (owed.has(id) && items.has(id) && !pr) return { ...base, state: 'not started', item: items.get(id), why: `completion item(s) joined after its last job started: ${items.get(id).split('; ').map((x) => x.split(': ')[0]).join(', ')}${out.length ? `; it re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface too` : ''}` };
+    if (owed.has(id) && items.has(id) && !pr) return { ...base, state: 'not started', item: items.get(id), why: `completion item(s) joined after its last job started: ${idsOf(id)}${out.length ? `; it re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface too` : ''}` };
     if (out.length) return { ...base, state: 'rescheduled', why: `re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface` };
     if (pr && !pr.draft) return { ...base, state: 'published', why: `PR ${pr.number} ready into the layer` };
     if (pr) return { ...base, state: 'working', why: `PR ${pr.number}, a draft` };
@@ -325,7 +328,7 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     // closed; job start resumes it as any unfinished start (cold review of R14).
     if (earlies.has(id) && !j) return { ...base, state: 'not started', early: earlies.get(id).from, why: `started early while layer ${earlies.get(id).from} was open; no pull request into the layer: job start resumes it` };
     // A completion layer's module, its own or joined (C33, PD-14): its open items are its work.
-    if (items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `completion item ${items.get(id).split(': ')[0]}${j ? `, joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}` : ''}` };
+    if (items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `completion item(s) ${idsOf(id)}${j ? `, joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}` : ''}` };
     if (j) return { ...base, state: 'not started', why: `joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}: ${j.why}` };
     if (e?.status?.state === 'COMPLETE' && !m.length) return { ...base, state: 'complete', why: 'COMPLETE before the layer opened, no unmet mark' };
     return { ...base, state: 'not started', why: e ? `${e.status?.state}${m.length ? `, unmet ${m.join(', ')}` : ''}` : 'no ledger entry' };
@@ -493,7 +496,7 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
     else if (runs.some((r) => whole(r, id))) doneWork.set(id, { pr: k });
   }
   const anc = (a, b) => isAnc(root, a, b);
-  let states = moduleStates({ mods, joins, items: itemReopen(L.completion, rows.joins, rows.items), owed: new Set(mods.filter((id) => itemsOwed(rows, id).length)), earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
+  let states = moduleStates({ mods, joins, items: itemReopen(L.completion, rows.joins, rows.items), itemIds: itemIdMap(L.completion, rows.joins, rows.items), owed: new Set(mods.filter((id) => itemsOwed(rows, id).length)), earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
     .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)`, ...(doneWork.has(x.id) ? { done_work: doneWork.get(x.id).pr, ...(doneWork.get(x.id).unknown ? { done_unknown: true } : {}) } : {}) } : x))
     // A retest refused since its newest outstanding reschedule: a job re-tests it.
     .map((x) => (x.outstanding?.length && (rows.retest_refusals || []).some((r) => r.module === x.id && String(r.at) >= String(x.outstanding.map((o) => o.at).sort().at(-1))) ? { ...x, retest_refused: true } : x));
@@ -880,6 +883,11 @@ export function completionLayer(root, cfg, layers, n, tr, log = () => {}) {
 export const itemReopen = (completion, joins = [], more = []) => {
   const all = layerItems(completion, joins, more);
   return new Map([...new Set(all.map((x) => x.module))].map((id) => [id, all.filter((x) => x.module === id).map((x) => `${x.id}: ${x.what}`).join('; ')]));
+};
+// A completion layer's item ids per module, in the order itemReopen words them.
+export const itemIdMap = (completion, joins = [], more = []) => {
+  const all = layerItems(completion, joins, more);
+  return new Map([...new Set(all.map((x) => x.module))].map((id) => [id, all.filter((x) => x.module === id).map((x) => x.id)]));
 };
 // A completion layer's items: those of its open row, those its joined modules brought (PD-14), and
 // those added later for a module already in it (item rows, PD-14 (i)).

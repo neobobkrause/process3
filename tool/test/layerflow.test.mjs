@@ -1963,14 +1963,14 @@ test('PD-14 (i): a later item for a module already in the open completion layer 
   // BOB adds CR-7 for a on the tranche; the layer syncs it in.
   const d = clone(bare);
   git(['checkout', '-q', '-B', 'tranche', 'origin/tranche'], { cwd: d });
-  commit(d, { [ROUND]: '- [ ] CR-2 · a · strengthen the R1 test\n- [ ] CR-7 · a · and the R2 one\n' }, 'CR-7');
+  commit(d, { [ROUND]: '- [ ] CR-2 · a · strengthen the R1 test\n- [ ] CR-7 · a · and the R2 one; today: the R3 one\n' }, 'CR-7');
   git(['push', '-q', 'origin', 'tranche'], { cwd: d });
   git(['fetch', '-q', 'origin'], { cwd: root });
   await layerSync(root, 3, { io: { ...syncIO(bare, []), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) }, log: quiet });
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND });
   // Named as a join (a, complete, has nothing else to start), and it holds the merge.
   const j0 = layerJobs(root, 3, { io: openIO, log: quiet });
-  assert.deepEqual(j0.startable.filter((x) => x.id === 'a'), [{ id: 'a', join: true, more: true, items: ['CR-7'], cmd: 'node .process/tool/p3.mjs layer join a --why "CR-7: and the R2 one", then node .process/tool/p3.mjs layer jobs 3 and its job start' }]);
+  assert.deepEqual(j0.startable.filter((x) => x.id === 'a'), [{ id: 'a', join: true, more: true, items: ['CR-7'], cmd: 'node .process/tool/p3.mjs layer join a --why "CR-7: and the R2 one; today: the R3 one", then node .process/tool/p3.mjs layer jobs 3 and its job start' }]);
   assert.equal(openLayer(root, cfg, { slug: 'o/p', io: openIO }).ready, false);
   const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
   await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /layer 3 cannot merge: a has open completion item\(s\) CR-7 not yet joined into the layer: node \S+ layer join a/);
@@ -1985,8 +1985,12 @@ test('PD-14 (i): a later item for a module already in the open completion layer 
   assert.deepEqual(flowRows(root, SB, 3).items.map((x) => [x.module, x.items.map((y) => y.id)]), [['a', ['CR-7']]]);
   assert.throws(() => layerJoin(root, 'a', { why: 'CR-7', log: quiet }), /a is in layer 3, the open layer: it starts from node \S+ layer jobs 3; nothing recorded/, 'joined once: nothing new');
   const j1 = layerJobs(root, 3, { io: openIO, log: quiet });
-  assert.deepEqual(j1.startable.map((x) => x.cmd), ['node .process/tool/p3.mjs job start a --sessions <file> --reopen "CR-2: strengthen the R1 test; CR-7: and the R2 one"']);
+  assert.deepEqual(j1.startable.map((x) => x.cmd), ['node .process/tool/p3.mjs job start a --sessions <file> --reopen "CR-2: strengthen the R1 test; CR-7: and the R2 one; today: the R3 one"']);
   await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /a is not started/);
+  // The ids from the items, not split from their words, which may hold '; ' and ': ' (copy, 8 Nov).
+  const st1 = [];
+  layerStatus(root, 3, { io: openIO, log: (l) => st1.push(String(l)) });
+  assert.ok(st1.includes('a: not started (completion item(s) joined after its last job started: CR-2, CR-7)'), st1.join('\n'));
   // A land of a job started before the row (the first job, landing again) does not do CR-7.
   const rows = (lands, starts) => ({ items: [{ module: 'a', at: '2026-06-01' }], lands: lands.map((at) => ({ module: 'a', at })), starts: starts.map((at) => ({ module: 'a', at })) });
   assert.equal(itemsOwed(rows(['2026-07-01'], ['2026-05-01']), 'a').length, 1, 'its job started before the row');
