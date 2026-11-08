@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { exists, fail, fetchBranch, git } from './util.mjs';
+import { fetchState, readState } from './state.mjs';
 
 export const STRATEGIES = ['layer'];
 export const layerMode = (cfg) => (cfg?.merge_strategy ?? 'layer') === 'layer';
@@ -30,9 +31,31 @@ export function layersAt(root, cfg, ref) {
   let text = null;
   if (ref) text = exists(root, ref, cfg.layers_file) ? git(['show', `${ref}:${cfg.layers_file}`], { cwd: root }) : null;
   else if (existsSync(join(root, cfg.layers_file))) text = readFileSync(join(root, cfg.layers_file), 'utf8');
-  return layerMap(text);
+  const map = layerMap(text);
+  return map.length ? [...map, ...completionLayers(root, cfg, map)] : map;
+}
+// The completion layers (PLN-4: the completion round has its own file; PD-12: reopens after the
+// plan's last layer go through it; C33): `layer open <last+1>`, once every layer of the map is
+// closed and completion_file has open items, opens one past the map, its modules those items' in
+// file order, recorded on its open row (completion: { file, items, mods }). Read from that row, so
+// the product's layer map is never edited; each later round opens the next number.
+export function completionLayers(root, cfg, map) {
+  const out = [];
+  if (!cfg?.state_branch) return out;
+  for (let k = (map.at(-1)?.n ?? 0) + 1; ; k++) {
+    let row = null;
+    try { row = JSON.parse(readState(root, cfg.state_branch, flowFile(k, 'open')) || 'null'); } catch { row = null; }
+    if (!Array.isArray(row?.completion?.mods)) break;
+    // An earlier tranche's completion layer is not this one's (cold review of C33).
+    if (row.tranche && cfg.tranche && row.tranche !== cfg.tranche) break;
+    out.push({ n: k, mods: row.completion.mods, completion: row.completion });
+  }
+  return out;
 }
 export const layerOf = (layers, id) => layers.find((L) => L.mods.includes(id))?.n ?? null;
+// Every layer listing a module, newest first (a completion layer past the map reopens a module of an
+// earlier layer, C33; a map may list a module twice).
+export const layersOf = (layers, id) => layers.filter((L) => L.mods.includes(id)).map((L) => L.n).reverse();
 
 const hasRef = (root, r) => git(['rev-parse', '-q', '--verify', r], { cwd: root, allowFail: true }).code === 0;
 
@@ -44,6 +67,8 @@ const hasRef = (root, r) => git(['rev-parse', '-q', '--verify', r], { cwd: root,
 export function jobCfg(root, cfg, id, { push = true, merged = null } = {}) {
   if (!layerMode(cfg) || cfg.layer) return cfg;
   const tr = push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`;
+  // The state branch first: a completion layer's modules are read from its open row (C33).
+  if (push && cfg.state_branch) { try { fetchState(root, cfg.state_branch); } catch { /* read what the clone holds */ } }
   const map = layersAt(root, cfg, hasRef(root, tr) ? tr : null);
   // A product with no layer map has no layer to branch from: its jobs keep the tranche (noLayers).
   if (!map.length) return { ...cfg, noLayers: true };
@@ -55,10 +80,10 @@ export function jobCfg(root, cfg, id, { push = true, merged = null } = {}) {
     if (!hasRef(root, push ? `refs/remotes/origin/${b}` : `refs/heads/${b}`)) return false;
     return !(merged ? merged(n) : push ? mergedOnState(root, cfg, n) : false);
   };
-  const own = layerOf(map, id);
-  const n = [own, ...joinedLayers(root, cfg, id)].find((x) => x !== null && live(x));
+  const listed = layersOf(map, id);
+  const n = [...listed, ...joinedLayers(root, cfg, id)].find((x) => x !== null && live(x));
   if (n === undefined) return cfg;
-  return { ...cfg, tranche: layerBranch(n), layer: { n, tranche: cfg.tranche, ...(n !== own ? { joined: true } : {}) } };
+  return { ...cfg, tranche: layerBranch(n), layer: { n, tranche: cfg.tranche, ...(!listed.includes(n) ? { joined: true } : {}) } };
 }
 // The layers a module joined, from the state branch's layerflow/<n>/join/<id>.json rows, lowest first.
 function joinedLayers(root, cfg, id) {

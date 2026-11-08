@@ -4,7 +4,8 @@ import { staleLines, staleRecords } from './expire.mjs';
 import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { publishedJobs, slotNote, slotUse } from './slots.mjs';
-import { joinAct, layerLines, layerMergeLine, layerPlace, needsSlot, openLayer } from './layerflow.mjs';
+import { flowRows as flowRowsOf, joinAct, layerLines, layerMergeLine, layerPlace, needsSlot, openLayer } from './layerflow.mjs';
+import { layerMode, layersAt as layersAtFlow } from './layerbase.mjs';
 import { aheadBy, cachedComments, checkRun, COMMENTS_MERGED_MS, keptCompare, COMMENTS_OPEN_MS, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
@@ -1292,8 +1293,18 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   const open = openItems(c);
   if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
   const job = (id) => rows.find((r) => r.id === id && jobOpen(r));
+  // In the layer flow a module's item runs in the completion layer (C33): its act is that layer's.
+  let start = (id) => `${P3} job start ${id} --sessions <file>`;
+  if (layerMode(cfg)) {
+    try {
+      const ls = layersAtFlow(root, cfg, ref);
+      const comp = ls.filter((L) => L.completion).at(-1);
+      const live = comp && !flowRowsOf(root, cfg.state_branch, comp.n).merged;
+      if (ls.length) start = () => (live ? `${P3} layer jobs ${comp.n}` : `${P3} layer open ${(ls.at(-1)?.n ?? 0) + 1} (the completion layer)`);
+    } catch { /* the plain act */ }
+  }
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
-  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --sessions <file>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
+  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : start(x.target)}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
 }
 

@@ -117,6 +117,17 @@ Bob, 5 Nov (Build Plan R10), as the coordinator's audit of PR 140 set it: the ca
 - Working against occupied: with `--sessions`, the flow line splits live job sessions into working (running) and waiting (idle), each waiting one with what it waits on (`gate`, `merge`, `block`, `BOB`, or `archive` for a done job's idle session); the sweep row records both counts.
 - The release path first: next work tags the modules named in `release_path` in `process/config.json` and the open round's layer and found work; debt (a file whose unmet marks are all base-red found marks) is tagged too, last.
 
+## The completion round
+
+The completion round has its own file (PLN-4; `completion_file` in process/config.json), and reopens after the plan's last layer go through it (PD-12). It runs on the layer machinery without editing the product's layer map (C33, coordinator, 8 Nov). Once every layer of the map (and every earlier completion layer) is closed and the completion file on the tranche has open items naming a module, the next layer number past them is the completion layer:
+- `status` and the idle checks name `layer open <n>` (the completion round, <file>) as next.
+- `layer open <n>` cuts `layer/<n>` from the tranche and records its modules, the open items' (file order, each module once), on its open row (`completion: {file, items, mods}`). Every layer read takes that row as the layer's line.
+- A whole-product item starts no job: it stays open until it is ticked or deferred by hand, and tranche close waits on it. An item naming no ledger module, or a line not in the item form, refuses the open, naming it. A deferred item is not opened.
+- `layer jobs` lists each module as `job start <m> --reopen "<item id>: <its words>"` (two items on one module make one job, their words joined). The job runs on `layer/<n>`, and publish, land, the layer gate's cover and `layer merge` work as for any layer.
+- `layer merge <n>` first pushes one tool commit onto `layer/<n>`, `Tick completion items of layer <n>: <ids>`, flipping `[ ]` to `[x]` on the open items of modules complete on the layer (a module deferred after a land keeps its item open). If the tranche's completion file differs from the layer's other than by ticks (BOB ticked a whole-product item there), it refuses and names `layer sync <n>` first; layer sync takes the tranche's completion file. The layer PR carries it into the tranche, and the round close runs as at any layer merge.
+- The layer gate covers a change to the completion file only when it comes from such a titled commit, numbered as this completion layer, that changes that file alone, only `[ ]` to `[x]`, on this layer's own open, not deferred items whose module has a verified land on the layer's chain. Anything else is a finding.
+- A reopened module's land notices its users from its map layer on, as a joined module's does; the census keeps reading the map's layers; status's completion items name `layer open <n>` or `layer jobs <n>`. `job start` tries every layer listing a module, newest first, and reads the state branch first.
+
 ## Development releases
 
 `release` in `process/config.json` (no default; without it `release dev` is refused):

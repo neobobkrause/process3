@@ -93,7 +93,8 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   }
   const reqs = new Map([...files.keys()].filter((f) => f.endsWith('.md') && f.slice(dir.length + 1).indexOf('/') < 0 && !/^README\.md$/i.test(f.slice(dir.length + 1))).map((f) => [f.slice(dir.length + 1, -3), f]));
   const map = layersAt(root, cfg, ref);
-  const mapLayer = new Map(map.flatMap((L) => L.mods.map((m) => [m, L.n])));
+  // The map's own layers: a completion layer reopens modules whose layer is the map's (C33).
+  const mapLayer = new Map(map.filter((L) => !L.completion).flatMap((L) => L.mods.map((m) => [m, L.n])));
   const lanes = (Array.isArray(cfg.lanes) ? cfg.lanes : []).filter((l) => l?.module).map((l) => l.module);
   const first = open.length ? Math.min(...open) : null;
   const layerOf = (id) => mapLayer.get(id) ?? (Number.isInteger(row.get(id)?.layer) ? row.get(id).layer : null);
