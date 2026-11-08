@@ -12,7 +12,7 @@ import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap, layersAt } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
-  layerClear, layerStatus, layerSync, moduleStates, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
+  layerClear, layerStatus, layerSync, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -1847,6 +1847,12 @@ test('C33: the completion layer opens past the map, lists each open item as a re
   git(['push', '-q', 'origin', 'x'], { cwd: d2 });
   git(['fetch', '-q', 'origin'], { cwd: root });
   assert.match(cover(hand).map((f) => f.message).join('\n'), /changed on layer\/3 by \w{10}, which ticks CR-5, whose module d has no verified land on the layer/);
+  const d3 = clone(bare);
+  git(['checkout', '-q', '-B', 'y', tick], { cwd: d3 });
+  const other = commit(d3, { [ROUND]: git(['show', `${tick}:${ROUND}`], { cwd: root, allowFail: true }).stdout.replace('- [ ] CR-5', '- [x] CR-5') }, 'Tick completion items of layer 4: CR-5');
+  git(['push', '-q', 'origin', 'y'], { cwd: d3 });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  assert.match(cover(other).map((f) => f.message).join('\n'), /which is not the tool's tick of this completion layer/, 'a tick titled for another layer');
 });
 
 test('C33: refused cleanly: an item naming no ledger module; a map layer still open; no completion file', () => {
@@ -1863,4 +1869,27 @@ test('C33: refused cleanly: an item naming no ledger module; a map layer still o
   const none = product({ done: true });
   assert.throws(() => layerOpen(none.root, 3, { io: openIO, log: quiet }), /layer 3 is not in build\/layers\.md on tranche, and process\/config\.json names no completion_file/);
   assert.throws(() => layerOpen(none.root, 5, { io: openIO, log: quiet }), /layer 5 is not in build\/layers\.md on tranche; the next past it is 3/);
+});
+
+// Cold review of C33: a completion file edited on the tranche while the completion layer is open
+// (BOB ticks a whole-product item there) would make the layer PR conflict: layer merge refuses
+// before ticking, naming layer sync; and only text that differs by ticks counts as the same.
+test('C33: layer merge refuses to tick over a completion file the tranche changed; onlyTicks', async () => {
+  assert.equal(onlyTicks('- [ ] A · a · x\n- [ ] B · b · y\n', '- [x] A · a · x\n- [ ] B · b · y\n'), true);
+  assert.equal(onlyTicks('- [ ] A · a · x\n', '- [ ] A · a · changed\n'), false);
+  assert.equal(onlyTicks('- [x] A · a · x\n', '- [ ] A · a · x\n'), false, 'an untick is not a tick');
+  const { root, bare } = completed('- [ ] CR-2 · a · strengthen\n- [ ] CR-3 · whole product · a walk\n');
+  layerOpen(root, 3, { io: openIO, log: quiet });
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' }, { n: 3 });
+  const prs = { 7: prOf(7, 'a', ha, { base: { ref: 'layer/3' } }) };
+  await layerLand(root, 7, { io: { ...landIO(bare, prs), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) }, log: quiet });
+  // BOB ticks the whole-product item on the tranche meanwhile.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'tranche', 'origin/tranche'], { cwd: d });
+  commit(d, { [ROUND]: '- [ ] CR-2 · a · strengthen\n- [x] CR-3 · whole product · a walk\n' }, 'CR-3 walked');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: d });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => { throw new Error('no PR may open'); }, checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: () => { throw new Error('no merge'); } };
+  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /build\/round\.md changed on tranche since layer\/3 was cut: run node \S+ layer sync 3 first/);
+  assert.doesNotMatch(git(['log', '-1', '--format=%s', 'origin/layer/3'], { cwd: root }), /^Tick completion items/, 'nothing ticked');
 });

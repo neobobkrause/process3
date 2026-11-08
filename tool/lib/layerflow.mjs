@@ -1200,7 +1200,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
   if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche}`);
   const id = branchModule(pr.head?.ref, new Set([...ledgerIds(root, lref), ...ledgerIds(root, `refs/remotes/origin/${cfg.tranche}`)])) || fail(`pull request ${n0} is from ${pr.head?.ref}, not a job branch`);
-  if (layerOf(layersAt(root, cfg, lref), id) !== n && !rows.joins.some((j) => j.module === id)) fail(`${id} is not a module of layer ${n}, nor joined it (${P3} layer join)`);
+  if (!(layersAt(root, cfg, lref).find((L) => L.n === n)?.mods || []).includes(id) && !rows.joins.some((j) => j.module === id)) fail(`${id} is not a module of layer ${n}, nor joined it (${P3} layer join)`);
   fetchBranch(root, pr.head.ref, { allowFail: true });
   const head = pr.head.sha;
   if (!hasCommit(root, head)) fail(`this clone does not hold ${short(head)}, the head of pull request ${n0}`);
@@ -1261,7 +1261,9 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   for (const L of layers) if (L.n > n) { const r = flowRows(root, cfg.state_branch, L.n); if (!r.merged) for (const j of r.joins) joinedTo.set(j.module, L.n); }
   for (const j of rows.joins) joinedTo.set(j.module, n);
   const home = (u) => joinedTo.get(u) ?? layerOf(layers, u);
-  const floor = joinedTo.get(id) === n ? (layerOf(layers, id) ?? n) : n;
+  // A joined module, or one a completion layer reopens (C33), notices its users from its map layer
+  // on: those in merged layers come back through the notice (cold review of C33).
+  const floor = joinedTo.get(id) === n || layers.find((L) => L.n === n)?.completion ? (layerOf(layers, id) ?? n) : n;
   const same = users.filter((u) => home(u) === n && (!reach || reach.has(u)));
   // The old rule's count reads every declared user in the layer, whatever reach filtered (cold review).
   const sameAll = usersOf(root, cfg, id, after).filter((u) => home(u) === n);
@@ -1347,15 +1349,21 @@ export function syncOwed(root, cfg, n) {
 const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
 // The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
 // ledger entry as the layer has it (its jobs' states; R4's carried entries). Any other refuses.
-const syncSide = (f) => (f === '.process' || (SHIMS.has(f.split('/').pop()) && (f.startsWith('.github/') || f.startsWith('.claude/') || !f.includes('/'))) ? 'theirs' : /^process\/ledger\/[^/]+\.json$/.test(f) ? 'ours' : null);
+const syncSide = (f, cfg = null) => (f === '.process' || (cfg && f === cfg.completion_file) || (SHIMS.has(f.split('/').pop()) && (f.startsWith('.github/') || f.startsWith('.claude/') || !f.includes('/'))) ? 'theirs' : /^process\/ledger\/[^/]+\.json$/.test(f) ? 'ours' : null);
 
 export const SYNC_TITLE = /^Merge layer sync PR (\d+)$/;
 // The completion layer's tick (C33): one tool commit on layer/<n> at its merge, flipping `[ ]` to
 // `[x]` on the open items whose module landed on the layer; the layer gate checks exactly that.
 export const TICK_TITLE = /^Tick completion items of layer (\d+): (.+)$/;
+// Two texts of the completion file the same but for boxes `b` ticks that `a` has open.
+export function onlyTicks(a, b) {
+  const x = String(a).split('\n');
+  const y = String(b).split('\n');
+  return x.length === y.length && x.every((l, i) => l === y[i] || (/^\s*[-*]\s+\[ \]/.test(l) && l.replace('[ ]', '[x]') === y[i]));
+}
 // The lines of `file` a tick flips, as [line, item] pairs, or a reason it is not a tick: the commit
 // changes that file alone, only `[ ]` to `[x]`, each on an item of a module in `landed`.
-export function tickCheck(root, file, before, after, landed) {
+export function tickCheck(root, file, before, after, landed, ids = null) {
   const files = git(['diff', '--no-renames', '--name-only', before, after], { cwd: root }).split('\n').filter(Boolean);
   if (files.length !== 1 || files[0] !== file) return { why: `changes ${files.join(', ') || 'nothing'}, not ${file} alone` };
   const a = (git(['show', `${before}:${file}`], { cwd: root, allowFail: true }).stdout || '').split('\n');
@@ -1366,7 +1374,8 @@ export function tickCheck(root, file, before, after, landed) {
   for (let i = 0; i < a.length; i++) {
     if (a[i] === b[i]) continue;
     const x = was.get(i + 1);
-    if (!x || x.done || a[i].replace('[ ]', '[x]') !== b[i]) return { why: `line ${i + 1} of ${file} is not an open item ticked` };
+    if (!x || x.done || x.deferred || a[i].replace('[ ]', '[x]') !== b[i]) return { why: `line ${i + 1} of ${file} is not an open item ticked` };
+    if (ids && !ids.has(x.id)) return { why: `ticks ${x.id}, which is not an item of this completion layer` };
     if (!landed.has(x.target)) return { why: `ticks ${x.id}, whose module ${x.target} has no verified land on the layer` };
     flipped.push(x.id);
   }
@@ -1378,10 +1387,10 @@ function syncMerge(root, cfg, n, base, ttip, w) {
   const m = git(['merge', '-q', '--no-ff', '--no-commit', ttip], { cwd: w, allowFail: true });
   const conflicted = m.code === 0 ? [] : git(['diff', '--name-only', '--diff-filter=U'], { cwd: w }).split('\n').filter(Boolean);
   if (m.code !== 0 && !conflicted.length) fail(`merging ${cfg.tranche} into ${layerBranch(n)} failed (${(m.stderr || m.stdout).trim().split('\n').pop()}); nothing was opened`);
-  const bad = conflicted.filter((f) => !syncSide(f));
+  const bad = conflicted.filter((f) => !syncSide(f, cfg));
   if (bad.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); fail(`layer sync ${n} refused: ${layerBranch(n)} and ${cfg.tranche} conflict in ${bad.join(', ')}; only .process, the process's shims and ledger entries are resolved by the tool; nothing was opened`); }
   for (const f of conflicted) {
-    const side = syncSide(f);
+    const side = syncSide(f, cfg);
     // The side's version, or its deletion (a modify/delete conflict).
     const stage = side === 'ours' ? 2 : 3;
     const has = git(['ls-files', '-u', '--', f], { cwd: w }).split('\n').some((l) => l.split(/\s+/)[2] === String(stage));
@@ -1407,7 +1416,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
   const tip = rev(root, layerRef(n));
   const out = { merged: [], left: [] };
   // Records (other modules' metrics rows and the like) are no code: a receipt stands over them.
-  const allowed = (f) => f === '.process' || syncSide(f) === 'theirs' || /^process\/ledger\/[^/]+\.json$/.test(f) || isRecordPath(cfg, f);
+  const allowed = (f) => f === '.process' || syncSide(f, cfg) === 'theirs' || /^process\/ledger\/[^/]+\.json$/.test(f) || isRecordPath(cfg, f);
   for (const p of prs) {
     const id = branchModule(p.head?.ref, ids);
     if (!id || !String(p.head.ref).startsWith('job/')) continue;
@@ -1679,8 +1688,15 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
 export function tickLanded(root, cfg, n, L, log = console.log) {
   if (!L.completion) return null;
   const file = L.completion.file;
-  const landed = new Set(L.rows.lands.map((l) => l.module));
+  // Ticked only for a module complete on the layer (its last publish landed, nothing outstanding);
+  // a module deferred after a land keeps its item open (cold review of C33).
+  const landed = new Set(L.states.filter((x) => x.state === 'complete' && L.rows.lands.some((l) => l.module === x.id)).map((x) => x.id));
   const head = rev(root, L.ref);
+  // The tranche's file and the layer's must agree but for ticks, else the layer PR would conflict
+  // on the file (BOB ticks a whole-product item on the tranche): layer sync brings it in first.
+  const tt = git(['show', `refs/remotes/origin/${cfg.tranche}:${file}`], { cwd: root, allowFail: true }).stdout || '';
+  const lt = git(['show', `${head}:${file}`], { cwd: root, allowFail: true }).stdout || '';
+  if (!onlyTicks(tt, lt)) fail(`${file} changed on ${cfg.tranche} since ${layerBranch(n)} was cut: run ${P3} layer sync ${n} first (it takes ${cfg.tranche}'s ${file}), then layer merge ${n}; nothing was opened`);
   const c = completionItems(root, { ...cfg, completion_file: file }, head);
   if (!c || c.missing) return null;
   const mine = new Set(L.completion.items.map((x) => x.id));
@@ -1949,10 +1965,14 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   const cf = cfg.completion_file;
   if (typeof cf === 'string' && needSet.has(cf) && !own.has(cf)) {
     own.add(cf);
+    const comp = layersAt(root, cfg, head).find((L) => L.n === n)?.completion;
+    const compItems = comp ? new Set(comp.items.map((x) => x.id)) : null;
     const landedIds = new Set(lands.map((x) => x.v.id));
     for (const c of touched.get(cf) || []) {
       const subj = git(['log', '-1', '--format=%s', c], { cwd: root });
-      const t = TICK_TITLE.test(subj) ? tickCheck(root, cf, parents(c)[0], c, landedIds) : { why: 'is not the tool\'s tick of a completion layer' };
+      // Only a completion layer's own tick, numbered as this layer, on its own items (cold review of C33).
+      const m = subj.match(TICK_TITLE);
+      const t = !m || Number(m[1]) !== n || !compItems ? { why: 'is not the tool\'s tick of this completion layer' } : tickCheck(root, cf, parents(c)[0], c, landedIds, compItems);
       if (t.why) findings.push({ check: 'layer', file: cf, line: 1, message: `${cf} changed on ${branch} by ${short(c)}, which ${t.why}` });
     }
   }
