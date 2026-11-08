@@ -3,12 +3,12 @@
 // published limits"). The limits as data, the target, the account-wide windows, GitHub's refusals
 // obeyed by every session, the budget report, the optional caps, and one state push per command.
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { laneStart } from '../lib/lane.mjs';
-import { budgetGate, classify, ghAfter, ghTurn, usage, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared } from '../lib/pace.mjs';
+import { budgetGate, classify, ghAfter, ghTurn, usage, githubBudget, GITHUB_LIMITS, limitSignal, localPause, nextPause, Paced, pacing, pacingProblem, pollMs, primaryState, pushSeen, PACING_DEFAULTS, usageRows, useShared, withoutWaiting } from '../lib/pace.mjs';
 import { PAUSE_FILE, shareUsage, stateShare } from '../lib/ghshare.mjs';
 import { fetchState, flushState, pendingWrites, readState, stateBatch, stateIO, stateReplay, strandedWrites, writeState } from '../lib/state.mjs';
 import { configOf, git, jobCap, pushRetry } from '../lib/util.mjs';
@@ -463,6 +463,53 @@ test('github note: a session\'s connector writes are reserved and logged before 
   assert.deepEqual(c.slept, []);
   noteTurn(root, { content: 1 }, { p: P, now: c.now, sleep: c.sleep });
   assert.equal(c.slept.length, 1);
+});
+
+// C30 (the coordinator, 8 Nov): on the copy at pin ed90bd95, \`github note --content 987\` (PR 987's
+// number, read as 987 connector writes: 4935 REST points) refused three times "still waiting after
+// four waits (0 of GitHub's 900 REST points a minute used account-wide, the target 85% (765))" while
+// \`github budget\` read REST 3/900 and content 0/80 a minute. A request over a window's target alone
+// can never fit: refused at once, nothing waited, and the note says what --content counts.
+test('github note (C30): a request that alone is over a window\'s target is refused at once, never waited on, and says what --content counts', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const c = clock();
+  useShared(null);
+  let msg = '';
+  try { noteTurn(root, { content: 987, what: 'PR 987 ready' }, { p: P, now: c.now, sleep: c.sleep }); } catch (e) { msg = e.message; }
+  assert.deepEqual(c.slept, [], 'nothing waited');
+  assert.match(msg, /^GitHub budget: this request alone asks for 4935 REST points a minute, over GitHub's 900 at the target 85% \(765\), so it can never fit; nothing waited\. github note --content <n> counts the connector writes about to be made .*never a pull request's number: `github note --content 1 --what "PR <number> ready"`$/);
+  assert.ok(!/still waiting after four waits/.test(msg));
+  assert.equal(existsSync(f) ? readFileSync(f, 'utf8').trim() : '', '', 'nothing logged: no budget spent');
+  // The note BOB meant: one write, at once, on the same empty budget.
+  noteTurn(root, { content: 1, what: 'PR 987 ready' }, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, []);
+  // A content count over 85% of 80 a minute (68) alone, at 5 points each within the points target: refused on content.
+  assert.throws(() => noteTurn(root, { content: 69 }, { p: P, now: c.now, sleep: c.sleep }), /this request alone asks for 69 content-creating requests a minute, over GitHub's 80 at the target 85% \(68\)/);
+  // A request that fits the target but not the window's use waits, and its message names both.
+  noteTurn(root, { content: 60 }, { p: P, now: c.now, sleep: c.sleep });
+  let waited = '';
+  const said = (ms) => { waited = String(ms); c.sleep(ms); };
+  noteTurn(root, { content: 10 }, { p: P, now: c.now, sleep: said });
+  assert.ok(waited, 'it waited for the window');
+  // The wait's own words name both sides: a refusal that would wait names the window's use and the request.
+  assert.throws(() => withoutWaiting(() => noteTurn(root, { content: 60 }, { p: P, now: c.now, sleep: c.sleep })), /10 of GitHub's 80 content-creating requests a minute used account-wide and 60 for this request, over the target 85% \(68\)/);
+  // Cold review: an oversized request is refused before another window's wait (the points window busy).
+  const c2 = clock(c.now() + 3600e3);
+  noteTurn(root, { content: 1, points: 700 }, { p: P, now: c2.now, sleep: c2.sleep });
+  assert.throws(() => noteTurn(root, { content: 100 }, { p: P, now: c2.now, sleep: c2.sleep }), /this request alone asks for 100 content-creating requests a minute/);
+  assert.deepEqual(c2.slept, [], 'nothing waited, though the points window was busy');
+  // The --content hint only where --content is what is too large: a --points too large is said as points.
+  const big = (() => { try { noteTurn(root, { content: 1, points: 5000 }, { p: P, now: c2.now, sleep: c2.sleep }); } catch (e) { return e.message; } return ''; })();
+  assert.match(big, /this request alone asks for 5000 REST points a minute/);
+  assert.ok(!/counts the connector writes/.test(big));
+  // The hour's window refused alone too (a minute override large enough to pass it).
+  const P2 = { ...P, github_limits: { ...P.github_limits, content_per_minute: 10000, rest_points_per_minute: 100000 } };
+  assert.throws(() => noteTurn(root, { content: 426 }, { p: P2, now: c2.now, sleep: c2.sleep }), /this request alone asks for 426 content-creating requests an hour, over GitHub's 500 at the target 85% \(425\)/);
+  // A config whose limits leave room for no write is refused where the config is read.
+  assert.match(pacingProblem({ github_limits: { content_per_minute: 1, source: 'x', read: 'y' } }), /content_per_minute at the target leaves room for less than one write/);
+  assert.equal(pacingProblem({ github_limits: { content_per_minute: 80, source: 'x', read: 'y' } }), null);
 });
 
 test('one ledger per account: a process3 clone reads and writes the product\'s state branch; its pause and use are every session\'s', (t) => {
