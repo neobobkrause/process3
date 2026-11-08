@@ -1911,8 +1911,19 @@ test('C35: a module with a completion item added after the open joins the open c
   const j0 = layerJobs(root, 3, { io: openIO, log: quiet });
   assert.deepEqual(j0.startable.find((x) => x.id === 'c'), { id: 'c', join: true, items: ['CR-6'], cmd: 'node .process/tool/p3.mjs layer join c --why "CR-6: the c fix provenance needs", then node .process/tool/p3.mjs layer jobs 3 and its job start' });
   assert.ok(openLayer(root, cfg, { slug: 'o/p', io: openIO }).startable.some((x) => x.id === 'c' && x.join));
+  assert.equal(openLayer(root, cfg, { slug: 'o/p', io: openIO }).ready, false, 'a pending join holds the merge');
   // A module with no open item: the refusal stands.
   assert.throws(() => layerJoin(root, 'b', { why: 'x', log: quiet }), /no layer follows layer 3/);
+  // Before the join: a lands and the layer syncs the tranche's file, and still the merge refuses,
+  // naming the join (cold review of C35: else CR-6 would drift to a later round).
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' }, { n: 3 });
+  const prs = { 7: prOf(7, 'a', ha, { base: { ref: 'layer/3' } }) };
+  const lio = { ...landIO(bare, prs), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) };
+  await layerLand(root, 7, { io: lio, log: quiet });
+  const made = [];
+  await layerSync(root, 3, { io: { ...syncIO(bare, made), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) }, log: quiet });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
+  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /layer 3 cannot merge: c has open completion item\(s\) CR-6 and has not joined: node \S+ layer join c/);
   // The join, into the open layer 3, with its items.
   const said = [];
   const r = layerJoin(root, 'c', { why: 'CR-6', log: (l) => said.push(String(l)) });
@@ -1924,19 +1935,10 @@ test('C35: a module with a completion item added after the open joins the open c
   assert.ok(j1.startable.some((x) => x.cmd === 'node .process/tool/p3.mjs job start c --sessions <file> --reopen "CR-6: the c fix provenance needs"'), JSON.stringify(j1.startable));
   assert.ok(!j1.startable.some((x) => x.join), 'no join left');
   assert.equal(jobCfg(root, loadConfig(root), 'c').layer?.n, 3);
-  // a lands; the merge waits on c, as on its own modules.
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' }, { n: 3 });
-  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' }, { n: 3 });
-  const prs = { 7: prOf(7, 'a', ha, { base: { ref: 'layer/3' } }), 8: prOf(8, 'c', hc, { base: { ref: 'layer/3' } }) };
-  const lio = { ...landIO(bare, prs), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) };
-  await layerLand(root, 7, { io: lio, log: quiet });
-  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
+  // Joined, the merge waits on c, as on its own modules; c lands; the merge ticks both.
   await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /c is not started/);
-  // layer sync brings the tranche's file (CR-6) onto the layer; c lands; the merge ticks both.
-  // The tick refuses until the layer holds the tranche's file (CR-6 was added there).
-  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /c is not started|layer sync 3 first/);
-  const made = [];
-  await layerSync(root, 3, { io: { ...syncIO(bare, made), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) }, log: quiet });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' }, { n: 3 });
+  prs[8] = prOf(8, 'c', hc, { base: { ref: 'layer/3' } });
   await layerLand(root, 8, { io: lio, log: quiet });
   await layerMerge(root, 3, { io: mio, wait: false, log: quiet });
   git(['fetch', '-q', 'origin'], { cwd: root });

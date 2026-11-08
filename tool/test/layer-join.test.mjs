@@ -113,7 +113,7 @@ test('a notice-affected user in a merged layer: its act is the join, never a job
   fetchState(root, SB, { fresh: true });
   const rows = status(root, { offline: true, log: quiet }).rows;
   const slots = noticeSlots(root, cfgOf(), rows).slots;
-  assert.equal(slots.find((x) => x.user === 'a').act, 'node .process/tool/p3.mjs layer join a --why "provider notice c:9" (it joins layer 3, and starts from node .process/tool/p3.mjs layer jobs 3 once that layer opens)');
+  assert.equal(slots.find((x) => x.user === 'a').act, 'node .process/tool/p3.mjs layer join a --why "provider notice c:9" (it joins layer 3, and starts from node .process/tool/p3.mjs layer jobs 3 once that layer is open)');
   assert.match(slots.find((x) => x.user === 'b').act, /^node \.process\/tool\/p3\.mjs job start b --sessions <file>/, 'the open layer\'s user: as before');
 });
 

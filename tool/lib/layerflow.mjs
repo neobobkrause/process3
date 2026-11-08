@@ -392,7 +392,9 @@ export function joinableItems(root, cfg, tr, mods, n) {
   let c = null;
   try { c = completionItems(root, cfg, tr); } catch { c = null; }
   const have = new Set(mods);
-  const due = openItems(c).filter((x) => !x.whole && !x.malformed && !have.has(x.target));
+  // A module with no ledger entry has nothing to join: the item is BOB's to fix (cold review of C35).
+  const ids = ledgerIds(root, tr);
+  const due = openItems(c).filter((x) => !x.whole && !x.malformed && !have.has(x.target) && ids.has(x.target));
   return [...new Set(due.map((x) => x.target))].map((id) => {
     const its = due.filter((x) => x.target === id);
     const why = its.map((x) => `${x.id}: ${x.what}`).join('; ');
@@ -563,7 +565,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     const x = readLayer(root, cfg, n, { io, slug });
     let early = { next: null, list: [], skipped: [] };
     try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
-    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
+    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
   }
   // Every layer merged and the completion round has open items with a module: its layer is next
   // (C33), so status names `layer open <n>` and the idle checks see the act owed.
@@ -795,7 +797,7 @@ export function completionJoinItems(root, cfg, tr, id) {
   try { c = completionItems(root, cfg, tr); } catch { c = null; }
   return openItems(c).filter((x) => !x.whole && !x.malformed && x.target === id).map((x) => ({ id: x.id, module: id, what: x.what }));
 }
-export const joinAct = (id, why, t) => `${P3} layer join ${id} --why ${JSON.stringify(why)} (it joins layer ${t}, and starts from ${P3} layer jobs ${t} once that layer opens)`;
+export const joinAct = (id, why, t) => `${P3} layer join ${id} --why ${JSON.stringify(why)} (it joins layer ${t}, and starts from ${P3} layer jobs ${t} once that layer is open)`;
 
 // layer join <id> --why "<why>": the module, its layer behind the open one, joins the next layer
 // to open: one row on the state branch (layerflow/<n>/join/<id>.json); layer open lists it in that
@@ -1646,6 +1648,9 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   if (L.rows.merged) fail(`layer ${n} already merged (${short(L.rows.merged.commit)})`);
   const not = L.states.filter((s) => !DONE.includes(s.state));
   if (not.length) fail(`layer ${n} cannot merge: ${not.map((s) => `${s.id} is ${s.state} (${s.why})`).join('; ')}`);
+  // An open completion item whose module has not joined holds the merge as an unfinished module
+  // does (PD-14; cold review of C35): else it would drift to a later round.
+  if (L.joinable?.length) fail(`layer ${n} cannot merge: ${L.joinable.map((x) => `${x.id} has open completion item(s) ${x.items.join(', ')} and has not joined: ${x.cmd}`).join('; ')}`);
   if (L.holding.length) fail(`layer ${n} cannot merge: PR(s) ${L.holding.map((p) => p.number).join(', ')} still open into ${layerBranch(n)}`);
   // Finished work, deferred only on a process finding, is not dropped silently (coordinator, 6 Nov).
   const done = L.states.filter((s) => s.done_work);
