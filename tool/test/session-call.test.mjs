@@ -21,6 +21,10 @@ test('session call (C42): one repository by source_url, keys in the order the to
   assert.equal(c.source_url, 'https://github.com/acme/app');
   const bare = sessionCall({ slug: 'acme/app', revision: 'tranche', title: 't', prompt: 'p' });
   assert.deepEqual(bare, { title: 't', source_url: 'https://github.com/acme/app', source_revision: 'tranche', prompt: 'p' });
+  // A product's clone settings never replace the call's own keys (cold review).
+  const swapped = sessionCall({ slug: 'acme/app', revision: 'tip', title: 't', prompt: 'p', clone: { clone_depth: 1, source_url: 'https://github.com/x/y', source_revision: 'old', title: 'x', prompt: 'x' } });
+  assert.deepEqual(swapped, { title: 't', source_url: 'https://github.com/acme/app', source_revision: 'tip', clone_depth: 1, prompt: 'p' });
+  assert.throws(() => sessionCall({ slug: 'acme/app', revision: 'r', title: 't', prompt: 'p', clone: { sources: ['a/b'] } }), /was not printed: one repository per session/);
   for (const slug of ['acme', 'acme/app/x', '', null]) assert.throws(() => sessionCall({ slug, revision: 'r', title: 't', prompt: 'p' }), /one repository as <owner>\/<repo>/);
 });
 
@@ -33,15 +37,20 @@ test('session call (C42): checkCall refuses a second repository in any form, cit
   for (const source_url of [['https://github.com/a/b', 'https://github.com/a/c'], 'https://github.com/a/b https://github.com/a/c', 'https://github.com/a/b,a/c', 'https://example.com/a/b', 'https://github.com/a', undefined]) {
     assert.throws(() => checkCall({ ...ok, source_url }), /names exactly one repository/, JSON.stringify(source_url));
   }
-  // Session options that carry no repository pass, so a product's clone settings keep working.
-  assert.ok(checkCall({ ...ok, clone_depth: 1, blob_limit_kb: 100, sparse_checkout_paths: ['src'], model: 'm' }));
+  // Session options that carry no repository pass, so a product's clone settings keep working;
+  // the key test is anchored, so a word that merely holds "source" or "repo" passes.
+  assert.ok(checkCall({ ...ok, clone_depth: 1, blob_limit_kb: 100, sparse_checkout_paths: ['src'], model: 'm', resources: 1, reporter: 'x' }));
 });
 
-test('session call (C42): no file in tool/lib builds a create_session call but util.mjs, so none bypasses checkCall', () => {
+test('session call (C42): no tool file builds a create_session call but util.mjs, so none bypasses checkCall', () => {
+  // Every tool file (lib and the entry points), the key written out, quoted or as a shorthand.
   const found = [];
-  for (const f of readdirSync(LIB).filter((n) => n.endsWith('.mjs') && n !== 'util.mjs')) {
-    readFileSync(join(LIB, f), 'utf8').split('\n').forEach((l, i) => { if (/\bsource_url\s*:|['"]source_url['"]\s*:|\bsources\s*:/.test(l)) found.push(`${f}:${i + 1}`); });
+  const TOOL = join(LIB, '..');
+  const files = [...readdirSync(LIB).filter((n) => n.endsWith('.mjs') && n !== 'util.mjs').map((n) => join(LIB, n)), ...readdirSync(TOOL).filter((n) => n.endsWith('.mjs')).map((n) => join(TOOL, n))];
+  for (const f of files) {
+    readFileSync(f, 'utf8').split('\n').forEach((l, i) => { if (/\bsource_url\s*[:,}]|['"]source_url['"]\s*:|\[\s*['"`]source_url|\bsources\s*:/.test(l)) found.push(`${f.slice(TOOL.length + 1)}:${i + 1}`); });
   }
+  assert.ok(files.some((f) => f.endsWith('p3.mjs')), 'the entry point is read');
   assert.deepEqual(found, [], 'build each create_session call with sessionCall');
   // Each start site the design note lists uses it.
   for (const f of ['roles.mjs', 'job.mjs', 'lane.mjs', 'pin.mjs', 'tranche.mjs', 'measures.mjs']) assert.match(readFileSync(join(LIB, f), 'utf8'), /sessionCall\(\{/, f);
@@ -71,7 +80,7 @@ test('start check (C42): warns when the root\'s parent holds several checkouts, 
   // The project directory Claude Code names.
   const solo = mkdtempSync(join(tmpdir(), 'p3-solo-'));
   const s = join(solo, 'only');
-  mkdirSync(s); git(['init', '-q'], { cwd: s });
+  mkdirSync(join(s, 'sub'), { recursive: true }); git(['init', '-q'], { cwd: s });
   assert.deepEqual(workdirLines(s, { env: { CLAUDE_PROJECT_DIR: s } }), []);
   assert.deepEqual(workdirLines(s, { env: { CLAUDE_PROJECT_DIR: join(s, 'sub') } }), [], 'inside the root');
   const [out] = workdirLines(s, { env: { CLAUDE_PROJECT_DIR: solo } });

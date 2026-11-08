@@ -45,6 +45,8 @@ export function layoutPlan(root, { cfg = loadConfig(root), also = [] } = {}) {
     if (lane) fail(`layout move: ${p} overlaps the lane folder ${lane}/, which its lane owns; it stays where it is`);
     if (!existsSync(join(root, p)) || !tracked(root, p)) { skipped.push({ from: p, why: 'not in this checkout' }); return; }
     if (moves.some((m) => m.from === p)) return;
+    const over = moves.find((m) => underPath(p, m.from) || underPath(m.from, p));
+    if (over) fail(`layout move: ${p} and ${over.from} overlap; name the outer one only`);
     // An --also path that a tracked file outside process/ names in its text (coordinator, 8 Nov,
     // from BOB's read of the product: product tests read build/plan/ and docs/requirements-notes/):
     // refused, with the files, so a reference never breaks silently. Its own files are not asked.
@@ -70,11 +72,20 @@ export function layoutPlan(root, { cfg = loadConfig(root), also = [] } = {}) {
     if (typeof p !== 'string') fail('layout move --also <path>: name the path');
     add(p, null, true);
   }
-  return { moves, skipped };
+  // A key naming a path inside a moved directory follows it (cold review): its new prefix.
+  const follows = [];
+  for (const k of MOVABLE_KEYS) {
+    const v = typeof cfg[k] === 'string' ? norm(cfg[k]) : null;
+    if (!v || moves.some((m) => m.key === k)) continue;
+    const m = moves.find((x) => v !== x.from && underPath(v, x.from));
+    if (m) follows.push({ key: k, to: `${m.to}${v.slice(m.from.length)}` });
+  }
+  return { moves, skipped, follows };
 }
 
-export const planLines = ({ moves, skipped }) => [
+export const planLines = ({ moves, skipped, follows }) => [
   ...(moves.length ? moves.map((m) => `move ${m.from} -> ${m.to}${m.key ? ` (${CONFIG_FILE} ${m.key})` : ''}${m.note ? `; note: ${m.note}` : ''}`) : [`nothing to move: the process-only paths the tool reads are under ${PROCESS_DIR}/ or absent`]),
+  ...(follows || []).map((f) => `key ${f.key} -> ${f.to} (inside a moved folder)`),
   ...skipped.map((s) => `skip ${s.from}: ${s.why}`),
 ];
 
@@ -86,16 +97,20 @@ export function layoutHint(root, cfg) {
   } catch { return null; }
 }
 
-// The config text with only the moved keys rewritten, the rest of it byte for byte.
-export function rewriteConfig(text, moves) {
+// The config text with only the moved keys rewritten, the rest of it byte for byte. Each change is
+// { key, to }; a key with a scalar value (a string, null, a number, a boolean) is rewritten where it
+// stands, an absent one added. The text read back must give each key its new value, else refused.
+const SCALAR = String.raw`(?:"(?:[^"\\]|\\.)*"|null|true|false|-?\d[\d.eE+-]*)`;
+export function rewriteConfig(text, changes) {
   let out = text;
   const cfg = parseJSON(text);
-  const keys = moves.filter((m) => m.key);
-  for (const m of keys) {
-    const pattern = new RegExp(`("${m.key}"\\s*:\\s*)"(?:[^"\\\\]|\\\\.)*"`);
-    if (typeof cfg[m.key] === 'string' && pattern.test(out)) out = out.replace(pattern, `$1${JSON.stringify(m.to)}`);
-    else {
-      // A key at its default is added, so the moved path is named.
+  const keyed = changes.filter((m) => m.key);
+  for (const m of keyed) {
+    const pattern = new RegExp(`("${m.key}"\\s*:\\s*)${SCALAR}`);
+    if (Object.hasOwn(cfg, m.key)) {
+      if (!pattern.test(out)) fail(`layout move: ${m.key} in ${CONFIG_FILE} is not a path or null; set it by hand first`);
+      out = out.replace(pattern, (_, k) => `${k}${JSON.stringify(m.to)}`);
+    } else {
       const at = out.lastIndexOf('}');
       if (at < 0) fail(`${CONFIG_FILE} is not a JSON object`);
       const body = out.slice(0, at).trimEnd();
@@ -103,8 +118,9 @@ export function rewriteConfig(text, moves) {
       out = `${body}${comma}\n  ${JSON.stringify(m.key)}: ${JSON.stringify(m.to)}\n${out.slice(at)}`;
     }
   }
-  const back = parseJSON(out);
-  for (const m of keys) if (back[m.key] !== m.to) fail(`layout move: could not rewrite ${m.key} in ${CONFIG_FILE}`);
+  let back;
+  try { back = parseJSON(out); } catch (e) { fail(`layout move: ${CONFIG_FILE} would not read back (${e.message})`); }
+  for (const m of keyed) if (back[m.key] !== m.to) fail(`layout move: could not rewrite ${m.key} in ${CONFIG_FILE} (the first "${m.key}" in its text is not the top-level one); set it by hand`);
   return out;
 }
 
@@ -120,18 +136,22 @@ export function layoutMove(root, { apply = false, also = [], log = console.log }
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root });
   if (branch === 'HEAD' || branch === cfg.tranche || branch === 'main') fail(`layout move --apply runs on a working branch from ${cfg.tranche}, not ${branch === 'HEAD' ? 'a detached HEAD' : branch}`);
   if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('layout move --apply needs a clean checkout: commit or set aside the changes first');
-  mkdirSync(join(root, PROCESS_DIR), { recursive: true });
-  for (const m of plan.moves) {
-    const r = git(['mv', '--', m.from, m.to], { cwd: root, allowFail: true });
-    if (r.code !== 0) { git(['reset', '-q', '--hard', 'HEAD'], { cwd: root, allowFail: true }); fail(`layout move: git mv ${m.from} ${m.to} failed (${r.stderr.trim()}); nothing was committed`); }
-  }
-  if (plan.moves.some((m) => m.key)) {
-    const p = join(root, CONFIG_FILE);
-    const text = existsSync(p) ? readFileSync(p, 'utf8') : '{\n}\n';
-    writeFileSync(p, rewriteConfig(text, plan.moves));
-    git(['add', '--', CONFIG_FILE], { cwd: root });
-  }
-  git(['commit', '-q', '-m', `layout move: process-only paths into ${PROCESS_DIR}/ (C41)\n\n${plan.moves.map((m) => `${m.from} -> ${m.to}`).join('\n')}`], { cwd: root });
+  // Any failure from the first move to the commit puts the checkout back as it was (cold review).
+  const undo = () => { git(['reset', '-q', '--hard', 'HEAD'], { cwd: root, allowFail: true }); };
+  try {
+    mkdirSync(join(root, PROCESS_DIR), { recursive: true });
+    for (const m of plan.moves) {
+      const r = git(['mv', '--', m.from, m.to], { cwd: root, allowFail: true });
+      if (r.code !== 0) fail(`layout move: git mv ${m.from} ${m.to} failed (${r.stderr.trim()}); nothing was committed`);
+    }
+    const changes = [...plan.moves.filter((m) => m.key), ...plan.follows];
+    if (changes.length) {
+      const p = join(root, CONFIG_FILE);
+      writeFileSync(p, rewriteConfig(existsSync(p) ? readFileSync(p, 'utf8') : '{\n}\n', changes));
+      git(['add', '--', CONFIG_FILE], { cwd: root });
+    }
+    git(['commit', '-q', '-m', `layout move: process-only paths into ${PROCESS_DIR}/ (C41)\n\n${plan.moves.map((m) => `${m.from} -> ${m.to}`).join('\n')}`], { cwd: root });
+  } catch (e) { undo(); throw e; }
   const sha = git(['rev-parse', 'HEAD'], { cwd: root });
   log(`committed ${sha} on ${branch}: push it, open its pull request into ${cfg.tranche}, and land it with the merge tool`);
   return { ...plan, applied: true, sha };

@@ -79,7 +79,7 @@ function neighbourSuite(entries, tests) {
 // The job situation every proposed entry reads (C41): situations_dir's job.md at ref, where the
 // product keeps it (build/situations by default, process/situations once moved); null when absent.
 export function situationFile(root, cfg, ref) {
-  const f = `${String(cfg.situations_dir || DEFAULTS.situations_dir).replace(/\/$/, '')}/job.md`;
+  const f = `${String(cfg.situations_dir || DEFAULTS.situations_dir).replace(/\/+$/, '')}/job.md`;
   return exists(root, ref, f) ? f : null;
 }
 

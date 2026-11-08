@@ -161,3 +161,33 @@ test('layout move (C41): an --also path a tracked file outside process/ names is
   // Named only inside itself and under process/: it moves.
   assert.deepEqual(layoutPlan(root, { also: ['build/jobs'] }).moves.map((m) => m.from), ['build/layers.md', 'build/situations', 'build/jobs']);
 });
+
+test('layout move (C41, cold review): a key inside a moved folder follows it; overlapping paths are refused', () => {
+  const root = product(CFG.replace('"build/modules.json"', '"build/modules.json",\n  "completion_file": "build/jobs/completion.md"'), { 'build/jobs/completion.md': '# c\n' });
+  const plan = layoutPlan(root, { also: ['build/jobs'] });
+  assert.deepEqual(plan.follows, [{ key: 'completion_file', to: 'process/jobs/completion.md' }]);
+  assert.ok(planLines(plan).includes('key completion_file -> process/jobs/completion.md (inside a moved folder)'));
+  layoutMove(root, { apply: true, also: ['build/jobs'], log: () => {} });
+  assert.equal(loadConfig(root).completion_file, 'process/jobs/completion.md');
+  assert.ok(existsSync(join(root, 'process/jobs/completion.md')));
+  const r2 = product();
+  assert.throws(() => layoutPlan(r2, { also: ['build/situations/job.md'] }), /build\/situations\/job\.md and build\/situations overlap; name the outer one only/);
+});
+
+test('layout move --apply (C41, cold review): a failure after the moves puts the checkout back; nothing committed', () => {
+  // "situations_dir" first appears inside a lane row, so the top-level one cannot be rewritten in place.
+  const text = '{\n  "lanes": [{ "name": "ux", "dir": "docs/ux", "situations_dir": "a" }],\n  "situations_dir": "build/situations"\n}\n';
+  const root = product(text);
+  const head = git(['rev-parse', 'HEAD'], { cwd: root });
+  assert.throws(() => layoutMove(root, { apply: true, log: () => {} }), /could not rewrite situations_dir/);
+  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), head);
+  assert.equal(git(['status', '--porcelain', '--untracked-files=no'], { cwd: root }), '');
+  assert.ok(existsSync(join(root, 'build/layers.md')) && existsSync(join(root, 'build/situations/job.md')), 'the moves are undone');
+  assert.equal(readFileSync(join(root, CONFIG_FILE), 'utf8'), text);
+});
+
+test('layout (C41, cold review): a key set to null or a number is rewritten in place, never written twice', () => {
+  const out = rewriteConfig('{\n  "situations_dir": null,\n  "layers_file": "x"\n}\n', [{ key: 'situations_dir', to: 'process/situations' }]);
+  assert.equal(out, '{\n  "situations_dir": "process/situations",\n  "layers_file": "x"\n}\n');
+  assert.throws(() => rewriteConfig('{"layers_file": ["a"]}', [{ key: 'layers_file', to: 'process/layers.md' }]), /is not a path or null; set it by hand first/);
+});

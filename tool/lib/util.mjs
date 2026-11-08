@@ -425,9 +425,9 @@ export const FOUND_DIR = `${PROCESS_DIR}/found`;
 // tool prints is built here and checked here: exactly one source repository, by source_url, and
 // no key that carries another. A start that bypassed this would print a call checkCall refuses;
 // tool/test/session-call.test.mjs fails on any source_url written outside this file.
-// A key that could carry a second repository: any but source_url and source_revision naming a
-// source, a repository or a url.
-const REPO_KEY = /source|repo|url/i;
+// A key that could carry a second repository: sources, repos, repositories, or any url but
+// source_url itself (anchored, cold review: report_url-like words are not refused by accident).
+const REPO_KEY = /^(sources?|repos?|repositor(y|ies)|urls?|.*_urls?)$/i;
 const ONE_REPO = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 export function checkCall(call) {
   const why = 'one repository per session (BD-R2; PD-13: a session started with more than one loads no repository\'s .claude/settings.json)';
@@ -440,7 +440,11 @@ export function checkCall(call) {
 // The create_session call for one repository, its keys in the order the tool has always printed them.
 export function sessionCall({ slug, revision, title, prompt, model = null, clone = null }) {
   if (typeof slug !== 'string' || slug.split('/').length !== 2) fail(`a create_session call names one repository as <owner>/<repo>, not ${JSON.stringify(slug)}`);
-  return checkCall({ title, source_url: `https://github.com/${slug}`, source_revision: revision, ...(clone || {}), ...(model ? { model } : {}), prompt });
+  // The product's clone settings never replace the call's own keys (cold review: a clone row with a
+  // source_url or source_revision would have swapped the repository or the revision).
+  const own = new Set(['title', 'source_url', 'source_revision', 'model', 'prompt']);
+  const opts = Object.fromEntries(Object.entries(clone || {}).filter(([k]) => !own.has(k)));
+  return checkCall({ title, source_url: `https://github.com/${slug}`, source_revision: revision, ...opts, ...(model ? { model } : {}), prompt });
 }
 
 // The first key that appears twice in one object of a JSON text already known to parse; null
