@@ -1235,14 +1235,16 @@ test('publication 632: an added export and expected rows that only gain a key ar
   assert.deepEqual(flowRows(root, SB, 1).reschedules.map((x) => [x.user, x.class]), [['b', 'additive']]);
   assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
   // A changed expected value, only in its own tests, after 632's land changed a's source in this
-  // layer: the tests' verdict stands (C11's review), breaking, a job each, no retest opened.
+  // layer: the tests read breaking, capped at additive (PD-15): b is retested by its gate.
   const d = clone(bare);
   git(['checkout', '-q', '-B', 'job/a', 'origin/layer/1'], { cwd: d });
   const h2 = commit(d, { 'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null').replace("status: 'draft'", "status: 'withdrawn'") }, 'a value');
   git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
   prs[633] = prOf(633, 'a', h2);
-  const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: () => assert.fail('no retest for a breaking change') }, log: quiet });
-  assert.deepEqual([r2.land.interface.class, r2.land.interface.test_only.earlier_source, r2.land.users_rescheduled], ['breaking', true, ['b']]);
+  opened.length = 0;
+  const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: (x, u) => { opened.push(u); return { pr: { number: 700 + opened.length } }; } }, log: quiet });
+  assert.deepEqual([r2.land.interface.class, r2.land.interface.test_only.by_tests, r2.land.interface.test_only.capped, r2.land.interface.test_only.earlier_source, r2.land.users_rescheduled], ['additive', 'breaking', 'PD-15', true, ['b']]);
+  assert.deepEqual(opened, ['b'], 'b retested by its gate alone');
 });
 
 test('layer retest refuses a module owed a job for a breaking change, even when an additive one followed (the retest\'s land would clear both)', async () => {
@@ -1661,8 +1663,9 @@ test('a change confined to the provider\'s own tests reschedules no user, except
 });
 
 // Cold review of C11: an earlier land of the provider that changed its source, read none, leaves a
-// later test-only land's own verdict standing (it may be the only sign of that change).
-test('a test-only land after an earlier source land of the provider keeps its tests\' verdict', async () => {
+// later test-only land's own verdict standing (it may be the only sign of that change), capped at
+// additive by PD-15.
+test('a test-only land after an earlier source land of the provider keeps its tests\' verdict, at most additive (PD-15)', async () => {
   const { root, bare } = await opened();
   const h1 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return [x]; }\n' });
   const r1 = await layerLand(root, 1, { io: landIO(bare, { 1: prOf(1, 'a', h1) }), log: quiet });
@@ -1673,9 +1676,58 @@ test('a test-only land after an earlier source land of the provider keeps its te
   const h3 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1]') });
   await layerLand(root, 3, { io: landIO(bare, { 3: prOf(3, 'a', h3) }), log: quiet });
   const h4 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1, 1]') });
-  const r4 = await layerLand(root, 4, { io: landIO(bare, { 4: prOf(4, 'a', h4) }), log: quiet });
+  const retested = [];
+  const r4 = await layerLand(root, 4, { io: { ...landIO(bare, { 4: prOf(4, 'a', h4) }), retest: (x, u) => { retested.push(u); return { pr: null }; } }, log: quiet });
+  assert.deepEqual(retested, ['b']);
   assert.equal(r4.land.interface.test_only.earlier_source, true);
-  assert.deepEqual([r4.land.interface.class, r4.land.users_rescheduled], ['breaking', ['b']]);
+  assert.deepEqual([r4.land.interface.class, r4.land.interface.test_only.by_tests, r4.land.users_rescheduled], ['additive', 'breaking', ['b']]);
+});
+
+// PD-15 (8 Nov; copy layer 12: hypotheses' c2e2567196, a test-only land after source land 1025,
+// started four re-test jobs): a test-only land whose tests read breaking, after an earlier source
+// land of the provider in the layer, is additive: each user retested by its gate; a user importing
+// a changed test file stays breaking.
+test('PD-15: a breaking test-only land after an earlier source land retests its users; an importer of a changed test file is breaking', async () => {
+  const { root, bare } = product({ done: true });
+  const t = (want) => `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { a } from '../../src/a/index.mjs';\nimport { rows } from './fixture.mjs';\ntest('R2 a list', () => { assert.deepEqual(a(1), ${want}); rows; });\n`;
+  // c declares no use of a; its own test imports a's fixture.
+  commit(root, { 'req/a.md': req('a', '- **R2** `a(x)` answers a list').replace(' *(not yet met: T1)*', ''), 'test/a/fixture.mjs': "export const rows = [{ id: 'f1' }];\n", 'test/a/r2.test.mjs': t('[1]'), 'test/c/uses-fixture.test.mjs': "import { rows } from '../a/fixture.mjs';\nimport test from 'node:test';\ntest('c', () => { rows; });\n" }, 'a\'s Provides test');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  const retested = [];
+  const retest = (x, u) => { retested.push(u); return { pr: null }; };
+  // The earlier source land: an added export, additive.
+  const h1 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x; }\nexport const a2 = 1;\n' });
+  const prs = { 1: prOf(1, 'a', h1) };
+  const r1 = await layerLand(root, 1, { io: { ...landIO(bare, prs), retest }, log: quiet });
+  assert.deepEqual([r1.land.interface.class, r1.land.interface.source_changed], ['additive', true]);
+  // The test-only land: an existing expected value changed (breaking by the tests alone), and the fixture.
+  const h2 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1, 1]'), 'test/a/fixture.mjs': "export const rows = [{ id: 'f1', more: true }];\n" });
+  prs[2] = prOf(2, 'a', h2);
+  retested.length = 0;
+  const r2 = await layerLand(root, 2, { io: { ...landIO(bare, prs), retest }, log: quiet });
+  const ic = r2.land.interface;
+  assert.deepEqual([ic.class, ic.test_only.by_tests, ic.test_only.capped, ic.test_only.earlier_source, ic.test_only.importers], ['additive', 'breaking', 'PD-15', true, ['c']]);
+  assert.ok(ic.triggers.includes('test-import'));
+  assert.deepEqual(r2.land.users_rescheduled.sort(), ['b', 'c']);
+  assert.deepEqual(retested, ['b'], 'b is retested by its gate alone; c, importing the fixture, is not');
+  assert.match(interfaceText(ic), /only its own tests changed \(.*\) after an earlier land changed its source: its tests alone read breaking, capped at additive since this land changed neither source nor exports \(PD-15\): each user is retested by its gate alone; but c imports a changed test file: breaking for it/);
+  fetchState(root, SB, { fresh: true });
+  const rows = flowRows(root, SB, 1);
+  assert.deepEqual(rows.reschedules.filter((x) => x.provider_pr === 2).map((x) => [x.user, x.class, x.triggers.includes('test-import')]).sort(), [['b', 'additive', false], ['c', 'breaking', true]]);
+  const j = layerJobs(root, 1, { io: openIO, log: quiet });
+  assert.equal(j.startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
+  assert.match(j.startable.find((x) => x.id === 'c').cmd, /job start c/);
+  // layer retest takes b (no breaking change owed) and refuses c.
+  const why = (id) => { try { layerRetest(root, id, { io: { ...openIO, slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: (s, p) => ({ number: 90, ...p }), addComment: () => ({ id: 1 }), markReady: () => {}, jobHeads: () => new Set() }, log: quiet }); return null; } catch (e) { return String(e.message); } };
+  assert.doesNotMatch(why('b') || '', /breaking change/);
+  assert.match(why('c'), /c owes a job for a's breaking change/);
+  // A land recorded before PD-15 (uncapped, breaking by its tests) reads as breaking.
+  assert.match(interfaceText({ class: 'breaking', test_only: { files: ['test/a/r2.test.mjs'], by_tests: 'breaking', earlier_source: true } }), /breaking by its tests alone: each user re-runs in a job/);
+  // The report counts the land additive, b's retest owed and c's job.
+  const m = layerReport(root, 1, { log: quiet }).measures;
+  assert.deepEqual([m.lands_additive, m.lands_breaking, m.reschedules, m.retests_owed], [2, 0, 1, 2]);
 });
 
 // C11 c (the coordinator, 7 Nov): a false reschedule had no scoped clear, only notice withdraw (every
