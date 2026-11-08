@@ -124,6 +124,9 @@ export function commonDir(cwd) {
 export const TOOL = basename(resolve(dirname(fileURLToPath(import.meta.url)), '../..')) === '.process' ? 'node .process/tool/p3.mjs' : 'node tool/p3.mjs';
 export const githubLog = (cwd) => (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG) || join(commonDir(cwd), GITHUB_LOG);
 export const sessionId = () => process.env.CLAUDE_CODE_SESSION_ID || process.env.P3_SESSION || null;
+// The session's claude.ai id (session_<id>), the one its pull requests and commits name (C34: the
+// audit names the session behind a write by it). null outside a cloud session.
+export const remoteSession = () => { const r = process.env.CLAUDE_CODE_REMOTE_SESSION_ID || ''; return r ? r.replace(/^cse_/, 'session_') : null; };
 // This clone, as the ledger's rows name it: one session can act from two clones (process3 and a
 // product), and only the clone's own rows are in its log (cold review of R17b).
 // R17e (coordinator's C10): every cloud container is hostname "vm" with the same paths, so the
@@ -186,7 +189,8 @@ export function classify(args) {
 // One event in this clone's log: a gh call (with its cost), a push, a refusal. Never fails the act.
 export function logEvent(kind, what, cwd, extra = {}, at = Date.now()) {
   if (process.env.NODE_TEST_CONTEXT && process.env.P3_GITHUB_LOG === '0') return;
-  try { appendFileSync(githubLog(cwd), JSON.stringify({ at: new Date(at).toISOString(), kind, session: sessionId(), what: String(what).slice(0, 120), ...extra }) + '\n'); } catch { /* the log is a record, not a gate */ }
+  const remote = remoteSession();
+  try { appendFileSync(githubLog(cwd), JSON.stringify({ at: new Date(at).toISOString(), kind, session: sessionId(), ...(remote ? { remote } : {}), what: String(what).slice(0, 120), ...extra }) + '\n'); } catch { /* the log is a record, not a gate */ }
 }
 // A row's content-creating requests: a gh call's flag, or a note's count.
 const contentOf = (r) => (r.content === true ? 1 : Number(r.content) || 0);
@@ -223,19 +227,20 @@ export function usage(cwd, { t = Date.now(), seconds, rows = readLog(cwd), other
   // '?' for pushes logged before R17c named theirs.
   // pushes_by keys: "<repo>", "<repo>#state" (its state branch), "?" (no repository logged);
   // content_by the same for content-creating requests.
-  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, fetches: 0, connector: 0, graphql: 0, pushes_by: {}, content_by: {}, fetches_by: {} };
+  // connector_sessions: the claude.ai sessions whose hook counted a connector call (C34: the audit).
+  const out = { calls: 0, points: 0, content: 0, pushes: 0, free: 0, fetches: 0, connector: 0, graphql: 0, pushes_by: {}, content_by: {}, fetches_by: {}, connector_sessions: new Set() };
   const add = (repo, n, into = out.pushes_by) => { if (n) into[repo || '?'] = (into[repo || '?'] || 0) + n; };
   for (const r of rows) {
     const at = Date.parse(r.at);
     if (!(at > since) || !(at > covered)) continue;
-    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); add(r.repo, contentOf(r), out.content_by); if (r.free) out.free++; if (r.connector) out.connector++; if (r.graphql) out.graphql++; }
+    if (r.kind === 'gh') { out.calls++; out.points += r.points ?? 1; out.content += contentOf(r); add(r.repo, contentOf(r), out.content_by); if (r.free) out.free++; if (r.connector) { out.connector++; if (r.remote) out.connector_sessions.add(r.remote); } if (r.graphql) out.graphql++; }
     if (r.kind === 'fetch') { out.fetches++; add(r.of || '?', 1, out.fetches_by); }
     if (r.kind === 'push' && !(isLedgerState(r, st) && at <= (s.at || 0))) { out.pushes++; add(r.repo ? `${r.repo}${r.state ? '#state' : ''}` : null, 1); }
   }
   for (const u of s.use || []) {
     if (!(Date.parse(u.minute) + 60e3 > since)) continue;
     const ledgerState = st ? (u.pushes_by || {})[`${st.repo}#state`] || 0 : 0;
-    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += (u.pushes || 0) - ledgerState; out.free += u.free || 0; out.fetches += u.fetches || 0; { const fb = Object.entries(u.fetches_by || {}); for (const [k, n] of fb) add(k, n, out.fetches_by); add('?', (u.fetches || 0) - fb.reduce((a, [, n]) => a + n, 0), out.fetches_by); } out.connector += u.connector || 0; out.graphql += u.graphql || 0;
+    out.calls += u.calls || 0; out.points += u.points || 0; out.content += u.content || 0; out.pushes += (u.pushes || 0) - ledgerState; out.free += u.free || 0; out.fetches += u.fetches || 0; { const fb = Object.entries(u.fetches_by || {}); for (const [k, n] of fb) add(k, n, out.fetches_by); add('?', (u.fetches || 0) - fb.reduce((a, [, n]) => a + n, 0), out.fetches_by); } out.connector += u.connector || 0; if (u.connector && u.remote) out.connector_sessions.add(u.remote); out.graphql += u.graphql || 0;
     const cnamed = Object.entries(u.content_by || {});
     for (const [repo, n] of cnamed) add(repo, n, out.content_by);
     add('?', (u.content || 0) - cnamed.reduce((a, [, n]) => a + n, 0), out.content_by);
@@ -588,7 +593,7 @@ export function usageRows(cwd, { after = 0, rows = readLog(cwd) } = {}) {
     if (!(at > after) || !['gh', 'push', 'fetch'].includes(r.kind)) continue;
     const minute = iso(Math.floor(at / 60e3) * 60e3);
     const k = `${r.session}\0${minute}`;
-    const x = by.get(k) || { session: r.session || null, clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0, pushes_by: {} };
+    const x = by.get(k) || { session: r.session || null, ...(r.remote ? { remote: r.remote } : {}), clone: cloneId(cwd), minute, calls: 0, points: 0, content: 0, pushes: 0, pushes_by: {} };
     if (r.kind === 'fetch') { x.fetches = (x.fetches || 0) + 1; x.fetches_by = x.fetches_by || {}; x.fetches_by[r.of || '?'] = (x.fetches_by[r.of || '?'] || 0) + 1; by.set(k, x); continue; }
     if (r.kind === 'gh') { x.calls++; x.points += r.points ?? 1; x.content += contentOf(r); if (contentOf(r) && r.repo) { x.content_by = x.content_by || {}; x.content_by[r.repo] = (x.content_by[r.repo] || 0) + contentOf(r); } if (r.free) x.free = (x.free || 0) + 1; if (r.connector) x.connector = (x.connector || 0) + 1; if (r.graphql) x.graphql = (x.graphql || 0) + 1; } else { x.pushes++; if (r.repo) { const k2 = `${r.repo}${r.state ? '#state' : ''}`; x.pushes_by[k2] = (x.pushes_by[k2] || 0) + 1; } }
     by.set(k, x);

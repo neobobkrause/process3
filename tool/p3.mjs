@@ -33,7 +33,7 @@ import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrite
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
 import { stateShare } from './lib/ghshare.mjs';
 import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
-import { hookRun } from './lib/ghhook.mjs';
+import { hookLoadedLine, hookRun } from './lib/ghhook.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { PROCESS_ROOT, triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -458,6 +458,8 @@ const commands = {
   // With --wake, once the approvals hold, the calling role's prompt against the one it started
   // from: a changed prompt is printed once, with its pin, and recorded (prompt refresh).
   'start check': (a, root) => {
+    // C34: a session whose GitHub hook did not load is told at its first check and every wake (PD-13).
+    { let line = null; try { line = hookLoadedLine(); } catch { line = null; } if (line) console.log(line); }
     // A role's first check re-anchors as job start does (coordinator, 5 Nov: ROOT, BOB and the
     // MERGER (since removed) failed theirs on every tranche merge landing between create_session and the check,
     // with the train merging every few minutes): a clean checkout the tip has moved past, with

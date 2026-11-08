@@ -23,6 +23,20 @@ import { pacing, slugOf, usage } from './pace.mjs';
 
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 const sessionIn = (msg) => (String(msg || '').match(/Claude-Session:\s*\S*?(session_[A-Za-z0-9]+)/) || [])[1] || null;
+// The claude.ai session a write names in its body: its Claude-Session trailer or claude.ai/code link
+// (C34). null when it names none.
+export const writeSession = (e) => {
+  const p = e?.payload || {};
+  const body = [p.pull_request?.body, p.comment?.body, p.review?.body, p.issue?.body].filter(Boolean).join('\n');
+  return sessionIn(body) || (body.match(/claude\.ai\/code\/(session_[A-Za-z0-9]+)/) || [])[1] || null;
+};
+// Who is behind an unexplained write (C34): a session whose hook counted no connector call in the
+// window had it not loaded; one whose hook counted others missed this one.
+export const writeWho = (e, hooked) => {
+  const s = writeSession(e);
+  if (!s) return 'session unknown: its body names none';
+  return hooked.has(s) ? `session ${s}: its hook counted other connector calls, not this one` : `hook not loaded in session ${s}`;
+};
 const PR_ACTS = new Set(['opened', 'edited', 'closed', 'reopened', 'ready_for_review', 'converted_to_draft']);
 const bot = (login) => /\[bot\]$/.test(String(login || ''));
 export const LEDGER_HOURS = 2;
@@ -118,7 +132,7 @@ export function githubAudit(root, { since, repos = [], product = null, stateBran
     const covered = Math.min(gap, cpool);
     cpool -= covered;
     gap -= covered;
-    if (gap) { wGap += gap; who.push(...writes.slice(0, gap).map((e) => `${repo} ${e.type.replace(/Event$/, '')}${e.payload?.action ? ` ${e.payload.action}` : ''}${e.payload?.pull_request?.number || e.payload?.issue?.number ? ` #${e.payload.pull_request?.number || e.payload.issue?.number}` : ''} by ${e.actor?.login}`)); }
+    if (gap) { wGap += gap; who.push(...writes.slice(0, gap).map((e) => `${repo} ${e.type.replace(/Event$/, '')}${e.payload?.action ? ` ${e.payload.action}` : ''}${e.payload?.pull_request?.number || e.payload?.issue?.number ? ` #${e.payload.pull_request?.number || e.payload.issue?.number}` : ''} by ${e.actor?.login} (${writeWho(e, ledger.connector_sessions || new Set())})`)); }
     L.push(`writes, ${repo}: GitHub ${writes.length} (pull requests, comments, reviews) vs ledger ${lw}${covered ? `, ${covered} covered by writes logged with no repository` : ''}${gap ? `: ${gap} unexplained` : ''}`);
   }
   if (wGap) { unexplained = true; L.push(`UNEXPLAINED writes: ${who.slice(0, 10).join('; ')}`); }

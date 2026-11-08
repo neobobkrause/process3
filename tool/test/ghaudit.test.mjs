@@ -139,3 +139,31 @@ test('each push and write names its repository in the ledger; a merge the tool m
   assert.deepEqual(auditRepos({ slug: COPY, cfg: { process_repo: 'https://github.com/neobobkrause/process3' } }), [COPY, P3R]);
   assert.deepEqual(auditRepos({ slug: P3R, cfg: null, processOrigin: 'https://github.com/neobobkrause/process3' }), [P3R]);
 });
+
+// C34 (the coordinator, 8 Nov): builder sessions rooted at /home/user, and the coordinator on an old
+// branch, loaded no hook, and their connector writes (PR opens 239-256, ready marks) went
+// unledgered: the audit named a bare gap. It names the session behind each unexplained write, by
+// the claude.ai link its body carries: a session whose hook counted no connector call had it not
+// loaded; one whose hook counted others missed this one.
+test('audit (C34): an unexplained write names its session, and says the hook was not loaded where the ledger holds none of that session\'s connector calls', (t) => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  // session_HOOKED's hook counted one connector call; session_BARE's none.
+  ledger(t, [{ at: at(25), kind: 'gh', points: 1, connector: true, remote: 'session_HOOKED' }]);
+  const footer = (s) => `body\n\nhttps://claude.ai/code/${s}`;
+  const answers = [
+    [/^rate_limit$/, RL],
+    [new RegExp(`^repos/${P3R}/actions/runs`), { workflow_runs: [] }],
+    [new RegExp(`^repos/${P3R}/events`), [
+      ev('PullRequestEvent', 20, { payload: { action: 'opened', pull_request: { number: 256, body: footer('session_BARE') } } }),
+      ev('IssueCommentEvent', 15, { payload: { action: 'created', issue: { number: 250 }, comment: { body: footer('session_HOOKED') } } }),
+      ev('IssueCommentEvent', 14, { payload: { action: 'created', issue: { number: 251 }, comment: { body: 'no link' } } }),
+    ]],
+  ];
+  const out = [];
+  const r = githubAudit(root, { repos: [P3R], login: ME, now: NOW, io: gh(answers).io, log: (l) => out.push(l), p: P });
+  const text = out.join('\n');
+  assert.equal(r.ok, false);
+  assert.match(text, /PullRequest opened #256 by believeinoakland \(hook not loaded in session session_BARE\)/);
+  assert.match(text, /IssueComment created #250 by believeinoakland \(session session_HOOKED: its hook counted other connector calls, not this one\)/);
+  assert.match(text, /IssueComment created #251 by believeinoakland \(session unknown: its body names none\)/);
+});
