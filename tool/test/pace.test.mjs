@@ -512,7 +512,7 @@ test('github note (C30): a request that alone is over a window\'s target is refu
   assert.equal(pacingProblem({ github_limits: { content_per_minute: 80, source: 'x', read: 'y' } }), null);
 });
 
-test('one ledger per account: a process3 clone reads and writes the product\'s state branch when told to; its pause and use are every session\'s', (t) => {
+test('one ledger per account: a process3 clone reads and writes the product\'s state branch when given it as its ledger; its pause and use are every session\'s', (t) => {
   const f = logFile();
   env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_p3' });
   // The product, with its state branch on its origin. C40: no clone takes a ledger from a file of
@@ -594,9 +594,27 @@ test('C40: read_ledgers names the other ledgers read; github budget sums every o
   githubBudget(root, { now, log: (m) => out.push(m), rateLimit: () => null });
   assert.ok(out.some((l) => /content-creating requests, the last hour: 7\/500/.test(l)), out.join('\n'));
   assert.ok(out.some((l) => /cse_a: 3 gh call/.test(l)) && out.some((l) => /cse_b: 4 gh call/.test(l)), out.join('\n'));
-  // A pause in a ledger read is the account's; a stop anywhere is a stop.
-  const p = multiShare({ ledger: 'own', read: () => ({ at: now, pause: null, use: [] }) }, [{ ledger: 'x', read: () => ({ at: now, pause: { at: 'a', until: '2099-01-01T00:00:00Z', why: 'there', stopped: true }, use: [] }) }]).read();
-  assert.deepEqual([p.pause.why, p.pause.stopped], ['there', true]);
+  // Nothing was written to the ledgers read; a write to one is refused, and none touches the ref
+  // that holds a written ledger.
+  const tips = [a, b].map((x) => git(['rev-parse', 'process-state'], { cwd: x }));
+  sh.shareNow(); // whatever it shares goes to its own ledger
+  assert.deepEqual([a, b].map((x) => git(['rev-parse', 'process-state'], { cwd: x })), tips, 'the ledgers read are unchanged');
+  assert.throws(() => stateShare(root, null, { url: a, readOnly: true }).resume('session_x'), /is read only here/);
+  assert.equal(git(['for-each-ref', '--format=%(refname)', 'refs/p3/ledger/state'], { cwd: root }), '', 'a ledger read is never fetched into the written ledger\'s ref');
+  // The merged pause (each ledger's pause is already net of its own resumes).
+  const S = (pause, resumed = null) => ({ ledger: 'l', read: () => ({ at: now, pause, use: [], resumed, state: { repo: 'o/w', pushes: [[1, 'x']] } }) });
+  const stop = { at: '2026-11-08T10:00:00Z', until: '2026-11-08T10:01:00Z', why: 'there', stopped: true };
+  const long = { at: '2026-11-08T10:10:00Z', until: '2099-01-01T00:00:00Z', why: 'here' };
+  const m1 = multiShare(S(null), [S(stop)]).read();
+  assert.deepEqual([m1.pause.why, m1.pause.stopped], ['there', true], 'a stop anywhere is a stop');
+  const m2 = multiShare(S(long, '2026-11-08T10:05:00Z'), [S(stop, '2026-11-08T11:00:00Z')]).read();
+  assert.deepEqual([m2.pause.why, m2.pause.until, m2.pause.stopped], ['there', stop.until, true], 'a stop is kept whole, never a mix of two pauses');
+  assert.equal(m2.resumed, '2026-11-08T10:05:00Z', 'the resume is the written ledger\'s');
+  const m3 = multiShare(S(long), [S({ ...long, until: '2098-01-01T00:00:00Z', why: 'shorter' })]).read();
+  assert.equal(m3.pause.why, 'here', 'else the longest pause');
+  assert.deepEqual(m3.state.pushes, [[1, 'x']], 'state pushes are the written ledger\'s own');
+  assert.equal(multiShare(S(null), [S(null)]).read().pause, null);
+  assert.throws(() => readLedgers(root, configOf({ pacing: { read_ledgers: ['o/a'] } }), { env: '' }) && readLedgers(root, { pacing: { read_ledgers: 'o/a' } }, { env: '' }), /pacing\.read_ledgers is a list/);
   useShared(null);
 });
 

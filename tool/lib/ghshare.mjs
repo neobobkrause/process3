@@ -19,6 +19,7 @@
 // Read once per READ_S for every check of the clone, writes included, and past it by the ledger's
 // tip asked of GitHub (ls-remote), fetched only when it moved (R17e, C12); another session's use is up to one command or share_s late, which the target's margin
 // covers. GitHub's own count stands in for the primary limit (pace.mjs primaryState).
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync, mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
 import { bookkeep, fetchState, flushState, onBookkeeping, onFlushed, onReplayed, pendingWrites, readState, realPendingWrites, unbatched, writeState } from './state.mjs';
@@ -54,7 +55,9 @@ export function ledgerOf(root, cfg) {
 const SLUG = /^[\w.-]+\/[\w.-]+$/;
 export function readLedgers(root, cfg, { flag, env = process.env.P3_LEDGERS } = {}) {
   const split = (s, where) => (s === undefined || s === null || s === true ? [] : String(s).split(',').map((x) => x.trim()).filter(Boolean).map((x) => (SLUG.test(x) ? x : fail(`${where}: ${x} is not "<owner>/<repo>"`))));
-  const named = [...(cfg?.pacing?.read_ledgers || []), ...split(flag, '--ledgers'), ...split(env, 'P3_LEDGERS')];
+  const listed = cfg?.pacing?.read_ledgers ?? [];
+  if (!Array.isArray(listed)) fail('process/config.json pacing.read_ledgers is a list of "<owner>/<repo>"');
+  const named = [...split(listed.join(','), 'pacing.read_ledgers'), ...split(flag, '--ledgers'), ...split(env, 'P3_LEDGERS')];
   const led = ledgerOf(root, cfg);
   let own = null;
   try { own = repoSlug(root).toLowerCase(); } catch { own = null; }
@@ -63,22 +66,25 @@ export function readLedgers(root, cfg, { flag, env = process.env.P3_LEDGERS } = 
   return named.filter((x) => { const k = x.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
-// One read across the ledger written and the others read (C40): every ledger's use rows and state
-// pushes count; the most binding pause stands (a stop anywhere is a stop); the latest resume.
-// Writes (pause, resume, shares) go to the written ledger only.
+// One read across the ledger written and the others read (C40). Each ledger's pause is already its
+// own net of its resumes (a resume removes it), so: the use rows of every ledger count; a stop in
+// any ledger stands, as that ledger's whole pause record; else the pause that lasts longest. The
+// resume time and the state-branch pushes stay the written ledger's own (pauseOf voids this clone's
+// local record by the resume of the ledger it writes; a ledger read's state pushes are its own
+// repository's, which audit and budget count under that repository, not this one).
 export function multiShare(written, others) {
   if (!others.length) return written;
-  const merge = (a, b) => {
-    if (!a) return b;
-    if (!b) return a;
-    const until = (p) => Date.parse(p?.until || 0) || 0;
-    const pause = !a.pause ? b.pause : !b.pause ? a.pause : { ...(until(a.pause) >= until(b.pause) ? a.pause : b.pause), stopped: !!(a.pause.stopped || b.pause.stopped) };
-    const resumed = [a.resumed, b.resumed].filter(Boolean).sort().pop() || null;
-    const state = a.state && b.state ? { ...a.state, pushes: [...(a.state.pushes || []), ...(b.state.pushes || [])] } : a.state || b.state || null;
-    return { ...a, pause, resumed, use: [...(a.use || []), ...(b.use || [])], state, at: Math.min(a.at ?? Infinity, b.at ?? Infinity) };
+  const until = (p) => Date.parse(p?.until || 0) || 0;
+  const binding = (a, b) => (!a ? b : !b ? a : a.stopped !== b.stopped ? (a.stopped ? a : b) : until(a) >= until(b) ? a : b);
+  const read = (o) => {
+    const w = written.read(o);
+    const rs = others.map((s) => s.read(o)).filter(Boolean);
+    if (!w) return w;
+    return { ...w, pause: rs.reduce((p, r) => binding(p, r.pause || null), w.pause || null), use: [...(w.use || []), ...rs.flatMap((r) => r.use || [])], at: Math.min(w.at ?? Infinity, ...rs.map((r) => r.at ?? Infinity)) };
   };
-  return { ...written, ledgers: [written.ledger, ...others.map((o) => o.ledger)], read: (o) => others.reduce((acc, s) => merge(acc, s.read(o)), written.read(o)) };
+  return { ...written, ledgers: [written.ledger, ...others.map((o) => o.ledger)], read };
 }
+
 
 // The store: this product's own state branch, or another repository's (url) fetched into LEDGER_REF.
 function ownStore(root, sb) {
@@ -97,19 +103,25 @@ function lsRemote(root, where, branch) {
   const r = git(['ls-remote', where, `refs/heads/${branch}`], { cwd: root, allowFail: true, timeout: 30e3 });
   return r.code === 0 ? (r.stdout.split('\t')[0].trim() || 'none') : null;
 }
-export function remoteStore(root, url) {
-  const fetch = () => git(['fetch', '-q', url, `+refs/heads/${LEDGER_BRANCH}:${LEDGER_REF}`], { cwd: root, allowFail: true });
-  const tip = () => git(['rev-parse', '-q', '--verify', `${LEDGER_REF}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
+// A ledger read only (C40) is fetched into a ref of its own (LEDGER_READ_REF), never LEDGER_REF,
+// which holds the ledger written, and refuses every write.
+export const LEDGER_READ_REF = 'refs/p3/ledger/read';
+export const readKey = (key) => `${safe(key).slice(0, 40)}-${createHash('sha256').update(String(key)).digest('hex').slice(0, 12)}`;
+export function remoteStore(root, url, { readOnly = false } = {}) {
+  const REF = readOnly ? `${LEDGER_READ_REF}/${readKey(url)}` : LEDGER_REF;
+  const fetch = () => git(['fetch', '-q', url, `+refs/heads/${LEDGER_BRANCH}:${REF}`], { cwd: root, allowFail: true });
+  const tip = () => git(['rev-parse', '-q', '--verify', `${REF}^{commit}`], { cwd: root, allowFail: true }).stdout.trim() || null;
   return {
     fetch,
-    ref: LEDGER_REF,
+    ref: REF,
     tip,
     remoteTip: () => lsRemote(root, url, LEDGER_BRANCH),
-    read: (path) => { const r = git(['show', `${LEDGER_REF}:${path}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; },
-    list: (dir) => git(['ls-tree', '--name-only', LEDGER_REF, `${dir}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean),
+    read: (path) => { const r = git(['show', `${REF}:${path}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; },
+    list: (dir) => git(['ls-tree', '--name-only', REF, `${dir}/`], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean),
     // A change made on the ledger's tip and pushed, never forced; refused because the tip moved,
-    // made again on the new one (each change is a function of the tip), four tries.
-    write: (msg, change) => withStateLock(root, () => withTemp('p3-state-', (tmp) => {
+    // made again on the new one (each change is a function of the tip), four tries. A ledger read
+    // only refuses it.
+    write: readOnly ? () => fail(`the ledger ${url} is read only here (C40: a session writes only its own repository's)`) : (msg, change) => withStateLock(root, () => withTemp('p3-state-', (tmp) => {
       const wt = join(tmp, 'l');
       fetch();
       const start = tip() || git(['commit-tree', git(['hash-object', '-t', 'tree', '/dev/null'], { cwd: root }), '-m', `${LEDGER_BRANCH}: the state branch`], { cwd: root });
@@ -164,7 +176,8 @@ export function statePushes(root, ref, repo, since) {
 export function stateShare(root, cfg, { now = Date.now, url, readOnly = false } = {}) {
   const led = url ? { own: false, url } : ledgerOf(root, cfg);
   if (!led) return null;
-  const store = led.own ? ownStore(root, cfg?.state_branch || LEDGER_BRANCH) : remoteStore(root, led.url);
+  if (readOnly && led.own) fail('stateShare: a ledger read only is another repository\'s (url)');
+  const store = led.own ? ownStore(root, cfg?.state_branch || LEDGER_BRANCH) : remoteStore(root, led.url, { readOnly });
   const key = led.own ? 'own' : led.url;
   let ledgerRepo = null;
   try { ledgerRepo = (led.own ? repoSlug(root) : led.name || String(led.url).replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '')).toLowerCase(); } catch { ledgerRepo = null; }
@@ -190,7 +203,7 @@ export function stateShare(root, cfg, { now = Date.now, url, readOnly = false } 
   // fetches nothing (R17c, the hook's fast path). A fresh read (before a write) always fetches.
   // A ledger read only (C40: another repository's, for the account-wide count) caches apart, so the
   // hook's read of the written ledger never meets it.
-  const diskCache = join(commonDir(root), readOnly ? `${LEDGER_CACHE}.${safe(key)}` : LEDGER_CACHE);
+  const diskCache = join(commonDir(root), readOnly ? `${LEDGER_CACHE}.${readKey(key)}` : LEDGER_CACHE);
   // Never a stop from disk (a resume elsewhere must show at once), nor another ledger's read.
   const fromDisk = () => { try { const c = JSON.parse(readFileSync(diskCache, 'utf8')); return c && now() - c.at < READ_S * 1000 && !c.pause?.stopped && c.ledger === key ? c : null; } catch { return null; } };
   // The ledger's tip asked of GitHub (ls-remote, no fetch); unmoved, the cache it was read into is
