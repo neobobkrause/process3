@@ -185,10 +185,15 @@ export function verifyRow(slug, row, { pr, baseRef, merged }, io = { getRun, run
   // bound instead by what GitHub keeps (merged, passed only by the tranche cover once it has read
   // the merged PR): the run was on the PR's branch, in this repository, and green; the caller
   // binds the row's commits to the PR's head and the tranche.
+  // A merged PR's branch reused by a later PR (a reopen on the same job branch: the copy's PR 805,
+  // landed, and 850, opened as a draft from job/queue-producers-2, 8 Nov): GitHub then lists the
+  // later PR on the merged PR's runs, not the merged one (C32). Listing only PRs from the merged
+  // PR's own branch into the same base, the run is bound as one listing none is.
   const prs = a.pull_requests || [];
   if (a.event !== 'pull_request') return false;
-  if (prs.length ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef)
-    : !merged || a.head_branch !== merged.branch || a.head_repository?.full_name !== slug || a.conclusion !== 'success') return false;
+  const asMerged = () => !!merged && a.head_branch === merged.branch && a.head_repository?.full_name === slug && a.conclusion === 'success';
+  const sameBranch = prs.length && !prs.some((p) => p.number === pr) && prs.every((p) => p.head?.ref === merged?.branch && p.base?.ref === baseRef);
+  if (prs.length && !sameBranch ? !prs.some((p) => p.number === pr) || !prs.every((p) => p.base?.ref === baseRef) : !asMerged()) return false;
   if (row.ok && a.conclusion !== 'success') return false;
   const art = io.runArtifactRow(slug, row.run_id);
   return !!art && SAME.every((k) => JSON.stringify(art[k] ?? null) === JSON.stringify(row[k] ?? null));
