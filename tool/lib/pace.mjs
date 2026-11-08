@@ -93,6 +93,9 @@ export function pacingProblem(p) {
       if (!(k in GITHUB_LIMITS)) return `pacing.github_limits.${k} is not one of GitHub's published limits held here (${Object.keys(GITHUB_LIMITS).join(', ')})`;
       if (k !== 'source' && k !== 'read' && !(Number.isInteger(v) && v > 0)) return `pacing.github_limits.${k} is a whole number above 0`;
     }
+    // One write must fit each window at the target, or every write is refused (cold review of C30).
+    const t = p.target ?? PACING_DEFAULTS.target;
+    for (const [k, least] of [['rest_points_per_minute', 5], ['content_per_minute', 1], ['content_per_hour', 1]]) if (g[k] !== undefined && Math.floor(t * g[k]) < least) return `pacing.github_limits.${k} at the target leaves room for less than one write (${least}); GitHub's published value is ${GITHUB_LIMITS[k]}`;
     if (g.source === undefined || g.read === undefined) return 'pacing.github_limits names its source and the date it was read (source, read), as GitHub publishes them';
   }
   return null;
@@ -360,6 +363,22 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
   const content = cost.content === true ? 1 : Number(cost.content) || 0;
   const lim = p.github_limits || GITHUB_LIMITS;
   const target = p.target;
+  const windows = [
+    [60, 'points', lim.rest_points_per_minute, cost.points || 0, 'REST points a minute'],
+    [60, 'content', lim.content_per_minute, content, 'content-creating requests a minute'],
+    [3600, 'content', lim.content_per_hour, content, 'content-creating requests an hour'],
+  ];
+  // A request that alone is over a window's target can never fit, however empty the window: refused
+  // at once, before any pause or other window's wait, and said so (C30, the coordinator, 8 Nov: BOB's
+  // \`github note --content 987\`, the pull request's number taken as 987 writes, 4935 points, waited
+  // four times on "0 of 900 used"; cold review: one busy window's wait came first).
+  for (const [, field, cap, add, name] of windows) {
+    const max = Math.floor(target * cap);
+    if (!add || add <= max) continue;
+    const hint = cost.note && (field === 'content' || cost.points === 5 * content)
+      ? `. github note --content <n> counts the connector writes about to be made (a pull request created, edited or marked ready, a comment, a review: usually 1 to 3), never a pull request's number: \`github note --content 1 --what "PR <number> ready"\`` : '';
+    throw new Paced(`GitHub budget: this request alone asks for ${add} ${name}, over GitHub's ${cap} at the target ${Math.round(target * 100)}% (${max}), so it can never fit; nothing waited${hint}`);
+  }
   // Every check again after each wait (cold review of R17): a pause or stop another session wrote
   // while this one slept is obeyed. Four waits at most, then the call is refused.
   for (let round = 0; ; round++) {
@@ -375,18 +394,9 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
     }
     if (!wait) {
       const rows = readLog(cwd);
-      for (const [seconds, field, cap, add, name] of [
-        [60, 'points', lim.rest_points_per_minute, cost.points || 0, 'REST points a minute'],
-        [60, 'content', lim.content_per_minute, content, 'content-creating requests a minute'],
-        [3600, 'content', lim.content_per_hour, content, 'content-creating requests an hour'],
-      ]) {
+      for (const [seconds, field, cap, add, name] of windows) {
         if (!add || wait) continue;
         const max = Math.floor(target * cap);
-        // A request that alone is over the window's target can never fit, however empty the window:
-        // refused at once and said so, never waited on (C30, the coordinator, 8 Nov: BOB's
-        // \`github note --content 987\`, the pull request's number taken as 987 writes, 4935 points,
-        // waited four times on "0 of 900 used" while \`github budget\` read 3 of 900).
-        if (add > max) throw new Paced(`GitHub budget: this request alone is ${add} ${name}, over GitHub's ${cap} at the target ${Math.round(target * 100)}% (${max}), so it can never fit; nothing waited${cost.note ? `. github note --content <n> counts the connector writes about to be made (a pull request created, edited or marked ready, a comment, a review: usually 1 to 3), never a pull request's number: \`github note --content 1 --what "PR <number> ready"\`` : ''}`);
         const used = usage(cwd, { t: now(), seconds, rows, read: s })[field];
         if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, read: s }), `${used} of GitHub's ${cap} ${name} used account-wide and ${add} for this request, over the target ${Math.round(target * 100)}% (${max})`];
       }
