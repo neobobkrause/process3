@@ -27,7 +27,7 @@ import { P3, rulebook } from './job.mjs';
 import { entryFile, jobBranch, laneModuleGaps, ledgerIds, originJobs } from './ledger.mjs';
 import { PROCESS_ROOT, PROCESS_TRIAGE, REGISTER, productTriageLane } from './register.mjs';
 import { addressFile, fetchState, jsonl, readState, writeState } from './state.mjs';
-import { fail, fetchBranch, git, laneChecks, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
+import { fail, sessionCall, fetchBranch, git, laneChecks, laneDirs, list, loadConfig, now, repoSlug, researchOf, underPath } from './util.mjs';
 import { budgetGate } from './pace.mjs';
 
 export const LANES_FILE = 'lanes/asks.jsonl';
@@ -409,7 +409,8 @@ export function laneStart(root, name, { replace, record, model, slug, log = cons
   const text = l.kind === 'triage' ? triageSessionText : laneSessionText;
   const research = l.kind === 'triage' ? null : qualification(root, l);
   const prompt = (seed ? `${seedText(l, seed, tranche)}\n\n` : '') + text({ l, slug: s, tranche, bob, replaces: seat?.session || null, artifacts: readArtifacts(root, cfg, l.name), research });
-  const call = { title: `lane ${l.name}`, source_url: `https://github.com/${s}`, source_revision: tranche, ...(model ? { model } : {}), prompt };
+  // The shallow clone every other start takes (C42 review of the starts).
+  const call = sessionCall({ slug: s, revision: tranche, title: `lane ${l.name}`, prompt, model, clone: cfg.clone });
   log(prompt.trimEnd());
   log(`start the ${l.name} lane's one session with create_session:\n${JSON.stringify(call, null, 2)}`);
   if (research && !research.qualified) log(`lane ${l.name} has not qualified (${missing(research)}): the START above is its QUALIFICATION brief; lane ask refuses its questions until the qualification pull request is in ${tranche}`);

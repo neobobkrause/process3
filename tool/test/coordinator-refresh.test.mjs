@@ -167,7 +167,8 @@ test('the roles read the coordinator by address; ROOT may start and archive a co
   assert.match(p, /send a technical question \(a fix, a restart, a route\) to the coordinator with send_message/);
   const c = coordinatorPrompt({ slug: 'o/copy', processSlug: 'o/process3', rootId: R, old: C1, branch: BRANCH, handoff: NOTE });
   assert.match(c, /ROOT records you as the coordinator address \(`start record coordinator`\)/);
-  assert.match(c, /On each other product you hold \(the probe\), set your id as `coordinator` in its process\/config\.json by a plain pull request/);
+  // C42 (BD-R2): the coordinator acts on a product only through a session started in it.
+  assert.match(c, /So too your id as `coordinator` in another product's process\/config\.json \(the probe\); nothing waits on it/);
   assert.match(c, /send ROOT one message asking for your refresh: `start coordinator --replace <your id> --branch start\/coordinator-4nov --handoff <its path>`/);
 });
 

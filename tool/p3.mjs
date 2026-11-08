@@ -27,7 +27,8 @@ import { reviewBrief } from './lib/review.mjs';
 import { setupCheck } from './lib/setup.mjs';
 import { prune } from './lib/branches.mjs';
 import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mjs';
-import { startCheck, wakeCheck } from './lib/start.mjs';
+import { startCheck, wakeCheck, workdirLines } from './lib/start.mjs';
+import { layoutMove } from './lib/layout.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrites, realPendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
@@ -163,6 +164,10 @@ const commands = {
   'pin move': (a, root) => { pinMove(root, a._[0], { pin: a.pin, rest: a._.slice(1), tranche: a.tranche, report: a.report, why: a.why, supersedes: a.supersedes }); return 0; },
   // pin check <product slug>: the pin-move session's check right before it pushes; exit 1 while a pin move is open.
   'pin check': (a) => { pinCheck(a._[0]); return 0; },
+
+  // layout move [--apply] [--also <path>]... (C41): the product's process-only paths into process/.
+  // Without --apply, the plan, nothing written; with it, git mv, the config keys rewritten, one commit.
+  'layout move': (a, root) => { if (a._.length || (a.apply !== undefined && a.apply !== true)) fail('layout move [--apply] [--also <path>]...'); layoutMove(root, { apply: a.apply === true, also: a.also === true ? fail('--also <path>: name the path') : a.also }); return 0; },
 
   // notice triage <provider>:<pr>: BOB's act, one read-only worker (a subagent) per brief printed,
   // in parallel when the list is over one worker's share; writes nothing. --record <file> --worker
@@ -463,6 +468,8 @@ const commands = {
   'start check': (a, root) => {
     // C34: a session whose GitHub hook did not load is told at its first check and every wake (PD-13).
     { let line = null; try { line = hookLoadedLine(); } catch { line = null; } if (line) console.log(line); }
+    // C42: one repository per session (BD-R2; PD-13). Warnings, never a refusal.
+    { let lines = []; try { lines = workdirLines(root); } catch { lines = []; } for (const l of lines) console.log(l); }
     // A role's first check re-anchors as job start does (coordinator, 5 Nov: ROOT, BOB and the
     // MERGER (since removed) failed theirs on every tranche merge landing between create_session and the check,
     // with the train merging every few minutes): a clean checkout the tip has moved past, with

@@ -19,6 +19,7 @@ import { ROUND_ACT, deploys, owedAt, walkHold } from './deploy.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { laneSeatFor, lanes, markLaneHeld, openAsks, readSeats } from './lane.mjs';
 import { census, censusLines, openLayers, preflight, preflightLines } from './census.mjs';
+import { layoutHint } from './layout.mjs';
 import { RESTARTS_FILE, leadInputs, openedAt } from './lead.mjs';
 import { baseRedOwed } from './report.mjs';
 import { heldBy, holdLines, layersAt, readHolds, readOwed, startsOwedLine } from './hold.mjs';
@@ -748,6 +749,8 @@ export function bobStatus(root, cfg, { rows, prs, offline, context, log, slug = 
   // of the open layer and the two after it, the rest counted, and the starts of the next layer
   // that job start would refuse, each with what BOB writes.
   if (!offline && cfg.modules_file) { try { L.push(...gapLines(root, cfg, { tranche, holds, haveState })); } catch (e) { L.push(`gaps: unread (${String(e.message).split('\n')[0].slice(0, 120)})`); } }
+  // C41: the process-only paths the tool reads still outside process/; a hint, never a refusal.
+  { const hint = layoutHint(root, cfg); if (hint) L.push(hint); }
   const files = cfg.reading_bob.map((f) => ({ f, b: fileBytes(join(root, f)) }));
   const h = haveState ? readState(root, sb, handoffFile('bob')) : null;
   if (h !== null) files.push({ f: `${sb}:${handoffFile('bob')}`, b: Buffer.byteLength(h) });

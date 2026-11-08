@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process';
 import { entryFile, validate } from './ledger.mjs';
 import { readModules } from './notice.mjs';
 import { layersAt } from './layerbase.mjs';
-import { exists, git, unmetIds } from './util.mjs';
+import { DEFAULTS, LEDGER_DIR, exists, git, unmetIds } from './util.mjs';
 
 const ls = (root, ref, dir) => {
   const r = git(['ls-tree', '-r', '--name-only', ref, '--', dir], { cwd: root, allowFail: true });
@@ -76,14 +76,21 @@ function neighbourSuite(entries, tests) {
 // The census at ref. open: the open layers' numbers (their branches on origin, not merged); the
 // lowest is "the open layer", and every layer at or after it is still to come. Returns
 // { gaps: [{ id, kind, layer, fix, file?, content? }], skipped? }.
+// The job situation every proposed entry reads (C41): situations_dir's job.md at ref, where the
+// product keeps it (build/situations by default, process/situations once moved); null when absent.
+export function situationFile(root, cfg, ref) {
+  const f = `${String(cfg.situations_dir || DEFAULTS.situations_dir).replace(/\/$/, '')}/job.md`;
+  return exists(root, ref, f) ? f : null;
+}
+
 export function census(root, cfg, { ref, open = [], now = new Date().toISOString() } = {}) {
   const rows = readModules(root, cfg, ref);
   if (rows === null) return { gaps: [], skipped: `no ${cfg.modules_file || 'modules file'} at ${ref}` };
   const row = new Map(rows.filter((m) => m?.id).map((m) => [m.id, m]));
-  const dir = String(cfg.requirements_dir || 'build/requirements').replace(/\/$/, '');
-  const files = blobs(root, ref, ['process/ledger', dir]);
+  const dir = String(cfg.requirements_dir || DEFAULTS.requirements_dir).replace(/\/$/, '');
+  const files = blobs(root, ref, [LEDGER_DIR, dir]);
   // A file at ref: from the batch when it is under those directories, else one read.
-  const text = (p) => (files.has(p) ? files.get(p) : p.startsWith('process/ledger/') || p.startsWith(`${dir}/`) ? null : show(root, ref, p));
+  const text = (p) => (files.has(p) ? files.get(p) : p.startsWith(`${LEDGER_DIR}/`) || p.startsWith(`${dir}/`) ? null : show(root, ref, p));
   const entries = new Map();
   for (const f of [...files.keys()].filter((x) => /^process\/ledger\/[^/]+\.json$/.test(x))) {
     const id = f.replace(/^.*\//, '').replace(/\.json$/, '');
@@ -120,7 +127,7 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   const gaps = [];
   const gap = (id, kind, fix, extra = {}) => gaps.push({ id, kind, layer: layerOf(id), fix, ...extra });
   const readme = exists(root, ref, `${dir}/README.md`) ? `${dir}/README.md` : null;
-  const situation = exists(root, ref, 'build/situations/job.md') ? 'build/situations/job.md' : null;
+  const situation = situationFile(root, cfg, ref);
   for (const id of [...all].sort()) {
     const r = row.get(id);
     const e = entries.get(id);
@@ -181,7 +188,7 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   for (const n of open) {
     const b = `refs/remotes/origin/layer/${n}`;
     if (git(['rev-parse', '-q', '--verify', b], { cwd: root, allowFail: true }).code !== 0) continue;
-    const on = new Set(ls(root, b, 'process/ledger').map((f) => f.replace(/^.*\//, '').replace(/\.json$/, '')));
+    const on = new Set(ls(root, b, LEDGER_DIR).map((f) => f.replace(/^.*\//, '').replace(/\.json$/, '')));
     for (const id of (map.find((L) => L.n === n)?.mods || []).filter((m) => entries.has(m) && !on.has(m))) gap(id, 'not-on-layer', `layer/${n} lacks ${entryFile(id)}, which ${ref} holds: job start ${id} carries it; until then the layer's own reads do not see it`);
   }
   return { gaps };
@@ -248,7 +255,7 @@ export const preflightLines = (n, xs) => (xs.length ? [`preflight, layer ${n}: $
 // [{ file, message }].
 export function changeGaps(root, cfg, { base, head, changed }) {
   const out = [];
-  const dir = String(cfg.requirements_dir || 'build/requirements').replace(/\/$/, '');
+  const dir = String(cfg.requirements_dir || DEFAULTS.requirements_dir).replace(/\/$/, '');
   const rowsAt = (ref) => new Set((readModules(root, cfg, ref) || []).filter((m) => m?.id).map((m) => m.id));
   const before = cfg.modules_file && changed.includes(cfg.modules_file) ? rowsAt(base) : null;
   const after = rowsAt(head);

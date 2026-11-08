@@ -20,7 +20,7 @@ import { standingFor } from './register.mjs';
 import { landedFrom } from './landed.mjs';
 import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
 import { cutAhead, earlyCut, earlyProviders, writeRows } from './layerflow.mjs';
-import { NO_TOKENS, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
+import { NO_TOKENS, sessionCall, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
 
@@ -222,7 +222,7 @@ const remoteTip = (root, branch) => (git(['ls-remote', 'origin', `refs/heads/${b
 const restore = (root, paths) => git(['checkout', 'HEAD', '--', ...paths], { cwd: root, allowFail: true });
 
 function launchFor(slug, branch, id, start, model, clone) {
-  return { title: `job ${id}`, source_url: `https://github.com/${slug}`, source_revision: branch, ...(clone || {}), ...(model ? { model } : {}), prompt: start };
+  return sessionCall({ slug, revision: branch, title: `job ${id}`, prompt: start, model, clone });
 }
 
 // The coordinator's next step: subscribe to the job's pull request, so its completion, a red
@@ -760,7 +760,7 @@ function jobRestart(root, id, { coordinator, model, why, stop, find, open = crea
     restart: { why, pr: pr.html_url || `#${pr.number}`, last, receipt: `${receipt} (${state})` },
   });
   const tip = git(['rev-parse', `refs/remotes/origin/${cfg.tranche}`], { cwd: root });
-  const launch = { ...launchFor(slug, branch, id, start, model, cfg.clone), title: `job ${id} (restart)`, source_revision: tip };
+  const launch = sessionCall({ slug, revision: tip, title: `job ${id} (restart)`, prompt: start, model, clone: cfg.clone });
   // When the job stopped: BLOCKED, the commit on its branch that made it so (null when this
   // clone's history is cut before it); otherwise its branch's last push.
   let stopped = new Date(git(['log', '-1', '--format=%cI', `origin/${branch}`], { cwd: root })).toISOString();

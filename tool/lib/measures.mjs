@@ -5,7 +5,7 @@ import { P3, rulebookLine } from './job.mjs';
 import { METRICS_DIR, overhead, rowsAt } from './metrics.mjs';
 import { readAddress, tipApprovals } from './roles.mjs';
 import { status } from './status.mjs';
-import { git, loadConfig, now } from './util.mjs';
+import { LEDGER_DIR, git, sessionCall, loadConfig, now } from './util.mjs';
 
 const DAY = 86400000;
 const out = (root, args) => { const r = git(args, { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout.trim() : null; };
@@ -14,7 +14,7 @@ export const SURVIVAL_RULE = 'A merged job pull request stands on a branch when 
 export const SURVIVAL_COST_RULE = 'Cost per surviving PR: the cost recorded up to the cutoff (metrics rows dated no later than <days> before now: job, review, and BOB and ROOT rows as the overhead rule splits them, plus their unattributed part) over the pull requests merged by then that survive. Parts with no figure are named, never guessed.';
 
 // The job's change: does it still stand on ref? Its record (metrics rows, ledger entry) is not its change.
-const RECORD = [`${METRICS_DIR}/`, 'process/ledger/'];
+const RECORD = [`${METRICS_DIR}/`, `${LEDGER_DIR}/`];
 function standsOn(root, m, ref) {
   if (out(root, ['merge-base', '--is-ancestor', m, ref]) === null) return 'its merge commit is not on it';
   const revert = out(root, ['log', '-1', '--format=%h', '-F', `--grep=This reverts commit ${m}`, `${m}..${ref}`]);
@@ -105,7 +105,7 @@ export function statelessWake(root, { slug, live, context, offline = false, tip,
     rulebookLine('bob'), '', ...files.flatMap((f) => [f, '']), '## status --role bob', '', ...lines, '',
   ].join('\n');
   const model = cfg.roles?.bob?.model;
-  const call = { title: 'BOB (stateless wake)', source_url: `https://github.com/${slug}`, source_revision: rev, ...(cfg.clone || {}), ...(model ? { model } : {}), prompt };
+  const call = sessionCall({ slug, revision: rev, title: 'BOB (stateless wake)', prompt, model, clone: cfg.clone });
   const bytes = Buffer.byteLength(prompt);
   log(prompt);
   log(`prompt: ${bytes} bytes`);

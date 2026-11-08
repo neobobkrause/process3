@@ -334,6 +334,9 @@ export const DEFAULTS = {
   // lane is always there; the product names its directory. completion_file (PLN-4): none by default.
   lanes: [{ name: 'ux', dir: null }],
   completion_file: null,
+  // census: the job situation file (C41), build/situations/job.md until the product moves it
+  // (layout move) to process/situations.
+  situations_dir: 'build/situations',
   setup_timeout_minutes: 15,
   // Targets in minutes. decision_minutes: the escalation chain (coordinator, 4 Nov, for Bob's "urgency is fully supported"): job to BOB to ROOT to
   // watcher to Bob, each step waiting this long for an answer before the next is asked.
@@ -407,7 +410,38 @@ export function overCap(cfg, file, text) {
   return why.length ? `split or consolidate before its job: ${file} ${why.join(', ')}` : null;
 }
 
-export const CONFIG_FILE = 'process/config.json';
+// A product's process subtree (C41, Bob 8 Nov: "a process3-specific subtree"): process/, the
+// directory that holds config.json. Not a config key: the config is found by it, and the shims read
+// it there. Process-only content the tool reads lives under it, or at the path a config key names
+// until the product moves it (layout move).
+export const PROCESS_DIR = 'process';
+export const CONFIG_FILE = `${PROCESS_DIR}/config.json`;
+export const LEDGER_DIR = `${PROCESS_DIR}/ledger`;
+export const METRICS_DIR = `${PROCESS_DIR}/metrics`;
+export const FOUND_DIR = `${PROCESS_DIR}/found`;
+
+// One repository per session (BD-R2, C42; PD-13 measured that a session started with more than one
+// repository loads no repository's .claude/settings.json, PLT-7). Every create_session call the
+// tool prints is built here and checked here: exactly one source repository, by source_url, and
+// no key that carries another. A start that bypassed this would print a call checkCall refuses;
+// tool/test/session-call.test.mjs fails on any source_url written outside this file.
+// A key that could carry a second repository: any but source_url and source_revision naming a
+// source, a repository or a url.
+const REPO_KEY = /source|repo|url/i;
+const ONE_REPO = /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+export function checkCall(call) {
+  const why = 'one repository per session (BD-R2; PD-13: a session started with more than one loads no repository\'s .claude/settings.json)';
+  if (call === null || typeof call !== 'object' || Array.isArray(call)) fail(`a create_session call is an object; ${why}`);
+  const extra = Object.keys(call).filter((k) => k !== 'source_url' && k !== 'source_revision' && REPO_KEY.test(k));
+  if (extra.length) fail(`a create_session call with ${extra.join(', ')} was not printed: ${why}; it names its one repository by source_url only`);
+  if (typeof call.source_url !== 'string' || !ONE_REPO.test(call.source_url)) fail(`a create_session call names exactly one repository as https://github.com/<owner>/<repo>, not ${JSON.stringify(call.source_url)}: ${why}`);
+  return call;
+}
+// The create_session call for one repository, its keys in the order the tool has always printed them.
+export function sessionCall({ slug, revision, title, prompt, model = null, clone = null }) {
+  if (typeof slug !== 'string' || slug.split('/').length !== 2) fail(`a create_session call names one repository as <owner>/<repo>, not ${JSON.stringify(slug)}`);
+  return checkCall({ title, source_url: `https://github.com/${slug}`, source_revision: revision, ...(clone || {}), ...(model ? { model } : {}), prompt });
+}
 
 // The first key that appears twice in one object of a JSON text already known to parse; null
 // when none. JSON.parse keeps the last, so a diff that adds a duplicate above a key changes
