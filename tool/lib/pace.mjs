@@ -46,7 +46,7 @@ export const GITHUB_LIMITS = {
 // null is this product's own (ghshare.mjs). A poll of GitHub waits poll_first_s (30 s), fixed, never
 // backing off on a number of the process's own (PD-6; GitHub's primary limit, governed at target,
 // is what bounds reads); poll_most_s is retired.
-export const PACING_DEFAULTS = { target: 0.85, gh_interval_ms: 1000, poll_first_s: 30, share_s: 900, ledger: null, github_limits: GITHUB_LIMITS };
+export const PACING_DEFAULTS = { target: 0.85, gh_interval_ms: 1000, poll_first_s: 30, share_s: 900, ledger: null, read_ledgers: [], github_limits: GITHUB_LIMITS };
 // Keys retired by PD-6, each a brake on a number GitHub does not publish: accepted in an old config
 // and ignored, with a note (github budget, the job cap's line).
 export const RETIRED_PACING = {
@@ -83,6 +83,7 @@ export function pacingProblem(p) {
   for (const k of Object.keys(p)) if (!(k in PACING_DEFAULTS) && !(k in RETIRED_PACING)) return `pacing.${k} is not a pacing key (${Object.keys(PACING_DEFAULTS).join(', ')})`;
   if (p.target !== undefined && !(typeof p.target === 'number' && p.target >= TARGET_RANGE[0] && p.target <= TARGET_RANGE[1])) return `pacing.target is between ${TARGET_RANGE[0]} and ${TARGET_RANGE[1]}: the share of GitHub's published limits the tool uses (Bob, 6 Nov: "80% or 90%")`;
   if (p.ledger !== undefined && p.ledger !== null && !(typeof p.ledger === 'string' && /^[\w.-]+\/[\w.-]+$/.test(p.ledger))) return 'pacing.ledger is "<owner>/<repo>": the repository whose state branch holds the account\'s GitHub ledger';
+  if (p.read_ledgers !== undefined && !(Array.isArray(p.read_ledgers) && p.read_ledgers.every((x) => typeof x === 'string' && /^[\w.-]+\/[\w.-]+$/.test(x)))) return 'pacing.read_ledgers is a list of "<owner>/<repo>": the other repositories whose state branches hold this account\'s GitHub use, read (never written) by github budget and github audit';
   for (const k of ['gh_interval_ms', 'poll_first_s', 'share_s']) if (p[k] !== undefined && !(Number.isInteger(p[k]) && p[k] >= 0)) return `pacing.${k} is a whole number`;
   if (p.gh_interval_ms !== undefined && p.gh_interval_ms < GH_FLOOR_MS) return `pacing.gh_interval_ms is ${GH_FLOOR_MS} or more: at least a second between GitHub writes per clone, as GitHub's guidance asks`;
   if (p.poll_first_s !== undefined && p.poll_first_s < POLL_FLOOR_S) return `pacing.poll_first_s is ${POLL_FLOOR_S} or more: the poll cadence, no tighter than ${POLL_FLOOR_S} s`;
