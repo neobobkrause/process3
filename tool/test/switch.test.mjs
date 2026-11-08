@@ -380,7 +380,11 @@ test('C40: a fresh task is the process\'s when its prompt names the product, rea
   assert.ok(!processTask(null).test('widget-copy'), 'no origin, no product name');
 });
 
-test('C40: product_names in process/config.json adds the product\'s other names; the origin\'s name is always one; a malformed list is refused', () => {
+test('C40: product_names in process/config.json adds the product\'s other names; the origin\'s name is always one; a malformed list is refused', (ctx) => {
+  // In a workflow GITHUB_REPOSITORY names the repository before origin does (repoSlug): not here.
+  const was = process.env.GITHUB_REPOSITORY;
+  delete process.env.GITHUB_REPOSITORY;
+  ctx.after(() => { if (was !== undefined) process.env.GITHUB_REPOSITORY = was; });
   const root = makeRepo({ 'a.md': 'x\n' });
   git(['remote', 'add', 'origin', 'https://github.com/acme/widget-copy.git'], { cwd: root });
   assert.deepEqual(productNames(root, {}), ['widget-copy']);
