@@ -3,6 +3,7 @@
 // published limits"). The limits as data, the target, the account-wide windows, GitHub's refusals
 // obeyed by every session, the budget report, the optional caps, and one state push per command.
 import assert from 'node:assert/strict';
+import { existsSync as existsSyncC30 } from 'node:fs';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -463,6 +464,36 @@ test('github note: a session\'s connector writes are reserved and logged before 
   assert.deepEqual(c.slept, []);
   noteTurn(root, { content: 1 }, { p: P, now: c.now, sleep: c.sleep });
   assert.equal(c.slept.length, 1);
+});
+
+// C30 (the coordinator, 8 Nov): on the copy at pin ed90bd95, \`github note --content 987\` (PR 987's
+// number, read as 987 connector writes: 4935 REST points) refused three times "still waiting after
+// four waits (0 of GitHub's 900 REST points a minute used account-wide, the target 85% (765))" while
+// \`github budget\` read REST 3/900 and content 0/80 a minute. A request over a window's target alone
+// can never fit: refused at once, nothing waited, and the note says what --content counts.
+test('github note (C30): a request that alone is over a window\'s target is refused at once, never waited on, and says what --content counts', (t) => {
+  const f = logFile();
+  env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_me' });
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const c = clock();
+  useShared(null);
+  let msg = '';
+  try { noteTurn(root, { content: 987, what: 'PR 987 ready' }, { p: P, now: c.now, sleep: c.sleep }); } catch (e) { msg = e.message; }
+  assert.deepEqual(c.slept, [], 'nothing waited');
+  assert.match(msg, /^GitHub budget: this request alone is 4935 REST points a minute, over GitHub's 900 at the target 85% \(765\), so it can never fit; nothing waited\. github note --content <n> counts the connector writes about to be made .*never a pull request's number: `github note --content 1 --what "PR <number> ready"`$/);
+  assert.ok(!/still waiting after four waits/.test(msg));
+  assert.equal(existsSyncC30(f) ? readFileSync(f, 'utf8').trim() : '', '', 'nothing logged: no budget spent');
+  // The note BOB meant: one write, at once, on the same empty budget.
+  noteTurn(root, { content: 1, what: 'PR 987 ready' }, { p: P, now: c.now, sleep: c.sleep });
+  assert.deepEqual(c.slept, []);
+  // A content count over 85% of 80 a minute (68) alone, at 5 points each within the points target: refused on content.
+  assert.throws(() => noteTurn(root, { content: 69 }, { p: P, now: c.now, sleep: c.sleep }), /this request alone is 69 content-creating requests a minute, over GitHub's 80 at the target 85% \(68\)/);
+  // A request that fits the target but not the window's use waits, and its message names both.
+  noteTurn(root, { content: 60 }, { p: P, now: c.now, sleep: c.sleep });
+  let waited = '';
+  const said = (ms) => { waited = String(ms); c.sleep(ms); };
+  noteTurn(root, { content: 10 }, { p: P, now: c.now, sleep: said });
+  assert.ok(waited, 'it waited for the window');
 });
 
 test('one ledger per account: a process3 clone reads and writes the product\'s state branch; its pause and use are every session\'s', (t) => {

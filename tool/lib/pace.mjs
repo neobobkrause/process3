@@ -382,8 +382,13 @@ export function reserve(cost, label, cwd, { p = pacing(), now = Date.now, sleep 
       ]) {
         if (!add || wait) continue;
         const max = Math.floor(target * cap);
+        // A request that alone is over the window's target can never fit, however empty the window:
+        // refused at once and said so, never waited on (C30, the coordinator, 8 Nov: BOB's
+        // \`github note --content 987\`, the pull request's number taken as 987 writes, 4935 points,
+        // waited four times on "0 of 900 used" while \`github budget\` read 3 of 900).
+        if (add > max) throw new Paced(`GitHub budget: this request alone is ${add} ${name}, over GitHub's ${cap} at the target ${Math.round(target * 100)}% (${max}), so it can never fit; nothing waited${cost.note ? `. github note --content <n> counts the connector writes about to be made (a pull request created, edited or marked ready, a comment, a review: usually 1 to 3), never a pull request's number: \`github note --content 1 --what "PR <number> ready"\`` : ''}`);
         const used = usage(cwd, { t: now(), seconds, rows, read: s })[field];
-        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, read: s }), `${used} of GitHub's ${cap} ${name} used account-wide, the target ${Math.round(target * 100)}% (${max})`];
+        if (used + add > max) wait = [freedAt(cwd, { t: now(), seconds, field, need: used + add - max, rows, read: s }), `${used} of GitHub's ${cap} ${name} used account-wide and ${add} for this request, over the target ${Math.round(target * 100)}% (${max})`];
       }
     }
     if (!wait) break;
