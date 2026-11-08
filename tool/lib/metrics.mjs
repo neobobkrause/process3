@@ -110,7 +110,12 @@ export function rowsAt(root, ref, id) {
 }
 
 // jobBranch, each job/<id>-<n> taken only when the latest start row at <prefix><branch> names it.
-export const jobBranchAt = (root, id, heads, ids, prefix = 'refs/remotes/origin/') => jobBranch(id, heads, ids, (h) => startBranch(rowsAt(root, `${prefix}${h}`, id), id) === h);
+// A job/<id>-<n> origin has and this clone has not fetched is the newest attempt's all the same:
+// only job start --fresh-branch cuts one (C37, copy 8 Nov: status fetches no job ref of a module
+// COMPLETE on the tranche with no open PR, so inquiry's job/inquiry-2 was never fetched and the
+// sweep read job/inquiry, attempt 5's R31 block of 6 Nov, after attempt 6 landed COMPLETE).
+const haveRef = (root, ref) => git(['rev-parse', '-q', '--verify', ref], { cwd: root, allowFail: true }).code === 0;
+export const jobBranchAt = (root, id, heads, ids, prefix = 'refs/remotes/origin/') => jobBranch(id, heads, ids, (h) => !haveRef(root, `${prefix}${h}`) || startBranch(rowsAt(root, `${prefix}${h}`, id), id) === h);
 
 export const nextAttempt = (root, id) => readRows(root, id).filter((r) => r.row === 'attempt' && r.event === 'start').length + 1;
 

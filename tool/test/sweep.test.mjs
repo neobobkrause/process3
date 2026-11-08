@@ -388,6 +388,42 @@ test('sweep: a job branch BLOCKED before the module\'s later layer land is stale
   // A branch with work after the land is its own attempt again: listed.
   writeState(root, 'process-state', 'land m earlier', (d) => { writeFileSync(join(d, 'layerflow/12/land/m-1028-abc.json'), JSON.stringify({ row: 'land', layer: 12, module: 'm', pr: 1028, branch: 'job/m-2', at: '2026-01-01T00:00:00Z' }) + '\n'); writeFileSync(join(d, 'layerflow/12/land/m-grammar-1029-def.json'), JSON.stringify({ row: 'land', layer: 12, module: 'm-grammar', pr: 1029, at: later }) + '\n'); });
   assert.match(run(root).found.join('|'), /m: BLOCKED/, 'a land before the branch tip, or another module\'s, is not m\'s supersession');
+  // A land recorded late (its row's `at` after the branch tip) whose merge commit is older than the
+  // tip: the merge's time decides (cold review of C37: a new attempt is not hidden by a late record).
+  const old = git(['rev-parse', 'tranche~0'], { cwd: root });
+  git(['checkout', '-q', 'job/m'], { cwd: root });
+  commit(root, { 'm2.txt': 'a new attempt after the merge' });
+  git(['push', '-q', 'origin', 'job/m'], { cwd: root });
+  git(['fetch', '-q', 'origin', '+refs/heads/job/m:refs/remotes/origin/job/m'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  writeState(root, 'process-state', 'land m late', (d) => { writeFileSync(join(d, 'layerflow/12/land/m-1028-abc.json'), JSON.stringify({ row: 'land', layer: 12, module: 'm', pr: 1028, merge: old, at: later }) + '\n'); });
+  assert.match(run(root).found.join('|'), /m: BLOCKED/, 'the merge commit is older than the branch tip');
+});
+
+// C37, the root (coordinator, 8 Nov): read the newest attempt's branch. inquiry's attempt 6 ran on
+// job/inquiry-2 and completed after attempt 5's block on job/inquiry; a clone that never fetched
+// job/inquiry-2 (no job ref is fetched for a module COMPLETE on the tranche with no open PR) read
+// job/inquiry's block. A job/<id>-<n> on origin is the newest attempt's, fetched or not.
+test('status: a module\'s -2 branch that completed after the first branch\'s block is read, fetched or not (C37)', () => {
+  const root = withOrigin({ 'process/ledger/m.json': entry('m', { status: { state: 'COMPLETE' } }) });
+  git(['checkout', '-q', '-b', 'job/m'], { cwd: root });
+  commit(root, { 'process/ledger/m.json': entry('m', { status: { state: 'BLOCKED', reason: 'R31 waits on an element' } }), 'process/metrics/m.jsonl': JSON.stringify({ row: 'attempt', event: 'start', module: 'm', attempt: 5, branch: 'job/m' }) + '\n' });
+  git(['push', '-q', 'origin', 'job/m'], { cwd: root });
+  git(['fetch', '-q', 'origin', '+refs/heads/job/m:refs/remotes/origin/job/m'], { cwd: root });
+  git(['checkout', '-q', 'tranche'], { cwd: root });
+  // Attempt 6, from another clone, on job/m-2: its start row names it, and it completes.
+  const other = mkdtempSync(join(tmpdir(), 'p3-c37-'));
+  git(['clone', '-q', git(['remote', 'get-url', 'origin'], { cwd: root }), other]);
+  git(['config', 'user.email', 't@example.com'], { cwd: other });
+  git(['config', 'user.name', 't'], { cwd: other });
+  git(['checkout', '-q', '-b', 'job/m-2', 'origin/tranche'], { cwd: other });
+  commit(other, { 'process/metrics/m.jsonl': JSON.stringify({ row: 'attempt', event: 'start', module: 'm', attempt: 6, branch: 'job/m-2' }) + '\n', 'process/ledger/m.json': entry('m', { status: { state: 'COMPLETE' } }), 'm.txt': 'attempt 6' });
+  git(['push', '-q', 'origin', 'job/m-2'], { cwd: other });
+  const io = { openPRs: () => [], checkRun: () => null, compare: () => null };
+  const row = status(root, { log: quiet, io }).rows.find((x) => x.id === 'm');
+  assert.equal(row.ref, 'job/m-2', 'the newest attempt\'s branch');
+  assert.notEqual(row.flag, 'BLOCKED');
+  assert.equal(row.blocked, undefined);
 });
 
 // Coordinator, 5 Nov: starvation and ruling waits measured in the sweep row, and a technical ruling

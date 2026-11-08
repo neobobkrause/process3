@@ -475,7 +475,11 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
       // C37: superseded by a later land of the module (above): no flag, no block, said as stale.
       const land = !merged && (s.state === 'BLOCKED' || s.state === 'WORKING') ? newestLand(e.id) : null;
       const tip = land ? Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 : 0;
-      if (land && tip && (Date.parse(land.at) || 0) > tip) {
+      // The land's time is its layer merge commit's when this clone has it: a land recorded late
+      // (layer land's recovery of a merged PR) has a later `at` than a new attempt it must not hide
+      // (cold review of C37).
+      const mt = land?.merge ? Number(git(['log', '-1', '--format=%ct', land.merge], { cwd: root, allowFail: true }).stdout.trim()) * 1000 : 0;
+      if (land && tip && (mt || Date.parse(land.at) || 0) > tip) {
         row.stale = { pr: land.pr ?? null, layer: land.layer ?? null, at: land.at };
         row.branch = `stale: ${s.state} on ${jb} as this clone has it, older than ${e.id}'s land (PR ${land.pr} on layer ${land.layer} at ${land.at}); not its state`;
       }
@@ -497,7 +501,8 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
       if (row.branch) row.pr = 'unknown (GitHub not read)';
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     } else if (row.stale) {
-      if (e.status?.state === 'COMPLETE') row.pr = `landed (PR ${row.stale.pr})`;
+      // COMPLETE on the tranche and landed since: done, counted as merged (cold review of C37).
+      if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
       row.flag = `an unfinished start (pushed, no pull request): run job start ${e.id} --sessions <file> again and it resumes`;
     } else if (row.ahead > 0 && !row.blocked) {
