@@ -10,9 +10,9 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from 'node:path';
 import { LEDGER_DIR } from './ledger.mjs';
 import { readModules } from './notice.mjs';
-import { FOUND_MARK, depth, exists, fail, git, loadConfig, unmetIds } from './util.mjs';
+import { FOUND_DIR, FOUND_MARK, depth, exists, fail, git, loadConfig, unmetIds } from './util.mjs';
 
-export const FOUND_DIR = 'process/found';
+export { FOUND_DIR };
 export const NO_MODULE = `${FOUND_DIR}/no-module.md`;
 export const foundFile = (id) => `${FOUND_DIR}/${id}.md`;
 export const DEFAULT_SOURCE = 'found';

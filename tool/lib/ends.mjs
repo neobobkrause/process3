@@ -39,7 +39,7 @@
 //                                        reported with their age by status already;
 //   merger lease, in flight, plain queue the train's (being removed): time-limited already.
 import { jsonl, readState } from './state.mjs';
-import { git } from './util.mjs';
+import { LEDGER_DIR, git } from './util.mjs';
 
 export const KINDS = ['layer_closed', 'layer_open', 'pr_merged', 'module_complete', 'session_gone', 'at'];
 const SHAPE = {
@@ -136,7 +136,7 @@ export function readFacts(root, cfg, { listed = null, t = Date.now(), landed } =
   const entry = (id) => {
     if (entries === null) entries = new Map();
     if (!entries.has(id)) {
-      const r = git(['show', `${tr}:process/ledger/${id}.json`], { cwd: root, allowFail: true });
+      const r = git(['show', `${tr}:${LEDGER_DIR}/${id}.json`], { cwd: root, allowFail: true });
       let v = null;
       try { v = r.code === 0 ? JSON.parse(r.stdout) : undefined; } catch { v = null; }
       entries.set(id, v);

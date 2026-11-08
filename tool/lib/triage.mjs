@@ -17,7 +17,7 @@ import { jobBranch, ledgerIds, startBranch } from './ledger.mjs';
 import { rowsAt } from './metrics.mjs';
 import { noticeSlots, status } from './status.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
+import { LEDGER_DIR, depth, exists, fail, git, isShallow, list, loadConfig, repoSlug } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, normalize, resolve, sep } from 'node:path';
 
@@ -92,7 +92,7 @@ function changes(root, cfg, n, { slug, read, compare }) {
   const m = pr?.merge_commit_sha;
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
   const { head: h, mb } = mergedRange(root, m, { slug, n: n.pr, ...(compare ? { read: compare } : {}) });
-  const entry = git(['show', `${mb}:process/ledger/${n.provider}.json`], { cwd: root, allowFail: true });
+  const entry = git(['show', `${mb}:${LEDGER_DIR}/${n.provider}.json`], { cwd: root, allowFail: true });
   let file = `${cfg.requirements_dir.replace(/\/$/, '')}/${n.provider}.md`;
   try { if (entry.code === 0) file = JSON.parse(entry.stdout).requirements || file; } catch { /* the default path */ }
   const at = (ref) => git(['show', `${ref}:${file}`], { cwd: root, allowFail: true }).stdout;

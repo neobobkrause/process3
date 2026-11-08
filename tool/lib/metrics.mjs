@@ -8,9 +8,9 @@ import { comments, gateRuns, getPR } from './github.mjs';
 import { distinctRows, leadTimes, openedAt } from './lead.mjs';
 import { jobBranch, startBranch } from './ledger.mjs';
 import { triggerSummary } from './triggers.mjs';
-import { DEFAULTS, fail, git, now, rowCap } from './util.mjs';
+import { DEFAULTS, FOUND_DIR, METRICS_DIR, fail, git, now, rowCap } from './util.mjs';
 
-export const METRICS_DIR = 'process/metrics';
+export { METRICS_DIR };
 export const metricsFile = (id) => `${METRICS_DIR}/${id}.jsonl`;
 // BOB's measured figures go in a file of their own, so each file keeps one writer (REC-2).
 export const bobMetricsFile = (id) => `${METRICS_DIR}/${id}.bob.jsonl`;
@@ -228,7 +228,7 @@ export function unmetAtRef(root, cfg, ref) {
     const c = git(['rev-list', '-1', '--first-parent', `--before=${iso}`, ref], { cwd: root, allowFail: true }).stdout.trim();
     if (!c) return null;
     if (!memo.has(c)) {
-      const r = git(['grep', '-c', '-F', '*(not yet met', c, '--', cfg.requirements_dir, 'process/found'], { cwd: root, allowFail: true });
+      const r = git(['grep', '-c', '-F', '*(not yet met', c, '--', cfg.requirements_dir, FOUND_DIR], { cwd: root, allowFail: true });
       memo.set(c, r.code === 0 ? r.stdout.split('\n').filter(Boolean).reduce((t, l) => t + Number(l.split(':').pop()), 0) : r.code === 1 ? 0 : null);
     }
     return memo.get(c);

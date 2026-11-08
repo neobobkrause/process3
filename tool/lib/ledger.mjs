@@ -2,9 +2,9 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fail, git } from './util.mjs';
+import { LEDGER_DIR, fail, git } from './util.mjs';
 
-export const LEDGER_DIR = 'process/ledger';
+export { LEDGER_DIR };
 const SCHEMA = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'schema', 'ledger-entry.schema.json'), 'utf8'));
 
 // A small validator for the subset of JSON Schema the ledger schema uses.
