@@ -161,7 +161,7 @@ export function found(root, module, finding, { from, write = false, offline = fa
     const pin = pinnedIds(root, { entry, req: m.req, reqText: m.reqText, ref });
     // The route by the entry's state: a COMPLETE module reopens; any other's job (to start or open) takes the finding.
     const q = `'${what.replace(/'/g, `'\\''`)}'`;
-    if (pin) fail(`${pin} pins the ids of ${m.req}, so a found mark added by a plain pull request turns ${module}'s suite red; nothing was written. The route: ${entry?.status?.state === 'COMPLETE' ? `\`node .process/tool/p3.mjs job start ${module} --reopen ${q}\`` : `its job (${entry?.status?.state || 'no entry'}) takes it: give the finding to its session, or once it is COMPLETE, \`node .process/tool/p3.mjs job start ${module} --reopen ${q}\``}, the job adding its own F mark and admitting it in that test`);
+    if (pin) fail(`${pin} pins the ids of ${m.req}, so a found mark added by a plain pull request turns ${module}'s suite red; nothing was written. The route: ${entry?.status?.state === 'COMPLETE' ? `\`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\`` : `its job (${entry?.status?.state || 'no entry'}) takes it: give the finding to its session, or once it is COMPLETE, \`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\``}, the job adding its own F mark and admitting it in that test`);
     file = m.reqText !== null ? m.req : m.found;
     texts = [m.reqText, m.foundText];
     current = m.reqText !== null ? m.reqText : m.foundText;

@@ -898,7 +898,7 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   const done = L.states.filter((s) => s.done_work);
   if (done.length) {
     log(`${done.length} deferred with work done (suite green, BLOCKED only on a process finding): restart to publish; layer merge ${n} refuses until then, or takes --defer-done "<why>":`);
-    for (const s of done) log(`  ${P3} job start ${s.id} --sessions <file> --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work}${s.done_unknown ? '; its gate runs could not be read, so counted as done until they are' : ''})`);
+    for (const s of done) log(`  ${P3} job start ${s.id} --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work}${s.done_unknown ? '; its gate runs could not be read, so counted as done until they are' : ''})`);
   }
   log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.holding.length ? `, ${L.holding.length} PR(s) open into ${layerBranch(n)}` : ''}`);
   return { ok: true, states: L.states, ready, deferred_done: done.map((s) => s.id) };
@@ -1367,7 +1367,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
       const carried = !!mb && !entryAt(root, mb, id) && !!entryAt(root, tip, id);
       // Both the carry and a reason naming the ledger say so; the carry alone only suggests it
       // (cold review of PR 201: a job BLOCKED for a real reason may have carried its entry too).
-      const restart = `${P3} job start ${id} --sessions <file> --restart "the ledger-carry finding is cleared by layer sync ${n}: publish"`;
+      const restart = `${P3} job start ${id} --restart "the ledger-carry finding is cleared by layer sync ${n}: publish"`;
       if (carried && /ledger|carr/i.test(String(be.status.reason || ''))) leave(`BLOCKED only on the ledger-carry finding this sync cleared (${entryFile(id)} is on ${b0} now): restart it to publish: ${restart}`);
       else if (carried) leave(`BLOCKED (${be.status.reason || 'no reason'}); its carried entry ${entryFile(id)} is on ${b0} now: if only the ledger-carry finding blocked it, restart it to publish: ${restart}`);
       else leave('BLOCKED');

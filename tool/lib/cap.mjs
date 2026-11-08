@@ -6,7 +6,7 @@ import { isArchived, liveJobIds, readSessions, sessionsCount } from './status.mj
 import { fail, jobCap, loadConfig, repoSlug } from './util.mjs';
 import { budgetGate } from './pace.mjs';
 import { publishedJobs, slotNote, slotUse } from './slots.mjs';
-import { readOpenLayer } from './layerflow.mjs';
+import { flowRows, readOpenLayer } from './layerflow.mjs';
 
 // The live count comes from evidence only (C28, the coordinator, 8 Nov: on the copy BOB's start
 // script passed --live 20, a number it typed, and the check refused on the cap while 15 of 20
@@ -34,17 +34,39 @@ export function capCheck(root, { live, sessions, io = {}, log = () => {} } = {})
     view = io.view !== undefined ? io.view : (io.readView || readOpenLayer)(root, cfg, { io });
     published = publishedJobs(view, { slug: io.slug || repoSlug(root), ...(io.gate ? { gate: io.gate } : {}) });
   } catch (e) { log(`the open layer was not read (${String(e?.message || e).split('\n')[0]}): every live job session holds a slot`); published = []; }
-  // Whose sessions are live: list_sessions's (a published job with no live session frees nothing).
+  // Whose sessions are live: list_sessions's (a published job with no live session frees nothing),
+  // and every job started since the list was read (cold review of C28: BOB lists once a wake and
+  // runs each start line with the same file; without these, a burst of starts each saw the same
+  // count and went past the cap). The list was read no earlier than its newest session's
+  // created_at; a start row after that is a session it lacks. A start in a layer that is not open
+  // (no view) is not seen: such starts take no layer flow.
   const jobIds = liveJobIds(listed);
-  const u = slotUse(n, published, { jobIds });
+  const since = startedSince(root, cfg.state_branch, view, listedAt(listed)).filter((id) => !jobIds.has(id));
+  for (const id of since) jobIds.add(id);
+  if (since.length) log(`${since.length} job(s) started since the list was read, counted: ${since.join(', ')}`);
+  const u = slotUse(n + since.length, published, { jobIds });
   const note = slotNote(u);
-  if (u.working >= cap - held) fail(`the job cap is full: ${u.working} job sessions working of the cap ${cap}${held ? ` less ${held} held` : ''} (${n} live${note ? `; ${note}` : ''}); nothing was started. Counted from --sessions:\n${countedLines(listed, u).join('\n')}`);
-  return { n, working: u.working, free: u.free, resumed: u.resumed, cap, held };
+  if (u.working >= cap - held) fail(`the job cap is full: ${u.working} job sessions working of the cap ${cap}${held ? ` less ${held} held` : ''} (${n + since.length} live${since.length ? `: ${n} listed, ${since.length} started since` : ''}${note ? `; ${note}` : ''}); nothing was started. Counted from --sessions${since.length ? ' and the start rows since' : ''}:\n${[...countedLines(listed, u), ...since.map((id) => `- (no session listed yet) job ${id}: started since the list was read, holds a slot`)].join('\n')}`);
+  return { n: n + since.length, listed: n, since, working: u.working, free: u.free, resumed: u.resumed, cap, held };
 }
 
 // The job sessions a refusal counted, one line each, as the count read them: the session, its
 // title and status, and whether it holds a slot (a published job with a gate not red holds none).
+// One session per freed module is marked free, the newest (slotUse frees one slot per published
+// job; cold review of C28: a job and its restart both live counted one free and two held). A
+// session carried from an earlier read (readSessions' partial pages) says so.
 export function countedLines(listed, u = { free: [], resumed: [] }) {
   const jobs = (listed || []).filter((x) => !isArchived(x)).map((x) => ({ x, id: String(x.title || '').trim().match(/^job (\S+)( \(restart\))?$/)?.[1] })).filter((j) => j.id);
-  return jobs.map(({ x, id }) => `- ${x.id || '?'} "${String(x.title).trim()}" ${x.session_status || x.status || '?'}: ${u.free.includes(id) ? 'published, holds no slot (PD-7)' : u.resumed.includes(id) ? 'resumed on a red gate, holds a slot' : 'holds a slot'}`);
+  const t = (x) => Date.parse(x.updated_at || x.created_at) || 0;
+  const freed = new Set(u.free.map((id) => jobs.filter((j) => j.id === id).sort((a, b) => t(b.x) - t(a.x))[0]?.x).filter(Boolean));
+  return jobs.map(({ x, id }) => `- ${x.id || '?'} "${String(x.title).trim()}" ${x.session_status || x.status || '?'}${x.carried ? ' (carried from the last read: older than the pages read)' : ''}: ${freed.has(x) ? 'published, holds no slot (PD-7)' : u.resumed.includes(id) ? 'resumed on a red gate, holds a slot' : 'holds a slot'}`);
+}
+// The time a list_sessions result was read no earlier than: its newest session's created_at.
+export const listedAt = (listed) => Math.max(0, ...(listed || []).map((x) => Date.parse(x.created_at) || 0));
+// The modules whose job started after t: the start rows of the open layer and of the next (its
+// early starts), a fresh-branch restart not (it replaces a session), as the idle check counts them.
+export function startedSince(root, sb, view, t) {
+  if (!view || !t) return [];
+  const ids = (n) => (n !== undefined && n !== null ? flowRows(root, sb, n).starts.filter((r) => Date.parse(r.at) > t && !r.restart).map((r) => r.module) : []);
+  return [...new Set([...ids(view.n), ...(view.early_next !== view.n ? ids(view.early_next) : [])])];
 }

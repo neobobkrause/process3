@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { capCheck } from '../lib/cap.mjs';
+import { capCheck, countedLines } from '../lib/cap.mjs';
 import { gateRed, newestGate, publishedJobs, slotUse } from '../lib/slots.mjs';
 import { writeState } from '../lib/state.mjs';
 import { flow, liveJobIds } from '../lib/status.mjs';
@@ -166,4 +166,39 @@ test('C28: job start counts the cap from --sessions only; a typed --live is refu
   assert.match(msg, /\n- session_p1 "job p1" SESSION_STATUS_RUNNING: published, holds no slot \(PD-7\)/);
   assert.match(msg, /\n- session_p3 "job p3" SESSION_STATUS_RUNNING: resumed on a red gate, holds a slot/);
   assert.match(msg, /\n- session_a "job a" SESSION_STATUS_RUNNING: holds a slot/);
+});
+
+// Cold review of C28: BOB lists sessions once a wake and runs each start line with the same file.
+// Every job started since the list was read counts, so a burst stops at the cap; a refusal's lines
+// mark one session per freed job, and name a carried one.
+test('C28: starts recorded since the list was read count against the cap; one free mark per published job; carried named', (t) => {
+  setJobCap(t, 4);
+  const root = makeRepo({ 'README.md': 'x\n' });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  const T = Date.parse('2026-11-07T23:00:00Z');
+  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  writeFileSync(file, JSON.stringify([{ id: 'session_a', title: 'job a', session_status: 'SESSION_STATUS_RUNNING', created_at: iso(T - 60e3) }, { id: 'session_b', title: 'job b', session_status: 'SESSION_STATUS_RUNNING', created_at: iso(T) }]));
+  const io = { view: { kind: 'open', n: 11, states: [], prs: [], startable: [] }, slug: 'o/p' };
+  // A start before the list was read is in the list (or gone): not added.
+  writeRows(root, SB, 'starts', [[flowFile(11, 'start', 'old'), { row: 'start', layer: 11, module: 'z', at: iso(T - 5 * 6e4) }]]);
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  assert.deepEqual([capCheck(root, { sessions: file, io }).n, capCheck(root, { sessions: file, io }).since], [2, []]);
+  // The burst: c and d started after the list was read (a restart on a fresh branch not counted).
+  writeRows(root, SB, 'starts', [
+    [flowFile(11, 'start', 'c'), { row: 'start', layer: 11, module: 'c', at: iso(T + 60e3) }],
+    [flowFile(11, 'start', 'd'), { row: 'start', layer: 11, module: 'd', at: iso(T + 2 * 6e4) }],
+    [flowFile(11, 'start', 'a-r'), { row: 'start', layer: 11, module: 'a', restart: true, at: iso(T + 3 * 6e4) }],
+  ]);
+  git(['fetch', '-q', 'origin', `+refs/heads/${SB}:refs/remotes/origin/${SB}`], { cwd: root });
+  let msg = '';
+  try { capCheck(root, { sessions: file, io }); } catch (e) { msg = e.message; }
+  assert.match(msg, /the job cap is full: 4 job sessions working of the cap 4 \(4 live: 2 listed, 2 started since\); nothing was started\. Counted from --sessions and the start rows since:/);
+  assert.match(msg, /\n- \(no session listed yet\) job c: started since the list was read, holds a slot/);
+  // countedLines: a job and its restart both live, the job published: one marked free; carried named.
+  const lines = countedLines([{ id: 's1', title: 'job p1', updated_at: iso(T) }, { id: 's2', title: 'job p1 (restart)', updated_at: iso(T + 6e4) }, { id: 's3', title: 'job q', carried: true }], { free: ['p1'], resumed: [] });
+  assert.deepEqual(lines.map((l) => l.replace(/^- (\S+).*: (.*)$/, '$1 $2')), ['s1 holds a slot', 's2 published, holds no slot (PD-7)', 's3 holds a slot']);
+  assert.match(lines[2], /carried from the last read/);
 });

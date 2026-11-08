@@ -278,8 +278,8 @@ export function routeFor(id, { state, ahead, open }) {
   if (ahead === null || ahead === undefined) return 'its commits beyond the tranche could not be counted; run it again';
   if (!['WORKING', 'BLOCKED', 'COMPLETE'].includes(state)) return `its entry reads ${state} on the branch, which no job step writes; bring it to Bob`;
   if (ahead === 0) return open ? `its pull request is open with nothing beyond the tranche: BOB merges or closes it, then ${reopen}` : `a new attempt on a merged module is ${reopen}`;
-  if (open) return `a job whose session stopped is restarted with job start ${id} --sessions <file> --restart "<why>"${state === 'COMPLETE' ? ' (its pull request open, red or waiting for its merge; or BOB closes it and --reopen starts a fresh attempt on the next branch)' : ''}`;
-  if (state === 'BLOCKED') return `job start ${id} --sessions <file> --restart "<why>" opens its draft again for a replacement session`;
+  if (open) return `a job whose session stopped is restarted with job start ${id} --restart "<why>"${state === 'COMPLETE' ? ' (its pull request open, red or waiting for its merge; or BOB closes it and --reopen starts a fresh attempt on the next branch)' : ''}`;
+  if (state === 'BLOCKED') return `job start ${id} --restart "<why>" opens its draft again for a replacement session`;
   if (state === 'WORKING' && ahead === 1) return `an unfinished start resumes with job start ${id} --sessions <file>`;
   return `its work never merged and no pull request is open: ${reopen} starts a fresh attempt on the next branch, and this one is kept`;
 }
