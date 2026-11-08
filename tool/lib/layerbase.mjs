@@ -6,6 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { exists, fail, fetchBranch, git } from './util.mjs';
+import { readState } from './state.mjs';
 
 export const STRATEGIES = ['layer'];
 export const layerMode = (cfg) => (cfg?.merge_strategy ?? 'layer') === 'layer';
@@ -30,9 +31,28 @@ export function layersAt(root, cfg, ref) {
   let text = null;
   if (ref) text = exists(root, ref, cfg.layers_file) ? git(['show', `${ref}:${cfg.layers_file}`], { cwd: root }) : null;
   else if (existsSync(join(root, cfg.layers_file))) text = readFileSync(join(root, cfg.layers_file), 'utf8');
-  return layerMap(text);
+  const map = layerMap(text);
+  return map.length ? [...map, ...completionLayers(root, cfg, map)] : map;
 }
-export const layerOf = (layers, id) => layers.find((L) => L.mods.includes(id))?.n ?? null;
+// The completion layers (PLN-4: the completion round has its own file; PD-12: reopens after the
+// plan's last layer go through it; C33): `layer open <last+1>`, once every layer of the map is
+// closed and completion_file has open items, opens one past the map, its modules those items' in
+// file order, recorded on its open row (completion: { file, items, mods }). Read from that row, so
+// the product's layer map is never edited; each later round opens the next number.
+export function completionLayers(root, cfg, map) {
+  const out = [];
+  if (!cfg?.state_branch) return out;
+  for (let k = (map.at(-1)?.n ?? 0) + 1; ; k++) {
+    let row = null;
+    try { row = JSON.parse(readState(root, cfg.state_branch, flowFile(k, 'open')) || 'null'); } catch { row = null; }
+    if (!Array.isArray(row?.completion?.mods)) break;
+    out.push({ n: k, mods: row.completion.mods, completion: row.completion });
+  }
+  return out;
+}
+// The layer a module's work is in: the newest that lists it (a completion layer past the map
+// reopens a module of an earlier layer, C33).
+export const layerOf = (layers, id) => layers.filter((L) => L.mods.includes(id)).at(-1)?.n ?? null;
 
 const hasRef = (root, r) => git(['rev-parse', '-q', '--verify', r], { cwd: root, allowFail: true }).code === 0;
 
