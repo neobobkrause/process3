@@ -1,17 +1,18 @@
 {
-  "why": "BD-R2 (Bob, 8 Nov): process3 is product-neutral. tool/test/product-neutral.test.mjs fails when any name below appears, case-insensitively, in tool/, rulebooks/, governing/, shims/, setup/ or README.md. notes/ and DECISIONS.md are history and are not scanned. Add a product's names here when it comes under the process.",
-  "names": [
-    "civicsmith",
-    "civicos",
-    "biosmoke",
-    "biodefault",
-    "newgroup",
-    "plat-s1",
-    "bio-plane",
-    "bio-captures",
-    "bio-published",
-    "bio-walks",
-    "believeinoakland",
-    "20b533579290b9b93168345edd3b7f72"
+  "why": "BD-R2 (Bob, 8 Nov): process3 is product-neutral. Each entry is the sha256 of a lower-cased product term (a word or hyphen-joined words), never the term: add one with node tool/deny-add.mjs <term>. tool/test/product-neutral.test.mjs hashes every word and hyphen-joined phrase in tool/, rulebooks/, governing/, shims/, setup/ and README.md and fails on a match. notes/ and DECISIONS.md are history and are not scanned.",
+  "sha256": [
+    "e325bd3eb7d5d6521c18d8b837101c1df4cd761d7683857da17c7a044bdbd651",
+    "66c92e06c0258143eb01e1eca10ad648753ab018b30e327b0e58f3b0ea536212",
+    "42958d5073e6261da8b81a239fde3d09287aee756b8e34eb57271c435eced2b3",
+    "28b88ac76106e885af8dd55ef65ae3cc7ab69bf51b784be6182d6233735f651b",
+    "a8a0340471a8fef2a58db62aa6986c85516be5a0016763c5249a9572893704a0",
+    "09db9e2ad7e34e43327e431d768780471a0bf9ebd7b8228f61df8cce4a72d1e4",
+    "d3c89bea6f662daa7485fa49be0f1bcedf6bdc9f6b5c5fa9c30c79c1efaba680",
+    "32f10398d80485e9aee88c063fce50c802feb00a62f6ee26dcb3825e547b7a09",
+    "812b61e2a9eb070c22b21ff7ee946da4d983526fc91cb7a2a5e64431f2f022ef",
+    "6b8fc69085fd8457664d47d931d98e2500f6cb3c1cfd37ef096635b9db625684",
+    "b04260d0a071fed4c2b1ba9bbe6c127ef89e7169689b039b1b4e17c1b1cb0d24",
+    "845cfca11a240b5a35da4512e541b59dd510ae546a3653941b733d602f941a20",
+    "26168bd06f3c85f37c1bb9b7d5854fc5f74efa2f9c0e872d6d52b31a6ce51a32"
   ]
 }
