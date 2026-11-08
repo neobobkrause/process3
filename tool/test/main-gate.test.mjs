@@ -36,7 +36,7 @@ function product(n, { red = [], unverified = [], uses = {}, over = {} } = {}) {
     git(['checkout', '-q', 'tranche'], { cwd: root });
     git(['merge', '-q', '--no-ff', `job/${id}`, '-m', `Merge job PR ${pr}`], { cwd: root });
     const m = git(['rev-parse', 'HEAD'], { cwd: root });
-    prs.set(pr, { number: pr, merged: true, merge_commit_sha: m, base: { ref: 'tranche' }, head: { ref: `job/${id}`, sha: tip, repo: { full_name: 'o/r' } }, user: { login: 'civicsmith' } });
+    prs.set(pr, { number: pr, merged: true, merge_commit_sha: m, base: { ref: 'tranche' }, head: { ref: `job/${id}`, sha: tip, repo: { full_name: 'o/r' } }, user: { login: 'acmewidget' } });
     const ok = !red.includes(id);
     const row = { sha: tip, base: onto, run_id: 100 + pr, trigger: 'code', scope: [id], suite: ok ? 'pass' : 'fail', ok, findings: ok ? 0 : 1, verified: !unverified.includes(id) };
     comments.set(pr, [{ id: pr, body: block(GATE, { runs: [row] }), user: { login: BOT } }]);

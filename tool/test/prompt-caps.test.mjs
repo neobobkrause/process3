@@ -18,7 +18,7 @@ processRegisterFixture([SEED_ENTRY]);
 
 const quiet = () => {};
 const SCREEN = 4096;
-const SLUG = 'neobobkrause/civicsmith-copy';
+const SLUG = 'neobobkrause/acmewidget-copy';
 const ID = 'session_01RAN5ek9qx8mduYhfE77Ldc';
 const bytes = (t) => Buffer.byteLength(t);
 

@@ -1,9 +1,9 @@
-# container-images.yml: builds the fleet's container images and publishes each by digest (bio K1893, K1894; trial
+# container-images.yml: builds the fleet's container images and publishes each by digest (app K1893, K1894; trial
 # draft §3.3, K2816 (4)). Replaces agent-runner-image.yml.
 #
 # A release names each image only by its digest (agent-runner R7, R13; file-scanner R10), and `deploy-fleet` pulls it
 # from a registry. No session can build one (no Docker, the proxy's TLS), so GitHub's runners build them from the cut
-# branch's Dockerfiles and publish them on GHCR and on Docker Hub (`docker.io/civicsmith`, bio K3805, K3808: Cloudflare
+# branch's Dockerfiles and publish them on GHCR and on Docker Hub (`docker.io/acmewidget`, app K3805, K3808: Cloudflare
 # Containers cannot pull from GHCR, so the release names the Docker Hub copy; both carry the same digest). The release
 # then writes each printed digest into `fleet-member.json` and `wrangler.jsonc` at the cut. Runs on a push of a cut branch touching a container member, or
 # by hand.
@@ -62,9 +62,9 @@ jobs:
           provenance: false
           tags: |
             ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}:${{ steps.v.outputs.version }}
-            docker.io/civicsmith/${{ matrix.name }}:${{ steps.v.outputs.version }}
+            docker.io/acmewidget/${{ matrix.name }}:${{ steps.v.outputs.version }}
       - name: digest
         run: |
-          echo "image: docker.io/civicsmith/${{ matrix.name }}@${{ steps.push.outputs.digest }}"
+          echo "image: docker.io/acmewidget/${{ matrix.name }}@${{ steps.push.outputs.digest }}"
           echo "image: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.push.outputs.digest }}"
-          echo "### ${{ matrix.name }} ${{ steps.v.outputs.version }}: \`docker.io/civicsmith/${{ matrix.name }}@${{ steps.push.outputs.digest }}\` (also \`ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.push.outputs.digest }}\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### ${{ matrix.name }} ${{ steps.v.outputs.version }}: \`docker.io/acmewidget/${{ matrix.name }}@${{ steps.push.outputs.digest }}\` (also \`ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}@${{ steps.push.outputs.digest }}\`)" >> "$GITHUB_STEP_SUMMARY"

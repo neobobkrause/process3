@@ -110,7 +110,7 @@ export function refreshOthers(cfg, rows, changed, entries = [], ignores = [], { 
 }
 
 // Untracking a committed generated file (build untrack-generated, 4 Nov: copy PR 306 could not
-// stop committing bio-plane/src/case-checker/program.mjs, 6.9 MB, over max_file_bytes and stale).
+// stop committing a module's generated src/case-checker/program.mjs, 6.9 MB, over max_file_bytes and stale).
 // A plain pull request may remove a file under a `generated` row when the head's .gitignore
 // ignores it; the gate builds it (buildGenerated) and runs its row's verify. A job still may not
 // (committedGenerated, JOB-8). removedGenerated: the generated files the head no longer tracks.

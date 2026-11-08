@@ -30,7 +30,7 @@ function product(config, { mainFiles = {}, branch = 'tranche' } = {}) {
 // GitHub's view of a commit: the owner's website commit only at `owned` (by `author`).
 const lookupAt = (owned, author = OWNER) => (args) => (args[1].split('/').pop() === owned
   ? { author: { login: author }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } }
-  : { author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } });
+  : { author: { login: 'acmewidget' }, committer: { login: 'acmewidget' }, commit: { verification: { verified: false } } });
 const ioWith = (lookup) => ({ comments: () => [], getPR: () => null, lookup });
 function runGate(r, lookup) {
   const npm = [];
@@ -69,8 +69,8 @@ test('at the first close an uncovered module installs and runs from the head\'s 
 
 test('at the first close a forged head config falls back to the defaults and is refused', () => {
   // A session names another owner (or the head's own named owner's website commit set it).
-  for (const lookup of [lookupAt('none'), (a) => lookupAt(a[1].split('/').pop(), 'civicsmith')(a), () => null]) {
-    const r = product({ tranche: 'tranche', lockfiles: ['package-lock.json'], approvals: { owner: 'civicsmith' } });
+  for (const lookup of [lookupAt('none'), (a) => lookupAt(a[1].split('/').pop(), 'acmewidget')(a), () => null]) {
+    const r = product({ tranche: 'tranche', lockfiles: ['package-lock.json'], approvals: { owner: 'acmewidget' } });
     const g = runGate(r, lookup);
     assert.deepEqual(g.npm, [], 'no install from a forged config');
     const c = g.findings.filter((f) => f.check === 'config');
@@ -97,7 +97,7 @@ test('at the first close a forged head config falls back to the defaults and is 
 test('at the first close only run keys come from the head: records and the owner stay the defaults', () => {
   // The head would make everything a record (the fast path) and name its own owner; the owner's
   // website commit set the approvals, so the anchor holds, but neither is taken.
-  const r = product({ tranche: 'tranche', records: ['src/', 'test/', 'process/', 'package-lock.json'], approvals: { owner: 'civicsmith' } });
+  const r = product({ tranche: 'tranche', records: ['src/', 'test/', 'process/', 'package-lock.json'], approvals: { owner: 'acmewidget' } });
   const c = gateConfig(r.root, { base: r.base, head: r.head, branch: 'tranche', slug: 'o/r', io: ioWith(lookupAt(r.setAt)) });
   assert.equal(c.bootstrap, true);
   assert.deepEqual(c.cfg.records, DEFAULTS.records);

@@ -30,9 +30,9 @@ For the coordinator, or ROOT, when Bob moves Process3 to another Claude account.
 
 Each step is tested ahead by the canary. The owner of each item is in the inventory (notes/account-switch-canary.md).
 
-1. On the new Claude account, connect GitHub (claude.ai, Settings, Connectors) signed in as the process's GitHub account (now believeinoakland), the collaborator (push, not admin), never the repositories' owner.
-2. Install the Claude GitHub App for civicsmith-copy, process3 and process3-probes.
-3. Recreate the cloud environment BioDefault: its network, its setup script, its variables and the network secret for api.cloudflare.com, with the values only Bob holds. Connect Google Drive.
+1. On the new Claude account, connect GitHub (claude.ai, Settings, Connectors) signed in as the process's GitHub account, the collaborator (push, not admin), never the repositories' owner.
+2. Install the Claude GitHub App for each product's repository, process3 and process3-probes.
+3. Recreate each product's cloud environment: its network, its setup script, its variables and the network secret for api.cloudflare.com, with the values only Bob holds. Connect Google Drive.
 4. Give the new account edit access to the process documents (the Foundations, the Ledger map, the lanes' design artifacts). Until then the new account can only read them.
 5. Add the new account to the standing approvals in CLAUDE.md if their wording needs it, by his own commit.
 6. Start the new coordinator session with one repository attached.
@@ -42,7 +42,7 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
 1. Save list_sessions as JSON. From each product checkout at the tranche, before any push or start: `node .process/tool/p3.mjs switch in --sessions <file> --by <your session id>`. It records the old account's sessions in `switch/retired.json`, so R13's session_gone ends what was bound to them (lane seats, holds) at ROOT's next sweep. The new account's list_sessions never lists those sessions.
 2. If it refuses, each failed check names who fixes it; most are Bob's (the GitHub connection, the account, the GitHub App). Tell Bob those words, wait, and run it again. Never push before it passes. If only the approvals changed, and the change is Bob's own for the new account, run it again with `--approvals <the tip's hash it printed>` on his word. Then run the session checks it prints, and send Bob any failure with its fix.
 3. Once it passes, do its acts in order, each its own command:
-   - (a) The coordinator's id merged into process/config.json, on the copy and on the probe.
+   - (a) The coordinator's id merged into process/config.json, on each product and on the probe.
    - (b) `switch quiet`, until it exits 0.
    - (c) ROOT, then from ROOT: the handover for BOB and `start watcher --replace`, with the old ids.
    - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins, and each `fresh` task as one again. ROOT's sweep and the watcher's daily task are made by their own starts. A task bound to a lane waits for (h).
@@ -54,7 +54,7 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
 
 ## 5. If the process's GitHub account is suspended: the reopen route
 
-Problem class C6 (civicsmith, 6 Nov): GitHub hides every pull request a suspended account opened, with its comments and reviews, from everyone. Its branches, commits, tags and the state branch's rows stay. The switch above moves the Claude account. This route moves the GitHub account and recovers what it held.
+Problem class C6 (the process's GitHub account, 6 Nov): GitHub hides every pull request a suspended account opened, with its comments and reviews, from everyone. Its branches, commits, tags and the state branch's rows stay. The switch above moves the Claude account. This route moves the GitHub account and recovers what it held.
 
 1. Bob connects the new GitHub account (2.1, 2.2). No session pushes before `switch in --preflight` passes on it.
 2. Each job whose pull request is hidden: its branch on origin holds its work. The coordinator first opens a new pull request from the same head branch (`job complete` needs an open one). Then the job's session (BOB restarts it if it ended) runs `job complete` again, which posts the receipt there, and the gate reads it.

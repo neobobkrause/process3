@@ -518,13 +518,13 @@ test('one ledger per account: a process3 clone reads and writes the product\'s s
   // The product, with its state branch on its origin; process3's clone names it in pacing.json.
   const { root: product, bare } = withOrigin({ 'process/config.json': {} });
   writeState(product, 'process-state', 'seed', (wt) => { writeFileSync(join(wt, 'seed.txt'), 's\n'); return {}; });
-  const p3 = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/civicsmith-copy' }) });
-  assert.deepEqual(ledgerOf(p3, null), { own: false, name: 'neobobkrause/civicsmith-copy', url: 'https://github.com/neobobkrause/civicsmith-copy.git' });
+  const p3 = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/acmewidget-copy' }) });
+  assert.deepEqual(ledgerOf(p3, null), { own: false, name: 'neobobkrause/acmewidget-copy', url: 'https://github.com/neobobkrause/acmewidget-copy.git' });
   assert.deepEqual(ledgerOf(product, configOf({})), { own: true });
   // A product whose config names none takes the pinned process3's (cold review of R17b: probes'
   // config named none and would have kept a ledger of its own).
-  const pinned = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/civicsmith-copy' }) });
-  assert.equal(ledgerOf(product, configOf({}), { processRoot: pinned }).url, 'https://github.com/neobobkrause/civicsmith-copy.git');
+  const pinned = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/acmewidget-copy' }) });
+  assert.equal(ledgerOf(product, configOf({}), { processRoot: pinned }).url, 'https://github.com/neobobkrause/acmewidget-copy.git');
   assert.equal(ledgerOf(product, configOf({ pacing: { ledger: 'o/elsewhere' } }), { processRoot: pinned }).name, 'o/elsewhere', 'the config\'s own wins');
   assert.equal(ledgerOf(makeRepo({ 'a.md': 'x\n' }), null), null, 'no config and no pacing.json: no ledger');
   assert.match(pacingProblem({ ledger: 'not a repo' }), /pacing\.ledger is "<owner>\/<repo>"/);

@@ -13,8 +13,8 @@ import { DEFAULTS, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const io = (receipt) => {
-  const comments = receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : [];
-  return { comments: () => comments, getPR: () => ({ user: { login: 'civicsmith' } }), addComment: (s, n, body) => { comments.push({ id: comments.length + 1, body, user: { login: BOT } }); return {}; }, verify: () => true };
+  const comments = receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [];
+  return { comments: () => comments, getPR: () => ({ user: { login: 'acmewidget' } }), addComment: (s, n, body) => { comments.push({ id: comments.length + 1, body, user: { login: BOT } }); return {}; }, verify: () => true };
 };
 const receipt = (sha) => ({ kind: 'receipt', module: 'fund', attempt: 1, sha, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: { revert: 'no code yet' } });
 

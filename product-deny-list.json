@@ -1,0 +1,17 @@
+{
+  "why": "BD-R2 (Bob, 8 Nov): process3 is product-neutral. tool/test/product-neutral.test.mjs fails when any name below appears, case-insensitively, in tool/, rulebooks/, governing/ or README.md. notes/ and DECISIONS.md are history and are not scanned. Add a product's names here when it comes under the process.",
+  "names": [
+    "civicsmith",
+    "civicos",
+    "biosmoke",
+    "biodefault",
+    "newgroup",
+    "plat-s1",
+    "bio-plane",
+    "bio-captures",
+    "bio-published",
+    "bio-walks",
+    "believeinoakland",
+    "20b533579290b9b93168345edd3b7f72"
+  ]
+}

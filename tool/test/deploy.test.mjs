@@ -79,7 +79,7 @@ test('deploy dev at a round close: dry run, deploy, walk, one row; secrets never
   assert.equal(closeLayer(root, '1').ok, true);
   const tip = git(['rev-parse', 'origin/tranche'], { cwd: root });
   // A slug that is not a development deployment's.
-  assert.throws(() => deployDev(root, { io, repo, slug: 'civicsmith', log: quiet }), /does not begin with p3dev-/);
+  assert.throws(() => deployDev(root, { io, repo, slug: 'acmewidget', log: quiet }), /does not begin with p3dev-/);
   const out = [];
   const r = deployDev(root, { io, repo, log: (m) => out.push(m) });
   const text = out.join('\n');
@@ -382,7 +382,7 @@ test('rounds: every layer closed is the first round\'s close; the walk\'s findin
 
 // BD-R1 (Bob, 8 Nov): "until an internal walk doesn't find flaws, the release deployment happens,
 // and the walk of the release also doesn't identify flaws. When the release walk is clean, the
-// installer is updated for that release, then the civicsmith.dev website is updated": tranche close
+// installer is updated for that release, then the acmewidget.dev website is updated": tranche close
 // refuses in that order, then names the two updates, each on Bob's approval, a gap where no
 // workflow runs one.
 test('tranche close (BD-R1): refused until a clean internal walk, then a release, then a clean release walk; then the installer update, then the site update, before the merges', () => {
@@ -424,14 +424,14 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   assert.equal(c.release, 'v1');
   // 4 then 5: the installer update, then the site update, each on Bob's approval; no workflow: gaps.
   assert.match(c.steps[0], /^the installer update for release v1, on Bob's approval: GAP, no workflow runs it yet \(process\/config\.json installer_update names none\)/);
-  assert.match(c.steps[1], /^the civicsmith\.dev update to refer to the new install of v1, on Bob's approval: GAP, no workflow runs it yet \(process\/config\.json site_update names none\)/);
+  assert.match(c.steps[1], /^the product website's update to refer to the new install of v1, on Bob's approval: GAP, no workflow runs it yet \(process\/config\.json site_update names none\)/);
   assert.match(c.steps.slice(2).join('\n'), /create_pull_request .*"head":"tranche","base":"main"/, 'the merges after them');
   assert.deepEqual(c.gaps.map((g) => g.split(':')[0]), ['installer_update', 'site_update']);
   // Named workflows: dispatched through the protected environment, in order.
   push(root, { 'process/config.json': { deploy: dep, release: REL, installer_update: { workflow: 'installer-update.yml' }, site_update: { workflow: 'site-update.yml' } } });
   const named = close();
   assert.match(named.steps[0], /installer update for release v1, on Bob's approval: .*workflow_id installer-update\.yml.*inputs \{"version":"v1"\}; it waits in the protected environment that names Bob as required reviewer/);
-  assert.match(named.steps[1], /civicsmith\.dev update .*workflow_id site-update\.yml/);
+  assert.match(named.steps[1], /the product website's update .*workflow_id site-update\.yml/);
   assert.deepEqual(named.gaps, []);
   // A finding that names no module: no round can place it; the close waits on BOB naming one.
   push(root, { 'process/found/no-module.md': '# no module\n\n- **F1** *(not yet met: walk p3dev-x 0123456789)* somewhere\n' });

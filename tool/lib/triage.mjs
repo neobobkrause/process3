@@ -120,7 +120,7 @@ export function sizes(root, cfg, users, ref, provider) {
   const pathsOf = (u) => modules.find((m) => m?.id === u)?.paths || [];
   // A user's tests are read too, and the provider's tests are the provider's (C11 b, the coordinator,
   // 7 Nov: affordances' backing.test.mjs and t46.test.mjs and screens-action's real.mjs import
-  // bio-plane/test/m/filings/fixture.mjs, and the brief listed only users' source imports).
+  // a provider module's test/m/filings/fixture.mjs, and the brief listed only users' source imports).
   const testsOf = (u) => modules.find((m) => m?.id === u)?.tests || [];
   const userPaths = [...new Set(users.flatMap((u) => [...pathsOf(u), ...testsOf(u)]))];
   const words = [...new Set([...provPaths, ...(prov?.tests || [])].map((p) => String(p).replace(/\/$/, '').split('/').pop()).filter((w) => w && w !== '.'))];

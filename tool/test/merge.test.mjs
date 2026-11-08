@@ -30,9 +30,9 @@ function io(head, { gateGreen = true, receipt = 'agrees' } = {}) {
   return {
     calls,
     io: {
-      getPR: () => ({ state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
+      getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
       comments: () => [
-        { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'civicsmith' } },
+        { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'acmewidget' } },
         { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
         { id: 3, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1 }] }), user: { login: BOT } },
       ],
@@ -563,7 +563,7 @@ const ghCommit = (owned, { author = 'neobobkrause' } = {}) => (args) => {
   const sha = args[1].split('/').pop();
   return sha === owned
     ? { author: { login: author }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } }
-    : { author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+    : { author: { login: 'acmewidget' }, committer: { login: 'acmewidget' }, commit: { verification: { verified: false } } };
 };
 const PIN = 'a'.repeat(40);
 const released = { released: (p) => p === PIN, shim: () => null, descends: () => true };
@@ -596,7 +596,7 @@ test('the tranche into main is refused when process_repo came from a commit that
     assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), msg);
     assert.equal(f.calls.merged, null);
     // web-flow and verified, but another author; or the owner's website commit elsewhere only.
-    assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt, { author: 'civicsmith' })).io }), msg);
+    assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt, { author: 'acmewidget' })).io }), msg);
     assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.sha)).io }), msg);
   }
   // GitHub cannot be read: refused.
@@ -678,15 +678,15 @@ test('the owner is read from main\'s config, not from the tranche\'s', () => {
   // The tranche's config names another owner, whose website commit set process_repo.
   const r = trancheToMain({ how: 'direct', value: P3 });
   git(['checkout', '-q', 'tranche'], { cwd: r.root });
-  commit(r.root, { 'process/config.json': JSON.stringify({ process_repo: 'https://example.com/other', approvals: { owner: 'civicsmith' } }) }, 'another owner');
+  commit(r.root, { 'process/config.json': JSON.stringify({ process_repo: 'https://example.com/other', approvals: { owner: 'acmewidget' } }) }, 'another owner');
   r.setAt = git(['rev-parse', 'HEAD'], { cwd: r.root });
   r.sha = r.setAt;
   git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
   git(['checkout', '-q', 'main'], { cwd: r.root });
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt, { author: 'civicsmith' })).io }), msg);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(r.setAt, { author: 'acmewidget' })).io }), msg);
   // Main's config names the owner: that owner's website commit is the one that counts.
-  const m = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ approvals: { owner: 'civicsmith' } }) });
-  assert.equal(mergePlain(m.root, 4, { ...q, noReview: 'x', io: intoMain(m, ghCommit(m.setAt, { author: 'civicsmith' })).io }).merged, true);
+  const m = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ approvals: { owner: 'acmewidget' } }) });
+  assert.equal(mergePlain(m.root, 4, { ...q, noReview: 'x', io: intoMain(m, ghCommit(m.setAt, { author: 'acmewidget' })).io }).merged, true);
   assert.throws(() => mergePlain(m.root, 4, { ...q, noReview: 'x', io: intoMain(m, ghCommit(m.setAt)).io }), msg);
 });
 
@@ -799,7 +799,7 @@ test('the tranche into main carrying a changed approvals.owner needs main\'s own
   const r = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ process_repo: P3 }) });
   const mainTip = git(['rev-parse', 'main'], { cwd: r.root });
   git(['checkout', '-q', 'tranche'], { cwd: r.root });
-  const change = commit(r.root, { 'process/config.json': JSON.stringify({ process_repo: P3, approvals: { owner: 'civicsmith' } }) }, 'a session names another owner');
+  const change = commit(r.root, { 'process/config.json': JSON.stringify({ process_repo: P3, approvals: { owner: 'acmewidget' } }) }, 'a session names another owner');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r.root });
   git(['checkout', '-q', 'main'], { cwd: r.root });
   const mb = git(['merge-base', mainTip, change], { cwd: r.root });
@@ -809,7 +809,7 @@ test('the tranche into main carrying a changed approvals.owner needs main\'s own
   assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: f.io }), msg);
   assert.equal(f.calls.merged, null);
   // The head's own named owner's website commit grants nothing: main's owner judges.
-  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(change, { author: 'civicsmith' })).io }), msg);
+  assert.throws(() => mergePlain(r.root, 4, { ...q, noReview: 'x', io: intoMain(r, ghCommit(change, { author: 'acmewidget' })).io }), msg);
   // The approvals file or heading, the same.
   for (const approvals of [{ file: 'AGENTS.md' }, { heading: '## Anything goes' }]) {
     const t = trancheToMain({ how: 'direct', mainConfig: JSON.stringify({ process_repo: P3 }) });
@@ -826,7 +826,7 @@ test('the tranche into main carrying a changed approvals.owner needs main\'s own
   assert.equal(mergePlain(r.root, 4, { ...q, noReview: 'x', io: ok.io }).merged, true);
   assert.deepEqual(asked, [change]);
   // Into the tranche from a working branch there is no owner exception for the approvals either.
-  const w = makeRepoWith(JSON.stringify({ tranche: 'tranche' }), JSON.stringify({ tranche: 'tranche', approvals: { owner: 'civicsmith' } }));
+  const w = makeRepoWith(JSON.stringify({ tranche: 'tranche' }), JSON.stringify({ tranche: 'tranche', approvals: { owner: 'acmewidget' } }));
   const into = plainIO(w);
   into.io.lookup = everyOwner;
   assert.throws(() => mergePlain(w.root, 4, { ...q, noReview: 'x', io: into.io }), msg);

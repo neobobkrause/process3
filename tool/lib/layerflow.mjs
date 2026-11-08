@@ -195,7 +195,7 @@ export function interfaceChange(root, cfg, id, before, after) {
   out.class = exportsBreaking || testsBreaking || out.unread ? 'breaking' : exportsAdditive || testsAdditive ? 'additive' : 'none';
   // A change confined to the provider's own test files (its source, requirements and exports
   // unchanged) is no interface change for its users (the coordinator, 7 Nov, C11: copy PR 727 changed
-  // only bio-plane/test/m/filings/fixture.mjs and rescheduled action-plans and escalation). Only a
+  // only a provider module's test/m/filings/fixture.mjs and rescheduled action-plans and escalation). Only a
   // user whose code or tests import a changed test file is touched, and that one as breaking: the
   // land reads which (testImporters). The verdict the tests alone would give is kept (by_tests).
   const own = files.filter((f) => f !== entryFile(id) && f !== metricsFile(id) && !isRecordPath(cfg, f));

@@ -1,5 +1,5 @@
 // A job's push refuses a commit that adds a file over max_file_bytes, a generated path, or a path
-// under a dist/ directory the tranche does not track (installer 3df99b92, 5 Nov; newgroup 606/609
+// under a dist/ directory the tranche does not track (installer 3df99b92, 5 Nov; installr 606/609
 // and agent-runner 3ee34e5, 6 Nov: each pushed, then cost a fresh branch).
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -30,7 +30,7 @@ test('a commit adding a file over max_file_bytes is refused, naming it and how t
   assert.throws(refuse(root), /nothing was pushed: commit \w+ adds src\/alpha\/big\.json \(100 bytes, over max_file_bytes \(64\)\)\. Drop them from the commits and rebuild before pushing: `git reset --soft HEAD~1`, `git reset -- src\/alpha\/big\.json`, then commit again; a pushed commit/);
 });
 
-test('a commit adding a generated path is refused, an older one named with its rebuild (newgroup 606/609)', () => {
+test('a commit adding a generated path is refused, an older one named with its rebuild (installr 606/609)', () => {
   const root = repo();
   commit(root, { 'src/alpha/rows.mjs': 'export const rows = [];\n' });
   commit(root, { 'src/alpha/index.mjs': 'export const y = 1;\n' });

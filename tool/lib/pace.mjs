@@ -1,4 +1,4 @@
-// GitHub limit conformance (R17). The civicsmith account was suspended on 6 Nov at 19:19Z, most
+// GitHub limit conformance (R17). The process's GitHub account was suspended on 6 Nov at 19:19Z, most
 // likely for automated bulk activity. Bob, 6 Nov ~21:10Z: "If github publishes limits, then we
 // should introduce process3 tooling that conforms to those limits. But rather than limiting usage
 // to a small fraction of github's stated limits, I'd suggest that the tooling limit usage to 80%

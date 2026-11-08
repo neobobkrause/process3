@@ -11,7 +11,7 @@ import { PROMPTS_IN_AUTO, admitCheck, admitTools, deniedBy, ruleMatches, toldCom
 import { admitLines } from '../lib/setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-// The copy's deny list (civicsmith-copy .claude/settings.json at 5f03000d, 7 Nov).
+// The copy's deny list (the first product's .claude/settings.json at 5f03000d, 7 Nov).
 const COPY = { permissions: { deny: ['mcp__github__merge_pull_request', 'Bash(gh pr merge *)', 'Bash(gh api *pulls/*/merge*)', 'Bash(git push --force *)', 'Bash(git push -f *)', 'Bash(git push --force-with-lease *)', 'Bash(git push --mirror *)', 'Bash(git push origin --delete *)', 'Bash(git push origin HEAD:main)', 'Bash(git push origin main)', 'Bash(git push -u origin main)', 'Bash(git reset --hard *)', 'Bash(git clean -fd *)', 'Bash(git clean -fdx *)', 'Bash(git stash drop *)', 'Bash(git rebase *)', 'Bash(git commit --amend *)', 'Bash(git tag *)', 'Bash(git branch -D *)', 'Bash(gh api *contents/*)', 'Bash(gh api *git/blobs*)', 'Bash(gh api *git/trees*)', 'Bash(gh api *git/commits*)', 'Bash(gh api *git/refs*)', 'Bash(curl *api.github.com*)', 'mcp__github__create_or_update_file', 'mcp__github__push_files', 'mcp__github__delete_file'] } };
 
 test('permission rules: * any text, a trailing " *" also the bare command, :* a prefix; a told line is judged part by part', () => {
@@ -60,7 +60,7 @@ test('a told command behind cd, an assignment, a subshell or sh -c, and a span i
 // runs itself) are listed below with why, so a new one is judged here.
 // The R17c files as the note gives them (one source: settings-policy.test reads the same, C17).
 const R17C_FILES = Object.fromEntries([...readFileSync(join(ROOT, 'notes/r17c-settings.md'), 'utf8').matchAll(/## (\S+)\n\n```json\n([\s\S]*?)```/g)].map((m) => [m[1], JSON.parse(m[2])]));
-const R17C = { copy: R17C_FILES['neobobkrause/civicsmith-copy'], process3: R17C_FILES['neobobkrause/process3'], probes: R17C_FILES['neobobkrause/process3-probes'] };
+const R17C = { copy: R17C_FILES[Object.keys(R17C_FILES).find((k) => !/\/process3(-probes)?$/.test(k))], process3: R17C_FILES['neobobkrause/process3'], probes: R17C_FILES['neobobkrause/process3-probes'] };
 const NAMED = {
   'README.md gh pr ready': 'what job complete runs itself, outside a session',
   'README.md git push --force-with-lease=<ref>:<sha> origin :<ref>': 'what the branch cleanup workflow runs',

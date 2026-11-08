@@ -1,5 +1,5 @@
 // Generated files over max_file_bytes (the copy, 4 Nov: rows.mjs 5.2 MB, the agent-worker bundle
-// 8.9 MB, the bio-plane bundle 29 MB). The record check refuses any commit that writes one, so no
+// 8.9 MB, the app-plane bundle 29 MB). The record check refuses any commit that writes one, so no
 // pull request can refresh it and layer close's "regenerated files differ" never cleared. The
 // line: such a file is not committed; it is built at deploy and release; layer close regenerates
 // and verifies it, comparing only the generated paths the tranche commits.

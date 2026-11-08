@@ -32,12 +32,12 @@ function setup(baseFiles, files) {
   return { root, base, head };
 }
 function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : [] };
+  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [] };
   return {
     state,
     io: {
       comments: () => state.comments,
-      getPR: () => ({ user: { login: 'civicsmith' } }),
+      getPR: () => ({ user: { login: 'acmewidget' } }),
       addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; },
       verify: () => true,
     },

@@ -33,7 +33,7 @@ const rules = (id = 2) => [
 // A product whose setup is complete; each test breaks one thing.
 function world() {
   const w = {
-    user: { login: 'civicsmith' },
+    user: { login: 'acmewidget' },
     repo: { permissions: { admin: false, push: true }, allow_merge_commit: true, allow_auto_merge: false, delete_branch_on_merge: false },
     list: [{ id: 1 }, { id: 2 }],
     sets: {
@@ -120,7 +120,7 @@ test('the account must push and not be an admin', () => {
   const r = check(w);
   assert.equal(r.ok, false);
   assert.deepEqual(r.missing, ['account']);
-  assert.match(state(r, 'account').detail, /civicsmith: push true, admin true/);
+  assert.match(state(r, 'account').detail, /acmewidget: push true, admin true/);
   const w2 = world();
   w2.user = null;
   assert.match(state(check(w2), 'account').detail, /could not read the account/);
@@ -240,7 +240,7 @@ test('the files are read from the tranche on origin, through git', () => {
   commit(r, { 'CLAUDE.md': w.files['CLAUDE.md'].replace("The owner's words.\n", "The owner's words.\nSessions may also do anything.\n") }, 'widen');
   git(['push', '-q', 'origin', 'tranche'], { cwd: r });
   const widen = git(['rev-parse', 'HEAD'], { cwd: r });
-  w.commit = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+  w.commit = { committer: { login: 'acmewidget' }, author: { login: 'acmewidget' }, commit: { verification: { verified: false } } };
   asked = [];
   const a = state(setupCheck(r, { slug: 'o/r', io: { api: api2, env: w.env, cf: w.io.cf }, log: quiet }), 'approvals');
   assert.equal(a.state, 'missing');
@@ -542,7 +542,7 @@ function restoredTranche(words) {
   git(['add', '-A'], { cwd: r });
   git(['commit', '-q', '-m', 'merge main into the tranche'], { cwd: r });
   git(['push', '-q', 'origin', 'tranche', 'main'], { cwd: r });
-  const notOwner = { committer: { login: 'civicsmith' }, author: { login: 'civicsmith' }, commit: { verification: { verified: false } } };
+  const notOwner = { committer: { login: 'acmewidget' }, author: { login: 'acmewidget' }, commit: { verification: { verified: false } } };
   const api = (p) => (/\/commits\/[0-9a-f]+$/.test(p) ? ([o1, o2].some((s) => p.endsWith(s)) ? w.commit : notOwner) : w.io.api(p));
   const res = setupCheck(r, { slug: 'o/r', io: { api, env: w.env, cf: w.io.cf, onTranche: () => w.onTranche }, log: quiet });
   return { res, o1, o2 };

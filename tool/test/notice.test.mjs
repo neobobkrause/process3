@@ -819,7 +819,7 @@ test('triage at the merge is never silent (copy, 4 Nov: question-explorer:199 le
 });
 
 // C11 b (the coordinator, 7 Nov): affordances' backing.test.mjs and t46.test.mjs and screens-action's
-// real.mjs import bio-plane/test/m/filings/fixture.mjs; the brief listed only users' source imports, and
+// real.mjs import app-plane/test/m/filings/fixture.mjs; the brief listed only users' source imports, and
 // triage at the merge read only users' paths, so a user importing only the provider's test fixture
 // was cleared "not affected".
 test('a user whose tests import the provider\'s test fixture is listed in the brief with that file, and never cleared at the merge', () => {

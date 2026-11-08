@@ -26,8 +26,13 @@ export const RETIRED_FILE = 'switch/retired.json';
 export const QUIET_MIN = 2;
 const ROLES = ['root', 'bob', 'watcher'];
 const SESSION = /^session_[A-Za-z0-9]+$/;
-// A task prompt that runs the process's tool, or names a product of it.
-const PROCESS_TASK = /p3\.mjs|\.process\/tool|process3|civicsmith/i;
+// A task prompt that runs the process's tool, or names the product as a whole word (its
+// repository's name, read from the clone's origin; none named when that cannot be read).
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function processTask(product) {
+  return new RegExp(`p3\\.mjs|\\.process/tool|process3${product ? `|(?<![\\w.-])${reEscape(product)}(?![\\w-])` : ''}`, 'i');
+}
+const productOf = (root) => { try { return repoSlug(root).split('/')[1] || null; } catch { return null; } };
 const by_ = (by) => (SESSION.test(String(by)) ? String(by) : fail('--by <session>: the session running this (the coordinator or ROOT)'));
 
 // list_triggers saved as JSON: a list, or one under "triggers" or "data"; every page.
@@ -55,6 +60,7 @@ function unanswered(root, sb) {
 // The manifest, from the saved list_triggers and list_sessions and the state branch and status.
 export function manifest(root, { tasks, sessions, by, rows, cfg = loadConfig(root), at = now() }) {
   const sb = cfg.state_branch;
+  const PROCESS_TASK = processTask(productOf(root));
   fetchState(root, sb);
   const addresses = readAddress(root, { fetch: false });
   const coordinators = [addresses.coordinator?.session, cfg.coordinator, ...(ROLES.some((r) => addresses[r]?.session === by) ? [] : [by])].filter(Boolean);

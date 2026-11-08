@@ -14,7 +14,7 @@ Every kept or modified Ledger line, and where it is held: built (named code), a 
 | --- | --- | --- |
 | ARC-1, ARC-3, ARC-4 | The tool's gate runs no architecture, text-key or scoped checks; the module suite may hold some | Phase 2: read once which checks the copy's suites run; build the missing ones before layer 1's jobs merge |
 | JOB-8, GAT-4 | No check that a job commits no generated artifact, and no regeneration step, though the CI table lists one; Phase 2 now runs a layer's jobs at once, which is when they conflict | Phase 2 |
-| P18 | The pipeline is a nudge in BOB's prompt only | As civicos-process held it: the cycle itself (all of a layer's jobs at once, each close straight into the next open, Phase 3) and BOB's preparation in order of value (Phase 2 prompt); BOB's idle time measured before anything more. A listed set of preparation acts with Stop guards was removed by Bob in civicos as too inefficient (K5787) |
+| P18 | The pipeline is a nudge in BOB's prompt only | As the earlier process version held it: the cycle itself (all of a layer's jobs at once, each close straight into the next open, Phase 3) and BOB's preparation in order of value (Phase 2 prompt); BOB's idle time measured before anything more. A listed set of preparation acts with Stop guards was removed by Bob in an earlier product as too inefficient (K5787) |
 | P9, PLN-3 | Status prints no reports to route | Phase 2, in the status row |
 | P7 | Nothing shows each struck requirement has a test; the mechanical pass has no procedure | Phase 2: the receipt names the test for each struck mark and the review brief checks it; mechanical pass a later gate |
 | REC-8, P20 | The reading audit has no build | Later gate |
@@ -168,7 +168,7 @@ Every kept or modified Ledger line, and where it is held: built (named code), a 
 | SES-20 | First run qualifies: workers research the canon, the existing code and best practice of the lane's area (Bob, 6 Nov) | lane start's QUALIFICATION brief; lane ask refuses until it lands | Built (build/lane-qualification) |
 | SES-21 | A lane-specific research area in the product repo, read first, drawn from and evolved by every later session (Bob, 6 Nov) | lanes\[\].research (default \<dir>-research), counted as the lane's folder by the gate | Built (build/lane-qualification) |
 | SES-22 | Research continues as the lane works; lane ask workers read the research area first (Bob, 6 Nov) | lane start and lane ask briefs; job START of a lane's module | Built; Nudge for keeping it current |
-| SES-23 | Lanes cut by design area; for Civicsmith, investigation design and publication design beside UX (Bob, 6 Nov) | The product's lanes in process/config.json, set by BOB | Design; BOB adds the lanes after the pin |
+| SES-23 | Lanes cut by design area; for the first product, investigation design and publication design beside UX (Bob, 6 Nov) | The product's lanes in process/config.json, set by BOB | Design; BOB adds the lanes after the pin |
 
 ## Instruction files and rules
 
@@ -271,6 +271,6 @@ New lines from Bob's answers on the Keep and Drop page, 6 Nov 2026; the lines th
 | Line | Requires | Held by | Where |
 | --- | --- | --- | --- |
 | SLB-1 | Adopt the Shared Layer Branch: one branch per open layer; a job publishes onto it only when its own tests pass; a provider's interface change reschedules its users; the layer merges into the tranche once every job is complete and the layer's checks pass (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-1) | Design note; publish; layer close | To build; trial on layer 7 (SLB-10) |
-| SLB-10 | Trial on civicsmith-copy's layer 7 after layer 6 closes and product work pauses; measures and stop rule as on the Keep and Drop page (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-10) | Trial measurements | Layer 7 |
+| SLB-10 | Trial on the first product's layer 7 after layer 6 closes and product work pauses; measures and stop rule as on the Keep and Drop page (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-10) | Trial measurements | Layer 7 |
 | SLB-11 | If the trial keeps the layer branch, remove the merge train, the MERGER, the parallel window, provider holds, the in-flight hold, the plain queue and the fixes built for them (Bob's answer, Keep and Drop page, 6 Nov 2026, SLB-11) | process3 pull requests | After the trial |
 | SLB-12 | Every pin move made while a layer is open is followed by layer sync \<n> for that layer, before any job in it lands; a pin move does not reach an open layer branch, because the gate runs the base's own tool (Bob, 6 Nov 2026) | layer sync; layer jobs and status lead with it while the pins differ; layer merge refuses until in sync | To build: process3 PR 198 (R11); rulebooks/layer-branch.md step 2 |

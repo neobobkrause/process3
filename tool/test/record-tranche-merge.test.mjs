@@ -20,8 +20,8 @@ import { commit, makeRepo } from './helpers.mjs';
 
 const H = '## Standing approvals from Bob';
 const cfg = { ...DEFAULTS, max_file_bytes: 100000, transient: [] };
-// Every commit here is a session's (civicsmith through the web-flow look-alike is not the owner).
-const notOwner = () => ({ committer: { login: 'web-flow' }, author: { login: 'civicsmith' }, commit: { verification: { verified: true } } });
+// Every commit here is a session's (acmewidget through the web-flow look-alike is not the owner).
+const notOwner = () => ({ committer: { login: 'web-flow' }, author: { login: 'acmewidget' }, commit: { verification: { verified: true } } });
 
 // pins: the tranche commits between the job's first base and the pin move. owned: the job's own
 // commit changes .claude/settings.json too (it must still be found, named for that commit).

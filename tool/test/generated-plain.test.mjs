@@ -36,7 +36,7 @@ function gateIO(comments = []) {
     state,
     io: {
       comments: () => state.comments,
-      getPR: () => ({ user: { login: 'civicsmith' } }),
+      getPR: () => ({ user: { login: 'acmewidget' } }),
       addComment: (s, n, body) => {
         state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } });
         for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r));
@@ -148,13 +148,13 @@ function jobPR({ testFile = realTest } = {}) {
   const c0 = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'src/alpha/extra.mjs': 'export const y = 1;\n', 'test/alpha/x.test.mjs': testFile });
   git(['rm', '-q', 'src/alpha/extra.mjs'], { cwd: root });
   const code = commit(root, {});
-  const g = gateIO([{ id: 1, body: block(RECEIPT, receiptOf(1, code)), user: { login: 'civicsmith' } }]);
+  const g = gateIO([{ id: 1, body: block(RECEIPT, receiptOf(1, code)), user: { login: 'acmewidget' } }]);
   const first = gate(root, { base, head: code, branch: 'job/alpha', pr: 105, slug: 'o/r', io: g.io, log: quiet });
   assert.deepEqual([first.run.trigger, first.run.receipt, first.run.revert, first.run.ok], ['code', 'agrees', 'pass', true]);
   // Attempt 3: job complete's commit writes only the entry and the metrics.
   const head = commit(root, { 'process/ledger/alpha.json': entry('alpha', { status: { state: 'COMPLETE' } }), 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":3}\n' });
   const again = (receipt) => {
-    g.state.comments.push({ id: g.state.comments.length + 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } });
+    g.state.comments.push({ id: g.state.comments.length + 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } });
     return gate(root, { base, head, branch: 'job/alpha', pr: 105, slug: 'o/r', io: g.io, log: quiet });
   };
   return { root, c0, code, head, again };
@@ -196,9 +196,9 @@ test('merge refuses a later attempt no green run read, with the words that clear
   git(['push', '-q', 'origin', 'tranche', 'job/alpha', 'main'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
   const io = {
-    getPR: () => ({ state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
+    getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
     comments: () => [
-      { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 3, sha: head }), user: { login: 'civicsmith' } },
+      { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 3, sha: head }), user: { login: 'acmewidget' } },
       { id: 2, body: block(GATE, { runs: [{ sha: head, trigger: 'record-since-green', after: 'c'.repeat(40), ok: true, receipt: 'present', receipt_attempt: 2, run_id: 11 }] }), user: { login: BOT } },
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),

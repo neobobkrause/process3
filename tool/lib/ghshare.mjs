@@ -9,7 +9,7 @@
 //                            most every 15 min and only when it holds what others must count
 //                            (R17e, shareUsage); the ledger branch's own pushes are counted from
 //                            its history (statePushes), never from these rows.
-// Where (coordinator's ruling, 6 Nov): the product's state branch (neobobkrause/civicsmith-copy
+// Where (coordinator's ruling, 6 Nov): the product's state branch (the first product's
 // process-state). A product's clone uses its own; a clone with no state branch of its own (process3,
 // process3-probes) names the ledger in pacing.ledger ("<owner>/<repo>"; process3's own in its root
 // pacing.json) and reads and writes it there, fetched into refs/p3/ledger/state.
