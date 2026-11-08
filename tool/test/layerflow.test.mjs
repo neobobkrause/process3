@@ -1641,7 +1641,7 @@ test('job sync joins a conflict on the job\'s own entry: the layer\'s entry, the
   git(['merge', '--abort'], { cwd: root });
 });
 
-// Copy PR 727 (filings, 7 Nov): its whole change was app-plane/test/m/filings/fixture.mjs (+5/-3), and
+// Copy PR 727 (filings, 7 Nov): its whole change was a provider module's test/m/filings/fixture.mjs (+5/-3), and
 // R8 called it breaking, re-running action-plans and escalation. A change confined to the provider's
 // own tests is no interface change for its users; a user whose code or tests import a changed test
 // file is the exception, breaking for it alone (C11).

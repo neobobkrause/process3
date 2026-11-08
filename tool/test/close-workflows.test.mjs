@@ -214,7 +214,7 @@ test('coordinator, 4 Nov 08:13: a take-in tip does not mark a direct commit as e
   assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
 });
 
-// The copy's two real diffs (acmewidget-copy main 0dea5a6e against tranche 3e095aa5).
+// The copy's two real diffs (the first product's main 0dea5a6e against tranche 3e095aa5).
 const FIX = (n) => readFileSync(join(import.meta.dirname, 'fixtures', 'close-workflows', n), 'utf8');
 const shape = (head, base) => workflowShapes(head, base);
 const NONE = /rule 3: the hunk at base line \d+ .* fits no allowed shape/;

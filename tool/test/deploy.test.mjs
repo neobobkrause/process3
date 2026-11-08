@@ -382,7 +382,7 @@ test('rounds: every layer closed is the first round\'s close; the walk\'s findin
 
 // BD-R1 (Bob, 8 Nov): "until an internal walk doesn't find flaws, the release deployment happens,
 // and the walk of the release also doesn't identify flaws. When the release walk is clean, the
-// installer is updated for that release, then the acmewidget.dev website is updated": tranche close
+// installer is updated for that release, then the [product's] website is updated": tranche close
 // refuses in that order, then names the two updates, each on Bob's approval, a gap where no
 // workflow runs one.
 test('tranche close (BD-R1): refused until a clean internal walk, then a release, then a clean release walk; then the installer update, then the site update, before the merges', () => {

@@ -10,7 +10,7 @@ import { commit, entry, makeRepo } from './helpers.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { approvalsHash } from '../lib/start.mjs';
 import { fetchState, readState, writeState } from '../lib/state.mjs';
-import { MANIFEST_FILE, processTask, readTasks, switchIn, switchOut, switchQuiet } from '../lib/switch.mjs';
+import { MANIFEST_FILE, processTask, productNames, readTasks, switchIn, switchOut, switchQuiet } from '../lib/switch.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -378,4 +378,17 @@ test('C40: a fresh task is the process\'s when its prompt names the product, rea
   assert.ok(!t.test('civic things'), 'no product name is built in');
   assert.ok(processTask('o').test('check o now') && !processTask('o').test('not ours'), 'a short name matches only as a word');
   assert.ok(!processTask(null).test('widget-copy'), 'no origin, no product name');
+});
+
+test('C40: product_names in process/config.json adds the product\'s other names; the origin\'s name is always one; a malformed list is refused', () => {
+  const root = makeRepo({ 'a.md': 'x\n' });
+  git(['remote', 'add', 'origin', 'https://github.com/acme/widget-copy.git'], { cwd: root });
+  assert.deepEqual(productNames(root, {}), ['widget-copy']);
+  const names = productNames(root, { product_names: ['Widget', 'widget.example'] });
+  assert.deepEqual(names, ['widget-copy', 'Widget', 'widget.example']);
+  const t = processTask(names);
+  assert.ok(t.test('Walk widget at the tranche') && t.test('check widget.example') && t.test('on widget-copy'));
+  assert.ok(!t.test('widgetx'));
+  assert.throws(() => productNames(root, { product_names: 'Widget' }), /product_names: a list of non-empty names/);
+  assert.throws(() => productNames(root, { product_names: [''] }), /product_names/);
 });

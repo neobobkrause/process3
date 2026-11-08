@@ -674,7 +674,7 @@ test('--reopen is refused while the old attempt is unmerged or its PR is open, a
   assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', setup: ready, reopen: true, open: m.f.open, find: m.f.find, log: quiet }), /needs what the new attempt must do/);
 });
 
-// Coordinator, 4 Nov (case-checker on acmewidget-copy): a COMPLETE module whose reopen attempt's
+// Coordinator, 4 Nov (case-checker on the first product): a COMPLETE module whose reopen attempt's
 // branch holds a commit the record check refuses, its pull request closed.
 test('a COMPLETE module with a closed PR on job/<m> starts with --reopen and --fresh-branch on job/<m>-2 cut from the tranche tip', () => {
   const { root, f } = mergedOnce();

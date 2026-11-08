@@ -374,7 +374,7 @@ test('record_since on the base by a ref or a short id, or with no base, still ne
 });
 
 test('must hold 3: the copy\'s record_since, on its tranche but not on main, set by the owner\'s website commit, passes', () => {
-  // acmewidget-copy: main has no config; the tranche holds old work and then the process.
+  // The first product: main has no config; the tranche holds old work and then the process.
   const { root, main, old, named } = oldThenProcess();
   assert.notEqual(git(['merge-base', '--is-ancestor', old, main], { cwd: root, allowFail: true }).code, 0);
   const s = recordSince(root, { base: main });

@@ -1,6 +1,6 @@
 // BD-R2 (Bob, 8 Nov): "Process3 is a develop process that is designed for use to develop any
 // product, not just [the first product]." No product's name appears in the process's tool, rulebooks,
-// governing documents or README. The names are a configurable deny list (product-deny-list.json at
+// governing documents, shims, setup or README. The names are a configurable deny list (product-deny-list.json at
 // process3's root); notes/ and DECISIONS.md are history and are not scanned.
 import './helpers.mjs'; // no machine git config (C2); removes its temporary directories
 import { test } from 'node:test';
@@ -11,7 +11,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const SCANNED = ['tool', 'rulebooks', 'governing', 'README.md'];
+export const SCANNED = ['tool', 'rulebooks', 'governing', 'shims', 'setup', 'README.md'];
 
 export function denyList(root = ROOT) {
   const j = JSON.parse(readFileSync(join(root, 'product-deny-list.json'), 'utf8'));
@@ -47,7 +47,7 @@ export function productNames(root = ROOT, names = denyList(root)) {
   return hits;
 }
 
-test('no product name from product-deny-list.json appears in tool/, rulebooks/, governing/ or README.md (BD-R2)', () => {
+test('no product name from product-deny-list.json appears in tool/, rulebooks/, governing/, shims/, setup/ or README.md (BD-R2)', () => {
   const names = denyList();
   assert.ok(names.length > 0, 'the deny list names at least one product');
   const hits = productNames();
