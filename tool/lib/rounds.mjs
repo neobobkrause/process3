@@ -16,6 +16,7 @@ import { NO_MODULE, foundFile, foundMarks, FOUND_DIR } from './found.mjs';
 import { completionItems } from './completion.mjs';
 import { entryFile, ledgerIds, readLedgerTexts } from './ledger.mjs';
 import { layerOf, roundOf } from './layerbase.mjs';
+import { internalWalkOf } from './deploycfg.mjs';
 import { jsonl, readState } from './state.mjs';
 import { exists, git } from './util.mjs';
 
@@ -133,4 +134,12 @@ export const roundLine = (rs) => ({
 // The walk is clean (BD-R1: "doesn't find flaws"): the run's internal walk ran ok with no failure.
 export const internalClean = (row) => !!row?.internal_walk && row.internal_walk.ok === true && !(Number(row.internal_walk.failures) > 0);
 export const walkClean = (row) => !!row && row.ok === true && !(Number(row.walk?.failures) > 0);
+// The round-close run is clean, as release dev and tranche close both read it: its internal walk
+// where the run has one or the config requires one (a required walk that did not run is not
+// clean); else, exempt by Bob's word or unconfigured, the run's own walk.
+export const internalRequired = (cfg, row) => !!row?.internal_walk || (() => { try { return !!internalWalkOf(cfg.deploy?.internal_walk)?.walk; } catch { return true; } })();
+export const runClean = (cfg, row) => (internalRequired(cfg, row) ? internalClean(row) : walkClean(row));
+// The run passes (release dev, tranche close): clean, or every finding of it a known gap (a completion
+// item deferred naming it, by Bob's word) and none a found mark, so no flaw is left for a round.
+export const runPassed = (cfg, w) => !!w?.last && (runClean(cfg, w.last) || (w.failing > 0 && w.marks === 0 && w.recorded >= w.failing));
 export const releaseWalks = (root, cfg) => jsonl(readState(root, cfg.state_branch, RELEASE_WALKS_FILE)).filter((r) => r.row === 'release-walk' && r.tranche === cfg.tranche && !onMain(root, String(r.commit)));

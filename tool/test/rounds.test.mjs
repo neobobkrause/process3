@@ -105,6 +105,10 @@ test('BD-R1 on the flow: the walk\'s found marks open round 2 past the map; its 
   walked(root, { min: 30, failures: 2 });
   push(root, mark('d', 1, 'the d door 500s'));
   assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /round 2 opens from its walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 4 finding\(s\), 1 recorded/);
+  // Status names the wait, not an open that refuses (cold review of C39).
+  const held = openLayer(root, loadConfig(root), { slug: 'o/p', io });
+  assert.deepEqual([held.kind, held.round, held.rounds], ['done', 2, 'held']);
+  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: held }).join('\n'), /layer flow: round 2 opens from the walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 4 finding\(s\), 1 recorded/);
   push(root, { ...mark('d', 1, 'the d door 500s'), 'req/c.md': `${req('c')}- **F1** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F2** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F3** *(not yet met: walk p3dev-r 0123456789)* c\n` });
   const v = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([v.kind, v.n, v.round, v.of, v.mods], ['next', 4, 2, 2, ['c']]);

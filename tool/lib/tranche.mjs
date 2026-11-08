@@ -15,9 +15,8 @@ import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
 import { deploys, roundsAt, walkFindings, walkHold } from './deploy.mjs';
-import { internalWalkOf } from './deploycfg.mjs';
 import { RELEASES_FILE } from './release.mjs';
-import { RELEASE_WALKS_FILE, internalClean, releaseWalks, roundLine, runSource, walkClean } from './rounds.mjs';
+import { RELEASE_WALKS_FILE, internalRequired, releaseWalks, roundLine, runPassed, runSource, unplaced } from './rounds.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
@@ -272,11 +271,15 @@ export function trancheEnd(root, cfg, t, { plan, slug, read }) {
   // recorded, as before; the rounds and the release are not owed.
   if (plan === 'close') return { steps: [], gaps: [], release: null };
   const rs = roundsAt(root, cfg, t, w);
-  if (rs.state === 'layer' || rs.state === 'next' || rs.state === 'new') fail(`tranche close waits: ${roundLine(rs)} (BD-R1: rounds repeat until an internal walk finds no flaw)`);
+  // A round open, owed, or merged since the latest walk (its fixes not yet walked): the rounds go on.
+  if (['layer', 'next', 'new', 'walk'].includes(rs.state)) fail(`tranche close waits: ${roundLine(rs)} (BD-R1: rounds repeat until an internal walk finds no flaw)`);
+  // A finding no module owns is a flaw no round can place: BOB names its module first.
+  const loose = unplaced(root, t);
+  if (loose.length) fail(`tranche close waits: ${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), and the next round fixes it`);
   // 1. A clean internal walk: the latest round-close run's.
   // Exempt by Bob's word (deploycfg internalWalkOf), or not configured: the run's own walk stands for it.
-  const iw = !!w.last.internal_walk || !!internalWalkOf(cfg.deploy?.internal_walk)?.walk;
-  const clean = iw ? internalClean(w.last) : walkClean(w.last);
+  const iw = internalRequired(cfg, w.last);
+  const clean = runPassed(cfg, w);
   if (!clean) fail(`tranche close waits: the latest ${iw ? 'internal walk' : 'walk'} (${runSource(w.last)}) is not clean (${iw ? `${w.last.internal_walk ? `ok ${w.last.internal_walk.ok}, ${Number(w.last.internal_walk.failures) || 0} failure(s)` : 'it did not run'}` : `ok ${w.last.ok}, ${Number(w.last.walk?.failures) || 0} failure(s)`}); its findings open the next round, and the rounds repeat until one is clean (BD-R1)`);
   if (!cfg.release) return { steps: [], gaps: [], release: null };
   // 2. The release deployment: a development release cut after that walk.

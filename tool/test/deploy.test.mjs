@@ -399,13 +399,13 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   push(root, { 'x.txt': 'the tranche past main\n' });
   const state = (files) => { onState(root, files); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
   const close = () => trancheClose(root, { slug: repo, io: closeIO, log: quiet });
-  // 1. The internal walk found a flaw (recorded as a known gap here, so no round opens): not clean.
+  // 1. The internal walk found a flaw, recorded against a: the next round is owed, not the close.
   const r1 = deployDev(root, { io, repo, log: quiet });
   assert.equal(r1.row.internal_walk.ok, false);
-  push(root, { 'build/round.md': `- [ ] C-1 · whole product · step on ${r1.row.slug} ${r1.row.commit.slice(0, 10)}; deferred: a known gap\n`, 'process/config.json': { deploy: dep, release: REL, completion_file: 'build/round.md' } });
-  assert.throws(close, /tranche close waits: the latest internal walk \(p3dev-\S+ \w{10}\) is not clean \(ok false, 1 failure\(s\)\); its findings open the next round, and the rounds repeat until one is clean \(BD-R1\)/);
-  // A clean internal walk: 2. no release yet.
-  push(root, { fixed: 'x\n', 'build/round.md': '- [x] C-1 · whole product · fixed\n' });
+  push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: internal walk ${r1.row.slug} ${r1.row.commit.slice(0, 10)})* step\n` });
+  assert.throws(close, /tranche close waits: the walk p3dev-\S+ \w{10} ended round 1; round 2 opens from its findings: layer 2 \(round 2, map layer 1\) for a/);
+  // a fixed and walked again: a clean internal walk. 2. no release yet.
+  push(root, { fixed: 'x\n', 'build/requirements/a.md': 'all met\n' });
   const r2 = deployDev(root, { io, repo, log: quiet });
   assert.equal(r2.row.internal_walk.ok, true);
   assert.throws(close, /tranche close waits: no development release since the clean internal walk p3dev-\S+ \w{10}: node \S+ release dev, then the release deployment and its walk \(BD-R1\)/);
@@ -433,6 +433,17 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   assert.match(named.steps[0], /installer update for release v1, on Bob's approval: .*workflow_id installer-update\.yml.*inputs \{"version":"v1"\}; it waits in the protected environment that names Bob as required reviewer/);
   assert.match(named.steps[1], /civicsmith\.dev update .*workflow_id site-update\.yml/);
   assert.deepEqual(named.gaps, []);
+  // A finding that names no module: no round can place it; the close waits on BOB naming one.
+  push(root, { 'process/found/no-module.md': '# no module\n\n- **F1** *(not yet met: walk p3dev-x 0123456789)* somewhere\n' });
+  assert.throws(close, /tranche close waits: F1 in the found file of no module: BOB names its module/);
+  push(root, { 'process/found/no-module.md': '# no module\n' });
+  assert.ok(close().ok);
+  // A round's layer merged after the clean walk: its fixes are unwalked; the close waits on its walk.
+  state({ 'layerflow/2/open.json': JSON.stringify({ row: 'open', layer: 2, tranche: 'tranche', at: later, round: { n: 2, of: 1, mods: ['a'], items: [] } }), 'layerflow/2/merged.json': JSON.stringify({ row: 'merged', layer: 2, at: new Date(Date.parse(r2.row.at) + 5000).toISOString() }) });
+  assert.throws(close, /tranche close waits: every layer of round 2 has merged: its walk ends it \(the round-close run\)/);
+  // The next run's internal walk, required, did not run: not clean, whatever comes after it.
+  state({ 'deploys/dev.jsonl': `${JSON.stringify({ row: 'dev-deploy', tranche: 'tranche', slug: 'p3dev-z', commit: 'c'.repeat(40), ok: true, walk: { failures: 0 }, at: new Date(Date.parse(r2.row.at) + 9000).toISOString() })}\n` });
+  assert.throws(close, /tranche close waits: the latest internal walk \(p3dev-z cccccccccc\) is not clean \(it did not run\); its findings open the next round, and the rounds repeat until one is clean \(BD-R1\)/);
 });
 
 // The internal walk (Bob, 4 Nov; K4111, K4162, K4781): journey-check's local arm, its report the
