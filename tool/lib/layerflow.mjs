@@ -38,7 +38,8 @@ import { completionItems, openItems, parseCompletion } from './completion.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
 import { census, censusLines } from './census.mjs';
 import { landedFrom } from './landed.mjs';
-import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerOf, layerOfBranch, layersAt, safeName } from './layerbase.mjs';
+import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundOf, safeName } from './layerbase.mjs';
+import { deployRowsOf, findingsOf, flawedModules, roundLine, roundState, unplaced, walkHold } from './rounds.mjs';
 import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
@@ -310,7 +311,7 @@ export const outstanding = (reschedules, lands, user, anc) => reschedules.filter
 //                do (COMPLETE before the layer opened, no unmet requirement mark);
 //   not started  no job yet: one can start; a module that joined the layer from a layer behind it
 //                (layer join: the coordinator's ruling, 6 Nov) is not started until it lands here.
-export function moduleStates({ mods, entries, marks, prs, lands, reschedules, anc, joins = new Map(), earlies = new Map(), items = new Map(), itemIds = new Map(), owed = new Set() }) {
+export function moduleStates({ mods, entries, marks, prs, lands, reschedules, anc, joins = new Map(), earlies = new Map(), items = new Map(), itemIds = new Map(), owed = new Set(), itemWord = 'completion item(s)' }) {
   // A module's item ids, from the items themselves: their words may hold '; ' and ': ' (copy, 8 Nov:
   // interface-assets read "CR2-3, CR2-21, today mk-updband is drawn ..."); split only without them.
   const idsOf = (id) => (itemIds.get(id) || items.get(id).split('; ').map((x) => x.split(': ')[0])).join(', ');
@@ -334,8 +335,9 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     // Started early (R14) and no pull request into the layer: its start did not finish, or its PR
     // closed; job start resumes it as any unfinished start (cold review of R14).
     if (earlies.has(id) && !j) return { ...base, state: 'not started', early: earlies.get(id).from, why: `started early while layer ${earlies.get(id).from} was open; no pull request into the layer: job start resumes it` };
-    // A completion layer's module, its own or joined (C33, PD-14): its open items are its work.
-    if (items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `completion item(s) ${idsOf(id)}${j ? `, joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}` : ''}` };
+    // A completion layer's module, its own or joined (C33, PD-14), or a round layer's (BD-R1): its
+    // open items, or its found marks, are its work.
+    if (items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `${itemWord} ${idsOf(id)}${j ? `, joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}` : ''}` };
     if (j) return { ...base, state: 'not started', why: `joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}: ${j.why}` };
     if (e?.status?.state === 'COMPLETE' && !m.length) return { ...base, state: 'complete', why: 'COMPLETE before the layer opened, no unmet mark' };
     return { ...base, state: 'not started', why: e ? `${e.status?.state}${m.length ? `, unmet ${m.join(', ')}` : ''}` : 'no ledger entry' };
@@ -503,7 +505,9 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
     else if (runs.some((r) => whole(r, id))) doneWork.set(id, { pr: k });
   }
   const anc = (a, b) => isAnc(root, a, b);
-  let states = moduleStates({ mods, joins, items: itemReopen(L.completion, rows.joins, rows.items), itemIds: itemIdMap(L.completion, rows.joins, rows.items), owed: new Set(mods.filter((id) => itemsOwed(rows, id).length)), earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
+  // A completion layer's items, or a round layer's found marks (BD-R1): its modules' reopen words.
+  const work = L.completion || L.round;
+  let states = moduleStates({ mods, joins, items: itemReopen(work, rows.joins, rows.items), itemIds: itemIdMap(work, rows.joins, rows.items), itemWord: L.round ? 'found mark(s)' : 'completion item(s)', owed: new Set(mods.filter((id) => itemsOwed(rows, id).length)), earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
     .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)`, ...(doneWork.has(x.id) ? { done_work: doneWork.get(x.id).pr, ...(doneWork.get(x.id).unknown ? { done_unknown: true } : {}) } : {}) } : x))
     // A retest refused since its newest outstanding reschedule: a job re-tests it.
     .map((x) => (x.outstanding?.length && (rows.retest_refusals || []).some((r) => r.module === x.id && String(r.at) >= String(x.outstanding.map((o) => o.at).sort().at(-1))) ? { ...x, retest_refused: true } : x));
@@ -518,7 +522,7 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   // act is the join (PD-14), then its job; listed beside the layer's starts (C35). A module already
   // in the layer joins its new items the same way (PD-14 (i)).
   const joinable = L.completion ? joinableItems(root, cfg, `refs/remotes/origin/${cfg.tranche}`, mods, n, new Set(layerItems(L.completion, rows.joins, rows.items).map((x) => x.id))) : [];
-  return { n, ref, mods, layers, rows, entries, prs, holding, states, order, providers, ...(L.completion ? { completion: L.completion } : {}), ...(joinable.length ? { joinable } : {}) };
+  return { n, ref, mods, layers, rows, entries, prs, holding, states, order, providers, ...(L.completion ? { completion: L.completion } : {}), ...(L.round ? { round: L.round } : {}), ...(joinable.length ? { joinable } : {}) };
 }
 
 // Whether a layer is behind us when the flow starts mid-tranche (the copy switches after layer 6,
@@ -565,6 +569,10 @@ function layerBehind(root, cfg, L, closed, ref) {
 // deferred, no PR open into the layer), { kind: 'next', n } (the next layer, not open),
 // { kind: 'stale', n } (its rows an earlier tranche's), { kind: 'done' } (every layer merged) or
 // { kind: 'none' } (no layer map: jobs keep the tranche, next work is the flow's).
+// The rounds at the tranche (rounds.mjs roundState), read as the flow reads it.
+export function nextRound(root, cfg, layers, tr) {
+  return roundState(root, cfg, tr, { layers, flows: (k) => flowRows(root, cfg.state_branch, k), lastWalk: deployRowsOf(root, cfg).at(-1) || null, flawed: flawedModules(root, cfg, tr) });
+}
 export function openLayer(root, cfg, { slug, io = {} } = {}) {
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
@@ -583,13 +591,15 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     const x = readLayer(root, cfg, n, { io, slug });
     let early = { next: null, list: [], skipped: [] };
     try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
-    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
+    return { kind: 'open', n, ...(layer.round ? { round: layer.round.n, of: layer.round.of } : {}), states: x.states, prs: x.prs, startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
   }
-  // Every layer merged and the completion round has open items with a module: its layer is next
-  // (C33), so status names `layer open <n>` and the idle checks see the act owed.
-  let due = [];
-  try { due = openItems(completionItems(root, cfg, tr)).filter((x) => !x.whole); } catch { due = []; }
-  if (due.length) return { kind: 'next', n: (layers.at(-1)?.n ?? 0) + 1, completion: true };
+  // Every layer merged (BD-R1, rounds.mjs): the round's next layer for its flawed modules, or the
+  // next round's first once a walk ended this one; else the round waits on its walk, or is clean.
+  // No completion layer opens any more: the copy's layer 12 was the last (Bob, 8 Nov).
+  let rs = null;
+  try { rs = nextRound(root, cfg, layers, tr); } catch { rs = null; }
+  if (rs?.next) return { kind: 'next', n: rs.next.n, round: rs.next.round, of: rs.next.of, mods: rs.next.mods, ...(rs.state === 'new' ? { walk: rs.walk } : {}) };
+  if (rs) return { kind: 'done', round: rs.round, rounds: rs.state };
   return { kind: 'done' };
 }
 // ---- early starts into the next layer (R14) ----------------------------------------------
@@ -756,10 +766,10 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   const v = view || openLayer(root, cfg, { slug, io });
   const { n } = v;
   if (v.kind === 'stale') return [`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`];
-  if (v.kind === 'next') return [`layer flow: layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : ''} is next and not open: \`${P3} layer open ${n}\``];
+  if (v.kind === 'next') return [`layer flow: layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : v.round ? ` (round ${v.round}, map layer ${v.of}${v.walk ? `, from the walk ${v.walk}` : ''}; ${v.mods.join(', ')})` : ''} is next and not open: \`${P3} layer open ${n}\``];
   if (v.kind === 'none') return [`layer flow: no layer map (${cfg.layers_file}): jobs start on the tranche from next work`];
-  if (v.kind === 'done') return ['layer flow: every layer has merged'];
-  const L = [...(v.sync ? [v.sync.line] : []), `layer flow: layer ${n} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
+  if (v.kind === 'done') return [v.rounds === 'walk' ? `layer flow: every layer of round ${v.round} has merged; its walk ends it (the round-close run, BD-R1)` : v.rounds === 'clean' ? `layer flow: every layer has merged; the walk ended round ${v.round}, and no module is flawed` : 'layer flow: every layer has merged'];
+  const L = [...(v.sync ? [v.sync.line] : []), `layer flow: layer ${n}${v.round ? ` (round ${v.round}, map layer ${v.of})` : ''} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
   if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? afterNote(q.after) : ''}`));
   if (v.early?.length) L.push(earlyHead(n, v.early_next), ...v.early.map((q) => `- ${q.cmd}`));
@@ -862,30 +872,9 @@ export function layerJoin(root, id, { why, by = 'bob', log = console.log } = {})
 
 // ---- layer open -----------------------------------------------------------------------------
 
-// The completion round's layer (PLN-4; PD-12; C33): layer n one past every layer the map and
-// earlier completion layers hold, when completion_file on the tranche has open items. Its modules
-// are those items' (file order, each once); a module's reopen is its items' words. A whole-product
-// item starts no job (it is ticked or deferred by hand; tranche close waits on it); an item that
-// names no ledger module, or a line not in the item form, refuses the open.
-export function completionLayer(root, cfg, layers, n, tr, log = () => {}) {
-  const last = layers.at(-1)?.n ?? 0;
-  if (n !== last + 1) fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}${last ? `; the next past it is ${last + 1}` : ''}`);
-  const c = completionItems(root, cfg, tr);
-  if (!c || c.missing) fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${c ? `${c.file}, the completion_file, is not on ${cfg.tranche}` : 'process/config.json names no completion_file'}: no completion round to open`);
-  const open = openItems(c);
-  if (!open.length) fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${c.file} has no open item: no completion round to open`);
-  const bad = open.filter((x) => x.malformed);
-  if (bad.length) fail(`${c.file} has lines not in the item form (\`- [ ] <id> · <module> · <what>\`): ${bad.map((x) => x.id).join(', ')}; fix them, then open the completion round; nothing was opened`);
-  const ids = ledgerIds(root, tr);
-  const unknown = open.filter((x) => !x.whole && !ids.has(x.target));
-  if (unknown.length) fail(`${c.file}: ${unknown.map((x) => `${x.id} names ${x.target}`).join(', ')}, which ${unknown.length > 1 ? 'are' : 'is'} no ledger module on ${cfg.tranche}; fix the item or land the entry, then open the completion round; nothing was opened`);
-  const whole = open.filter((x) => x.whole);
-  if (whole.length) log(`${c.file}: ${whole.map((x) => x.id).join(', ')} name the whole product: no job starts for ${whole.length > 1 ? 'them' : 'it'}; tick or defer by hand (tranche close waits on each)`);
-  const items = open.filter((x) => !x.whole).map((x) => ({ id: x.id, module: x.target, what: x.what }));
-  const mods = [...new Set(items.map((x) => x.module))];
-  log(`layer ${n} is the completion round of ${c.file}: ${mods.length} module(s) from ${items.length} open item(s) (${items.map((x) => `${x.id} ${x.module}`).join(', ')})`);
-  return { n, mods, completion: { file: c.file, items, mods } };
-}
+// A completion layer (PLN-4; PD-12; C33) was opened past the map from completion_file's open items;
+// BD-R1 retires the path (roundLayer opens a round's layers instead). One already open, the copy's
+// layer 12, keeps its items, joins and ticks below until it merges.
 // A completion layer's reopen words per module: its items, each with its id.
 export const itemReopen = (completion, joins = [], more = []) => {
   const all = layerItems(completion, joins, more);
@@ -914,6 +903,36 @@ export const itemsOwed = (rows, id) => {
   return (rows.items || []).filter((r) => r.module === id && !(rows.lands || []).some((l) => l.module === id && t(l) > t(r) && did(l, r)));
 };
 
+// A round's layer (BD-R1, rounds.mjs): layer n, one past every layer the map and those past it
+// hold, is the round's next: the next map layer, after the round's last, that holds a flawed module
+// (one with an unmet found mark), skipping those with none; or, once a walk ended the round, the
+// next round's first. Its modules are the flawed ones there, each reopened with its found marks.
+// A new round opens only once the walk's findings are recorded, and none is left without a module.
+export function roundLayer(root, cfg, layers, n, tr, log = () => {}) {
+  const last = layers.at(-1)?.n ?? 0;
+  if (n !== last + 1) fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}${last ? `; the next past it is ${last + 1}` : ''}`);
+  // Every layer before it closed first, as layer open checks them: a round's layer follows them all.
+  const closed = closedLayers(root, cfg.state_branch, cfg);
+  for (const L of layers) {
+    const r = flowRows(root, cfg.state_branch, L.n);
+    if (r.open && !r.merged) fail(`layer ${L.n} is open on ${layerBranch(L.n)} and has not merged; layer ${n} opens after it (${P3} layer merge ${L.n})`);
+    if (!r.merged && !layerBehind(root, cfg, L, closed, tr)) fail(`layer ${L.n} is not closed: close it first (${P3} layer open ${L.n}, then layer merge ${L.n})`);
+  }
+  const rs = nextRound(root, cfg, layers, tr);
+  if (rs.state === 'layer') fail(`${roundLine(rs)}: layer ${n} opens after it (${P3} layer merge ${rs.layer.n})`);
+  if (rs.state === 'walk') fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${roundLine(rs)}: no round layer opens before that walk (BD-R1); nothing was opened`);
+  if (rs.state === 'clean') fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${roundLine(rs)}: no round to open (BD-R1); nothing was opened`);
+  if (rs.state === 'new') {
+    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null));
+    if (hold) fail(`round ${rs.round} opens from its walk's findings once each is recorded: ${hold}; nothing was opened`);
+    const loose = unplaced(root, tr);
+    if (loose.length) fail(`round ${rs.round} cannot place ${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), then the round opens; nothing was opened`);
+  }
+  const x = rs.next;
+  const skipped = (layers.filter((L) => !L.completion && !L.round).map((L) => L.n)).filter((k) => k < x.of && k > (rs.state === 'new' ? 0 : Math.max(0, ...layers.filter((L) => L.round && L.round.n === x.round).map((L) => L.round.of))));
+  log(`layer ${n} is round ${x.round}'s pass over map layer ${x.of}${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')})${skipped.length ? `; map layer${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped, no flawed module` : ''}`);
+  return { n, mods: x.mods, round: { n: x.round, of: x.of, mods: x.mods, items: x.items, ...(x.walk ? { walk: x.walk } : {}) } };
+}
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
   n = layerNum(n);
   const cfg = loadConfig(root);
@@ -923,8 +942,9 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   fetchState(root, cfg.state_branch, { fresh: true });
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   const layers = layersAt(root, cfg, tr);
-  // Past the map: the completion round's layer (C33), its modules the open items', else refused.
-  const comp = layers.some((L) => L.n === n) ? null : completionLayer(root, cfg, layers, n, tr, log);
+  // Past the map: a round's layer (BD-R1), its modules the flawed ones of its map layer, else
+  // refused. A completion layer is opened no more (layer 12 on the copy was the last: Bob, 8 Nov).
+  const comp = layers.some((L) => L.n === n) ? null : roundLayer(root, cfg, layers, n, tr, log);
   if (comp) layers.push(comp);
   // One layer at a time: every earlier layer closed, merged, or with nothing left in it; this one
   // not closed already; and no job of its modules still open into the tranche (the train's).
@@ -987,14 +1007,14 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
     fetchBranch(root, b);
     log(`${b} cut from ${cfg.tranche} ${short(at)}`);
   } else log(`${b} is on origin at ${short(at)}`);
-  if (!rows.open) writeRows(root, cfg.state_branch, `layer ${n} open on ${b}${comp ? ' (the completion round)' : ''}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by, ...(comp ? { completion: comp.completion } : {}) }]]);
+  if (!rows.open) writeRows(root, cfg.state_branch, `layer ${n} open on ${b}${comp ? ` (round ${comp.round.n}, map layer ${comp.round.of})` : ''}`, [[flowFile(n, 'open'), { row: 'open', layer: n, branch: b, tranche: cfg.tranche, from: at, at: now(), by, ...(comp ? { round: comp.round } : {}) }]]);
   // Holds on this layer's modules end at its open, recorded as hold --end records them.
   const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
   const s = startableOf(L);
-  log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
+  log(`${layerName(layers.find((x) => x.n === n), n)}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
-  return { ok: true, branch: b, from: at, startable: s, ended };
+  return { ok: true, branch: b, from: at, startable: s, ended, round: roundOf(layers.find((x) => x.n === n)) };
 }
 
 export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
@@ -1008,14 +1028,15 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const sync = syncOwed(root, cfg, n);
   if (sync) log(sync.line);
   const s = startableOf(L);
-  log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
+  const name = layerName(L.layers.find((x) => x.n === n), n);
+  log(s.length ? `${name}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `${name}: no job can start`);
   for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   // The early list is a suggestion: unread, layer jobs still lists the layer's own (cold review of R14).
   let e;
   try { e = earlyNext(root, cfg, n, L); } catch (err) { if (!(err instanceof Error)) throw err; e = { next: null, list: [], skipped: [] }; log(`note: the early starts were not read (${err.message})`); }
   if (e.list.length) { log(earlyHead(n, e.next)); for (const x of e.list) log(`  ${x.cmd}`); }
   if (e.skipped.length) log(`not early (layer ${e.next}): ${e.skipped.map((x) => `${x.id} (${x.why})`).join('; ')}`);
-  return { ok: true, startable: s, states: L.states, sync, early: e.list, early_next: e.next };
+  return { ok: true, startable: s, states: L.states, sync, early: e.list, early_next: e.next, round: roundOf(L.layers.find((x) => x.n === n)) };
 }
 
 export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
@@ -1026,6 +1047,7 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   const ahead = cutAhead(root, cfg.state_branch, n);
   if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
+  log(`${layerName(L.layers.find((x) => x.n === n), n)}, round ${roundOf(L.layers.find((x) => x.n === n))}:`);
   for (const s of L.states) log(`${s.id}: ${s.state} (${s.why})`);
   const ready = mergeReady(L.states) && !L.holding.length && !L.joinable?.length;
   const done = L.states.filter((s) => s.done_work);
@@ -1375,7 +1397,7 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   const home = (u) => joinedTo.get(u) ?? layerOf(layers, u);
   // A joined module, or one a completion layer reopens (C33), notices its users from its map layer
   // on: those in merged layers come back through the notice (cold review of C33).
-  const floor = joinedTo.get(id) === n || layers.find((L) => L.n === n)?.completion ? (layerOf(layers, id) ?? n) : n;
+  const floor = joinedTo.get(id) === n || layers.find((L) => L.n === n)?.completion || layers.find((L) => L.n === n)?.round ? (layerOf(layers, id) ?? n) : n;
   const same = users.filter((u) => home(u) === n && (!reach || reach.has(u)));
   // The old rule's count reads every declared user in the layer, whatever reach filtered (cold review).
   const sameAll = usersOf(root, cfg, id, after).filter((u) => home(u) === n);
@@ -2262,7 +2284,11 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
   // The time budget: the layer's modules (its map, and every module its rows name), their start
   // and complete rows as the layer branch holds them.
   const lref = layerRef(n);
-  const mapped = layersAt(root, cfg, git(['rev-parse', '--verify', '-q', lref], { cwd: root, allowFail: true }).code === 0 ? lref : null).find((l) => l.n === n)?.mods || [];
+  const at = layersAt(root, cfg, git(['rev-parse', '--verify', '-q', lref], { cwd: root, allowFail: true }).code === 0 ? lref : null).find((l) => l.n === n);
+  const mapped = at?.mods || [];
+  // The round it ran in (BD-R1): a round layer's own, else 1; the map layer a round layer passed over.
+  m.round = roundOf(at);
+  if (at?.round) m.of = at.round.of;
   const mods = new Set([...mapped, ...rows.runs.map((r) => r.module), ...rows.lands.map((l) => l.module), ...rows.tests.map((t) => t.module), ...rows.gates.map((g) => g.module)]);
   const attempts = Object.fromEntries([...mods].map((id) => [id, rowsAt(root, lref, id)]));
   m.time_budget = timeBudget(mods, { attempts, tests: rows.tests, runs: rows.runs, gates: rows.gates, since: rows.open?.at ?? null });
@@ -2273,7 +2299,7 @@ export function layerReport(root, n, { log = console.log, toolFrom = null, toolT
     m.tool_lines = { from: toolFrom, to: toolTo, added: ins, removed: del };
   }
   const c = m.reschedule_changed_result;
-  log(`layer ${n}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.lands_breaking} breaking and ${m.lands_additive} additive land(s); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests_owed} retest(s) owed by additive changes, ${m.retests} retest(s), ${m.retest_lands} landed; ${m.starts} job start(s), ${m.early_starts} early; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
+  log(`${layerName(at, n)}${at?.round ? '' : `, round ${m.round}`}: ${m.modules} module(s); open to merged ${m.hours_open_to_merged}${typeof m.hours_open_to_merged === 'number' ? ' h' : ''}; ${m.gate_runs} gate run(s) over ${m.lands} land(s); ${m.reschedules} reschedule(s) from ${m.interface_changes} interface change(s); a reschedule changed its user's result ${c.changed} time(s) (unchanged ${c.unchanged}, unknown ${c.unknown}); ${m.lands_breaking} breaking and ${m.lands_additive} additive land(s); ${m.reschedules_old_rule} reschedule(s) under the old trigger rule, ${m.reschedules_avoided} avoided; ${m.retests_owed} retest(s) owed by additive changes, ${m.retests} retest(s), ${m.retest_lands} landed; ${m.starts} job start(s), ${m.early_starts} early; ${m.halted_runs} run(s) halted, ${m.minutes_lost_to_halts} min lost${m.tool_lines ? `; tool lines +${m.tool_lines.added} -${m.tool_lines.removed}` : ''}`);
   log(budgetLine(m.time_budget));
   let notices = [];
   try { notices = noticeRecords(root, cfg.state_branch); } catch { notices = []; }

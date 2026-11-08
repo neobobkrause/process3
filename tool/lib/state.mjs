@@ -389,6 +389,7 @@ export const STATE_LOGS = [
   { match: (f) => /^metrics\/[^/]+\.jsonl$/.test(f), why: 'measurement rows (sweeps, refusals, wakes, restarts, tranche opens), each read as a set or by its newest time' },
   { match: (f) => /^github\/use\/[^/]+\.jsonl$/.test(f), why: "a session's minutes of GitHub use, read as a set by minute; a refused share is marked pending, never sent again, so shares never overlap" },
   { match: (f) => f === 'deploys/dev.jsonl', why: 'development deploy records, the newest by time last' },
+  { match: (f) => f === 'deploys/release.jsonl', why: 'release walks (BD-R1), the newest per version by time last' },
 ];
 // The jsonl files the state branch holds that are not line logs, each with why (state-logs.test holds
 // every jsonl the tool writes to one list or the other).

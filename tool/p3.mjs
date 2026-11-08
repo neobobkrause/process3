@@ -18,7 +18,7 @@ import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs'
 import { leadInputs } from './lib/lead.mjs';
 import { merge, mergePlain } from './lib/merge.mjs';
 import { capCheck } from './lib/cap.mjs';
-import { deployDev, walkInternal } from './lib/deploy.mjs';
+import { deployDev, deployRelease, walkInternal } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
 import { hold, OWED_FILE, owe, owes, paidUpTo, paysOwed } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
@@ -399,6 +399,9 @@ const commands = {
   // deploy dev [--slug <s>]: BOB's development deployment and walk at a round close (development
   // only, the product's own Cloudflare account): dry run behind the guard line, deploy, walk, one row.
   'deploy dev': (a, root) => (deployDev(root, { slug: a.slug === true ? fail('--slug <s>') : a.slug }).ok ? 0 : 1),
+  // deploy release <version>: the release deployment and its walk (BD-R1); no path installs a cut
+  // release on a p3dev- deployment yet, so it names the act and the gap, and exits 1.
+  'deploy release': (a, root) => (deployRelease(root, String(one(a, 'version'))).ok ? 0 : 1),
   // walk internal: the product's internal walk (deploy.internal_walk) alone, any time, no deploy; its reports on the state branch.
   'walk internal': (a, root) => (walkInternal(root).ok ? 0 : 1),
   // release run checks|assemble [--out <results.json>] [--log-dir <dir>]: the shim's read-only jobs

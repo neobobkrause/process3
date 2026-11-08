@@ -16,6 +16,7 @@ import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { loadRanges, platformRows } from './size.mjs';
 import { collectMasks, redact, roundAt, runSource, walkHold } from './deploy.mjs';
+import { internalClean } from './rounds.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -80,6 +81,11 @@ export function releaseReady({ rc, w }) {
   if (!w.last) return { ok: false, why: `${rc.round} is closed but not yet deployed: \`${P3} deploy dev\` first, then its walk's findings, then the release` };
   const hold = walkHold(w);
   if (hold) return { ok: false, why: hold };
+  // BD-R1 (Bob, 8 Nov): the release deployment comes once "an internal walk doesn't find flaws":
+  // the round's walk ran after its last merge, no module is left flawed, and the run's internal walk
+  // (where the run has one) found nothing.
+  if (rc.rounds?.state === 'walk') return { ok: false, why: `${rc.round}'s layers merged after the latest walk (${runSource(w.last)}): its walk is owed first (\`${P3} deploy dev\`)` };
+  if (w.last.internal_walk && !internalClean(w.last)) return { ok: false, why: `the internal walk of ${runSource(w.last)} found flaws: they open the next round, and the release comes once an internal walk is clean (BD-R1)` };
   return { ok: true, why: `${rc.round} closed, deployed and walked (${runSource(w.last)}${w.failing ? `, ${w.failing} finding(s) recorded` : ''})` };
 }
 

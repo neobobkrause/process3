@@ -1331,7 +1331,9 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
       const ls = layersAtFlow(root, cfg, ref);
       const comp = ls.filter((L) => L.completion).at(-1);
       const live = comp && !flowRowsOf(root, cfg.state_branch, comp.n).merged;
-      if (ls.length) start = () => (live ? `${P3} layer jobs ${comp.n}` : `${P3} layer open ${(ls.at(-1)?.n ?? 0) + 1} (the completion layer)`);
+      // BD-R1 (Bob, 8 Nov): no completion layer opens any more; an item left once the open one
+      // merged is a flaw of its module, entered as a found mark, so a round's layer runs it.
+      if (ls.length) start = (id) => (live ? `${P3} layer jobs ${comp.n}` : `no completion layer opens (BD-R1): enter it as a found mark (\`${P3} found ${id} "<the item>" --from "<its source>"\`) and tick it, so a round's layer runs it`);
     } catch { /* the plain act */ }
   }
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);

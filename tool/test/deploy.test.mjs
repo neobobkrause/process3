@@ -350,12 +350,14 @@ test('no per-layer deploy wording left in the README, the tool, its prompts or t
   }
 });
 
-test('rounds: every layer closed is the first round\'s close; the walk\'s findings make the completion round, open until each is done, then its close owes the next deploy', () => {
+// BD-R1 (Bob, 8 Nov): a walk ends the round; its findings, as found marks, open the next round
+// over the map's layers; that round's close owes the next deploy and walk.
+test('rounds: every layer closed is the first round\'s close; the walk\'s findings open round 2, its layer past the map; once it merges, round 2 closes and owes the next deploy', () => {
   const report = node(`const fs = require('fs'); const fixed = fs.existsSync('fixed'); fs.mkdirSync('out', { recursive: true }); fs.writeFileSync('out/report.json', JSON.stringify({ steps: [], failures: fixed ? [] : [{ kind: 'http-500' }] })); process.exit(fixed ? 0 : 1)`);
   const { root } = withOrigin({
-    'process/config.json': { deploy: { ...DEP, walk: report, walk_reports: ['out/report.json'] }, completion_file: 'build/round.md' },
+    'process/config.json': { deploy: { ...DEP, walk: report, walk_reports: ['out/report.json'] } },
     'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n',
-    'build/requirements/a.md': 'all met\n', 'build/round.md': '# Completion round\n', 'out/.gitignore': '*\n',
+    'build/requirements/a.md': 'all met\n', 'process/ledger/a.json': done('a'), 'test/a/x.test.mjs': PASS, 'out/.gitignore': '*\n',
   });
   opened(root);
   git(['push', '-q', 'origin', 'main'], { cwd: root });
@@ -363,13 +365,74 @@ test('rounds: every layer closed is the first round\'s close; the walk\'s findin
   assert.match(see(root).text, /FIRST: the round-close run is owed \(the first round closed, not yet deployed\): .* deploy dev, .*; job starts do not wait for it/);
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, false);
   const first = git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10);
-  push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: walk p3dev-l1 ${first})* http-500\n`, 'build/round.md': '- [ ] C-1 · a · F1\n' });
-  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /never between layers \(the completion round is open: C-1 open in build\/round\.md; 1 found mark\(s\) of p3dev-l1 unmet\)/);
+  push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: walk p3dev-l1 ${first})* http-500\n` });
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), new RegExp(`never between layers \\(the walk p3dev-l1 ${first} ended round 1; round 2 opens from its findings: layer 2 \\(round 2, map layer 1\\) for a`));
   assert.doesNotMatch(see(root).text, /round-close run is owed/);
-  push(root, { 'build/requirements/a.md': 'all met\n', 'build/round.md': '- [x] C-1 · a · F1\n', fixed: 'x\n' });
-  assert.match(see(root).text, /FIRST: the round-close run is owed \(the completion round closed since \w+ was deployed\)/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /tranche close waits: the walk p3dev-l1 \w+ ended round 1; round 2 opens from its findings/);
+  // Round 2's layer opens, and merges with a's fix: round 2 closed, its walk owed.
+  const state = (files) => { onState(root, files); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
+  state({ 'layerflow/2/open.json': JSON.stringify({ row: 'open', layer: 2, tranche: 'tranche', at: new Date().toISOString(), round: { n: 2, of: 1, mods: ['a'], items: [] } }) });
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /round 2 is open: layer 2 \(round 2, map layer 1\) has not merged/);
+  push(root, { 'build/requirements/a.md': 'all met\n', fixed: 'x\n' });
+  state({ 'layerflow/2/merged.json': JSON.stringify({ row: 'merged', layer: 2, at: new Date().toISOString() }) });
+  assert.match(see(root).text, /FIRST: the round-close run is owed \(round 2 closed since \w+ was deployed\)/);
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, true);
   assert.ok(trancheClose(root, { slug: repo, io: closeIO, log: quiet }).ok);
+});
+
+// BD-R1 (Bob, 8 Nov): "until an internal walk doesn't find flaws, the release deployment happens,
+// and the walk of the release also doesn't identify flaws. When the release walk is clean, the
+// installer is updated for that release, then the civicsmith.dev website is updated": tranche close
+// refuses in that order, then names the two updates, each on Bob's approval, a gap where no
+// workflow runs one.
+test('tranche close (BD-R1): refused until a clean internal walk, then a release, then a clean release walk; then the installer update, then the site update, before the merges', () => {
+  const inner = node(`const fs = require('fs'); fs.mkdirSync('out/local', { recursive: true }); const ok = fs.existsSync('fixed'); fs.writeFileSync('out/local/report.json', JSON.stringify({ steps: [{ ok }], failures: ok ? [] : [{ kind: 'step' }] })); process.exit(ok ? 0 : 1)`);
+  const dep = { ...DEP, internal_walk: { run: inner, reports: ['out/local/report.json'] } };
+  const REL = { checks: [['true']], assemble: ['true'], out: 'out/rel' };
+  const { root } = withOrigin({
+    'process/config.json': { deploy: dep, release: REL },
+    'build/layers.md': '| layer | what | modules |\n|---|---|---|\n| 1 | first | a |\n',
+    'build/requirements/a.md': 'all met\n', 'process/ledger/a.json': done('a'), 'test/a/x.test.mjs': PASS, 'out/.gitignore': '*\n',
+  });
+  opened(root);
+  git(['push', '-q', 'origin', 'main'], { cwd: root });
+  push(root, { 'x.txt': 'the tranche past main\n' });
+  const state = (files) => { onState(root, files); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
+  const close = () => trancheClose(root, { slug: repo, io: closeIO, log: quiet });
+  // 1. The internal walk found a flaw (recorded as a known gap here, so no round opens): not clean.
+  const r1 = deployDev(root, { io, repo, log: quiet });
+  assert.equal(r1.row.internal_walk.ok, false);
+  push(root, { 'build/round.md': `- [ ] C-1 · whole product · step on ${r1.row.slug} ${r1.row.commit.slice(0, 10)}; deferred: a known gap\n`, 'process/config.json': { deploy: dep, release: REL, completion_file: 'build/round.md' } });
+  assert.throws(close, /tranche close waits: the latest internal walk \(p3dev-\S+ \w{10}\) is not clean \(ok false, 1 failure\(s\)\); its findings open the next round, and the rounds repeat until one is clean \(BD-R1\)/);
+  // A clean internal walk: 2. no release yet.
+  push(root, { fixed: 'x\n', 'build/round.md': '- [x] C-1 · whole product · fixed\n' });
+  const r2 = deployDev(root, { io, repo, log: quiet });
+  assert.equal(r2.row.internal_walk.ok, true);
+  assert.throws(close, /tranche close waits: no development release since the clean internal walk p3dev-\S+ \w{10}: node \S+ release dev, then the release deployment and its walk \(BD-R1\)/);
+  // A release cut before that walk does not count; one after it does: 3. its walk owed, no path (gap).
+  const later = new Date(Date.parse(r2.row.at) + 1000).toISOString();
+  state({ 'releases/dev.jsonl': `${JSON.stringify({ row: 'dev-release', tranche: 'tranche', version: 'v0', conclusion: 'success', commit: r2.row.commit, at: '2000-01-01T00:00:00Z' })}\n` });
+  assert.throws(close, /no development release since the clean internal walk/);
+  state({ 'releases/dev.jsonl': `${JSON.stringify({ row: 'dev-release', tranche: 'tranche', version: 'v1', conclusion: 'success', commit: r2.row.commit, at: later })}\n` });
+  assert.throws(close, /tranche close waits: the release deployment of v1 and its walk are owed: node \S+ deploy release v1; GAP: no path yet installs the cut, signed release onto a p3dev- deployment/);
+  // The release walk found a flaw: refused; clean: the close goes on.
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: false, failures: 2, at: later })}\n` });
+  assert.throws(close, /tranche close waits: the walk of release v1 found 2 flaw\(s\); recorded as found marks, they open the next round \(BD-R1\)/);
+  state({ 'deploys/release.jsonl': `${JSON.stringify({ row: 'release-walk', tranche: 'tranche', version: 'v1', commit: r2.row.commit, ok: true, failures: 0, at: later })}\n` });
+  const c = close();
+  assert.equal(c.ok, true);
+  assert.equal(c.release, 'v1');
+  // 4 then 5: the installer update, then the site update, each on Bob's approval; no workflow: gaps.
+  assert.match(c.steps[0], /^the installer update for release v1, on Bob's approval: GAP, no workflow runs it yet \(process\/config\.json installer_update names none\)/);
+  assert.match(c.steps[1], /^the civicsmith\.dev update to refer to the new install of v1, on Bob's approval: GAP, no workflow runs it yet \(process\/config\.json site_update names none\)/);
+  assert.match(c.steps.slice(2).join('\n'), /create_pull_request .*"head":"tranche","base":"main"/, 'the merges after them');
+  assert.deepEqual(c.gaps.map((g) => g.split(':')[0]), ['installer_update', 'site_update']);
+  // Named workflows: dispatched through the protected environment, in order.
+  push(root, { 'process/config.json': { deploy: dep, release: REL, installer_update: { workflow: 'installer-update.yml' }, site_update: { workflow: 'site-update.yml' } } });
+  const named = close();
+  assert.match(named.steps[0], /installer update for release v1, on Bob's approval: .*workflow_id installer-update\.yml.*inputs \{"version":"v1"\}; it waits in the protected environment that names Bob as required reviewer/);
+  assert.match(named.steps[1], /civicsmith\.dev update .*workflow_id site-update\.yml/);
+  assert.deepEqual(named.gaps, []);
 });
 
 // The internal walk (Bob, 4 Nov; K4111, K4162, K4781): journey-check's local arm, its report the

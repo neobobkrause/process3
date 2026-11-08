@@ -14,7 +14,10 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { compare } from './github.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { deploys, walkFindings, walkHold } from './deploy.mjs';
+import { deploys, roundsAt, walkFindings, walkHold } from './deploy.mjs';
+import { internalWalkOf } from './deploycfg.mjs';
+import { RELEASES_FILE } from './release.mjs';
+import { RELEASE_WALKS_FILE, internalClean, releaseWalks, roundLine, runSource, walkClean } from './rounds.mjs';
 import { P3, wakeLine } from './job.mjs';
 import { recordRefusal } from './metrics.mjs';
 import { tipApprovals } from './roles.mjs';
@@ -210,16 +213,14 @@ export function trancheClose(root, { record = false, report = false, log = conso
     const left = openItems(c);
     if (left.length) fail(`completion round not done: ${left.map((x) => (x.malformed ? `${x.id} (not an item line)` : `${x.id} (${x.target})`)).join(', ')} open in ${c.file}; tick each when done, or mark it "deferred: <reason>"`);
   }
-  // The last round's deploy and walk (Bob, 4 Nov): one run at least, and the latest's findings
-  // each recorded, as a found mark owed or a known gap, or a fresh run at the next round's close.
-  if (deploys(cfg)) {
-    const w = walkFindings(root, cfg, t, { slug, read });
-    if (!w.last) fail(`the last round's deploy and walk are owed before the tranche closes: ${P3} deploy dev`);
-    const hold = walkHold(w);
-    if (hold) fail(`tranche close waits: ${hold}`);
-  }
+  // The tranche's end (BD-R1, Bob, 8 Nov): "This successive set of rounds continues until an
+  // internal walk doesn't find flaws, the release deployment happens, and the walk of the release
+  // also doesn't identify flaws. When the release walk is clean, the installer is updated for that
+  // release, then the civicsmith.dev website is updated to refer to the new install, and that ends
+  // the tranche." Refused in that order; then the two updates, each on Bob's approval.
+  const end = deploys(cfg) ? trancheEnd(root, cfg, t, { plan, slug, read }) : null;
   const [owner, repo] = slug.split('/');
-  const steps = [];
+  const steps = [...(end?.steps || [])];
   if (onBranch(root, slug, cfg.tranche, main, read)) log(`main ${main.slice(0, 10)} is already in ${cfg.tranche}: no merge of main into it`);
   else {
     steps.push(`create_pull_request {"owner":"${owner}","repo":"${repo}","head":"main","base":"${cfg.tranche}","title":"Merge main into ${cfg.tranche}","body":"Brings the tranche up to main before it closes."}`);
@@ -230,5 +231,62 @@ export function trancheClose(root, { record = false, report = false, log = conso
   steps.push(`\`${P3} tranche close --record\``);
   log(`BOB's acts to close ${cfg.tranche} at ${tip.slice(0, 10)}, each its own command; a refused act is never reworded or rerouted:`);
   steps.forEach((s, i) => log(`${i + 1}. ${s}`));
-  return { ok: true, steps };
+  return { ok: true, steps, ...(end ? { release: end.release, gaps: end.gaps } : {}) };
+}
+
+// The approval-gated updates after a clean release walk (BD-R1; Bob's answer the same day: "Process,
+// on my approval"): each runs only through the protected GitHub environment that names Bob as
+// required reviewer, a workflow of the product's own. process/config.json names each workflow as
+// installer_update and site_update ({ "workflow": "<file in .github/workflows>" }); one not named is a
+// gap, reported, never a deploy step the tool invents. No session touches the installer worker or
+// the site itself.
+export const END_ACTS = [
+  { key: 'installer_update', what: (v) => `the installer update for release ${v}` },
+  { key: 'site_update', what: (v) => `the civicsmith.dev update to refer to the new install of ${v}` },
+];
+export function endActs(cfg, version, slug, branch) {
+  const [owner, repo] = slug.split('/');
+  const steps = [];
+  const gaps = [];
+  for (const a of END_ACTS) {
+    const wf = cfg[a.key]?.workflow;
+    if (typeof wf === 'string' && /^[\w.-]+\.ya?ml$/.test(wf)) steps.push(`${a.what(version)}, on Bob's approval: the GitHub connector's actions_run_trigger: run_workflow, workflow_id ${wf}, owner ${owner}, repo ${repo}, ref ${branch}, inputs {"version":"${version}"}; it waits in the protected environment that names Bob as required reviewer`);
+    else {
+      gaps.push(`${a.key}: no workflow in ${slug} runs ${a.what(version)} (process/config.json names none)`);
+      steps.push(`${a.what(version)}, on Bob's approval: GAP, no workflow runs it yet (process/config.json ${a.key} names none); bring it to Bob through the coordinator, and the close waits on his word`);
+    }
+  }
+  return { steps, gaps };
+}
+
+// The end of the rounds and the release (BD-R1), refused in order: no round open; a clean internal
+// walk; a release cut after it; a clean walk of that release, installed on a p3dev- deployment.
+// Then the installer and site updates, named in order. Without an internal walk configured, the
+// walk the deploy row records stands for it; without a release block, the tranche cuts no release.
+export function trancheEnd(root, cfg, t, { plan, slug, read }) {
+  const w = walkFindings(root, cfg, t, { slug, read });
+  if (!w.last) fail(`the last round's deploy and walk are owed before the tranche closes: ${P3} deploy dev`);
+  const hold = walkHold(w);
+  if (hold) fail(`tranche close waits: ${hold}`);
+  // The plan's close (PLN-5, your word) ends the tranche where it stands: the latest run's findings
+  // recorded, as before; the rounds and the release are not owed.
+  if (plan === 'close') return { steps: [], gaps: [], release: null };
+  const rs = roundsAt(root, cfg, t, w);
+  if (rs.state === 'layer' || rs.state === 'next' || rs.state === 'new') fail(`tranche close waits: ${roundLine(rs)} (BD-R1: rounds repeat until an internal walk finds no flaw)`);
+  // 1. A clean internal walk: the latest round-close run's.
+  // Exempt by Bob's word (deploycfg internalWalkOf), or not configured: the run's own walk stands for it.
+  const iw = !!w.last.internal_walk || !!internalWalkOf(cfg.deploy?.internal_walk)?.walk;
+  const clean = iw ? internalClean(w.last) : walkClean(w.last);
+  if (!clean) fail(`tranche close waits: the latest ${iw ? 'internal walk' : 'walk'} (${runSource(w.last)}) is not clean (${iw ? `${w.last.internal_walk ? `ok ${w.last.internal_walk.ok}, ${Number(w.last.internal_walk.failures) || 0} failure(s)` : 'it did not run'}` : `ok ${w.last.ok}, ${Number(w.last.walk?.failures) || 0} failure(s)`}); its findings open the next round, and the rounds repeat until one is clean (BD-R1)`);
+  if (!cfg.release) return { steps: [], gaps: [], release: null };
+  // 2. The release deployment: a development release cut after that walk.
+  const rel = jsonl(readState(root, cfg.state_branch, RELEASES_FILE)).filter((r) => r.row === 'dev-release' && r.tranche === cfg.tranche && r.conclusion === 'success' && String(r.at) > String(w.last.at)).at(-1);
+  if (!rel) fail(`tranche close waits: no development release since the clean internal walk ${runSource(w.last)}: ${P3} release dev, then the release deployment and its walk (BD-R1)`);
+  // 3. The walk of the release: of that release installed on a p3dev- deployment.
+  const rw = releaseWalks(root, cfg).filter((r) => r.version === rel.version).at(-1);
+  if (!rw) fail(`tranche close waits: the release deployment of ${rel.version} and its walk are owed: ${P3} deploy release ${rel.version}; GAP: no path yet installs the cut, signed release onto a p3dev- deployment (no row in ${RELEASE_WALKS_FILE}), brought to Bob through the coordinator`);
+  if (!(rw.ok === true && !(Number(rw.failures) > 0))) fail(`tranche close waits: the walk of release ${rel.version} found ${Number(rw.failures) || 1} flaw(s); recorded as found marks, they open the next round (BD-R1)`);
+  // 4 and 5. The installer, then the site: each on Bob's approval, named in order.
+  const e = endActs(cfg, rel.version, slug, cfg.tranche);
+  return { ...e, release: rel.version };
 }
