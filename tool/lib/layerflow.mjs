@@ -320,9 +320,9 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     // Started early (R14) and no pull request into the layer: its start did not finish, or its PR
     // closed; job start resumes it as any unfinished start (cold review of R14).
     if (earlies.has(id) && !j) return { ...base, state: 'not started', early: earlies.get(id).from, why: `started early while layer ${earlies.get(id).from} was open; no pull request into the layer: job start resumes it` };
+    // A completion layer's module, its own or joined (C33, PD-14): its open items are its work.
+    if (items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `completion item ${items.get(id).split(': ')[0]}${j ? `, joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}` : ''}` };
     if (j) return { ...base, state: 'not started', why: `joined from ${j.from === null ? 'no layer' : `layer ${j.from}`}: ${j.why}` };
-    // A completion layer's module (C33): its open items are its work, whatever its entry says.
-    if (items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `completion item ${items.get(id).split(': ')[0]}` };
     if (e?.status?.state === 'COMPLETE' && !m.length) return { ...base, state: 'complete', why: 'COMPLETE before the layer opened, no unmet mark' };
     return { ...base, state: 'not started', why: e ? `${e.status?.state}${m.length ? `, unmet ${m.join(', ')}` : ''}` : 'no ledger entry' };
   });
@@ -385,6 +385,20 @@ export const mergeReady = (states) => states.every((s) => DONE.includes(s.state)
 // Whether a listed act takes a job session (a slot under the cap): every job start does; an additive
 // change's `layer retest` runs in CI with none (C25: the idle check counted it as a slot's work).
 export const needsSlot = (j) => !j?.additive;
+// A layer's starts, and for a completion layer the joins its open items owe (C35).
+export const startableOf = (x) => [...startable(x.states), ...(x.joinable || [])];
+// The open items of completion_file whose module the layer does not hold, one join act per module.
+export function joinableItems(root, cfg, tr, mods, n) {
+  let c = null;
+  try { c = completionItems(root, cfg, tr); } catch { c = null; }
+  const have = new Set(mods);
+  const due = openItems(c).filter((x) => !x.whole && !x.malformed && !have.has(x.target));
+  return [...new Set(due.map((x) => x.target))].map((id) => {
+    const its = due.filter((x) => x.target === id);
+    const why = its.map((x) => `${x.id}: ${x.what}`).join('; ');
+    return { id, join: true, items: its.map((x) => x.id), cmd: `${P3} layer join ${id} --why ${JSON.stringify(why.length > 200 ? `${its.map((x) => x.id).join(', ')} (${c.file})` : why)}, then ${P3} layer jobs ${n} and its job start` };
+  });
+}
 export const afterNote = (after) => `   (${after.join(', ')} not landed yet: start it now on a free slot, this plain job start, no --early (R10); only a recorded hold waits)`;
 export function startable(states) {
   const list = states.flatMap((s) => {
@@ -470,7 +484,7 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
     else if (runs.some((r) => whole(r, id))) doneWork.set(id, { pr: k });
   }
   const anc = (a, b) => isAnc(root, a, b);
-  let states = moduleStates({ mods, joins, items: itemReopen(L.completion), earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
+  let states = moduleStates({ mods, joins, items: itemReopen(L.completion, rows.joins), earlies: new Map(rows.earlies.map((r) => [r.module, r])), entries, marks, prs, lands: rows.lands, reschedules: rows.reschedules, anc })
     .map((x) => (x.state === 'deferred' && blockedOn.has(x.id) ? { ...x, why: `${x.why} (on PR ${blockedOn.get(x.id)}'s head)`, ...(doneWork.has(x.id) ? { done_work: doneWork.get(x.id).pr, ...(doneWork.get(x.id).unknown ? { done_unknown: true } : {}) } : {}) } : x))
     // A retest refused since its newest outstanding reschedule: a job re-tests it.
     .map((x) => (x.outstanding?.length && (rows.retest_refusals || []).some((r) => r.module === x.id && String(r.at) >= String(x.outstanding.map((o) => o.at).sort().at(-1))) ? { ...x, retest_refused: true } : x));
@@ -481,7 +495,10 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   states.splice(0, states.length, ...order.map((id) => ({ ...byId.get(id), after: (providers.get(id) || []).filter((p) => !landedProvider(p, rows.lands, entries, marks)) })));
   // The open PRs that hold the merge: all but those of a module deferred by its PR head's BLOCKED.
   const holding = prs.filter((p) => !(blockedOn.has(p.module) && blockedOn.get(p.module) === p.number));
-  return { n, ref, mods, layers, rows, entries, prs, holding, states, order, providers, ...(L.completion ? { completion: L.completion } : {}) };
+  // An open item of completion_file whose module is not in the completion layer (added after its
+  // open): its act is the join (PD-14), then its job; listed beside the layer's starts (C35).
+  const joinable = L.completion ? joinableItems(root, cfg, `refs/remotes/origin/${cfg.tranche}`, mods, n) : [];
+  return { n, ref, mods, layers, rows, entries, prs, holding, states, order, providers, ...(L.completion ? { completion: L.completion } : {}), ...(joinable.length ? { joinable } : {}) };
 }
 
 // Whether a layer is behind us when the flow starts mid-tranche (the copy switches after layer 6,
@@ -546,7 +563,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     const x = readLayer(root, cfg, n, { io, slug });
     let early = { next: null, list: [], skipped: [] };
     try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
-    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startable(x.states), ready: mergeReady(x.states) && !x.holding.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
+    return { kind: 'open', n, states: x.states, prs: x.prs, startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
   }
   // Every layer merged and the completion round has open items with a module: its layer is next
   // (C33), so status names `layer open <n>` and the idle checks see the act owed.
@@ -761,9 +778,22 @@ export function layerPlace(root, cfg, id) {
   // is not behind (cold review of PR 191: status kept printing the join, then pointed past it).
   const joined = layers.find((L) => L.n !== own && (cur === null || L.n >= cur) && (() => { const r = flowRows(root, cfg.state_branch, L.n); return !r.merged && r.joins.some((j) => j.module === id); })())?.n ?? null;
   if (joined !== null) return { own, open, cur, target: joined, behind: false, joined };
+  // PD-14 (coordinator, 8 Nov; C35): while a completion layer is open, a module with an open item
+  // in completion_file that is not one of its modules joins THAT layer, never one after it.
+  const openL = open !== null ? layers.find((L) => L.n === open) : null;
+  // One of the open completion layer's own modules is in the open layer, not behind it.
+  if (openL?.completion && openL.mods.includes(id)) return { own: open, open, cur, target: open, behind: false, joined: null };
+  const items = openL?.completion && !openL.mods.includes(id) ? completionJoinItems(root, cfg, tr, id) : [];
+  if (items.length) return { own, open, cur, target: open, behind: true, joined: null, completion: items };
   const target = open !== null ? (layers.find((L) => L.n > open && !closed.has(L.n) && !flowRows(root, cfg.state_branch, L.n).merged)?.n ?? null) : next;
   const behind = own === null || (cur !== null && own < cur) || (cur === null);
   return { own, open, cur, target, behind, joined: null };
+}
+// A module's open, non-whole items in completion_file on the tranche, as a completion layer holds them.
+export function completionJoinItems(root, cfg, tr, id) {
+  let c = null;
+  try { c = completionItems(root, cfg, tr); } catch { c = null; }
+  return openItems(c).filter((x) => !x.whole && !x.malformed && x.target === id).map((x) => ({ id: x.id, module: id, what: x.what }));
 }
 export const joinAct = (id, why, t) => `${P3} layer join ${id} --why ${JSON.stringify(why)} (it joins layer ${t}, and starts from ${P3} layer jobs ${t} once that layer opens)`;
 
@@ -785,8 +815,9 @@ export function layerJoin(root, id, { why, by = 'bob', log = console.log } = {})
   const t = at.target;
   const f = flowFile(t, 'join', safeName(id));
   const had = flowRows(root, cfg.state_branch, t).joins.find((j) => j.module === id);
-  if (!had) writeRows(root, cfg.state_branch, `layer join: ${id} joins layer ${t}`, [[f, { row: 'join', layer: t, module: id, from: at.own, why: why.trim(), at: now(), by }]]);
-  log(`${id} ${had ? 'joined' : 'joins'} layer ${t}${had ? ` already (${had.why})` : `: ${why.trim()}`}; it starts from ${P3} layer jobs ${t} once layer ${t} opens (${P3} layer open ${t})`);
+  // Into an open completion layer (PD-14): its items go in the row, its reopen words and its ticks.
+  if (!had) writeRows(root, cfg.state_branch, `layer join: ${id} joins layer ${t}${at.completion ? ' (the completion round)' : ''}`, [[f, { row: 'join', layer: t, module: id, from: at.own, why: why.trim(), at: now(), by, ...(at.completion ? { items: at.completion } : {}) }]]);
+  log(`${id} ${had ? 'joined' : 'joins'} layer ${t}${had ? ` already (${had.why})` : `: ${why.trim()}`}${at.completion ? ` with ${at.completion.map((x) => x.id).join(', ')}` : ''}; it starts from ${P3} layer jobs ${t}${t === at.open ? '' : ` once layer ${t} opens (${P3} layer open ${t})`}`);
   return { ok: true, layer: t, recorded: !had };
 }
 
@@ -817,7 +848,12 @@ export function completionLayer(root, cfg, layers, n, tr, log = () => {}) {
   return { n, mods, completion: { file: c.file, items, mods } };
 }
 // A completion layer's reopen words per module: its items, each with its id.
-export const itemReopen = (completion) => new Map((completion?.mods || []).map((id) => [id, completion.items.filter((x) => x.module === id).map((x) => `${x.id}: ${x.what}`).join('; ')]));
+export const itemReopen = (completion, joins = []) => {
+  const all = layerItems(completion, joins);
+  return new Map([...new Set(all.map((x) => x.module))].map((id) => [id, all.filter((x) => x.module === id).map((x) => `${x.id}: ${x.what}`).join('; ')]));
+};
+// A completion layer's items: those of its open row and those its joined modules brought (PD-14).
+export const layerItems = (completion, joins = []) => (completion ? [...(completion.items || []), ...joins.flatMap((j) => (Array.isArray(j.items) ? j.items : []))] : []);
 
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
   n = layerNum(n);
@@ -896,7 +932,7 @@ export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = 
   // Holds on this layer's modules end at its open, recorded as hold --end records them.
   const ended = endLayerHolds(root, cfg.state_branch, n, [...mine], { by, log });
   const L = readLayer(root, cfg, n, { io, slug });
-  const s = startable(L.states);
+  const s = startableOf(L);
   log(`layer ${n}: ${L.mods.length} module(s); ${s.length} job(s) can start (the ${jobCap(cfg).line} across the account). BOB starts them; no other session creates a job:`);
   for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   return { ok: true, branch: b, from: at, startable: s, ended };
@@ -912,7 +948,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   const sync = syncOwed(root, cfg, n);
   if (sync) log(sync.line);
-  const s = startable(L.states);
+  const s = startableOf(L);
   log(s.length ? `layer ${n}: ${s.length} job(s) can start; BOB starts them (job start counts the cap):` : `layer ${n}: no job can start`);
   for (const x of s) log(`  ${x.cmd}${x.after ? afterNote(x.after) : ''}${x.retest ? `\n    or, with no job session (CI's gate re-tests it on a ready PR): ${x.retest}` : ''}${x.job ? `\n    (additive change: a red retest falls back to ${x.job})` : ''}`);
   // The early list is a suggestion: unread, layer jobs still lists the layer's own (cold review of R14).
@@ -1699,7 +1735,7 @@ export function tickLanded(root, cfg, n, L, log = console.log) {
   if (!onlyTicks(tt, lt)) fail(`${file} changed on ${cfg.tranche} since ${layerBranch(n)} was cut: run ${P3} layer sync ${n} first (it takes ${cfg.tranche}'s ${file}), then layer merge ${n}; nothing was opened`);
   const c = completionItems(root, { ...cfg, completion_file: file }, head);
   if (!c || c.missing) return null;
-  const mine = new Set(L.completion.items.map((x) => x.id));
+  const mine = new Set(layerItems(L.completion, L.rows.joins).map((x) => x.id));
   const due = openItems(c).filter((x) => mine.has(x.id) && landed.has(x.target));
   if (!due.length) { log(`layer ${n}: no completion item to tick (none of their modules landed)`); return null; }
   // Read whole (git() trims its output): the tick changes no byte but the boxes.
@@ -1966,7 +2002,7 @@ export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug
   if (typeof cf === 'string' && needSet.has(cf) && !own.has(cf)) {
     own.add(cf);
     const comp = layersAt(root, cfg, head).find((L) => L.n === n)?.completion;
-    const compItems = comp ? new Set(comp.items.map((x) => x.id)) : null;
+    const compItems = comp ? new Set(layerItems(comp, flowRows(root, cfg.state_branch, n).joins).map((x) => x.id)) : null;
     const landedIds = new Set(lands.map((x) => x.v.id));
     for (const c of touched.get(cf) || []) {
       const subj = git(['log', '-1', '--format=%s', c], { cwd: root });

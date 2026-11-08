@@ -12,7 +12,7 @@ import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap, layersAt } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
-  layerClear, layerStatus, layerSync, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
+  layerClear, layerJoin, layerStatus, layerSync, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -1892,4 +1892,55 @@ test('C33: layer merge refuses to tick over a completion file the tranche change
   const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => { throw new Error('no PR may open'); }, checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: () => { throw new Error('no merge'); } };
   await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /build\/round\.md changed on tranche since layer\/3 was cut: run node \S+ layer sync 3 first/);
   assert.doesNotMatch(git(['log', '-1', '--format=%s', 'origin/layer/3'], { cwd: root }), /^Tick completion items/, 'nothing ticked');
+});
+
+// C35 (PD-14): an item added to completion_file after the completion layer opened, for a module not
+// in it, joins that OPEN layer: status and layer jobs name the join, the join records the items, the
+// module starts as a reopen with its items' words, the merge waits on it, and ticks its items.
+test('C35: a module with a completion item added after the open joins the open completion layer, starts with its items, holds the merge, and is ticked', async () => {
+  const { root, bare } = completed('- [ ] CR-2 · a · strengthen the R1 test\n');
+  layerOpen(root, 3, { io: openIO, log: quiet });
+  // BOB adds CR-6 for c (COMPLETE, map layer 1) on the tranche.
+  const d = clone(bare);
+  git(['checkout', '-q', '-B', 'tranche', 'origin/tranche'], { cwd: d });
+  commit(d, { [ROUND]: '- [ ] CR-2 · a · strengthen the R1 test\n- [ ] CR-6 · c · the c fix provenance needs\n' }, 'CR-6');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: d });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND });
+  // Named as a join, in layer jobs and in the open layer's starts (status, idle checks).
+  const j0 = layerJobs(root, 3, { io: openIO, log: quiet });
+  assert.deepEqual(j0.startable.find((x) => x.id === 'c'), { id: 'c', join: true, items: ['CR-6'], cmd: 'node .process/tool/p3.mjs layer join c --why "CR-6: the c fix provenance needs", then node .process/tool/p3.mjs layer jobs 3 and its job start' });
+  assert.ok(openLayer(root, cfg, { slug: 'o/p', io: openIO }).startable.some((x) => x.id === 'c' && x.join));
+  // A module with no open item: the refusal stands.
+  assert.throws(() => layerJoin(root, 'b', { why: 'x', log: quiet }), /no layer follows layer 3/);
+  // The join, into the open layer 3, with its items.
+  const said = [];
+  const r = layerJoin(root, 'c', { why: 'CR-6', log: (l) => said.push(String(l)) });
+  assert.deepEqual([r.layer, r.recorded], [3, true]);
+  assert.match(said.join('\n'), /c joins layer 3: CR-6 with CR-6; it starts from node \S+ layer jobs 3$/);
+  assert.deepEqual(flowRows(root, SB, 3).joins.find((x) => x.module === 'c').items, [{ id: 'CR-6', module: 'c', what: 'the c fix provenance needs' }]);
+  // It starts as a reopen with its item's words, on layer/3.
+  const j1 = layerJobs(root, 3, { io: openIO, log: quiet });
+  assert.ok(j1.startable.some((x) => x.cmd === 'node .process/tool/p3.mjs job start c --sessions <file> --reopen "CR-6: the c fix provenance needs"'), JSON.stringify(j1.startable));
+  assert.ok(!j1.startable.some((x) => x.join), 'no join left');
+  assert.equal(jobCfg(root, loadConfig(root), 'c').layer?.n, 3);
+  // a lands; the merge waits on c, as on its own modules.
+  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 1; }\n' }, { n: 3 });
+  const hc = jobWork(bare, 'c', { 'src/c/index.mjs': 'export const c = 2;\n' }, { n: 3 });
+  const prs = { 7: prOf(7, 'a', ha, { base: { ref: 'layer/3' } }), 8: prOf(8, 'c', hc, { base: { ref: 'layer/3' } }) };
+  const lio = { ...landIO(bare, prs), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) };
+  await layerLand(root, 7, { io: lio, log: quiet });
+  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
+  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /c is not started/);
+  // layer sync brings the tranche's file (CR-6) onto the layer; c lands; the merge ticks both.
+  // The tick refuses until the layer holds the tranche's file (CR-6 was added there).
+  await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /c is not started|layer sync 3 first/);
+  const made = [];
+  await layerSync(root, 3, { io: { ...syncIO(bare, made), merge: (s, k, sha, title) => ghMerge(bare, 'layer/3', sha, title) }, log: quiet });
+  await layerLand(root, 8, { io: lio, log: quiet });
+  await layerMerge(root, 3, { io: mio, wait: false, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const round = git(['show', `origin/tranche:${ROUND}`], { cwd: root });
+  assert.match(round, /- \[x\] CR-2 · a/);
+  assert.match(round, /- \[x\] CR-6 · c/);
 });
