@@ -102,3 +102,8 @@ Consequences:
 - Builders remove product names from process3's tool, docs and tests (C40).
 - A product keeps its process3 content in one config-named subtree (C41).
 - ROOT starts every session with one repository (C42).
+
+## BD-R3: The installer-update and site-update workflows are built only once the walk before each is clean (Bob, 8 Nov)
+Context: under BD-R1 a clean release walk leads to the installer update, then the website update, each on Bob's approval. The product has no workflow for either yet; the coordinator proposed building both as round-2 work.
+Decision, in Bob's words (8 Nov): "build the installer only when the internal walk completes without the need for another round, and build the site update only once the external walks complete without the need for another round."
+Consequences: neither workflow is a found mark or a job in round 2. When a round's internal walk is clean (no further round owed), BOB starts the job that builds the installer-update workflow, behind the protected `release` environment that names Bob as required reviewer. When the release walk and any other external walks are clean, BOB starts the job that builds the site-update workflow the same way. Each runs only on Bob's approval in that environment (BD-R1). The scoped deploy token is Bob's to add to that environment, needed first when the installer-update workflow is built.
