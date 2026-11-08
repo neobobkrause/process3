@@ -55,6 +55,14 @@ test('the round rule (Bob, 5 Nov): a release only at a round close, deployed and
   assert.match(held.why, /with 2 finding\(s\), 1 recorded/);
   assert.deepEqual(releaseReady({ rc: shut, w: { ...none, last: row() } }), { ok: true, why: 'the first round closed, deployed and walked (p3dev-l2 bbbbbbbbbb)' });
   assert.match(releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 2 } }).why, /deployed and walked \(p3dev-l2 bbbbbbbbbb, 2 finding\(s\) recorded\)/);
+  // BD-R1: with the config, release dev reads cleanliness as tranche close does (cold review of C39):
+  // a walk with findings, or a required internal walk that did not run, is not clean.
+  // A found mark among them is a flaw for the next round; known gaps alone (Bob's deferrals) pass.
+  assert.match(releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 1, recorded: 2 } }, { deploy: {} }).why, /the walk of p3dev-l2 bbbbbbbbbb is not clean: its findings open the next round/);
+  assert.equal(releaseReady({ rc: shut, w: { last: row(false), failing: 2, marks: 0, recorded: 2 } }, { deploy: {} }).ok, true);
+  assert.match(releaseReady({ rc: shut, w: { ...none, last: row() } }, { deploy: { internal_walk: { run: ['x'], reports: [] } } }).why, /the internal walk of p3dev-l2 bbbbbbbbbb is not clean/);
+  assert.equal(releaseReady({ rc: shut, w: { ...none, last: { ...row(), internal_walk: { ok: true, failures: 0 } } } }, { deploy: { internal_walk: { run: ['x'], reports: [] } } }).ok, true);
+  assert.match(releaseReady({ rc: { ...shut, rounds: { state: 'walk' } }, w: { ...none, last: row() } }, { deploy: {} }).why, /merged after the latest walk \(p3dev-l2 bbbbbbbbbb\): its walk is owed first/);
 });
 
 // A product with origin: layer 1 of two, its modules complete, the release block in its config.

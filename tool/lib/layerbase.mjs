@@ -34,24 +34,33 @@ export function layersAt(root, cfg, ref) {
   const map = layerMap(text);
   return map.length ? [...map, ...completionLayers(root, cfg, map)] : map;
 }
-// The completion layers (PLN-4: the completion round has its own file; PD-12: reopens after the
-// plan's last layer go through it; C33): `layer open <last+1>`, once every layer of the map is
-// closed and completion_file has open items, opens one past the map, its modules those items' in
-// file order, recorded on its open row (completion: { file, items, mods }). Read from that row, so
-// the product's layer map is never edited; each later round opens the next number.
+// The layers past the map, each read from its open row, so the product's layer map is never edited:
+// - a completion layer (PLN-4 as it stood; PD-12; C33), its modules completion_file's open items'
+//   (completion: { file, items, mods }). Layer 12 on the copy is the last: BD-R1 (Bob, 8 Nov)
+//   retires the path once it merges, and no new one opens (layerflow.mjs roundLayer);
+// - a round layer (BD-R1, rounds.mjs): a later round's pass over one map layer, its modules the
+//   flawed ones there (round: { n, of, items, mods, walk }).
+// Each takes the next number, so its branch layer/<n> and its rows layerflow/<n>/ are its own.
 export function completionLayers(root, cfg, map) {
   const out = [];
   if (!cfg?.state_branch) return out;
   for (let k = (map.at(-1)?.n ?? 0) + 1; ; k++) {
     let row = null;
     try { row = JSON.parse(readState(root, cfg.state_branch, flowFile(k, 'open')) || 'null'); } catch { row = null; }
-    if (!Array.isArray(row?.completion?.mods)) break;
-    // An earlier tranche's completion layer is not this one's (cold review of C33).
+    const comp = Array.isArray(row?.completion?.mods);
+    const round = Array.isArray(row?.round?.mods);
+    if (!comp && !round) break;
+    // An earlier tranche's layer past the map is not this one's (cold review of C33).
     if (row.tranche && cfg.tranche && row.tranche !== cfg.tranche) break;
-    out.push({ n: k, mods: row.completion.mods, completion: row.completion });
+    out.push(comp ? { n: k, mods: row.completion.mods, completion: row.completion } : { n: k, mods: row.round.mods, round: row.round });
   }
   return out;
 }
+// The round a layer belongs to (BD-R1): a round layer's own; the map's layers and the completion
+// layer are round 1's (Bob, 8 Nov: "Finish, then switch": layer 12 finishes as this round's work).
+export const roundOf = (L) => L?.round?.n ?? 1;
+// How a layer is named in the flow's lines: "layer 13 (round 2, map layer 3)".
+export const layerName = (L, n = L?.n) => (L?.round ? `layer ${n} (round ${L.round.n}, map layer ${L.round.of})` : `layer ${n}`);
 export const layerOf = (layers, id) => layers.find((L) => L.mods.includes(id))?.n ?? null;
 // Every layer listing a module, newest first (a completion layer past the map reopens a module of an
 // earlier layer, C33; a map may list a module twice).

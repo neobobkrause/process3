@@ -9,15 +9,16 @@ import { basename, dirname, join, sep } from 'node:path';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { deploys, internalWalkOf, reportPaths, stepsOf } from './deploycfg.mjs';
 import { P3 } from './job.mjs';
-import { readLedgerTexts } from './ledger.mjs';
 import { fetchState, flushState, jsonl, pendingWrites, readState, unbatched, writeState } from './state.mjs';
 import { completionItems, openItems } from './completion.mjs';
-import { FOUND_DIR, foundMarks } from './found.mjs';
+import { DEPLOYS_FILE, findingsOf, flawedModules, roundLine, roundState, runSource, walkHold } from './rounds.mjs';
+import { flowRows } from './layerflow.mjs';
+import { layersAt } from './layerbase.mjs';
 import { closedRows, layerState, onMainOf, status } from './status.mjs';
 import { install } from './suite.mjs';
 import { Fail, NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run, withTemp } from './util.mjs';
 
-export const DEPLOYS_FILE = 'deploys/dev.jsonl';
+export { DEPLOYS_FILE };
 export const SLUG_PREFIX = 'p3dev-';
 const MINUTE = 60000;
 const KEYS = ['slug_prefix', 'dry_run', 'deploy', 'walk', 'guard_line', 'timeout_minutes', 'walk_reports', 'internal_walk'];
@@ -109,17 +110,19 @@ export function deployRows(root, cfg, at = {}) {
   return jsonl(readState(root, cfg.state_branch, DEPLOYS_FILE)).filter((r) => r.row === 'dev-deploy' && r.tranche === cfg.tranche && !onMain(String(r.commit)));
 }
 
-// The round close (Bob, 4 Nov): work runs in layers within rounds within tranches (PLN-1), and a
-// deploy and walk belong to the close of each round, never between layers. The first round closes
-// when every layer of the plan is closed; a later round (the completion round, completion_file)
-// when every item of it is done or deferred and no found mark of the latest walk is unmet; `plan`
-// `close` (as the tranche holds it) makes the current round the last, closed now. Only at a round
-// close is a deploy and walk owed or allowed; the tranche's end is its last round's close.
+// The round close (Bob, 4 Nov; BD-R1, Bob, 8 Nov): work runs in layers within rounds within
+// tranches (PLN-1), and a deploy and walk belong to the close of each round, never between layers.
+// The first round closes when every layer of the plan is closed (with the completion layer the copy
+// opened under PD-12, its last use). A later round (rounds.mjs) closes when every layer it opened
+// has merged and no flawed module waits in a map layer after its last; its walk ends it, and the
+// walk's findings, recorded as found marks, open the next round. `plan` `close` (as the tranche
+// holds it) makes the current round the last, closed now. Only at a round close is a deploy and
+// walk owed or allowed; the tranche's end is its last round's close.
 export function roundClose(root, cfg, { ls, plan = cfg.plan, closed = [], ref, w }) {
   const top = Math.max(0, ...closed.map((r) => r.layer)) || null;
-  // Under plan close the round after a walk is its completion round still: open while its items or
-  // the walk's found marks are, so recording the findings starts no fresh run (cold review of
-  // C23: the tool-started run would otherwise deploy again at the merge that records them).
+  // Under plan close the round after a walk is open while its items or the walk's found marks
+  // are, so recording the findings starts no fresh run (cold review of C23: the tool-started run
+  // would otherwise deploy again at the merge that records them).
   if (plan === 'close') {
     const items = w?.last ? openItems(completionItems(root, cfg, ref)).map((x) => x.id) : [];
     if (items.length || (w?.last && w.marks)) return { closed: false, why: `the last round (plan close) is open: ${[items.length ? `${items.join(', ')} open in ${cfg.completion_file}` : '', w.marks ? `${w.marks} found mark(s) of ${w.last.slug} unmet` : ''].filter(Boolean).join('; ')}` };
@@ -128,11 +131,17 @@ export function roundClose(root, cfg, { ls, plan = cfg.plan, closed = [], ref, w
   if (!ls) return { closed: false, why: `there is no layer map (${cfg.layers_file}) and the plan is not close` };
   const open = ls.layers.filter((L) => !L.closed).map((L) => L.n);
   if (open.length) return { closed: false, why: `the first round is open: layer${open.length > 1 ? 's' : ''} ${open.join(', ')} not closed` };
-  const layer = Math.max(0, ...ls.layers.map((L) => L.n)) || null;
-  if (!w.last) return { closed: true, round: 'the first round', layer };
-  const items = openItems(completionItems(root, cfg, ref)).map((x) => x.id);
-  if (items.length || w.marks) return { closed: false, why: `the completion round is open: ${[items.length ? `${items.join(', ')} open in ${cfg.completion_file}` : '', w.marks ? `${w.marks} found mark(s) of ${w.last.slug} unmet` : ''].filter(Boolean).join('; ')}` };
-  return { closed: true, round: 'the completion round', layer };
+  const rs = roundsAt(root, cfg, ref, w);
+  const layer = Math.max(0, ...ls.layers.map((L) => L.n), ...rs.layers.map((L) => L.n)) || null;
+  const name = (k) => (k === 1 ? 'the first round' : `round ${k}`);
+  if (rs.state === 'layer' || rs.state === 'next' || rs.state === 'new') return { closed: false, why: roundLine(rs), rounds: rs };
+  return { closed: true, round: name(rs.round), layer, rounds: rs };
+}
+// The rounds at `ref` (rounds.mjs roundState), the walk the latest deploy row's.
+export function roundsAt(root, cfg, ref, w) {
+  const layers = layersAt(root, cfg, ref);
+  const rs = roundState(root, cfg, ref, { layers, flows: (n) => flowRows(root, cfg.state_branch, n), lastWalk: w?.last || null, flawed: flawedModules(root, cfg, ref) });
+  return { ...rs, layers };
 }
 
 // The round at the tranche tip `t` (origin/<tranche>), as deploy dev and release dev read it, and as
@@ -155,23 +164,9 @@ export function roundAt(root, cfg, t, { io = {}, slug = null } = {}) {
 // this run, its slug and its commit (\`found ... --from "walk <slug> <commit>"\`, as deploy dev
 // prints it: the slug alone repeats across runs), in any requirement file (requirements_dir, the
 // ledger's) or found-work entry, and the completion items deferred naming it (known gaps).
-export const runSource = (row) => `${row.slug} ${String(row.commit).slice(0, 10)}`;
+export { runSource, walkHold };
 export function walkFindings(root, cfg, ref, at = {}) {
-  const last = deployRows(root, cfg, at).at(-1) || null;
-  if (!last) return { last, failing: 0, marks: 0, recorded: 0 };
-  const iw = last.internal_walk;
-  const failing = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0) + (iw ? Math.max(iw.ok ? 0 : 1, Number(iw.failures) || 0) : 0);
-  const tree = (d) => git(['ls-tree', '-r', '--name-only', ref, '--', d], { cwd: root, allowFail: true }).stdout.split('\n').filter((n) => n.endsWith('.md'));
-  const reqs = Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const r = JSON.parse(t).requirements; return typeof r === 'string' ? [r] : []; } catch { return []; } });
-  const words = (t) => String(t).split(/[^a-z0-9-]+/);
-  const naming = (t) => { const w = words(t); return w.includes(last.slug) && w.includes(String(last.commit).slice(0, 10)); };
-  let marks = 0;
-  for (const f of new Set([...tree(cfg.requirements_dir.replace(/\/$/, '')), ...tree(FOUND_DIR), ...reqs])) {
-    const r = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true });
-    if (r.code === 0) marks += foundMarks(r.stdout).filter((m) => naming(m.source)).length;
-  }
-  const gaps = (completionItems(root, cfg, ref)?.items || []).filter((x) => x.deferred && naming(x.what)).length;
-  return { last, failing, marks, recorded: marks + gaps };
+  return findingsOf(root, cfg, ref, deployRows(root, cfg, at).at(-1) || null);
 }
 
 // Owed at a round close: none yet, or the latest run had findings and the tranche has moved past
@@ -254,9 +249,6 @@ export function roundCloseRun(root, { log = console.log, io = {}, by = 'the merg
     return { ran: false, owed, act: ROUND_ACT, why };
   }
 }
-// The hold on tranche close: the latest run failed or its walk found failures, not all recorded.
-export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's) with its completion item, or a known gap (its completion item "deferred: <reason>" naming ${runSource(w.last)}), or deploy dev again at the next round's close` : null);
-
 const defaultIO = { exec: run };
 
 export function deployDev(root, { slug, log = console.log, io: given = {}, repo = repoSlug(root) } = {}) {
@@ -454,4 +446,19 @@ export function walkInternal(root, { log = console.log, io: given = {} } = {}) {
   if (stored.length) writeState(root, cfg.state_branch, `internal walk at ${head.slice(0, 10)}: ${r.ok ? 'ok' : 'findings'}`, (wt) => { for (const k of stored) { mkdirSync(join(wt, dir), { recursive: true }); writeFileSync(join(wt, k.stored), k.text); } });
   if (!r.ok) log(`its findings enter as found marks: \`${P3} found <module> "<finding>" --from "internal walk ${head.slice(0, 10)}"\``);
   return { ok: r.ok, internal_walk: r };
+}
+
+// deploy release <version> (BD-R1, Bob, 8 Nov: "the release deployment happens, and the walk of the
+// release also doesn't identify flaws"; coordinator, 8 Nov: an install of the cut, signed release
+// artifact onto a p3dev- deployment, through the release's own installer path, and its walk). No
+// path does that install yet: not process-dev-release (it cuts and publishes the draft only), not a
+// release-tier install-from-scratch or upgrade fixture (none in the product's workflows), not the
+// installer module (an interactive sign-in, its Worker pasted by hand). The act is named, with the
+// gap, and nothing is deployed or recorded: no deploy step is invented. Exit 1.
+export const RELEASE_PATH_GAP = 'no path yet installs the cut, signed release artifact onto a p3dev- deployment through the release\'s own installer path (process-dev-release cuts the draft release only; the product has no release-tier install-from-scratch or upgrade fixture; the installer installs only by an interactive sign-in)';
+export function deployRelease(root, version, { log = console.log } = {}) {
+  if (typeof version !== 'string' || !version.trim()) fail('deploy release <version>, the development release to install on a p3dev- deployment and walk');
+  log(`deploy release ${version}: the release deployment and its walk (BD-R1): the cut, signed release ${version} installed onto a p3dev- deployment, then walked; a clean walk lets the tranche close, and its findings open the next round`);
+  log(`GAP: ${RELEASE_PATH_GAP}; nothing deployed, nothing recorded; brought to Bob through the coordinator`);
+  return { ok: false, gap: RELEASE_PATH_GAP };
 }

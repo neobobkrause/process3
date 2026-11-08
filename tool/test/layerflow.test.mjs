@@ -16,6 +16,7 @@ import {
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
+import { parseCompletion } from '../lib/completion.mjs';
 import { Fail, configOf, git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -1837,24 +1838,28 @@ test('C32: a hand-made commit on the layer before a module\'s last land is still
 // items', without editing the map; layer jobs lists each as a reopen with the item's words; the
 // module's job runs on layer/<n>; a land, then layer merge ticks the item.
 const ROUND = 'build/round.md';
+// BD-R1 (Bob, 8 Nov) retires the completion layer's open: the copy's layer 12, opened under PD-12,
+// is the last. Each product here has layer 3 opened as that one was: its open row as the open wrote
+// it (completion: { file, items, mods }, the open items' modules in file order); layer open 3 then
+// cuts its branch, and the rest of its life (jobs, joins, lands, ticks, merge) runs as before.
 function completed(round, over = {}) {
   const p = product({ done: true, over, config: { completion_file: ROUND } });
   commit(p.root, { [ROUND]: round }, 'the completion round');
   git(['push', '-q', 'origin', 'tranche'], { cwd: p.root });
   git(['fetch', '-q', 'origin'], { cwd: p.root });
+  const items = parseCompletion(round).filter((x) => !x.done && !x.deferred && !x.whole).map((x) => ({ id: x.id, module: x.target, what: x.what }));
+  const mods = [...new Set(items.map((x) => x.module))];
+  writeRows(p.root, SB, 'layer 3 open (the completion round, under PD-12)', [[flowFile(3, 'open'), { row: 'open', layer: 3, branch: 'layer/3', tranche: 'tranche', at: new Date().toISOString(), by: 'bob', completion: { file: ROUND, items, mods } }]]);
+  fetchState(p.root, SB, { fresh: true });
   return p;
 }
-test('C33: the completion layer opens past the map, lists each open item as a reopen, runs its jobs on layer/<n>, and ticks a landed item at layer merge', async () => {
+test('C33: a completion layer opened under PD-12 (as the copy\'s layer 12) still works: it lists each open item as a reopen, runs its jobs on layer/<n>, and ticks a landed item at layer merge', async () => {
   const { root, bare } = completed('# Round\n\n- [x] CR-1 · c · done already\n- [ ] CR-2 · a · strengthen the R1 test\n- [ ] CR-3 · whole product · a walk of every screen\n- [ ] CR-4 · b · deferred: waits on a ruling\n- [ ] CR-5 · d · the d door\n', { d: { status: { state: 'BLOCKED', reason: 'waits on a ruling' } } });
-  // Before it opens: the completion layer is next (status's act, the idle checks' owed act).
-  const before = openLayer(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND }), { slug: 'o/p', io: openIO });
-  assert.deepEqual([before.kind, before.n, before.completion], ['next', 3, true]);
-  assert.match(layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND }), { slug: 'o/p', io: openIO, view: before }).join('\n'), /layer flow: layer 3 \(the completion round, build\/round\.md\) is next and not open: `node \.process\/tool\/p3\.mjs layer open 3`/);
+  // Opened under PD-12 (its open row, as the copy's layer 12's): layer open cuts its branch.
   const said = [];
   const o = layerOpen(root, 3, { io: openIO, log: (l) => said.push(String(l)) });
   assert.equal(o.ok, true);
-  assert.match(said.join('\n'), /layer 3 is the completion round of build\/round\.md: 2 module\(s\) from 2 open item\(s\) \(CR-2 a, CR-5 d\)/);
-  assert.match(said.join('\n'), /CR-3 name the whole product: no job starts for it/);
+  assert.match(said.join('\n'), /layer 3: 2 module\(s\); 1 job\(s\) can start/);
   const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND });
   assert.equal(git(['show', 'origin/tranche:build/layers.md'], { cwd: root }), layers.trimEnd(), 'the map is not edited');
   assert.deepEqual(layersAt(root, cfg, 'origin/tranche').map((L) => [L.n, L.mods.join(',')]), [[1, 'a,b,c'], [2, 'd'], [3, 'a,d']]);
@@ -1907,19 +1912,24 @@ test('C33: the completion layer opens past the map, lists each open item as a re
   assert.match(cover(other).map((f) => f.message).join('\n'), /which is not the tool's tick of this completion layer/, 'a tick titled for another layer');
 });
 
-test('C33: refused cleanly: an item naming no ledger module; a map layer still open; no completion file', () => {
-  const unknown = completed('- [ ] CR-1 · a · x\n- [ ] CR-2 · zz · nobody\n');
-  assert.throws(() => layerOpen(unknown.root, 3, { io: openIO, log: quiet }), /build\/round\.md: CR-2 names zz, which is no ledger module on tranche; fix the item or land the entry, then open the completion round; nothing was opened/);
-  assert.equal(git(['ls-remote', '--heads', 'origin', 'layer/3'], { cwd: unknown.root }), '', 'no branch cut');
+test('BD-R1: no completion layer opens any more: open items past the map open no layer before a walk; a map layer still open refuses as before', () => {
+  const p0 = product({ done: true, config: { completion_file: ROUND } });
+  commit(p0.root, { [ROUND]: '- [ ] CR-1 · a · x\n' }, 'round');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: p0.root });
+  git(['fetch', '-q', 'origin'], { cwd: p0.root });
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json', completion_file: ROUND });
+  const v = openLayer(p0.root, cfg, { slug: 'o/p', io: openIO });
+  assert.deepEqual([v.kind, v.round, v.rounds], ['done', 1, 'walk'], 'round 1 waits on its walk, no completion layer is next');
+  assert.match(layerLines(p0.root, cfg, { slug: 'o/p', io: openIO, view: v }).join('\n'), /layer flow: every layer of round 1 has merged; its walk ends it \(the round-close run, BD-R1\)/);
+  assert.throws(() => layerOpen(p0.root, 3, { io: openIO, log: quiet }), /layer 3 is not in build\/layers\.md on tranche, and every layer of round 1 has merged: its walk ends it \(the round-close run\): no round layer opens before that walk \(BD-R1\); nothing was opened/);
+  assert.equal(git(['ls-remote', '--heads', 'origin', 'layer/3'], { cwd: p0.root }), '', 'no branch cut');
   // A map layer still open (layer 1's marks unmet): the existing refusal.
   const p = product({ config: { completion_file: ROUND } });
   commit(p.root, { [ROUND]: '- [ ] CR-1 · a · x\n' }, 'round');
   git(['push', '-q', 'origin', 'tranche'], { cwd: p.root });
   git(['fetch', '-q', 'origin'], { cwd: p.root });
   assert.throws(() => layerOpen(p.root, 3, { io: openIO, log: quiet }), /layer 1 is not closed/);
-  // No completion file: not a layer.
   const none = product({ done: true });
-  assert.throws(() => layerOpen(none.root, 3, { io: openIO, log: quiet }), /layer 3 is not in build\/layers\.md on tranche, and process\/config\.json names no completion_file/);
   assert.throws(() => layerOpen(none.root, 5, { io: openIO, log: quiet }), /layer 5 is not in build\/layers\.md on tranche; the next past it is 3/);
 });
 

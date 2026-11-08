@@ -16,6 +16,7 @@ import { P3 } from './job.mjs';
 import { fetchState, jsonl, readState, writeState } from './state.mjs';
 import { loadRanges, platformRows } from './size.mjs';
 import { collectMasks, redact, roundAt, runSource, walkHold } from './deploy.mjs';
+import { internalRequired, runPassed } from './rounds.mjs';
 import { install } from './suite.mjs';
 import { buildGenerated, generatedRows } from './checks.mjs';
 import { NO_TOKENS, depth, fail, gh, git, keepStep, loadConfig, now, repoSlug, run } from './util.mjs';
@@ -75,11 +76,16 @@ export function releaseConfig(cfg) {
 // close holds them (walkHold). Not the tip: recording a finding moves it (review, 5 Nov). Found
 // marks reopen the round as the completion round; once met they no longer count as recorded, so
 // the release waits for that round's own deploy; known gaps (deferred items) let it go.
-export function releaseReady({ rc, w }) {
+export function releaseReady({ rc, w }, cfg = null) {
   if (!rc.closed) return { ok: false, why: `a release belongs to a round close, never between layers (${rc.why}); it becomes due when the round closes` };
   if (!w.last) return { ok: false, why: `${rc.round} is closed but not yet deployed: \`${P3} deploy dev\` first, then its walk's findings, then the release` };
   const hold = walkHold(w);
   if (hold) return { ok: false, why: hold };
+  // BD-R1 (Bob, 8 Nov): the release deployment comes once "an internal walk doesn't find flaws":
+  // the round's walk ran after its last merge, no module is left flawed, and the run's internal walk
+  // (where the run has one) found nothing.
+  if (rc.rounds?.state === 'walk') return { ok: false, why: `${rc.round}'s layers merged after the latest walk (${runSource(w.last)}): its walk is owed first (\`${P3} deploy dev\`)` };
+  if (cfg && !runPassed(cfg, w)) return { ok: false, why: `the ${internalRequired(cfg, w.last) ? 'internal walk' : 'walk'} of ${runSource(w.last)} is not clean: its findings open the next round, and the release comes once an internal walk is clean (BD-R1)` };
   return { ok: true, why: `${rc.round} closed, deployed and walked (${runSource(w.last)}${w.failing ? `, ${w.failing} finding(s) recorded` : ''})` };
 }
 
@@ -114,7 +120,7 @@ export function releaseDev(root, { version, record, log = console.log, io: given
   fetchState(root, cfg.state_branch, { fresh: true });
   const round = roundAt(root, cfg, t, { io, slug });
   if (round.s && round.s.prs === null) fail('GitHub unreadable: open pull requests not known, so the round cannot be judged');
-  const ready = releaseReady(round);
+  const ready = releaseReady(round, cfg);
   if (!ready.ok) fail(`no development release now: ${ready.why}`);
   const v = checkVersion(version === undefined ? defaultVersion(tip, new Date(git(['log', '-1', '--format=%cI', tip], { cwd: root }))) : String(version));
   const taken = io.remoteRefs(root, [`refs/tags/${tagOf(v)}`]).trim();
