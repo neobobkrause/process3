@@ -1241,9 +1241,10 @@ test('publication 632: an added export and expected rows that only gain a key ar
   const h2 = commit(d, { 'test/a/g47t-registry.test.mjs': rows(', pixels_sha256: null').replace("status: 'draft'", "status: 'withdrawn'") }, 'a value');
   git(['push', '-q', '-f', 'origin', 'job/a'], { cwd: d });
   prs[633] = prOf(633, 'a', h2);
+  opened.length = 0;
   const r2 = await layerLand(root, 633, { io: { ...landIO(bare, prs), retest: (x, u) => { opened.push(u); return { pr: { number: 700 + opened.length } }; } }, log: quiet });
   assert.deepEqual([r2.land.interface.class, r2.land.interface.test_only.by_tests, r2.land.interface.test_only.capped, r2.land.interface.test_only.earlier_source, r2.land.users_rescheduled], ['additive', 'breaking', 'PD-15', true, ['b']]);
-  assert.deepEqual(opened, ['b', 'b']);
+  assert.deepEqual(opened, ['b'], 'b retested by its gate alone');
 });
 
 test('layer retest refuses a module owed a job for a breaking change, even when an additive one followed (the retest\'s land would clear both)', async () => {
@@ -1675,7 +1676,9 @@ test('a test-only land after an earlier source land of the provider keeps its te
   const h3 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1]') });
   await layerLand(root, 3, { io: landIO(bare, { 3: prOf(3, 'a', h3) }), log: quiet });
   const h4 = jobWork(bare, 'a', { 'test/a/r2.test.mjs': t('[1, 1]') });
-  const r4 = await layerLand(root, 4, { io: { ...landIO(bare, { 4: prOf(4, 'a', h4) }), retest: () => ({ pr: null }) }, log: quiet });
+  const retested = [];
+  const r4 = await layerLand(root, 4, { io: { ...landIO(bare, { 4: prOf(4, 'a', h4) }), retest: (x, u) => { retested.push(u); return { pr: null }; } }, log: quiet });
+  assert.deepEqual(retested, ['b']);
   assert.equal(r4.land.interface.test_only.earlier_source, true);
   assert.deepEqual([r4.land.interface.class, r4.land.interface.test_only.by_tests, r4.land.users_rescheduled], ['additive', 'breaking', ['b']]);
 });
@@ -1712,7 +1715,7 @@ test('PD-15: a breaking test-only land after an earlier source land retests its 
   assert.match(interfaceText(ic), /only its own tests changed \(.*\) after an earlier land changed its source: its tests alone read breaking, capped at additive since this land changed neither source nor exports \(PD-15\): each user is retested by its gate alone; but c imports a changed test file: breaking for it/);
   fetchState(root, SB, { fresh: true });
   const rows = flowRows(root, SB, 1);
-  assert.deepEqual(rows.reschedules.filter((x) => x.provider_pr === 2).map((x) => [x.user, x.class]).sort(), [['b', 'additive'], ['c', 'breaking']]);
+  assert.deepEqual(rows.reschedules.filter((x) => x.provider_pr === 2).map((x) => [x.user, x.class, x.triggers.includes('test-import')]).sort(), [['b', 'additive', false], ['c', 'breaking', true]]);
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.equal(j.startable.find((x) => x.id === 'b').cmd, 'node .process/tool/p3.mjs layer retest b');
   assert.match(j.startable.find((x) => x.id === 'c').cmd, /job start c/);
@@ -1720,6 +1723,8 @@ test('PD-15: a breaking test-only land after an earlier source land retests its 
   const why = (id) => { try { layerRetest(root, id, { io: { ...openIO, slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: (s, p) => ({ number: 90, ...p }), addComment: () => ({ id: 1 }), markReady: () => {}, jobHeads: () => new Set() }, log: quiet }); return null; } catch (e) { return String(e.message); } };
   assert.doesNotMatch(why('b') || '', /breaking change/);
   assert.match(why('c'), /c owes a job for a's breaking change/);
+  // A land recorded before PD-15 (uncapped, breaking by its tests) reads as breaking.
+  assert.match(interfaceText({ class: 'breaking', test_only: { files: ['test/a/r2.test.mjs'], by_tests: 'breaking', earlier_source: true } }), /breaking by its tests alone: each user re-runs in a job/);
   // The report counts the land additive, b's retest owed and c's job.
   const m = layerReport(root, 1, { log: quiet }).measures;
   assert.deepEqual([m.lands_additive, m.lands_breaking, m.reschedules, m.retests_owed], [2, 0, 1, 2]);

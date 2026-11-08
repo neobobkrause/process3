@@ -259,7 +259,7 @@ export function interfaceText(ic) {
     const forImp = imp.length ? `${imp.join(', ')} import${imp.length === 1 ? 's' : ''} a changed test file: breaking for ${imp.length === 1 ? 'it' : 'them'}` : '';
     // After an earlier source land in the layer (PD-15): the tests' verdict, at most additive.
     if (ic.test_only.earlier_source) {
-      const v = ic.test_only.capped ? `its tests alone read ${ic.test_only.by_tests}, capped at additive since this land changed neither source nor exports (PD-15): each user is retested by its gate alone` : ic.test_only.by_tests === 'additive' ? 'additive: each user is retested by its gate alone' : 'no interface change for its users';
+      const v = ic.test_only.capped ? `its tests alone read ${ic.test_only.by_tests}, capped at additive since this land changed neither source nor exports (PD-15): each user is retested by its gate alone` : ic.test_only.by_tests === 'additive' ? 'additive: each user is retested by its gate alone' : ic.test_only.by_tests === 'breaking' ? 'breaking by its tests alone: each user re-runs in a job' : 'no interface change for its users';
       parts.push(`only its own tests changed (${ic.test_only.files.join(', ')}) after an earlier land changed its source: ${v}${forImp ? `; but ${forImp}` : ''}`);
       return parts.join('; ');
     }
@@ -1363,6 +1363,8 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
     for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
   }
   const classFor = (u) => (breakingFor.has(u) ? 'breaking' : ic.class);
+  // test-import names an importer's own row only, never a user's whose class the tests set (cold review of C38).
+  const triggersFor = (u) => (breakingFor.has(u) ? ic.triggers : (ic.triggers || []).filter((t) => t !== 'test-import'));
   const layers = layersAt(root, cfg, after);
   // Where each user's work is (R12; cold review of PR 191): joined to this layer, or to a later one
   // not merged, else its map layer. A joined provider's users from its own map layer on are noticed
@@ -1393,11 +1395,11 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (early.length) land.users_rescheduled_early = early;
   for (const u of early) {
     const k = earlyAt.get(u);
-    files.push([flowFile(k, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: k, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: classFor(u), early_from: n }]);
+    files.push([flowFile(k, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: k, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: triggersFor(u), class: classFor(u), early_from: n }]);
     log(`${u} started early into layer ${k}: rescheduled there by ${id}'s interface change; its job brings ${layerBranch(k)} up once layer ${k} opens, and its run counts only on a head that holds ${short(after)}`);
   }
   if (ic.changed) {
-    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: classFor(u) }]);
+    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: triggersFor(u), class: classFor(u) }]);
   }
   if (noticed.length) {
     const key = noticeKey(id, n0);
