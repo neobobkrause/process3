@@ -106,7 +106,7 @@ test('job cap: on the live shape (4 roles, 1 build, 18 jobs of two products), th
   assert.deepEqual([jobCap({}).cap, jobCap({}).line], [12, 'job cap 12 (P3_JOB_CAP)']);
   setJobCap(t, undefined);
   assert.deepEqual([jobCap({}).cap, jobCap({}).line], [20, 'job cap 20 (default)']);
-  assert.throws(() => capCheck(makeRepo({ 'README.md': 'x' }), {}), /--live <n>.*or --sessions <file>/);
+  assert.throws(() => capCheck(makeRepo({ 'README.md': 'x' }), {}), /job start <id> --sessions <file>/);
 });
 
 // One source of truth: no file of the tool but util.mjs reads the cap, its variable, or the old key, or writes the default.

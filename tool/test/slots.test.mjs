@@ -25,12 +25,21 @@ const view = (n = 5, over = {}) => ({
   kind: 'open', n: 11,
   states: [...Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, state: 'published', pr: 101 + i })), { id: 'w', state: 'working', pr: 200 }, { id: 's', state: 'not started' }],
   prs: [...Array.from({ length: n }, (_, i) => ({ number: 101 + i, draft: false, head: `h${i + 1}`, module: `p${i + 1}` })), { number: 200, draft: true, head: 'hw', module: 'w' }],
-  startable: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --live <n>` })),
+  startable: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --sessions <file>` })),
   ready: false, ...over,
 });
 // p3's gate red; p4 running; p5 never run; the rest green.
 const gates = { h3: run('failure'), h4: run(null, 'in_progress'), h5: null };
 const gate = (pr) => (pr.head in gates ? gates[pr.head] : run('success'));
+// A list_sessions result saved as JSON: one running job session per module named (C28: job start
+// counts from it, never from a typed number).
+const sessions = (ids) => {
+  const file = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json');
+  writeFileSync(file, JSON.stringify({ ccr: { data: ids.map((id) => ({ id: `session_${id}`, title: `job ${id}`, session_status: 'SESSION_STATUS_RUNNING' })) } }));
+  return file;
+};
+const others = (n) => Array.from({ length: n }, (_, i) => `x${i + 1}`);
+const twenty = () => sessions(['p1', 'p2', 'p3', 'p4', 'p5', 'w', ...others(14)]);
 
 test('PD-7: a published job holds no slot while its gate is pending or green; red, it resumes and holds one; unread, it holds one', () => {
   assert.equal(gateRed(run('failure')), true);
@@ -70,21 +79,21 @@ test('PD-7: job start counts the jobs working toward publish; a resumed job coun
   setJobCap(t, 20);
   const root = makeRepo({ 'README.md': 'x' });
   // 20 live of the cap 20, 4 published with a gate not red: 16 working, a start goes.
-  const r = capCheck(root, { live: '20', io: { view: view(), gate, slug: 'o/p' } });
+  const r = capCheck(root, { sessions: twenty(), io: { view: view(), gate, slug: 'o/p' } });
   assert.deepEqual([r.n, r.working, r.free, r.resumed], [20, 16, ['p1', 'p2', 'p4', 'p5'], ['p3']]);
   // Every published gate red: all resumed, the cap is full, and the message says how many live.
-  assert.throws(() => capCheck(root, { live: '20', io: { view: view(), gate: () => run('failure'), slug: 'o/p' } }),
+  assert.throws(() => capCheck(root, { sessions: twenty(), io: { view: view(), gate: () => run('failure'), slug: 'o/p' } }),
     /the job cap is full: 20 job sessions working of the cap 20 \(20 live; resumed on a red gate: p1, p2, p3, p4, p5\); nothing was started/);
   // The layer unread: every live session holds a slot, said.
   const said = [];
-  assert.throws(() => capCheck(root, { live: '20', log: (l) => said.push(l), io: { readView: () => fail('GitHub unreadable'), slug: 'o/p' } }), /the job cap is full: 20 job sessions working of the cap 20 \(20 live\)/);
+  assert.throws(() => capCheck(root, { sessions: twenty(), log: (l) => said.push(l), io: { readView: () => fail('GitHub unreadable'), slug: 'o/p' } }), /the job cap is full: 20 job sessions working of the cap 20 \(20 live\)/);
   assert.match(said.join('\n'), /the open layer was not read \(GitHub unreadable\): every live job session holds a slot/);
-  assert.deepEqual(capCheck(root, { live: '19', io: { view: null, slug: 'o/p' } }).working, 19, 'no open layer: every live session holds a slot');
+  assert.deepEqual(capCheck(root, { sessions: sessions(others(19)), io: { view: null, slug: 'o/p' } }).working, 19, 'no open layer: every live session holds a slot');
 });
 
 test('PD-7: the flow line counts working against the cap and keeps the live count; free slots and the queue follow working', (t) => {
   setJobCap(t, 20);
-  const v = view(5, { startable: [{ id: 's', cmd: `${P3} job start s --live <n>` }, { id: 'u', cmd: `${P3} job start u --live <n>` }] });
+  const v = view(5, { startable: [{ id: 's', cmd: `${P3} job start s --sessions <file>` }, { id: 'u', cmd: `${P3} job start u --sessions <file>` }] });
   const use = slotUse(20, publishedJobs(v, { gate }));
   const f = flow(configOf({}), [], [], 20, null, [], { view: v, use });
   assert.match(f.line, /^flow: working 16\/20 \(P3_JOB_CAP; live 20, 4 published holding no slot \(PD-7\); resumed on a red gate: p3\), startable 2/);
@@ -134,17 +143,27 @@ test('PD-7: the idle check subtracts only published jobs the measuring sweep saw
   assert.deepEqual(knownJobIds(root, SB, view(), { at: iso(T0), live_measured_at: iso(T0 - 60e3), job_ids: [] }), new Set(['p4']));
 });
 
-// job start --live: the latest sweep's job ids within its hour narrow the subtraction; with none,
-// every published job is taken as live (PD-7's default), said in the README.
-test('PD-7: job start --live subtracts the published jobs the latest sweep saw live', (t) => {
+// C28 (the coordinator, 8 Nov): on the copy BOB's start script passed --live 20, a number it typed,
+// and job start refused on the cap while 15 of 20 slots were empty (layer 11, 23:00-00:12Z). The
+// count comes from list_sessions only; a bare --live is refused; a refusal lists what it counted.
+test('C28: job start counts the cap from --sessions only; a typed --live is refused; a refusal lists the sessions counted', (t) => {
   setJobCap(t, 20);
   const root = makeRepo({ 'README.md': 'x\n' });
-  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
-  git(['init', '-q', '--bare', bare], { cwd: root });
-  git(['remote', 'add', 'origin', bare], { cwd: root });
-  const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
   const io = { view: view(), gate, slug: 'o/p' };
-  assert.equal(capCheck(root, { live: '20', io }).working, 16, 'no sweep row: all 4 published taken as live');
-  writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(Date.now()), row: 'sweep', live: 20, live_measured_at: iso(Date.now()), job_cap: 20, job_ids: ['p1', 'w'] }) + '\n'); });
-  assert.deepEqual(capCheck(root, { live: '20', io }).free, ['p1'], 'the sweep saw only p1 of the published live');
+  assert.throws(() => capCheck(root, { live: '20', io }), /^Error: --live 20 is not taken: job start <id> --sessions <file>: your list_sessions result saved as JSON/);
+  assert.throws(() => capCheck(root, { io }), /^Error: job start <id> --sessions <file>/);
+  assert.throws(() => capCheck(root, { sessions: true, io }), /job start <id> --sessions <file>/);
+  // The copy's case: 5 job sessions live, --live 20 typed beside them: counted 5, the start goes.
+  const said = [];
+  const r = capCheck(root, { live: '20', sessions: sessions(['p1', 'w', 'a', 'b', 'c']), io, log: (l) => said.push(l) });
+  assert.deepEqual([r.n, r.working, r.free], [5, 4, ['p1']]);
+  assert.match(said.join('\n'), /--live 20 ignored: the job sessions are counted from --sessions/);
+  // A refusal on the cap names each session it counted and whether it holds a slot.
+  setJobCap(t, 3);
+  let msg = '';
+  try { capCheck(root, { sessions: sessions(['p1', 'p3', 'w', 'a']), io }); } catch (e) { msg = e.message; }
+  assert.match(msg, /the job cap is full: 3 job sessions working of the cap 3 \(4 live; 1 published holding no slot \(PD-7\); resumed on a red gate: p3\); nothing was started\. Counted from --sessions:/);
+  assert.match(msg, /\n- session_p1 "job p1" SESSION_STATUS_RUNNING: published, holds no slot \(PD-7\)/);
+  assert.match(msg, /\n- session_p3 "job p3" SESSION_STATUS_RUNNING: resumed on a red gate, holds a slot/);
+  assert.match(msg, /\n- session_a "job a" SESSION_STATUS_RUNNING: holds a slot/);
 });

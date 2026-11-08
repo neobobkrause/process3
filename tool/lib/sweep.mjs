@@ -279,7 +279,7 @@ export function sweep(root, { session, live, sessions: sessionsFile, context, at
     const cap = c.cap;
     if (c.note) found.push(c.note);
     found.push(c.line);
-    // With list_sessions, the modules whose job sessions it saw: the idle check and job start --live
+    // With list_sessions, the modules whose job sessions it saw: the idle check and job start --sessions
     // subtract only a published job with a live session (cold review of C26).
     liveRow = { live: n, live_measured_at: now(), job_cap: cap, ...(listed ? { sessions: listed.filter((x) => !isArchived(x)).length, job_ids: [...liveJobIds(listed)].sort() } : {}) };
     // Over the cap: judged on the jobs working toward publish once the open layer is read below (PD-7:

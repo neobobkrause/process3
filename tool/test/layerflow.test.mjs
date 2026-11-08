@@ -189,7 +189,7 @@ test('BOB starts the layer\'s jobs: status --role bob lists them, and BOB\'s pro
   layerOpen(root, 1, { io: openIO, log: quiet });
   const lines = layerLines(root, cfg, { slug: 'o/p', io: openIO });
   assert.match(lines[0], /layer 1 open on layer\/1; .*not started 3/);
-  assert.ok(lines.includes('- node .process/tool/p3.mjs job start a --live <n>'));
+  assert.ok(lines.includes('- node .process/tool/p3.mjs job start a --sessions <file>'));
   assert.ok(lines.some((l) => /yours to start, BOB/.test(l)));
   const p = bobPrompt({ slug: 'o/p', rootId: 'r', approvals: 'a'.repeat(64) });
   assert.match(p, /jobs to start.*layer jobs <n>/);
@@ -450,7 +450,7 @@ test('jobs and merge: a rescheduled module whose PR landed is listed to reopen; 
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.deepEqual(j.startable.map((x) => x.id), ['b']);
   // b is OPEN (it never ran): a plain start, never --reopen (coordinator, 6 Nov 16:03).
-  assert.equal(j.startable[0].cmd, 'node .process/tool/p3.mjs job start b --live <n>');
+  assert.equal(j.startable[0].cmd, 'node .process/tool/p3.mjs job start b --sessions <file>');
   const mio = (extra = {}) => ({ slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), ...extra });
   await assert.rejects(layerMerge(root, 1, { io: mio(), wait: false, log: quiet }), /b is rescheduled/);
   // b's job re-runs on the new tip and lands; now the layer merges, with no test run.
@@ -1149,7 +1149,7 @@ test('layer retest: a module whose own work landed on the layer is retested; one
   // b's job branch holds work the layer lacks (pushed, never landed).
   jobWork(bare, 'b', { 'src/b/index.mjs': "import { a } from '../a/index.mjs';\nexport const b = () => a(5);\n" });
   const io = { slug: 'o/p', openPRs: () => [], prsFromBranch: () => [], comments: () => [], createPR: () => assert.fail('no PR'), addComment: () => assert.fail('no comment') };
-  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /origin's job\/b at .* has work layer\/1 lacks: a job re-tests it: .*job start b --live <n> --reopen "re-test against the new interface of a"/);
+  assert.throws(() => layerRetest(root, 'b', { io, log: quiet }), /origin's job\/b at .* has work layer\/1 lacks: a job re-tests it: .*job start b --sessions <file> --reopen "re-test against the new interface of a"/);
   assert.throws(() => layerRetest(root, 'c', { io, log: quiet }), /c is complete/);
 });
 
@@ -1202,7 +1202,7 @@ test('layer retest refuses a rescheduled module with unmet requirement marks: a 
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.equal(j.states.find((s) => s.id === 'b').state, 'rescheduled');
   assert.equal(j.startable.find((x) => x.id === 'b').retest, undefined, 'not offered');
-  assert.throws(() => layerRetest(root, 'b', { io: { slug: 'o/p', openPRs: () => [] }, log: quiet }), /b has unmet requirement marks \(R1\): a job meets them: .*job start b --live <n> --reopen "meet the unmet requirement marks R1/);
+  assert.throws(() => layerRetest(root, 'b', { io: { slug: 'o/p', openPRs: () => [] }, log: quiet }), /b has unmet requirement marks \(R1\): a job meets them: .*job start b --sessions <file> --reopen "meet the unmet requirement marks R1/);
 });
 
 // Bob's refinement "c" (6 Nov), on the copy's layer 8: publication 632 added the export
@@ -1275,7 +1275,7 @@ test('layer jobs (R10): startable in the layer\'s total order, a module whose in
   const lines = [];
   const o = layerOpen(root, 1, { io: openIO, log: (l) => lines.push(l) });
   assert.deepEqual(o.startable.map((x) => [x.id, x.after || null]), [['a', null], ['c', null], ['b', ['a']], ['e', ['b']]]);
-  assert.ok(lines.some((l) => /job start b --live <n>\s+\(a not landed yet: start it now on a free slot, this plain job start, no --early \(R10\); only a recorded hold waits\)/.test(l)));
+  assert.ok(lines.some((l) => /job start b --sessions <file>\s+\(a not landed yet: start it now on a free slot, this plain job start, no --early \(R10\); only a recorded hold waits\)/.test(l)));
   const j = layerJobs(root, 1, { io: openIO, log: quiet });
   assert.deepEqual(j.states.map((s) => s.id), ['a', 'c', 'b', 'e'], 'layer status reads in the same order');
   const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
@@ -1561,7 +1561,7 @@ test('a module deferred at its PR head with a green suite there is deferred with
   const st = layerStatus(root, 1, { io: { ...openIO, openPRs: () => pr, comments }, log: (l) => lines.push(l) });
   assert.deepEqual(st.deferred_done, ['c']);
   assert.ok(lines.some((l) => /^1 deferred with work done \(suite green, BLOCKED only on a process finding\): restart to publish/.test(l)));
-  assert.ok(lines.some((l) => /job start c --live <n> --restart ".*"\s+\(PR 658\)/.test(l)));
+  assert.ok(lines.some((l) => /job start c --sessions <file> --restart ".*"\s+\(PR 658\)/.test(l)));
   const mio = { slug: 'o/p', openPRs: () => pr, comments, findPR: () => null, createPR: (s, p) => ({ number: 80, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
   await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: c \(PR 658\) is deferred with work done .*restart it to publish .*or merge with --defer-done "<why>"/);
   await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet, deferDone: true }), /--defer-done needs why/);
@@ -1595,7 +1595,7 @@ test('layer sync names a job BLOCKED only on the ledger-carry finding it just cl
   const open = [{ number: 658, draft: true, head: { ref: 'job/e', sha: null } }];
   const r = await layerSync(root, 1, { io: { ...syncIO(bare, []), openPRs: (s, base) => (base === 'layer/1' ? open : []) }, log: quiet });
   assert.equal(r.jobs.left.length, 1);
-  assert.match(r.jobs.left[0].why, /^BLOCKED only on the ledger-carry finding this sync cleared \(process\/ledger\/e\.json is on layer\/1 now\): restart it to publish: .*job start e --live <n> --restart "/);
+  assert.match(r.jobs.left[0].why, /^BLOCKED only on the ledger-carry finding this sync cleared \(process\/ledger\/e\.json is on layer\/1 now\): restart it to publish: .*job start e --sessions <file> --restart "/);
 });
 
 test('land: a user joined to this layer (R12) is rescheduled with the layer\'s own, not noticed as a later layer\'s (cold review of PR 191)', async () => {

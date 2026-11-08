@@ -250,7 +250,7 @@ function provable(root, id, branch, tranche, from) {
     if (r.code !== 0) fail(`this clone is shallow and ${tranche}'s history could not be read to push ${branch} as a fast-forward (git fetch: ${r.stderr.trim().split('\n').pop()}); nothing was pushed; run it again`);
   }
   if (!on()) {
-    fail(`origin's ${branch} at ${tip.slice(0, 10)} is not in ${tranche} at ${git(['rev-parse', from], { cwd: root }).slice(0, 10)}, the tip this start is cut from, after a full read: pushing would not be a fast-forward, so nothing was pushed. Its commits are kept there; start on a fresh branch: job start ${id} --live <n> --fresh-branch "${branch} at ${tip.slice(0, 10)} is not in ${tranche}", adding --reopen "<what it must do>" for a COMPLETE module`);
+    fail(`origin's ${branch} at ${tip.slice(0, 10)} is not in ${tranche} at ${git(['rev-parse', from], { cwd: root }).slice(0, 10)}, the tip this start is cut from, after a full read: pushing would not be a fast-forward, so nothing was pushed. Its commits are kept there; start on a fresh branch: job start ${id} --sessions <file> --fresh-branch "${branch} at ${tip.slice(0, 10)} is not in ${tranche}", adding --reopen "<what it must do>" for a COMPLETE module`);
   }
 }
 
@@ -274,13 +274,13 @@ function setupOrStop(root, cfg, slug, setup, log) {
 // branch that exists names this route, so no refusal names a route that refuses in turn (BOB on
 // the copy, 5 Nov: case-checker's --reopen named --restart, and --restart named --reopen).
 export function routeFor(id, { state, ahead, open }) {
-  const reopen = `job start ${id} --live <n> --reopen "<what it must do>"`;
+  const reopen = `job start ${id} --sessions <file> --reopen "<what it must do>"`;
   if (ahead === null || ahead === undefined) return 'its commits beyond the tranche could not be counted; run it again';
   if (!['WORKING', 'BLOCKED', 'COMPLETE'].includes(state)) return `its entry reads ${state} on the branch, which no job step writes; bring it to Bob`;
   if (ahead === 0) return open ? `its pull request is open with nothing beyond the tranche: BOB merges or closes it, then ${reopen}` : `a new attempt on a merged module is ${reopen}`;
-  if (open) return `a job whose session stopped is restarted with job start ${id} --live <n> --restart "<why>"${state === 'COMPLETE' ? ' (its pull request open, red or waiting for its merge; or BOB closes it and --reopen starts a fresh attempt on the next branch)' : ''}`;
-  if (state === 'BLOCKED') return `job start ${id} --live <n> --restart "<why>" opens its draft again for a replacement session`;
-  if (state === 'WORKING' && ahead === 1) return `an unfinished start resumes with job start ${id} --live <n>`;
+  if (open) return `a job whose session stopped is restarted with job start ${id} --sessions <file> --restart "<why>"${state === 'COMPLETE' ? ' (its pull request open, red or waiting for its merge; or BOB closes it and --reopen starts a fresh attempt on the next branch)' : ''}`;
+  if (state === 'BLOCKED') return `job start ${id} --sessions <file> --restart "<why>" opens its draft again for a replacement session`;
+  if (state === 'WORKING' && ahead === 1) return `an unfinished start resumes with job start ${id} --sessions <file>`;
   return `its work never merged and no pull request is open: ${reopen} starts a fresh attempt on the next branch, and this one is kept`;
 }
 
@@ -395,7 +395,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     if (push) fetchRef(root, branch);
     const starts = rowsAt(root, push ? `origin/${branch}` : branch, id).filter((r) => r.row === 'attempt' && r.event === 'start');
     // A fresh start whose push landed and whose pull request did not open resumes; it is not cut again.
-    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} --live <n> without --fresh-branch and it resumes`);
+    if (starts.at(-1)?.fresh && aheadBy(root, { slug: push ? slug : null, base, head: branch, local: [from, push ? `origin/${branch}` : branch], read: cmp }) === 1) fail(`${branch} is a fresh start not yet opened; run job start ${id} --sessions <file> without --fresh-branch and it resumes`);
     const prior = Math.max(starts.length, ...starts.map((r) => Number(r.attempt) || 0));
     fresh0 = { from: branch, why: String(fresh).trim(), prior, abandoned };
     branch = `job/${id}-${n}`;
@@ -413,7 +413,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
   const merged = !fresh0 && push && reopen && remoteTip(root, branch) && (fetchRef(root, branch), true)
     && ahead(branch, `origin/${branch}`) === 0;
   if (merged) {
-    if (find(slug, branch)) fail(`${branch} has an open pull request; reopen only after it merges, or BOB closes it and job start ${id} --live <n> --reopen "<what it must do>" runs again`);
+    if (find(slug, branch)) fail(`${branch} has an open pull request; reopen only after it merges, or BOB closes it and job start ${id} --sessions <file> --reopen "<what it must do>" runs again`);
   } else if (!fresh0 && push && remoteTip(root, branch)) {
     // Resume: the branch was pushed but the PR was never opened, or it was opened and the launch
     // was lost (review of PR 11): an existing PR is reused and the launch printed again. Only
@@ -637,7 +637,7 @@ function jobTakeIn(root, id, { coordinator, model, from, overWhy, push, open, fi
   const outside = changed.filter((f) => !own.some((p) => underPath(f, p)));
   if (outside.length) fail(`refused, nothing written: ${source} changes ${outside.length} file(s) outside module ${id}'s paths (${own.join(', ')}): ${outside.join(', ')}. BOB splits the work, or takes in only what fits`);
   const commits = git(['log', '--format=%h', `${mb.stdout.trim()}..${tip}`], { cwd: root }).split('\n').filter(Boolean);
-  if (!commits.length) fail(`${source} has no commits the tranche lacks; nothing to take in (a fresh start is job start ${id} --live <n>)`);
+  if (!commits.length) fail(`${source} has no commits the tranche lacks; nothing to take in (a fresh start is job start ${id} --sessions <file>)`);
   if (git(['status', '--porcelain', '--untracked-files=no'], { cwd: root })) fail('the working tree has changes; commit or stash them first');
   const local = git(['rev-parse', '-q', '--verify', `refs/heads/${job}`], { cwd: root, allowFail: true });
   if (local.code === 0 && local.stdout.trim() !== git(['rev-parse', tip], { cwd: root })) fail(`a local branch ${job} exists and is not ${source}'s tip; bring it to Bob`);
@@ -1083,7 +1083,7 @@ export function jobComplete(root, id, opts = {}) {
     : git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
   const pr = push ? io.findPR(slug, branch) : null;
   const entry = readEntry(root, id);
-  if (push && !pr) fail(entry.status.state === 'COMPLETE' ? `${id} is COMPLETE and ${branch} has no open pull request; a new attempt on a merged module is job start ${id} --live <n> --reopen "<what it must do>"` : `no open pull request from ${branch}`);
+  if (push && !pr) fail(entry.status.state === 'COMPLETE' ? `${id} is COMPLETE and ${branch} has no open pull request; a new attempt on a merged module is job start ${id} --sessions <file> --reopen "<what it must do>"` : `no open pull request from ${branch}`);
   let again = null;
 
   if (entry.status.state === 'COMPLETE') {

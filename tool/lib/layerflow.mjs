@@ -385,14 +385,14 @@ export const needsSlot = (j) => !j?.additive;
 export const afterNote = (after) => `   (${after.join(', ')} not landed yet: start it now on a free slot, this plain job start, no --early (R10); only a recorded hold waits)`;
 export function startable(states) {
   const list = states.flatMap((s) => {
-    if (s.state === 'not started' && s.join) return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.entry_state === 'COMPLETE' ? ` --reopen ${JSON.stringify(s.join.why)}` : ''}` }];
-    if (s.state === 'not started') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>${s.marks.length && s.why.startsWith('COMPLETE') ? ` --reopen "meet the unmet requirement marks ${s.marks.join(', ')}"` : ''}` }];
+    if (s.state === 'not started' && s.join) return [{ id: s.id, cmd: `${P3} job start ${s.id} --sessions <file>${s.entry_state === 'COMPLETE' ? ` --reopen ${JSON.stringify(s.join.why)}` : ''}` }];
+    if (s.state === 'not started') return [{ id: s.id, cmd: `${P3} job start ${s.id} --sessions <file>${s.marks.length && s.why.startsWith('COMPLETE') ? ` --reopen "meet the unmet requirement marks ${s.marks.join(', ')}"` : ''}` }];
     if (s.state === 'rescheduled' && s.pr === null) {
       const why = [...new Set(s.outstanding.map((r) => `${r.provider} (land ${short(r.provider_land)})`))].join(', ');
       // A module that never ran (OPEN, never COMPLETE) starts plainly: --reopen is for a COMPLETE one
       // (coordinator, 6 Nov 16:03: publish-schedule, project-stage and case-account were refused).
-      if (s.entry_state && s.entry_state !== 'COMPLETE') return [{ id: s.id, cmd: `${P3} job start ${s.id} --live <n>` }];
-      const job = `${P3} job start ${s.id} --live <n> --reopen "re-test against the new interface of ${why}"`;
+      if (s.entry_state && s.entry_state !== 'COMPLETE') return [{ id: s.id, cmd: `${P3} job start ${s.id} --sessions <file>` }];
+      const job = `${P3} job start ${s.id} --sessions <file> --reopen "re-test against the new interface of ${why}"`;
       // With no unmet mark, CI can re-test it with no job session (layer retest): the way for an
       // additive change (Bob's "c"), offered beside the job for a breaking one.
       if (s.marks.length) return [{ id: s.id, cmd: job }];
@@ -630,7 +630,7 @@ export function earlyNext(root, cfg, n, L) {
     const uses = [...new Set(named.get(id) || e.uses || [])].filter((u) => u !== id);
     const why = uses.map(unsettled).filter(Boolean);
     if (why.length) { skipped.push({ id, why: why.join('; ') }); continue; }
-    list.push({ id, providers: uses, cmd: `${P3} job start ${id} --live <n> --early${e.status?.state === 'COMPLETE' ? ` --reopen ${JSON.stringify(`meet the unmet requirement marks ${m.join(', ')}`)}` : ''}` });
+    list.push({ id, providers: uses, cmd: `${P3} job start ${id} --sessions <file> --early${e.status?.state === 'COMPLETE' ? ` --reopen ${JSON.stringify(`meet the unmet requirement marks ${m.join(', ')}`)}` : ''}` });
   }
   return { next: nx.n, list, skipped };
 }
@@ -898,7 +898,7 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   const done = L.states.filter((s) => s.done_work);
   if (done.length) {
     log(`${done.length} deferred with work done (suite green, BLOCKED only on a process finding): restart to publish; layer merge ${n} refuses until then, or takes --defer-done "<why>":`);
-    for (const s of done) log(`  ${P3} job start ${s.id} --live <n> --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work}${s.done_unknown ? '; its gate runs could not be read, so counted as done until they are' : ''})`);
+    for (const s of done) log(`  ${P3} job start ${s.id} --sessions <file> --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work}${s.done_unknown ? '; its gate runs could not be read, so counted as done until they are' : ''})`);
   }
   log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.holding.length ? `, ${L.holding.length} PR(s) open into ${layerBranch(n)}` : ''}`);
   return { ok: true, states: L.states, ready, deferred_done: done.map((s) => s.id) };
@@ -1059,13 +1059,13 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
   fetchLayer(root, cfg0, n);
   const L = readLayer(root, cfg0, n, { io: { openPRs: x.openPRs }, slug });
   const s = L.states.find((m) => m.id === id) || fail(`${id} is not a module of layer ${n}`);
-  const reopen = `${P3} job start ${id} --live <n> --reopen "re-test against the new interface of ${[...new Set(s.outstanding.map((r) => r.provider))].join(', ') || 'its providers'}"`;
+  const reopen = `${P3} job start ${id} --sessions <file> --reopen "re-test against the new interface of ${[...new Set(s.outstanding.map((r) => r.provider))].join(', ') || 'its providers'}"`;
   if (s.state !== 'rescheduled' || s.pr !== null) fail(`${id} is ${s.state}${s.pr !== null ? ` with PR ${s.pr} open` : ''}: layer retest is for a rescheduled module with no pull request open`);
   // Unmet requirement marks are a job's to meet: a retest would land it with them still unmet.
   // A breaking change is a job's (Bob's "c"); the retest's land would clear it too (cold review of PR 193).
   const breaking = s.outstanding.filter((r) => r.class !== 'additive');
   if (breaking.length) fail(`${id} owes a job for ${[...new Set(breaking.map((r) => r.provider))].join(', ')}'s breaking change: ${reopen}`);
-  if (s.marks.length) fail(`${id} has unmet requirement marks (${s.marks.join(', ')}): a job meets them: ${P3} job start ${id} --live <n> --reopen "meet the unmet requirement marks ${s.marks.join(', ')} and re-test against the new interface"`);
+  if (s.marks.length) fail(`${id} has unmet requirement marks (${s.marks.join(', ')}): a job meets them: ${P3} job start ${id} --sessions <file> --reopen "meet the unmet requirement marks ${s.marks.join(', ')} and re-test against the new interface"`);
   const tip = rev(root, L.ref);
   const e = L.entries.get(id) || fail(`no ledger entry for ${id}`);
   if (e.status?.state !== 'COMPLETE') fail(`${id} is ${e.status?.state} on ${b0}: a retest re-runs a COMPLETE module; ${reopen}`);
@@ -1367,7 +1367,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
       const carried = !!mb && !entryAt(root, mb, id) && !!entryAt(root, tip, id);
       // Both the carry and a reason naming the ledger say so; the carry alone only suggests it
       // (cold review of PR 201: a job BLOCKED for a real reason may have carried its entry too).
-      const restart = `${P3} job start ${id} --live <n> --restart "the ledger-carry finding is cleared by layer sync ${n}: publish"`;
+      const restart = `${P3} job start ${id} --sessions <file> --restart "the ledger-carry finding is cleared by layer sync ${n}: publish"`;
       if (carried && /ledger|carr/i.test(String(be.status.reason || ''))) leave(`BLOCKED only on the ledger-carry finding this sync cleared (${entryFile(id)} is on ${b0} now): restart it to publish: ${restart}`);
       else if (carried) leave(`BLOCKED (${be.status.reason || 'no reason'}); its carried entry ${entryFile(id)} is on ${b0} now: if only the ledger-carry finding blocked it, restart it to publish: ${restart}`);
       else leave('BLOCKED');

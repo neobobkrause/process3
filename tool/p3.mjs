@@ -82,7 +82,7 @@ const commands = {
     return 0;
   },
 
-  // job start <id> --live <n> | --sessions <file> [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"] [--early]: BOB opens a job (--early: a next-layer module the open layer lists early, R14);
+  // job start <id> --sessions <list_sessions JSON> (the job cap is counted from it; a bare --live <n> is refused, C28) [--coordinator <session>; default the addressed BOB] [--model <m>] [--reopen "<what>" | --restart "<why>" [--stop archived|idle] | --take-in <branch or PR>] [--over-cap "<why>"] [--early]: BOB opens a job (--early: a next-layer module the open layer lists early, R14);
   // --stop, with --restart, how the replaced session stopped (archived, or idle); a BLOCKED job's stop is its BLOCKED commit;
   // --over-cap, BOB's reason to start one whose requirement file is over requirements_cap (REQ-6);
   // --take-in, on work made before Process3, every file of it inside the module's paths;

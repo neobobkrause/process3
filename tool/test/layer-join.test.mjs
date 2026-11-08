@@ -77,7 +77,7 @@ test('the joined layer, once open, lists the joined module\'s start (a reopen fo
   const out = [];
   const o = layerOpen(root, 3, { io: openIO, log: (l) => out.push(l) });
   assert.deepEqual(o.startable.map((x) => x.id).sort(), ['a', 'c']);
-  assert.equal(o.startable.find((x) => x.id === 'a').cmd, 'node .process/tool/p3.mjs job start a --live <n> --reopen "found marks F1"');
+  assert.equal(o.startable.find((x) => x.id === 'a').cmd, 'node .process/tool/p3.mjs job start a --sessions <file> --reopen "found marks F1"');
   const c = jobCfg(root, cfgOf(), 'a');
   assert.deepEqual([c.tranche, c.layer.n, c.layer.joined], ['layer/3', 3, true]);
   assert.equal(jobCfg(root, cfgOf(), 'b').tranche, 'tranche', 'its own layer merged, no join: no base');
@@ -114,7 +114,7 @@ test('a notice-affected user in a merged layer: its act is the join, never a job
   const rows = status(root, { offline: true, log: quiet }).rows;
   const slots = noticeSlots(root, cfgOf(), rows).slots;
   assert.equal(slots.find((x) => x.user === 'a').act, 'node .process/tool/p3.mjs layer join a --why "provider notice c:9" (it joins layer 3, and starts from node .process/tool/p3.mjs layer jobs 3 once that layer opens)');
-  assert.match(slots.find((x) => x.user === 'b').act, /^node \.process\/tool\/p3\.mjs job start b --live <n>/, 'the open layer\'s user: as before');
+  assert.match(slots.find((x) => x.user === 'b').act, /^node \.process\/tool\/p3\.mjs job start b --sessions <file>/, 'the open layer\'s user: as before');
 });
 
 test('open_by uses: a later layer\'s module ready by its uses is owed to its layer, not listed as next work', () => {

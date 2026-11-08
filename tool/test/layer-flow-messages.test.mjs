@@ -50,7 +50,7 @@ function product({ complete = false } = {}) {
 }
 const openIO = { slug: 'o/p', openPRs: () => [] };
 
-const view = (over = {}) => ({ kind: 'open', n: 3, states: [{ id: 'a', state: 'working' }, { id: 'b', state: 'not started' }], prs: [], startable: [{ id: 'b', cmd: `${P3} job start b --live <n>` }], ready: false, ...over });
+const view = (over = {}) => ({ kind: 'open', n: 3, states: [{ id: 'a', state: 'working' }, { id: 'b', state: 'not started' }], prs: [], startable: [{ id: 'b', cmd: `${P3} job start b --sessions <file>` }], ready: false, ...over });
 
 test('layer flow helpers: the merge line only when every module is complete or deferred; the act owed', () => {
   assert.equal(layerMergeLine(view()), null);
@@ -120,7 +120,7 @@ test('idle capacity: slots count against the open layer\'s startable jobs, never
 // early start is BOB's now, and counts no additive retest (CI's, no job session) as a slot's work.
 test('idle capacity (C25): the jobs that fill the empty slots are named, early ones included; a retest fills no slot', () => {
   const t = Date.parse('2026-11-07T18:37:00Z');
-  const v = view({ startable: [{ id: 'a', cmd: `${P3} job start a --live <n>` }, { id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }, { id: 'b', cmd: `${P3} job start b --live <n>`, after: ['q'] }, { id: 'c', cmd: `${P3} job start c --live <n>`, after: ['q'] }] });
+  const v = view({ startable: [{ id: 'a', cmd: `${P3} job start a --sessions <file>` }, { id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }, { id: 'b', cmd: `${P3} job start b --sessions <file>`, after: ['q'] }, { id: 'c', cmd: `${P3} job start c --sessions <file>`, after: ['q'] }] });
   const ic = layerIdle({ live: 4, cap: 6, view: v, t });
   assert.equal(ic.startable, 3, 'the retest is not counted');
   assert.deepEqual(ic.fill, ['a', 'b'], 'two empty slots: the first two in the list, the early b among them');
@@ -317,13 +317,13 @@ test('idle check (C25): starts recorded since the sweep measured count as live',
   assert.equal(startsSince(root, SB, { kind: 'open', n: 11 }, '2026-11-07T15:53:46Z'), 3);
   assert.equal(startsSince(root, SB, v, 'unread'), 0);
   // The idle judged on the sum: the sweep's 4 and 3 since leave 13 empty of 20, not 16.
-  const ic = layerIdle({ live: 4 + 3, cap: 20, view: view({ startable: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --live <n>` })) }), t: Date.parse('2026-11-07T16:18:37Z') });
+  const ic = layerIdle({ live: 4 + 3, cap: 20, view: view({ startable: Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --sessions <file>` })) }), t: Date.parse('2026-11-07T16:18:37Z') });
   assert.equal(ic.empty, 13);
 });
 
 test('flow line (C25): startable counts the jobs that take a slot, as the idle check does; retests apart', async () => {
   const { flow } = await import('../lib/status.mjs');
-  const v = view({ startable: [{ id: 'a', cmd: `${P3} job start a --live <n>` }, { id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }] });
+  const v = view({ startable: [{ id: 'a', cmd: `${P3} job start a --sessions <file>` }, { id: 'r', cmd: `${P3} layer retest r`, job: 'x', additive: true }] });
   const f = flow(configOf({}), [], [], 19, null, [], { view: v });
   assert.equal(f.startable, 1);
   assert.match(f.line, /startable 1 \(and 1 retest, no job session\)/);
@@ -347,7 +347,7 @@ test('idle check (C25): live is the sweep\'s count and the starts since; the ala
   writeState(root, SB, 'sweep', (d) => { mkdirSync(join(d, 'metrics'), { recursive: true }); writeFileSync(join(d, SWEEP_ROWS_FILE), JSON.stringify({ at: iso(T0), row: 'sweep', live: 4, live_measured_at: iso(T0 - 60e3), job_cap: 20 }) + '\n'); });
   const starts = (ids, at) => writeRows(root, SB, 'starts', ids.map((id) => [flowFile(11, 'start', `${id}-${at}`), { row: 'start', layer: 11, module: id, at: iso(at) }]));
   starts(['a', 'b', 'c'], T0 + 5 * 6e4);
-  const jobs = Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --live <n>` }));
+  const jobs = Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, cmd: `${P3} job start m${i} --sessions <file>` }));
   const opts = (t, lines = []) => ({ by: 'test', t, read: () => ({ open: { state: 'open' }, holds: [] }), readView: () => view({ n: 11, startable: jobs }), log: (l) => lines.push(String(l)) });
   const cfg = configOf({});
   const lines = [];
