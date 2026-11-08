@@ -305,7 +305,8 @@ test('untracking: the removal is refused without the ignore line, and when verif
   const bad = untrack(product({ 'process/metrics/alpha.jsonl': '{}\n' }, { generated: [{ ...CONFIG.generated[0], verify: ['node', '-e', 'process.exit(3)'] }] }), `${BUNDLE}\n`);
   const rb = gateOn(bad, gateIO());
   assert.equal(rb.run.refresh.result, 'generated failed');
-  assert.match(rb.findings.map((f) => f.message).join('\n'), /failed \(exit 3\) after building the untracked src\/alpha\/dist\/alpha\.bundle\.json/);
+  // PD-9: the built row's verify runs once, with the built rows; its finding names the file.
+  assert.deepEqual(rb.findings.filter((f) => /failed \(exit 3\) after building/.test(f.message)).map((f) => f.file), [BUNDLE]);
 });
 
 test('untracking: copy PR 557 with its ignore line added, as the copy writes it (a comment and a leading slash), passes', () => {
@@ -461,4 +462,52 @@ test('a record-since-green run copies the refresh row only when no generated fil
   git(['checkout', '-q', '-f', 'bob/refresh'], { cwd: p.root });
   const h2 = commit(p.root, { 'process/metrics/alpha.jsonl': '{}\n' });
   assert.equal(gate(p.root, { base: p.base, head: h2, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: g.io, log: quiet }).run.refresh.result, 'identical');
+});
+
+// PD-9 (C31, the coordinator, 8 Nov): copy layer merge 11 failed on the words-reads verify, a fault
+// screens-action T53 brought in on 7 Nov; every job gate since built the row (gitignored, never
+// committed) and ran no verify (changed false, verify null). The gate verifies every built row after
+// building it, as layer merge does, through the one helper both share (checks.mjs regenerate).
+function builtProduct(verifyExit) {
+  const WORDS = 'docs/words-reads.json';
+  const gen = "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('docs', { recursive: true });\nwriteFileSync('docs/words-reads.json', '{}\\n');\n";
+  const config = { generated: [
+    { paths: [WORDS], regenerate: ['node', 'words.mjs'], verify: ['node', '-e', `console.error('words-reads: parse error at line 3'); process.exit(${verifyExit})`] },
+    // A committed row, unchanged: its verify is not run (it would fail if it were).
+    { paths: [BUNDLE], regenerate: ['node', 'gen.mjs'], verify: ['node', '-e', 'process.exit(9)'] },
+  ] };
+  const root = makeRepo({
+    'process/config.json': config, '.gitignore': `${WORDS}\n`, 'words.mjs': gen,
+    'process/ledger/alpha.json': entry('alpha', { status: { state: 'COMPLETE' } }),
+    'gen.mjs': GEN, 'src/alpha/index.mjs': SRC, [BUNDLE]: fresh(SRC), 'test/alpha/x.test.mjs': PASS,
+    '.github/workflows/process-gate.yml': 'on: pull_request\n',
+  });
+  git(['branch', 'tranche'], { cwd: root });
+  const base = git(['rev-parse', 'HEAD'], { cwd: root });
+  const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
+  git(['init', '-q', '--bare', bare], { cwd: root });
+  git(['remote', 'add', 'origin', bare], { cwd: root });
+  git(['checkout', '-q', '-b', 'bob/refresh', 'tranche'], { cwd: root });
+  const sha = commit(root, { 'README.md': 'a plain change\n' });
+  git(['push', '-q', 'origin', 'main', 'tranche', 'bob/refresh'], { cwd: root });
+  return { root, base, sha };
+}
+
+test('PD-9: the gate verifies a built (gitignored) generated row after building it; a failing verify is a finding; a committed unchanged row is not verified', () => {
+  const bad = builtProduct(1);
+  const lines = [];
+  const r = gate(bad.root, { base: bad.base, head: bad.sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: (l) => lines.push(String(l)) });
+  const f = r.findings.filter((x) => x.check === 'generated');
+  assert.equal(f.length, 1, JSON.stringify(r.findings));
+  assert.equal(f[0].file, 'docs/words-reads.json');
+  assert.match(f[0].message, /^node -e .* failed \(exit 1\) after building: .*words-reads: parse error at line 3/);
+  assert.equal(r.run.ok, false);
+  const row = (r.run.generated || []).find((x) => x.paths?.includes('docs/words-reads.json'));
+  assert.deepEqual([row?.built, row?.verify], [true, 1], JSON.stringify(r.run.generated));
+  // The committed, unchanged row: no verify (its exit 9 would be a finding).
+  assert.ok(!lines.some((l) => /exit 9/.test(l)));
+  // A passing verify: no finding.
+  const good = builtProduct(0);
+  const r2 = gate(good.root, { base: good.base, head: good.sha, branch: 'bob/refresh', pr: 148, slug: 'o/r', io: gateIO().io, log: quiet });
+  assert.deepEqual(r2.findings.filter((x) => x.check === 'generated'), []);
 });

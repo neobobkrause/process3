@@ -70,11 +70,13 @@ test('JOB-8: a committed generated artifact is a finding naming the regenerate c
 test('GAT-4: the gate regenerates, verifies the rows whose paths changed, and a failing verify is a finding', () => {
   const ok = setup(GEN(['node', '-e', "process.exit(require('fs').readFileSync('src/alpha/dist/out.js','utf8')==='built\\n'?0:1)"]), { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   assert.deepEqual(of(ok, 'generated'), []);
-  assert.deepEqual(ok.run.generated, [{ paths: ['src/alpha/dist/'], changed: true, verify: 0 }]);
+  assert.deepEqual(ok.run.generated, [{ paths: ['src/alpha/dist/'], changed: true, verify: 0, built: true }]);
   const bad = setup(GEN(['node', '-e', 'process.exit(3)']), { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   assert.match(of(bad, 'generated')[0].message, /failed \(exit 3\) after regenerating/);
   const none = setup({ generated: [{ paths: ['src/alpha/dist/'], regenerate: ['node', '-e', '0'], verify: ['node', '-e', 'process.exit(3)'] }] }, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
-  assert.deepEqual([of(none, 'generated').length, none.run.generated[0].changed], [0, false], 'an unchanged row is not verified');
+  // PD-9: an unchanged row whose path is built (not committed) is verified all the same: exit 3 is a finding.
+  assert.deepEqual([of(none, 'generated').length, none.run.generated[0].changed, none.run.generated[0].verify], [1, false, 3], 'a built row is verified though unchanged');
+  assert.match(of(none, 'generated')[0].message, /failed \(exit 3\) after building/);
   // Paths already written before regenerate (as an install's prepare does) are still verified.
   const pre = ['node', '-e', "require('fs').mkdirSync('src/alpha/dist',{recursive:true});require('fs').writeFileSync('src/alpha/dist/out.js','pre\\n')"];
   const dirty = setup(GEN(['node', '-e', 'process.exit(3)']), { 'src/alpha/index.mjs': 'export const x = 2;\n' }, { checks: [pre] });

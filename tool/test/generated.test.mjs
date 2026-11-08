@@ -136,3 +136,16 @@ test('deploy dev installs the lock files before it builds the generated files (c
   assert.equal(calls[0], 'npm', `installed first: ${calls.join(', ')}`);
   assert.deepEqual(r.row.results.map((x) => [x.stage, x.exit]), [['build', 0], ['dry_run', 0], ['deploy', 0], ['walk', 0]]);
 });
+
+// Cold review of C31: a row whose build failed is not verified as well (a file never written): the
+// build's own finding stands, alone.
+test('PD-9: a built row whose build failed gives the build\'s finding only, no verify on a file never written', async () => {
+  const { regenerate } = await import('../lib/checks.mjs');
+  const root = makeRepo({ 'README.md': 'x\n', '.gitignore': 'out.json\n' });
+  const rows = [{ paths: ['out.json'], regenerate: ['node', '-e', 'process.exit(2)'], verify: ['node', '-e', "require('fs').readFileSync('out.json')"] }];
+  const b = buildGenerated(root, rows, { timeout: 60000 });
+  assert.deepEqual([b.findings.length, b.failed.has(rows[0])], [1, true]);
+  const g = regenerate(root, rows, { timeout: 60000, skip: b.ran, unbuilt: b.failed });
+  assert.deepEqual(g.findings, []);
+  assert.deepEqual([g.ran[0].verify, g.ran[0].built], [null, undefined]);
+});

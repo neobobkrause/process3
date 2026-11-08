@@ -10,7 +10,7 @@ import { buildGenerated, committedPaths, entryChecks, generatedRows, regenerate 
 import { normPath } from './suite.mjs';
 import { entryFile } from './ledger.mjs';
 import { install } from './suite.mjs';
-import { NO_TOKENS, fail, git, run, withTemp } from './util.mjs';
+import { fail, git, run, withTemp } from './util.mjs';
 
 // The layer checks on a commit, in a worktree of its own (layer merge, without the module suites:
 // Bob, 5 Nov, INT-4): every lock file installed, the generated rows built, each module's entry
@@ -47,13 +47,8 @@ export function layerChecks(root, cfg, sha, mods, { timeout, exec = run, log = c
         // Each stale tracked file with its regenerate command (layer merge names both).
         for (const f of r.stale || []) stale.push({ file: f, regenerate: gen.rows[i].regenerate.join(' ') });
       }
+      // A built row is verified even when git shows no change: regenerate does it (PD-9, the gate's too).
       built = gen.rows.flatMap((r) => { const c = new Set(committedPaths(wt, sha, r)); return r.paths.filter((p) => !c.has(p)); });
-      // A built row is verified even when git shows no change (its paths ignored by .gitignore).
-      for (const [i, r] of gen.rows.entries()) {
-        if (g.ran[i]?.verify !== null || !r.paths.some((p) => built.includes(p))) continue;
-        const v = exec(r.verify[0], r.verify.slice(1), { cwd: wt, timeout, unset: NO_TOKENS });
-        if (v.code !== 0) findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after building: ${(v.stdout + v.stderr).trim().split('\n').slice(-5).join(' ')}` });
-      }
     }
   }, { root });
   return { findings, changed, built, stale };
