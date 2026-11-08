@@ -46,7 +46,7 @@ function product({ config = { tranche: 'tranche' }, branch = 'tranche', pin = PI
 // GitHub's view of a commit: the owner's website commit only at `owned`.
 const ghCommit = (owned) => (args) => (args[1].split('/').pop() === owned
   ? { author: { login: OWNER }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } }
-  : { author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } });
+  : { author: { login: 'acmewidget' }, committer: { login: 'acmewidget' }, commit: { verification: { verified: false } } });
 
 const ok = (over = {}) => ({ status: 'completed', conclusion: 'success', started_at: '2026-11-04T06:00:00Z', ...over });
 function io(r, { owned = r.setAt, rules = { checks: [{ context: 'gate' }] }, runs = { gate: [ok()] }, head = r.head } = {}) {
@@ -93,20 +93,20 @@ test('a bootstrap close is refused with a forged config: tranche, approvals or p
   // The same, set by the owner on the website, passes: the head is the tranche its config names.
   assert.equal(close(t).go().merged, true);
   // Another owner, or another approvals file, set by a session.
-  for (const approvals of [{ owner: 'civicsmith' }, { file: 'AGENTS.md' }, { heading: '## Anything goes' }]) {
+  for (const approvals of [{ owner: 'acmewidget' }, { file: 'AGENTS.md' }, { heading: '## Anything goes' }]) {
     const a = product({ config: { tranche: 'tranche', approvals } });
     const c = close(a, { owned: 'none' });
     assert.throws(c.go, /changes approvals in process\/config\.json; that needs the owner's word/, JSON.stringify(approvals));
     assert.equal(c.f.calls.merged, null);
     // web-flow, but the head's own named owner is not the one that counts: the tool's default is.
     const named = close(a, { owned: 'none' });
-    named.f.io.lookup = () => ({ author: { login: approvals.owner || 'civicsmith' }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } });
+    named.f.io.lookup = () => ({ author: { login: approvals.owner || 'acmewidget' }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } });
     if (approvals.owner) assert.throws(named.go, /changes approvals/);
   }
   const p = product({ config: { tranche: 'tranche', process_repo: 'https://example.com/other' } });
   assert.throws(close(p, { owned: 'none' }).go, /changes process_repo in process\/config\.json/);
   // GitHub cannot be read: refused.
-  const u = close(product({ config: { tranche: 'tranche', approvals: { owner: 'civicsmith' } } }));
+  const u = close(product({ config: { tranche: 'tranche', approvals: { owner: 'acmewidget' } } }));
   u.f.io.lookup = () => null;
   assert.throws(u.go, /changes approvals/);
   // An unreadable config, or none: refused.

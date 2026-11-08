@@ -13,8 +13,8 @@ import { makeRepo } from './helpers.mjs';
 const NOW = Date.parse('2026-11-06T23:30:00Z');
 const at = (min) => new Date(NOW - min * 60e3).toISOString();
 const P3R = 'neobobkrause/process3';
-const COPY = 'neobobkrause/civicsmith-copy';
-const ME = 'believeinoakland';
+const COPY = 'neobobkrause/acmewidget-copy';
+const ME = 'acmewidget-robot';
 // share_s pinned at 300 s: the windows below are the audit's at that setting (the default is 900 s since R17e).
 const P = { ...PACING_DEFAULTS, gh_interval_ms: 0, share_s: 300 };
 
@@ -75,9 +75,9 @@ test('audit: every push and write GitHub shows is in the ledger: a merge the too
   assert.match(text, /- calls, primary: GitHub 154 of 5000 used since 2026-11-06T23:00:00Z vs ledger 117 REST call\(s\): 37 outside the tool/);
   assert.match(text, /- calls, GraphQL: GitHub 10 of 5000 used vs ledger 1/);
   assert.match(text, /- pushes, neobobkrause\/process3: GitHub 2 \(push-triggered runs, one per branch and commit: build\/a, tranche\) vs ledger 2$/m);
-  assert.match(text, /- pushes, neobobkrause\/civicsmith-copy process-state: 2 commit\(s\) in the window \(pushes ≤ commits: one coalesced push carries several\) vs ledger 1 state push\(es\)$/m);
+  assert.match(text, /- pushes, neobobkrause\/acmewidget-copy process-state: 2 commit\(s\) in the window \(pushes ≤ commits: one coalesced push carries several\) vs ledger 1 state push\(es\)$/m);
   assert.match(text, /- writes, neobobkrause\/process3: GitHub 2 \(pull requests, comments, reviews\) vs ledger 2$/m);
-  assert.match(text, /- writes, neobobkrause\/civicsmith-copy: GitHub 1 \(pull requests, comments, reviews\) vs ledger 1$/m);
+  assert.match(text, /- writes, neobobkrause\/acmewidget-copy: GitHub 1 \(pull requests, comments, reviews\) vs ledger 1$/m);
   assert.match(text, /audit: every push and write GitHub shows is in the ledger/);
   // Repository-scoped endpoints only, beside rate_limit: no users/* path, not even /user.
   assert.ok(seen.every((s) => /^api (rate_limit|repos\/)/.test(s)), seen.join('\n'));
@@ -103,8 +103,8 @@ test('audit: a push and a write GitHub shows that the ledger lacks are unexplain
   const text = out.join('\n');
   assert.equal(r.ok, false);
   assert.match(text, /- pushes, neobobkrause\/process3: GitHub 2 .* vs ledger 1: 1 GitHub shows that the ledger lacks/);
-  assert.match(text, /- UNEXPLAINED pushes: 1: notes\/raw@bbb0000 by believeinoakland \(session_018BhcedK5yPyjY6UfMKmxzM\)/);
-  assert.match(text, /- UNEXPLAINED writes: neobobkrause\/process3 IssueComment created #205 by believeinoakland/);
+  assert.match(text, /- UNEXPLAINED pushes: 1: notes\/raw@bbb0000 by acmewidget-robot \(session_018BhcedK5yPyjY6UfMKmxzM\)/);
+  assert.match(text, /- UNEXPLAINED writes: neobobkrause\/process3 IssueComment created #205 by acmewidget-robot/);
   assert.match(text, /audit: an unexplained push or write gap/);
   // Pushes and writes logged before they named a repository: the gaps are theirs.
   ledger(t, [{ at: at(30), kind: 'push', repo: P3R }, { at: at(12), kind: 'push' }, { at: at(8), kind: 'gh', points: 5, content: true }]);
@@ -123,7 +123,7 @@ test('each push and write names its repository in the ledger; a merge the tool m
   const f = ledger(t, []);
   writeFileSync(f, '');
   const root = makeRepo({ 'README.md': 'x\n' });
-  git(['remote', 'add', 'origin', 'https://github.com/neobobkrause/civicsmith-copy.git'], { cwd: root });
+  git(['remote', 'add', 'origin', 'https://github.com/neobobkrause/acmewidget-copy.git'], { cwd: root });
   assert.equal(pushRepo(['push', '-q', 'origin', 'HEAD:refs/heads/x'], root), COPY);
   assert.equal(pushRepo(['push', '-o', 'ci.skip', 'origin', 'HEAD:refs/heads/x'], root), COPY, 'an option\'s value is not the remote');
   assert.equal(pushRepo(['push', 'https://github.com/NeoBobKrause/Process3.git', 'HEAD:refs/heads/x'], root), P3R, 'lower case');
@@ -163,9 +163,9 @@ test('audit (C34): an unexplained write names its session, and says the hook was
   const r = githubAudit(root, { repos: [P3R], login: ME, now: NOW, io: gh(answers).io, log: (l) => out.push(l), p: P });
   const text = out.join('\n');
   assert.equal(r.ok, false);
-  assert.match(text, /PullRequest opened #256 by believeinoakland \(hook not loaded in session session_BARE\? the ledger holds no connector call of it \(a hook pinned before C34 records none either\)\)/);
-  assert.match(text, /IssueComment created #250 by believeinoakland \(session session_HOOKED: the ledger holds connector calls of its hook\)/);
-  assert.match(text, /IssueComment created #251 by believeinoakland \(session unknown: its own text names none\)/);
+  assert.match(text, /PullRequest opened #256 by acmewidget-robot \(hook not loaded in session session_BARE\? the ledger holds no connector call of it \(a hook pinned before C34 records none either\)\)/);
+  assert.match(text, /IssueComment created #250 by acmewidget-robot \(session session_HOOKED: the ledger holds connector calls of its hook\)/);
+  assert.match(text, /IssueComment created #251 by acmewidget-robot \(session unknown: its own text names none\)/);
 });
 
 // Cold review of C34: only the act's own text names its session; a PR's description only for its opening.

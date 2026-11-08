@@ -30,7 +30,7 @@ function gateIO(comments = []) {
     state,
     io: {
       comments: () => state.comments,
-      getPR: () => ({ user: { login: 'civicsmith' } }),
+      getPR: () => ({ user: { login: 'acmewidget' } }),
       addComment: (s, n, body) => {
         state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } });
         for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r));
@@ -137,7 +137,7 @@ test('a pass carries no receipt, lands only on the tranche, and is its own recor
   const p = product(SRC2);
   const g = gateIO();
   posted(p, g);
-  const receipt = [...g.state.comments, { id: 99, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: p.sha }), user: { login: 'civicsmith' } }];
+  const receipt = [...g.state.comments, { id: 99, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: p.sha }), user: { login: 'acmewidget' } }];
   assert.throws(() => mergePlain(p.root, 260, { ...q, io: plainIO(p, receipt, g.io.verify).io }), /carries a receipt: a pass has none/);
   assert.throws(() => reviewRounds({ pass: WHY, reviewed: 'r', rounds: 1 }), /--pass is its own record/);
   assert.throws(() => reviewRounds({ pass: true }), /--pass needs what the pass changes and why/);

@@ -741,7 +741,7 @@ test('the gate: a ready job PR into a layer branch runs its suite even when it c
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   const head = commit(root, { 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":2}\n' }, 'records only');
   const receipt = { kind: 'receipt', module: 'alpha', attempt: 2, sha: head, commands: [], exempt: {} };
-  const io = (baseRef) => ({ comments: () => [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }], getPR: () => ({ user: { login: 'civicsmith' }, draft: false, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
+  const io = (baseRef) => ({ comments: () => [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }], getPR: () => ({ user: { login: 'acmewidget' }, draft: false, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
   const into = (baseRef) => gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(baseRef), log: quiet }).run;
   const lay = into('layer/1');
   assert.deepEqual([lay.trigger, lay.suite], ['code', 'pass']);
@@ -817,7 +817,7 @@ test('the gate: a job PR into a layer branch that changes only its requirements 
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   const head = commit(root, { 'req/alpha.md': '# alpha\n\n**R1** a thing\n' }, 'mark struck');
   const receipt = { kind: 'receipt', module: 'alpha', attempt: 1, sha: head, commands: [], exempt: {} };
-  const io = (baseRef) => ({ comments: () => [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }], getPR: () => ({ user: { login: 'civicsmith' }, draft: false, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
+  const io = (baseRef) => ({ comments: () => [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }], getPR: () => ({ user: { login: 'acmewidget' }, draft: false, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
   const into = (baseRef) => gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io(baseRef), log: quiet }).run;
   const lay = into('layer/1');
   assert.deepEqual([lay.trigger, lay.suite, lay.requirements_only], ['code', 'pass', undefined]);
@@ -995,7 +995,7 @@ test('the gate: a job PR into a layer branch may add its own entry as the tranch
   commit(root, { 'process/ledger/beta.json': entry('beta') }, 'Merge PR 638');
   git(['checkout', '-q', '-b', 'job/beta', base], { cwd: root });
   const head = commit(root, { 'process/ledger/beta.json': entry('beta', { status: { state: 'WORKING' } }) }, 'job start beta (attempt 1)');
-  const io = (baseRef) => ({ comments: () => [], getPR: () => ({ user: { login: 'civicsmith' }, draft: true, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
+  const io = (baseRef) => ({ comments: () => [], getPR: () => ({ user: { login: 'acmewidget' }, draft: true, base: { ref: baseRef } }), addComment: () => ({}), verify: () => false });
   const ledger = (baseRef, h = head) => gate(root, { base, head: h, branch: 'job/beta', pr: 5, slug: 'o/r', io: io(baseRef), log: quiet }).findings.filter((f) => f.check === 'ledger').map((f) => f.message);
   assert.deepEqual(ledger('layer/1'), []);
   assert.deepEqual(ledger('tranche'), ['a job may not add a ledger entry']);
@@ -1092,8 +1092,8 @@ test('layer retest: a rescheduled module with no work on the layer gets a record
   const posted = [];
   const io = {
     slug: 'o/p', openPRs: () => [],
-    prsFromBranch: () => [{ number: 40, state: 'closed', merged_at: '2026-11-05T00:00:00Z', user: { login: 'civicsmith' } }],
-    comments: (s, k) => (k === 40 ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : []),
+    prsFromBranch: () => [{ number: 40, state: 'closed', merged_at: '2026-11-05T00:00:00Z', user: { login: 'acmewidget' } }],
+    comments: (s, k) => (k === 40 ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : []),
     createPR: (s, p) => { made.push(p); return { number: 41 + made.length - 1, ...p }; },
     addComment: (s, k, body) => { posted.push([k, body]); return { id: 2 }; },
     markReady: (s, k) => { posted.push([k, 'ready']); },
@@ -1113,7 +1113,7 @@ test('layer retest: a rescheduled module with no work on the layer gets a record
   assert.equal(parseBlock(posted[0][1], RECEIPT).sha, first, 'its last receipt carried');
   assert.deepEqual(posted[1], [41, 'ready'], 'marked ready only after the receipt is on it');
   // Red, say: PR 41 is closed; a second retest takes the layer into job/b by a merge, no rewrite.
-  const closed = { number: 41, state: 'closed', merged_at: null, user: { login: 'civicsmith' } };
+  const closed = { number: 41, state: 'closed', merged_at: null, user: { login: 'acmewidget' } };
   const io2 = { ...io, prsFromBranch: () => [closed, ...io.prsFromBranch()] };
   const r2 = layerRetest(root, 'b', { io: io2, log: quiet });
   git(['fetch', '-q', 'origin'], { cwd: root });
@@ -1641,7 +1641,7 @@ test('job sync joins a conflict on the job\'s own entry: the layer\'s entry, the
   git(['merge', '--abort'], { cwd: root });
 });
 
-// Copy PR 727 (filings, 7 Nov): its whole change was bio-plane/test/m/filings/fixture.mjs (+5/-3), and
+// Copy PR 727 (filings, 7 Nov): its whole change was a provider module's test/m/filings/fixture.mjs (+5/-3), and
 // R8 called it breaking, re-running action-plans and escalation. A change confined to the provider's
 // own tests is no interface change for its users; a user whose code or tests import a changed test
 // file is the exception, breaking for it alone (C11).

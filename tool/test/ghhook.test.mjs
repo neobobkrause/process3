@@ -112,19 +112,19 @@ test('a connector read uses the cached pause and stop, any age, and never fetche
   assert.equal(run('pull_request_read'), 0);
   assert.equal(kicks.length, 1);
   // A fresh cache: nothing started; its stop refuses the read (a stop is cached too).
-  cacheAt(root, { at: Date.now(), pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'secondary rate limit', stopped: true }, use: [], ledger: null, tip: 'a' });
+  cacheAt(root, { at: Date.now(), pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'secondary rate limit', stopped: true }, use: [], ledger: 'own', tip: 'a' });
   assert.equal(run('list_pull_requests'), 2);
   assert.match(errs.pop(), /every GitHub call is stopped/);
   assert.equal(kicks.length, 1);
   // A stale cache still answers (here a pause past its wait cap: refused), and starts a refresh.
-  cacheAt(root, { at: Date.now() - 600e3, pause: { at: new Date().toISOString(), until: new Date(Date.now() + 600e3).toISOString(), why: 'secondary rate limit' }, use: [], ledger: null, tip: 'a' });
+  cacheAt(root, { at: Date.now() - 600e3, pause: { at: new Date().toISOString(), until: new Date(Date.now() + 600e3).toISOString(), why: 'secondary rate limit' }, use: [], ledger: 'own', tip: 'a' });
   assert.equal(run('get_file_contents'), 2);
   assert.match(errs.pop(), /GitHub rate-limited this account/);
   assert.equal(kicks.length, 2);
   // Never a fetch on the read path: peekShare reads only the cache.
   assert.deepEqual(peekShare(root, { kick: () => {} }).read().pause.why, 'secondary rate limit');
   // A write reads the ledger through its share (the share given): its stop refuses though the cache has none.
-  cacheAt(root, { at: Date.now(), pause: null, use: [], ledger: null, tip: 'a' });
+  cacheAt(root, { at: Date.now(), pause: null, use: [], ledger: 'own', tip: 'a' });
   let reads = 0;
   assert.equal(hookRun({ tool_name: 'mcp__github__add_issue_comment', tool_input: {} }, root, { kick, err: (m) => errs.push(m), share: { read: () => { reads++; return { pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }; }, pause: () => null } }), 2);
   assert.ok(reads >= 1, 'the write read the ledger');
@@ -183,7 +183,7 @@ test('the read path takes no cache of another ledger (a config changed); the bac
   git(['init', '-q', '--bare', ledger], { cwd: seed });
   git(['push', '-q', ledger, 'HEAD:refs/heads/process-state'], { cwd: seed });
   // A clone that names the ledger, reached by its GitHub name.
-  const root = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'o/ledger' }) });
+  const root = makeRepo({ 'process/config.json': JSON.stringify({ pacing: { ledger: 'o/ledger' } }) });
   git(['config', `url.${ledger}.insteadOf`, URL], { cwd: root });
   // A cache of another ledger, fresh, with a stop: not this clone's, so not obeyed.
   cacheAt(root, { at: Date.now(), pause: { at: '2026-11-07T00:00:00Z', until: '2026-11-07T00:01:00Z', why: 'elsewhere', stopped: true }, use: [], ledger: 'https://github.com/o/other.git', tip: 'a' });

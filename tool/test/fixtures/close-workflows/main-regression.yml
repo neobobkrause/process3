@@ -31,20 +31,20 @@ jobs:
         timeout-minutes: 30
         run: |
           set -euo pipefail
-          for pkg in bio-plane pdf-worker ocr-worker newgroup agent-runner sheet-worker; do
+          for pkg in app-plane pdf-worker ocr-worker installr agent-runner sheet-worker; do
             [ -f "$pkg/package-lock.json" ] || continue
             (cd "$pkg" && npm ci --no-audit --no-fund --loglevel=error)
           done
           # journey-check's walk drives Chromium through playwright-core (K3146, K3184): its own lock, and the browser.
-          (cd bio-plane/src/journey-check && npm ci --no-audit --no-fund --loglevel=error)
+          (cd app-plane/src/journey-check && npm ci --no-audit --no-fund --loglevel=error)
           # Bounded (K3191): run 38522006895 hung after Chromium's download until the job's limit. Without the
           # browser journey-check's arms report their failures and end (K3185), so the rest of the battery still runs.
-          (cd bio-plane/src/journey-check && timeout 600 npx playwright-core install --with-deps chromium) || echo "::warning::Chromium not installed; journey-check's browser arms will fail by name"
+          (cd app-plane/src/journey-check && timeout 600 npx playwright-core install --with-deps chromium) || echo "::warning::Chromium not installed; journey-check's browser arms will fail by name"
       - name: test every package
         run: |
           set -uo pipefail
           failed=""
-          for pkg in bio-plane pdf-worker ocr-worker newgroup agent-worker; do
+          for pkg in app-plane pdf-worker ocr-worker installr agent-worker; do
             [ -f "$pkg/package.json" ] || continue
             echo "::group::$pkg"
             if (cd "$pkg" && npm test); then echo "$pkg: passed"; else failed="$failed $pkg"; fi
@@ -53,7 +53,7 @@ jobs:
           # The suites outside test/m that T20 kept (N466, K932; LEGACY-TESTS #18): run from the root.
           # several-cases-choice needs ssh-keygen (openssh-client, on the runner image).
           echo "::group::kept suites"
-          if node --test bio-plane/test/*.test.mjs bio-plane/test/system/*.test.mjs; then
+          if node --test app-plane/test/*.test.mjs app-plane/test/system/*.test.mjs; then
             echo "kept suites: passed"; else failed="$failed kept-suites"; fi
           echo "::endgroup::"
           # Every module's own tests, read from build/modules.json, so a module is never left out (K1692).

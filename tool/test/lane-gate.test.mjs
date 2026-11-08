@@ -26,10 +26,10 @@ function setup({ cfg = {}, alpha = {} } = {}) {
   return { root, base: git(['rev-parse', 'HEAD'], { cwd: root }) };
 }
 function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : [], genuine: new Set() };
+  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [], genuine: new Set() };
   const key = (r) => `${r.at}|${r.sha}|${r.trigger}`;
   return { state, io: {
-    comments: () => state.comments, getPR: () => ({ user: { login: 'civicsmith' } }),
+    comments: () => state.comments, getPR: () => ({ user: { login: 'acmewidget' } }),
     addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r)); return {}; },
     verify: (s, r) => state.genuine.has(key(r)),
   } };

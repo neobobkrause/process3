@@ -10,7 +10,7 @@ import { commit, entry, makeRepo } from './helpers.mjs';
 import { recordStart } from '../lib/roles.mjs';
 import { approvalsHash } from '../lib/start.mjs';
 import { fetchState, readState, writeState } from '../lib/state.mjs';
-import { MANIFEST_FILE, readTasks, switchIn, switchOut, switchQuiet } from '../lib/switch.mjs';
+import { MANIFEST_FILE, processTask, productNames, readTasks, switchIn, switchOut, switchQuiet } from '../lib/switch.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 
 const quiet = () => {};
@@ -82,7 +82,7 @@ const ROWS = [
   { id: 'eta', tranche: 'OPEN', branch: 'WORKING', ahead: 1 },
 ];
 const read = () => ({ rows: ROWS });
-const account = (perm = { push: true, admin: false }, login = 'civicsmith') => (p) => (p === 'user' ? (login ? { login } : null) : /^repos\//.test(p) ? { permissions: perm } : null);
+const account = (perm = { push: true, admin: false }, login = 'acmewidget') => (p) => (p === 'user' ? (login ? { login } : null) : /^repos\//.test(p) ? { permissions: perm } : null);
 const okIO = { api: account(), push: () => ({ code: 0, stdout: '', stderr: '' }) };
 
 test('switch out writes the manifest, and only it, and prints the stop acts in order', () => {
@@ -151,7 +151,7 @@ test('switch in, preflight held: the restart\'s acts (a) to (g) in order, tasks 
   const out = [];
   switchIn(root, { sessions: s, by: NEW, slug: 'o/p', io: okIO, log: (l) => out.push(l) });
   const text = out.join('\n');
-  for (const l of ['- ok: GitHub connected, acting as civicsmith', '- ok: account: civicsmith: push true, admin false', '- ok: push reachable on origin (o/p), dry run']) assert.ok(out.includes(l), l);
+  for (const l of ['- ok: GitHub connected, acting as acmewidget', '- ok: account: acmewidget: push true, admin false', '- ok: push reachable on origin (o/p), dry run']) assert.ok(out.includes(l), l);
   assert.match(text, /- ok: approvals at tranche's tip are those switch out recorded/);
   const steps = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)', '(g)'].map((k) => out.findIndex((l) => l.startsWith(k)));
   assert.ok(steps.every((i, k) => i >= 0 && (k === 0 || i > steps[k - 1])), `in order: ${steps}`);
@@ -313,7 +313,7 @@ test('switch in --preflight: read-only, with or without a manifest, the process 
   const r = switchIn(root, { by: NEW, preflight: true, slug: 'o/p', io: okIO, log: (l) => out.push(l) });
   assert.equal(r.ok, true);
   assert.match(out[0], /no manifest yet \(the approvals are not compared\)/);
-  assert.ok(out.includes('- ok: GitHub connected, acting as civicsmith'));
+  assert.ok(out.includes('- ok: GitHub connected, acting as acmewidget'));
   assert.ok(out.some((l) => /^Session checks/.test(l)));
   assert.equal(out.filter((l) => /^  \d\. /.test(l)).length, SESSION_CHECKS.length);
   assert.ok(out.some((l) => /claude\.ai documents: read the Foundations .*Failed: Bob, on the old account: share each process document/.test(l)));
@@ -323,7 +323,7 @@ test('switch in --preflight: read-only, with or without a manifest, the process 
   git(['checkout', '-q', 'tranche'], { cwd: root });
   commit(root, { 'process/config.json': { tranche: 'tranche', coordinator: COORD, process_repo: 'https://github.com/o/process3' } });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
-  const api = (p) => (p === 'user' ? { login: 'civicsmith' } : p === 'repos/o/process3' ? { permissions: { push: true, admin: true } } : { permissions: { push: true, admin: false } });
+  const api = (p) => (p === 'user' ? { login: 'acmewidget' } : p === 'repos/o/process3' ? { permissions: { push: true, admin: true } } : { permissions: { push: true, admin: false } });
   const out2 = [];
   const r2 = switchIn(root, { by: NEW, preflight: true, slug: 'o/p', io: { ...okIO, api }, log: (l) => out2.push(l) });
   assert.equal(r2.ok, false);
@@ -368,4 +368,31 @@ test('switch in retires the old account\'s sessions: R13 ends a lane seat bound 
   assert.ok(text.indexOf('then ux check-in') > text.indexOf('(h) BOB restarts'));
   assert.match(text, /    - nightly census \(fresh\): .*"create_new_session_on_fire":true/);
   assert.match(text, /retired \d+ session\(s\) of the old account/);
+});
+
+test('C40: a fresh task is the process\'s when its prompt names the product, read from the clone\'s origin as a whole word, never a fixed product name', () => {
+  const t = processTask('widget-copy');
+  assert.ok(t.test('Walk widget-copy at its tranche'));
+  assert.ok(t.test('run node .process/tool/p3.mjs status'));
+  assert.ok(!t.test('widget-copy-old notes'), 'a longer name is another repository');
+  assert.ok(!t.test('civic things'), 'no product name is built in');
+  assert.ok(processTask('o').test('check o now') && !processTask('o').test('not ours'), 'a short name matches only as a word');
+  assert.ok(!processTask(null).test('widget-copy'), 'no origin, no product name');
+});
+
+test('C40: product_names in process/config.json adds the product\'s other names; the origin\'s name is always one; a malformed list is refused', (ctx) => {
+  // In a workflow GITHUB_REPOSITORY names the repository before origin does (repoSlug): not here.
+  const was = process.env.GITHUB_REPOSITORY;
+  delete process.env.GITHUB_REPOSITORY;
+  ctx.after(() => { if (was !== undefined) process.env.GITHUB_REPOSITORY = was; });
+  const root = makeRepo({ 'a.md': 'x\n' });
+  git(['remote', 'add', 'origin', 'https://github.com/acme/widget-copy.git'], { cwd: root });
+  assert.deepEqual(productNames(root, {}), ['widget-copy']);
+  const names = productNames(root, { product_names: ['Widget', 'widget.example'] });
+  assert.deepEqual(names, ['widget-copy', 'Widget', 'widget.example']);
+  const t = processTask(names);
+  assert.ok(t.test('Walk widget at the tranche') && t.test('check widget.example') && t.test('on widget-copy'));
+  assert.ok(!t.test('widgetx'));
+  assert.throws(() => productNames(root, { product_names: 'Widget' }), /product_names: a list of non-empty names/);
+  assert.throws(() => productNames(root, { product_names: [''] }), /product_names/);
 });

@@ -30,8 +30,8 @@ const none = pinIO().io;
 
 test('pin move prints one short session: product tranche, depth 1, pin fetched without --depth, setup check --at HEAD, merge --plain', () => {
   const out = [];
-  const { call, prompt } = pinMove(makeRepo({ 'README.md': 'x' }), 'neobobkrause/civicsmith-copy', { pin: PIN, processRoot: PROC, report: REPORT, why: 'BOB wakes on events', io: none, log: (m) => out.push(m) });
-  assert.deepEqual([call.source_url, call.source_revision, call.clone_depth], ['https://github.com/neobobkrause/civicsmith-copy', 'tranche', 1]);
+  const { call, prompt } = pinMove(makeRepo({ 'README.md': 'x' }), 'neobobkrause/acmewidget-copy', { pin: PIN, processRoot: PROC, report: REPORT, why: 'BOB wakes on events', io: none, log: (m) => out.push(m) });
+  assert.deepEqual([call.source_url, call.source_revision, call.clone_depth], ['https://github.com/neobobkrause/acmewidget-copy', 'tranche', 1]);
   assert.equal(call.prompt, prompt);
   assert.ok(prompt.includes(`\`git -C .process fetch origin ${PIN}\` (no --depth`));
   assert.doesNotMatch(prompt.split('\n').find((l) => l.includes('-C .process fetch')), /--depth \d/);

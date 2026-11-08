@@ -18,9 +18,9 @@ import { dirname } from 'node:path';
 
 const NOW = '2026-11-06T18:30:00Z';
 const req = (id, unmet = true) => `# ${id}\n\n**R1** a requirement${unmet ? ' *(not yet met: T1)*' : ''}\n`;
-const row = (id, layer, o = {}) => ({ id, layer, paths: [`bio-plane/src/${id}/`], tests: [`bio-plane/test/m/${id}/`], uses: [], ...o });
-const SUITE = { cwd: 'bio-plane', command: ['node', '--test'] };
-const ent = (id, layer, o = {}) => entry(id, { layer, paths: [`bio-plane/src/${id}/`, `build/requirements/${id}.md`], tests: [`bio-plane/test/m/${id}/`], requirements: `build/requirements/${id}.md`, suite: SUITE, reading: [`build/requirements/${id}.md`], ...o });
+const row = (id, layer, o = {}) => ({ id, layer, paths: [`app-plane/src/${id}/`], tests: [`app-plane/test/m/${id}/`], uses: [], ...o });
+const SUITE = { cwd: 'app-plane', command: ['node', '--test'] };
+const ent = (id, layer, o = {}) => entry(id, { layer, paths: [`app-plane/src/${id}/`, `build/requirements/${id}.md`], tests: [`app-plane/test/m/${id}/`], requirements: `build/requirements/${id}.md`, suite: SUITE, reading: [`build/requirements/${id}.md`], ...o });
 
 // A product shaped like the copy on 6 Nov: layers 1 to 4, layer 2 open.
 //   done1       layer 1, entry, met: fine
@@ -71,10 +71,10 @@ test('census: every gap kind, named with what BOB writes; a module with its entr
   // C16: a module built before the ledger (no entry, its layer past, nothing unmet) is flagged.
   // Its paths and tests are not on the tranche: whether it was built is BOB's to say, no entry ready.
   const old0 = c.gaps.find((x) => x.id === 'old1');
-  assert.match(old0.fix, /write process\/ledger\/old1\.json recording it COMPLETE \(built before the ledger; .*\) \(not ready: bio-plane\/src\/old1\/, bio-plane\/test\/m\/old1\/ not on origin\/tranche: whether it was built is BOB's to say/);
+  assert.match(old0.fix, /write process\/ledger\/old1\.json recording it COMPLETE \(built before the ledger; .*\) \(not ready: app-plane\/src\/old1\/, app-plane\/test\/m\/old1\/ not on origin\/tranche: whether it was built is BOB's to say/);
   assert.equal(old0.content, undefined);
   // Once they are: its COMPLETE entry ready; done1, with its entry, is no gap.
-  commit(root, { 'bio-plane/src/old1/index.mjs': 'x\n', 'bio-plane/test/m/old1/t.test.mjs': 'x\n' });
+  commit(root, { 'app-plane/src/old1/index.mjs': 'x\n', 'app-plane/test/m/old1/t.test.mjs': 'x\n' });
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
   git(['fetch', '-q', 'origin'], { cwd: root });
   const old = census(root, cfg, { ref: 'origin/tranche', open: [2], now: NOW }).gaps.find((x) => x.id === 'old1');
@@ -96,7 +96,7 @@ test('census: every gap kind, named with what BOB writes; a module with its entr
   const e = g('c3', 'no-entry').content;
   assert.deepEqual(validate(e), []);
   assert.deepEqual(e, {
-    id: 'c3', title: 'c3: confirm its requirements on layer 3', layer: 3, paths: ['bio-plane/src/c3/', 'build/requirements/c3.md'], tests: ['bio-plane/test/m/c3/'],
+    id: 'c3', title: 'c3: confirm its requirements on layer 3', layer: 3, paths: ['app-plane/src/c3/', 'build/requirements/c3.md'], tests: ['app-plane/test/m/c3/'],
     requirements: 'build/requirements/c3.md', uses: [], suite: SUITE, reading: ['build/requirements/c3.md', 'build/requirements/README.md', 'build/situations/job.md'], status: { state: 'OPEN', at: NOW },
   });
   assert.equal(g('d3', 'no-entry').content, undefined);

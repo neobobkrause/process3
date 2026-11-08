@@ -20,6 +20,10 @@ export function r17cFiles(root = ROOT) {
   const md = readFileSync(join(root, 'notes/r17c-settings.md'), 'utf8');
   return Object.fromEntries([...md.matchAll(/## (\S+)\n\n```json\n([\s\S]*?)```/g)].map((m) => [m[1], JSON.parse(m[2])]));
 }
+// The note's product repository: the one that is neither process3 nor its probes (named by the
+// note, never here: process3 is product-neutral, BD-R2).
+export const productOf = (files) => Object.keys(files).find((k) => !/\/process3(-probes)?$/.test(k));
+const PRODUCT = productOf(r17cFiles());
 const conds = JSON.parse(readFileSync(join(ROOT, 'setup/conditions.json'), 'utf8'));
 const cond = (id) => (Array.isArray(conds) ? conds : conds.conditions || Object.values(conds)).find((c) => c.id === id);
 const pin = { sha: 'p'.repeat(40), list: () => [], file: (f) => { try { return readFileSync(join(ROOT, f), 'utf8'); } catch { return null; } } };
@@ -32,7 +36,7 @@ test('the R17c settings of each product (copy, probes) pass setup check\'s deny-
   const files = r17cFiles();
   const told = toldCommands(ROOT);
   const tools = toldTools(ROOT);
-  for (const repo of ['neobobkrause/civicsmith-copy', 'neobobkrause/process3-probes']) {
+  for (const repo of [PRODUCT, 'neobobkrause/process3-probes']) {
     const s = files[repo];
     assert.ok(s, `${repo} in the note`);
     const r = judge(s);
@@ -47,7 +51,7 @@ test('the R17c settings of each product (copy, probes) pass setup check\'s deny-
 
 test('the hooks a product may carry (the shim) are exactly the R17c files\' hooks', () => {
   const allowed = JSON.parse(readFileSync(join(ROOT, HOOKS_SHIM), 'utf8')).hooks;
-  for (const repo of ['neobobkrause/civicsmith-copy', 'neobobkrause/process3-probes']) {
+  for (const repo of [PRODUCT, 'neobobkrause/process3-probes']) {
     const h = r17cFiles()[repo].hooks;
     assert.deepEqual(h.PreToolUse, allowed.PreToolUse, `${repo}: PreToolUse`);
     if (h.SessionStart) assert.deepEqual(h.SessionStart, allowed.SessionStart, `${repo}: SessionStart`);
@@ -55,10 +59,10 @@ test('the hooks a product may carry (the shim) are exactly the R17c files\' hook
 });
 
 test('setup check still refuses settings that block the tool\'s push, refuse a told command, or carry a hook the shim does not', () => {
-  const s = structuredClone(r17cFiles()['neobobkrause/civicsmith-copy']);
+  const s = structuredClone(r17cFiles()[PRODUCT]);
   s.permissions.deny.push('Bash(node *)');
   assert.match(judge(s)['deny-list'].detail, /holds Bash\(node \*\), which blocks a session's push of its own branch/);
-  const t = structuredClone(r17cFiles()['neobobkrause/civicsmith-copy']);
+  const t = structuredClone(r17cFiles()[PRODUCT]);
   t.hooks.PreToolUse.push({ matcher: 'Write', hooks: [{ type: 'command', command: 'echo hi' }] });
   assert.match(judge(t)['shim-drift'].detail, /carries a PreToolUse hook the pin does not allow \(echo hi\)/);
 });

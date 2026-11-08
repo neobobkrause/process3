@@ -364,7 +364,7 @@ test('coalesced writes survive another process resetting the clone\'s ref, a kil
 // R17b (coordinator's rulings, 6 Nov): pushes and connector writes in the ledger, one ledger per
 // account (process3's clones use the product's); pushes counted, never held but by GitHub (PD-6).
 import { cloneId, exempt, lastShared, noteShare, noteTurn, pushTurn } from '../lib/pace.mjs';
-import { ledgerOf, USE_DIR } from '../lib/ghshare.mjs';
+import { ledgerOf, multiShare, readLedgers, USE_DIR } from '../lib/ghshare.mjs';
 
 // PD-6 (coordinator, 7 Nov; Bob: "make sure that this baseless overcaution NEVER happens. NEVER!"): a
 // brake acts only on a limit GitHub publishes, at target, or on a refusal GitHub returns. Pushes are
@@ -512,21 +512,18 @@ test('github note (C30): a request that alone is over a window\'s target is refu
   assert.equal(pacingProblem({ github_limits: { content_per_minute: 80, source: 'x', read: 'y' } }), null);
 });
 
-test('one ledger per account: a process3 clone reads and writes the product\'s state branch; its pause and use are every session\'s', (t) => {
+test('one ledger per account: a process3 clone reads and writes the product\'s state branch when given it as its ledger; its pause and use are every session\'s', (t) => {
   const f = logFile();
   env(t, { P3_GITHUB_LOG: f, CLAUDE_CODE_SESSION_ID: 'cse_p3' });
-  // The product, with its state branch on its origin; process3's clone names it in pacing.json.
+  // The product, with its state branch on its origin. C40: no clone takes a ledger from a file of
+  // process3's (a root pacing.json is ignored); only a product's config names another.
   const { root: product, bare } = withOrigin({ 'process/config.json': {} });
   writeState(product, 'process-state', 'seed', (wt) => { writeFileSync(join(wt, 'seed.txt'), 's\n'); return {}; });
-  const p3 = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/civicsmith-copy' }) });
-  assert.deepEqual(ledgerOf(p3, null), { own: false, name: 'neobobkrause/civicsmith-copy', url: 'https://github.com/neobobkrause/civicsmith-copy.git' });
+  const p3 = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/acmewidget-copy' }) });
+  assert.deepEqual(ledgerOf(p3, null), { own: true }, 'a pacing.json is no ledger: process3 writes its own');
   assert.deepEqual(ledgerOf(product, configOf({})), { own: true });
-  // A product whose config names none takes the pinned process3's (cold review of R17b: probes'
-  // config named none and would have kept a ledger of its own).
-  const pinned = makeRepo({ 'pacing.json': JSON.stringify({ ledger: 'neobobkrause/civicsmith-copy' }) });
-  assert.equal(ledgerOf(product, configOf({}), { processRoot: pinned }).url, 'https://github.com/neobobkrause/civicsmith-copy.git');
-  assert.equal(ledgerOf(product, configOf({ pacing: { ledger: 'o/elsewhere' } }), { processRoot: pinned }).name, 'o/elsewhere', 'the config\'s own wins');
-  assert.equal(ledgerOf(makeRepo({ 'a.md': 'x\n' }), null), null, 'no config and no pacing.json: no ledger');
+  assert.equal(ledgerOf(product, configOf({ pacing: { ledger: 'o/elsewhere' } })).name, 'o/elsewhere', 'the config\'s own names another');
+  assert.deepEqual(ledgerOf(makeRepo({ 'a.md': 'x\n' }), null), { own: true }, 'no config: its own');
   assert.match(pacingProblem({ ledger: 'not a repo' }), /pacing\.ledger is "<owner>\/<repo>"/);
   const c = clock(Date.now());
   const p3Share = stateShare(p3, null, { now: c.now, url: bare });
@@ -549,6 +546,76 @@ test('one ledger per account: a process3 clone reads and writes the product\'s s
   useShared(stateShare(product, configOf({})));
   assert.ok(stateShare(p3, null, { now: () => c.t + 400e3, url: bare }).shareNow() >= 1, 'shared once share_s has passed and the pause is lifted');
   assert.match(git(['ls-tree', '--name-only', 'process-state', `${USE_DIR}/`], { cwd: bare }), /github\/use\/cse_p3\.jsonl/);
+});
+
+// C40 (the coordinator's ruling on BD-R2, 8 Nov: a session writes only to its own repository): a
+// clone with no pacing config writes its own state branch; the account-wide count is read across
+// the ledgers named in pacing.read_ledgers (and --ledgers or P3_LEDGERS), never written there.
+test('C40: a clone with no pacing config writes the ledger in its own repository', (t) => {
+  env(t, { P3_GITHUB_LOG: logFile(), CLAUDE_CODE_SESSION_ID: 'cse_own' });
+  const { root, bare } = withOrigin({ 'README.md': 'x\n' });
+  const c = clock(Date.now());
+  const sh = stateShare(root, null, { now: c.now });
+  assert.equal(sh.ledger, 'own');
+  useShared(sh);
+  ghAfter(['pr', 'comment'], { code: 1, stderr: 'HTTP 403: You have exceeded a secondary rate limit\nRetry-After: 90' }, root, { now: c.now });
+  assert.equal(JSON.parse(git(['show', `process-state:${PAUSE_FILE}`], { cwd: bare })).session, 'cse_own', 'the pause is on its own origin\'s process-state');
+  // A product's config may still name another; process3 names none for it.
+  assert.equal(ledgerOf(root, configOf({ pacing: { ledger: 'o/other' } })).url, 'https://github.com/o/other.git');
+});
+
+test('C40: read_ledgers names the other ledgers read; github budget sums every one, and writes only its own', (t) => {
+  env(t, { P3_GITHUB_LOG: logFile(), CLAUDE_CODE_SESSION_ID: 'cse_reader' });
+  const now = Date.now();
+  const minute = new Date(Math.floor(now / 60e3) * 60e3 - 120e3).toISOString();
+  const ledgerWith = (session, content) => {
+    const seed = makeRepo({ [`${USE_DIR}/${session}.jsonl`]: JSON.stringify({ session, minute, calls: content, points: 5 * content, content, pushes: 0 }) + '\n' });
+    const bare = join(mkdtempSync(join(tmpdir(), 'p3-ledger-')), 'l.git');
+    git(['init', '-q', '--bare', bare], { cwd: seed });
+    git(['push', '-q', bare, 'HEAD:refs/heads/process-state'], { cwd: seed });
+    return bare;
+  };
+  const [a, b] = [ledgerWith('cse_a', 3), ledgerWith('cse_b', 4)];
+  const { root } = withOrigin({ 'README.md': 'x\n' });
+  // The names: config, flag and env, deduplicated, the written ledger left out; a bad one refused.
+  const cfg = configOf({ pacing: { read_ledgers: ['o/a', 'o/b'] } });
+  assert.deepEqual(readLedgers(root, cfg, { flag: 'o/b,o/c', env: 'O/A, o/d' }), ['o/a', 'o/b', 'o/c', 'o/d']);
+  assert.deepEqual(readLedgers(root, configOf({ pacing: { ledger: 'o/a', read_ledgers: ['o/a', 'o/b'] } }), { env: '' }), ['o/b'], 'the ledger written is not read twice');
+  assert.throws(() => readLedgers(root, null, { flag: 'nope' }), /--ledgers: nope is not "<owner>\/<repo>"/);
+  assert.throws(() => readLedgers(root, null, { env: 'o/a,bad' }), /P3_LEDGERS: bad is not/);
+  assert.match(pacingProblem({ read_ledgers: 'o/a' }), /pacing\.read_ledgers is a list of "<owner>\/<repo>"/);
+  assert.equal(pacingProblem({ read_ledgers: ['o/a'] }), null);
+  // The budget across the clone's own ledger and the two read.
+  const own = stateShare(root, null);
+  const sh = multiShare(own, [stateShare(root, null, { url: a, readOnly: true }), stateShare(root, null, { url: b, readOnly: true })]);
+  assert.deepEqual(sh.ledgers, ['own', a, b]);
+  useShared(sh);
+  const out = [];
+  githubBudget(root, { now, log: (m) => out.push(m), rateLimit: () => null });
+  assert.ok(out.some((l) => /content-creating requests, the last hour: 7\/500/.test(l)), out.join('\n'));
+  assert.ok(out.some((l) => /cse_a: 3 gh call/.test(l)) && out.some((l) => /cse_b: 4 gh call/.test(l)), out.join('\n'));
+  // Nothing was written to the ledgers read; a write to one is refused, and none touches the ref
+  // that holds a written ledger.
+  const tips = [a, b].map((x) => git(['rev-parse', 'process-state'], { cwd: x }));
+  sh.shareNow(); // whatever it shares goes to its own ledger
+  assert.deepEqual([a, b].map((x) => git(['rev-parse', 'process-state'], { cwd: x })), tips, 'the ledgers read are unchanged');
+  assert.throws(() => stateShare(root, null, { url: a, readOnly: true }).resume('session_x'), /is read only here/);
+  assert.equal(git(['for-each-ref', '--format=%(refname)', 'refs/p3/ledger/state'], { cwd: root }), '', 'a ledger read is never fetched into the written ledger\'s ref');
+  // The merged pause (each ledger's pause is already net of its own resumes).
+  const S = (pause, resumed = null) => ({ ledger: 'l', read: () => ({ at: now, pause, use: [], resumed, state: { repo: 'o/w', pushes: [[1, 'x']] } }) });
+  const stop = { at: '2026-11-08T10:00:00Z', until: '2026-11-08T10:01:00Z', why: 'there', stopped: true };
+  const long = { at: '2026-11-08T10:10:00Z', until: '2099-01-01T00:00:00Z', why: 'here' };
+  const m1 = multiShare(S(null), [S(stop)]).read();
+  assert.deepEqual([m1.pause.why, m1.pause.stopped], ['there', true], 'a stop anywhere is a stop');
+  const m2 = multiShare(S(long, '2026-11-08T10:05:00Z'), [S(stop, '2026-11-08T11:00:00Z')]).read();
+  assert.deepEqual([m2.pause.why, m2.pause.until, m2.pause.stopped], ['there', stop.until, true], 'a stop is kept whole, never a mix of two pauses');
+  assert.equal(m2.resumed, '2026-11-08T10:05:00Z', 'the resume is the written ledger\'s');
+  const m3 = multiShare(S(long), [S({ ...long, until: '2098-01-01T00:00:00Z', why: 'shorter' })]).read();
+  assert.equal(m3.pause.why, 'here', 'else the longest pause');
+  assert.deepEqual(m3.state.pushes, [[1, 'x']], 'state pushes are the written ledger\'s own');
+  assert.equal(multiShare(S(null), [S(null)]).read().pause, null);
+  assert.throws(() => readLedgers(root, configOf({ pacing: { read_ledgers: ['o/a'] } }), { env: '' }) && readLedgers(root, { pacing: { read_ledgers: 'o/a' } }, { env: '' }), /pacing\.read_ledgers is a list/);
+  useShared(null);
 });
 
 test('p3 github push refuses a force or a delete; pushes as given otherwise', async (t) => {

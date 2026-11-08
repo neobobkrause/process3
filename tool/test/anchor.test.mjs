@@ -102,7 +102,7 @@ test('the record check flags a change to a config whose parent had a duplicate k
   const root = makeRepo({ 'process/config.json': dup('neobobkrause') });
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
   const head = commit(root, { 'process/config.json': dup('eve') }, 'a session names eve');
-  const no = () => ({ author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } });
+  const no = () => ({ author: { login: 'acmewidget' }, committer: { login: 'acmewidget' }, commit: { verification: { verified: false } } });
   const f = recordCheck(root, { ...configOf({}), max_file_bytes: 1e6 }, { base, head, lookup: no }).findings;
   assert.ok(f.some((x) => x.check === 'approvals'), JSON.stringify(f));
 });

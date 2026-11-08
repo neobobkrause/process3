@@ -215,7 +215,7 @@ export function trancheClose(root, { record = false, report = false, log = conso
   // The tranche's end (BD-R1, Bob, 8 Nov): "This successive set of rounds continues until an
   // internal walk doesn't find flaws, the release deployment happens, and the walk of the release
   // also doesn't identify flaws. When the release walk is clean, the installer is updated for that
-  // release, then the civicsmith.dev website is updated to refer to the new install, and that ends
+  // release, then the [product's] website is updated to refer to the new install, and that ends
   // the tranche." Refused in that order; then the two updates, each on Bob's approval.
   const end = deploys(cfg) ? trancheEnd(root, cfg, t, { plan, slug, read }) : null;
   const [owner, repo] = slug.split('/');
@@ -241,7 +241,7 @@ export function trancheClose(root, { record = false, report = false, log = conso
 // the site itself.
 export const END_ACTS = [
   { key: 'installer_update', what: (v) => `the installer update for release ${v}` },
-  { key: 'site_update', what: (v) => `the civicsmith.dev update to refer to the new install of ${v}` },
+  { key: 'site_update', what: (v) => `the product website's update to refer to the new install of ${v}` },
 ];
 export function endActs(cfg, version, slug, branch) {
   const [owner, repo] = slug.split('/');

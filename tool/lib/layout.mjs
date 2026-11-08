@@ -1,5 +1,5 @@
 // layout move [--apply] [--also <path>]... (C41; Bob, 8 Nov: "There should be an process3-specific
-// subtree in the civicsmith-copy repo that contains info related to civicsmith-copy's
+// subtree in the [product's] repo that contains info related to [the product's]
 // process3-driven development"). A product keeps its process-only content under process/, the
 // directory that holds config.json (PROCESS_DIR). Each path the tool reads through a config key
 // keeps working where it is, by that key's default, until the product moves it; this act moves it.

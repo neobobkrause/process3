@@ -35,12 +35,12 @@ function setup(baseFiles, files, { alpha = {} } = {}) {
   return { root, base, head };
 }
 function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : [] };
+  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [] };
   return {
     state,
     io: {
       comments: () => state.comments,
-      getPR: () => ({ user: { login: 'civicsmith' } }),
+      getPR: () => ({ user: { login: 'acmewidget' } }),
       addComment: (s, n, body) => { state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } }); return {}; },
       verify: () => true,
     },
@@ -127,7 +127,7 @@ test('a reviewed revert exemption skips the revert check: the row says exempt, n
   const plain = run(s, receiptFor(s.head, { exempt: { revert: 'y is a fixture' } }));
   assert.deepEqual([plain.run.revert, plain.run.inert, plain.findings.map((f) => f.check)], ['fail', ['test/alpha/y.test.mjs'], ['revert']]);
   const io = fakeIO(receiptFor(s.head));
-  io.state.comments.push({ id: 50, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module: 'alpha', pr: 5, sha: s.head, reviewer: 'session_rev', why: 'y is a fixture' }), user: { login: 'civicsmith' } });
+  io.state.comments.push({ id: 50, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module: 'alpha', pr: 5, sha: s.head, reviewer: 'session_rev', why: 'y is a fixture' }), user: { login: 'acmewidget' } });
   const r = run(s, null, { io: io.io });
   assert.deepEqual([r.run.revert, r.run.inert, r.findings], ['exempt', undefined, []]);
   assert.ok(r.lines.some((l) => /revert check is exempt by session_rev's reviewed exemption .*\(y is a fixture\): not run/.test(l)), r.lines.join('\n'));

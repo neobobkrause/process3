@@ -37,10 +37,10 @@ function fakeGitHub() {
     open: (slug, p) => ({ number: 9, html_url: 'pr', draft: true, ...p }),
     find: () => null,
     gh: {
-      findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'civicsmith' } }),
+      findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'acmewidget' } }),
       toDraft: () => { state.isDraft = true; return { draft: true }; },
       comments: () => state.comments,
-      addComment: (s, n, body) => { state.comments.push({ body, html_url: `c${state.comments.length}`, user: { login: 'civicsmith' } }); return { html_url: 'c' }; },
+      addComment: (s, n, body) => { state.comments.push({ body, html_url: `c${state.comments.length}`, user: { login: 'acmewidget' } }); return { html_url: 'c' }; },
       markReady: () => { state.ready++; state.isDraft = false; },
     },
   };

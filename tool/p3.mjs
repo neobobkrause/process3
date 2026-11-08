@@ -32,7 +32,12 @@ import { layoutMove } from './lib/layout.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
 import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrites, realPendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
 import { clearLocalPause, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
-import { stateShare } from './lib/ghshare.mjs';
+import { multiShare, readLedgers, stateShare } from './lib/ghshare.mjs';
+// The ledger written, read with every other ledger named (C40).
+const accountShare = (root, cfg, flag) => {
+  const sh = stateShare(root, cfg);
+  return sh ? multiShare(sh, readLedgers(root, cfg, { flag }).map((n) => stateShare(root, cfg, { url: `https://github.com/${n}.git`, readOnly: true }))) : null;
+};
 import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
 import { hookLoadedLine, hookRun } from './lib/ghhook.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
@@ -515,7 +520,15 @@ const commands = {
   // The runbook: rulebooks/account-switch.md.
   // github budget (R17): use against each of GitHub's published limits, per window, account-wide
   // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
-  'github budget': (a, root) => { githubBudget(root); return 0; },
+  // C40: the account-wide count read across the ledger written and every ledger named
+  // (pacing.read_ledgers; --ledgers or P3_LEDGERS, comma-separated "<owner>/<repo>").
+  'github budget': (a, root) => {
+    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
+    const sh = accountShare(root, cfg, a.ledgers);
+    if (sh) useShared(sh);
+    githubBudget(root);
+    return 0;
+  },
   // github audit [--since <iso>] [--repo <owner/repo>]... (R17c): GitHub's own evidence of calls,
   // pushes and writes against the account's ledger; exit 1 on an unexplained push or write gap.
   'github audit': (a, root) => {
@@ -523,10 +536,12 @@ const commands = {
     let slug = null;
     try { slug = repoSlug(root); } catch { slug = null; }
     const processOrigin = git(['config', '--get', 'remote.origin.url'], { cwd: PROCESS_ROOT, allowFail: true }).stdout.trim();
-    const repos = [...auditRepos({ slug, cfg, processOrigin }), ...list(a.repo).filter((x) => typeof x === 'string')];
-    // Against the account's ledger, never this clone's log alone (cold review of R17c).
-    const sh = stateShare(root, cfg);
-    if (!sh) fail('github audit: no GitHub ledger here (a product\'s clone, or one whose pacing.json names it): nothing to audit against');
+    const others = readLedgers(root, cfg, { flag: a.ledgers });
+    const repos = [...new Set([...auditRepos({ slug, cfg, processOrigin }), ...others, ...list(a.repo).filter((x) => typeof x === 'string')])];
+    // Against the account's ledgers, never this clone's log alone (cold review of R17c): the one
+    // written and every one named (C40).
+    const sh = accountShare(root, cfg, a.ledgers);
+    if (!sh) fail('github audit: no GitHub ledger here: nothing to audit against');
     useShared(sh);
     try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch, login: typeof a.login === 'string' ? a.login : null }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
   },
@@ -577,7 +592,7 @@ const commands = {
   'github resume': (a, root) => {
     const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
     const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
-    const sh = stateShare(root, cfg) || fail('no GitHub ledger here: a product\'s clone, or a clone whose pacing.json names one');
+    const sh = stateShare(root, cfg) || fail('no GitHub ledger here');
     sh.resume(by);
     clearLocalPause(root);
     console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
@@ -725,7 +740,7 @@ export async function main(argv) {
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
     // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else. A
-    // clone with no product config (process3) uses the ledger its pacing.json names (R17b).
+    // clone with no product config (process3) writes its own (C40; pacing.ledger names another).
     if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch { ledger = null; } }
     if (cfg && !process.env.NODE_TEST_CONTEXT && name !== 'github hook') beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();

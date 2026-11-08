@@ -1,8 +1,8 @@
 // A job's push refuses, before anything is pushed, a commit that adds a file over max_file_bytes,
 // or a generated path (config `generated`) or a path under any dist/ directory that the tranche
 // does not already track. A pushed commit cannot be taken back without a force-push, which no
-// session may do, so each such push cost a fresh branch (installer 3df99b92, 5 Nov; newgroup
-// 606/609 and agent-runner 3ee34e5, 6 Nov).
+// session may do, so each such push cost a fresh branch (the first product: its installer
+// 3df99b92, 5 Nov; its installer worker 606/609 and agent runner 3ee34e5, 6 Nov).
 import { generatedRows, isGenerated } from './checks.mjs';
 import { fail, git } from './util.mjs';
 

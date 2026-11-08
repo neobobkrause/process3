@@ -2,7 +2,7 @@
 #
 # Sessions assemble and never sign (bundler R30; `--sign` refuses outside GitHub Actions). This workflow is
 # the only place a release is signed: it runs in the GitHub environment `release`, whose secret
-# `BIO_RELEASE_SEED` is the release key and whose required reviewer is Bob, so each run waits for his
+# `APP_RELEASE_SEED` is the release key and whose required reviewer is Bob, so each run waits for his
 # approval, one approval per release. It re-assembles the commit it signs, so it signs only what it proved
 # fresh, never a payload a session handed it, and commits the signed `release/` back to the branch it ran on.
 # The commands and their order are bundler's (its record, R30; `release-assemble.mjs`'s header).
@@ -45,17 +45,17 @@ jobs:
       - name: install (bundler R30, steps 1-2)
         run: |
           set -euo pipefail
-          (cd bio-plane && npm ci --no-audit --no-fund --loglevel=error)
-          node bio-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
-            [ "$dir" = "bio-plane" ] && continue
+          (cd app-plane && npm ci --no-audit --no-fund --loglevel=error)
+          node app-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
+            [ "$dir" = "app-plane" ] && continue
             (cd "$dir" && npm ci --no-audit --no-fund --loglevel=error)
           done
       - name: assemble, nothing written (step 3)
-        run: node bio-plane/scripts/release-assemble.mjs --version "${{ inputs.version }}" --dry-run
+        run: node app-plane/scripts/release-assemble.mjs --version "${{ inputs.version }}" --dry-run
       - name: sign (step 4)
         env:
-          BIO_RELEASE_SEED: ${{ secrets.BIO_RELEASE_SEED }}
-        run: node bio-plane/scripts/release-assemble.mjs --version "${{ inputs.version }}" --sign
+          APP_RELEASE_SEED: ${{ secrets.APP_RELEASE_SEED }}
+        run: node app-plane/scripts/release-assemble.mjs --version "${{ inputs.version }}" --sign
       - name: commit the signed release
         run: |
           set -euo pipefail

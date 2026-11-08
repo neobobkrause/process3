@@ -30,13 +30,13 @@ function setup(files) {
 
 function fakeIO(receipt) {
   // The receipt is the opener's (the session account); the gate reads no one else's.
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'civicsmith' } }] : [], genuine: new Set() };
+  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [], genuine: new Set() };
   const key = (r) => `${r.at}|${r.sha}|${r.trigger}`;
   return {
     state,
     io: {
       comments: () => state.comments,
-      getPR: () => ({ user: { login: 'civicsmith' } }),
+      getPR: () => ({ user: { login: 'acmewidget' } }),
       addComment: (s, n, body) => {
         state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } });
         for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r));
@@ -63,7 +63,7 @@ test('a real change with a real test passes, and the receipt agrees', () => {
 
 // AUD-1, JOB-12: an inert test fails the gate; only a reviewed exemption on the pull request,
 // never the receipt's own words, exempts a refactor.
-const exemptBlock = (sha, reviewer = 'session_reviewer', module = 'alpha') => ({ id: 99, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module, pr: 5, sha, reviewer, why: 'a refactor; behaviour unchanged' }), user: { login: 'civicsmith' } });
+const exemptBlock = (sha, reviewer = 'session_reviewer', module = 'alpha') => ({ id: 99, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module, pr: 5, sha, reviewer, why: 'a refactor; behaviour unchanged' }), user: { login: 'acmewidget' } });
 test('a test that passes with the change reverted is inert: a finding (AUD-1)', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/y.test.mjs': inertTest });
   const r = run(s, fakeIO(receiptFor(s.head)));
@@ -225,7 +225,7 @@ test('a records-only job pull request with a receipt gets a code run whose recei
   git(['checkout', '-q', 'main'], { cwd: s.root });
   let merged = null;
   const m = merge(s.root, 247, { slug: 'o/r', reviewed: 'test', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet, io: {
-    getPR: () => ({ state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: s.head } }),
+    getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: s.head } }),
     comments: () => io.state.comments,
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: io.io.verify,
@@ -401,8 +401,8 @@ test('a receipt is read only from the pull request\'s opener', () => {
   const r = run(s, io);
   assert.equal(r.run.receipt, 'none');
   assert.ok(r.findings.some((f) => f.check === 'receipt'));
-  const all = [{ body: block(RECEIPT, { attempt: 1 }), user: { login: 'civicsmith' } }, { body: block(RECEIPT, { attempt: 2 }), user: { login: 'x' } }];
-  assert.equal(latestReceipt(all, 'civicsmith').attempt, 1);
+  const all = [{ body: block(RECEIPT, { attempt: 1 }), user: { login: 'acmewidget' } }, { body: block(RECEIPT, { attempt: 2 }), user: { login: 'x' } }];
+  assert.equal(latestReceipt(all, 'acmewidget').attempt, 1);
   assert.equal(latestReceipt(all, undefined), null, 'no opener: no receipt');
 });
 
@@ -494,7 +494,7 @@ test('a job that adds a test for a mark its module already meets and strikes it 
 // gives the one full run on the head: the suite and the receipt.
 test('the gate race: whichever of the push\'s run and the ready run is kept judges the pull request as it is now', () => {
   const s = setup({ 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const live = (draft) => { const io = fakeIO(receiptFor(s.head)); io.io.getPR = () => ({ draft, user: { login: 'civicsmith' } }); return io; };
+  const live = (draft) => { const io = fakeIO(receiptFor(s.head)); io.io.getPR = () => ({ draft, user: { login: 'acmewidget' } }); return io; };
   for (const eventDraft of [true, false]) {
     const io = live(false);
     const out = [];
@@ -533,7 +533,7 @@ test('the gate builds untracked generated files before the suite that imports th
   const head = commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/rows.test.mjs': uses });
   assert.equal(existsSync(join(root, 'gen/rows.mjs')), false, 'not committed, not built yet');
   const io = fakeIO(null);
-  io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'civicsmith' } }];
+  io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'acmewidget' } }];
   const r = gate(root, { base, head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: io.io, log: quiet });
   assert.equal(r.run.suite, 'pass', JSON.stringify(r.findings));
   assert.deepEqual(r.run.built, ['gen/rows.mjs']);
@@ -557,7 +557,7 @@ function genProduct(genScript, extra = {}) {
   git(['checkout', '-q', '-b', 'job/alpha'], { cwd: root });
   return { root, base };
 }
-const ioFor = (head) => { const io = fakeIO(null); io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'civicsmith' } }]; return io; };
+const ioFor = (head) => { const io = fakeIO(null); io.state.comments = [{ id: 1, body: block(RECEIPT, receiptFor(head)), user: { login: 'acmewidget' } }]; return io; };
 
 test('a failed generated build is one finding, and no row is regenerated twice in a run', () => {
   const counting = "import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';\nappendFileSync('runs.log', 'x');\nmkdirSync('gen', { recursive: true });\nwriteFileSync('gen/rows.mjs', 'export const rows = 3;\\n');\n";

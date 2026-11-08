@@ -236,10 +236,10 @@ function fakeGitHub() {
     open: (slug, p) => { state.prs++; return { number: 9, html_url: 'pr', draft: true, ...p }; },
     find: () => null,
     gh: {
-      findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'civicsmith' } }),
+      findPR: () => ({ number: 9, draft: state.isDraft, user: { login: 'acmewidget' } }),
       toDraft: () => { state.drafted++; state.isDraft = true; return { draft: true }; },
       comments: () => state.comments,
-      addComment: (s, n, body) => { const c = { id: 100 + state.comments.length, body, html_url: `c${state.comments.length}`, created_at: state.at || new Date(Date.now() + state.comments.length).toISOString(), user: { login: 'civicsmith' } }; state.comments.push(c); return c; },
+      addComment: (s, n, body) => { const c = { id: 100 + state.comments.length, body, html_url: `c${state.comments.length}`, created_at: state.at || new Date(Date.now() + state.comments.length).toISOString(), user: { login: 'acmewidget' } }; state.comments.push(c); return c; },
       getPR: () => ({ number: 9, draft: state.isDraft, body: state.body }),
       editPR: (s, n, f) => { if (state.failEdit) { state.failEdit = false; throw new Error('edit refused'); } state.edits.push(f); state.body = f.body; return { number: 9 }; },
       checkRuns: () => (state.gate === undefined ? null : state.gate ? [state.gate] : []),
@@ -610,7 +610,7 @@ test('merge passes on a green gate run that read attempt 2, and refuses one that
   git(['checkout', '-q', 'main'], { cwd: root });
   const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'agrees', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
   const mk = (gate) => ({
-    getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'civicsmith' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
+    getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
     comments: () => [...f.state.comments, gate],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: () => true,
@@ -674,7 +674,7 @@ test('--reopen is refused while the old attempt is unmerged or its PR is open, a
   assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', setup: ready, reopen: true, open: m.f.open, find: m.f.find, log: quiet }), /needs what the new attempt must do/);
 });
 
-// Coordinator, 4 Nov (case-checker on civicsmith-copy): a COMPLETE module whose reopen attempt's
+// Coordinator, 4 Nov (case-checker on the first product): a COMPLETE module whose reopen attempt's
 // branch holds a commit the record check refuses, its pull request closed.
 test('a COMPLETE module with a closed PR on job/<m> starts with --reopen and --fresh-branch on job/<m>-2 cut from the tranche tip', () => {
   const { root, f } = mergedOnce();
@@ -1157,7 +1157,7 @@ test('a start on an abandoned attempt is not counted as a reopen after a merge',
 // Copy, 5 Nov (agent-steps PR 392): COMPLETE, its pull request open and red, its session archived.
 test('--restart on a COMPLETE job whose pull request is open gives it a replacement session', () => {
   const s = abandonedComplete();
-  const pr = { number: 392, html_url: 'https://x/pull/392', user: { login: 'civicsmith' } };
+  const pr = { number: 392, html_url: 'https://x/pull/392', user: { login: 'acmewidget' } };
   const r = jobStart(s.root, 'alpha', { coordinator: 's', restart: 'failed only the revert check; session archived', stop: 'archived', find: () => pr, notes: () => [], log: quiet });
   assert.equal(r.restarted, true);
   assert.deepEqual([r.row.state, r.row.pr, r.row.stop], ['COMPLETE', 392, 'archived']);
@@ -1171,7 +1171,7 @@ test('--restart on a COMPLETE job whose pull request is open gives it a replacem
 // from the same state, is not refused (no cycles). A route that needs BOB to close a pull request
 // first is run after the close.
 test('every refusal in job start and --restart names a route that works from that state', () => {
-  const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'civicsmith' } };
+  const pr = { number: 9, html_url: 'https://x/pull/9', user: { login: 'acmewidget' } };
   const states = {
     'merged COMPLETE': () => { const m = mergedOnce(); return { ...m, find: () => null, prs: noPRs }; },
     'abandoned COMPLETE': abandonedComplete,
@@ -1465,7 +1465,7 @@ test('a mark with a parenthetical between its id and "(not yet met" is struck li
 // (review of PR 72: "push to job/<id> only" forbade the state branch it writes).
 test('the START: the escalation to ROOT after decision_minutes, its limits, and the wake as the job\'s act', () => {
   const e = entry('alpha', { title: 'Member sign-in and session handling', paths: ['src/alpha/', 'src/shared/alpha-client.mjs', 'worker/alpha/'], tests: ['test/alpha/', 'test/e2e/alpha.spec.mjs'] });
-  const t = startText({ entry: e, slug: 'neobobkrause/civicsmith-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', decisionMinutes: 30 });
+  const t = startText({ entry: e, slug: 'neobobkrause/acmewidget-copy', branch: 'job/alpha', tranche: 'tranche', coordinator: 'session_01RAN5ek9qx8mduYhfE77Ldc', bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 100 }, { file: 'docs/alpha.md', bytes: 100 }], bytes: 200 }, rootId: 'session_01RAN5ek9qx8mduYhfE77Ldd', decisionMinutes: 30 });
   // The chain's last automatic step is the watcher, with the minutes unanswered (coordinator, 4 Nov).
   assert.ok(t.includes('No answer from BOB in 30 min: send it once more, then to ROOT `session_01RAN5ek9qx8mduYhfE77Ldd`, then the watcher, with the minutes, by send_message (`node .process/tool/p3.mjs address <role>`).'));
   assert.ok(t.includes('If reversible and in your module, act on your recommendation and note why in your PR; never a merge, a push off your branch, or what is not yours.'));

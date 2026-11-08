@@ -2,7 +2,7 @@
 #
 # Development builds go to the trial copy without a signature: only the alpha release teams install is signed,
 # under `release`. This workflow runs in the GitHub environment `deploy-test`, whose secret `CLOUDFLARE_API_TOKEN`
-# is a token for account 20b533579290b9b93168345edd3b7f72 only (K4184); it has no reviewer. The scripts refuse a
+# is a token for account 0123456789abcdef0123456789abcdef only (K4184); it has no reviewer. The scripts refuse a
 # copy not marked a test instance ([NOT_A_TEST_INSTANCE]) and any other account ([WRONG_ACCOUNT]), and every step
 # logs its `test deploy:` and `rollback :` lines. The steps and their order are bundler's (BUNDLER #24's record).
 # A container member's image must already be published (`container-images.yml`); its marker names the digest.
@@ -21,7 +21,7 @@ on:
         required: true
         type: string
       copy:
-        description: "The test copy's instance name, e.g. biosmoke8"
+        description: "The test copy's instance name, e.g. appsmoke8"
         required: true
         type: string
       dry_run:
@@ -57,8 +57,8 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CF_ACCT: 20b533579290b9b93168345edd3b7f72
-      CLOUDFLARE_ACCOUNT_ID: 20b533579290b9b93168345edd3b7f72
+      CF_ACCT: 0123456789abcdef0123456789abcdef
+      CLOUDFLARE_ACCOUNT_ID: 0123456789abcdef0123456789abcdef
     steps:
       - name: what to deploy, and where
         run: |
@@ -84,7 +84,7 @@ jobs:
           case "$gen" in ''|[1-9]|[1-9][0-9]) ;; *) echo "bad store generation: $gen"; exit 1;; esac
           store=""; [ -n "$loc" ] && store="--store-location $loc"; [ -n "$gen" ] && store="$store --store-generation $gen"
           echo "STORE=$store" >> "$GITHUB_ENV"
-          echo "COPY=$copy" >> "$GITHUB_ENV"; echo "CIVICSMITH_TEST_INSTANCE=$copy" >> "$GITHUB_ENV"
+          echo "COPY=$copy" >> "$GITHUB_ENV"; echo "ACMEWIDGET_TEST_INSTANCE=$copy" >> "$GITHUB_ENV"
           echo "DRY=$dry" >> "$GITHUB_ENV"; echo "SRC=$src" >> "$GITHUB_ENV"
           echo "test deploy: copy $copy, source $src, ${dry:-real run}${store:+, store options$store}"
       - uses: actions/checkout@v4
@@ -96,9 +96,9 @@ jobs:
       - name: install
         run: |
           set -euo pipefail
-          (cd bio-plane && npm ci --no-audit --no-fund --loglevel=error)
-          node bio-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
-            [ "$dir" = "bio-plane" ] && continue
+          (cd app-plane && npm ci --no-audit --no-fund --loglevel=error)
+          node app-plane/scripts/bundles.mjs --install-dirs | while read -r dir; do
+            [ "$dir" = "app-plane" ] && continue
             (cd "$dir" && npm ci --no-audit --no-fund --loglevel=error)
           done
       - name: build the branch's artifacts
@@ -106,19 +106,19 @@ jobs:
           set -euo pipefail
           # The generated words, rows and program the bundles import are not committed (rows.mjs, program.mjs).
           node docs/development/ux-substrate/screens/build_words.mjs
-          node bio-plane/src/setup-words/build.mjs && node bio-plane/src/case-checker/build-program.mjs
-          node bio-plane/scripts/bundles.mjs
+          node app-plane/src/setup-words/build.mjs && node app-plane/src/case-checker/build-program.mjs
+          node app-plane/scripts/bundles.mjs
       - name: deploy each member, in the order discoverMembers lists
         run: |
           set -euo pipefail
-          for member in $(node -e 'import("./bio-plane/scripts/fleet-bundle.mjs").then(async (m) => { const list = await m.discoverMembers(); for (const d of list) console.log(d.name ?? d.member ?? d); })'); do
+          for member in $(node -e 'import("./app-plane/scripts/fleet-bundle.mjs").then(async (m) => { const list = await m.discoverMembers(); for (const d of list) console.log(d.name ?? d.member ?? d); })'); do
             echo "::group::$member"
-            node bio-plane/scripts/deploy-fleet.mjs "$member" --instance "$COPY" --test-instance $DRY
+            node app-plane/scripts/deploy-fleet.mjs "$member" --instance "$COPY" --test-instance $DRY
             echo "::endgroup::"
           done
       - name: deploy the plane
-        working-directory: bio-plane
+        working-directory: app-plane
         run: |
           set -euo pipefail
           version=$(node -p 'require("./package.json").version')
-          node scripts/deploy.mjs "$COPY" "$version" dist/bio-plane.bundled.mjs --test-instance $DRY $STORE
+          node scripts/deploy.mjs "$COPY" "$version" dist/app-plane.bundled.mjs --test-instance $DRY $STORE

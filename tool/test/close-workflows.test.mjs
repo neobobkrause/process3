@@ -62,7 +62,7 @@ jobs:
     - uses: actions/checkout@v4
     - run: |
         set -euo pipefail
-        for pkg in bio-plane pdf-worker${extra}; do echo $pkg; done
+        for pkg in app-plane pdf-worker${extra}; do echo $pkg; done
         echo done
 `;
 
@@ -111,7 +111,7 @@ function product({ bootstrap = true, steps = [], ledger = [], pre = [] } = {}) {
     git(['merge', '-q', '--no-ff', branch, '-m', s.via === 'job' ? `Merge job PR ${n}` : `Merge PR ${n}: ${branch} into tranche`], { cwd: root });
     if (s.evil) commit(root, s.evil, 'amend'), git(['reset', '-q', '--soft', 'HEAD~1'], { cwd: root }), git(['commit', '-q', '--amend', '--no-edit'], { cwd: root });
     const m = git(['rev-parse', 'HEAD'], { cwd: root });
-    prs.set(n, { number: n, merged: true, merge_commit_sha: m, base: { ref: 'tranche' }, head: { ref: branch, sha: tip, repo: { full_name: 'o/r' } }, user: { login: 'civicsmith' } });
+    prs.set(n, { number: n, merged: true, merge_commit_sha: m, base: { ref: 'tranche' }, head: { ref: branch, sha: tip, repo: { full_name: 'o/r' } }, user: { login: 'acmewidget' } });
     const ok = !s.red;
     const row = { sha: tip, base: onto, run_id: 100 + n, trigger: 'code', scope: s.via === 'job' ? [s.id] : [], suite: ok ? 'pass' : 'fail', ok, findings: ok ? 0 : 1, verified: !s.unverified };
     comments.set(n, [{ id: n, body: block(GATE, { runs: [row] }), user: { login: BOT } }]);
@@ -136,7 +136,7 @@ function io(r, { rules = { checks: [{ context: 'gate' }] }, owned = null } = {})
       repo: processRepo(r.root),
       lookup: (args) => (owned && args[1].split('/').pop() === owned
         ? { author: { login: DEFAULTS.approvals.owner }, committer: { login: 'web-flow' }, commit: { verification: { verified: true } } }
-        : { author: { login: 'civicsmith' }, committer: { login: 'civicsmith' }, commit: { verification: { verified: false } } }),
+        : { author: { login: 'acmewidget' }, committer: { login: 'acmewidget' }, commit: { verification: { verified: false } } }),
       mergePR: (slug, n, sha, o) => { calls.merged = { sha, ...o }; return { merged: true, sha: 'm'.repeat(40) }; },
     },
   };
@@ -214,7 +214,7 @@ test('coordinator, 4 Nov 08:13: a take-in tip does not mark a direct commit as e
   assert.throws(close(r).go, /regression\.yml: rule 1: it was changed by [0-9a-f]{10}, a direct commit on tranche/);
 });
 
-// The copy's two real diffs (civicsmith-copy main 0dea5a6e against tranche 3e095aa5).
+// The copy's two real diffs (the first product's main 0dea5a6e against tranche 3e095aa5).
 const FIX = (n) => readFileSync(join(import.meta.dirname, 'fixtures', 'close-workflows', n), 'utf8');
 const shape = (head, base) => workflowShapes(head, base);
 const NONE = /rule 3: the hunk at base line \d+ .* fits no allowed shape/;

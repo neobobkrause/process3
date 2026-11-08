@@ -60,14 +60,14 @@ case "$u" in *chromium-linux-*) ${chrome('$d')};; *) mkdir -p "$d"; : > "$d/x";;
 test('the versions: the top-level playwright-core of each lock file the gate installs, sorted, none hand-written; nothing else', () => {
   const root = makeRepo({
     'site/package-lock.json': lock({ '': '0.0.0', 'node_modules/playwright-core': '1.56.1' }),
-    'bio-plane/src/journey-check/package-lock.json': lock({ 'node_modules/playwright-core': '1.56.1', 'node_modules/x/node_modules/playwright-core': '1.9.0' }),
+    'app-plane/src/journey-check/package-lock.json': lock({ 'node_modules/playwright-core': '1.56.1', 'node_modules/x/node_modules/playwright-core': '1.9.0' }),
     'pre/package-lock.json': lock({ 'node_modules/playwright-core': '1.57.0-alpha-2025-10-01' }),
     'a/package-lock.json': lock({ 'node_modules/playwright': '2.0.0', 'node_modules/not-playwright-core': '3.0.0' }),
     'b/package-lock.json': lock({ 'node_modules/playwright-core': '1.2.3; rm -rf /' }),
     'c/package-lock.json': '{ not json',
     'fixture/package-lock.json': lock({ 'node_modules/playwright-core': '1.40.0' }),
   });
-  const LOCKFILES = JSON.stringify(['site/package-lock.json', 'bio-plane/src/journey-check/package-lock.json', 'pre/package-lock.json', 'a/package-lock.json', 'b/package-lock.json', 'c/package-lock.json', 'missing/package-lock.json', '../x/package-lock.json']);
+  const LOCKFILES = JSON.stringify(['site/package-lock.json', 'app-plane/src/journey-check/package-lock.json', 'pre/package-lock.json', 'a/package-lock.json', 'b/package-lock.json', 'c/package-lock.json', 'missing/package-lock.json', '../x/package-lock.json']);
   const r = bash(stepRun("the browser the product's lock files pin"), root, { LOCKFILES });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.out, 'versions=1.56.1 1.57.0-alpha-2025-10-01\n', 'no nested or unlisted lock file, no bad version');
