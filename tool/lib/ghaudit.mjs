@@ -23,6 +23,29 @@ import { pacing, slugOf, usage } from './pace.mjs';
 
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, 'Z');
 const sessionIn = (msg) => (String(msg || '').match(/Claude-Session:\s*\S*?(session_[A-Za-z0-9]+)/) || [])[1] || null;
+// The claude.ai session a write names in its own body: its Claude-Session trailer or claude.ai/code
+// link (C34). Only the act's own text: a review's or comment's body, a pull request's description
+// only for its opening (cold review of C34: a review, a linkless comment or a ready mark on a pull
+// request carries the PR author's description, which named the author for another's act). null
+// when it names none. prBody: the description read from GitHub when the event's payload was trimmed.
+const linkIn = (body) => sessionIn(body) || (String(body || '').match(/claude\.ai\/code\/(session_[A-Za-z0-9]+)/) || [])[1] || null;
+export const writeSession = (e, { prBody } = {}) => {
+  const p = e?.payload || {};
+  if (e?.type === 'PullRequestReviewEvent') return linkIn(p.review?.body);
+  if (e?.type === 'PullRequestReviewCommentEvent' || e?.type === 'IssueCommentEvent') return linkIn(p.comment?.body);
+  if (e?.type === 'PullRequestEvent' && p.action === 'opened') return linkIn(p.pull_request?.body ?? prBody);
+  if (e?.type === 'IssuesEvent' && p.action === 'opened') return linkIn(p.issue?.body);
+  return null;
+};
+// What the ledger says of the session behind an unexplained write (C34). The gap is a count: the
+// writes named are GitHub's newest, not matched one by one to what the ledger lacks (cold review),
+// so the line says what the ledger holds of that session, never that this write was the one missed.
+// A hook pinned before C34 records no session, so "none" may also be an old pin.
+export const writeWho = (e, hooked, opts) => {
+  const s = writeSession(e, opts);
+  if (!s) return 'session unknown: its own text names none';
+  return hooked.has(s) ? `session ${s}: the ledger holds connector calls of its hook` : `hook not loaded in session ${s}? the ledger holds no connector call of it (a hook pinned before C34 records none either)`;
+};
 const PR_ACTS = new Set(['opened', 'edited', 'closed', 'reopened', 'ready_for_review', 'converted_to_draft']);
 const bot = (login) => /\[bot\]$/.test(String(login || ''));
 export const LEDGER_HOURS = 2;
@@ -118,7 +141,13 @@ export function githubAudit(root, { since, repos = [], product = null, stateBran
     const covered = Math.min(gap, cpool);
     cpool -= covered;
     gap -= covered;
-    if (gap) { wGap += gap; who.push(...writes.slice(0, gap).map((e) => `${repo} ${e.type.replace(/Event$/, '')}${e.payload?.action ? ` ${e.payload.action}` : ''}${e.payload?.pull_request?.number || e.payload?.issue?.number ? ` #${e.payload.pull_request?.number || e.payload.issue?.number}` : ''} by ${e.actor?.login}`)); }
+    // A pull request opened whose event payload GitHub trimmed of its body: its description read (C34).
+    const prBody = (e) => {
+      if (e.type !== 'PullRequestEvent' || e.payload?.action !== 'opened' || e.payload?.pull_request?.body !== undefined || !e.payload?.pull_request?.number) return undefined;
+      const pr = read(['api', `repos/${repo}/pulls/${e.payload.pull_request.number}`]);
+      return pr && typeof pr === 'object' ? pr.body ?? null : undefined;
+    };
+    if (gap) { wGap += gap; who.push(...writes.slice(0, gap).map((e) => `${repo} ${e.type.replace(/Event$/, '')}${e.payload?.action ? ` ${e.payload.action}` : ''}${e.payload?.pull_request?.number || e.payload?.issue?.number ? ` #${e.payload.pull_request?.number || e.payload.issue?.number}` : ''} by ${e.actor?.login} (${writeWho(e, ledger.connector_sessions || new Set(), { prBody: prBody(e) })})`)); }
     L.push(`writes, ${repo}: GitHub ${writes.length} (pull requests, comments, reviews) vs ledger ${lw}${covered ? `, ${covered} covered by writes logged with no repository` : ''}${gap ? `: ${gap} unexplained` : ''}`);
   }
   if (wGap) { unexplained = true; L.push(`UNEXPLAINED writes: ${who.slice(0, 10).join('; ')}`); }
