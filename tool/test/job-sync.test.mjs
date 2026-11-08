@@ -193,7 +193,7 @@ test('#3: a replacement session at the tranche tip: job sync checks out job/<id>
   // Detached with work of its own origin's job/<id> lacks: refused, nothing moved.
   git(['checkout', '-q', '--detach'], { cwd: c });
   commit(c, { 'src/alpha/loose.mjs': 'x\n' }, 'work on a detached HEAD');
-  assert.throws(() => jobSync(c, 'alpha', { compare, log: quiet }), /HEAD is detached at \w{10}, which holds commits origin's job\/alpha \(\w{10}\) lacks; nothing was moved/);
+  assert.throws(() => jobSync(c, 'alpha', { compare, log: quiet }), /HEAD is detached at \w{10}, which holds commits neither origin's job\/alpha \(\w{10}\) nor tranche has; nothing was moved: keep them on a branch \(`git branch <name>`\), then `git checkout --detach refs\/remotes\/origin\/job\/alpha` and run job sync again/);
   assert.equal(git(['rev-parse', '--verify', '-q', 'refs/heads/job/alpha'], { cwd: c, allowFail: true }).code, 0, 'the local branch is where it was');
   // On another branch: refused, as job complete refuses it.
   git(['checkout', '-q', '-b', 'elsewhere'], { cwd: c });
@@ -433,4 +433,29 @@ test('job complete: refused at each GitHub step in turn, then rerun: one receipt
     assert.equal(receipts.length, 1, `step ${k}: one receipt for the head, not ${receipts.length}`);
     assert.equal(f.state.isDraft, false, `step ${k}: ready`);
   }
+});
+
+// Cold review of C29: in a shallow clone (a session's), the count of the stale branch's own commits
+// reads on enough history (a depth-1 fetch cut it and counted commits origin has); and a restart's
+// container, detached at the tranche tip, is no detached work of its own.
+test('C29: in a shallow clone a stale branch that is an ancestor of origin\'s counts nothing of its own; a restart at the tranche tip is accepted', () => {
+  const { src, compare, clone } = shallowJob();
+  const c = clone('job/alpha');
+  git(['fetch', '-q', '--deepen=3', 'origin', '+refs/heads/job/alpha:refs/remotes/origin/job/alpha'], { cwd: c });
+  git(['checkout', '-q', '--detach'], { cwd: c });
+  git(['branch', '-f', 'job/alpha', 'HEAD~2'], { cwd: c });
+  const said = [];
+  jobSync(c, 'alpha', { compare, log: (l) => said.push(String(l)) });
+  assert.equal(git(['symbolic-ref', '--short', 'HEAD'], { cwd: c }), 'job/alpha');
+  assert.match(said.join('\n'), /moved aside to aside\/job\/alpha-\d{8}T\d{6}Z, nothing reset or deleted \(it holds nothing origin lacks\)/);
+  // A restart: HEAD detached at the tranche tip, a stale local job/alpha beside it.
+  const r = clone('tranche');
+  git(['fetch', '-q', '--depth=2', 'origin', '+refs/heads/job/alpha:refs/remotes/origin/job/alpha'], { cwd: r });
+  git(['branch', 'job/alpha', 'refs/remotes/origin/job/alpha~1'], { cwd: r });
+  git(['checkout', '-q', '--detach'], { cwd: r });
+  jobSync(r, 'alpha', { compare, log: quiet });
+  assert.equal(git(['symbolic-ref', '--short', 'HEAD'], { cwd: r }), 'job/alpha');
+  // The first sync above pushed job/alpha with the tranche merged: the restart lands on that tip.
+  assert.equal(head(r, 'HEAD'), git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: r }).split('\t')[0]);
+  assert.equal(git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/aside/'], { cwd: r }).split('\n').filter(Boolean).length, 1);
 });
