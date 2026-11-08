@@ -51,4 +51,4 @@ export function toTakeIn(root, { slug, ref, prs, files = prFiles }) {
   });
 }
 
-export const takeInLine = (t, P3) => `#${t.number} ${t.head}${t.draft ? ' draft' : ''}: ${t.module === 'no single module' || t.module.startsWith('unknown') ? `${t.module}; leave it as a plain pull request, or BOB splits it` : `module ${t.module}; \`${P3} job start ${t.module} --live <n> --take-in ${t.number}\`, or leave it as a plain pull request`}`;
+export const takeInLine = (t, P3) => `#${t.number} ${t.head}${t.draft ? ' draft' : ''}: ${t.module === 'no single module' || t.module.startsWith('unknown') ? `${t.module}; leave it as a plain pull request, or BOB splits it` : `module ${t.module}; \`${P3} job start ${t.module} --sessions <file> --take-in ${t.number}\`, or leave it as a plain pull request`}`;

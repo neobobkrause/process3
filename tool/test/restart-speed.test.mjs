@@ -194,7 +194,7 @@ test('item 4: a branch tip truly not in the tranche after a full read is refused
     // non-fast-forward. A full clone counts locally, sees the stray commit, and cuts a fresh branch.
     let msg = null;
     try { jobStart(bob, 'a', { coordinator: 'session_bob', reopen: 'answer the notice', setup, compare: () => ({ ahead_by: 0 }), find: () => null, prs: () => [], open: () => ({ number: 9, html_url: 'u' }), log: quiet }); } catch (e) { msg = e.message; }
-    if (shallow) assert.match(msg || '', new RegExp(`origin's job/a at ${stray.slice(0, 10)} is not in tranche at [0-9a-f]{10}, the tip this start is cut from, after a full read: pushing would not be a fast-forward, so nothing was pushed\\. Its commits are kept there; start on a fresh branch: job start a --live <n> --fresh-branch "job/a at ${stray.slice(0, 10)} is not in tranche", adding --reopen`));
+    if (shallow) assert.match(msg || '', new RegExp(`origin's job/a at ${stray.slice(0, 10)} is not in tranche at [0-9a-f]{10}, the tip this start is cut from, after a full read: pushing would not be a fast-forward, so nothing was pushed\\. Its commits are kept there; start on a fresh branch: job start a --sessions <file> --fresh-branch "job/a at ${stray.slice(0, 10)} is not in tranche", adding --reopen`));
     else assert.equal(msg, null);
     assert.equal(git(['ls-remote', bare, 'refs/heads/job/a'], { cwd: full }).split('\t')[0], stray, 'origin\'s job/a is as it was');
   }

@@ -95,7 +95,7 @@ test('job cap: on the live shape (4 roles, 1 build, 18 jobs of two products), th
     const root = makeRepo(config ? { 'process/config.json': JSON.stringify(config) } : { 'README.md': 'x' });
     return capCheck(root, { sessions: file });
   };
-  assert.deepEqual(go(undefined), { n: 18, working: 18, free: [], resumed: [], cap: 20, held: 0 }, 'unset: 20; the 18 jobs counted, roles and the build not');
+  assert.deepEqual(go(undefined), { n: 18, listed: 18, since: [], working: 18, free: [], resumed: [], cap: 20, held: 0 }, 'unset: 20; the 18 jobs counted, roles and the build not');
   assert.throws(() => go(18), /the job cap is full: 18 job sessions working of the cap 18 \(18 live\); nothing was started/);
   assert.equal(go(21, { live_cap: 24 }).cap, 21, 'P3_JOB_CAP 21 read; the product live_cap 24 ignored');
   for (const bad of ['0', '-3', 'many', '2.5', '1e1']) {
@@ -106,7 +106,7 @@ test('job cap: on the live shape (4 roles, 1 build, 18 jobs of two products), th
   assert.deepEqual([jobCap({}).cap, jobCap({}).line], [12, 'job cap 12 (P3_JOB_CAP)']);
   setJobCap(t, undefined);
   assert.deepEqual([jobCap({}).cap, jobCap({}).line], [20, 'job cap 20 (default)']);
-  assert.throws(() => capCheck(makeRepo({ 'README.md': 'x' }), {}), /--live <n>.*or --sessions <file>/);
+  assert.throws(() => capCheck(makeRepo({ 'README.md': 'x' }), {}), /job start <id> --sessions <file>/);
 });
 
 // One source of truth: no file of the tool but util.mjs reads the cap, its variable, or the old key, or writes the default.

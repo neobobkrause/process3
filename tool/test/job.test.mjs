@@ -599,7 +599,7 @@ test('a COMPLETE job whose pull request merged is refused, and named --reopen', 
   const { root, f } = completed();
   commit(root, { 'src/alpha/index.mjs': 'export const x = 2;\n' });
   f.gh.findPR = () => null;
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --live <n> --reopen/);
+  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /alpha is COMPLETE and job\/alpha has no open pull request; a new attempt on a merged module is job start alpha --sessions <file> --reopen/);
   assert.equal(readRows(root, 'alpha').length, 2);
 });
 
@@ -1047,7 +1047,7 @@ test('--restart is refused for a COMPLETE module, without a branch or PR, and wi
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find: () => null, notes: () => [], log: quiet }), /no open pull request; --restart continues an open one \(an unfinished start resumes/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: true, find: pr, notes: () => [], log: quiet }), /--restart needs why/);
   const m = mergedOnce();
-  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; its pull request is open with nothing beyond the tranche: BOB merges or closes it, then job start alpha --live <n> --reopen/);
+  assert.throws(() => jobStart(m.root, 'alpha', { coordinator: 's', restart: 'x', find: pr, notes: () => [], log: quiet }), /COMPLETE; its pull request is open with nothing beyond the tranche: BOB merges or closes it, then job start alpha --sessions <file> --reopen/);
 });
 
 test('--restart on a BLOCKED job with no open pull request opens its draft again and launches the replacement (copy, 4 Nov: PR 194 by hand)', () => {
@@ -1096,7 +1096,7 @@ const lastRow = (root, ref) => JSON.parse(git(['show', `${ref}:process/metrics/a
 test('an abandoned COMPLETE attempt (commits, PR closed unmerged): --restart names --reopen, and --reopen starts the next branch and records the abandoned one', () => {
   const { root, f, find, prs } = abandonedComplete();
   const old = tipOf(root, 'job/alpha');
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find, notes: () => [], log: quiet }), /alpha is COMPLETE on job\/alpha; its work never merged and no pull request is open: job start alpha --live <n> --reopen "<what it must do>" starts a fresh attempt on the next branch/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', restart: 'x', find, notes: () => [], log: quiet }), /alpha is COMPLETE on job\/alpha; its work never merged and no pull request is open: job start alpha --sessions <file> --reopen "<what it must do>" starts a fresh attempt on the next branch/);
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find, prs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); its work never merged.*--reopen/);
   const tranche = tipOf(root, 'tranche');
   const r = jobStart(root, 'alpha', { coordinator: 's', setup: ready, reopen: 'make the suite green', open: f.open, find, prs, log: quiet });
@@ -1164,7 +1164,7 @@ test('--restart on a COMPLETE job whose pull request is open gives it a replacem
   assert.match(r.start, /BOB saw: failed only the revert check; session archived/);
   assert.equal(r.launch.title, 'job alpha (restart)');
   // A plain start names --restart for that state.
-  assert.throws(() => jobStart(abandonedComplete().root, 'alpha', { coordinator: 's', setup: ready, open: s.f.open, find: () => pr, prs: noPRs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); a job whose session stopped is restarted with job start alpha --live <n> --restart/);
+  assert.throws(() => jobStart(abandonedComplete().root, 'alpha', { coordinator: 's', setup: ready, open: s.f.open, find: () => pr, prs: noPRs, log: quiet }), /not an unfinished start \(COMPLETE, 3 commits\); a job whose session stopped is restarted with job start alpha --restart/);
 });
 
 // Every refusal of job start and --restart on an existing branch names a route; that route, run
@@ -1205,7 +1205,7 @@ test('every refusal in job start and --restart names a route that works from tha
       try { run(make(), mode); } catch (e) { msg = e.message; }
       if (!msg) continue;
       refusals += 1;
-      const route = /--reopen "</.test(msg) ? 'reopen' : /--restart "</.test(msg) ? 'restart' : /resumes with job start alpha --live <n>/.test(msg) ? 'plain' : null;
+      const route = /--reopen "</.test(msg) ? 'reopen' : /--restart "</.test(msg) ? 'restart' : /resumes with job start alpha --sessions <file>/.test(msg) ? 'plain' : null;
       assert.ok(route, `${name}, ${mode}: the refusal names no route: ${msg}`);
       const closed = route === 'reopen' && /closes it/.test(msg);
       if (!closed) assert.notEqual(route, mode, `${name}, ${mode}: the refusal names itself: ${msg}`);

@@ -176,7 +176,7 @@ test('switch in, preflight held: the restart\'s acts (a) to (g) in order, tasks 
   // WORKING start resumes with a list_sessions saved now, an abandoned attempt reopens.
   assert.match(text, /job start eps --restart "account switch/);
   assert.match(text, /`node .process\/tool\/p3.mjs job start eta --sessions <list_sessions saved now>` \(an unfinished start resumes\)/);
-  assert.match(text, /zeta: WORKING: its work never merged and no pull request is open: job start zeta --live <n> --reopen/);
+  assert.match(text, /zeta: WORKING: its work never merged and no pull request is open: job start zeta --sessions <file> --reopen/);
   assert.match(text, /\(f\) BOB: `node .process\/tool\/p3.mjs status --role bob --sessions <list_sessions saved now>`, then each `job start` its `jobs to start` lists/);
   // A message to BOB stays in the record for the new BOB's status (the copy's dry run held 201).
   assert.match(text, /\(g\) 1 unanswered message\(s\) to BOB stay in the record: .*status --role bob.*resend none/);

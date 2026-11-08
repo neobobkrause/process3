@@ -63,5 +63,5 @@ test('two bad commits: the reset goes before the oldest and unstages every bad f
   git(['fetch', '-q', 'origin'], { cwd: m });
   git(['checkout', '-q', 'job/alpha'], { cwd: m });
   git(['merge', '-q', '--no-ff', '--no-edit', 'origin/tranche'], { cwd: m });
-  assert.throws(refuse(m), /include a merge, so a reset would flatten them: start the work again on a fresh branch \(`job start <id> --fresh-branch "<why>"` for a job\), leaving out src\/alpha\/rows\.mjs/);
+  assert.throws(refuse(m), /include a merge, so a reset would flatten them: start the work again on a fresh branch \(`job start <id> --sessions <file> --fresh-branch "<why>"` for a job\), leaving out src\/alpha\/rows\.mjs/);
 });

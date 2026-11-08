@@ -165,5 +165,5 @@ test('a job/<id>-<n> its own start row does not name is not the job\'s branch, a
   assert.match(r.start, /Your branch is `job\/alpha`/);
   const f = jobStart(root, 'alpha', { coordinator: 's', fresh: 'stuck', push: false, log: quiet });
   assert.match(f.start, /Your branch is `job\/alpha-3`/);
-  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', fresh: 'again', push: false, log: quiet }), /job\/alpha-3 is a fresh start not yet opened; run job start alpha --live <n> without --fresh-branch/);
+  assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', fresh: 'again', push: false, log: quiet }), /job\/alpha-3 is a fresh start not yet opened; run job start alpha --sessions <file> without --fresh-branch/);
 });

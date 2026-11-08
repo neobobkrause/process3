@@ -113,7 +113,7 @@ test('carry: setup check lists the open PRs into the tranche no entry owns, each
   assert.equal(r.ok, true, 'informational: it stops no start');
   assert.deepEqual(r.carry.list.map((t) => [t.number, t.module]), [[5, 'alpha'], [7, 'no single module']], 'job/beta is owned by its entry');
   const t = lines.join('\n');
-  assert.match(t, /to take in \(open pull requests into tranche no ledger entry owns\):\n- #5 feature\/a: module alpha; `node .process\/tool\/p3.mjs job start alpha --live <n> --take-in 5`, or leave it as a plain pull request\n- #7 fix\/mixed draft: no single module/);
+  assert.match(t, /to take in \(open pull requests into tranche no ledger entry owns\):\n- #5 feature\/a: module alpha; `node .process\/tool\/p3.mjs job start alpha --sessions <file> --take-in 5`, or leave it as a plain pull request\n- #7 fix\/mixed draft: no single module/);
 });
 
 test('carry: into main while no tranche exists yet', () => {
@@ -131,7 +131,7 @@ test('carry: status --role bob lists each under "to take in" until a job takes i
   const root = converting();
   const see = (prs) => { const lines = []; status(root, { role: 'bob', log: (l) => lines.push(l), io: { openPRs: () => prs, prFiles: files, checkRun: () => null } }); return lines.join('\n'); };
   const t0 = see(prsBefore());
-  assert.match(t0, /to take in:\n- #5 feature\/a: module alpha; `node .process\/tool\/p3.mjs job start alpha --live <n> --take-in 5`, or leave it as a plain pull request, last activity 0h ago\n- #7 fix\/mixed draft: no single module/);
+  assert.match(t0, /to take in:\n- #5 feature\/a: module alpha; `node .process\/tool\/p3.mjs job start alpha --sessions <file> --take-in 5`, or leave it as a plain pull request, last activity 0h ago\n- #7 fix\/mixed draft: no single module/);
   const f = fakeGitHub(root, { 5: { number: 5, state: 'open', head: { ref: 'feature/a' } } });
   const r = jobStart(root, 'alpha', { coordinator: 's', takeIn: 'feature/a', setup: ready, open: f.open, find: f.find, gh: f.gh, log: quiet });
   const after = [...prsBefore(), { number: 20, head: { ref: 'job/alpha', sha: 'z' }, draft: true, body: r.start, updated_at: new Date().toISOString() }];

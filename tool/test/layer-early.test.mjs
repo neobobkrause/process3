@@ -50,14 +50,14 @@ test('layer jobs lists a next-layer module whose providers are settled as an ear
   const out = [];
   const r = layerJobs(root, 1, { io, log: (l) => out.push(l) });
   assert.equal(r.early_next, 2);
-  assert.deepEqual(r.early.map((x) => [x.id, x.cmd]), [['c', `${P3} job start c --live <n> --early`]]);
+  assert.deepEqual(r.early.map((x) => [x.id, x.cmd]), [['c', `${P3} job start c --sessions <file> --early`]]);
   assert.ok(out.some((l) => /^early starts into layer 2, on idle capacity only, after layer 1's own/.test(l)), out.join('\n'));
   assert.ok(out.some((l) => /^not early \(layer 2\): d \(b is not started in layer 1\)$/.test(l)), out.join('\n'));
   // status's lines and the act owed carry them; idle capacity counts them after the layer's own.
   const v = openLayer(root, cfgOf(), { slug: 'o/p', io });
   assert.deepEqual(v.early.map((x) => x.id), ['c']);
   const lines = layerLines(root, cfgOf(), { view: v });
-  assert.ok(lines.some((l) => l === `- ${P3} job start c --live <n> --early`), lines.join('\n'));
+  assert.ok(lines.some((l) => l === `- ${P3} job start c --sessions <file> --early`), lines.join('\n'));
   assert.equal(layerStartAct({ ...v, startable: [] }), `${P3} layer jobs 1, then each early start it lists (layer 2)`);
   const ic = layerIdle({ live: 0, cap: 4, view: v, t: Date.now() });
   assert.equal(ic.startable, 2, 'b, then c early');

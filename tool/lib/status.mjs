@@ -472,7 +472,7 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
       if (row.branch) row.pr = 'unknown (GitHub not read)';
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
     } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
-      row.flag = `an unfinished start (pushed, no pull request): run job start ${e.id} --live <n> again and it resumes`;
+      row.flag = `an unfinished start (pushed, no pull request): run job start ${e.id} --sessions <file> again and it resumes`;
     } else if (row.ahead > 0 && !row.blocked) {
       // Commits on the branch the tranche lacks, and no open PR: an attempt closed unmerged.
       row.flag = 'commits on its branch and no open PR; a closed attempt is restarted by a Phase 2 command';
@@ -947,7 +947,7 @@ export function noticeSlots(root, cfg, rows) {
       (owed[u] ||= []).push({ ...live, triage, rerun });
       if (rerun) slots.push({ key: n.key, user: u, kind: 'rerun', act: `${P3} merge ${prN || `<job ${u}'s PR>`} (again: its answer was not recorded)` });
       else if (triage && joinOf(u) !== null) slots.push({ key: n.key, user: u, kind: 'affected', act: joinAct(u, `provider notice ${n.key}`, joinOf(u)) });
-      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u} --live <n>, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u} --live <n>` });
+      else if (triage) slots.push({ key: n.key, user: u, kind: 'affected', act: isOpen.has(u) ? `${P3} job start ${u} --sessions <file>, once its open job merges (that job's START does not name this notice)` : `${P3} job start ${u} --sessions <file>` });
       else { (untriaged[n.key] ||= []).push(u); slots.push({ key: n.key, user: u, kind: 'triage', act: `${P3} notice triage ${n.key}` }); }
     }
   }
@@ -1293,7 +1293,7 @@ export function completionWork(root, cfg, rows, ref, log = console.log) {
   if (!open.length) { log(`completion round: every item of ${c.file} done or deferred; the tranche can close: ${P3} tranche close`); return []; }
   const job = (id) => rows.find((r) => r.id === id && jobOpen(r));
   log(`next work, the completion round (${c.file}, ${open.length} open; done: tick its line; deferred: "deferred: <reason>" on its line):`);
-  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --live <n>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
+  for (const x of open) log(x.malformed ? `- ${c.file}:${x.line}: not an item line (\`- [ ] <id> · <module or whole product> · <what>\`); fix it: ${x.what.slice(0, 100)}` : `- ${x.id} · ${x.target}: ${x.whole ? "BOB's act" : job(x.target) ? 'its job is open' : `${P3} job start ${x.target} --sessions <file>`}${x.what ? ` · ${x.what.slice(0, 100)}` : ''}`);
   return open.map((x) => ({ file: c.file, item: x.id, target: x.target }));
 }
 

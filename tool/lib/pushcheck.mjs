@@ -52,7 +52,7 @@ export function refuseUnpushable(root, cfg, { branch }) {
   const parent = git(['rev-parse', '-q', '--verify', `${oldest}^`], { cwd: root, allowFail: true }).stdout.trim();
   const merges = parent ? git(['rev-list', '--merges', `${parent}..HEAD`], { cwd: root, allowFail: true }).stdout.trim() : '';
   const act = !parent || merges
-    ? `the commits since ${oldest.slice(0, 10)} ${!parent ? 'start the branch' : 'include a merge'}, so a reset would flatten them: start the work again on a fresh branch (\`job start <id> --fresh-branch "<why>"\` for a job), leaving out ${files.join(', ')}`
+    ? `the commits since ${oldest.slice(0, 10)} ${!parent ? 'start the branch' : 'include a merge'}, so a reset would flatten them: start the work again on a fresh branch (\`job start <id> --sessions <file> --fresh-branch "<why>"\` for a job), leaving out ${files.join(', ')}`
     : `\`git reset --soft ${oldest === head ? 'HEAD~1' : `${oldest.slice(0, 10)}~1`}\`, ${files.map((f) => `\`git reset -- ${f}\``).join(', ')}, then commit again`;
   fail(`nothing was pushed: ${bad.slice(0, 5).map((b) => `commit ${b.commit.slice(0, 10)} adds ${b.file} (${b.why})`).join('; ')}. Drop them from the commits and rebuild before pushing: ${act}; a pushed commit cannot be taken back without a force-push`);
 }

@@ -47,14 +47,16 @@ function product(files = {}) {
 const sweepRows = (root) => { fetchState(root, SB, { fresh: true }); return jsonl(readState(root, SB, SWEEP_ROWS_FILE)); };
 const addRow = (root, row) => writeState(root, SB, 'row', (dir) => { git(['-C', dir, 'status'], { allowFail: true }); writeFileSync(join(dir, SWEEP_ROWS_FILE), (readState(root, SB, SWEEP_ROWS_FILE) || '') + JSON.stringify(row) + '\n'); });
 
-test('job start <id> checks the cap: --live or --sessions required, the cap less slot holds', (t) => {
+test('job start <id> checks the cap: --sessions required (C28: never a typed --live), the cap less slot holds', (t) => {
   setJobCap(t, 4);
   const root = product();
-  assert.throws(() => capCheck(root, {}), /job start <id> --live <n> \(or --sessions <file>\)/);
-  assert.equal(capCheck(root, { live: '3' }).n, 3);
-  assert.throws(() => capCheck(root, { live: '4' }), /the job cap is full: 4 job sessions working of the cap 4 \(4 live\); nothing was started/);
+  const listed = (n) => { const f = join(mkdtempSync(join(tmpdir(), 'p3-sessions-')), 's.json'); writeFileSync(f, JSON.stringify(Array.from({ length: n }, (_, i) => ({ id: `session_j${i}`, title: `job j${i}`, session_status: 'SESSION_STATUS_RUNNING' })))); return f; };
+  assert.throws(() => capCheck(root, {}), /job start <id> --sessions <file>/);
+  assert.throws(() => capCheck(root, { live: '3' }), /--live 3 is not taken/);
+  assert.equal(capCheck(root, { sessions: listed(3) }).n, 3);
+  assert.throws(() => capCheck(root, { sessions: listed(4) }), /the job cap is full: 4 job sessions working of the cap 4 \(4 live\); nothing was started/);
   hold(root, 'slots:1', { why: 'rehearsal', by: 'session_x1', until: '30m', log: quiet });
-  assert.throws(() => capCheck(root, { live: '3' }), /3 job sessions working of the cap 4 less 1 held \(3 live\)/);
+  assert.throws(() => capCheck(root, { sessions: listed(3) }), /3 job sessions working of the cap 4 less 1 held \(3 live\)/);
 });
 
 test('flow: with slots free, the requirement files over the cap are named as BOB\'s split acts that would open them', (t) => {
