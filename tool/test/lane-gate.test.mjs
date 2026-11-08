@@ -174,3 +174,21 @@ test('a lane check is words as a shell would split them, quotes kept whole; an o
   assert.deepEqual(laneChecks({ lanes: [{ name: 'ux', checks: ['node -e "process.exit(0)"', "node tools/build_words.mjs --check 'a b'"] }] }, 'ux'), [['node', '-e', 'process.exit(0)'], ['node', 'tools/build_words.mjs', '--check', 'a b']]);
   assert.equal(laneChecks({ lanes: [{ name: 'ux', checks: ['node -e "x'] }] }, 'ux'), null);
 });
+
+// PD-9 (cold review of C31): a lane-only pull request builds the generated rows its checks need;
+// each built row is verified too, so a lane change that breaks a built file's checker is red at its
+// own pull request, not at the layer close.
+test('PD-9: a lane-only pull request verifies the generated rows it builds; a failing verify is red', () => {
+  const gen = (exit) => ({ paths: ['design/ux/built.json'], regenerate: ['node', '-e', "require('fs').writeFileSync('design/ux/built.json','{}')"], verify: ['node', '-e', `process.exit(require('fs').readFileSync('design/ux/words.json','utf8').includes('broken') ? ${exit} : 0)`] });
+  const s = setup({ cfg: { lanes: [{ name: 'ux', dir: 'design/ux', checks: ['node -e process.exit(0)'] }, { name: 'ai', dir: 'design/ai' }], generated: [gen(5)] } });
+  git(['checkout', '-q', 'main'], { cwd: s.root });
+  const ign = commit(s.root, { '.gitignore': 'design/ux/built.json\n' });
+  git(['branch', '-f', 'tranche', ign], { cwd: s.root });
+  s.base = ign;
+  const good = onBranch(s, 'lane/ux', { 'design/ux/words.json': '{"a":1}\n' });
+  assert.deepEqual(run(s, good, 'lane/ux').findings, []);
+  const bad = commit(s.root, { 'design/ux/words.json': '{"broken":true}\n' });
+  const b = run(s, bad, 'lane/ux');
+  assert.equal(b.run.ok, false);
+  assert.match(b.findings.map((f) => `${f.check}: ${f.file}: ${f.message}`).join('\n'), /generated: design\/ux\/built\.json: node -e .* failed \(exit 5\) after building/);
+});

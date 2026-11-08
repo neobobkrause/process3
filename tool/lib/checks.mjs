@@ -200,7 +200,10 @@ const lastLines = (r) => ['stdout', 'stderr'].filter((k) => String(r[k] || '').t
 // 8 Nov: copy layer merge 11 failed on words-reads' verify, a fault screens-action T53 brought in on
 // 7 Nov; every job gate since ran it as built, changed false, verify null). The one helper the gate
 // and layer merge share; base-red's tree (verifyBuilt false) judges only staleness there.
-export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), stale = false, judged = [], verifyBuilt = true, log = () => {} }) {
+// unbuilt: rows a build before this one tried and failed (buildGenerated's failed), skipped here: no
+// verify on a file never written, the build's own finding stands (cold review of C31). The verifies
+// have a budget of their own, so slow regenerates never leave them seconds (cold review of C31).
+export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), unbuilt = new Set(), stale = false, judged = [], verifyBuilt = true, log = () => {} }) {
   const end = Date.now() + timeout;
   const left = () => Math.max(1000, end - Date.now());
   const opts = () => ({ cwd: root, timeout: left(), unset: NO_TOKENS });
@@ -217,19 +220,16 @@ export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), 
       log(`${r.regenerate.join(' ')} failed (exit ${g.code}):\n${lastLines(g)}`);
     }
   }
+  const vEnd = Date.now() + timeout;
+  const vLeft = () => Math.max(1000, vEnd - Date.now());
   for (const r of rows) {
     const changed = status(r) !== '';
     const committed = new Set(committedPaths(root, 'HEAD', r));
-    const built = verifyBuilt && r.paths.some((p) => !committed.has(p));
+    const built = verifyBuilt && r.paths.some((p) => !committed.has(p)) && !(unbuilt.has(r) && skip.has(r) && !changed);
     const row = { paths: r.paths, changed, verify: null, ...(built ? { built: true } : {}) };
     if (changed || built) {
-      const v = exec(r.verify[0], r.verify.slice(1), opts());
+      const v = verifyGenerated(root, r, { how: changed ? 'regenerating' : 'building', timeout: vLeft(), exec, findings, log });
       row.verify = v.code;
-      const how = changed ? 'regenerating' : 'building';
-      if (v.code !== 0) {
-        findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after ${how}: ${tail(v)}` });
-        log(`${r.verify.join(' ')} failed (exit ${v.code}) after ${how} ${r.paths.join(', ')}:\n${lastLines(v)}`);
-      }
     }
     if (changed) {
       const st = staleFiles(root, r).filter((x) => !judged.includes(x));
@@ -242,6 +242,17 @@ export function regenerate(root, rows, { timeout, exec = run, skip = new Set(), 
     ran.push(row);
   }
   return { findings, ran };
+}
+
+// A row's verify, without the GitHub tokens; a failure is a 'generated' finding naming the command and
+// its tail (regenerate's and a lane pull request's built rows alike, PD-9).
+export function verifyGenerated(root, r, { how, timeout, exec = run, findings, log = () => {} }) {
+  const v = exec(r.verify[0], r.verify.slice(1), { cwd: root, timeout, unset: NO_TOKENS });
+  if (v.code !== 0) {
+    findings.push({ check: 'generated', file: r.paths[0], line: 1, message: `${r.verify.join(' ')} failed (exit ${v.code}) after ${how}: ${tail(v)}` });
+    log(`${r.verify.join(' ')} failed (exit ${v.code}) after ${how} ${r.paths.join(', ')}:\n${lastLines(v)}`);
+  }
+  return v;
 }
 
 // The tracked files of a row's committed paths that differ from HEAD after its regenerate, modified
@@ -269,6 +280,7 @@ export function buildGenerated(root, rows, { ref = 'HEAD', timeout, exec = run, 
   const findings = [];
   const built = [];
   const ran = new Set(); // the rows whose regenerate ran, built or failed
+  const failed = new Set(); // of those, the ones whose regenerate failed
   for (const r of rows) {
     const have = new Set(committedPaths(root, ref, r));
     const paths = r.paths.filter((p) => !have.has(p));
@@ -279,9 +291,10 @@ export function buildGenerated(root, rows, { ref = 'HEAD', timeout, exec = run, 
     if (g.code !== 0) {
       findings.push({ check: 'generated', file: paths[0], line: 1, message: `${r.regenerate.join(' ')} failed (exit ${g.code}) building ${paths.join(', ')}: ${tail(g)}` });
       log(lastLines(g));
+      failed.add(r);
     } else built.push(...paths);
   }
-  return { findings, built, ran };
+  return { findings, built, ran, failed };
 }
 
 // Committed generated files over max_file_bytes at the ref: [{ file, bytes }].

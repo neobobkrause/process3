@@ -12,7 +12,7 @@ import { LOAD } from './fail-reporter.mjs';
 import { SCRIPT, baseRed, reachers, staleAtBase, startBase, testId } from './basered.mjs';
 import { layerMode, layerOfBranch } from './layerbase.mjs';
 import { layerCover } from './layerflow.mjs';
-import { buildGenerated, committedGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
+import { buildGenerated, committedGenerated, verifyGenerated, entryChecks, generatedRows, laneCheckRun, ignoredHere, ignoreLines, importFindings, isGenerated, refreshCheck, refreshOthers, regenerate, removedGenerated, verifyUntracked } from './checks.mjs';
 import { webCommitByOwner } from './record.mjs';
 import { isBootstrap, lastConfigAt, unanchored } from './anchor.mjs';
 import { CONFIG_FILE, NO_TOKENS, configOf, exists, fail, gh, git, isRecordOrLane, isRecordPath, laneChecks, laneOfPath, laneOnly, loadConfig, now, repoSlug, underPath, withTemp } from './util.mjs';
@@ -197,7 +197,13 @@ export function gate(root, opts) {
   if (runLanes.length) {
     const inst = install(root, cfg.lockfiles, exec ? { exec } : {}).findings;
     findings.push(...inst);
-    if (!inst.length && gen.rows.length) findings.push(...buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) }).findings);
+    if (!inst.length && gen.rows.length) {
+      const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
+      findings.push(...b.findings);
+      // PD-9 (cold review of C31): a lane pull request's built rows are verified too, each one built.
+      const end = Date.now() + timeout;
+      for (const r of [...b.ran].filter((x) => !b.failed.has(x))) verifyGenerated(root, r, { how: 'building', timeout: Math.max(1000, end - Date.now()), findings, log, ...(exec ? { exec } : {}) });
+    }
     runRow.lane_checks = [];
     for (const l of runLanes) {
       const lc = inst.length ? { findings: [], ran: [] } : laneCheckRun(root, l.name, l.dir, l.cmds, { timeout, log, ...(exec ? { exec } : {}) });
@@ -292,10 +298,12 @@ export function gate(root, opts) {
     // Generated files the commit does not track are built before the checks and the suite, as
     // deploy and release build them (copy, 4 Nov: an untracked rows.mjs failed 41 of 113 tests).
     let builtRows = new Set();
+    let buildFailed = new Set();
     if (genRun && !inst.length && gen.rows.length) {
       const b = buildGenerated(root, gen.rows, { timeout, log, ...(exec ? { exec } : {}) });
       runRow.built = b.built;
       builtRows = b.ran;
+      buildFailed = b.failed;
       findings.push(...b.findings);
     }
     // ARC-4: the entry's own checks, as job complete runs them.
@@ -380,7 +388,7 @@ export function gate(root, opts) {
       // regenerate wrote those bytes, not that it left the commit's own (review 1 of PR 95).
       if (plain?.length) for (const f of plain) rmSync(join(root, f), { force: true });
       // A row built before the suite runs again when it writes a refreshed file just removed.
-      const g = regenerate(root, gen.rows, { timeout, log, stale: !job, judged: [...(plain || []), ...findings.filter((f) => f.check === 'generated').map((f) => f.file)], skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
+      const g = regenerate(root, gen.rows, { timeout, log, unbuilt: buildFailed, stale: !job, judged: [...(plain || []), ...findings.filter((f) => f.check === 'generated').map((f) => f.file)], skip: plain?.length ? new Set([...builtRows].filter((r) => !plain.some((f) => isGenerated([r], f)))) : builtRows });
       runRow.generated = g.ran;
       // A committed file stale at the base too, the same file after the base's regenerate, is
       // inherited: a notice, owed by a plain refresh, not this pull request's finding (the
