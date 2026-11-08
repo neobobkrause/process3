@@ -5,7 +5,7 @@ import { readFacts } from './ends.mjs';
 import { prFiles, takeInLine, toTakeIn } from './carry.mjs';
 import { publishedJobs, slotNote, slotUse } from './slots.mjs';
 import { flowRows as flowRowsOf, joinAct, layerLines, layerMergeLine, layerPlace, needsSlot, openLayer } from './layerflow.mjs';
-import { layerMode, layersAt as layersAtFlow } from './layerbase.mjs';
+import { FLOW_DIR, layerMode, layersAt as layersAtFlow, safeName } from './layerbase.mjs';
 import { aheadBy, cachedComments, checkRun, COMMENTS_MERGED_MS, keptCompare, COMMENTS_OPEN_MS, compare, comments as ghComments, gateRuns, openPRs } from './github.mjs';
 import { LEDGER_DIR, jobBranch, readEntry, readLedgerTexts } from './ledger.mjs';
 import { P3, readingSet } from './job.mjs';
@@ -428,6 +428,23 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
   const ids = new Set(Object.keys(onTranche).map((f) => f.slice(LEDGER_DIR.length + 1, -5)));
   // origin's job heads; with none read, the ones this clone has fetched.
   const jheads = originHeads ? jobHeads(originHeads) : git(['for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin/job/'], { cwd: root }).split('\n').filter(Boolean);
+  // C37: a module's newest land on any layer (layerflow/<n>/land/ on the state branch), read once
+  // and only for a row that would flag. A job branch whose tip is older than it is superseded: its
+  // BLOCKED or WORKING is an earlier attempt's (copy, 8 Nov: inquiry landed COMPLETE on layer 12 by
+  // PR 1028 from job/inquiry-2, and ROOT's sweep listed it BLOCKED from job/inquiry, PR 617's R31
+  // block of 6 Nov: status fetches no job ref of a module COMPLETE on the tranche with no open PR,
+  // so a clone keeps whatever it last had, and a layer land never makes the branch merged into the tranche).
+  let landNames = null;
+  const newestLand = (id) => {
+    if (landNames === null) {
+      try { if (!offline) fetchState(root, cfg.state_branch); } catch { /* read what the clone has */ }
+      const r = git(['ls-tree', '-r', '--name-only', `refs/remotes/origin/${cfg.state_branch}`, '--', FLOW_DIR], { cwd: root, allowFail: true });
+      landNames = r.code === 0 ? r.stdout.split('\n').filter((f) => /^[^/]+\/[^/]+\/land\/[^/]+\.json$/.test(f)) : [];
+    }
+    const pre = `${safeName(id)}-`;
+    return landNames.filter((f) => f.split('/').pop().startsWith(pre)).flatMap((f) => { try { const x = JSON.parse(readState(root, cfg.state_branch, f)); return x?.module === id ? [x] : []; } catch { return []; } })
+      .sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0)).at(-1) || null;
+  };
   for (const [file, text] of Object.entries(onTranche)) {
     let e;
     try { e = JSON.parse(text); } catch { rows.push({ id: file, state: 'UNREADABLE' }); continue; }
@@ -455,10 +472,17 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
       // branch is still read (owedNotices: a merged attempt's start row names an unrecorded answer).
       const merged = ahead === 0 && e.status?.state === 'COMPLETE';
       row.branch = (s.state || 'no entry on its branch') + (s.reason ? ` (${s.reason})` : '');
+      // C37: superseded by a later land of the module (above): no flag, no block, said as stale.
+      const land = !merged && (s.state === 'BLOCKED' || s.state === 'WORKING') ? newestLand(e.id) : null;
+      const tip = land ? Number(git(['log', '-1', '--format=%ct', branch], { cwd: root, allowFail: true }).stdout.trim()) * 1000 : 0;
+      if (land && tip && (Date.parse(land.at) || 0) > tip) {
+        row.stale = { pr: land.pr ?? null, layer: land.layer ?? null, at: land.at };
+        row.branch = `stale: ${s.state} on ${jb} as this clone has it, older than ${e.id}'s land (PR ${land.pr} on layer ${land.layer} at ${land.at}); not its state`;
+      }
       // ENF-6, JOB-9: a WORKING job with nothing pushed beyond its start commit for SILENT_HOURS (copy, 4 Nov: flagged 7 min after its start).
-      if (!merged && s.state === 'WORKING' && ahead !== null && ahead <= 1 && tipAge() > SILENT_HOURS * 36e5) row.flag = 'WORKING, nothing pushed';
-      if (!merged && s.state === 'BLOCKED') row.flag = 'BLOCKED';
-      if (!merged && s.state) { row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined; row.since = s.state === 'BLOCKED' ? s.at : undefined; row.owner = s.state === 'BLOCKED' ? s.owner : undefined; }
+      if (!merged && !row.stale && s.state === 'WORKING' && ahead !== null && ahead <= 1 && tipAge() > SILENT_HOURS * 36e5) row.flag = 'WORKING, nothing pushed';
+      if (!merged && !row.stale && s.state === 'BLOCKED') row.flag = 'BLOCKED';
+      if (!merged && !row.stale && s.state) { row.blocked = s.state === 'BLOCKED' && s.reason ? s.reason : undefined; row.since = s.state === 'BLOCKED' ? s.at : undefined; row.owner = s.state === 'BLOCKED' ? s.owner : undefined; }
     }
     const pr = prs?.find((p) => p.head?.ref === jb);
     if (pr) {
@@ -472,6 +496,8 @@ function statusLines(root, { role, module, context, live, sessions: sessionsFile
     } else if (prs === null) {
       if (row.branch) row.pr = 'unknown (GitHub not read)';
       else if (e.status?.state === 'COMPLETE') row.pr = 'merged';
+    } else if (row.stale) {
+      if (e.status?.state === 'COMPLETE') row.pr = `landed (PR ${row.stale.pr})`;
     } else if (row.ahead === 1 && row.branch?.startsWith('WORKING')) {
       row.flag = `an unfinished start (pushed, no pull request): run job start ${e.id} --sessions <file> again and it resumes`;
     } else if (row.ahead > 0 && !row.blocked) {
