@@ -855,6 +855,24 @@ function struckTests(root, entry, base, given) {
 // base's cut, which a cut base cannot exclude, so the record check judged them again, against
 // the base or as root commits (copy, 4 Nov, PR 81 path). Deepened by doubling, then whole; if
 // the range still differs, it says so and judges nothing.
+// The base after the job's own merge of its tranche or layer (C36, the coordinator, 8 Nov: on the
+// copy a layer-12 job's publish refused "job screens-inquiry may change only its own entry" for
+// provenance.json, which provenance's land changed on layer/12 itself: publish's job sync merges the
+// layer tip into the branch without pushing it, and the shallow path's base is GitHub's merge base
+// of the branch as pushed, the job's start). When HEAD holds a newer tip of that branch than the base,
+// whatever the layer already holds is not the job's: the base moves to the merge base with that tip
+// (deepened in a shallow clone, as layer publish reads it). A base never moves back, nor to a tip
+// HEAD does not hold. Every check reading the base follows: the ledger's, struckTests, recordSince,
+// takenIn and the record check.
+export function baseAfterMerge(root, base, tipRef, { log = () => {} } = {}) {
+  if (git(['rev-parse', '-q', '--verify', `${tipRef}^{commit}`], { cwd: root, allowFail: true }).code !== 0) return base;
+  const r = git(['merge-base', 'HEAD', tipRef], { cwd: root, allowFail: true, deepen: true });
+  const mb = r.code === 0 ? r.stdout.trim() : '';
+  if (!mb || mb === base) return base;
+  if (git(['merge-base', '--is-ancestor', base, mb], { cwd: root, allowFail: true, deepen: true }).code !== 0) return base;
+  log(`base: ${String(base).slice(0, 10)} moved to ${mb.slice(0, 10)}, the ${tipRef.replace(/^refs\/(remotes\/origin|heads)\//, '')} tip this branch merged: what it already holds is not this job's`);
+  return mb;
+}
 export function shallowBase(root, slug, tranche, branch, read = compare) {
   const c = read(slug, tranche, branch);
   const sha = c?.merge_base_commit?.sha;
@@ -1121,8 +1139,9 @@ export function jobComplete(root, id, opts = {}) {
   if (dirty(root, done)) fail(dirty(root, true) ? 'commit your work first: tracked files have changes' : '.process is not at the pin this branch records, and a job never commits .process: run `git submodule update .process`, then job complete again');
   const timeout = (cfg.suite_timeout_minutes || 20) * MINUTE;
   const slug = push ? repoSlug(root) : 'local/local';
-  const base = push && isShallow(root) ? shallowBase(root, slug, cfg.tranche, branch, opts.compare || compare)
+  const base0 = push && isShallow(root) ? shallowBase(root, slug, cfg.tranche, branch, opts.compare || compare)
     : git(['merge-base', 'HEAD', push ? `origin/${cfg.tranche}` : cfg.tranche], { cwd: root });
+  const base = baseAfterMerge(root, base0, push ? `refs/remotes/origin/${cfg.tranche}` : `refs/heads/${cfg.tranche}`, { log });
   const pr = push ? io.findPR(slug, branch) : null;
   const entry = readEntry(root, id);
   if (push && !pr) fail(entry.status.state === 'COMPLETE' ? `${id} is COMPLETE and ${branch} has no open pull request; a new attempt on a merged module is job start ${id} --sessions <file> --reopen "<what it must do>"` : `no open pull request from ${branch}`);
