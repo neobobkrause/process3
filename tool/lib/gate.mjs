@@ -403,7 +403,7 @@ export function gate(root, opts) {
     // regenerate wrote from its commit (copy PR 148); the row records the comparison, and merge
     // --plain reads it.
     if (plain) {
-      if (untracked.length && runRow.generated) findings.push(...verifyUntracked(root, gen.rows, untracked, { timeout, log, ...(exec ? { exec } : {}) }));
+      if (untracked.length && runRow.generated) findings.push(...verifyUntracked(root, gen.rows, untracked, { timeout, log, verified: new Map(gen.rows.flatMap((r, i) => (runRow.generated[i]?.verify !== null && runRow.generated[i]?.verify !== undefined ? [[r, runRow.generated[i].verify]] : []))), ...(exec ? { exec } : {}) }));
       const c = refreshCheck(root, plain, { ran: !!runRow.generated, failed: findings.some((f) => f.check === 'generated'), others: passPR ? [] : refreshOthers(cfg, gen.rows, changed, entriesAt(root, base), ignores, { also: addedRequirements(root, cfg, { from: mb, to: head, before: entriesAt(root, base) }) }), untracked });
       if (c.refresh) runRow.refresh = c.refresh;
       findings.push(...c.findings);

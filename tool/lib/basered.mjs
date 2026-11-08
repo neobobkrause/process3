@@ -152,7 +152,7 @@ export function staleAtBase(root, base, rows, files, { lockfiles = [], timeout, 
     try {
       const p = prepareTree(root, base, wt, { lockfiles, rows, timeout: left(), exec, log });
       if (!p.ok) return { ok: false, why: p.why };
-      const g = regenerate(wt, rows, { timeout: left(), exec, log: (l) => log(`base ${base.slice(0, 10)}: ${l}`) });
+      const g = regenerate(wt, rows, { timeout: left(), exec, verifyBuilt: false, log: (l) => log(`base ${base.slice(0, 10)}: ${l}`) });
       const at = new Set(rows.flatMap((r) => staleFiles(wt, r)));
       // The same way: stale there, and the base's regenerate wrote the bytes the head's did (a
       // pull request that changes what the generator writes made it stale itself).
