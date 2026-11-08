@@ -313,11 +313,13 @@ export function moduleStates({ mods, entries, marks, prs, lands, reschedules, an
     const j = joins.get(id) || null;
     const base = { id, pr: pr?.number ?? null, lands: mine.length, outstanding: out, marks: m, entry_state: e?.status?.state ?? null, ...(j ? { join: j } : {}) };
     if (e?.status?.state === 'BLOCKED') return { ...base, state: 'deferred', why: `BLOCKED: ${e.status.reason || 'no reason'}` };
+    // An item joined after its job started (PD-14 (i)): it runs again with the item's words, ahead
+    // of a reschedule (a re-test's job has no item words, and its land would tick the item: cold
+    // review of (i)); its job starts on the layer tip, so it holds the provider's land too.
+    if (owed.has(id) && items.has(id) && !pr) return { ...base, state: 'not started', item: items.get(id), why: `completion item(s) joined after its last job started: ${items.get(id).split('; ').map((x) => x.split(': ')[0]).join(', ')}${out.length ? `; it re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface too` : ''}` };
     if (out.length) return { ...base, state: 'rescheduled', why: `re-runs against ${[...new Set(out.map((r) => r.provider))].join(', ')}'s new interface` };
     if (pr && !pr.draft) return { ...base, state: 'published', why: `PR ${pr.number} ready into the layer` };
     if (pr) return { ...base, state: 'working', why: `PR ${pr.number}, a draft` };
-    // An item joined after its job started (PD-14 (i)): it runs again with the item's words.
-    if (owed.has(id) && items.has(id)) return { ...base, state: 'not started', item: items.get(id), why: `completion item(s) joined after its last job started: ${items.get(id).split('; ').map((x) => x.split(': ')[0]).join(', ')}` };
     if (mine.length) return { ...base, state: 'complete', why: `landed ${mine.length} time(s), last PR ${mine.at(-1).pr}` };
     // Started early (R14) and no pull request into the layer: its start did not finish, or its PR
     // closed; job start resumes it as any unfinished start (cold review of R14).
@@ -832,7 +834,7 @@ export function layerJoin(root, id, { why, by = 'bob', log = console.log } = {})
   if (at.more?.length) {
     const t = at.open;
     const ids = at.more.map((x) => x.id);
-    writeRows(root, cfg.state_branch, `layer join: ${id} joins ${ids.join(', ')} into layer ${t} (the completion round)`, [[flowFile(t, 'items', `${safeName(id)}-${safeName(ids.join('-')).slice(0, 80)}`), { row: 'items', layer: t, module: id, items: at.more, why: why.trim(), at: now(), by }]]);
+    writeRows(root, cfg.state_branch, `layer join: ${id} joins ${ids.join(', ')} into layer ${t} (the completion round)`, [[flowFile(t, 'items', `${safeName(id)}-${Date.now()}`), { row: 'items', layer: t, module: id, items: at.more, why: why.trim(), at: now(), by }]]);
     log(`${id} joins ${ids.join(', ')} into layer ${t}, where it is already: ${why.trim()}; it starts (again, if its job started before) from ${P3} layer jobs ${t}`);
     return { ok: true, layer: t, recorded: true, items: ids };
   }
@@ -885,12 +887,16 @@ export const layerItems = (completion, joins = [], more = []) => (completion ? [
 // PD-14 (i): an item row is owed until its module lands after it from a job not started before it:
 // a land whose job started before the row did not do the item's work (the job never had its words),
 // so the module runs again and the item is not ticked off that land. A land's job is its module's
-// newest start row before the land; with none (job start writes it best-effort) the land counts.
+// newest start row before the land, a restart row not counted (the same job, its old task: cold
+// review of (i)); with none (job start writes it best-effort) the land counts.
 // One owed row puts the module back to not started.
 export const itemsOwed = (rows, id) => {
-  const starts = (rows.starts || []).filter((s) => s.module === id);
-  const did = (l, r) => { const s = starts.filter((x) => String(x.at) < String(l.at)).at(-1); return !s || String(s.at) > String(r.at); };
-  return (rows.items || []).filter((r) => r.module === id && !(rows.lands || []).some((l) => l.module === id && String(l.at) > String(r.at) && did(l, r)));
+  // Times compared parsed (rows are second-resolution, now()): a start in the same second as the row
+  // is not after it (the safe side: one more run); a land in the same second as its start follows it.
+  const t = (x) => Date.parse(x?.at) || 0;
+  const starts = (rows.starts || []).filter((s) => s.module === id && !s.restart);
+  const did = (l, r) => { const s = starts.filter((x) => t(x) <= t(l)).at(-1); return !s || t(s) > t(r); };
+  return (rows.items || []).filter((r) => r.module === id && !(rows.lands || []).some((l) => l.module === id && t(l) > t(r) && did(l, r)));
 };
 
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
@@ -1006,13 +1012,13 @@ export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
   if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
   for (const s of L.states) log(`${s.id}: ${s.state} (${s.why})`);
-  const ready = mergeReady(L.states) && !L.holding.length;
+  const ready = mergeReady(L.states) && !L.holding.length && !L.joinable?.length;
   const done = L.states.filter((s) => s.done_work);
   if (done.length) {
     log(`${done.length} deferred with work done (suite green, BLOCKED only on a process finding): restart to publish; layer merge ${n} refuses until then, or takes --defer-done "<why>":`);
     for (const s of done) log(`  ${P3} job start ${s.id} --restart "its work is done and green; BLOCKED only on a process finding: publish it"   (PR ${s.done_work}${s.done_unknown ? '; its gate runs could not be read, so counted as done until they are' : ''})`);
   }
-  log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.holding.length ? `, ${L.holding.length} PR(s) open into ${layerBranch(n)}` : ''}`);
+  log(L.rows.merged ? `layer ${n} merged into ${cfg.tranche} at ${short(L.rows.merged.commit)}` : ready ? `layer ${n} can merge: ${P3} layer merge ${n}` : `layer ${n} cannot merge yet: ${L.states.filter((s) => !DONE.includes(s.state)).length} module(s) not complete${L.holding.length ? `, ${L.holding.length} PR(s) open into ${layerBranch(n)}` : ''}${L.joinable?.length ? `, completion item(s) to join: ${L.joinable.map((x) => `${x.id} (${x.items.join(', ')})`).join(', ')}` : ''}`);
   return { ok: true, states: L.states, ready, deferred_done: done.map((s) => s.id) };
 }
 

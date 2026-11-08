@@ -1974,6 +1974,9 @@ test('PD-14 (i): a later item for a module already in the open completion layer 
   assert.equal(openLayer(root, cfg, { slug: 'o/p', io: openIO }).ready, false);
   const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
   await assert.rejects(layerMerge(root, 3, { io: mio, wait: false, log: quiet }), /layer 3 cannot merge: a has open completion item\(s\) CR-7 not yet joined into the layer: node \S+ layer join a/);
+  const st = [];
+  layerStatus(root, 3, { io: openIO, log: (l) => st.push(String(l)) });
+  assert.match(st.join('\n'), /layer 3 cannot merge yet: 0 module\(s\) not complete, completion item\(s\) to join: a \(CR-7\)/, 'layer status agrees with layer merge (cold review of (i))');
   // The join: an item row; a again, with both items' words.
   const said = [];
   const r = layerJoin(root, 'a', { why: 'CR-7', log: (l) => said.push(String(l)) });
@@ -1990,8 +1993,23 @@ test('PD-14 (i): a later item for a module already in the open completion layer 
   assert.equal(itemsOwed(rows(['2026-07-01'], ['2026-05-01', '2026-06-15']), 'a').length, 0, 'a job started after the row landed');
   assert.equal(itemsOwed(rows(['2026-07-01'], []), 'a').length, 0, 'no start row: the land counts');
   assert.equal(itemsOwed(rows(['2026-05-15'], []), 'a').length, 1, 'a land before the row');
+  // Second-resolution rows: a start in the row's second is not after it; a land in its start's second follows it.
+  const sec = { items: [{ module: 'a', at: '2026-06-01T00:00:05Z' }], lands: [{ module: 'a', at: '2026-06-01T00:00:07Z' }] };
+  assert.equal(itemsOwed({ ...sec, starts: [{ module: 'a', at: '2026-06-01T00:00:05Z' }] }, 'a').length, 1, 'same second as the row: one more run');
+  assert.equal(itemsOwed({ ...sec, starts: [{ module: 'a', at: '2026-06-01T00:00:07Z' }] }, 'a').length, 0, 'a land in its start\'s second');
+  assert.equal(itemsOwed({ ...sec, starts: [{ module: 'a', at: '2026-06-01T00:00:06.500Z' }] }, 'a').length, 0, 'mixed resolution compares as times');
+    // A restart of the job started before the row is the same job, its old task (cold review of (i)).
+  assert.equal(itemsOwed({ ...rows(['2026-07-01'], ['2026-05-01']), starts: [{ module: 'a', at: '2026-05-01' }, { module: 'a', at: '2026-06-15', restart: true }] }, 'a').length, 1, 'a restart is not a new job');
+  // Owed ahead of a reschedule: a re-test's job has no item words (cold review of (i)).
+  const resch = [{ user: 'a', provider: 'b', provider_land: 'pb', at: '2026-06-20' }];
+  const ms = moduleStates({ mods: ['a'], entries: new Map([['a', { status: { state: 'COMPLETE' } }]]), marks: new Map(), prs: [], lands: [{ module: 'a', head: 'h1', pr: 7, at: '2026-05-15' }], reschedules: resch, anc: () => false, items: new Map([['a', 'CR-7: x']]), owed: new Set(['a']) });
+  assert.deepEqual([ms[0].state, ms[0].item], ['not started', 'CR-7: x']);
+  assert.match(ms[0].why, /re-runs against b's new interface too/);
   // a's new job starts after the row and lands; the merge ticks CR-2 and CR-7.
-  writeRows(root, SB, 'start a', [[flowFile(3, 'start', 'a-2'), { row: 'start', layer: 3, module: 'a', attempt: 2, at: new Date().toISOString() }]]);
+  // Rows are second-resolution: the start is in a second after the item row's, as a real one is.
+  const rowAt = Date.parse(flowRows(root, SB, 3).items[0].at);
+  while (Date.now() < rowAt + 1000) await new Promise((res) => setTimeout(res, 50));
+  writeRows(root, SB, 'start a', [[flowFile(3, 'start', 'a-2'), { row: 'start', layer: 3, module: 'a', attempt: 2, at: new Date().toISOString().replace(/\.\d+Z$/, 'Z') }]]);
   const ha2 = jobWork(bare, 'a', { 'src/a/index.mjs': 'export function a(x) { return x + 2; }\n' }, { n: 3 });
   prs[8] = prOf(8, 'a', ha2, { base: { ref: 'layer/3' } });
   await layerLand(root, 8, { io: lio, log: quiet });
