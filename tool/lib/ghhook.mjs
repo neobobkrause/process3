@@ -115,7 +115,9 @@ const ledgerKey = (root, cfg) => { try { const l = ledgerOf(root, cfg); return l
 // unledgered. Each run Claude Code makes (its input names the session; one piped by hand under
 // PD-13 does not) leaves a stamp per session, so `start check`, itself a Bash call the hook sees,
 // can tell this session that its hook is not loaded.
-export const hookSeenDir = () => process.env.P3_HOOK_SEEN_DIR || join(tmpdir(), 'p3-hook-seen');
+// A fixed place, not the process's TMPDIR, which a sandboxed Bash and the hook may see differently
+// (cold review of C34); the OS's temporary directory only where /tmp is not one.
+export const hookSeenDir = () => process.env.P3_HOOK_SEEN_DIR || (process.platform === 'win32' ? join(tmpdir(), 'p3-hook-seen') : '/tmp/p3-hook-seen');
 const stampName = (id) => String(id).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
 export function stampHook(input) {
   const id = input?.session_id;
@@ -128,12 +130,13 @@ export function stampHook(input) {
 // Whether Claude Code has run this hook for the session: true, false, or null when unknown (no id).
 export function hookSeen(id = process.env.CLAUDE_CODE_SESSION_ID) {
   if (!id) return null;
-  try { return readdirSync(hookSeenDir()).includes(stampName(id)); } catch { return false; }
+  // No directory: no hook has stamped here (not loaded). Any other read error: unknown, never an alarm.
+  try { return readdirSync(hookSeenDir()).includes(stampName(id)); } catch (e) { return e?.code === 'ENOENT' ? false : null; }
 }
 // start check's line when the hook is not loaded for this session (PD-13's by-hand rule); null when it is, or unknown.
 export function hookLoadedLine(id = process.env.CLAUDE_CODE_SESSION_ID) {
   if (hookSeen(id) !== false) return null;
-  return 'GitHub pacing hook: NOT LOADED in this session (no call of this session has gone through it: the project root Claude Code started in has no .claude/settings.json naming tool/hook.mjs, as a container rooted at /home/user or an older branch\'s checkout has). Its GitHub connector calls are not in the ledger. Until a session starts with it loaded (PD-13): before each GitHub connector call, pipe its JSON to the hook from a process3 checkout at the tranche, `echo \'{"tool_name":"mcp__github__<tool>","tool_input":{...}}\' | node tool/hook.mjs`, and do not make the call if it exits 2.';
+  return 'GitHub pacing hook: NOT LOADED in this session (no call of this session has gone through it: the project root Claude Code started in has no .claude/settings.json naming tool/hook.mjs or .process/tool/hook.mjs, as a container rooted at /home/user or an older branch\'s checkout has; or the loaded hook is a pin from before C34, which does not record itself). Its GitHub connector calls may not be in the ledger. Until a session starts with it loaded (PD-13): before each GitHub connector call, pipe its JSON to the hook from a process3 checkout at the tranche, `echo \'{"tool_name":"mcp__github__<tool>","tool_input":{...}}\' | node tool/hook.mjs`, and do not make the call if it exits 2.';
 }
 export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick = process.env.NODE_TEST_CONTEXT ? () => false : kickRefresh, opts = {} } = {}) {
   if (!input) { err('p3 github hook: no hook JSON on stdin'); return 2; }

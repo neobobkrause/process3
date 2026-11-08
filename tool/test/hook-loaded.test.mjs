@@ -31,6 +31,11 @@ test('hook loaded (C34): a session with no hook run is told, with PD-13\'s line;
   assert.equal(hookSeen('sess-1'), true);
   assert.equal(hookLoadedLine('sess-1'), null);
   assert.equal(hookSeen('sess-2'), false, 'another session: its own stamp');
+  // A stamp directory that cannot be read (not missing): unknown, never an alarm (cold review).
+  const was0 = process.env.P3_HOOK_SEEN_DIR;
+  process.env.P3_HOOK_SEEN_DIR = join(process.env.P3_HOOK_SEEN_DIR, 'sess-1');
+  assert.equal(hookSeen('sess-9'), null, 'ENOTDIR: unknown');
+  process.env.P3_HOOK_SEEN_DIR = was0;
   // The hook process's own CLAUDE_CODE_SESSION_ID is stamped beside the input's (forms that may differ).
   const was = process.env.CLAUDE_CODE_SESSION_ID;
   process.env.CLAUDE_CODE_SESSION_ID = 'env-form';

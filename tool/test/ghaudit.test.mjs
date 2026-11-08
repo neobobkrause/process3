@@ -163,7 +163,22 @@ test('audit (C34): an unexplained write names its session, and says the hook was
   const r = githubAudit(root, { repos: [P3R], login: ME, now: NOW, io: gh(answers).io, log: (l) => out.push(l), p: P });
   const text = out.join('\n');
   assert.equal(r.ok, false);
-  assert.match(text, /PullRequest opened #256 by believeinoakland \(hook not loaded in session session_BARE\)/);
-  assert.match(text, /IssueComment created #250 by believeinoakland \(session session_HOOKED: its hook counted other connector calls, not this one\)/);
-  assert.match(text, /IssueComment created #251 by believeinoakland \(session unknown: its body names none\)/);
+  assert.match(text, /PullRequest opened #256 by believeinoakland \(hook not loaded in session session_BARE\? the ledger holds no connector call of it \(a hook pinned before C34 records none either\)\)/);
+  assert.match(text, /IssueComment created #250 by believeinoakland \(session session_HOOKED: the ledger holds connector calls of its hook\)/);
+  assert.match(text, /IssueComment created #251 by believeinoakland \(session unknown: its own text names none\)/);
+});
+
+// Cold review of C34: only the act's own text names its session; a PR's description only for its opening.
+test('audit (C34): a review, a linkless comment or a ready mark is never pinned on the pull request author\'s session; a trimmed opened payload reads the PR', async () => {
+  const { writeSession } = await import('../lib/ghaudit.mjs');
+  const link = (s) => `x https://claude.ai/code/${s}`;
+  const pr = { number: 9, body: link('session_AUTHOR') };
+  assert.equal(writeSession({ type: 'PullRequestReviewEvent', payload: { pull_request: pr, review: { body: link('session_REVIEWER') } } }), 'session_REVIEWER');
+  assert.equal(writeSession({ type: 'PullRequestReviewEvent', payload: { pull_request: pr, review: { body: 'LGTM' } } }), null);
+  assert.equal(writeSession({ type: 'IssueCommentEvent', payload: { issue: pr, comment: { body: 'merged' } } }), null);
+  assert.equal(writeSession({ type: 'PullRequestReviewCommentEvent', payload: { pull_request: pr, comment: { body: link('session_C') } } }), 'session_C');
+  assert.equal(writeSession({ type: 'PullRequestEvent', payload: { action: 'ready_for_review', pull_request: pr } }), null);
+  assert.equal(writeSession({ type: 'PullRequestEvent', payload: { action: 'opened', pull_request: pr } }), 'session_AUTHOR');
+  assert.equal(writeSession({ type: 'PullRequestEvent', payload: { action: 'opened', pull_request: { number: 9 } } }, { prBody: link('session_READ') }), 'session_READ', 'a trimmed payload: the PR read');
+  assert.equal(writeSession({ type: 'PullRequestEvent', payload: { action: 'opened', pull_request: { number: 9, body: 'Claude-Session: https://claude.ai/code/session_TRAILER' } } }), 'session_TRAILER');
 });
