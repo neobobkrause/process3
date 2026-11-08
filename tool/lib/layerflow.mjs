@@ -256,7 +256,14 @@ export function interfaceText(ic) {
   if (ic.provides) parts.push('its Public / Provides text changed (a notice, not a trigger)');
   if (ic.test_only) {
     const imp = ic.test_only.importers || [];
-    parts.push(`only its own tests changed (${ic.test_only.files.join(', ')}): no interface change for its users${imp.length ? `, but ${imp.join(', ')} import${imp.length === 1 ? 's' : ''} a changed test file: breaking for ${imp.length === 1 ? 'it' : 'them'} only` : ''}`);
+    const forImp = imp.length ? `${imp.join(', ')} import${imp.length === 1 ? 's' : ''} a changed test file: breaking for ${imp.length === 1 ? 'it' : 'them'}` : '';
+    // After an earlier source land in the layer (PD-15): the tests' verdict, at most additive.
+    if (ic.test_only.earlier_source) {
+      const v = ic.test_only.capped ? `its tests alone read ${ic.test_only.by_tests}, capped at additive since this land changed neither source nor exports (PD-15): each user is retested by its gate alone` : ic.test_only.by_tests === 'additive' ? 'additive: each user is retested by its gate alone' : 'no interface change for its users';
+      parts.push(`only its own tests changed (${ic.test_only.files.join(', ')}) after an earlier land changed its source: ${v}${forImp ? `; but ${forImp}` : ''}`);
+      return parts.join('; ');
+    }
+    parts.push(`only its own tests changed (${ic.test_only.files.join(', ')}): no interface change for its users${forImp ? `, but ${forImp} only` : ''}`);
     return parts.join('; ');
   }
   if (ic.provides_tests) parts.push(`its tests of Public / Provides requirements changed what they assert (${(ic.provides_test_changes || []).filter((x) => x.class !== 'none').map((x) => `${x.file}: ${x.class}, ${x.why}`).join(', ') || ic.provides_tests.join(', ')}), which may mean a changed answer shape`);
@@ -1327,20 +1334,35 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   // An earlier land of this provider in the layer that changed its source (or one recorded before
   // that was read) leaves its tests' verdict standing: this test change may be the only sign of it.
   const earlier = rows.lands.some((l) => l.module === id && !l.interface?.test_only && l.interface?.source_changed !== false);
-  if (ic.test_only && earlier) {
-    ic.test_only.earlier_source = true;
-    ic.class = ic.test_only.by_tests;
-    ic.changed = ic.class !== 'none';
-  } else if (ic.test_only) {
+  // The users importing a changed test file: breaking for each of them, whatever the land's class.
+  let breakingFor = new Set();
+  if (ic.test_only) {
     // Any module may import a provider's test file, a declared user or not.
     const others = (readModules(root, cfg, after) || []).map((m) => m?.id).filter((m) => m && m !== id);
     const pe = entryAt(root, after, id);
     ic.test_only.importers = testImporters(root, cfg, after, [...new Set([...users, ...others])], ic.test_only.files, { provTests: pe?.tests || [] });
+    breakingFor = new Set(ic.test_only.importers);
+  }
+  if (ic.test_only && earlier) {
+    ic.test_only.earlier_source = true;
+    // PD-15 (8 Nov): this land changed neither source nor exports, so its tests' verdict is at most
+    // additive: each user is retested by its gate (a red retest falls back to a job), never a job each
+    // (copy layer 12: hypotheses' c2e2567196 started four). by_tests keeps the tests' own verdict.
+    let cls = ic.test_only.by_tests;
+    if (cls === 'breaking') { cls = 'additive'; ic.test_only.capped = 'PD-15'; }
+    // With the tests reading no change, only the importers are reached, as under C11.
+    if (cls === 'none' && breakingFor.size) { cls = 'breaking'; reach = new Set(breakingFor); }
+    ic.class = cls;
+    ic.changed = cls !== 'none';
+    if (breakingFor.size) ic.triggers = [...new Set([...(ic.triggers || []), 'test-import'])];
+    for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
+  } else if (ic.test_only) {
     reach = new Set(ic.test_only.importers);
     ic.triggers = reach.size ? ['test-import'] : [];
     if (reach.size) { ic.class = 'breaking'; ic.changed = true; }
     for (const u of ic.test_only.importers) if (!users.includes(u)) users.push(u);
   }
+  const classFor = (u) => (breakingFor.has(u) ? 'breaking' : ic.class);
   const layers = layersAt(root, cfg, after);
   // Where each user's work is (R12; cold review of PR 191): joined to this layer, or to a later one
   // not merged, else its map layer. A joined provider's users from its own map layer on are noticed
@@ -1371,11 +1393,11 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (early.length) land.users_rescheduled_early = early;
   for (const u of early) {
     const k = earlyAt.get(u);
-    files.push([flowFile(k, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: k, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class, early_from: n }]);
+    files.push([flowFile(k, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: k, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: classFor(u), early_from: n }]);
     log(`${u} started early into layer ${k}: rescheduled there by ${id}'s interface change; its job brings ${layerBranch(k)} up once layer ${k} opens, and its run counts only on a head that holds ${short(after)}`);
   }
   if (ic.changed) {
-    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: ic.class }]);
+    for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: ic.triggers, class: classFor(u) }]);
   }
   if (noticed.length) {
     const key = noticeKey(id, n0);
@@ -1394,9 +1416,9 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
     const ids = new Set([...ledgerIds(root, lref), ...ledgerIds(root, `refs/remotes/origin/${cfg.tranche}`)]);
     for (const u of same) {
       const p = open.find((q) => branchModule(q.head?.ref, ids) === u);
-      const text = `layer ${n}: ${id} changed its interface (${ic.class}; land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and its gate re-runs your suite against ${id}'s new version. A run started before this never counts.`;
+      const text = `layer ${n}: ${id} changed its interface (${classFor(u)}; land ${short(after)}: ${interfaceText(ic)}). Halt any test run now; run \`${P3} layer publish ${u}\` again: it brings job/${u} up to ${layerBranch(n)} and its gate re-runs your suite against ${id}'s new version. A run started before this never counts.`;
       if (p) { msgs.push({ user: u, pr: p.number, text }); log(`BOB delivers to job ${u}'s session (PR ${p.number}), with send_message priority now: ${text}`); continue; }
-      if (ic.class !== 'additive') { log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`); continue; }
+      if (classFor(u) !== 'additive') { log(`${u}: no job open; it re-runs when it starts (${P3} layer jobs ${n} lists it)`); continue; }
       // Additive: the gate alone re-tests it (layer retest), no job session; refused, a job does.
       try {
         const r = (x.retest || layerRetest)(root, u, { io: x, log, by, cause: n0 });
