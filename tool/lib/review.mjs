@@ -39,9 +39,9 @@ function suiteLine(job, generated) {
 function triggerLines(t) {
   if (!t) return [];
   if (t.error) return ['', '## Review triggers', `Not read here (${t.error}); \`merge\` computes them again and refuses --no-review when one fires.`];
-  if (!t.fired.length) return ['', '## Review triggers', `None fired${t.bad ? ` (${t.bad}: no security path was read)` : t.security_set ? '' : ' (the product lists no review_triggers.security_paths)'}.`];
+  if (!t.fired.length) return ['', '## Review triggers', 'None fired.'];
   return ['', '## Review triggers', `Fired: ${t.fired.join(' and ')}. ${t.why}.`,
-    'The review triggers (4 Nov 19:05): these merge only after this review. Judge each hunk below first: a security list narrowed or widened without a requirement that says so; a test deleted while the code it tested is still live; an assertion removed or loosened so the change passes. Each is a fix unless a requirement or recorded decision makes it right.',
+    'The review triggers (4 Nov 19:05): these merge only after this review. Judge each hunk below first: a test deleted while the code it tested is still live; an assertion removed or loosened so the change passes. Each is a fix unless a requirement or recorded decision makes it right.',
     ...(t.fired.includes('test') ? [`(${ASSERT_RULE}.)`] : []),
     '', '```diff', t.hunks.trimEnd(), '```'];
 }

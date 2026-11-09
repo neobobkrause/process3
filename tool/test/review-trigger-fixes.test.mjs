@@ -1,6 +1,5 @@
 // The review-trigger day-1 study on the copy (4 Nov 19:35 to 5 Nov 19:00; 80 job merges, 7 triggered):
 // (2) every merge row read review_usd "unmeasured";
-// (4) PR 173's row, prepared under an older pin, carried no triggers key.
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -8,7 +7,6 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge, reviewCostOf } from '../lib/merge.mjs';
-import { triggerSummary } from '../lib/triggers.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -22,10 +20,10 @@ const SIGNIN = [
   '}',
   '',
 ].join('\n');
-const CFG = { review_triggers: { security_paths: ['agent-worker/src/**', 'src/alpha/acts.mjs', 'src/alpha/rules.txt'] } };
+const CFG = {};
 const START = '2026-11-05T08:00:00Z';
 
-// A product whose tranche holds module alpha and a security file; the job branch changes them as
+// A product whose tranche holds module alpha; the job branch changes them as
 // `job` says. rows: the job's metrics rows at its head (a start and a complete by default).
 function setup(job, { rows = null } = {}) {
   const root = makeRepo({
@@ -56,7 +54,7 @@ function io(head) {
     getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
     comments: () => [
       { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'acmewidget' } },
-      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
+      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: (slug, r) => r.run_id === 11,
@@ -94,7 +92,7 @@ test('(2) the review cost is read onto the merge row from the --role review rows
   const out = [];
   assert.equal(merge(s.root, 5, { slug: 'o/r', io: io(s.head), ...reviewed, log: (l) => out.push(l) }).merged, true);
   const row = originRows(s.root).find((r) => r.row === 'merge');
-  assert.deepEqual([row.triggers, row.review_usd, row.review_usd_from], [['security'], 0.84, '2 --role review rows (session_r1, session_r2)']);
+  assert.deepEqual([row.triggers, row.review_usd, row.review_usd_from], [[], 0.84, '2 --role review rows (session_r1, session_r2)']);
   assert.ok(out.some((l) => l === 'review cost: 0.84 USD, from 2 --role review rows (session_r1, session_r2)'), out.join('\n'));
   // An explicit --review-cost-usd stands; none to be read leaves it unmeasured, with why on the row.
   const u = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }));
@@ -105,39 +103,7 @@ test('(2) the review cost is read onto the merge row from the --role review rows
   assert.throws(() => merge(u.root, 6, { slug: 'o/r', io: io(u.head), noReview: 'x', reviewSession: 'session_r1', log: quiet }), /drop --review-session/);
 });
 
-test('(4) a merge row prepared under an older pin, with no triggers, gets them judged at the land and recorded beside it; the report reads them', () => {
-  const old = { row: 'merge', pr: 173, reviewed: true, review: 'r', review_rounds: 1, at: new Date().toISOString() };
-  const base = [{ row: 'attempt', event: 'start', attempt: 1, at: START }, { row: 'attempt', event: 'complete', attempt: 1, at: new Date().toISOString() }];
-  const s = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }), { rows: [...base, old] });
-  const out = [];
-  assert.equal(merge(s.root, 173, { slug: 'o/r', io: io(s.head), ...reviewed, reviewCostUsd: '0.5', log: (l) => out.push(l) }).merged, true);
-  const rows = originRows(s.root);
-  assert.equal(rows.filter((r) => r.row === 'merge').length, 1, 'still one merge row');
-  const t = rows.find((r) => r.row === 'triggers');
-  assert.deepEqual([t.pr, t.triggers], [173, ['security']]);
-  assert.match(t.why, /prepared under an older pin \(tool unknown\) that recorded no triggers; judged at the land/);
-  assert.ok(out.some((l) => /PR 173's merge row recorded no triggers \(prepared under an older pin\): \["security"\] judged at the land/.test(l)), out.join('\n'));
-  assert.match(triggerSummary(rows.filter((r) => r.row === 'merge'), rows).line, /^review triggers: 1 job PRs merged; triggered 1 of 1 \(100%\): security 1/);
-  // A row prepared with the triggers the land judges writes nothing more; one with others is corrected.
-  const same = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }), { rows: [...base, { ...old, triggers: ['security'] }] });
-  merge(same.root, 173, { slug: 'o/r', io: io(same.head), ...reviewed, log: quiet });
-  assert.equal(originRows(same.root).filter((r) => r.row === 'triggers').length, 0);
-  const differ = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }), { rows: [...base, { ...old, triggers: [], tool: 'abc' }] });
-  merge(differ.root, 173, { slug: 'o/r', io: io(differ.head), ...reviewed, log: quiet });
-  assert.match(originRows(differ.root).find((r) => r.row === 'triggers').why, /recorded none when prepared \(tool abc\); judged again at the land/);
-  // Nothing else to commit (the head already holds the tranche): the head is not moved for the record;
-  // the merge says it and returns it, and lands.
-  const held = setup((r) => commit(r, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }), { rows: [...base, old] });
-  git(['checkout', '-q', 'job/alpha'], { cwd: held.root });
-  git(['merge', '-q', '--no-edit', 'tranche'], { cwd: held.root });
-  const top = git(['rev-parse', 'HEAD'], { cwd: held.root });
-  git(['push', '-q', 'origin', 'job/alpha'], { cwd: held.root });
-  git(['checkout', '-q', 'main'], { cwd: held.root });
-  const said = [];
-  const h = merge(held.root, 173, { slug: 'o/r', io: io(top), ...reviewed, log: (l) => said.push(l) });
-  assert.deepEqual([h.merged, h.tip, h.rejudged.triggers, h.rejudged.written], [true, top, ['security'], false]);
-  assert.ok(said.some((l) => /judged at the land, not written to the head/.test(l)), said.join('\n'));
-  // A fresh merge row names the tool that wrote it.
+test('a fresh merge row names the tool that wrote it', () => {
   const fresh = setup((r) => commit(r, { 'src/alpha/a.mjs': 'export const f = () => 46;\n' }));
   merge(fresh.root, 7, { slug: 'o/r', io: io(fresh.head), noReview: 'a constant', log: quiet });
   assert.match(originRows(fresh.root).find((r) => r.row === 'merge').tool, /^[0-9a-f]{40}$|^unknown$/);

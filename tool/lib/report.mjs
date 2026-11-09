@@ -9,7 +9,6 @@ import { FLOW_RULE as flowRule, QUICK_BLOCK_MIN, countCommits, flowFigures, quic
 import { CLOSED_FILE } from './status.mjs';
 import { HOLDS_FILE, holdHours, landedPRs } from './hold.mjs';
 import { FOUND_DIR, NO_MODULE, foundFile } from './found.mjs';
-import { triggerSummary } from './triggers.mjs';
 import { depth, exists, gh, git, isFound, isRecordPath, requirementMarks, shallowCuts } from './util.mjs';
 
 const U = 'unmeasured';
@@ -209,8 +208,7 @@ export function trancheReport(root, cfg, { slug, now = new Date().toISOString(),
   L.push('## Work', '');
   const jobMerges = !opened ? `job merges since the opening ${U}` : `job merges recorded: ${mergeRows.length} distinct pull requests since the opening (${allMerges.filter(inT).length} merge rows)${olderPRs.length ? `; older than this tranche, left out: ${olderPRs.map((p) => `#${p}`).join(', ')}` : ''}`;
   L.push(`Pull requests merged into ${cfg.tranche}: ${merged === null ? `${U} (GitHub not read); ${jobMerges}` : `${opened ? merged.filter((p) => Date.parse(p.merged_at) >= Date.parse(opened)).length : `${merged.length} in all, since the tranche's opening ${U}`} (${jobMerges}; the rest plain)`}.`, '');
-  // The review triggers' measure (coordinator's log, 4 Nov 19:05, recorded as Bob's decision, not quoted): this tranche's job merges, each pull request once.
-  L.push(`- ${opened ? triggerSummary(mergeRows, rows.filter((r) => r.row === 'triggers')).line : `review triggers: ${U} (the tranche's opening not read)`}`, '');
+
   const byLayer = new Map();
   for (const w of work) byLayer.set(w.layer, [...(byLayer.get(w.layer) || []), w]);
   const order = [...byLayer.keys()].sort((a, b) => (a ?? Infinity) - (b ?? Infinity));

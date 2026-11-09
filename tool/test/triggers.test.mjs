@@ -1,5 +1,4 @@
-// Review triggers (Bob, 4 Nov, about 19:05): a security path changed, or a test deleted or
-// loosened, makes a job's merge refuse --no-review; every merge row records what fired and what the
+// Review triggers (Bob, 4 Nov, about 19:05): a test deleted or loosened makes a job's merge refuse --no-review; every merge row records what fired and what the
 // review found. Run end to end: a real repository and origin, merge() and review brief as BOB runs them.
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -10,16 +9,16 @@ import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
 import { merge, reviewMeasures, reviewRounds } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
 import { reviewBrief } from '../lib/review.mjs';
-import { assertCounts, globRe, matchPath, reviewTriggers, triggerSummary } from '../lib/triggers.mjs';
+import { assertCounts, reviewTriggers } from '../lib/triggers.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 const TEST_BASE = "import assert from 'node:assert/strict';\ntest('a', () => {\n  assert.equal(f(), 45);\n  assert.ok(g());\n});\n";
 
-// A product whose tranche holds module alpha with a test and a security list; the job branch
-// changes them as `job` says. config: the tranche's process/config.json.
-function setup(job, config = { review_triggers: { security_paths: ['src/alpha/acts.mjs', 'src/gate/**'] } }) {
+// A product whose tranche holds module alpha with tests; the job branch changes them as `job`
+// says. config: the tranche's process/config.json.
+function setup(job, config = {}) {
   const root = makeRepo({
     'process/ledger/alpha.json': entry('alpha'),
     'process/config.json': config,
@@ -50,7 +49,7 @@ function io(head) {
       getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
       comments: () => [
         { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'acmewidget' } },
-        { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
+        { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
       ],
       checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
       verify: (slug, r) => r.run_id === 11,
@@ -83,48 +82,45 @@ test('a job that deletes a test file (PR 174) is refused --no-review, and merges
     { triggers: ['test'], reviewed: true, m: 12, usd: 0.84, f: 1, a: 1 });
 });
 
-test('a job that changes a listed security path (PR 95) is refused --no-review; a change to neither merges --no-review with triggers []', () => {
-  const sec = setup((root) => commit(root, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }));
-  assert.throws(() => merge(sec.root, 6, { slug: 'o/r', io: io(sec.head).io, noReview: 'x', log: quiet }), /fires the review trigger security \(security paths changed: src\/alpha\/acts\.mjs\)/);
+test('a change that fires no trigger merges --no-review with triggers []', () => {
   const plain = setup((root) => commit(root, { 'src/alpha/a.mjs': 'export const f = () => 46;\n', 'test/alpha/a.test.mjs': TEST_BASE.replace('45', '46') }));
   assert.equal(merge(plain.root, 7, { slug: 'o/r', io: io(plain.head).io, noReview: 'one constant and its test', log: quiet }).merged, true);
   const row = lastRow(plain.root);
   assert.deepEqual([row.triggers, row.reviewed, row.review_minutes, row.findings], [[], false, null, null]);
 });
 
-test('a test that existed at the base losing assertions fires; one changed in place or gaining them does not; a product with no security paths fires none for them', () => {
+test('a test that existed at the base losing assertions fires; one changed in place or gaining them does not', () => {
   const loose = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace('  assert.ok(g());\n', '') }));
   assert.throws(() => merge(loose.root, 8, { slug: 'o/r', io: io(loose.head).io, noReview: 'x', log: quiet }), /test\/alpha\/a\.test\.mjs: 1 hunk removing assertions and adding none/);
-  const t = reviewTriggers(loose.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: {} });
+  const t = reviewTriggers(loose.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha') });
   assert.deepEqual(t.fired, ['test']);
   assert.match(t.hunks, /^-  assert\.ok\(g\(\)\);$/m, 'the exact hunk that fired it');
-  const none = setup((root) => commit(root, { 'src/alpha/acts.mjs': 'export const ACTS = [];\n', 'test/alpha/a.test.mjs': TEST_BASE.replace('45', '40') + "test('b', () => { expect(h()).toBe(1); });\n" }), {});
-  const n = reviewTriggers(none.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: { review_triggers: {} } });
-  assert.deepEqual([n.fired, n.security_set], [[], false]);
+  const none = setup((root) => commit(root, { 'src/alpha/acts.mjs': 'export const ACTS = [];\n', 'test/alpha/a.test.mjs': TEST_BASE.replace('45', '40') + "test('b', () => { expect(h()).toBe(1); });\n" }));
+  assert.deepEqual(reviewTriggers(none.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha') }).fired, []);
   // A hunk that replaces an assertion with another does not fire; an added skip does.
   const swap = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace('  assert.ok(g());\n', '  assert.equal(g(), true);\n') }));
-  assert.deepEqual(reviewTriggers(swap.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: {} }).fired, []);
+  assert.deepEqual(reviewTriggers(swap.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha') }).fired, []);
   const skip = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace("test('a'", "test.skip('a'") }));
-  const k = reviewTriggers(skip.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha'), cfg: {} });
+  const k = reviewTriggers(skip.root, { base: 'origin/tranche', head: 'origin/job/alpha', entry: entry('alpha') });
   assert.deepEqual([k.fired, k.why], [['test'], 'test/alpha/a.test.mjs: 1 skip added']);
 });
 
-test('a path git would quote (non-ASCII) still fires both triggers (review of PR 125)', () => {
-  const { root } = setup((root) => { commit(root, { 'src/gate/café.mjs': 'x\n', 'test/alpha/é.test.mjs': TEST_BASE }); }, { review_triggers: { security_paths: ['src/gate/**'] } });
+test('a path git would quote (non-ASCII) still fires the trigger (review of PR 125)', () => {
+  const { root } = setup((root) => { commit(root, { 'test/alpha/é.test.mjs': TEST_BASE }); });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   git(['rm', '-q', 'test/alpha/é.test.mjs'], { cwd: root });
-  commit(root, { 'src/gate/café.mjs': 'y\n' });
-  const t = reviewTriggers(root, { base: 'HEAD~2', head: 'HEAD', entry: entry('alpha'), cfg: { review_triggers: { security_paths: ['src/gate/**'] } } });
+  commit(root, {});
+  const t = reviewTriggers(root, { base: 'HEAD~2', head: 'HEAD', entry: entry('alpha') });
   git(['checkout', '-q', 'main'], { cwd: root });
-  assert.deepEqual([t.fired, t.security, t.deleted], [['security', 'test'], ['src/gate/café.mjs'], ['test/alpha/é.test.mjs']]);
+  assert.deepEqual([t.fired, t.deleted], [['test'], ['test/alpha/é.test.mjs']]);
 });
 
 test('review brief for a triggered job carries the trigger and its exact hunks, read from the clone', () => {
-  const { root } = setup((root) => commit(root, { 'src/alpha/acts.mjs': 'export const ACTS = ["a"];\n' }));
+  const { root } = setup((root) => commit(root, { 'test/alpha/a.test.mjs': TEST_BASE.replace('  assert.ok(g());\n', '') }));
   const pr = { number: 9, title: 'alpha', base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: 'h'.repeat(40) }, user: { login: 'job' } };
-  const text = reviewBrief(root, '9', { log: quiet, io: { slug: 'o/r', read: () => pr, files: () => ['src/alpha/acts.mjs'], contents: (s, p) => (p.endsWith('.json') ? entry('alpha') : '- **R1** x\n'), notes: () => [], tracked: () => false } });
-  assert.match(text, /## Review triggers\nFired: security\. security paths changed: src\/alpha\/acts\.mjs\./);
-  assert.match(text, /```diff\n[\s\S]*-export const ACTS = \["a", "b"\];\n\+export const ACTS = \["a"\];[\s\S]*```/);
+  const text = reviewBrief(root, '9', { log: quiet, io: { slug: 'o/r', read: () => pr, files: () => ['test/alpha/a.test.mjs'], contents: (s, p) => (p.endsWith('.json') ? entry('alpha') : '- **R1** x\n'), notes: () => [], tracked: () => false } });
+  assert.match(text, /## Review triggers\nFired: test\. test\/alpha\/a\.test\.mjs: 1 hunk removing assertions and adding none\./);
+  assert.match(text, /```diff\n[\s\S]*-  assert\.ok\(g\(\)\);[\s\S]*```/);
 });
 
 test('--no-review may not cite Q38 and needs a reason; --reviewed needs its measures, --no-review takes none', () => {
@@ -144,21 +140,6 @@ test('--no-review may not cite Q38 and needs a reason; --reviewed needs its meas
   assert.throws(() => reviewRounds({ noReview: 'Q-38' }), /Q38/);
 });
 
-test('globs and assertion counts: ** any depth, * one name, a bare path a file or directory; comments are not assertions', () => {
-  assert.equal(globRe('src/a'), null);
-  assert.ok(matchPath('src/gate/x/y.mjs', 'src/gate/**') && matchPath('src/gate/y.mjs', 'src/**/y.mjs') && matchPath('src/a/b.mjs', 'src/a/'));
-  assert.ok(!matchPath('src/gatex/y.mjs', 'src/gate/**') && !matchPath('src/a/b/c.mjs', 'src/a/*.mjs') && matchPath('src/a/c.mjs', './src/a/*.mjs'));
+test('assertion counts: comments are not assertions', () => {
   assert.deepEqual(assertCounts('--- a/x\n+++ b/x\n@@ -1 +1 @@\n-  assert.equal(a, 1);\n-  // assert.ok(x)\n+  t.equal(a, 1);\n+  expect(b).toBe(2);\n@@ -9 +9 @@\n-  t.ok(c)\n+  it.only(\'x\', f)\n'), { removed: 2, added: 2, skips: 1, bare: 1 });
-});
-
-test('the report line: merged, triggered by kind and share, reviews, findings, minutes and cost', () => {
-  const s = triggerSummary([
-    { pr: 1, triggers: ['test'], reviewed: true, review_minutes: 10, review_usd: 0.5, findings: 2, findings_acted: 1 },
-    { pr: 2, triggers: ['security', 'test'], reviewed: true, review_minutes: 20, review_usd: 'unmeasured', findings: 0, findings_acted: 0 },
-    { pr: 3, triggers: [], reviewed: false },
-    { pr: 4, triggers: [], reviewed: false },
-    { pr: 5, reviewed: false },
-  ]);
-  assert.equal(s.line, 'review triggers: 5 job PRs merged (1 before triggers were recorded); triggered 2 of 4 (50%): security 1, test 2; reviews run 2; findings per review 1; findings acted on 1; added minutes to merge median 15, worst 20; review cost $0.50 (1 unmeasured)');
-  assert.match(triggerSummary([]).line, /0 job PRs merged; triggered 0 of 0: .*median unmeasured, worst unmeasured; review cost unmeasured$/);
 });

@@ -401,7 +401,7 @@ const commands = {
   // merge <pr> (--reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n> | --review-session <id>[,<id>] | --review-record <file>] | --no-review "<why>") [--decision "<why>"] [--minutes 95] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
   // With no --review-cost-usd, the review's cost is read from the review session's saved get_session result (--review-record), else the
   // module's `metrics add <id> --role review` rows (those of --review-session, or since the attempt started); none read: unmeasured, said why.
-  // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
+  // A job PR that fires a review trigger (a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
   // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review, no receipt.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
