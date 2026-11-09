@@ -114,13 +114,13 @@ test('BD-R1 on the flow: the walk\'s found marks open round 2 past the map; its 
   push(root, { ...mark('d', 1, 'the d door 500s'), 'req/c.md': `${req('c')}- **F1** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F2** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F3** *(not yet met: walk p3dev-r 0123456789)* c\n` });
   const v = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([v.kind, v.n, v.round, v.of, v.mods], ['next', 4, 2, 2, ['c']]);
-  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: v }).join('\n'), /layer flow: layer 4 \(round 2, map layer 2, from the walk p3dev-r 0123456789; c\) is next and not open: `node \.process\/tool\/p3\.mjs layer open 4`/);
+  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: v }).join('\n'), /layer flow: round 2 · plan layer 2 \(layer 4\) \(from the walk p3dev-r 0123456789; c\) is next and not open: `node \.process\/tool\/p3\.mjs layer open 4`/);
   const said = [];
   const o = layerOpen(root, 4, { io, log: (l) => said.push(String(l)) });
   assert.equal(o.ok, true);
   assert.equal(o.round, 2);
-  assert.match(said.join('\n'), /layer 4 is round 2's pass over map layer 2 \(round 2 opens from the walk p3dev-r 0123456789\): 1 flawed module\(s\) \(c F1, F2, F3\); map layer 1 skipped, no flawed module/);
-  assert.match(said.join('\n'), /layer 4 \(round 2, map layer 2\): 1 module\(s\)/);
+  assert.match(said.join('\n'), /round 2 · plan layer 2 \(layer 4\) is round 2's pass over plan layer 2 \(round 2 opens from the walk p3dev-r 0123456789\): 1 flawed module\(s\) \(c F1, F2, F3\); plan layer 1 skipped, no flawed module/);
+  assert.match(said.join('\n'), /round 2 · plan layer 2 \(layer 4\): 1 module\(s\)/);
   // The open row carries the round; the map is not edited.
   assert.deepEqual(flowRows(root, SB, 4).open.round, { n: 2, of: 2, mods: ['c'], items: [{ id: 'F1', module: 'c', what: 'c (internal walk p3dev-r 0123456789)' }, { id: 'F2', module: 'c', what: 'c (internal walk p3dev-r 0123456789)' }, { id: 'F3', module: 'c', what: 'c (walk p3dev-r 0123456789)' }], walk: 'p3dev-r 0123456789' });
   assert.deepEqual(layersAt(root, loadConfig(root), 'origin/tranche').map((L) => [L.n, L.mods.join(',')]), [[1, 'a,b'], [2, 'c'], [3, 'd'], [4, 'c']]);
@@ -129,15 +129,15 @@ test('BD-R1 on the flow: the walk\'s found marks open round 2 past the map; its 
   const j = layerJobs(root, 4, { io, log: (l) => out.push(String(l)) });
   assert.equal(j.round, 2);
   assert.deepEqual(j.startable.map((x) => x.cmd), ['node .process/tool/p3.mjs job start c --sessions <file> --reopen "F1: c (internal walk p3dev-r 0123456789); F2: c (internal walk p3dev-r 0123456789); F3: c (walk p3dev-r 0123456789)"']);
-  assert.match(out[0], /^layer 4 \(round 2, map layer 2\): 1 job\(s\) can start/);
+  assert.match(out[0], /^round 2 · plan layer 2 \(layer 4\): 1 job\(s\) can start/);
   const open = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([open.kind, open.n, open.round, open.of], ['open', 4, 2, 2]);
-  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: open }).join('\n'), /layer flow: layer 4 \(round 2, map layer 2\) open on layer\/4/);
+  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: open }).join('\n'), /layer flow: round 2 · plan layer 2 \(layer 4\) open on layer\/4/);
   // layer report names the round and the map layer it passed over.
   const rep = [];
   const r = layerReport(root, 4, { log: (l) => rep.push(String(l)) });
   assert.deepEqual([r.measures.round, r.measures.of], [2, 2]);
-  assert.match(rep[0], /^layer 4 \(round 2, map layer 2\): /);
+  assert.match(rep[0], /^round 2 · plan layer 2 \(layer 4\): /);
   // Once it merges, d (map layer 3) is round 2's next: layer 5.
   merged(root, 4, 40);
   push(root, { 'req/c.md': req('c') }, 'c met');
@@ -196,7 +196,7 @@ test('C44: a walk finding for a module with pinned requirement ids is recorded a
   const out = [];
   const o = layerOpen(root, 4, { io, log: (l) => out.push(String(l)) });
   assert.equal(o.round, 2);
-  assert.match(out.join('\n'), /layer 4 is round 2's pass over map layer 2 \(round 2 opens from the walk p3dev-r 0123456789\): 1 flawed module\(s\) \(c O1\)/);
+  assert.match(out.join('\n'), /round 2 · plan layer 2 \(layer 4\) is round 2's pass over plan layer 2 \(round 2 opens from the walk p3dev-r 0123456789\): 1 flawed module\(s\) \(c O1\)/);
   const items = flowRows(root, SB, 4).open.round.items;
   assert.deepEqual(items.map((x) => [x.id, x.module, x.owe]), [['O1', 'c', r.key]]);
   // layer jobs: c's reopen, the owed finding its task.

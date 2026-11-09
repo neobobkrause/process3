@@ -8,8 +8,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gate, postRow } from './lib/gate.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
-import { layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
-import { layerMode } from './lib/layerbase.mjs';
+import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
+import { layerMode, layersAt } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
 import { branchModule, checkLedger, homeRef, ledgerIds } from './lib/ledger.mjs';
@@ -61,6 +61,28 @@ export function report(findings, out, extra = {}) {
 }
 
 const one = (a, what) => a._[0] || fail(`name the ${what}`);
+// A layer named by its number, or a round layer by --round <r> --plan-layer <m> (Bob, 9 Nov: a
+// round layer reads as "round 2 · plan layer 11 (layer 13)"): the number of the round layer that
+// passes over that plan layer in that round, opened already or the round's next to open.
+export function layerArg(a, root) {
+  const r = a.round;
+  const m = a['plan-layer'];
+  if (r === undefined && m === undefined) return one(a, 'layer number (or --round <r> --plan-layer <m>)');
+  if (a._[0] !== undefined) fail('name the layer once: its number, or --round <r> --plan-layer <m>');
+  if (!/^[1-9]\d*$/.test(String(r)) || !/^[1-9]\d*$/.test(String(m))) fail('--round <r> --plan-layer <m>: both, each a whole number from 1');
+  const cfg = loadConfig(root);
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:${tr}`], { cwd: root, allowFail: true });
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const layers = layersAt(root, cfg, tr);
+  const at = layers.find((L) => L.round && L.round.n === Number(r) && L.round.of === Number(m));
+  if (at) return at.n;
+  if (Number(r) === 1) { const L = layers.find((x) => !x.round && !x.completion && x.n === Number(m)); if (L) return L.n; }
+  let rs = null;
+  try { rs = nextRound(root, cfg, layers, tr); } catch { rs = null; }
+  if (rs?.next && rs.next.round === Number(r) && rs.next.of === Number(m)) return rs.next.n;
+  return fail(`no layer is round ${r} · plan layer ${m} on ${cfg.tranche}${rs?.next ? `; the next to open is round ${rs.next.round} · plan layer ${rs.next.of} (layer ${rs.next.n})` : ''}`);
+}
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
 const commands = {
@@ -131,6 +153,7 @@ const commands = {
   'job sync': (a, root) => (jobSync(root, one(a, 'module')).ok ? 0 : 1),
 
   // The shared layer branch (layerflow.mjs), the only flow:
+  // Each of these names its layer by number, or a round layer by --round <r> --plan-layer <m>.
   // layer open <n>: cut layer/<n> from the tranche tip; lists the jobs that can start, which ROOT starts.
   // layer jobs <n>: the jobs that can start now (not started, or reopened by a reschedule).
   // layer status <n>: each module's state, and whether the layer can merge.
@@ -140,12 +163,12 @@ const commands = {
   // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (SLB-12: after a pin move).
   // layer merge <n> [--no-wait] [--defer-done "<why>"]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
-  'layer open': (a, root) => (layerOpen(root, one(a, 'layer number'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
-  'layer jobs': (a, root) => (layerJobs(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer open': (a, root) => (layerOpen(root, layerArg(a, root), { by: senderOf(root, a.as) }).ok ? 0 : 1),
+  'layer jobs': (a, root) => (layerJobs(root, layerArg(a, root)).ok ? 0 : 1),
   // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next
   // layer to open (the coordinator's ruling, 6 Nov): layer open lists it in that layer's jobs.
   'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
-  'layer status': (a, root) => (layerStatus(root, one(a, 'layer number')).ok ? 0 : 1),
+  'layer status': (a, root) => (layerStatus(root, layerArg(a, root)).ok ? 0 : 1),
   'layer publish': async (a, root) => {
     const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
     // Unset, the run's check of the layer branch waits pacing.poll_first_s (30 s), fixed (PD-6);
@@ -158,9 +181,9 @@ const commands = {
   // layer clear <user> --provider <id> [--land <sha>] --why "<the ruling>": a false reschedule cleared for that user only (C11 c).
   'layer clear': (a, root) => (layerClear(root, one(a, 'user module'), { provider: a.provider, land: typeof a.land === 'string' ? a.land : undefined, why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
-  'layer sync': async (a, root) => ((await layerSync(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
-  'layer merge': async (a, root) => ((await layerMerge(root, one(a, 'layer number'), { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a['defer-done'] !== undefined ? { deferDone: a['defer-done'] } : {}) })).ok ? 0 : 1),
-  'layer report': (a, root) => (layerReport(root, one(a, 'layer number'), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
+  'layer sync': async (a, root) => ((await layerSync(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer merge': async (a, root) => ((await layerMerge(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a['defer-done'] !== undefined ? { deferDone: a['defer-done'] } : {}) })).ok ? 0 : 1),
+  'layer report': (a, root) => (layerReport(root, layerArg(a, root), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
 
   // pin move <product slug> --report <session id> --why "<what it unblocks>" --pin <sha> [--tranche <name>]:
   // run in process3, the last act a process3 build prints when its fix unblocks a product: the pin

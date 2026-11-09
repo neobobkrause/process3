@@ -21,7 +21,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { LEDGER_DIR } from './ledger.mjs';
 import { addFound, found, foundFile, foundLine, foundMarks, moduleFiles, nextFound, pinnedIds, reopenKey } from './found.mjs';
-import { layerOf, layersAt } from './layerbase.mjs';
+import { layerOf, layerName, layersAt, roundLayerName } from './layerbase.mjs';
 import { flowRows, layerJobs, layerOpen, needLayerMode, nextRound } from './layerflow.mjs';
 import { deployRowsOf, findingsOf, internalClean, owedReopens, releaseNext, roundState, runSource, unplaced, walkHold } from './rounds.mjs';
 import { createPR, editPR, getPR, openPRs } from './github.mjs';
@@ -222,7 +222,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
   const dry = apply ? '' : ' (dry run: `round next --apply` does it)';
   // A layer of the round is open: its jobs.
   if (rs.state === 'layer') {
-    log(`round ${rs.round}: layer ${rs.layer.n}${rs.layer.round ? ` (map layer ${rs.layer.round.of})` : ''} is open; its jobs, each started by BOB (create_session, then the command):`);
+    log(`round ${rs.round}: ${layerName(rs.layer)} is open; its jobs, each started by BOB (create_session, then the command):`);
     const j = layerJobs(root, rs.layer.n, { io: lio, log });
     return { ok: true, state: 'layer', layer: rs.layer.n, startable: j.startable };
   }
@@ -257,7 +257,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     return { ok: true, state: 'findings', plan };
   }
   const nx = predicted(root, cfg, plan);
-  if (nx) log(`then: layer ${nx.n} opens (round ${nx.round}, map layer ${nx.of}) for ${nx.mods.join(', ')}, the lowest map layer with a flawed module; ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
+  if (nx) log(`then: ${roundLayerName(nx.round, nx.of, nx.n)} opens for ${nx.mods.join(', ')}, the lowest plan layer with a flawed module; ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
   if (loose.length) {
     const why = `${loose.length} finding(s) name no known module (${loose.map((e) => `${e.module ? `${e.module}: ` : ''}${e.text}`).slice(0, 5).join('; ')}): give their modules in a file of \`<module>: <text>\` lines (\`, covers <n>\` at a line's end for one flaw behind n failures), then \`${ROUND_NEXT} --findings <file>\``;
     if (apply) fail(`${why}; nothing was recorded`);
@@ -293,7 +293,7 @@ function printEntries(plan, { log }) {
   log(`the findings by module, one entry per distinct flaw (--from "${plan.from}"):`);
   for (const [id, es] of [...groups].sort((a, b) => (mapLayer(plan, a[0]) ?? 1e9) - (mapLayer(plan, b[0]) ?? 1e9) || String(a[0]).localeCompare(String(b[0])))) {
     const k = id ? mapLayer(plan, id) : null;
-    log(`  ${id || '(no module)'}${k !== null && k !== undefined ? ` (map layer ${k})` : ''}:`);
+    log(`  ${id || '(no module)'}${k !== null && k !== undefined ? ` (plan layer ${k})` : ''}:`);
     for (const e of es) {
       const how = e.route === 'owe' ? `owed reopen (${e.pin} pins its ids)` : e.route === 'mark' ? `found mark in ${e.file}` : e.route === 'unknown' ? 'not a module on the tranche' : 'no module';
       const state = e.recorded ? 'recorded' : e.pending ? 'in an open pull request' : 'to record';
@@ -388,7 +388,7 @@ function pendingFound(root, id, tr) {
 // The layer opened (apply) or named (dry run), and its jobs' `job start` commands printed.
 function openNext(root, nx, { apply, io, log, by, dry, what }) {
   if (!apply) {
-    log(`${what}: layer ${nx.n} (round ${nx.round}, map layer ${nx.of}) for ${nx.mods.join(', ')}${dry}; then its \`job start\` commands`);
+    log(`${what}: ${roundLayerName(nx.round, nx.of, nx.n)} for ${nx.mods.join(', ')}${dry}; then its \`job start\` commands`);
     return { ok: true, state: 'dry', next: nx };
   }
   const o = layerOpen(root, nx.n, { io, by, log });
