@@ -117,13 +117,10 @@ export function readDirect(root, cfg, { io = {}, slug = null } = {}) {
   return { key, ref, ids, rows, entries, prs, states, settled, ...g };
 }
 
-// The ready jobs: work and no job open, every upstream module settled; while the latest walk's
-// findings are not all recorded, a module whose only work is a found mark or an owed reopen waits,
-// so the round starts every flawed module at once. Each as layer jobs prints it (job start, or an
-// additive change's layer retest: no slot).
-export function readyJobs(x, { hold = null } = {}) {
-  const foundOnly = (s) => !s.outstanding.length && s.marks.length && s.marks.every((m) => /^[FO]\d+$/.test(m));
-  const ready = x.states.filter((s) => (s.state === 'not started' || (s.state === 'rescheduled' && s.pr === null)) && !s.waits.length && !(hold && foundOnly(s)));
+// The ready jobs: work and no job open, every upstream module settled; a recorded found mark starts
+// its job at once. Each as layer jobs prints it (job start, or an additive change's layer retest: no slot).
+export function readyJobs(x) {
+  const ready = x.states.filter((s) => (s.state === 'not started' || (s.state === 'rescheduled' && s.pr === null)) && !s.waits.length);
   return startable(ready.map((s) => (s.entry_state === 'COMPLETE' && s.marks.length && s.state === 'not started' ? { ...s, why: `COMPLETE, unmet ${s.marks.join(', ')}` } : s)));
 }
 
@@ -157,7 +154,7 @@ export function directView(root, cfg, { slug = null, io = {} } = {}) {
   const rs = directRounds(root, cfg, x);
   let hold = null;
   try { hold = rs.last ? walkHold(findingsOf(root, cfg, x.ref, rs.last, { round: true })) : null; } catch { hold = null; }
-  const ready = readyJobs(x, { hold });
+  const ready = readyJobs(x);
   const v = { direct: true, n: x.key, round: rs.round, rounds: rs.state, states: x.states, prs: x.prs, companions: [], startable: ready, ready: false, sync: null, early: [], early_next: null, ...(hold ? { hold } : {}) };
   if (rs.state === 'open' || rs.state === 'new') return { kind: 'open', ...v };
   if (hold) return { ...v, kind: 'done', rounds: 'held', findings: true, round: rs.round + 1, why: hold };
