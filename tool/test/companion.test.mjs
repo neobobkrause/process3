@@ -1,7 +1,7 @@
 // PD-19 (coordinator, 9 Nov): a module whose change a job in the open layer needs (a registry or
 // assembly module) joins that open layer as the job's companion: `layer join <companion>
-// --companion-of <job> --layer <n> --why "<what it needs>"`. It lands in the same layer; the job
-// lands only after it. Each refusal, the land order, and (PD-17) the path rehearsed end to end.
+// --companion-of <job> --layer <n> --why "<what it needs>"`. It lands in the same layer as the job,
+// in any order (PD-19b). Each refusal, the land order, and (PD-17) the path rehearsed end to end.
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import { jobStart } from '../lib/job.mjs';
 import { hold } from '../lib/hold.mjs';
 import { flowFile } from '../lib/layerbase.mjs';
-import { flowRows, layerJobs, layerJoin, layerLand, layerLines, layerMerge, layerOpen, layerStatus, syncOwed, writeRows } from '../lib/layerflow.mjs';
+import { flowRows, layerJobs, layerJoin, layerLand, layerLines, layerMerge, layerOpen, layerStatus, writeRows } from '../lib/layerflow.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
 import { configOf, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -83,7 +83,7 @@ test('companion join: a module behind the open layer joins it as a job\'s compan
   const { root } = opened();
   const out = [];
   assert.deepEqual(layerJoin(root, 'a', { companionOf: 'd', layer: 2, why: WHY, io: joinIO(), log: (l) => out.push(l) }), { ok: true, layer: 2, recorded: true, companion: true });
-  assert.match(out[0], /^a joins layer 2 as d's companion \(PD-19\): d declares .*; it starts from .*layer jobs 2, and d lands only after it$/);
+  assert.match(out[0], /^a joins layer 2 as d's companion \(PD-19\): d declares .*; it starts from .*layer jobs 2, and it lands in the same layer as d$/);
   fetchState(root, SB, { fresh: true });
   const j = JSON.parse(readState(root, SB, flowFile(2, 'join', 'a')));
   assert.deepEqual([j.row, j.module, j.from, j.companion_of, j.why], ['join', 'a', 1, 'd', WHY]);
@@ -95,15 +95,15 @@ test('companion join: a module behind the open layer joins it as a job\'s compan
   const d = st.states.find((s) => s.id === 'd');
   assert.equal(a.state, 'not started');
   assert.match(a.why, /^joined as companion of d \(PD-19\): d declares/);
-  assert.deepEqual(d.companions, ['a']);
-  assert.match(d.why, /lands after its companion a \(PD-19\)/);
-  assert.ok(lines.some((l) => /^companion: a \(not started\) joined for d \(d declares .*\) \(PD-19\); d lands only after it$/.test(l)), lines.join('\n'));
+  assert.equal(d.companions, undefined, 'PD-19b: no land order');
+  assert.doesNotMatch(d.why, /companion/);
+  assert.ok(lines.some((l) => /^companion: a \(not started\) joined for d \(d declares .*\) \(PD-19\); it and d land in the same layer$/.test(l)), lines.join('\n'));
   assert.equal(st.ready, false, 'the merge waits for the companion');
   const jl = [];
   const jobs = layerJobs(root, 2, { io: openIO, log: (l) => jl.push(l) });
   // a is COMPLETE: its start reopens it with the companion's words, naming the job and the why.
   assert.equal(jobs.startable.find((x) => x.id === 'a').cmd, `node .process/tool/p3.mjs job start a --sessions <file> --reopen ${JSON.stringify(`companion of d (PD-19): ${WHY}`)}`);
-  assert.deepEqual(jobs.startable.find((x) => x.id === 'd').after, ['a']);
+  assert.deepEqual(jobs.startable.find((x) => x.id === 'd').after || [], [], 'PD-19b: d is not listed after its companion');
   assert.ok(jl.some((l) => l.startsWith('companion: a ')));
   // status --role bob's layer lines show it too.
   assert.ok(layerLines(root, cfgOf(), { io: openIO }).some((l) => /^- companion: a /.test(l)));
@@ -150,10 +150,10 @@ test('companion join refusals: layer not open; job not in the layer; the job its
 });
 const readHoldId = (root) => { fetchState(root, SB, { fresh: true }); return JSON.parse(readState(root, SB, 'holds/holds.jsonl').trim().split('\n').at(-1)).id; };
 
-test('companion join refusals: a companion already started in the layer takes no new job; a job waiting on a companion is none; a companion has none', () => {
+test('companion join refusals: a companion already started in the layer takes no new job; a job with a companion is none; a companion has none', () => {
   const { root } = opened();
   layerJoin(root, 'a', { companionOf: 'd', layer: 2, why: WHY, io: joinIO(), log: quiet });
-  assert.throws(() => layerJoin(root, 'd', { companionOf: 'e', layer: 2, why: 'x', io: joinIO(), log: quiet }), /d waits on its own companion\(s\) in layer 2: it cannot be one/);
+  assert.throws(() => layerJoin(root, 'd', { companionOf: 'e', layer: 2, why: 'x', io: joinIO(), log: quiet }), /d has its own companion\(s\) in layer 2: it cannot be one/);
   assert.throws(() => layerJoin(root, 'c', { companionOf: 'a', layer: 2, why: 'x', io: joinIO(), log: quiet }), /a is a companion in layer 2 itself/);
   // a's job starts: no second job joins it as a companion.
   writeStart(root, 'a');
@@ -161,26 +161,21 @@ test('companion join refusals: a companion already started in the layer takes no
 });
 const writeStart = (root, id) => writeRows(root, SB, `layer 2: ${id} started`, [[flowFile(2, 'start', `${id}-1-1`), { row: 'start', layer: 2, module: id, attempt: 1, branch: `job/${id}`, at: new Date().toISOString() }]]);
 
-test('land order (PD-19): the job lands only after its companion, and only on a head holding the companion\'s land', async () => {
+test('land order (PD-19b): a dependent job lands before its companion; the companion lands after', async () => {
   const { root, bare } = opened();
   layerJoin(root, 'a', { companionOf: 'd', layer: 2, why: WHY, io: joinIO(), log: quiet });
   const hd = jobWork(bare, 'd', { 'src/d/index.mjs': "import { ops } from '../a/index.mjs';\nexport const d = () => [...ops, 'aikeyreference'];\n" });
   const ha = jobWork(bare, 'a', { 'src/a/index.mjs': "export const ops = ['x', 'aikeyreference'];\n" });
   const prs = { 1: prOf(1, 'd', hd), 2: prOf(2, 'a', ha) };
-  await assert.rejects(layerLand(root, 1, { io: landIO(bare, prs), log: quiet }), /refused: d lands only after its companion in layer 2 \(PD-19\): a has not landed; nothing was merged/);
+  assert.equal((await layerLand(root, 1, { io: landIO(bare, prs), log: quiet })).ok, true);
+  assert.equal((await layerLand(root, 2, { io: landIO(bare, prs), log: quiet })).ok, true);
   git(['fetch', '-q', 'origin'], { cwd: root });
-  assert.equal(git(['merge-base', '--is-ancestor', hd, 'origin/layer/2'], { cwd: root, allowFail: true }).code, 1, 'nothing merged');
-  await layerLand(root, 2, { io: landIO(bare, prs), log: quiet });
-  // d's head does not hold a's land: refused, naming the publish that brings it in.
-  await assert.rejects(layerLand(root, 1, { io: landIO(bare, prs), log: quiet }), /a's land [0-9a-f]+ is not in [0-9a-f]+: node \.process\/tool\/p3\.mjs layer publish d again brings it in/);
-  const hd2 = jobWork(bare, 'd', { 'src/d/more.mjs': 'export const more = 1;\n' }, { from: 'origin/job/d', merge: 'origin/layer/2' });
-  prs[3] = prOf(3, 'd', hd2);
-  assert.equal((await layerLand(root, 3, { io: landIO(bare, prs), log: quiet })).ok, true);
+  for (const h of [hd, ha]) assert.equal(git(['merge-base', '--is-ancestor', h, 'origin/layer/2'], { cwd: root, allowFail: true }).code, 0);
 });
 
 // PD-17: the path rehearsed end to end, as BOB runs it: a layer open with a job; the job needs a
 // companion; the companion joins; both start (each brief names the pairing); the companion lands;
-// the job lands; the layer merges. syncOwed and the layer cover hold as for any member.
+// the job lands; the layer merges. The layer cover holds as for any member.
 test('rehearsal (PD-17): open, companion join, both start, companion lands, job lands, layer merge', async () => {
   const { root, bare } = opened();
   // The job is listed; its need is found: a's op family.
@@ -197,16 +192,15 @@ test('rehearsal (PD-17): open, companion join, both start, companion lands, job 
     briefs[id] = out.join('\n');
     git(['checkout', '-q', 'tranche'], { cwd: root });
   }
-  assert.match(briefs.a, /## Companion \(PD-19\)\n\nYou are a companion job: `d` in this layer needs this module changed: d declares .*Change only what d needs, nothing beyond it; d lands only after your land\./);
+  assert.match(briefs.a, /## Companion \(PD-19\)\n\nYou are a companion job: `d` in this layer needs this module changed: d declares .*Change only what d needs, nothing beyond it; you land in the same layer as d, in any order \(PD-19b\)\./);
   assert.match(briefs.a, /What it must do: companion of d \(PD-19\)/);
-  assert.match(briefs.d, /Your land waits on your companion in this layer \(PD-19\): `a` \(d declares/);
+  assert.match(briefs.d, /Your companion in this layer \(PD-19\): `a` \(d declares/);
   assert.match(git(['show', 'job/a:process/metrics/a.jsonl'], { cwd: root, allowFail: true }).stdout + git(['log', '-1', '-p', 'job/a'], { cwd: root }), /"companion_of":\[\{"job":"d"/, 'the ledger\'s start row records it');
   // The work, published from the layer branch.
   const hd = jobWork(bare, 'd', { 'src/d/index.mjs': "import { ops } from '../a/index.mjs';\nexport const d = () => [...ops, 'aikeyreference'];\n" });
   const ha = jobWork(bare, 'a', { 'src/a/index.mjs': "export const ops = ['x', 'aikeyreference'];\n" });
   const he = jobWork(bare, 'e', { 'src/e/index.mjs': 'export const e = 2;\n' });
   const prs = { 1: prOf(1, 'd', hd), 2: prOf(2, 'a', ha), 3: prOf(3, 'e', he) };
-  await assert.rejects(layerLand(root, 1, { io: landIO(bare, prs), log: quiet }), /d lands only after its companion/);
   await layerLand(root, 3, { io: landIO(bare, prs), log: quiet });
   await layerLand(root, 2, { io: landIO(bare, prs), log: quiet });
   const mio = (extra = {}) => ({ slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, p) => ({ number: 50, ...p, base: { ref: p.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }), ...extra });
@@ -217,16 +211,14 @@ test('rehearsal (PD-17): open, companion join, both start, companion lands, job 
   const st = layerStatus(root, 2, { io: openIO, log: quiet });
   assert.deepEqual(st.states.map((s) => [s.id, s.state]).sort(), [['a', 'complete'], ['d', 'complete'], ['e', 'complete']]);
   assert.equal(st.ready, true);
-  assert.equal(syncOwed(root, cfgOf(), 2), null, 'syncOwed holds: no pin move, nothing owed');
   const m = await layerMerge(root, 2, { io: mio(), wait: false, log: quiet });
   assert.equal(m.ok, true);
   git(['fetch', '-q', 'origin'], { cwd: root });
   for (const h of [ha, hd2]) assert.equal(git(['merge-base', '--is-ancestor', h, 'origin/tranche'], { cwd: root, allowFail: true }).code, 0);
 });
 
-// Cold review of C51: no companion for a job with nothing left to land (landed, or deferred); a
-// companion started again after its land holds its job until the new attempt lands.
-test('companion join refused for a job that landed or is deferred; a companion reopened after its land holds its job', async () => {
+// Cold review of C51: no companion for a job with nothing left to land (landed, or deferred).
+test('companion join refused for a job that landed or is deferred', async () => {
   const { root, bare } = opened();
   const he = jobWork(bare, 'e', { 'src/e/index.mjs': 'export const e = 2;\n' });
   const prs = { 1: prOf(1, 'e', he) };
@@ -237,17 +229,4 @@ test('companion join refused for a job that landed or is deferred; a companion r
   assert.throws(() => layerJoin(root, 'c', { companionOf: 'd', layer: 2, why: 'x', io: joinIO(), log: quiet }), /d has no work left to land in layer 2 \(deferred/);
   fetchState(root, SB, { fresh: true });
   assert.equal(flowRows(root, SB, 2).companions.length, 0);
-});
-
-test('a companion started again after its land holds its job until that attempt lands', async () => {
-  const { root, bare } = opened();
-  layerJoin(root, 'a', { companionOf: 'd', layer: 2, why: WHY, io: joinIO(), log: quiet });
-  const ha = jobWork(bare, 'a', { 'src/a/index.mjs': "export const ops = ['x', 'y'];\n" });
-  const prs = { 1: prOf(1, 'a', ha) };
-  await layerLand(root, 1, { io: landIO(bare, prs), log: quiet });
-  await new Promise((r) => setTimeout(r, 1100));
-  writeStart(root, 'a');
-  const hd = jobWork(bare, 'd', { 'src/d/index.mjs': "import { ops } from '../a/index.mjs';\nexport const d = () => ops.length;\n" });
-  prs[2] = prOf(2, 'd', hd);
-  await assert.rejects(layerLand(root, 2, { io: landIO(bare, prs), log: quiet }), /a started again after its last land/);
 });

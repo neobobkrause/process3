@@ -10,8 +10,6 @@ import { writeState } from '../lib/state.mjs';
 // suite left about 70,000 p3-* directories in a builder's /tmp, and filled its disk). fs.mkdtempSync
 // is wrapped once, for every caller in the process (a test's own import of it, the fixtures', the
 // tool's), and the directories it made under the temp directory go at exit. tempdirs.test.mjs holds it.
-// GitHub pacing (R17, pace.mjs) is off in the tests unless a test sets it: no wait between gh
-// stand-ins, no log written into the clones.
 // No test reads the machine's git configuration (C2, the coordinator, 7 Nov: a test passed on a
 // builder whose global config gave it an identity and failed in CI, which has none): the global and
 // system files are cut off for the test process and every git it starts, as CI runs them. A repo a
@@ -22,8 +20,22 @@ import { writeState } from '../lib/state.mjs';
 process.env.GIT_CONFIG_GLOBAL = '/dev/null';
 process.env.GIT_CONFIG_NOSYSTEM = '1';
 for (const k of Object.keys(process.env)) if (/^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS)$|^GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL|DATE)$/.test(k)) delete process.env[k];
-process.env.P3_GH_INTERVAL_MS ??= '0';
-process.env.P3_GITHUB_LOG ??= '0';
+// Every push to origin this process makes refused (on) or allowed again (off): a push GitHub
+// refuses (the rerun tests). Through the environment, after any configuration a test gave there, so
+// every git the tool starts meets it.
+let pushesAllowed = null;
+export function refusePushes(on = true) {
+  if (on && !pushesAllowed) {
+    const n = Number(process.env.GIT_CONFIG_COUNT) || 0;
+    pushesAllowed = { count: process.env.GIT_CONFIG_COUNT, n };
+    Object.assign(process.env, { GIT_CONFIG_COUNT: String(n + 1), [`GIT_CONFIG_KEY_${n}`]: 'remote.origin.pushurl', [`GIT_CONFIG_VALUE_${n}`]: '/nonexistent/p3-push-refused.git' });
+  } else if (!on && pushesAllowed) {
+    const { count, n } = pushesAllowed;
+    delete process.env[`GIT_CONFIG_KEY_${n}`]; delete process.env[`GIT_CONFIG_VALUE_${n}`];
+    if (count === undefined) delete process.env.GIT_CONFIG_COUNT; else process.env.GIT_CONFIG_COUNT = count;
+    pushesAllowed = null;
+  }
+}
 export const MADE = new Set();
 if (!fs.mkdtempSync.p3Tracked) {
   const made = fs.mkdtempSync;

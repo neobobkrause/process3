@@ -1,5 +1,5 @@
-// AUD-1 (JOB-12), AUD-2 (JOB-7, SES-12): the reviewed revert exemption, and every receipt
-// disagreement counted toward the false-done rate. Fast: no suite runs here.
+// AUD-1 (JOB-12), AUD-2 (JOB-7, SES-12): the reviewed revert exemption, and every red run
+// counted toward the false-done rate. Fast: no suite runs here.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BOT, GATE, REVERT_EXEMPT, block, parseBlock } from '../lib/github.mjs';
@@ -10,24 +10,23 @@ import { commit, entry, makeRepo } from './helpers.mjs';
 
 const quiet = () => {};
 
-test('a receipt disagreement refutes its COMPLETE claim, as a red suite or revert check does (SES-12)', () => {
-  assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'disagrees' }, 1), true);
-  assert.equal(refutes({ receipt_attempt: 1, suite: 'fail' }, 1), true);
-  assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' }, 1), true);
-  assert.equal(refutes({ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'agrees' }, 1), false);
-  assert.equal(refutes({ receipt_attempt: 2, receipt: 'disagrees' }, 1), false, 'another attempt\'s run');
+test('a red suite or revert check refutes its COMPLETE claim (SES-12)', () => {
+  assert.equal(refutes({ attempt: 1, suite: 'fail' }, 1), true);
+  assert.equal(refutes({ attempt: 1, suite: 'pass', revert: 'fail' }, 1), true);
+  assert.equal(refutes({ attempt: 1, suite: 'pass', revert: 'pass' }, 1), false);
+  assert.equal(refutes({ attempt: 2, suite: 'fail' }, 1), false, 'another attempt\'s run');
   // A revert failure a reviewer then exempted on the same attempt refutes nothing; a red suite still does.
-  const fail = (sha) => ({ sha, receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' });
-  const exempt = (sha, reviewed = sha) => ({ sha, receipt_attempt: 1, suite: 'pass', revert: 'exempt', revert_exempt: { sha: reviewed }, receipt: 'agrees' });
+  const fail = (sha) => ({ sha, attempt: 1, suite: 'pass', revert: 'fail' });
+  const exempt = (sha, reviewed = sha) => ({ sha, attempt: 1, suite: 'pass', revert: 'exempt', revert_exempt: { sha: reviewed } });
   assert.equal(refuted([fail('c1'), exempt('c1')], 1), false);
   // Only an exemption after it, of the same commit: not one before it, nor of later code.
   assert.equal(refuted([exempt('c1'), fail('c1')], 1), true);
   assert.equal(refuted([fail('c1'), exempt('c2')], 1), true);
-  assert.equal(refuted([{ receipt_attempt: 1, suite: 'fail', revert: 'skipped', receipt: 'disagrees' }, exempt('c1')], 1), true);
-  assert.equal(refuted([{ receipt_attempt: 1, suite: 'pass', revert: 'fail', receipt: 'agrees' }], 1), true);
+  assert.equal(refuted([{ attempt: 1, suite: 'fail', revert: 'skipped' }, exempt('c1')], 1), true);
+  assert.equal(refuted([{ attempt: 1, suite: 'pass', revert: 'fail' }], 1), true);
   const at = (h) => new Date(Date.parse('2026-11-06T00:00:00Z') + h * 36e5).toISOString();
   const rows = [{ row: 'attempt', event: 'complete', attempt: 1, pr: 2, at: at(1) }, { row: 'attempt', event: 'complete', attempt: 1, pr: 3, at: at(2) }];
-  const gates = (pr) => (pr === 2 ? [{ receipt_attempt: 1, suite: 'pass', revert: 'pass', receipt: 'disagrees' }] : [{ receipt_attempt: 1, suite: 'pass', receipt: 'agrees' }]);
+  const gates = (pr) => (pr === 2 ? [{ attempt: 1, suite: 'fail', revert: 'pass' }] : [{ attempt: 1, suite: 'pass' }]);
   assert.equal(flowFigures({ rows, gates, from: at(0), to: at(3) }).false_done_share, 0.5);
   // report's false_done_rate reads the same rule.
   const root = makeRepo({ 'process/metrics/alpha.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' });

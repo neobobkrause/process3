@@ -5,7 +5,7 @@
 //   layer open <n>     cuts layer/<n> from the tranche tip and lists the jobs that can start; ROOT
 //                      starts them (job start cuts each job branch from layer/<n>, its draft PR into it).
 //   layer publish <id> the job's: brings its branch up to the layer tip, refuses any file outside
-//                      the module, runs the module's fast checks (job complete, its receipt; the
+//                      the module, runs the module's fast checks (job complete; the
 //                      suite runs in CI's gate: AUD-7, PLT-4),
 //                      and marks its PR into layer/<n> ready, so the gate runs on its tip. While the
 //                      run goes it watches the state branch: a reschedule for the module halts the
@@ -30,17 +30,17 @@ import { dirname, join, posix } from 'node:path';
 import { anyExportChange, exportChanges } from './exports.mjs';
 import { deploys } from './deploycfg.mjs';
 import { classifyTestChange } from './testdiff.mjs';
-import { RECEIPT, addComment, block, checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, latestReceipt, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
+import { checkRun, comments as ghComments, createPR, findPR, gateRuns, getPR, markReady, openPRs, prsFromBranch, runArtifactRow, runState } from './github.mjs';
 import { diffNames, ownPaths } from './gate.mjs';
 import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { completionItems, openItems, parseCompletion } from './completion.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
-import { census, censusLines } from './census.mjs';
+import { census, censusLines, openLayers } from './census.mjs';
 import { landedFrom } from './landed.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundLayerName, roundOf, safeName } from './layerbase.mjs';
 import { deployRowsOf, findingsOf, flawedModules, roundLine, roundState, unplaced, walkHold } from './rounds.mjs';
-import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
+import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readExports, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor, readHolds } from './hold.mjs';
@@ -520,8 +520,8 @@ export function readLayer(root, cfg, n, { io = {}, slug = null } = {}) {
   const order = totalOrder(mods, providers);
   const byId = new Map(states.map((x) => [x.id, x]));
   states.splice(0, states.length, ...order.map((id) => ({ ...byId.get(id), after: (providers.get(id) || []).filter((p) => !landedProvider(p, rows.lands, entries, marks)) })));
-  // PD-19: a companion is named by its dependent jobs and their why (its reopen words, its brief);
-  // a dependent job is listed after its companions and lands only after each (layer land holds it).
+  // PD-19: a companion is named by its dependent jobs and their why (its reopen words, its brief).
+  // PD-19b: no land order between them; they land in the same layer, in any order.
   states.splice(0, states.length, ...states.map((x) => companionState(root, rows, x)));
   // The open PRs that hold the merge: all but those of a module deferred by its PR head's BLOCKED.
   const holding = prs.filter((p) => !(blockedOn.has(p.module) && blockedOn.get(p.module) === p.number));
@@ -598,7 +598,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     const x = readLayer(root, cfg, n, { io, slug });
     let early = { next: null, list: [], skipped: [] };
     try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
-    return { kind: 'open', n, ...(layer.round ? { round: layer.round.n, of: layer.round.of } : {}), states: x.states, prs: x.prs, companions: companionLines(x.rows, x.states), startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
+    return { kind: 'open', n, ...(layer.round ? { round: layer.round.n, of: layer.round.of } : {}), states: x.states, prs: x.prs, companions: companionLines(x.rows, x.states), startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, early: early.list, early_next: early.next };
   }
   // Every layer merged (BD-R1, rounds.mjs): the round's next layer for its flawed modules, or the
   // next round's first once a walk ended this one; else the round waits on its walk, or is clean.
@@ -786,7 +786,7 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   if (v.kind === 'none') return [`layer flow: no layer map (${cfg.layers_file}): jobs start on the tranche from next work`];
   if (v.kind === 'done' && v.rounds === 'held') return [`layer flow: round ${v.round} opens from the walk's findings once each is recorded: ${v.why}`, ...(v.findings ? [`the one next act: \`${P3} round next\` (a dry run), then \`${P3} round next --apply\`: each finding recorded, the round's first layer opened, its \`job start\` commands printed (C46)`] : [])];
   if (v.kind === 'done') return [v.rounds === 'walk' ? `layer flow: every layer of round ${v.round} has merged; its walk ends it (the round-close run, BD-R1)` : v.rounds === 'clean' ? `layer flow: every layer has merged; the walk ended round ${v.round}, and no module is flawed; once that walk's findings are recorded and none is a flaw, the release path follows it (BD-R1)` : 'layer flow: every layer has merged'];
-  const L = [...(v.sync ? [v.sync.line] : []), `layer flow: ${v.round ? roundLayerName(v.round, v.of, n) : `layer ${n}`} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
+  const L = [`layer flow: ${v.round ? roundLayerName(v.round, v.of, n) : `layer ${n}`} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
   for (const c of v.companions || []) L.push(`- ${c}`);
   if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? afterNote(q.after) : ''}`));
@@ -799,39 +799,18 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
 
 // The coordinator's decision PD-19 (9 Nov): a module whose change a job in the open layer needs (a
 // registry or assembly module) joins that open layer as the job's companion. It lands in the same
-// layer; the dependent job lands only after it. Each pairing is a companion row on the state branch
+// layer as the job, in any order (PD-19b: the layer's merge gate checks the layer whole). Each pairing is a companion row on the state branch
 // (layerflow/<n>/companion/<module>-<job>.json); the companion's first pairing also writes its join
 // row, so it is a member of the layer as any joined module is (its job's base, its merge hold).
 export const companionsOf = (rows, job) => (rows.companions || []).filter((c) => c.job === job);
 export const dependentsOf = (rows, mod) => (rows.companions || []).filter((c) => c.module === mod);
 export const companionWords = (deps) => `companion of ${[...new Set(deps.map((c) => c.job))].join(', ')} (PD-19): ${deps.map((c) => (deps.length > 1 ? `${c.job} needs ${c.why}` : c.why)).join('; ')}`;
-// The companions of job that hold its land at head: each must have landed in the layer, with no
-// reschedule outstanding, and its last land must be in head (the job's run then held its change).
-export function companionsPending(root, rows, job, head) {
-  const anc = (a, b) => isAnc(root, a, b);
-  return companionsOf(rows, job).flatMap((c) => {
-    const lands = rows.lands.filter((l) => l.module === c.module);
-    if (!lands.length) return [{ ...c, wait: `${c.module} has not landed` }];
-    if (outstanding(rows.reschedules, rows.lands, c.module, anc).length) return [{ ...c, wait: `${c.module} is rescheduled and its re-run has not landed` }];
-    // Started again after its last land (a reopen): its new attempt lands first (cold review of C51).
-    const t = (x) => Date.parse(x?.at) || 0;
-    if ((rows.starts || []).some((s) => s.module === c.module && t(s) > t(lands.at(-1)))) return [{ ...c, wait: `${c.module} started again after its last land, and that attempt has not landed` }];
-    const last = lands.at(-1).merge;
-    if (head && !anc(last, head)) return [{ ...c, wait: `${c.module}'s land ${short(last)} is not in ${short(head)}: ${P3} layer publish ${job} again brings it in` }];
-    return [];
-  });
-}
 function companionState(root, rows, x) {
   const deps = dependentsOf(rows, x.id);
-  const mine = companionsOf(rows, x.id);
   let y = x;
   if (deps.length) {
     const words = companionWords(deps);
     y = { ...y, companion: { jobs: [...new Set(deps.map((c) => c.job))], why: words }, ...(y.join ? { join: { ...y.join, why: words } } : {}), ...(y.state === 'not started' && !y.item ? { why: `joined as ${words}` } : {}) };
-  }
-  if (mine.length) {
-    const pend = companionsPending(root, rows, x.id, null);
-    if (pend.length) y = { ...y, companions: pend.map((c) => c.module), after: [...new Set([...(y.after || []), ...pend.map((c) => c.module)])], ...(DONE.includes(y.state) ? {} : { why: `${y.why}; lands after its companion${pend.length > 1 ? 's' : ''} ${pend.map((c) => c.module).join(', ')} (PD-19)` }) };
   }
   return y;
 }
@@ -840,9 +819,7 @@ export const companionLines = (rows, states) => [...new Set((rows.companions || 
   const deps = dependentsOf(rows, m);
   const s = states.find((q) => q.id === m);
   const jobs = [...new Set(deps.map((c) => c.job))].join(', ');
-  // A deferred companion never lands: its jobs cannot land either (cold review of C51).
-  const stuck = s?.state === 'deferred' && !(rows.lands || []).some((l) => l.module === m) ? `; it is deferred, so ${jobs} cannot land: the coordinator decides (unblock ${m}, or defer ${jobs})` : '';
-  return `companion: ${m} (${s ? s.state : 'unread'}) joined for ${deps.map((c) => `${c.job} (${c.why})`).join(', ')} (PD-19); ${jobs} land${deps.length > 1 ? '' : 's'} only after it${stuck}`;
+  return `companion: ${m} (${s ? s.state : 'unread'}) joined for ${deps.map((c) => `${c.job} (${c.why})`).join(', ')} (PD-19); it and ${jobs} land in the same layer`;
 });
 
 // layer join <companion> --companion-of <job> --layer <n> --why "<what it needs>" (PD-19).
@@ -877,12 +854,12 @@ export function layerCompanion(root, id, { layer, job, why, by = 'bob', io = {},
   const members = new Set([...L.mods, ...joined]);
   if (!members.has(job)) fail(`${job} is not a job of layer ${n} (its modules: ${[...members].join(', ')}): a companion joins only the layer of the job that needs it (PD-19); nothing recorded`);
   if (dependentsOf(rows, job).length) fail(`${job} is a companion in layer ${n} itself: a companion's companion is not built; ask the coordinator; nothing recorded`);
-  if (companionsOf(rows, id).length) fail(`${id} waits on its own companion(s) in layer ${n}: it cannot be one; ask the coordinator; nothing recorded`);
+  if (companionsOf(rows, id).length) fail(`${id} has its own companion(s) in layer ${n}: it cannot be one; ask the coordinator; nothing recorded`);
   // The job must still have work to land here: not landed in the layer, not complete, not deferred
   // (cold review of C51: a join for a landed or BLOCKED job let any module into the layer).
   const st = readLayer(root, cfg, n, { io: { openPRs: io.openPRs || openPRs, comments: io.comments || ghComments }, slug }).states.find((x) => x.id === job);
   const jobBlocked = [entryAt(root, ref, job), entryAt(root, tr, job)].some((e) => e?.status?.state === 'BLOCKED');
-  if (!st || DONE.includes(st.state) || jobBlocked || (rows.lands.some((l) => l.module === job) && st.state !== 'rescheduled')) fail(`${job} has no work left to land in layer ${n} (${jobBlocked ? 'deferred: BLOCKED' : st ? `${st.state}: ${st.why}` : 'unread'}): a companion joins only for a job that will land after it (PD-19); nothing recorded`);
+  if (!st || DONE.includes(st.state) || jobBlocked || (rows.lands.some((l) => l.module === job) && st.state !== 'rescheduled')) fail(`${job} has no work left to land in layer ${n} (${jobBlocked ? 'deferred: BLOCKED' : st ? `${st.state}: ${st.why}` : 'unread'}): a companion joins only for a job with work left to land (PD-19); nothing recorded`);
   const had = rows.companions.find((c) => c.module === id && c.job === job);
   if (had) { log(`${id} is ${job}'s companion in layer ${n} already (${had.why}); nothing recorded`); return { ok: true, layer: n, recorded: false, companion: true }; }
   const asCompanion = dependentsOf(rows, id).length > 0;
@@ -916,7 +893,7 @@ export function layerCompanion(root, id, { layer, job, why, by = 'bob', io = {},
   const files = [[flowFile(n, 'companion', `${safeName(id)}-${safeName(job)}`), { row: 'companion', layer: n, module: id, job, why: why.trim(), at, by }]];
   if (!joined.has(id)) files.push([flowFile(n, 'join', safeName(id)), { row: 'join', layer: n, module: id, from: own, why: why.trim(), companion_of: job, at, by }]);
   writeRows(root, cfg.state_branch, `layer join: ${id} joins layer ${n} as ${job}'s companion (PD-19)`, files);
-  log(`${id} joins layer ${n} as ${job}'s companion (PD-19): ${why.trim()}; it starts from ${P3} layer jobs ${n}, and ${job} lands only after it`);
+  log(`${id} joins layer ${n} as ${job}'s companion (PD-19): ${why.trim()}; it starts from ${P3} layer jobs ${n}, and it lands in the same layer as ${job}`);
   return { ok: true, layer: n, recorded: true, companion: true };
 }
 
@@ -1078,8 +1055,8 @@ export function roundLayer(root, cfg, layers, n, tr, log = () => {}) {
     if (loose.length) fail(`round ${rs.round} cannot place ${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), then the round opens; nothing was opened`);
   }
   const x = rs.next;
-  const skipped = (layers.filter((L) => !L.completion && !L.round).map((L) => L.n)).filter((k) => k < x.of && k > (rs.state === 'new' ? 0 : Math.max(0, ...layers.filter((L) => L.round && L.round.n === x.round).map((L) => L.round.of))));
-  log(`${roundLayerName(x.round, x.of, n, cfg.tranche)} is round ${x.round}'s pass over layer ${x.of}${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')})${skipped.length ? `; layer${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped, no flawed module` : ''}`);
+  // PD-24: one layer for the round's flawed modules, whatever their plan layers; all start at once.
+  log(`${roundLayerName(x.round, x.of, n, cfg.tranche)} is round ${x.round}'s one layer over every flawed module (PD-24)${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')}); every job starts at once up to the cap, listed in dependency order`);
   return { n, mods: x.mods, round: { n: x.round, of: x.of, mods: x.mods, items: x.items, ...(x.walk ? { walk: x.walk } : {}) } };
 }
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
@@ -1174,8 +1151,6 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const ahead = cutAhead(root, cfg.state_branch, n);
   if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
-  const sync = syncOwed(root, cfg, n);
-  if (sync) log(sync.line);
   const s = startableOf(L);
   const name = layerName(L.layers.find((x) => x.n === n), n, cfg.tranche);
   for (const c of companionLines(L.rows, L.states)) log(c);
@@ -1186,7 +1161,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   try { e = earlyNext(root, cfg, n, L); } catch (err) { if (!(err instanceof Error)) throw err; e = { next: null, list: [], skipped: [] }; log(`note: the early starts were not read (${err.message})`); }
   if (e.list.length) { log(earlyHead(n, e.next)); for (const x of e.list) log(`  ${x.cmd}`); }
   if (e.skipped.length) log(`not early (layer ${e.next}): ${e.skipped.map((x) => `${x.id} (${x.why})`).join('; ')}`);
-  return { ok: true, startable: s, states: L.states, sync, early: e.list, early_next: e.next, round: roundOf(L.layers.find((x) => x.n === n)) };
+  return { ok: true, startable: s, states: L.states, early: e.list, early_next: e.next, round: roundOf(L.layers.find((x) => x.n === n)) };
 }
 
 export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
@@ -1218,7 +1193,7 @@ export function outsideFiles(root, entry, base, head) {
   return diffNames(root, base, head).filter((f) => !own.some((p) => underPath(f, p)));
 }
 
-// The publish's run, as a child process: `job complete` (the module's fast checks, never a suite: AUD-7; the receipt,
+// The publish's run, as a child process: `job complete` (the module's fast checks, never a suite: AUD-7;
 // the ready PR) in this checkout. { done: Promise<{ code }>, kill() }.
 export function spawnComplete(root, id, args = []) {
   const tool = join(new URL('.', import.meta.url).pathname, '..', 'p3.mjs');
@@ -1320,7 +1295,7 @@ export async function layerPublish(root, id, { push = true, every = null, rounds
 // the layer opened with no code on it, each re-test a whole job session): for a rescheduled module
 // with no commit of its own on the layer since the open, its job branch (the one its last start row
 // names, already in the layer) moves to the layer tip with one records-only retest row, and a ready
-// pull request into the layer carries its last receipt again. CI's gate runs its whole suite on the
+// pull request into the layer is opened. CI's gate runs its whole suite on the
 // layer tip, against its providers' current versions, as on any ready layer job PR; green, the merge
 // tool lands it (layer land), and that land clears the reschedule. The gate's trust stays with a CI
 // run, never a state row (coordinator, 6 Nov). Red: a job starts (job start --reopen). No session.
@@ -1357,7 +1332,7 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
   const cfg0 = loadConfig(root);
   needLayerMode(cfg0, 'layer retest');
   const slug = io.slug || repoSlug(root);
-  const x = { openPRs, createPR, addComment, markReady, prsFromBranch, comments: ghComments, jobHeads: originJobs, ...io };
+  const x = { openPRs, createPR, markReady, prsFromBranch, comments: ghComments, jobHeads: originJobs, ...io };
   const cfg = jobCfg(root, cfg0, id);
   if (!cfg.layer) fail(`${id} is in no open layer (its layer's branch is not on origin, or the layer merged)`);
   const { n } = cfg.layer;
@@ -1400,17 +1375,6 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
   if (prs === null) fail(`GitHub unreadable: the pull requests from ${branch} are not known; nothing was done`);
   const open = prs.find((p) => p.state === 'open');
   if (open) fail(`${branch} has pull request ${open.number} open: land or close it first`);
-  // Its last receipt, from its newest merged pull request that has one, on a commit in the layer. A
-  // hidden one (GitHub serves none of its comments) is a job's: its receipt's amendments (--not-verified,
-  // --exempt-revert) live only in those comments, so the copy in git may claim checks never run, and an
-  // older receipt is not its (cold review).
-  let receipt = null;
-  for (const p of prs.filter((q) => q.merged_at).sort((a, c) => c.number - a.number)) {
-    if (p.hidden) fail(`${id}'s newest land, PR ${p.number}, is one GitHub no longer serves (its receipt's comments with it): a job re-tests it: ${reopen}`);
-    const r = latestReceipt(x.comments(slug, p.number) || [], p.user?.login);
-    if (r?.module === id && r.sha && hasCommit(root, r.sha) && isAnc(root, r.sha, tip)) { receipt = { ...r, retest: { from_pr: p.number } }; break; }
-  }
-  if (!receipt) fail(`no receipt of ${id} on a merged pull request from ${branch} that ${b0} holds: a job re-tests it: ${reopen}`);
   const providers = [...new Set(s.outstanding.map((r) => r.provider))];
   const sha = withTemp('p3-layer-', (tmp) => {
     const w = join(tmp, 'w');
@@ -1419,7 +1383,7 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
     git(['worktree', 'add', '-q', '--detach', w, from], { cwd: root });
     try {
       if (from !== tip) git(['merge', '-q', '--no-edit', '-m', `Merge ${b0} into ${branch}`, tip], { cwd: w });
-      appendRow(w, id, { row: 'retest', event: 'retest', layer: n, tested_on: tip, against: providers, receipt_attempt: receipt.attempt ?? null, by });
+      appendRow(w, id, { row: 'retest', event: 'retest', layer: n, tested_on: tip, against: providers, by });
       git(['add', '--', metricsFile(id)], { cwd: w });
       git(['commit', '-q', '-m', `layer retest ${id} on ${b0} ${short(tip)}`, '--', metricsFile(id)], { cwd: w });
       const h = git(['rev-parse', 'HEAD'], { cwd: w });
@@ -1428,11 +1392,8 @@ export function layerRetest(root, id, { io = {}, log = console.log, by = 'bob', 
       return h;
     } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
   }, { root });
-  const body = [`layer retest of ${id} on ${b0} ${short(tip)}, against ${providers.join(', ')}'s new interface: one records-only commit, no job session.`, '', `CI's gate runs ${id}'s whole suite on this head; green, the merge tool lands it (${P3} layer land <this PR>). Red: ${reopen}.`, '', `The receipt is ${id}'s last, from PR ${receipt.retest.from_pr}.`].join('\n');
-  // A draft first, the receipt on it, then ready: the gate's run on ready reads the receipt (cold
-  // review of PR 193; job complete posts its receipt before markReady too).
+  const body = [`layer retest of ${id} on ${b0} ${short(tip)}, against ${providers.join(', ')}'s new interface: one records-only commit, no job session.`, '', `CI's gate runs ${id}'s whole suite on this head; green, the merge tool lands it (${P3} layer land <this PR>). Red: ${reopen}.`].join('\n');
   const pr = x.createPR(slug, { head: branch, base: b0, title: `layer retest: ${id}`, body, draft: true });
-  x.addComment(slug, pr.number, block(RECEIPT, receipt, `Receipt of ${id} (attempt ${receipt.attempt}), carried from PR ${receipt.retest.from_pr} for this retest.`));
   writeRows(root, cfg0.state_branch, `layer ${n}: ${id} retest PR ${pr.number}`, [[flowFile(n, 'retest', `${safeName(id)}-${pr.number}`), { row: 'retest', layer: n, module: id, pr: pr.number, head: sha, tested_on: tip, against: providers, ...(cause !== null ? { cause } : {}), at: now(), by }]]);
   x.markReady(slug, pr.number);
   log(`layer retest: ${id} on ${b0} ${short(tip)}: PR ${pr.number} from ${branch}, ready; the gate runs its whole suite. Green: ${P3} layer land ${pr.number}. Red: close it and run ${P3} layer retest ${id} again, or ${reopen}`);
@@ -1472,10 +1433,6 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   fetchBranch(root, pr.head.ref, { allowFail: true });
   const head = pr.head.sha;
   if (!hasCommit(root, head)) fail(`this clone does not hold ${short(head)}, the head of pull request ${n0}`);
-  // PD-19: a job lands only after each companion it waits on, its land in the job's head.
-  const waits = companionsPending(root, rows, id, head);
-  if (waits.length && !recover) fail(`refused: ${id} lands only after its companion${waits.length > 1 ? 's' : ''} in layer ${n} (PD-19): ${waits.map((c) => c.wait).join('; ')}; nothing was merged`);
-  if (waits.length) log(`warning: pull request ${n0} was merged before its companion(s) landed (${waits.map((c) => c.wait).join('; ')}): recorded as GitHub merged it; ask the coordinator`);
   let before;
   let after;
   if (recover) {
@@ -1578,9 +1535,16 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: triggersFor(u), class: classFor(u) }]);
   }
+  let raised = null;
   if (noticed.length) {
     const key = noticeKey(id, n0);
-    files.push([noticeFile(key), { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: noticed, source: 1, ...(ic.exports ? { exports: ic.exports } : {}), layer_flow: { layer: n, provides: !!ic.provides, rescheduled: ic.changed } }]);
+    // The exports read over the land (PD-20: triage trusts "exports unchanged" only with the read);
+    // a read that disagrees with the land's interface check is recorded unread.
+    const rx = readExports(root, cfg, entryAt(root, after, id) || {}, before, after);
+    const read = rx.exports_unread ? { exports_unread: rx.exports_unread } : !!rx.exports === !!ic.exports ? { exports_read: rx.exports_read } : { exports_unread: "the land's export read and its interface check disagree" };
+    const exp = rx.exports || ic.exports;
+    raised = { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: noticed, source: 1, ...(exp ? { exports: exp } : {}), ...read, layer_flow: { layer: n, provides: !!ic.provides, rescheduled: ic.changed } };
+    files.push([noticeFile(key), raised]);
   }
   // The notices this module owed (from earlier layers' providers) are answered by its land.
   try { for (const k of noticeRecords(root, cfg.state_branch).filter((q) => !q.withdrawn && q.open.includes(id))) files.push([answerFile(id, k.key), { row: 'answered', at, key: k.key, user: id, pr: n0, by: 'layer land' }]); } catch { /* none read: none answered */ }
@@ -1612,29 +1576,26 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
     }
   }
   if (noticed.length) log(`provider notice ${noticeKey(id, n0)} for ${noticed.length} user(s)${ic.changed ? ' in later layers' : ', its Public / Provides text changed (no reschedule)'}: ${noticed.join(', ')}`);
-  return { ok: true, land, messages: msgs, retests };
+  // The notice triaged at the land, as the tranche merge triages its own (triageAtMerge, PD-20 rules;
+  // coordinator, 9 Nov: no layer land had cleared a user since 7 Nov). The land stands if it fails.
+  let triage = null;
+  if (raised) {
+    try { const { triageAtMerge } = await import('./triage.mjs'); triage = triageAtMerge(root, cfg, raised, { ref: after, log }); } catch (e) {
+      triage = { rows: [], owed: raised.users, key: raised.key, error: e.message };
+      log(`the land stands; notice triage ${raised.key} at the land failed (${e.message}); next act: ${P3} notice triage ${raised.key}`);
+    }
+  }
+  return { ok: true, land, messages: msgs, retests, triage };
 }
 
 // ---- layer sync (R11) -----------------------------------------------------------------------
 
-// Bob, 6 Nov ~16:15 (SLB-12): every pin move made while a layer is open is followed by layer sync <n>
-// before any job in it lands. A pin move reaches no open layer branch by itself: the gate and the
-// record check run the base's own tool, so layer/<n> kept the tool it was cut with (copy, 6 Nov:
-// layer/8 at 4a85f26 refused R4's carried entries after the tranche moved to 0635b64).
+// PD-23 (coordinator, 9 Nov, Bob's revision of SLB-12): a pin move reaches every open layer itself,
+// by layer pin --open after its merge (pin.mjs): in place when the pin diff judges nothing, else at
+// the coordinator's choice (apply, hold, or reset: this layer sync). No BOB act, and a pin difference
+// holds no land and no merge. SLB-12's case (copy, 6 Nov: layer/8 at 4a85f26 refused R4's carried
+// entries after the tranche moved to 0635b64) is one the pin move applies or resets.
 const pinOf = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root, allowFail: true }).stdout.match(/^160000 commit ([0-9a-f]{40,64})\t/)?.[1] || null;
-// { line, why, afterLastLand, lastLand } when layer/<n>'s pin differs from the tranche's; null in sync.
-export function syncOwed(root, cfg, n) {
-  const tr = `refs/remotes/origin/${cfg.tranche}`;
-  const [lp, tp] = [pinOf(root, layerRef(n)), pinOf(root, tr)];
-  if (!lp || !tp || lp === tp) return null;
-  const why = `${layerBranch(n)}'s process pin ${short(lp)} differs from ${cfg.tranche}'s ${short(tp)}`;
-  // The first pin move the layer lacks, dated when it reached the tranche (its first-parent commit
-  // there), never the pin branch's own commit date (cold review of PR 198).
-  const moved = git(['log', '--first-parent', '--reverse', '--format=%cI', `${layerRef(n)}..${tr}`, '--', '.process'], { cwd: root, allowFail: true }).stdout.trim().split('\n')[0] || '';
-  const lands = flowRows(root, cfg.state_branch, n).lands;
-  const lastLand = lands.map((l) => l.at).sort().at(-1) || null;
-  return { why, lastLand, moved, afterLastLand: !!moved && (!lastLand || Date.parse(moved) > Date.parse(lastLand)), line: `run ${P3} layer sync ${n} first: ${why}; a pin move while a layer is open is followed by layer sync before any job in it lands (SLB-12)` };
-}
 const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
 // The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
 // ledger entry as the layer has it (its jobs' states; R4's carried entries). Any other refuses.
@@ -1702,12 +1663,12 @@ function syncMerge(root, cfg, n, base, ttip, w) {
 // tool's ledger finding, their sessions archived). Only when the merge is clean but for .process, the
 // shims and the job's own ledger entry (kept as the job wrote it), and brings nothing but those and
 // records (no code): then the
-// receipt still stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
+// job's tested code stands. A BLOCKED job, a conflict, or any other change is listed and left alone.
 export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null) {
   const b0 = layerBranch(n);
   const tip = rev(root, layerRef(n));
   const out = { merged: [], left: [] };
-  // Records (other modules' metrics rows and the like) are no code: a receipt stands over them.
+  // Records (other modules' metrics rows and the like) are no code: the tested code stands over them.
   const allowed = (f) => f === '.process' || syncSide(f, cfg) === 'theirs' || isEntryFile(f) || isRecordPath(cfg, f);
   for (const p of prs) {
     const id = branchModule(p.head?.ref, ids);
@@ -1764,7 +1725,7 @@ export function syncJobs(root, cfg, n, prs, ids, log = console.log, slug = null)
         // No rename detection: a rename lists the path it removes too (as diffNames reads it).
         const changed = git(['diff', '--cached', '--no-renames', '-z', '--name-only', head], { cwd: w }).split('\0').filter(Boolean);
         const other = changed.filter((f) => !allowed(f));
-        if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its receipt would not stand; its job syncs it` }; }
+        if (other.length) { git(['merge', '--abort'], { cwd: w, allowFail: true }); return { why: `the layer brings other changes (${other.slice(0, 3).join(', ')}${other.length > 3 ? ` and ${other.length - 3} more` : ''}): its tested code would not stand; its job syncs it` }; }
         git(['commit', '-q', '--no-edit', '-m', `Merge ${b0} ${short(tip)} into ${branch} (layer sync: ${changed.join(', ') || 'no file'})`], { cwd: w });
         const h = git(['rev-parse', 'HEAD'], { cwd: w });
         const push = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });
@@ -1873,7 +1834,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
         return r;
       } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
     }, { root }));
-    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (SLB-12: a pin move while a layer is open is followed by layer sync before any job in it lands).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
+    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (a reset: PD-23's --layers reset, or by hand).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
     pr = x.createPR(slug, { head: branch, base: b0, title: `layer sync ${n}: ${cfg.tranche} ${short(ttip)}`, body, draft: false });
     log(`layer sync ${n}: PR ${pr.number} from ${branch} into ${b0}${resolved.length ? `, resolved ${resolved.join(', ')}` : ''}`);
   }
@@ -1887,6 +1848,118 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   writeRows(root, cfg.state_branch, `layer ${n}: sync PR ${pr.number}`, [[flowFile(n, 'sync', `${pr.number}`), row]]);
   log(`layer sync ${n}: ${cfg.tranche} ${short(ttip)} landed into ${b0}${r.sha ? ` at ${short(r.sha)}` : ''}`);
   return { ok: true, synced: true, pr, row, jobs: jobsOf() };
+}
+
+// ---- the pin moved into open layers (PD-23) -----------------------------------------------------
+
+// Bob, 9 Nov: "An open layer may need to keep the old process version - if the process update would
+// affect the proper completion of the layer. If it wouldn't then ... we should change the process
+// without resetting the layer. If a change would affect the layer, then ... look at whether it's more
+// efficient to hold the process change until after the layer [closes] or put the change in and
+// reset. We need to be smart." The process files whose change alters how a layer's jobs or its
+// merge are judged; a pin diff touching none of them moves into the layer in place by itself.
+export const JUDGING = /^(tool\/lib\/(gate|gateclass|checks|record|merge|layerflow|layerbase)\.mjs|shims\/.+)$/;
+export const PIN_CHOICES = ['apply', 'hold', 'reset'];
+// The judging files the pin diff old..new changes, read in the product's process clone (.process);
+// null when the diff cannot be read (fail-closed: judged as touching them).
+export function judgingChange(root, from, to) {
+  const proc = join(root, '.process');
+  if (!existsSync(join(proc, '.git'))) return null;
+  for (const c of [from, to]) if (git(['cat-file', '-e', `${c}^{commit}`], { cwd: proc, allowFail: true }).code !== 0) git(['fetch', '-q', 'origin', c], { cwd: proc, allowFail: true });
+  const d = git(['diff', '--no-renames', '--name-only', from, to], { cwd: proc, allowFail: true });
+  if (d.code !== 0) return null;
+  return d.stdout.split('\n').filter((f) => f && JUDGING.test(f));
+}
+// The pin commit on the layer: the tranche's .process gitlink, and each workflow file the tranche
+// differs in (the pin's shims), on the layer tip; one commit, not a merge (gateclass pinLike).
+function pinCommit(root, cfg, n, tip, ttip, pin, w) {
+  git(['worktree', 'add', '-q', '--detach', w, tip], { cwd: root });
+  git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w });
+  const wf = git(['diff', '--no-renames', '--name-only', tip, ttip, '--', '.github/workflows/'], { cwd: root }).split('\n').filter((f) => f && dirname(f) === '.github/workflows');
+  for (const f of wf) {
+    if (exists(root, ttip, f)) { git(['checkout', '-q', ttip, '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); } else git(['rm', '-q', '--', f], { cwd: w });
+  }
+  git(['commit', '-q', '-m', `process: pin ${short(pin)} into ${layerBranch(n)} in place (PD-23)`], { cwd: w });
+  return git(['rev-parse', 'HEAD'], { cwd: w });
+}
+// p3 layer pin <n> [--layers apply|hold|reset] [--no-wait]: the tranche's pin into open layer n.
+// A pin diff that changes no judging file moves in place (apply): one pin-only pull request the
+// merge tool lands on a green gate; lands made are not re-gated, open job PRs are not reset, nothing
+// is held. One that does is printed, and waits for the coordinator's choice: apply (in place), hold
+// (the layer keeps its pin until it merges; the tranche's wins at the merge), or reset (layer sync).
+export async function layerPin(root, n, { choice, io = {}, log = console.log, wait = true, by = 'pin' } = {}) {
+  n = layerNum(n);
+  if (choice !== undefined && !PIN_CHOICES.includes(choice)) fail(`--layers ${PIN_CHOICES.join('|')}, not ${JSON.stringify(choice)}`);
+  const cfg = loadConfig(root);
+  needLayerMode(cfg, 'layer pin');
+  const slug = io.slug || repoSlug(root);
+  const x = { findPR, createPR, checkRun, getPR, openPRs, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
+  fetchLayer(root, cfg, n);
+  const rows = flowRows(root, cfg.state_branch, n);
+  if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
+  if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche}`);
+  const b0 = layerBranch(n);
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const [tip, ttip] = [rev(root, layerRef(n)), rev(root, tr)];
+  const [from, to] = [pinOf(root, tip), pinOf(root, ttip)];
+  if (!to) fail(`${cfg.tranche} has no process pin`);
+  if (from === to) { log(`${b0}: its pin is ${cfg.tranche}'s ${short(to)}: nothing to move`); return { ok: true, n, action: 'none' }; }
+  const touched = from ? (x.judging || judgingChange)(root, from, to) : null;
+  const judging = touched === null || touched.length > 0;
+  const what = touched === null ? `the pin diff ${short(from || 'none')}..${short(to)} could not be read` : touched.length ? `the pin diff ${short(from)}..${short(to)} changes how its jobs or merge are judged: ${touched.slice(0, 6).join(', ')}${touched.length > 6 ? ` and ${touched.length - 6} more` : ''}` : `the pin diff ${short(from)}..${short(to)} changes nothing that judges its jobs or merge`;
+  const act = choice || (judging ? null : 'apply');
+  if (!act) {
+    log(`${b0}: ${what}. The coordinator chooses: ${P3} layer pin ${n} --layers apply (in place: lands kept, job PRs not reset), --layers hold (the layer keeps ${short(from || 'its pin')} until it merges; ${cfg.tranche}'s pin wins at the merge), or --layers reset (layer sync ${n})`);
+    return { ok: false, n, action: 'choose', touched, from, to };
+  }
+  log(`${b0}: ${what}; ${act}${choice ? ' (the coordinator\'s choice)' : ''}`);
+  const record = (extra) => writeRows(root, cfg.state_branch, `layer ${n}: pin ${act}`, [[flowFile(n, 'pin', `${short(to)}-${act}`), { row: 'pin', layer: n, action: act, pin_before: from, pin_after: to, touched, at: now(), by, ...extra }]]);
+  if (act === 'hold') { record({}); log(`${b0} keeps its pin ${short(from)} until it merges (PD-23); ${cfg.tranche}'s ${short(to)} wins at the merge`); return { ok: true, n, action: 'hold' }; }
+  if (act === 'reset') { const r = await layerSync(root, n, { io, log, wait, by }); record({ pr: r.pr?.number ?? null }); return { ...r, n, action: 'reset' }; }
+  // apply: an open pull request for this pin is taken up; else a new branch.
+  const into = x.openPRs(slug, b0);
+  if (into === null) fail(`GitHub unreadable: the open pull requests into ${b0} are not known; nothing was opened`);
+  const stem = `layer-pin/${n}-${short(to)}`;
+  let pr = into.find((p) => String(p.head?.ref || '').startsWith(stem)) || null;
+  let head = pr?.head?.sha || null;
+  if (!pr) {
+    let branch = stem;
+    for (let k = 2; git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim(); k++) branch = `${stem}-${k}`;
+    head = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try {
+        const h = pinCommit(root, cfg, n, tip, ttip, to, w);
+        const p = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });
+        if (p.code !== 0) fail(`the push of ${branch} failed (${p.stderr.trim()}); nothing was opened`);
+        return h;
+      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    const body = [`layer pin ${n}: ${cfg.tranche}'s process pin ${short(to)} into ${b0} in place (PD-23), one commit on ${short(tip)}: the pin and the workflow files it carries, nothing else.`, '', `Process pin: ${short(from || 'none')} -> ${short(to)}. ${what}.`, 'Lands already made are not re-gated; open job pull requests are not reset.', '', `The merge tool lands it on a green gate (${P3} layer pin ${n} --layers apply again, if this run stopped).`].join('\n');
+    pr = x.createPR(slug, { head: branch, base: b0, title: `layer pin ${n}: process ${short(to)}`, body, draft: false });
+    log(`layer pin ${n}: PR ${pr.number} from ${branch} into ${b0}`);
+  } else log(`layer pin ${n}: PR ${pr.number} from ${pr.head.ref} is open already`);
+  if (!wait) { log(`the gate decides; run ${P3} layer pin ${n} --layers apply again to land it`); return { ok: true, n, action: 'apply', landed: false, pr }; }
+  const g = await waitGate(x, slug, pr.number, head);
+  if (g?.status !== 'completed' || g.conclusion !== 'success') fail(`the gate on pin PR ${pr.number} ${short(head)} is ${g ? `${g.status} ${g.conclusion || ''}`.trim() : 'not run'}; layer pin lands on a green gate`);
+  const r = await x.merge(slug, pr.number, head, `Merge layer pin PR ${pr.number}`);
+  if (!r?.merged && !r?.sha) fail(`GitHub did not merge pull request ${pr.number}: ${JSON.stringify(r).slice(0, 200)}`);
+  fetchBranch(root, b0);
+  record({ pr: pr.number, head, merge: r.sha || null });
+  log(`layer pin ${n}: ${short(to)} landed into ${b0} in place${r.sha ? ` at ${short(r.sha)}` : ''}`);
+  return { ok: true, n, action: 'apply', landed: true, pr };
+}
+// p3 layer pin --open [--layers apply|hold|reset]: each open layer, the pin-move session's step after
+// its merge. Outside the layer flow, or with no layer open, nothing.
+export async function layerPinOpen(root, { choice, io = {}, log = console.log, wait = true, by = 'pin' } = {}) {
+  const cfg = loadConfig(root);
+  if (!layerMode(cfg)) { log('not the layer flow: no layer to move'); return { ok: true, layers: [] }; }
+  fetchBranch(root, cfg.tranche, { allowFail: true });
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const open = openLayers(root, cfg, (p) => readState(root, cfg.state_branch, p));
+  if (!open.length) { log('no layer is open: nothing to move'); return { ok: true, layers: [] }; }
+  const out = [];
+  for (const n of open) out.push(await layerPin(root, n, { choice, io, log, wait, by }));
+  return { ok: out.every((r) => r.ok), layers: out };
 }
 
 // ---- layer merge ----------------------------------------------------------------------------
@@ -1911,11 +1984,6 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   if (deferDone === true || (deferDone !== undefined && !String(deferDone).trim())) fail('--defer-done needs why: the reason the finished work waits for a later layer');
   if (done.length && deferDone === undefined) fail(`layer ${n} cannot merge: ${done.map((s) => `${s.id} (PR ${s.done_work})`).join(', ')} ${done.length > 1 ? 'are' : 'is'} deferred with work done (suite green, BLOCKED only on a process finding): restart ${done.length > 1 ? 'them' : 'it'} to publish (${P3} layer status ${n} lists the lines), or merge with --defer-done "<why>"`);
   if (done.length) log(`deferring work done, by --defer-done: ${done.map((s) => s.id).join(', ')}: ${String(deferDone).trim()}`);
-  // A pin move while the layer is open is followed by layer sync before any job lands (Bob, 6 Nov):
-  // out of sync, the merge waits, unless the tranche's pin moved only after the layer's last land.
-  const sync = syncOwed(root, cfg, n);
-  if (sync && !sync.afterLastLand) fail(`layer ${n} cannot merge: ${sync.why}, and a job landed after that pin move (land ${sync.lastLand}); run ${P3} layer sync ${n} first`);
-  if (sync) log(`note: ${sync.why}; the pin moved after the layer's last land, so the merge goes on`);
   const x = { findPR, createPR, checkRun, getPR, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   const b = layerBranch(n);
   carriedSync(root, cfg, n, L, log);
@@ -2030,19 +2098,25 @@ export function carriedSync(root, cfg, n, L, log = console.log) {
       if (m.code === 0 || !conflicted.length) return null;
       const mb = git(['merge-base', head, tr], { deepen: true, cwd: root });
       const own = new Set(L.mods.flatMap((id) => [entryFile(id), ...(L.entries.get(id)?.requirements ? [L.entries.get(id).requirements] : [])]));
-      const bad = conflicted.filter((f) => !own.has(f) || exists(root, mb, f));
+      // PD-23: a layer whose pin moved in place, or was held, merges with the tranche's pin and shims.
+      const pinSide = conflicted.filter((f) => syncSide(f) === 'theirs' && f !== cfg.completion_file);
+      const bad = conflicted.filter((f) => !pinSide.includes(f) && (!own.has(f) || exists(root, mb, f)));
       if (bad.length) {
         git(['merge', '--abort'], { cwd: w, allowFail: true });
         fail(`layer ${n} cannot merge: ${layerBranch(n)} and ${cfg.tranche} conflict in ${bad.join(', ')}; only a module's entry or requirements carried from ${cfg.tranche} is resolved by the tool; nothing was opened`);
       }
-      git(['checkout', '-q', '--ours', '--', ...conflicted], { cwd: w });
-      git(['add', '--', ...conflicted], { cwd: w });
-      git(['commit', '-q', '--no-edit', '-m', `Merge ${cfg.tranche} into ${layerBranch(n)}: the layer's ${conflicted.join(', ')} kept (carried from ${cfg.tranche})`], { cwd: w });
+      const kept = conflicted.filter((f) => !pinSide.includes(f));
+      if (kept.length) { git(['checkout', '-q', '--ours', '--', ...kept], { cwd: w }); git(['add', '--', ...kept], { cwd: w }); }
+      for (const f of pinSide) {
+        if (f === '.process') { const pin = pinOf(root, tr); if (pin) git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w }); else git(['rm', '-q', '--cached', '--', '.process'], { cwd: w }); continue; }
+        if (exists(root, tr, f)) { git(['checkout', '-q', '--theirs', '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); } else git(['rm', '-q', '--', f], { cwd: w });
+      }
+      git(['commit', '-q', '--no-edit', '-m', `Merge ${cfg.tranche} into ${layerBranch(n)}: ${[kept.length ? `the layer's ${kept.join(', ')} kept (carried from ${cfg.tranche})` : '', pinSide.length ? `${cfg.tranche}'s ${pinSide.join(', ')} taken (PD-23: the tranche's pin wins)` : ''].filter(Boolean).join('; ')}`], { cwd: w });
       const sha = git(['rev-parse', 'HEAD'], { cwd: w });
       const p = git(['push', '-q', 'origin', `${sha}:refs/heads/${layerBranch(n)}`], { cwd: w, allowFail: true });
       if (p.code !== 0) fail(`the push of ${layerBranch(n)} with ${cfg.tranche} merged in failed (${p.stderr.trim()}); nothing was opened; run layer merge ${n} again`);
       fetchBranch(root, layerBranch(n));
-      log(`${layerBranch(n)}: ${cfg.tranche} merged in at ${short(sha)}, the layer's version kept of ${conflicted.join(', ')} (added on both after the layer was cut)`);
+      log(`${layerBranch(n)}: ${cfg.tranche} merged in at ${short(sha)}${kept.length ? `, the layer's version kept of ${kept.join(', ')} (added on both after the layer was cut)` : ''}${pinSide.length ? `, ${cfg.tranche}'s ${pinSide.join(', ')} taken (the tranche's pin wins, PD-23)` : ''}`);
       return sha;
     } finally {
       git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true });

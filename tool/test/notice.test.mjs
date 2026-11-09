@@ -1,11 +1,11 @@
 // The provider-change route: a provider with two users, a notice at the provider's merge, the
-// users' START, receipt and status, and the notice answered at the user's merge.
+// users' START and status, and the notice answered at the user's merge.
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
+import { BOT, GATE, block } from '../lib/github.mjs';
 import { jobComplete, jobStart } from '../lib/job.mjs';
 import { merge, triageLast } from '../lib/merge.mjs';
 import { readRows } from '../lib/metrics.mjs';
@@ -108,11 +108,7 @@ test('job start <user> puts the notice in the START and its start row; a notice-
   const base = git(['rev-parse', 'HEAD'], { cwd: root });
   const r = jobComplete(root, 'u1', { push: false, log: quiet });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests, []);
   assert.ok(git(['diff', '--name-only', base, 'HEAD'], { cwd: root }).split('\n').every((f) => f.startsWith('process/')), 'records only');
-  // A job started when the START asked for one: its --test notice: is accepted and ignored.
-  git(['reset', '-q', '--hard', base], { cwd: root });
-  assert.deepEqual(jobComplete(root, 'u1', { push: false, tests: ['notice:p:7=test/u1/p.test.mjs::x'], log: quiet }).receipt.tests, []);
 });
 
 test('job start on a COMPLETE user with a notice reopens it to answer the notice', () => {
@@ -267,8 +263,7 @@ function mergeFixture(root, id, files) {
   const io = {
     getPR: () => ({ state: 'open', draft: false, user: { login: 'c' }, base: { ref: 'tranche' }, head: { ref: `job/${id}`, sha: head } }),
     comments: () => [
-      { id: 1, body: block(RECEIPT, { module: id, attempt: 1, sha: head }), user: { login: 'c' } },
-      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
+      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, attempt: 1, run_id: 11 }] }), user: { login: BOT } },
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: () => true,

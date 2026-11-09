@@ -5,12 +5,12 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { parseBlock } from '../lib/github.mjs';
 import { jobBlock, jobComplete, jobStart, jobSync, jobTest, pinAt } from '../lib/job.mjs';
 import { readEntry } from '../lib/ledger.mjs';
+import { readRows } from '../lib/metrics.mjs';
 import { send } from '../lib/state.mjs';
 import { git, run } from '../lib/util.mjs';
-import { commit, entry, makeRepo, write } from './helpers.mjs';
+import { commit, entry, makeRepo, write, refusePushes } from './helpers.mjs';
 
 // The tool's own `git submodule update` reads a file:// process clone in these tests.
 process.env.GIT_CONFIG_COUNT = '1';
@@ -294,10 +294,10 @@ test('#5: after BOB\'s merge pushed to job/<id>, job complete names job sync bef
   const before = head(root);
   assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /origin's job\/alpha has commits this checkout lacks \(BOB's merge of the tranche, or a push from elsewhere\): run `node \.process\/tool\/p3\.mjs job sync alpha`, then job complete again; nothing was run/);
   assert.equal(head(root), before, 'nothing committed');
-  assert.equal(f.state.comments.length, 1);
+  assert.equal(f.state.comments.length, 0, 'nothing posted');
 });
 
-test('#5: synced with BOB\'s push, the new attempt is checked and its receipt names the COMPLETE commit, not BOB\'s merge row', () => {
+test('#5: synced with BOB\'s push, the new attempt is checked and starts after the COMPLETE commit, not BOB\'s merge row', () => {
   for (const fix of [false, true]) {
     const { root, f, complete, bobTip } = bobMerged();
     if (fix) commit(root, { 'test/alpha/c.test.mjs': passing }, 'the fix for the red gate');
@@ -307,12 +307,11 @@ test('#5: synced with BOB\'s push, the new attempt is checked and its receipt na
     assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head(root), 'job sync pushed the branch itself, through the governed git (R17c, item G)');
     const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
     assert.equal(r.ok, true, `fix ${fix}`);
-    assert.equal(r.receipt.attempt, 2, 'a new attempt: BOB\'s commits were never checked');
-    assert.equal(r.receipt.after, complete, 'after the COMPLETE commit, found by its message');
+    const rows = readRows(root, 'alpha');
+    assert.equal(rows.filter((x) => x.event === 'complete').pop().attempt, 2, 'a new attempt: BOB\'s commits were never checked');
+    assert.equal(rows.filter((x) => x.event === 'start').pop().again.after, complete, 'after the COMPLETE commit, found by its message');
     assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], head(root), 'the push landed');
-    const posted = parseBlock(f.state.comments.at(-1).body, 'p3:receipt');
-    assert.equal(posted.sha, head(root));
-    assert.equal(posted.commands.find((c) => c.suite), undefined, 'no suite in the session: CI runs it on the merged result (AUD-7)');
+    assert.equal(r.commands.find((c) => c.suite), undefined, 'no suite in the session: CI runs it on the merged result (AUD-7)');
   }
 });
 
@@ -370,7 +369,7 @@ test('#10: every stale lock file is installed before the generated build, in p3 
     assert.ok(build > 0, which);
     assert.ok(calls.indexOf('npm ci member') >= 0 && calls.indexOf('npm ci member') < build, `${which}: the other member's lock file, installed before the build: ${calls.join('; ')}`);
     assert.equal(calls.filter((c) => c.startsWith('npm ci')).length, 2, `${which}: each lock file once`);
-    if (which === 'complete') assert.ok(r.receipt.commands.some((c) => c.cmd === 'npm ci (member/package-lock.json)' && c.exit === 0));
+    if (which === 'complete') assert.ok(r.commands.some((c) => c.cmd === 'npm ci (member/package-lock.json)' && c.exit === 0));
   }
 });
 
@@ -399,12 +398,11 @@ test('#5: block after BOB\'s push names job sync, not "run block again" forever'
 });
 
 // Recovery after a governor refusal (R17c, item F): job complete refused at each GitHub step in turn
-// (its push through the governed git, and each gh call), then rerun: one receipt for the pushed
-// head, the pull request ready, nothing lost.
-test('job complete: refused at each GitHub step in turn, then rerun: one receipt for its head, ready, nothing lost', async (t) => {
-  const { useShared } = await import('../lib/pace.mjs');
+// (its push through the governed git, and each gh call), then rerun: the head pushed, the pull
+// request ready, nothing lost.
+test('job complete: refused at each GitHub step in turn, then rerun: its head pushed, ready, nothing lost', async (t) => {
   const { Fail } = await import('../lib/util.mjs');
-  t.after(() => useShared(null));
+  t.after(() => refusePushes(false));
   const REFUSED = 'GitHub budget: 68 of the 80 content-creating requests a minute used account-wide, the target 85% (68): acts on GitHub wait until 2026-11-06T23:59:00Z (16 min); then rerun `node .process/tool/p3.mjs job complete alpha`';
   const run = (refuseAt, pushRefused) => {
     const { root, f } = bobMerged();
@@ -413,10 +411,10 @@ test('job complete: refused at each GitHub step in turn, then rerun: one receipt
     let calls = 0;
     const wrap = (fn) => (...a) => { calls++; if (calls === refuseAt) throw new Fail(REFUSED); return fn(...a); };
     const gh1 = Object.fromEntries(Object.entries(f.gh).map(([k, v]) => [k, wrap(v)]));
-    if (pushRefused) useShared({ read: () => ({ pause: { at: '2026-11-06T23:00:00Z', until: '2026-11-06T23:01:00Z', why: 'x', stopped: true }, use: [] }), pause: () => null });
+    if (pushRefused) refusePushes(true);
     let first = null;
     try { jobComplete(root, 'alpha', { gh: gh1, log: quiet }); } catch (e) { first = e.message; }
-    useShared(null);
+    refusePushes(false);
     const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
     return { root, f, r, first, calls };
   };
@@ -429,8 +427,6 @@ test('job complete: refused at each GitHub step in turn, then rerun: one receipt
     assert.equal(r.ok, true, `step ${k}: the rerun completes`);
     const tip = git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
     assert.equal(tip, head(root), `step ${k}: pushed`);
-    const receipts = f.state.comments.map((c) => parseBlock(c.body, 'p3:receipt')).filter((x) => x && x.sha === tip);
-    assert.equal(receipts.length, 1, `step ${k}: one receipt for the head, not ${receipts.length}`);
     assert.equal(f.state.isDraft, false, `step ${k}: ready`);
   }
 });

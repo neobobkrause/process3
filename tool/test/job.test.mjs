@@ -49,17 +49,18 @@ test('job start refuses an entry that is not OPEN', () => {
   assert.throws(() => jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet }), /WORKING, not OPEN/);
 });
 
-test('job complete runs the fast checks and no suite (AUD-7), then sets COMPLETE and builds the receipt', () => {
+test('job complete runs the fast checks and no suite (AUD-7), then sets COMPLETE (no receipt: PD-21)', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
-  const r = jobComplete(root, 'alpha', { push: false, notVerified: ['the live site'], log: quiet });
+  const r = jobComplete(root, 'alpha', { push: false, log: quiet });
   assert.equal(r.ok, true);
   assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
-  assert.equal(r.receipt.commands.find((c) => c.suite), undefined, 'the suite runs in CI, never in the session');
-  assert.deepEqual(r.receipt.not_verified, ['the live site']);
-  assert.equal(r.receipt.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
+  assert.equal(r.commands.find((c) => c.suite), undefined, 'the suite runs in CI, never in the session');
+  assert.equal(r.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
+  const row = readRows(root, 'alpha').filter((x) => x.event === 'complete').pop();
+  assert.deepEqual([row.attempt, row.receipt], [1, undefined]);
 });
 
 test('job complete --cost-usd writes the job\'s own cost row, its session\'s cost since its last row; a bad value is refused before anything runs', () => {
@@ -131,8 +132,8 @@ test('job complete names its session in get_session\'s form (cse_ to session_) a
   assert.deepEqual([m.session, m.session_usd, m.cost_usd], ['session_X', 3.16, 2.16]);
 });
 
-// AUD-7, PLT-4, JOB-5: the session runs only the fast checks; the module's suite runs in CI, whose
-// gate checks the receipt against its own run (AUD-2). A red test is CI's to find, not job complete's.
+// AUD-7, PLT-4, JOB-5: the session runs only the fast checks; the module's suite runs in CI. A red
+// test is CI's to find, not job complete's.
 test('job complete never runs the suite: a failing test does not stop it; a failed fast check does', () => {
   const root = product();
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
@@ -140,8 +141,7 @@ test('job complete never runs the suite: a failing test does not stop it; a fail
   commit(root, { 'test/alpha/b.test.mjs': failing });
   const r = jobComplete(root, 'alpha', { push: false, noSuite: true, log: quiet });
   assert.equal(r.ok, true);
-  assert.equal(r.receipt.commands.find((c) => c.suite || /node --test/.test(c.cmd)), undefined);
-  assert.deepEqual(r.receipt.not_verified, [], 'the suite is CI\'s, not a line the job did not verify');
+  assert.equal(r.commands.find((c) => c.suite || /node --test/.test(c.cmd)), undefined);
   const red = product();
   write(red, { 'process/ledger/alpha.json': JSON.stringify({ ...JSON.parse(readFileSync(join(red, 'process/ledger/alpha.json'), 'utf8')), checks: [['node', '-e', 'process.exit(4)']] }, null, 2) + '\n' });
   git(['add', '-A'], { cwd: red });
@@ -188,7 +188,7 @@ test('metrics report counts a refuted COMPLETE claim and gate minutes', () => {
   appendRow(root, 'alpha', { row: 'attempt', event: 'complete', attempt: 1, pr: 7 });
   appendRow(root, 'alpha', { row: 'attempt', event: 'measured', attempt: 1, cost_usd: 2.5, tokens: 1000, denials: 2, refusals: [{ act: 'archive', depth: '2', channel: 'START' }] });
   appendRow(root, 'alpha', { row: 'merge', pr: 7 });
-  const gate = block(GATE, { runs: [{ minutes: 2, receipt_attempt: 1, suite: 'fail' }, { minutes: 1.5, receipt_attempt: 1, suite: 'pass', revert: 'pass' }] });
+  const gate = block(GATE, { runs: [{ minutes: 2, attempt: 1, suite: 'fail' }, { minutes: 1.5, attempt: 1, suite: 'pass', revert: 'pass' }] });
   const read = { comments: () => [{ body: gate, user: { login: 'github-actions[bot]' } }], getPR: () => ({ merged_at: null }) };
   assert.equal(report(root, 'o/r', 'HEAD', { read }).complete_claims, 0, 'rows are read at the ref, not from the working tree');
   git(['add', '-A'], { cwd: root });
@@ -265,7 +265,7 @@ test('job start restores a detached HEAD', () => {
   assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), sha);
 });
 
-test('job complete pushes before the receipt, and a rerun finishes without a second receipt', () => {
+test('job complete pushes before it marks ready, and a rerun finishes the ready', () => {
   const root = withOrigin();
   const f = fakeGitHub();
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
@@ -273,16 +273,14 @@ test('job complete pushes before the receipt, and a rerun finishes without a sec
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
   assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /network/);
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed before the receipt');
-  assert.equal(f.state.comments.length, 1);
-  assert.equal(parseBlock(f.state.comments[0].body, 'p3:receipt').sha, tip);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed before the ready');
   const said = [];
   const again = jobComplete(root, 'alpha', { gh: f.gh, log: (m) => said.push(m) });
   assert.equal(again.ok, true);
   // The job's report: the last line wakes BOB, from the job's own sender name, naming the job's
   // session when known (BOB's merge reads the job's cost from it).
   assert.match(said.at(-1), /^next act: wake BOB with `node \.process\/tool\/p3\.mjs send bob "job alpha complete, PR #\d+ ready(, session session_\w+)?: run status" --from job-alpha`, delivered with send_message to the address it prints$/);
-  assert.equal(f.state.comments.length, 1, 'no second receipt');
+  assert.equal(f.state.comments.length, 0, 'no receipt (PD-21)');
   assert.equal(f.state.ready, 1);
   assert.equal(readRows(root, 'alpha').filter((r) => r.event === 'complete').length, 1);
 });
@@ -320,7 +318,7 @@ test('a job push refuses a commit that adds a dist/ file, before anything is pus
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'not pushed');
 });
 
-test('after a failed push, a rerun posts the saved receipt for the COMPLETE commit', () => {
+test('after a failed push, a rerun pushes the COMPLETE commit and marks ready', () => {
   const root = withOrigin();
   const f = fakeGitHub();
   f.state.failReady = false;
@@ -329,17 +327,12 @@ test('after a failed push, a rerun posts the saved receipt for the COMPLETE comm
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
   git(['config', 'remote.origin.pushurl', '/nonexistent/origin.git'], { cwd: root });
   assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /run job complete again/);
-  assert.equal(f.state.comments.length, 0);
   git(['config', '--unset', 'remote.origin.pushurl'], { cwd: root });
   assert.equal(jobComplete(root, 'alpha', { gh: f.gh, log: quiet }).ok, true);
-  assert.equal(f.state.comments.length, 1);
-  const r = parseBlock(f.state.comments[0].body, 'p3:receipt');
-  assert.equal(r.sha, git(['rev-parse', 'HEAD'], { cwd: root }));
-  assert.equal(r.commands.find((c) => c.suite), undefined);
+  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], git(['rev-parse', 'HEAD'], { cwd: root }));
+  assert.equal(f.state.ready, 1);
 });
 
-// Copy PR 40, 4 Nov: a COMPLETE job's rerun with a new --exempt-revert was ignored, the saved
-// receipt replayed, and the gate stayed red with no way to amend it but a restart.
 function completed() {
   const root = withOrigin();
   const f = fakeGitHub();
@@ -347,80 +340,11 @@ function completed() {
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the live site'], log: quiet });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
   return { root, f };
 }
 
-test('a COMPLETE job rerun with --exempt-revert posts one amended receipt at the same commit', () => {
-  const { root, f } = completed();
-  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  assert.equal(f.state.comments.length, 1);
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: quiet });
-  assert.equal(f.state.comments.length, 2, 'the amended receipt is posted');
-  assert.match(f.state.comments[1].body, /Amended receipt for job `alpha`/);
-  const r = parseBlock(f.state.comments[1].body, 'p3:receipt');
-  assert.equal(r.sha, tip, 'same commit');
-  assert.equal(r.attempt, 1);
-  assert.deepEqual(r.exempt, { revert: 'filter-only test edits' });
-  assert.deepEqual(r.not_verified, ['the live site']);
-  assert.deepEqual(r.amended.was, { exempt: {}, not_verified: ['the live site'] });
-  assert.equal(r.commands.find((c) => c.suite), undefined, 'the commands are the saved run, not a new one');
-  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
-  assert.equal(readRows(root, 'alpha').filter((x) => x.event === 'complete').length, 1);
-  // The same claims again post nothing; a plain rerun posts nothing either.
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'filter-only test edits', log: quiet });
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.equal(f.state.comments.length, 2);
-});
-
-test('an amended receipt only adds not-verified lines, and a rerun naming no change posts nothing', () => {
-  const { root, f } = completed();
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the live site'], log: quiet });
-  assert.equal(f.state.comments.length, 1, 'a line already there is no change');
-  jobComplete(root, 'alpha', { gh: f.gh, notVerified: ['the walker'], log: quiet });
-  const r = parseBlock(f.state.comments[1].body, 'p3:receipt');
-  assert.deepEqual(r.not_verified, ['the live site', 'the walker'], 'kept, never dropped');
-  assert.deepEqual(r.exempt, {});
-});
-
-test('a second amendment keeps the first one\'s claims, in either order (review of PR 64)', () => {
-  for (const order of [['nv', 'ex'], ['ex', 'nv']]) {
-    const { root, f } = completed();
-    for (const k of order) jobComplete(root, 'alpha', { gh: f.gh, ...(k === 'nv' ? { notVerified: ['the walker'] } : { exemptRevert: 'why' }), log: quiet });
-    assert.equal(f.state.comments.length, 3, order.join(','));
-    const r = parseBlock(f.state.comments[2].body, 'p3:receipt');
-    assert.deepEqual(r.exempt, { revert: 'why' }, order.join(','));
-    assert.deepEqual(r.not_verified, ['the live site', 'the walker'], order.join(','));
-    assert.deepEqual(r.amended.was, order[0] === 'nv' ? { exempt: {}, not_verified: ['the live site', 'the walker'] } : { exempt: { revert: 'why' }, not_verified: ['the live site'] });
-    // the same claims once more post nothing
-    jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', notVerified: ['the walker'], log: quiet });
-    assert.equal(f.state.comments.length, 3);
-  }
-});
-
-// An amended receipt changes no claim the gate reads (Bob, 5 Nov: the revert check is advisory),
-// so a ready pull request is not gated again for it.
-const RED = { status: 'completed', conclusion: 'failure', started_at: '2026-11-05T00:00:00Z' };
-test('an amended revert exemption on a ready pull request posts the receipt and edits nothing', () => {
-  const { root, f } = completed();
-  f.state.gate = RED;
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.comments.length, 2);
-  assert.equal(f.state.edits.length, 0);
-});
-
-
-test('an amendment on a draft pull request is marked ready, not edited', () => {
-  const { root, f } = completed();
-  f.state.gate = RED;
-  f.state.isDraft = true;
-  const ready = f.state.ready;
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(f.state.ready, ready + 1);
-  assert.equal(f.state.edits.length, 0);
-});
-
-test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job may not', () => {
+test('a COMPLETE job may rerun with .process moved to a newer pin; a WORKING job may not', () => {
   const tool = makeRepo({ 'tool/x.mjs': 'export const v = 1;\n' });
   const sub = (root) => {
     git(['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', tool, '.process'], { cwd: root });
@@ -450,9 +374,7 @@ test('a COMPLETE job may amend with .process moved to a newer pin; a WORKING job
   git(['-c', 'protocol.file.allow=always', 'submodule', 'update', '-q'], { cwd: w });
   jobComplete(w, 'alpha', { gh: g.gh, toolRoot, log: quiet });
   bump(w);
-  jobComplete(w, 'alpha', { gh: g.gh, toolRoot, exemptRevert: 'why', log: quiet });
-  assert.equal(g.state.comments.length, 2);
-  assert.equal(parseBlock(g.state.comments[1].body, 'p3:receipt').exempt.revert, 'why');
+  assert.equal(jobComplete(w, 'alpha', { gh: g.gh, toolRoot, log: quiet }).ok, true);
 });
 
 // Copy PR 79, 4 Nov: job site was COMPLETE, its gate went red, and it pushed fixes; job complete
@@ -466,92 +388,40 @@ function redAndFixed() {
   return { root, f, first, fix };
 }
 
-test('a COMPLETE job with fix commits after it completes attempt 2: checks, suite, start row, COMPLETE, receipt, draft then ready', () => {
+test('a COMPLETE job with fix commits after it completes attempt 2: checks, start row, COMPLETE, push, ready', () => {
   const { root, f, first, fix } = redAndFixed();
   const fixAt = new Date(git(['log', '-1', '--format=%cI', fix], { cwd: root })).toISOString().replace(/\.\d+Z$/, 'Z');
   assert.equal(f.state.ready, 1);
-  const r = jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'browser test skips in CI without Chromium', log: quiet });
+  const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
   assert.equal(r.ok, true);
-  assert.equal(r.receipt.attempt, 2);
-  assert.equal(r.receipt.after, first, 'names the COMPLETE commit it follows');
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  assert.equal(r.receipt.sha, tip);
+  assert.equal(r.sha, tip);
   assert.notEqual(tip, fix, 'a new COMPLETE commit');
   assert.equal(git(['rev-parse', 'HEAD^'], { cwd: root }), fix);
   assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'pushed');
-  assert.equal(r.receipt.commands.find((c) => c.suite), undefined, 'no suite in the session (AUD-7)');
-  assert.deepEqual(r.receipt.exempt, { revert: 'browser test skips in CI without Chromium' });
+  assert.equal(r.commands.find((c) => c.suite), undefined, 'no suite in the session (AUD-7)');
   assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
   const rows = readRows(root, 'alpha');
   assert.deepEqual(rows.map((x) => [x.event, x.attempt]), [['start', 1], ['complete', 1], ['start', 2], ['complete', 2]]);
   assert.equal(rows[2].at, fixAt, 'attempt 2 starts at its first commit');
   assert.deepEqual(rows[2].again, { after: first, pr: 9 });
   assert.equal(rows[2].branch, 'job/alpha', 'the --again start row names the branch it works on (copy PR 454)');
-  assert.equal(rows[3].receipt.attempt, 2);
   // Only its records (the entry is unchanged when both completes fall in the same second).
   const names = git(['show', '--name-only', '--format=', 'HEAD'], { cwd: root }).split('\n');
   assert.ok(names.includes('process/metrics/alpha.jsonl') && names.every((n) => ['process/ledger/alpha.json', 'process/metrics/alpha.jsonl'].includes(n)), names.join(', '));
-  assert.equal(f.state.drafted, 1, 'made a draft before the push');
-  assert.equal(f.state.ready, 2, 'ready again after the receipt');
-  assert.equal(f.state.comments.length, 2);
-  const posted = parseBlock(f.state.comments[1].body, 'p3:receipt');
-  assert.equal(posted.attempt, 2);
-  assert.match(f.state.comments[1].body, /\nReceipt for job `alpha`, attempt 2,/);
-  // A plain rerun at the new COMPLETE commit posts nothing and starts no attempt 3.
+  assert.equal(f.state.comments.length, 0, 'no receipt (PD-21)');
+  // A plain rerun at the new COMPLETE commit starts no attempt 3.
   jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.equal(f.state.comments.length, 2);
   assert.equal(readRows(root, 'alpha').length, 4);
 });
 
-// Copy, 4 Nov: site's attempt 2 committed and stopped on the draft step (GraphQL, HTTP 403),
-// before its push: no receipt, a red gate. The rerun finishes push, receipt, ready.
-test('attempt 2 stopped on the draft step: a rerun pushes, posts attempt 2\'s receipt and marks ready', () => {
+test('attempt 2 whose ready step fails: a rerun marks ready', () => {
   const { root, f } = redAndFixed();
-  const draft = f.gh.toDraft;
-  f.gh.toDraft = () => { throw new Error('gh api graphql -f failed (HTTP 403)'); };
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /HTTP 403/);
-  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  assert.equal(readEntry(root, 'alpha').status.state, 'COMPLETE');
-  assert.notEqual(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip, 'not pushed');
-  assert.equal(f.state.comments.length, 1, 'no attempt 2 receipt yet');
-  f.gh.toDraft = draft;
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.equal(git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0], tip);
-  assert.equal(f.state.comments.length, 2);
-  assert.deepEqual([parseBlock(f.state.comments[1].body, 'p3:receipt').attempt, parseBlock(f.state.comments[1].body, 'p3:receipt').sha], [2, tip]);
-  assert.deepEqual([f.state.drafted, f.state.ready], [1, 2]);
-});
-
-test('attempt 2 pushed while ready but never given its receipt: a rerun makes it a draft, posts the receipt, then marks ready', () => {
-  const { root, f } = redAndFixed();
-  const draft = f.gh.toDraft;
-  f.gh.toDraft = () => { throw new Error('HTTP 403'); };
-  assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /HTTP 403/);
-  f.gh.toDraft = draft;
-  git(['push', '-q', 'origin', 'HEAD:refs/heads/job/alpha'], { cwd: root }); // a push by hand
-  const seen = [];
-  const d = f.gh.toDraft, a = f.gh.addComment, m = f.gh.markReady;
-  f.gh.toDraft = (...x) => { seen.push('draft'); return d(...x); };
-  f.gh.addComment = (...x) => { seen.push('receipt'); return a(...x); };
-  f.gh.markReady = (...x) => { seen.push('ready'); return m(...x); };
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.deepEqual(seen, ['draft', 'receipt', 'ready']);
-  assert.equal(parseBlock(f.state.comments[1].body, 'p3:receipt').attempt, 2);
-  // Done: a plain rerun touches nothing.
-  seen.length = 0;
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.deepEqual(seen, []);
-});
-
-test('attempt 2 whose ready step fails after its receipt: a rerun marks ready without a second receipt', () => {
-  const { root, f } = redAndFixed();
+  f.state.isDraft = true;
   f.state.failReady = true;
   assert.throws(() => jobComplete(root, 'alpha', { gh: f.gh, log: quiet }), /network/);
-  assert.equal(f.state.comments.length, 2, 'the receipt was posted before the failed ready');
   jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  assert.equal(f.state.comments.length, 2);
   assert.equal(f.state.ready, 2);
-  assert.equal(f.state.drafted, 1);
 });
 
 test('attempt 2 after the job merges an older tranche commit starts at its own first-parent commit, after attempt 1 (review of PR 81)', () => {
@@ -579,20 +449,6 @@ test('attempt 2 with a red test completes all the same: the suite is CI\'s (AUD-
   const r = jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
   assert.equal(r.ok, true);
   assert.notEqual(git(['rev-parse', 'HEAD'], { cwd: root }), before);
-  assert.equal(f.state.comments.length, 2);
-});
-
-test('the same-commit amendment works on attempt 2 and keeps its attempt number', () => {
-  const { root, f } = redAndFixed();
-  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
-  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
-  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
-  assert.equal(f.state.comments.length, 3);
-  assert.match(f.state.comments[2].body, /\nAmended receipt for job `alpha`, attempt 2,/);
-  const r = parseBlock(f.state.comments[2].body, 'p3:receipt');
-  assert.deepEqual([r.attempt, r.sha, r.exempt.revert], [2, tip, 'why']);
-  assert.equal(readRows(root, 'alpha').filter((x) => x.event === 'start').length, 2);
 });
 
 test('a COMPLETE job whose pull request merged is refused, and named --reopen', () => {
@@ -603,12 +459,12 @@ test('a COMPLETE job whose pull request merged is refused, and named --reopen', 
   assert.equal(readRows(root, 'alpha').length, 2);
 });
 
-test('merge passes on a green gate run that read attempt 2, and refuses one that read attempt 1', () => {
+test('merge passes on a verified green gate run on the tip, whatever attempt it read (PD-21)', () => {
   const { root, f } = redAndFixed();
-  jobComplete(root, 'alpha', { gh: f.gh, exemptRevert: 'why', log: quiet });
+  jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
   git(['checkout', '-q', 'main'], { cwd: root });
-  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, receipt: 'agrees', receipt_attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
+  const run = (attempt, id) => ({ id, body: block(GATE, { runs: [{ sha: tip, ok: true, attempt: attempt, run_id: id }] }), user: { login: 'github-actions[bot]' } });
   const mk = (gate) => ({
     getPR: () => ({ number: 9, state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: tip } }),
     comments: () => [...f.state.comments, gate],
@@ -616,8 +472,7 @@ test('merge passes on a green gate run that read attempt 2, and refuses one that
     verify: () => true,
     mergePR: () => ({ merged: true, sha: 'm'.repeat(40) }),
   });
-  assert.throws(() => merge(root, 9, { slug: 'o/r', io: mk(run(1, 11)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet }), /checked receipt attempt 2 and agreed with it; its newest run read attempt 1/);
-  const r = merge(root, 9, { slug: 'o/r', io: mk(run(2, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
+  const r = merge(root, 9, { slug: 'o/r', io: mk(run(1, 12)), reviewed: 'fresh worker', rounds: 1, reviewMinutes: 5, findings: 0, actedOn: 0, log: quiet });
   assert.equal(r.merged, true);
 });
 
@@ -933,7 +788,7 @@ test('test, job complete and their installs run product code without the GitHub 
     const c = jobComplete(root, 'alpha', { push: false, exec, log: quiet });
     assert.equal(c.ok, true);
     assert.deepEqual(calls.map((x) => x.cwd), ['test'], 'job complete installs the stale lock first');
-    assert.deepEqual(c.receipt.commands.filter((x) => /npm ci|node --test/.test(x.cmd)).map((x) => [x.cmd.split(' ')[0], x.exit]), [['npm', 0]]);
+    assert.deepEqual(c.commands.filter((x) => /npm ci|node --test/.test(x.cmd)).map((x) => [x.cmd.split(' ')[0], x.exit]), [['npm', 0]]);
   } finally {
     for (const [k, v] of Object.entries(keep)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
@@ -976,7 +831,7 @@ test('job complete installs the module\'s stale lock files before its checks, wi
     const c = jobComplete(root, 'alpha', { push: false, noSuite, exec, log: quiet });
     assert.equal(c.ok, true, JSON.stringify(c.commands));
     assert.deepEqual(calls.map((x) => x.cwd), ['test'], `installed (noSuite ${noSuite})`);
-    const names = c.receipt.commands.map((x) => x.cmd);
+    const names = c.commands.map((x) => x.cmd);
     assert.ok(names.indexOf('npm ci (test/package-lock.json)') < names.indexOf('node check.mjs'), names.join(' | '));
   }
 });
@@ -1024,7 +879,7 @@ test('--restart prints a replacement START from the branch and the PR, from the 
   assert.equal(f.state.prs, 1, 'no new pull request');
   assert.match(r.start, /attempt 1, replacement session/);
   assert.match(r.start, /BOB saw: its session stopped answering after 40 minutes/);
-  assert.match(r.start, /pull request https:\/\/x\/pull\/9 as it is \(last commit `[0-9a-f]+ half the work`; receipt none posted \(WORKING\)\)/);
+  assert.match(r.start, /pull request https:\/\/x\/pull\/9 as it is \(last commit `[0-9a-f]+ half the work`; WORKING\)/);
   assert.match(r.start, /refused is never rerouted/);
   // .process filled at the launch commit (the tranche tip), then job sync checks out the branch
   // and brings the tranche in, from the tranche's pin (defect sweep 4 Nov, #3 and #4).
@@ -1216,117 +1071,6 @@ test('every refusal in job start and --restart names a route that works from tha
   assert.ok(refusals >= 14, `walked ${refusals} refusals`);
 });
 
-// P7: the receipt names the test for each mark the job struck.
-test('job complete names a test for each struck mark, and refuses before marking when one is missing or wrong', () => {
-  const root = product();
-  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: no x)* does x.\n- **R2** *(not yet met: no y)* does y.\n- **R3** done.\n' });
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  const { start } = jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  assert.match(start, /--test R<id>="<test file>::<test name>"/);
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, {
-    'req/alpha.md': '# alpha\n\n- **R1** does x.\n- **R2** *(not yet met: no y)* does y.\n- **R3** done.\n',
-    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
-    'src/alpha/x.mjs': "export const x = 1;\n",
-  });
-  const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  assert.throws(() => run([]), /struck R1 with no --test/);
-  assert.throws(() => run(['R1=src/alpha/x.mjs::x']), /not in the module's tests/);
-  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 y']), /does not contain "R1 y"/);
-  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 x', 'R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck/);
-  assert.throws(() => run(['R1 test/alpha/x.test.mjs']), /write it as R<id>=/);
-  assert.equal(git(['rev-parse', 'HEAD'], { cwd: root }), tip, 'nothing committed');
-  assert.equal(readEntry(root, 'alpha').status.state, 'WORKING');
-  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface']);
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x at the interface' }]);
-});
-
-// Coordinator, 4 Nov: an id moved to another requirement file, or retired in a split, is not met
-// here; a test for it would only pin the id, which passes on revert. A real struck mark still owes one.
-test('job complete asks no test for a mark moved to another requirement file or retired in a split; a real struck mark still needs one', () => {
-  const root = product();
-  commit(root, {
-    'process/ledger/beta.json': entry('beta'),
-    'req/beta.md': '# beta\n\n- **R1** *(not yet met: b)* does b.\n',
-    'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R2** *(not yet met: y)* does y.\n- **R3** *(not yet met: z)* does z.\n- **R4** *(not yet met: w)* does w.\n',
-  });
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, {
-    // R1 and R4 met here; R2 moved to beta's file, still unmet there; R3 retired in a split; beta
-    // also gains an unrelated R4, which is not alpha's R4 moved.
-    'req/alpha.md': '# alpha\n\n- **R1** does x.\n- **R3** *(retired: moved to beta R3)* does z.\n- **R4** does w.\n',
-    'req/beta.md': '# beta\n\n- **R1** *(not yet met: b)* does b.\n- **R2** *(not yet met: y)* does y.\n- **R4** *(not yet met: v)* does v.\n',
-    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
-    'src/alpha/x.mjs': 'export const x = 1;\n',
-  });
-  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  assert.throws(() => run([]), /struck R1, R4 with no --test/);
-  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck \(struck: R1, R4\)/);
-  // beta's R1 was unmet at the base too: alpha's R1 is still alpha's own, and struck.
-  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R4=test/alpha/x.test.mjs::R1 x at the interface']);
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R4']);
-});
-
-// Coordinator, 5 Nov: a split copied jurisdictions R109 and four more to jurisdictions-b and -c,
-// each line "was jurisdictions R<n>" under a new id; job complete still asked tests for them.
-test('job complete asks no test for a requirement moved out of the module\'s file to another module\'s; the receipt lists it moved; a line deleted with nowhere to go still owes its test', () => {
-  const root = product();
-  commit(root, { 'process/ledger/alpha-b.json': entry('alpha-b', { requirements: 'req/alpha-b.md' }), 'req/alpha-b.md': '# alpha-b\n', 'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R5** *(not yet met: y)* does y.\n- **R6** *(not yet met: z)* does z.\n' });
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, {
-    'req/alpha-b.md': '# alpha-b\n\n- **R1** *(not yet met: y)* does y. (was alpha R5)\n',
-    'req/alpha.md': '# alpha\n\n- **R1** does x.\n',
-    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
-    'src/alpha/x.mjs': 'export const x = 1;\n',
-  });
-  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  // R6's line was deleted and no file names it moved: it still owes a test; R5 does not.
-  assert.throws(() => run([]), /struck R1, R6 with no --test/, 'R5 is not asked for');
-  // "was alpha R5" names R5 only: not R5.1 or R50, and not a module whose id alpha prefixes.
-  commit(root, { 'req/alpha-b.md': '# alpha-b\n\n- **R1** *(not yet met: y)* does y. (was alpha R5)\n- **R2** *(not yet met: q)* q. (was alpha R6.1)\n- **R3** *(not yet met: q)* q. (was alphabet R6)\n' });
-  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 x at the interface']), /struck R6 with no --test/);
-  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R6=test/alpha/x.test.mjs::R1 x at the interface']);
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R6']);
-  assert.deepEqual(r.receipt.moved, [{ req: 'R5', to: ['alpha-b'] }]);
-});
-
-// Coordinator, 5 Nov: a split copied the lines into the new module's file before the attempt's
-// base; the attempt only deletes them from its own. Same id, same line at HEAD: moved, no test.
-test('job complete asks no test for a line a split copied to another module before the base; a different line under the same id still owes one', () => {
-  const root = product();
-  commit(root, {
-    'process/ledger/alpha-b.json': entry('alpha-b', { requirements: 'req/alpha-b.md' }),
-    'req/alpha-b.md': '# alpha-b\n\n- **R5** *(not yet met: y)* does y.\n- **R6** *(not yet met: v)* does v.\n',
-    'req/alpha.md': '# alpha\n\n- **R1** *(not yet met: x)* does x.\n- **R5** *(not yet met: y)* does y.\n- **R6** *(not yet met: z)* does z.\n',
-  });
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, {
-    'req/alpha.md': '# alpha\n\n- **R1** does x.\n',
-    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x at the interface', () => {});\n",
-    'src/alpha/x.mjs': 'export const x = 1;\n',
-  });
-  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  // alpha-b's file is unchanged on this branch; R5 is there with the same line, R6 is not.
-  assert.throws(() => run([]), /struck R1, R6 with no --test/, 'R5 is not asked for');
-  const r = run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R6=test/alpha/x.test.mjs::R1 x at the interface']);
-  assert.equal(r.ok, true);
-  assert.deepEqual(r.receipt.tests.map((t) => t.req), ['R1', 'R6']);
-  assert.deepEqual(r.receipt.moved, [{ req: 'R5', to: ['alpha-b'] }]);
-  // Met there, the same line is not a move: it would leave R5 unmet nowhere (review).
-  commit(root, { 'req/alpha-b.md': '# alpha-b\n\n- **R5** does y.\n- **R6** *(not yet met: v)* does v.\n' });
-  assert.throws(() => run(['R1=test/alpha/x.test.mjs::R1 x at the interface', 'R6=test/alpha/x.test.mjs::R1 x at the interface']), /struck R5 with no --test/);
-});
-
 test('metrics report: BOB\'s idle time per day, and the overhead share per job and per layer', () => {
   const idle = idleByDay([
     { at: '2026-11-01T01:00:00Z', row: 'sweep', bob_acts: true, bob_quiet_h: 0.5 },
@@ -1423,41 +1167,21 @@ test('the START names the job\'s rulebook (TXT-5)', () => {
   assert.ok(!/rulebooks\/(bob|root|watcher|worker)\.md/.test(start));
 });
 
-// The gate race: finish's order is push, confirm it landed, receipt, then ready. The gate reads
-// the draft state live (gate.test), so the push's run, if it is the one kept, judges the
-// pull request ready; the receipt is posted before either run can read it.
-test('job complete marks ready last: after the push landed and the receipt is posted', () => {
+// The gate race: finish's order is push, confirm it landed, then ready. The gate reads the draft
+// state live (gate.test), so the push's run, if it is the one kept, judges the pull request ready.
+test('job complete marks ready last: after the push landed', () => {
   const root = withOrigin();
   const f = fakeGitHub();
   f.state.failReady = false;
   const seen = [];
   const remote = () => git(['ls-remote', 'origin', 'refs/heads/job/alpha'], { cwd: root }).split('\t')[0];
-  f.gh.addComment = ((add) => (...a) => { seen.push(['receipt', remote()]); return add(...a); })(f.gh.addComment);
-  f.gh.markReady = () => { seen.push(['ready', remote(), f.state.comments.length]); f.state.ready++; f.state.isDraft = false; };
+  f.gh.markReady = () => { seen.push(['ready', remote()]); f.state.ready++; f.state.isDraft = false; };
   jobStart(root, 'alpha', { coordinator: 's', setup: ready, open: f.open, find: f.find, log: quiet });
   git(['checkout', '-q', 'job/alpha'], { cwd: root });
   commit(root, { 'src/alpha/index.mjs': 'export const x = 1;\n' });
   jobComplete(root, 'alpha', { gh: f.gh, log: quiet });
   const tip = git(['rev-parse', 'HEAD'], { cwd: root });
-  assert.deepEqual(seen, [['receipt', tip], ['ready', tip, 1]]);
-});
-
-test('a mark with a parenthetical between its id and "(not yet met" is struck like any other, and needs its --test', () => {
-  const root = product();
-  // The copy's own shape (local-facts R23 and R25, 4 Nov), nested parentheses and all.
-  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) *(not yet met: T53; per C3)* **Does x.** Test: x.\n- **R2** (T53; `jurisdictions` R41) *(not yet met: T53; PLATFORM)* does y.\n' });
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, {
-    'req/alpha.md': '# alpha\n\n- **R1** (T53; N1257; DEC-151 (2); row 15; amends R10, R12) **Does x.** Test: x.\n- **R2** (T53; `jurisdictions` R41) *(not yet met: T53; PLATFORM)* does y.\n',
-    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 x', () => {});\n",
-    'src/alpha/x.mjs': 'export const x = 1;\n',
-  });
-  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  assert.throws(() => run([]), /struck R1 with no --test/);
-  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 x']), /no mark for R2 that this branch struck \(struck: R1\)/);
-  assert.deepEqual(run(['R1=test/alpha/x.test.mjs::R1 x']).receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 x' }]);
+  assert.deepEqual(seen, [['ready', tip]]);
 });
 
 // Bob, 4 Nov: urgency in process3's initial release. A job's question to BOB waits at most
@@ -1475,25 +1199,6 @@ test('the START: the escalation to ROOT after decision_minutes, its limits, and 
   const own = startText({ entry: { ...e, acts: ['only these'] }, slug: 'o/r', branch: 'job/alpha', tranche: 'tranche', coordinator: 's', attempt: 1, reading: { files: [], bytes: 0 } });
   assert.ok(own.includes('No answer from BOB in 30 min: send it once more, then to ROOT, then the watcher, with the minutes'), 'none addressed: address reads them');
   assert.ok(own.includes('- the wake that job complete or block prints'), 'an entry with its own acts keeps the wake');
-});
-
-test('a mark at the end of a requirement line, after its bold title, is struck like any other, and needs its --test', () => {
-  const root = product();
-  // The copy's acquisition R127 shape (the coordinator's ruling under P17, 4 Nov).
-  commit(root, { 'req/alpha.md': '# alpha\n\n- **R1** (T53; N1259; K4403 (2)) **Reads in slices.** Control: no resume. *(not yet met: T53)*\n- **R2** (T53) **Does y.** *(not yet met: T53)*\n  (T53; R1: a continuation line) *(not yet met: T53)*\n' });
-  git(['branch', '-f', 'tranche', 'main'], { cwd: root });
-  jobStart(root, 'alpha', { coordinator: 's', push: false, log: quiet });
-  git(['checkout', '-q', 'job/alpha'], { cwd: root });
-  commit(root, {
-    // R1's mark struck; the continuation line's words are prose and stay as they were.
-    'req/alpha.md': '# alpha\n\n- **R1** (T53; N1259; K4403 (2)) **Reads in slices.** Control: no resume.\n- **R2** (T53) **Does y.** *(not yet met: T53)*\n  (T53; R1: a continuation line) *(not yet met: T53)*\n',
-    'test/alpha/x.test.mjs': "import test from 'node:test'; test('R1 slices', () => {});\n",
-    'src/alpha/x.mjs': 'export const x = 1;\n',
-  });
-  const run = (tests) => jobComplete(root, 'alpha', { push: false, tests, log: quiet });
-  assert.throws(() => run([]), /struck R1 with no --test/);
-  assert.throws(() => run(['R2=test/alpha/x.test.mjs::R1 slices']), /no mark for R2 that this branch struck \(struck: R1\)/);
-  assert.deepEqual(run(['R1=test/alpha/x.test.mjs::R1 slices']).receipt.tests, [{ req: 'R1', file: 'test/alpha/x.test.mjs', name: 'R1 slices' }]);
 });
 
 // Copy, 4 Nov: with rows.mjs untracked, job test and job complete must build it as the gate does.
@@ -1518,7 +1223,7 @@ test('job test and job complete build untracked generated files before the suite
   git(['clean', '-qfdX'], { cwd: root });
   const c = jobComplete(root, 'alpha', { push: false, log: quiet });
   assert.equal(c.ok, true, JSON.stringify(c.commands));
-  assert.ok(c.receipt.commands.some((x) => /^build generated \(gen\/rows\.mjs\)$/.test(x.cmd) && x.exit === 0));
+  assert.ok(c.commands.some((x) => /^build generated \(gen\/rows\.mjs\)$/.test(x.cmd) && x.exit === 0));
 });
 
 // The job's cost is BOB's at the merge (measured 4 Nov, 11:49: mid-turn a session's own record has
@@ -1544,7 +1249,7 @@ test('the START no longer asks the job for --cost-usd', () => {
   const said = [];
   jobStart(root, 'alpha', { coordinator: 's', push: false, log: (m) => said.push(m) });
   assert.doesNotMatch(said.join('\n'), /--cost-usd/);
-  assert.match(said.join('\n'), /job complete alpha --not-verified/);
+  assert.match(said.join('\n'), /`node \.process\/tool\/p3\.mjs job complete alpha`/);
 });
 
 test('p3 test runs the suite within suite_timeout_minutes from config', () => {

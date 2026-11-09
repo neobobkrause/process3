@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { commonDir, fetchSeen, ghAfter, ghTurn, limitSignal, Paced, PACING_DEFAULTS, pacingProblem, pushTurn, sessionId, setPacing } from './pace.mjs';
+import { backoff, commonDir, limitSignal, MAX_WAIT_MIN, PACING_DEFAULTS, pacingProblem, setPacing } from './pace.mjs';
 
 // A step's whole output, kept: written to <dir>/<n>-<name>.log, its tail (the last max
 // characters of stdout and of stderr) given to put, and, when cut, how many lines were left out
@@ -59,11 +59,6 @@ export function run(cmd, args = [], opts = {}) {
 export const NO_TOKENS = ['GH_TOKEN', 'GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN'];
 const ANCESTRY = new Map();
 export function git(args, opts = {}) {
-  // Every push takes its turn: GitHub's pause and stop only (PD-6: no push ceiling; pace.mjs).
-  // A refused push: a failed push to a caller that handles failures (allowFail), with the refusal as
-  // its stderr, so the caller says what to rerun; else the refusal itself (R17c, item F).
-  try { pushTurn(args, opts.cwd); } catch (e) { if (!(e instanceof Paced)) throw e; if (opts.allowFail) return { code: 1, stdout: '', stderr: e.message, seconds: 0, timedOut: false, paced: true }; fail(e.message); }
-  fetchSeen(args, opts.cwd);
   // A merge base read on history that holds it (C8, the coordinator, 7 Nov: BOB's layer lands failed
   // in a shallow checkout; the train deepened, the layer flow did not): `deepen: true` deepens a
   // shallow clone first. Asked by the layer flow's writes (publish, land, retest, sync, merge), whose
@@ -81,9 +76,6 @@ export function git(args, opts = {}) {
   // any other caller asks git again, as before (cold review of C50).
   if (memoKey && ANCESTRY.has(memoKey) && (ANCESTRY.get(memoKey).code === 0 || (opts.allowFail && !opts.cut))) return opts.allowFail ? ANCESTRY.get(memoKey) : ANCESTRY.get(memoKey).stdout.replace(/\n$/, '');
   let r = once();
-  // A push GitHub refused for its rate limit pauses every session, as a gh call's refusal does (cold
-  // review of R17g: a push's 429 was never read). A dry run pushes nothing.
-  if (args[0] === 'push' && r.code !== 0 && !args.includes('--dry-run')) { try { ghAfter(args, r, opts.cwd); } catch { /* the pause is a record; the push's own failure stands */ } }
   // An is-ancestor that answers no in a shallow clone is the cut's answer, not the history's (C8, the
   // coordinator, 7 Nov: in a --depth 1 copy clone `layer status 9` read 8 modules as rescheduled,
   // the provider's land hidden behind the cut). Its no stands only when it is exact; else the clone
@@ -117,21 +109,18 @@ export function deepenForBase(args, cwd) {
   }
   if (deepened) runGit(['config', DEEP_MARK, 'true'], cwd);
 }
-// One deepening fetch of a shallow clone, logged as every fetch is (fetchSeen); true when it changed
+// One deepening fetch of a shallow clone; true when it changed
 // the cut. A fetch that fails refuses with `why`. (Cold review of the C8 ancestry fix: an origin itself
 // shallow left --unshallow changing nothing, and a loop asking again never ended.)
 const cutOf = (cwd) => { const f = runGit(['rev-parse', '--git-path', 'shallow'], cwd).stdout.trim(); try { return readFileSync(resolve(cwd, f), 'utf8'); } catch { return ''; } };
 function deepenOnce(cwd, how, why) {
   const before = cutOf(cwd);
   const args = ['fetch', '-q', ...how, 'origin'];
-  fetchSeen(args, cwd);
   let f = runGit(args, cwd);
   // A deepen refused on a cut another fetch made (--shallow-exclude: "error in object: unshallow"):
   // the whole history once, before refusing.
   if (f.code !== 0 && how[0] !== '--unshallow' && /error in object: unshallow/.test(f.stderr)) {
-    const u = ['fetch', '-q', '--unshallow', 'origin'];
-    fetchSeen(u, cwd);
-    f = runGit(u, cwd);
+    f = runGit(['fetch', '-q', '--unshallow', 'origin'], cwd);
   }
   if (f.code !== 0) fail(`${why}; that history could not be fetched (git fetch: ${f.stderr.trim().split('\n').pop()})${lockNote(f.stderr, cwd)}; nothing was answered: run it again, or deepen the clone (git fetch --unshallow origin)`);
   return cutOf(cwd) !== before;
@@ -150,7 +139,6 @@ function fetchSha(x, cwd) {
   if (holds(x, cwd)) return true;
   if (!SHA.test(String(x))) return false;
   const args = ['fetch', '-q', '--depth=1', 'origin', x];
-  fetchSeen(args, cwd);
   const f = runGit(args, cwd);
   if (f.code === 0) return holds(x, cwd);
   // Origin answered that it does not serve the sha: absent there too, so git's answer stands. Any
@@ -264,14 +252,21 @@ export function treeBlobs(root, ref, dirs) {
 }
 
 // GitHub through the gh CLI (measured route, platform row 14). Returns parsed JSON or text.
-// Every gh call takes its turn against the account's budget of GitHub's published limits, and a
-// rate-limit refusal pauses every session until GitHub's reset (R17, pace.mjs).
-export function ghRun(args, opts = {}) {
-  try { ghTurn(args, opts.cwd); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
-  const r = run('gh', args, opts);
-  const p = ghAfter(args, r, opts.cwd);
-  if (p) fail(`GitHub refused gh ${args.slice(0, 2).join(' ')} with a rate limit${p.unshared ? ` (the pause is recorded in this clone only: the state branch refused it, ${p.unshared.split('\n')[0]})` : ''}; ${p.stopped ? 'a refusal within an hour of an earlier one: every GitHub call is stopped until the coordinator runs `node .process/tool/p3.mjs github resume --by <its session>`; tell the coordinator' : `every session waits until ${p.until}; run this again after it, never inside it`}`);
-  return r;
+// A call GitHub refuses for a rate limit, or answers with a 5xx while a limit is at the target, backs
+// off (pace.mjs backoff, PD-22): waited out and made again when GitHub did not act on it (a refusal),
+// up to MAX_WAIT_MIN; longer, or after a 5xx (a write may have landed), it refuses, naming when to rerun.
+export function ghRun(args, opts = {}, { read, now = Date.now, sleep = pause, log = (m) => console.error(m) } = {}) {
+  for (let t = 1; ; t++) {
+    const r = run('gh', args, opts);
+    if (r.code === 0) return r;
+    const b = backoff(r.stderr, opts.cwd, { ...(read ? { read } : {}), now: now() });
+    if (!b) return r;
+    const ms = b.until - now();
+    const when = new Date(b.until).toISOString().replace(/\.\d+Z$/, 'Z');
+    if (!b.retry || t >= 3 || ms > MAX_WAIT_MIN * 60e3) fail(`gh ${args.slice(0, 2).join(' ')}: ${b.why}; run this again after ${when}, never before (P27)`);
+    log(`gh ${args.slice(0, 2).join(' ')}: ${b.why}; waiting ${Math.ceil(ms / 1000)} s, then once more`);
+    sleep(ms);
+  }
 }
 export function gh(args, opts = {}) {
   const r = ghRun(args, { input: opts.input, cwd: opts.cwd });
@@ -345,8 +340,7 @@ export function repoSlug(root) {
 }
 
 export const DEFAULTS = {
-  // GitHub limit conformance (R17, pace.mjs): the share of GitHub's published limits used, the
-  // limits themselves, optional session caps, the per-clone burst floor and the poll backoff.
+  // GitHub's published limits (P27, PD-22; pace.mjs): the share of them used, and the poll cadence.
   pacing: { ...PACING_DEFAULTS },
   tranche: 'tranche',
   records: ['process/'],
@@ -578,7 +572,7 @@ export function configOf(c, where = CONFIG_FILE) {
     tranche: c.tranche ?? DEFAULTS.tranche,
     approvals: { ...DEFAULTS.approvals, ...(c.approvals || {}) },
     targets: { ...DEFAULTS.targets, ...(c.targets || {}) },
-    pacing: { ...DEFAULTS.pacing, ...(c.pacing || {}), github_limits: { ...DEFAULTS.pacing.github_limits, ...(c.pacing?.github_limits || {}) } },
+    pacing: { ...DEFAULTS.pacing, ...(c.pacing || {}) },
   };
 }
 
@@ -749,27 +743,15 @@ const jitter = (ms) => Math.round(ms * (0.75 + Math.random() * 0.5));
 // merge commit, never a rebase or a force; a conflict stops it). Then it pushes again, at most
 // `tries` times in all; the last refusal is reported in the remote's words. Returns the tip pushed.
 // `push` is for the tests: it stands in for one push and returns git's { code, stderr }.
-// Each push of a state branch marks the commit it pushes (R17e, coordinator's C9/C10: a push
-// records itself in the push it makes): the ledger counts the branch's pushes from its own history
-// (ghshare.mjs statePushes), a source no share's lag or loss can drift.
-export const PUSH_TRAILER = 'P3-Push';
-export function stampPush(cwd, session = sessionId()) {
-  const msg = git(['log', '-1', '--format=%B'], { cwd });
-  if (new RegExp(`^${PUSH_TRAILER}:`, 'm').test(msg)) return false;
-  git(['commit', '-q', '--amend', '--allow-empty', '--no-verify', '-m', `${msg.trimEnd()}\n\n${PUSH_TRAILER}: ${session || 'no-session'}`], { cwd });
-  return true;
-}
-export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = console.log, redo, push, stamp = false } = {}) {
+export function pushRetry(cwd, branch, { tries = PUSH_TRIES, wait = 1000, log = console.log, redo, push } = {}) {
   const once = push || (() => git(['push', '-q', 'origin', `HEAD:refs/heads/${branch}`], { cwd, allowFail: true }));
   for (let t = 1; ; t++) {
-    if (stamp) stampPush(cwd);
     const r = once();
     if (r.code === 0) return git(['rev-parse', 'HEAD'], { cwd });
     const why = r.stderr.trim();
     // GitHub's own refusal (a 429, a secondary rate limit): obeyed, never retried inside it (cold review
-    // of R17g: git's "RPC failed; HTTP 429" matched SERVER_ERROR and was pushed again at 1, 2, 4, 8 s);
-    // git() has recorded the pause for every session.
-    if (limitSignal(why)) fail(`the push of ${branch} was refused by GitHub's rate limit; every session waits it out (p3 github budget shows it). The refusal: ${why}`);
+    // of R17g: git's "RPC failed; HTTP 429" matched SERVER_ERROR and was pushed again at 1, 2, 4, 8 s).
+    if (limitSignal(why)) fail(`the push of ${branch} was refused by GitHub's rate limit; run it again after the limit resets (\`p3 github budget\` reads it). The refusal: ${why}`);
     const moved = REF_MOVED.test(why);
     if (!moved && !SERVER_ERROR.test(why)) fail(`the push of ${branch} failed: ${why}`);
     if (t >= tries) {
@@ -833,67 +815,6 @@ export function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'ESRCH' ? false : e.code === 'EPERM' ? true : null; }
 }
-// The foreground p3 commands of a clone (C53, coordinator, 9 Nov): C52's detached share of a
-// connector write's rows ran git in the clone while a p3 command there fetched, and in a shallow
-// clone two git processes collide on its shallow file ("shallow file has changed since we read
-// it"; CI met it on git 2.56). Each p3 command marks itself here for its life; the detached share
-// runs no git while any mark is live, and never when it cannot tell (fail closed). A command never
-// waits on the share: the share waits, or defers. A file per process, so no two writers meet.
-export const FOREGROUND_DIR = 'p3-foreground';
-// Written by a share that deferred: the next p3 command's end share carries the content rows
-// whatever the 15 minutes (C47, C52: every row reaches the ledger), and removes it once none is left.
-export const SHARE_DEFERRED = 'p3-gh-share.deferred';
-// Marks this process a foreground command of the clone; returns the unmark. A mark left by a killed
-// process is read as stale (its process gone on this host) and removed by the next reader.
-export function markForeground(root, { host = hostname(), pid = process.pid, now = Date.now } = {}) {
-  const dir = join(commonDir(root), FOREGROUND_DIR);
-  mkdirSync(dir, { recursive: true });
-  const f = join(dir, `${String(host).replace(/[^\w.-]/g, '_')}-${pid}.json`);
-  const me = JSON.stringify({ pid, host, at: new Date(now()).toISOString() });
-  writeFileSync(f, me);
-  return () => { try { if (readFileSync(f, 'utf8') === me) unlinkSync(f); } catch { /* gone */ } };
-}
-// Whether a foreground command runs in the clone: 'none', 'present' (a live mark), or 'unknown' (a
-// mark unread, half written, of another host, or a process whose life cannot be told; the
-// directory unreadable). A mark of this host whose process is gone is stale: removed, not counted.
-// A mark this host cannot judge (another host's, or a process whose life is unknown) is believed for
-// FOREGROUND_MAX_H hours, longer than any p3 command runs: the longest, deploy dev with its internal
-// walk, is bounded by the walk's own 360 minutes (deploycfg.mjs) plus its build and deploy steps.
-// Older, it is a command long gone, and is removed: no mark defers shares forever (coordinator on C53).
-export const FOREGROUND_MAX_H = 8;
-export function foregroundIn(root, { alive = pidAlive, host = hostname(), unread = STATE_LOCK.unread, maxAge = FOREGROUND_MAX_H * 3600e3, now = Date.now } = {}) {
-  let dir;
-  let names;
-  try { dir = join(commonDir(root), FOREGROUND_DIR); names = readdirSync(dir); } catch (e) { return e?.code === 'ENOENT' ? 'none' : 'unknown'; }
-  let out = 'none';
-  for (const n of names.filter((x) => x.endsWith('.json'))) {
-    const f = join(dir, n);
-    let text = null;
-    try { text = readFileSync(f, 'utf8'); } catch (e) { if (e?.code === 'ENOENT') continue; return 'unknown'; }
-    let m = null;
-    try { m = JSON.parse(text); } catch { m = null; }
-    if (!m || !Number.isInteger(m.pid)) {
-      // Half written by a command starting now, or left by one killed while writing it.
-      let age = 0;
-      try { age = Date.now() - statSync(f).mtimeMs; } catch { continue; }
-      if (age > unread * 1000) { try { unlinkSync(f); } catch { /* gone */ } continue; }
-      return 'unknown';
-    }
-    const live = m.host === host ? alive(m.pid) : null;
-    const gone = () => { try { if (readFileSync(f, 'utf8') === text) unlinkSync(f); } catch { /* gone */ } };
-    if (live === false) { gone(); continue; }
-    if (live === null) {
-      let age = 0;
-      try { age = now() - statSync(f).mtimeMs; } catch { continue; }
-      if (age > maxAge) { gone(); continue; }
-      return 'unknown';
-    }
-    out = 'present';
-  }
-  return out;
-}
-// Whether this process holds the clone's state lock now (a write is under way).
-export const stateLockHeld = (root) => (lockDepth.get(stateLockPath(root)) || 0) > 0;
 export function stateLockPath(root) {
   if (!lockPaths.has(root)) {
     const r = run('git', ['rev-parse', '--git-common-dir'], { cwd: root });

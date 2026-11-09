@@ -6,12 +6,12 @@
 // p3-capability: gate-class (the gate shim runs `gate-class` before the browser install only when
 // the pin has it: C45b)
 import { expireRecords } from './lib/expire.mjs';
-import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gate, gateClassAt, postRow } from './lib/gate.mjs';
 import { browserNeeded, gateRepo } from './lib/gateclass.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
-import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
+import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync, layerPin, layerPinOpen } from './lib/layerflow.mjs';
 import { layerMode, layersAt } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { TOOL_ROOT, jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
@@ -34,16 +34,8 @@ import { compareRanges, loadRanges, measureSize, sizeLines } from './lib/size.mj
 import { startCheck, wakeCheck, workdirLines } from './lib/start.mjs';
 import { layoutMove } from './lib/layout.mjs';
 import { checkRole, coordinatorOf, senderOf, handoverBegin, handoverConfirm, promptRefresh, readAddress, recordStart, startRole, tipApprovals, tipConfig } from './lib/roles.mjs';
-import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrites, realPendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
-import { clearLocalPause, commonDir, githubBudget, noteTurn, Paced, useShared } from './lib/pace.mjs';
-import { multiShare, readLedgers, stateShare } from './lib/ghshare.mjs';
-// The ledger written, read with every other ledger named (C40).
-const accountShare = (root, cfg, flag) => {
-  const sh = stateShare(root, cfg);
-  return sh ? multiShare(sh, readLedgers(root, cfg, { flag }).map((n) => stateShare(root, cfg, { url: `https://github.com/${n}.git`, readOnly: true }))) : null;
-};
-import { auditRepos, githubAudit } from './lib/ghaudit.mjs';
-import { hookLoadedLine, hookRun } from './lib/ghhook.mjs';
+import { bookkeep, fetchState, flushState, handoff, jsonl, outcome, pendingWrites, readState, send, stateBatch, strandedWrites, writeState, stateReplay } from './lib/state.mjs';
+import { githubBudget } from './lib/pace.mjs';
 import { closedRows, noticeSlots, status } from './lib/status.mjs';
 import { noticeTriage, recordTriage } from './lib/triage.mjs';
 import { PROCESS_ROOT, triageAdd, triageChoose, triageClose, triageList } from './lib/register.mjs';
@@ -53,7 +45,7 @@ import { SWEEP_ROWS_FILE, beforeAct, sweep, sweepTask, watch } from './lib/sweep
 import { recordCheck, recordSince, takenIn } from './lib/record.mjs';
 import { switchIn, switchOut, switchQuiet } from './lib/switch.mjs';
 import { checkOpen, openLine, openState, recordOpen, trancheClose, trancheOpen } from './lib/tranche.mjs';
-import { CONFIG_FILE, Fail, SHARE_DEFERRED, fail, git, list, loadConfig, markForeground, now, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
+import { CONFIG_FILE, Fail, fail, git, list, loadConfig, now, parseArgs, repoRoot, repoSlug } from './lib/util.mjs';
 
 // Machine-readable findings (ARC-5): printed one per line and, with --out, written as JSON.
 export function report(findings, out, extra = {}) {
@@ -146,9 +138,9 @@ const commands = {
     return 0;
   },
 
-  // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
+  // job complete <id> [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
-    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
+    noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
   }).ok ? 0 : 1),
 
   // revert exempt <pr> --why "<why>" --reviewer <session>: a reviewer's exemption from the gate's revert
@@ -168,7 +160,9 @@ const commands = {
   // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
   // layer retest <id>: a rescheduled module with no work on the layer re-tested by CI on a ready PR, no job session.
   // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
-  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (SLB-12: after a pin move).
+  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (a reset: PD-23's --layers reset runs it).
+  // layer pin <n> | --open [--layers apply|hold|reset] [--no-wait]: the tranche's pin into open layer n (or each), PD-23: in place when the pin diff changes
+  // nothing that judges the layer; else printed for the coordinator's --layers choice. The pin-move session runs --open after its merge.
   // layer merge <n> [--no-wait] [--defer-done "<why>"]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
   'layer open': (a, root) => (layerOpen(root, layerArg(a, root), { by: senderOf(root, a.as) }).ok ? 0 : 1),
@@ -176,22 +170,25 @@ const commands = {
   // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next
   // layer to open (the coordinator's ruling, 6 Nov): layer open lists it in that layer's jobs.
   // layer join <companion> --companion-of <job> --layer <n> --why "<what the job needs of it>" (PD-19):
-  // a module whose change a job in the open layer needs joins that layer as its companion; the job lands after it.
+  // a module whose change a job in the open layer needs joins that layer as its companion; both land in that layer (PD-19b).
   'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as), ...(a['companion-of'] !== undefined ? { companionOf: a['companion-of'], layer: a.layer } : a.layer !== undefined ? { layer: a.layer } : {}) }).ok ? 0 : 1),
   'layer status': (a, root) => (layerStatus(root, layerArg(a, root)).ok ? 0 : 1),
   'layer publish': async (a, root) => {
-    const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
     // Unset, the run's check of the layer branch waits pacing.poll_first_s (30 s), fixed (PD-6);
     // --every sets it, at 30 s or more.
     const every = a.every === undefined ? null : Number(a.every);
     if (every !== null && !(Number.isFinite(every) && every >= 30)) fail(`--every <seconds>, 30 or more (the poll cadence), not ${JSON.stringify(a.every)}`);
-    return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
+    return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
   'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   // layer clear <user> --provider <id> [--land <sha>] --why "<the ruling>": a false reschedule cleared for that user only (C11 c).
   'layer clear': (a, root) => (layerClear(root, one(a, 'user module'), { provider: a.provider, land: typeof a.land === 'string' ? a.land : undefined, why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer sync': async (a, root) => ((await layerSync(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer pin': async (a, root) => {
+    const o = { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a.layers !== undefined ? { choice: String(a.layers) } : {}) };
+    return (a.open ? await layerPinOpen(root, o) : await layerPin(root, layerArg(a, root), o)).ok ? 0 : 1;
+  },
   'layer merge': async (a, root) => ((await layerMerge(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a['defer-done'] !== undefined ? { deferDone: a['defer-done'] } : {}) })).ok ? 0 : 1),
   'layer report': (a, root) => (layerReport(root, layerArg(a, root), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
 
@@ -401,9 +398,9 @@ const commands = {
   // merge <pr> (--reviewed "<what>" --rounds <n> --review-minutes <n> --findings <n> --acted-on <n> [--review-cost-usd <n> | --review-session <id>[,<id>] | --review-record <file>] | --no-review "<why>") [--decision "<why>"] [--minutes 95] [--job-cost-usd <n> [--job-session <id>]]: BOB merges a job.
   // With no --review-cost-usd, the review's cost is read from the review session's saved get_session result (--review-record), else the
   // module's `metrics add <id> --role review` rows (those of --review-session, or since the attempt started); none read: unmeasured, said why.
-  // A job PR that fires a review trigger (a security path changed, a test deleted or loosened: triggers.mjs) merges only --reviewed.
+  // A job PR that fires a review trigger (a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
-  // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review, no receipt.
+  // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
@@ -431,7 +428,7 @@ const commands = {
       // its gate-class step left the browser out (P3_BROWSER=skip), so no product test may run.
       repo: gateRepo(processRepo, TOOL_ROOT), browserSkipped: process.env.P3_BROWSER === 'skip',
     });
-    console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
+    console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
   },
 
@@ -545,8 +542,6 @@ const commands = {
   // With --wake, once the approvals hold, the calling role's prompt against the one it started
   // from: a changed prompt is printed once, with its pin, and recorded (prompt refresh).
   'start check': (a, root) => {
-    // C34: a session whose GitHub hook did not load is told at its first check and every wake (PD-13).
-    { let line = null; try { line = hookLoadedLine(); } catch { line = null; } if (line) console.log(line); }
     // C42: one repository per session (BD-R2; PD-13). Warnings, never a refusal.
     { let lines = []; try { lines = workdirLines(root); } catch { lines = []; } for (const l of lines) console.log(l); }
     // A role's first check re-anchors as job start does (coordinator, 5 Nov: ROOT, BOB and the
@@ -592,43 +587,12 @@ const commands = {
   //   from any session on either account, before anything stops.
   // switch quiet [--minutes 2]: exit 0 only when the tranche's tip has not moved for that long.
   // The runbook: rulebooks/account-switch.md.
-  // github budget (R17): use against each of GitHub's published limits, per window, account-wide
-  // (pace.mjs), the pause, and each session's calls. Writes nothing but this clone's shared use.
-  // C40: the account-wide count read across the ledger written and every ledger named
-  // (pacing.read_ledgers; --ledgers or P3_LEDGERS, comma-separated "<owner>/<repo>").
-  'github budget': (a, root) => {
-    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
-    const sh = accountShare(root, cfg, a.ledgers);
-    if (sh) useShared(sh);
-    githubBudget(root);
-    return 0;
-  },
-  // github audit [--since <iso>] [--repo <owner/repo>]... (R17c): GitHub's own evidence of calls,
-  // pushes and writes against the account's ledger; exit 1 on an unexplained push or write gap.
-  'github audit': (a, root) => {
-    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
-    let slug = null;
-    try { slug = repoSlug(root); } catch { slug = null; }
-    const processOrigin = git(['config', '--get', 'remote.origin.url'], { cwd: PROCESS_ROOT, allowFail: true }).stdout.trim();
-    const others = readLedgers(root, cfg, { flag: a.ledgers });
-    const repos = [...new Set([...auditRepos({ slug, cfg, processOrigin }), ...others, ...list(a.repo).filter((x) => typeof x === 'string')])];
-    // Against the account's ledgers, never this clone's log alone (cold review of R17c): the one
-    // written and every one named (C40).
-    const sh = accountShare(root, cfg, a.ledgers);
-    if (!sh) fail('github audit: no GitHub ledger here: nothing to audit against');
-    useShared(sh);
-    try { return githubAudit(root, { since: typeof a.since === 'string' ? a.since : undefined, repos, product: cfg ? slug : null, stateBranch: cfg?.state_branch, login: typeof a.login === 'string' ? a.login : null }).ok ? 0 : 1; } catch (e) { if (e instanceof Fail) throw e; fail(e.message); }
-  },
-  // github hook (R17c): the Claude Code PreToolUse hook; the hook's JSON on stdin. Exit 2 blocks the
-  // call (a governor refusal, or a raw push, gh or curl to GitHub), with the reason on stderr.
-  'github hook': (a, root) => {
-    let input = null;
-    try { input = JSON.parse(readFileSync(0, 'utf8') || 'null'); } catch { input = null; }
-    // The same as tool/hook.mjs (R17d), which the settings call: this command stays for older ones.
-    return hookRun(input, root);
-  },
-  // github push <git push arguments> (R17b, coordinator's ruling 6 Nov): every session pushes only
-  // through this: it waits only for GitHub's own pause or stop (PD-6), and is logged and shared. Never a force or a delete (Bob's standing approvals).
+  // github budget: one read of GitHub's /rate_limit (free against the primary limit), against the
+  // target (PD-22: 85% of GitHub's published limits; pace.mjs).
+  'github budget': (a, root) => (githubBudget(root) ? 0 : 1),
+  // github push <git push arguments> (R17b): the push route the settings files allow while they deny a
+  // raw `git push` (notes/r17c-settings.md, Bob's files): never a force, a delete, a wildcard or main
+  // (Bob's standing approvals). No ledger, no pacing (PD-22): a rate-limit refusal is GitHub's to say.
   'github push': (a, root) => {
     if (Object.keys(a).some((k) => k !== '_' && !['set-upstream', 'quiet'].includes(k))) fail('github push <remote> <refspec>... [--set-upstream] [--quiet]: no other flag (never --force, --delete, --mirror or --all)');
     if (['set-upstream', 'quiet'].some((k) => a[k] !== undefined && a[k] !== true)) fail('github push <remote> <refspec>... --set-upstream --quiet: the flags take no value; put them after the refspecs');
@@ -652,27 +616,6 @@ const commands = {
     if (r.stderr.trim()) console.error(r.stderr.trim());
     return r.code === 0 ? 0 : 1;
   },
-  // github note --content <n> [--points <n>] [--what <text>] (R17b): a session records the
-  // connector writes it is about to make (a PR created, edited or marked ready, a comment, a
-  // review: each one content-creating request, 5 points), before making them; it waits or refuses
-  // as a gh call would. Connector reads stay on GitHub's primary count, which sees them.
-  'github note': (a, root) => {
-    try { noteTurn(root, { content: a.content ?? 0, ...(a.points !== undefined ? { points: a.points } : {}), ...(typeof a.what === 'string' ? { what: a.what } : {}) }); } catch (e) { if (e instanceof Paced) fail(e.message); throw e; }
-    console.log(`github: ${a.content ?? 0} connector write(s) recorded; make them now`);
-    return 0;
-  },
-  // github resume --by <session> (R17): the coordinator clears a stop (two refusals within an
-  // hour) once the account is in good standing; every session may call GitHub again.
-  'github resume': (a, root) => {
-    const by = typeof a.by === 'string' && /^session_[A-Za-z0-9]+$/.test(a.by) ? a.by : fail('github resume --by <the coordinator\'s session id>');
-    const cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null;
-    const sh = stateShare(root, cfg) || fail('no GitHub ledger here');
-    sh.resume(by);
-    clearLocalPause(root);
-    console.log(`github: resumed by ${by}; every session may call GitHub again, within the budget`);
-    return 0;
-  },
-
   switch: (a, root) => {
     const sub = a._[0];
     if (sub === 'out') return (switchOut(root, { tasks: a.tasks, sessions: a.sessions, by: a.by, dryRun: !!a['dry-run'] }), 0);
@@ -766,18 +709,6 @@ export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete',
 // The commands whose state writes push at once (R17): see main.
 let endFlush = () => {};
 let endHooked = false;
-// The share at a command's end (C47): never silent, never the command's failure.
-export function sayUnshared(n, why) {
-  try { console.error(`github: ${n === null ? 'this clone\'s use' : `${n} row(s)`} not shared (${String(why?.message ?? why).split('\n')[0]}); the next p3 command in this clone shares them`); } catch { /* never the act's failure */ }
-}
-// root (C53): where a detached share deferred to this command (SHARE_DEFERRED), its content rows
-// are shared now whatever the 15 minutes, and the mark removed once none is left unshared.
-export function shareAtEnd(ledger, pending, { root = null } = {}) {
-  let deferred = null;
-  try { deferred = root ? join(commonDir(root), SHARE_DEFERRED) : null; if (deferred && !existsSync(deferred)) deferred = null; } catch { deferred = null; }
-  try { ledger.shareNow({ pending, ...(deferred ? { content: true } : {}) }); } catch (e) { let n = null; try { n = ledger.unshared?.().rows ?? null; } catch { n = null; } sayUnshared(n, e); return; }
-  try { const u = ledger.unshared?.(); if (u?.pushes) sayUnshared(u.rows, `${u.pushes} push(es) not shared at the command's end`); if (deferred && u && !u.content) rmSync(deferred, { force: true }); } catch { /* never the act's failure */ }
-}
 export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay', 'round next']);
 export async function main(argv) {
   const a = parseArgs(argv);
@@ -791,37 +722,16 @@ export async function main(argv) {
   a._ = a._.slice(name.split(' ').length);
   let root = null;
   let cfg = null;
-  let ledger = null;
   // One state push per command (R17, GitHub pacing): the writes are coalesced and pushed at its
   // end. Not the commands whose write reserves a session they then hand out (a seat, a start, a
   // handover) or that replay kept writes: theirs push at once, as before (cold review of R17).
   const batched = process.env.P3_STATE_BATCH !== '0' && !UNBATCHED.has(name);
   if (batched) stateBatch(true);
   let flushed = false;
-  // This command's foreground mark (C53), removed once its end share is done.
-  let unmark = null;
-  // A share that deferred while this command flushed (its end share already past) is carried now,
-  // once unmarked, so no deferral is left behind by the command it deferred to (cold review of C53).
   const flush = () => {
-    try { return flushOnce(); } finally {
-      if (unmark) {
-        try { unmark(); } catch { /* stale, read as such */ }
-        unmark = null;
-        try { if (ledger && root && name !== 'github hook' && existsSync(join(commonDir(root), SHARE_DEFERRED))) shareAtEnd(ledger, 0, { root }); } catch { /* never the act's failure */ }
-      }
-    }
-  };
-  const flushOnce = () => {
     if (flushed) return null;
     flushed = true;
-    // An unbatched command pushed its writes as it went; its pushes are shared at its end all the same (C47 cold review).
-    if (!batched) { if (ledger && name !== 'github hook') shareAtEnd(ledger, 0, { root }); return null; }
-    // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
-    // Not from the hook here (cold review of R17c: it pushed from plain Bash calls): a hook run starts a
-    // detached share only after a connector write (C52, ghhook.mjs hookShare), never for Bash.
-    // A push others must count is shared now, whatever the 15 minutes (C47); a share that fails or
-    // leaves one behind is said, never the act's failure.
-    if (ledger && name !== 'github hook') shareAtEnd(ledger, realPendingWrites(), { root });
+    if (!batched) return null;
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
@@ -837,19 +747,12 @@ export async function main(argv) {
   }
   try {
     root = repoRoot();
-    // A foreground command of this clone for its life (C53): the hook's detached share runs no git
-    // meanwhile. Never the command's failure; the mark goes with its flush, and a killed command's is stale.
-    if (name !== 'github hook') { try { unmark = markForeground(root); } catch { /* the share then sees no mark: its own git still never writes the shallow file */ } }
     // A p3 command killed in this clone before its flush left its writes kept (state.mjs): moved
     // for replay, and said.
-    if (name !== 'github hook') try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
+    try { const k = strandedWrites(root); if (k) console.error(`note: ${k} state write(s) of a p3 command killed in this clone are kept: push them with \`node .process/tool/p3.mjs state replay\``); } catch { /* not a clone with state */ }
     // The idle check in a product only: process3 itself has no process/config.json.
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
-    // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
-    // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else. A
-    // clone with no product config (process3) writes its own (C40; pacing.ledger names another).
-    if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch (e) { ledger = null; if (name !== 'github hook') sayUnshared(null, e); } }
-    if (cfg && !process.env.NODE_TEST_CONTEXT && name !== 'github hook') beforeAct(root, cfg, name, a);
+    if (cfg && !process.env.NODE_TEST_CONTEXT) beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
     // BOB acted on the start list: the acts owed before this began are paid (hold.mjs).

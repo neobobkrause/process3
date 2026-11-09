@@ -47,7 +47,7 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
    - (c) ROOT, then from ROOT: the handover for BOB and `start watcher --replace`, with the old ids.
    - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins, and each `fresh` task as one again. ROOT's sweep and the watcher's daily task are made by their own starts. A task bound to a lane waits for (h).
    - (e) BOB restarts every recorded job, the release path first.
-   - (f) In the layer flow, `layer jobs <n>` for each open layer, with `layer sync <n>` first if the pin moved (SLB-12). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
+   - (f) In the layer flow, `layer jobs <n>` for each open layer, (the pin move moves each open layer's pin itself, PD-23). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
    - (g) Messages to BOB stay in the record: `status --role bob` lists them by id, and their text is on the state branch. The others are delivered to the new sessions.
    - (h) Each lane with a seat (the triage seat too): `lane start <lane>`, with `--replace <old id>` only if it says the seat is still held (ROOT's sweep usually ends it first); then `--record <new id>`, its open asks, and the tasks bound to it.
 4. Old sessions cannot be messaged or archived from the new account. Bob archives them on the old account once the new ones run, and deletes the switched-off tasks there.
@@ -57,9 +57,9 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
 Problem class C6 (the process's GitHub account, 6 Nov): GitHub hides every pull request a suspended account opened, with its comments and reviews, from everyone. Its branches, commits, tags and the state branch's rows stay. The switch above moves the Claude account. This route moves the GitHub account and recovers what it held.
 
 1. Bob connects the new GitHub account (2.1, 2.2). No session pushes before `switch in --preflight` passes on it.
-2. Each job whose pull request is hidden: its branch on origin holds its work. The coordinator first opens a new pull request from the same head branch (`job complete` needs an open one). Then the job's session (BOB restarts it if it ended) runs `job complete` again, which posts the receipt there, and the gate reads it.
+2. Each job whose pull request is hidden: its branch on origin holds its work. The coordinator first opens a new pull request from the same head branch (`job complete` needs an open one). Then the job's session (BOB restarts it if it ended) runs `job complete` again, which marks it ready, and the gate runs on it.
 3. Take in by branch name, never by a hidden PR's number. `job start --reopen` can call an attempt abandoned when its merge PR is hidden: check the branch against the tranche before giving it a new branch.
-4. A layer retest whose receipt was on a hidden PR refuses: the job is re-run.
+4. A layer retest opens its own pull request; a hidden earlier PR does not stop it.
 5. Lead times and the take-in carry read hidden PRs as unmeasured or empty. Note it in the layer report; nothing is lost from the state rows.
 6. Open layer, tranche and pin-move PRs: open a new one from each one's branch, with the same title and body (a hidden PR cannot be reopened).
 

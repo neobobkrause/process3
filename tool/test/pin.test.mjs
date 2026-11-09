@@ -121,6 +121,17 @@ test('the pin-move session checks for an open pin move right before it pushes, a
   assert.match(lines[0 + at(/^1\. /)], /git checkout -q -b p3-pin-work FETCH_HEAD/);
 });
 
+// PD-23 (coordinator, 9 Nov): the pin move reaches every open layer itself, after its merge.
+test('the pin-move session moves each open layer\'s pin after its merge (layer pin --open), before it reports', () => {
+  const { prompt } = pinMove(makeRepo({ 'README.md': 'x' }), 'o/r', { pin: PIN, processRoot: PROC, report: REPORT, why: 'w', io: none, log: quiet });
+  const lines = prompt.split('\n');
+  const at = (re) => lines.findIndex((l) => re.test(l));
+  const merge = at(/merge <that pull request> --plain --as pin/);
+  const sync = at(/^12\. `node \.process\/tool\/p3\.mjs layer pin --open` \(PD-23\)/);
+  const report = at(/^14\. Send /);
+  assert.ok(merge > 0 && sync === merge + 1 && report > sync, prompt);
+});
+
 // 5 Nov: from a process3-only session the product's pull requests cannot be listed, and pin move
 // refused; the session it prints runs pin check before it pushes, which guards it.
 test('pin move from a session that cannot list the product\'s pull requests prints the call with a note that the session\'s own pin check guards it', () => {
