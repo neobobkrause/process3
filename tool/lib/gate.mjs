@@ -518,7 +518,7 @@ export function classOf(root, cfg, ctx) {
   try {
     const p = pinOnly(root, cfg, { ...ctx, merged: entriesAt(root, 'HEAD') });
     // A layer sync judged pin-only says so (C49); full stays full, with pinOnly's why.
-    return { ...p, ...(c.sync !== undefined && p.class === 'pin-only' ? { why: `layer sync ${c.sync}: ${p.why}` } : {}), lanes: c.lanes };
+    return { ...p, ...(c.sync !== undefined && p.class === 'pin-only' ? { why: `layer ${c.inPlace ? 'pin' : 'sync'} ${c.sync}: ${p.why}` } : {}), lanes: c.lanes };
   } catch (e) { return { class: 'full', why: `the pin could not be judged (${printable(e.message, 200)})`, lanes: c.lanes }; }
 }
 

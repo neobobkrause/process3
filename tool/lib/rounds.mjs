@@ -6,10 +6,8 @@
 //
 // Round 1 is the map's layers (and the completion layer the copy opened under PD-12: "Finish, then
 // switch"). A walk's findings enter as found marks against named modules (PLN-3, found.mjs). A later
-// round runs over the map's layers in order, each as a round layer past the map (layerbase.mjs): its
-// modules the flawed ones whose map layer it is, read at its open, so a mark found mid-round in a
-// later map layer joins this round and one in an earlier map layer waits for the next (coordinator,
-// 8 Nov). A map layer with no flawed module is skipped. A round ends at its walk: every layer it
+// round is one round layer past the map (layerbase.mjs; PD-24, 9 Nov): every flawed module, whatever
+// its map layer, read at its open; a mark found mid-round waits for the next round. A round ends at its walk: every layer it
 // opened merged, no flawed module in a map layer after its last one, and a walk recorded after its
 // last merge. That walk is the internal walk alone where the product configures one (C43; Bob, 8 Nov:
 // "the internal walk would be the last step of a round, but the live walk would only run once a
@@ -161,15 +159,17 @@ export function roundState(root, cfg, ref, { layers, flows, lastWalk = null, fla
   if (open) return { state: 'layer', round: roundOf(open), layer: open };
   // A module on no line of the map runs with the map's last layer.
   const place = (id) => layerOf(map, id) ?? lastMap;
+  // PD-24 (coordinator, 9 Nov; Bob: "All jobs of a layer should open at once up to the maximum slot
+  // cap"): a round after the first is ONE layer holding every flawed module, whatever its plan layer,
+  // passing over the map's last layer (of), so no layer follows it in the round. Its modules in the
+  // map's order (plan layer, then line; those on no line last); within the layer, R10's dependency
+  // order lists them, and a provider's land reschedules a user that landed first.
   const plan = (after, r, walk) => {
     const ahead = [...flawed.keys()].filter((id) => place(id) > after);
     if (!ahead.length) return null;
-    const of = Math.min(...ahead.map(place));
-    const mods = ahead.filter((id) => place(id) === of);
-    // In the map's order within the layer; then those on no line.
-    const line = map.find((L) => L.n === of)?.mods || [];
-    mods.sort((a, b) => ((line.indexOf(a) + 1 || 1e9) - (line.indexOf(b) + 1 || 1e9)) || a.localeCompare(b));
-    return { n: nextN, round: r, of, mods, items: mods.flatMap((id) => flawed.get(id)), ...(walk ? { walk } : {}) };
+    const lineOf = (id) => { const L = map.find((x) => x.n === place(id)); return (L?.mods.indexOf(id) ?? -1) + 1 || 1e9; };
+    const mods = ahead.sort((a, b) => (place(a) - place(b)) || (lineOf(a) - lineOf(b)) || a.localeCompare(b));
+    return { n: nextN, round: r, of: lastMap, mods, items: mods.flatMap((id) => flawed.get(id)), ...(walk ? { walk } : {}) };
   };
   const mine = extra.filter((L) => roundOf(L) === round && L.round);
   // Round 1 ran every map layer; a later round, the map layers up to its last round layer's.

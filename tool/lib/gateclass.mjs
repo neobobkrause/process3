@@ -24,7 +24,7 @@
 // module's requirements file: full.
 import { basename, dirname } from 'node:path';
 import { blobAt } from './anchor.mjs';
-import { layerOfBranch, syncOfBranch } from './layerbase.mjs';
+import { layerOfBranch, pinOfBranch, syncOfBranch } from './layerbase.mjs';
 import { CONFIG_FILE, LEDGER_DIR, git, isRecordPath, laneOfPath, underPath } from './util.mjs';
 import { normPath } from './suite.mjs';
 
@@ -63,12 +63,14 @@ export function gateClass(root, cfg, ctx) {
   const pinFile = (f) => f === PIN || f === approvals || (f.startsWith(WORKFLOWS) && dirname(f) === WORKFLOWS.slice(0, -1));
   const into_ = layerOfBranch(into);
   if (into_ !== null) {
-    const sync = syncLike(root, { n: into_, branch, base, head, pinFile });
+    // PD-23: a pin moved in place on the layer (layer pin <n>), or its sync.
+    const inPlace = pinOfBranch(branch) === into_;
+    const sync = inPlace ? pinLike(root, { n: into_, base, head }) : syncLike(root, { n: into_, branch, base, head, pinFile });
     if (sync) return out(full(sync));
     const other = changed.find((f) => !pinFile(f));
     if (other) return out(full(`layer sync ${into_} carries ${other}, not only the pin`));
     if (!changed.includes(PIN)) return out(full(`layer sync ${into_} does not move the pin`));
-    return out({ class: 'pin-only', why: 'candidate', candidate: true, sync: into_ });
+    return out({ class: 'pin-only', why: 'candidate', candidate: true, sync: into_, ...(inPlace ? { inPlace: true } : {}) });
   }
   const product = changed.filter((f) => !isRecordPath(cfg, f));
   if (!product.length) return out(full('records only'));
@@ -109,6 +111,18 @@ export function gateClass(root, cfg, ctx) {
   return out({ class: 'record-only', builds: rows.length > 0, why: `only ${reqs.map((r) => r.file).join(', ')} changed, read by ${reqs.reduce((n, r) => n + r.readers.length, 0)} test file(s)`, reqs });
 }
 
+// Why a pull request into layer/<n> from layer-pin/<n>-<hex> is not the pin moved in place (PD-23),
+// or null when it is: its head one commit, not a merge, whose parent is on the layer.
+function pinLike(root, { n, base, head }) {
+  const not = `a pull request into layer/${n} that is not its pin moved in place`;
+  if (!head || !base) return `${not}: its head or base is not known`;
+  const obj = git(['cat-file', '-p', head], { cwd: root, allowFail: true });
+  if (obj.code !== 0) return `${not}: its head ${String(head).slice(0, 10)} could not be read`;
+  const ps = obj.stdout.split('\n\n')[0].split('\n').filter((l) => l.startsWith('parent ')).map((l) => l.slice(7));
+  if (ps.length !== 1) return `${not}: its head ${String(head).slice(0, 10)} is not one commit`;
+  if (git(['merge-base', '--is-ancestor', ps[0], base], { cwd: root, allowFail: true }).code !== 0) return `${not}: its head's parent ${ps[0].slice(0, 10)} is not on layer/${n}`;
+  return null;
+}
 // Why a pull request into layer/<n> is not that layer's sync, or null when it is one: its branch is
 // layer-sync/<n>-<hex>, and its head is a merge (the tool's: layerflow.mjs syncMerge) whose first
 // parent is on the base, its tree git's own clean merge of its two parents, and its second parent's

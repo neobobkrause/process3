@@ -266,7 +266,7 @@ export function restartActs(m, { by, cfg, approvals, addresses = m.addresses, me
   for (const j of other) L.push(`    - ${j.module}: ${j.state}${j.pr ? `, PR ${j.pr}` : ''}: ${['WORKING', 'COMPLETE'].includes(state(j)) ? routeFor(j.module, { state: state(j), ahead: j.ahead, open: open(j) }) : 'nothing to restart'}${rel(j)}`);
   // The layer flow (R16): BOB starts each open layer's jobs from layer jobs.
   L.push((m.layers || []).length
-    ? `(f) BOB, for each open layer (${m.layers.join(', ')}): \`${P3} layer jobs <n>\`, then each start it lists, each its own command (\`${P3} layer sync <n>\` first if it says the pin moved).`
+    ? `(f) BOB, for each open layer (${m.layers.join(', ')}): \`${P3} layer jobs <n>\`, then each start it lists, each its own command.`
     : `(f) BOB: \`${P3} status --role bob --sessions <list_sessions saved now>\`, then each \`job start\` its \`jobs to start\` lists.`);
   // Those to BOB stay in the record, where the new BOB's \`status --role bob\` lists them: the copy's
   // dry run (6 Nov) held 211, 201 of them to BOB (147 MERGER refusals), a resend each.

@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { gate, gateClassAt, postRow } from './lib/gate.mjs';
 import { browserNeeded, gateRepo } from './lib/gateclass.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
-import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
+import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync, layerPin, layerPinOpen } from './lib/layerflow.mjs';
 import { layerMode, layersAt } from './lib/layerbase.mjs';
 import { directJobs } from './lib/direct.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
@@ -161,7 +161,9 @@ const commands = {
   // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
   // layer retest <id>: a rescheduled module with no work on the layer re-tested by CI on a ready PR, no job session.
   // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
-  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (SLB-12: after a pin move).
+  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (a reset: PD-23's --layers reset runs it).
+  // layer pin <n> | --open [--layers apply|hold|reset] [--no-wait]: the tranche's pin into open layer n (or each), PD-23: in place when the pin diff changes
+  // nothing that judges the layer; else printed for the coordinator's --layers choice. The pin-move session runs --open after its merge.
   // layer merge <n> [--no-wait] [--defer-done "<why>"]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
   // The direct flow (PD-25, merge_strategy "direct"): no layer opens; every job is based on the tranche.
@@ -174,7 +176,7 @@ const commands = {
   // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next
   // layer to open (the coordinator's ruling, 6 Nov): layer open lists it in that layer's jobs.
   // layer join <companion> --companion-of <job> --layer <n> --why "<what the job needs of it>" (PD-19):
-  // a module whose change a job in the open layer needs joins that layer as its companion; the job lands after it.
+  // a module whose change a job in the open layer needs joins that layer as its companion; both land in that layer (PD-19b).
   'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as), ...(a['companion-of'] !== undefined ? { companionOf: a['companion-of'], layer: a.layer } : a.layer !== undefined ? { layer: a.layer } : {}) }).ok ? 0 : 1),
   'layer status': (a, root) => (layerStatus(root, layerArg(a, root)).ok ? 0 : 1),
   'layer publish': async (a, root) => {
@@ -190,6 +192,10 @@ const commands = {
   'layer clear': (a, root) => (layerClear(root, one(a, 'user module'), { provider: a.provider, land: typeof a.land === 'string' ? a.land : undefined, why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer sync': async (a, root) => ((await layerSync(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer pin': async (a, root) => {
+    const o = { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a.layers !== undefined ? { choice: String(a.layers) } : {}) };
+    return (a.open ? await layerPinOpen(root, o) : await layerPin(root, layerArg(a, root), o)).ok ? 0 : 1;
+  },
   'layer merge': async (a, root) => ((await layerMerge(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a['defer-done'] !== undefined ? { deferDone: a['defer-done'] } : {}) })).ok ? 0 : 1),
   'layer report': (a, root) => (layerReport(root, layerArg(a, root), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
 
