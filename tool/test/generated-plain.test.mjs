@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { gate as gateRun, gateComment } from '../lib/gate.mjs';
-import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
+import { BOT, GATE, block, parseBlock } from '../lib/github.mjs';
 import { mergePlain } from '../lib/merge.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { setupCheck } from '../lib/setup.mjs';

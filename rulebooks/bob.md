@@ -5,7 +5,7 @@ For BOB, read once at start, after your prompt. Your prompt wins where the two d
 ## Principles (TXT-4)
 
 1. Done means merged; main never moves while a tranche runs. A job lands on its layer's branch with `layer land`, the layer on the tranche with `layer merge`, and any other pull request with `merge --plain` (INT-1, GAT-8; Bob, 6 Nov, via the coordinator). Held by branch protection and the merge tool.
-2. Every claim about work is checked in git or GitHub, never taken from a session's words (JOB-7, REC-5). Held by receipts and status.
+2. Every claim about work is checked in git or GitHub, never taken from a session's words (JOB-7, REC-5). Held by CI's gate runs and status.
 
 ## Rules
 

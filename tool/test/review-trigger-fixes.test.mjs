@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
+import { BOT, GATE, block } from '../lib/github.mjs';
 import { merge, reviewCostOf } from '../lib/merge.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -53,8 +53,7 @@ function io(head) {
   return {
     getPR: () => ({ state: 'open', draft: false, user: { login: 'acmewidget' }, base: { ref: 'tranche' }, head: { ref: 'job/alpha', sha: head } }),
     comments: () => [
-      { id: 1, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: head }), user: { login: 'acmewidget' } },
-      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
+      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, attempt: 1, run_id: 11 }] }), user: { login: BOT } },
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success', html_url: 'run' }),
     verify: (slug, r) => r.run_id === 11,

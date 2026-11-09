@@ -146,9 +146,9 @@ const commands = {
     return 0;
   },
 
-  // job complete <id> [--not-verified "..."]... [--test R<id>="<file>::<name>"]... [--exempt-revert "<why>"] [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
+  // job complete <id> [--no-suite] [--session <id>] [--cost-usd <usd>] (the cost is BOB's at the merge)
   'job complete': (a, root) => (jobComplete(root, one(a, 'module'), {
-    notVerified: list(a['not-verified']).filter((x) => x !== true), tests: list(a.test), exemptRevert: a['exempt-revert'], noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
+    noSuite: !!a['no-suite'], costUsd: a['cost-usd'], session: a.session,
   }).ok ? 0 : 1),
 
   // revert exempt <pr> --why "<why>" --reviewer <session>: a reviewer's exemption from the gate's revert
@@ -180,12 +180,11 @@ const commands = {
   'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as), ...(a['companion-of'] !== undefined ? { companionOf: a['companion-of'], layer: a.layer } : a.layer !== undefined ? { layer: a.layer } : {}) }).ok ? 0 : 1),
   'layer status': (a, root) => (layerStatus(root, layerArg(a, root)).ok ? 0 : 1),
   'layer publish': async (a, root) => {
-    const pass = [...list(a['not-verified']).filter((x) => x !== true).flatMap((x) => ['--not-verified', x]), ...list(a.test).filter((x) => x !== true).flatMap((x) => ['--test', x]), ...(typeof a['exempt-revert'] === 'string' ? ['--exempt-revert', a['exempt-revert']] : [])];
     // Unset, the run's check of the layer branch waits pacing.poll_first_s (30 s), fixed (PD-6);
     // --every sets it, at 30 s or more.
     const every = a.every === undefined ? null : Number(a.every);
     if (every !== null && !(Number.isFinite(every) && every >= 30)) fail(`--every <seconds>, 30 or more (the poll cadence), not ${JSON.stringify(a.every)}`);
-    return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), args: pass, session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
+    return (await layerPublish(root, one(a, 'module'), { every: every === null ? null : every * 1000, ...(a.rounds ? { rounds: Number(a.rounds) } : {}), session: typeof a.session === 'string' ? a.session : null })).ok ? 0 : 1;
   },
   'layer retest': (a, root) => (layerRetest(root, one(a, 'module'), { by: senderOf(root, a.as) }).ok ? 0 : 1),
   // layer clear <user> --provider <id> [--land <sha>] --why "<the ruling>": a false reschedule cleared for that user only (C11 c).
@@ -403,7 +402,7 @@ const commands = {
   // module's `metrics add <id> --role review` rows (those of --review-session, or since the attempt started); none read: unmeasured, said why.
   // A job PR that fires a review trigger (a test deleted or loosened: triggers.mjs) merges only --reviewed.
   // merge <pr> --plain (--reviewed "<what>" --rounds <n> | --no-review "<why>") [--decision "<why>"] [--minutes 95]: any other pull request.
-  // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review, no receipt.
+  // merge <pr> --plain --pass "<what and why>": a pass (P7) from a pass/<name> branch, a no-judgment change across modules while no job holds them, on a gate that ran their suites; no review.
   // --rounds: 1 for the two fresh reviews, 2 with the fix pass and its re-review; more needs --decision (build I).
   merge: (a, root) => {
     const n = Number(one(a, 'pull request number'));
@@ -431,7 +430,7 @@ const commands = {
       // its gate-class step left the browser out (P3_BROWSER=skip), so no product test may run.
       repo: gateRepo(processRepo, TOOL_ROOT), browserSkipped: process.env.P3_BROWSER === 'skip',
     });
-    console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
+    console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
   },
 

@@ -8,15 +8,14 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { refreshOthers } from '../lib/checks.mjs';
 import { addedRequirements, gate, noCodeYet } from '../lib/gate.mjs';
-import { RECEIPT, BOT, block } from '../lib/github.mjs';
+import { BOT, block } from '../lib/github.mjs';
 import { DEFAULTS, git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
-const io = (receipt, baseRef) => {
-  const comments = receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [];
+const io = (baseRef) => {
+  const comments = [];
   return { comments: () => comments, getPR: () => ({ user: { login: 'acmewidget' }, ...(baseRef ? { base: { ref: baseRef } } : {}) }), addComment: (s, n, body) => { comments.push({ id: comments.length + 1, body, user: { login: BOT } }); return {}; }, verify: () => true };
 };
-const receipt = (sha) => ({ kind: 'receipt', module: 'fund', attempt: 1, sha, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: { revert: 'no code yet' } });
 
 test('a module with no code yet: its suite is skipped with the reason recorded, until its first commit adds code', () => {
   // A ready job PR into a layer branch runs its suite on records only (layerflow.mjs).
@@ -27,14 +26,14 @@ test('a module with no code yet: its suite is skipped with the reason recorded, 
   // Its first commit names its uses (the ledger entry only): no requirements-only run, so the suite would run.
   const head = commit(root, { 'process/ledger/fund.json': entry('fund', { status: { state: 'WORKING' }, uses: [] }) });
   const lines = [];
-  const r = gate(root, { base, head, branch: 'job/fund', pr: 5, slug: 'o/r', io: io(receipt(head), 'layer/1'), log: (l) => lines.push(String(l)) });
+  const r = gate(root, { base, head, branch: 'job/fund', pr: 5, slug: 'o/r', io: io('layer/1'), log: (l) => lines.push(String(l)) });
   assert.deepEqual(r.findings.filter((f) => f.check === 'suite'), [], JSON.stringify(r.findings));
   assert.equal(r.run.no_code?.[0]?.module, 'fund', JSON.stringify({ run: r.run, findings: r.findings, lines }).slice(0, 3000));
   assert.match(r.run.no_code[0].why, /no file under its paths or tests yet \(src\/fund\/, test\/fund\/\)/);
   assert.ok(lines.some((l) => /the fund suite: no file under its paths/.test(l)), lines.join('\n'));
   // Once code is there, a suite with no test is refused as before.
   const head2 = commit(root, { 'src/fund/index.mjs': 'export const x = 1;\n' });
-  const r2 = gate(root, { base, head: head2, branch: 'job/fund', pr: 5, slug: 'o/r', io: io(receipt(head2)), log: () => {} });
+  const r2 = gate(root, { base, head: head2, branch: 'job/fund', pr: 5, slug: 'o/r', io: io(), log: () => {} });
   assert.ok(r2.findings.some((f) => f.check === 'suite'), JSON.stringify(r2.findings));
   assert.equal(r2.run.no_code, undefined);
 });
@@ -48,7 +47,7 @@ test('a job deleting its module\'s code stays red; no skip at the tranche into m
   git(['rm', '-q', '-r', 'src/fund', 'test/fund'], { cwd: root });
   git(['commit', '-q', '-m', 'delete it all'], { cwd: root });
   const head = git(['rev-parse', 'HEAD'], { cwd: root });
-  const r = gate(root, { base, head, branch: 'job/fund', pr: 5, slug: 'o/r', io: io(receipt(head)), log: () => {} });
+  const r = gate(root, { base, head, branch: 'job/fund', pr: 5, slug: 'o/r', io: io(), log: () => {} });
   assert.ok(r.findings.some((f) => f.check === 'suite'), JSON.stringify(r.findings));
   assert.equal(r.run.no_code, undefined);
   assert.equal(noCodeYet(root, entry('fund'), { at: base }), false, 'code at the start: not new');

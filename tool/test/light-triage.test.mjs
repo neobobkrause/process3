@@ -8,7 +8,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { BOT, GATE, RECEIPT, block } from '../lib/github.mjs';
+import { BOT, GATE, block } from '../lib/github.mjs';
 import { merge } from '../lib/merge.mjs';
 import { noticeFile, notices } from '../lib/notice.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -63,8 +63,7 @@ function mergeJob(root, n, files) {
   const io = {
     getPR: () => ({ state: 'open', draft: false, user: { login: 'c' }, base: { ref: 'tranche' }, head: { ref: 'job/p', sha: head } }),
     comments: () => [
-      { id: 1, body: block(RECEIPT, { module: 'p', attempt: 1, sha: head }), user: { login: 'c' } },
-      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, receipt: 'agrees', receipt_attempt: 1, run_id: 11 }] }), user: { login: BOT } },
+      { id: 2, body: block(GATE, { runs: [{ sha: head, ok: true, attempt: 1, run_id: 11 }] }), user: { login: BOT } },
     ],
     checkRun: () => ({ status: 'completed', conclusion: 'success' }),
     verify: () => true,

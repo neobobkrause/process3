@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { gate as gateRun, gateComment, requirementsOnly, revertCheck } from '../lib/gate.mjs';
 import { baseRed, changedInTree, startBase } from '../lib/basered.mjs';
 import { readResults, runSuite } from '../lib/suite.mjs';
-import { BOT, GATE, RECEIPT, REVERT_EXEMPT, block } from '../lib/github.mjs';
+import { BOT, GATE, REVERT_EXEMPT, block } from '../lib/github.mjs';
 import { git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
 
@@ -34,8 +34,8 @@ function setup(baseFiles, files, { alpha = {} } = {}) {
   const head = commit(root, files);
   return { root, base, head };
 }
-function fakeIO(receipt) {
-  const state = { comments: receipt ? [{ id: 1, body: block(RECEIPT, receipt), user: { login: 'acmewidget' } }] : [] };
+function fakeIO() {
+  const state = { comments: [] };
   return {
     state,
     io: {
@@ -46,10 +46,9 @@ function fakeIO(receipt) {
     },
   };
 }
-const receiptFor = (sha, extra = {}) => ({ kind: 'receipt', module: 'alpha', attempt: 1, sha, commands: [{ cmd: 'node --test', exit: 0, suite: true }], exempt: {}, ...extra });
-const run = (s, receipt, over = {}) => {
+const run = (s, over = {}) => {
   const lines = [];
-  const r = gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO(receipt).io, log: (l) => lines.push(String(l)), ...over });
+  const r = gate(s.root, { base: s.base, head: s.head, branch: 'job/alpha', pr: 5, slug: 'o/r', io: fakeIO().io, log: (l) => lines.push(String(l)), ...over });
   return { ...r, lines };
 };
 const mine = () => readdirSync(tmpdir()).filter((n) => n.startsWith('p3-base-red-')).filter((n) => {
@@ -124,11 +123,11 @@ test('the reporter: a done line per file the runner finished, a load line per fi
 
 test('a reviewed revert exemption skips the revert check: the row says exempt, no finding (AUD-1)', () => {
   const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest, 'test/alpha/y.test.mjs': inertTest, 'process/metrics/alpha.jsonl': '{"row":"attempt","event":"complete","attempt":1,"session":"session_job"}\n' });
-  const plain = run(s, receiptFor(s.head, { exempt: { revert: 'y is a fixture' } }));
+  const plain = run(s);
   assert.deepEqual([plain.run.revert, plain.run.inert, plain.findings.map((f) => f.check)], ['fail', ['test/alpha/y.test.mjs'], ['revert']]);
-  const io = fakeIO(receiptFor(s.head));
+  const io = fakeIO();
   io.state.comments.push({ id: 50, body: block(REVERT_EXEMPT, { kind: 'revert-exempt', module: 'alpha', pr: 5, sha: s.head, reviewer: 'session_rev', why: 'y is a fixture' }), user: { login: 'acmewidget' } });
-  const r = run(s, null, { io: io.io });
+  const r = run(s, { io: io.io });
   assert.deepEqual([r.run.revert, r.run.inert, r.findings], ['exempt', undefined, []]);
   assert.ok(r.lines.some((l) => /revert check is exempt by session_rev's reviewed exemption .*\(y is a fixture\): not run/.test(l)), r.lines.join('\n'));
   assert.equal(git(['status', '--porcelain'], { cwd: s.root }), '');
@@ -138,20 +137,20 @@ test('a reviewed revert exemption skips the revert check: the row says exempt, n
 
 test('base-red: the base tree prepared in the background gives the verdict the inline one gives, and is removed', () => {
   const s = setup({ 'test/alpha/red.test.mjs': redTest }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const bg = run(s, receiptFor(s.head));
-  const inline = run(s, receiptFor(s.head), { prepareBase: false });
+  const bg = run(s);
+  const inline = run(s, { prepareBase: false });
   for (const r of [bg, inline]) assert.deepEqual([r.run.ok, r.run.suite, r.run.revert, r.run.base_red[0].tests], [true, 'base-red', 'pass', ['test/alpha/red.test.mjs::plane > has ai-catalogue']]);
   assert.ok(bg.lines.some((l) => /prepared in the background/.test(l)), bg.lines.join('\n'));
   assert.ok(!inline.lines.some((l) => /prepared (in the background|beside)/.test(l)));
   assert.deepEqual(mine(), [], 'no base tree is left');
   // A failing test that passes at the base is the PR's either way.
   const t = setup({ 'test/alpha/one.test.mjs': imp("test('x is 1', () => a.equal(x, 1));") }, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  for (const over of [{}, { prepareBase: false }]) assert.match(run(t, receiptFor(t.head), over).findings.find((f) => f.check === 'suite').message, /1 failing test\(s\) pass at the base/);
+  for (const over of [{}, { prepareBase: false }]) assert.match(run(t, over).findings.find((f) => f.check === 'suite').message, /1 failing test\(s\) pass at the base/);
 });
 
 test('base-red: a green suite stops the background preparation and leaves no tree', () => {
   const s = setup({}, { 'src/alpha/index.mjs': 'export const x = 2;\n', 'test/alpha/x.test.mjs': realTest });
-  const r = run(s, receiptFor(s.head));
+  const r = run(s);
   assert.equal(r.run.suite, 'pass');
   assert.ok(r.lines.some((l) => /prepared beside the head's install/.test(l)));
   assert.deepEqual(mine(), []);
@@ -275,11 +274,10 @@ const reqOnly = (baseFiles = {}, alpha = {}) => setup({
   'test/alpha/other.test.mjs': RED_ELSEWHERE,
   ...baseFiles,
 }, { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' }, { alpha: { paths: ['src/alpha/', 'req/alpha.md'], ...alpha } });
-const exempt = (s) => receiptFor(s.head, { exempt: { revert: 'requirements text only' } });
 
 test('a change only to the requirements file runs only the tests that read it: those naming it, and those importing a helper that names its directory', () => {
   const s = reqOnly();
-  const r = run(s, exempt(s));
+  const r = run(s);
   assert.deepEqual(r.findings, []);
   assert.deepEqual([r.run.suite, r.run.tests], ['pass', [{ total: 2, pass: 2, fail: 0 }]]);
   assert.deepEqual(r.run.requirements_only, [{ module: 'alpha', files: ['test/alpha/ids.test.mjs', 'test/alpha/uses-helper.test.mjs'] }]);
@@ -294,7 +292,7 @@ test('a change only to the requirements file runs only the tests that read it: t
 
 test('no test reading the requirements file: the suite is not run, and passes with none', () => {
   const s = setup({ 'test/alpha/other.test.mjs': RED_ELSEWHERE }, { 'req/alpha.md': '# alpha\n\n- **R1** x is one, reworded\n' }, { alpha: { paths: ['src/alpha/', 'req/alpha.md'] } });
-  const r = run(s, exempt(s));
+  const r = run(s);
   assert.deepEqual(r.findings, []);
   assert.deepEqual([r.run.suite, r.run.tests, r.run.requirements_only], ['pass', [{ total: 0, pass: 0, fail: 0 }], [{ module: 'alpha', files: [] }]]);
   assert.ok(!r.lines.some((l) => /prepared beside/.test(l)), 'no suite runs: no base tree is prepared');
@@ -310,20 +308,20 @@ test('the whole suite runs when code beside the tests may read the requirements 
   ];
   for (const [what, files, alpha, why] of cases) {
     const s = reqOnly(files, alpha);
-    const r = run(s, exempt(s));
+    const r = run(s);
     // All three files run; the red one, red at the base too, is base-red.
     assert.deepEqual([r.run.suite, r.run.tests[0].total], ['base-red', 3], what);
     assert.ok(r.lines.some((l) => why.test(l) && /the whole suite runs/.test(l)), `${what}: ${r.lines.join('\n')}`);
   }
   // Beside the tests, only the file's own name counts: its directory's word is prose there.
   const w = reqOnly({ 'src/alpha/words.mjs': "export const msg = 'its req read x, not in words.json';\n" });
-  assert.deepEqual(run(w, exempt(w)).run.tests, [{ total: 2, pass: 2, fail: 0 }]);
+  assert.deepEqual(run(w).run.tests, [{ total: 2, pass: 2, fail: 0 }]);
   // Named only in a comment that starts a line: not a reader.
   const c = reqOnly({ 'src/alpha/doc.mjs': '/* alpha: its requirements are\n * req/alpha.md */\n// see req/alpha.md\nexport const y = 1;\n' });
-  assert.deepEqual(run(c, exempt(c)).run.tests, [{ total: 2, pass: 2, fail: 0 }]);
+  assert.deepEqual(run(c).run.tests, [{ total: 2, pass: 2, fail: 0 }]);
   // A plain pull request changing only the file is narrowed too.
   const p = reqOnly();
   git(['checkout', '-q', '-b', 'fix-words', p.head], { cwd: p.root });
-  const plain = run(p, null, { branch: 'fix-words' });
+  const plain = run(p, { branch: 'fix-words' });
   assert.deepEqual([plain.run.scope, plain.run.suite, plain.run.tests], [['alpha'], 'pass', [{ total: 2, pass: 2, fail: 0 }]]);
 });

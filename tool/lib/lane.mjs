@@ -218,7 +218,7 @@ export function laneAsk(root, name, question, { context = [], record, worker, co
 // pending; --replace is the refresh; lane end frees it. A lane that names its ledger "module": the
 // module's marks are the lane's work in the lane's folder, so the lane's session and the module's
 // job are one seat: job start refuses the module while the lane's seat is held, and lane start refuses while the module's job is
-// at work. Not the module's job itself: a job's merge needs a suite-measured receipt, and the
+// at work. Not the module's job itself: a job's merge needs a green suite run, and the
 // lane's folder needs none. A lane ask worker is a read-only subagent of BOB's, writing and landing
 // nothing, so it holds no seat; while the seat is held the question goes to the lane's session.
 export const LANE_SESSIONS_FILE = 'lanes/sessions.jsonl';

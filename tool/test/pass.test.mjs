@@ -2,7 +2,7 @@
 // modules is one mechanical pass by a worker in BOB's session while no job runs, with one full
 // test run before it is committed."): merge --plain --pass lands a plain pull request that changes
 // any modules' files while no live job holds them, on a green gate that ran each touched module's
-// whole suite as a pass, with no receipt; its merge record names the pass. Its first use is the
+// whole suite as a pass; its merge record names the pass. Its first use is the
 // dist/ pass at the pause (BOB's survey, message 257 on the copy).
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { gate as gateRun, gateComment } from '../lib/gate.mjs';
-import { BOT, GATE, RECEIPT, block, parseBlock } from '../lib/github.mjs';
+import { BOT, GATE, block, parseBlock } from '../lib/github.mjs';
 import { mergePlain, reviewRounds } from '../lib/merge.mjs';
 import { git } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -133,12 +133,10 @@ test('a COMPLETE job whose pull request merged holds nothing', () => {
   assert.equal(mergePlain(p.root, 260, { ...q, io: plainIO(p, g.state.comments, g.io.verify).io }).merged, true);
 });
 
-test('a pass carries no receipt, lands only on the tranche, and is its own record', () => {
+test('a pass lands only on the tranche, and is its own record', () => {
   const p = product(SRC2);
   const g = gateIO();
   posted(p, g);
-  const receipt = [...g.state.comments, { id: 99, body: block(RECEIPT, { module: 'alpha', attempt: 1, sha: p.sha }), user: { login: 'acmewidget' } }];
-  assert.throws(() => mergePlain(p.root, 260, { ...q, io: plainIO(p, receipt, g.io.verify).io }), /carries a receipt: a pass has none/);
   assert.throws(() => reviewRounds({ pass: WHY, reviewed: 'r', rounds: 1 }), /--pass is its own record/);
   assert.throws(() => reviewRounds({ pass: true }), /--pass needs what the pass changes and why/);
   assert.deepEqual(reviewRounds({ pass: WHY }), { rounds: 0, decision: null });

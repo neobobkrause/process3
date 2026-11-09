@@ -86,7 +86,7 @@ test('a replacement or taken-in job START with two provider notices and the esca
   const notices = [{ key: 'beta:41', provider: 'beta', ids: ['R2', 'R5'], pr: 41 }, { key: 'gamma:52', provider: 'gamma', ids: ['R1'], pr: 52 }];
   const base = { entry: e, slug: SLUG, branch: 'job/alpha', tranche: 'tranche', coordinator: ID, bob: true, attempt: 1, reading: { files: [{ file: 'req/alpha.md', bytes: 61 }, { file: 'docs/alpha.md', bytes: 16 }], bytes: 77 }, notices, rootId: ID, decisionMinutes: 30 };
   const cases = {
-    restart: { restart: { why: 'its session was archived', pr: `https://github.com/${SLUG}/pull/123`, last: 'abc1234 work in progress', receipt: 'none posted (WORKING)' } },
+    restart: { restart: { why: 'its session was archived', pr: `https://github.com/${SLUG}/pull/123`, last: 'abc1234 work in progress', state: 'WORKING' } },
     'take-in': { takeIn: { pr: 88, branch: 'feature/alpha', commits: ['a'.repeat(40), 'b'.repeat(40)] } },
   };
   for (const [name, c] of Object.entries(cases)) {

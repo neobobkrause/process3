@@ -4,7 +4,7 @@
 import { changeGaps } from './census.mjs';
 import { existsSync, lstatSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, latestReceipt, parseBlock, verifyRow } from './github.mjs';
+import { GATE, REVERT_EXEMPT, addComment, block, comments, gateRuns, getPR, parseBlock, verifyRow } from './github.mjs';
 import { branchModule, checkLedger, entryFile, homeRef, ledgerIds, readLedgerTexts, startBranch } from './ledger.mjs';
 import { metricsFile, rowsAt } from './metrics.mjs';
 import { install, normPath, reportsEvents, runSuite, suffixOf, testFiles, testTreeFiles } from './suite.mjs';
@@ -79,7 +79,7 @@ export const gateComment = (r) => block(GATE, { runs: [r] }, `Gate run on \`${St
 // close (anchor.mjs unanchored). Safe because these say only how the suite runs, never what is
 // trusted: the suite, its tests, the lock files it installs and the generators it runs are the
 // head's code whatever the config says, so a head config can make the gate install or build
-// more, never pass a test that fails; the records (the fast paths), the owner and the receipt
+// more, never pass a test that fails; the records (the fast paths) and the owner
 // stay the defaults'. The tranche is anchored, so the cover may read it. A head config that fails
 // the anchor is a finding, and the gate runs with the defaults.
 export const RUN_KEYS = ['tranche', 'lockfiles', 'generated', 'suite_timeout_minutes'];
@@ -113,12 +113,12 @@ export function gate(root, opts) {
   // tree: what this run tests, the checkout (GitHub's merge of the head into the base) as it is
   // before anything runs.
   const tree = git(['rev-parse', 'HEAD^{tree}'], { cwd: root });
-  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, ...(Number(process.env.GITHUB_RUN_ATTEMPT) > 0 ? { run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT) } : {}), trigger: null, suite: 'skipped', revert: 'skipped', receipt_attempt: null };
+  const runRow = { sha: head, base, tree, at: now(), run_id: process.env.GITHUB_RUN_ID ? Number(process.env.GITHUB_RUN_ID) : null, ...(Number(process.env.GITHUB_RUN_ATTEMPT) > 0 ? { run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT) } : {}), trigger: null, suite: 'skipped', revert: 'skipped', attempt: null };
   // The pull request as it is now. Its draft state is read live, not from the event (the gate
   // race, measured on the copy 4 Nov, PRs 55, 61, 62, 63): job complete pushes, then marks
   // ready, so one head gets a synchronize run whose payload says draft and a ready_for_review
   // run, created in the same second; the concurrency group keeps one, and when the push's run
-  // was kept it skipped the suite and the receipt, and a re-run replays the same payload. Read
+  // was kept it skipped the suite, and a re-run replays the same payload. Read
   // live, whichever run is kept judges the pull request as it is. A failed read stops the run.
   const live = pr ? io.getPR(slug, pr) : null;
   const entries = entriesAt(root, head);
@@ -133,8 +133,6 @@ export function gate(root, opts) {
   }
   const all = !pr ? [] : io.comments(slug, pr);
   const prior = gateRuns(all);
-  // The receipt is read only from the pull request's opener (review of PR 13).
-  const receipt = pr ? latestReceipt(all, opts.opener ?? live?.user?.login) : null;
 
   const job = branchModule(branch, new Set(entries.map((e) => e.id)));
   const entry = job ? entries.find((e) => e.id === job) || null : null;
@@ -229,11 +227,10 @@ export function gate(root, opts) {
   const parents = git(['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: root }).split(' ').slice(1);
   const revertBase = parents.length === 2 && parents[1] === head ? parents[0] : base;
 
-  // The receipt's attempt, kept in the row for the false-done count (metrics.mjs refutes). The
-  // receipt is not checked against the run: CI's own run is the truth (PD-21).
-  if (entry && !draft && receipt?.module === job) runRow.receipt_attempt = receipt.attempt ?? null;
-  // The revert exemption (AUD-1, JOB-12): only a reviewed one recorded on the pull request, never
-  // the receipt's own words (a receipt never exempts itself).
+  // The job's attempt, from its last complete row, kept in the row for the false-done count
+  // (metrics.mjs refutes). CI's own run is the truth (PD-21: no receipt).
+  if (entry && !draft) runRow.attempt = rowsAt(root, judged, job).filter((r) => r.event === 'complete').pop()?.attempt ?? null;
+  // The revert exemption (AUD-1, JOB-12): only a reviewed one recorded on the pull request.
   const exemption = entry && !draft ? revertExemption(all, { root, cfg, head: judged, entry, job, jobSession: completeSession(rowsAt(root, judged, job)) }) : null;
 
   // The shared layer branch's merge (layerflow.mjs; Bob, 5 Nov: no test run at layer close): a pull
@@ -378,8 +375,7 @@ export function gate(root, opts) {
     }
     // AUD-1, JOB-12: the job's new or changed tests must fail with its change reverted. A test
     // that still passes (inert) fails the gate. A refactor whose tests rightly pass before and
-    // after takes a reviewed exemption recorded on its pull request (revertExemption); the
-    // receipt's own --exempt-revert is the job's request for one, never the exemption itself.
+    // after takes a reviewed exemption recorded on its pull request (revertExemption).
     if (entry && ['pass', 'base-red'].includes(runRow.suite)) {
       const tests = changed.filter((f) => entry.tests.some((t) => underPath(f, t)) && f.endsWith(suffixOf(entry)) && existsSync(join(root, f)));
       // The requirements file's struck marks are not code: reverting them proves nothing.
@@ -401,8 +397,7 @@ export function gate(root, opts) {
         // A test that fails only because a new file is gone cannot load; it is not proof the
         // test checks behaviour. Counted for review, not failed.
         runRow.load_only = r.loadOnly;
-        const asked = receipt?.module === job ? receipt.exempt?.revert : undefined;
-        for (const t of r.inert) findings.push(F('revert', t, `passes with the change reverted: the test does not test the change (AUD-1, JOB-12)${asked ? `; the receipt asks for an exemption (${printable(asked)}), which stands only as a reviewed one on the pull request: ${P3_EXEMPT}` : ''}`));
+        for (const t of r.inert) findings.push(F('revert', t, `passes with the change reverted: the test does not test the change (AUD-1, JOB-12); a refactor takes a reviewed exemption: ${P3_EXEMPT}`));
       }
     }
     // GAT-4: regenerate every generated row, verify those whose paths changed; nothing committed.
@@ -486,7 +481,7 @@ const committed = (root, sha) => /^[0-9a-f]{40}$/.test(String(sha)) && git(['cat
 // The reviewed revert exemption (AUD-1, JOB-12): a refactor whose tests rightly pass before and
 // after the change. Recorded on the pull request by `revert exempt` (job.mjs), a p3:revert-exempt
 // block naming its reviewer, its reason and the head it reviewed. It stands when its reviewer is
-// not the job's own session (a receipt, or the job, never exempts itself) and the job's own files
+// not the job's own session (the job never exempts itself) and the job's own files
 // (its module's paths and tests, records and requirements aside) are as the reviewed commit had
 // them, so the code reviewed is the code tested. The newest block that stands wins; withdrawing
 // one means deleting its comment. The reviewer and the job's session are the sessions' own words
