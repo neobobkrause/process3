@@ -23,7 +23,7 @@ export function capCheck(root, { live, sessions, io = {}, log = () => {} } = {})
   let held = 0;
   // A slot just held counts (cold review of R17f): the holds read fresh.
   try { held = slotsHeld(readHolds(root, cfg.state_branch, { fresh: true })); } catch { held = 0; }
-  // The budget throttles new sessions (R17, pace.mjs).
+  // A new session is a GitHub-heavy act: none while GitHub's own count is at the target (PD-22, pace.mjs).
   const gate = budgetGate(root);
   if (gate) fail(`${gate}; nothing was started`);
   // The open layer's published jobs (PD-7): unread, every live session holds a slot, said.

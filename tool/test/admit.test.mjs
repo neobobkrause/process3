@@ -64,7 +64,7 @@ const R17C = { copy: R17C_FILES[Object.keys(R17C_FILES).find((k) => !/\/process3
 const NAMED = {
   'README.md gh pr ready': 'what job complete runs itself, outside a session',
   'README.md git push --force-with-lease=<ref>:<sha> origin :<ref>': 'what the branch cleanup workflow runs',
-  'README.md git push': 'what the hook refuses',
+  'README.md git push': 'what the R17c settings deny',
   'setup/DEVELOPER.md git push': 'said to the developer: a push does not count',
 };
 const docs = () => ['README.md', ...readdirSync(join(ROOT, 'setup')).filter((f) => f.endsWith('.md')).map((f) => `setup/${f}`)]

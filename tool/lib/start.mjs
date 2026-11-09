@@ -136,7 +136,6 @@ export function wakeCheck(root, { branch, approvals, log = console.log } = {}) {
 //   its repositories is.
 // - The root's parent holds more than one git checkout: the container layout of a session started
 //   with several repositories (/home/user/<repo>, one per repository).
-// C34's hook line (ghhook.mjs hookLoadedLine) says whether the hooks loaded; these say why.
 const inside = (dir, root) => { const d = resolve(dir); const r = resolve(root); return d === r || d.startsWith(r.endsWith(sep) ? r : r + sep); };
 export function workdirLines(root, { env = process.env, real = (p) => { try { return realpathSync(p); } catch { return resolve(p); } } } = {}) {
   const L = [];
