@@ -13,6 +13,10 @@ export const layerMode = (cfg) => (cfg?.merge_strategy ?? 'layer') === 'layer';
 export const LAYER_BRANCH = /^layer\/(\d+)$/;
 export const layerBranch = (n) => `layer/${n}`;
 export const layerOfBranch = (b) => { const m = String(b || '').match(LAYER_BRANCH); return m ? Number(m[1]) : null; };
+// The branch layer sync <n> opens its pull request from (layerflow.mjs layerSync): layer-sync/<n>-<the
+// tranche tip's first 10 hex>, with -<k> for a later attempt. The layer it syncs, or null.
+export const SYNC_BRANCH = /^layer-sync\/(\d+)-[0-9a-f]{10}(?:-\d+)?$/;
+export const syncOfBranch = (b) => { const m = String(b || '').match(SYNC_BRANCH); return m ? Number(m[1]) : null; };
 // The state branch's files of the layer flow: one file per event, added and never edited, so two
 // writers never conflict (as notices/).
 export const FLOW_DIR = 'layerflow';

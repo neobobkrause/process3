@@ -13,11 +13,18 @@
 //   No install, build or suite: findings when the pin is not a released, forward move, or a shim is
 //   not the pin's own byte for byte.
 // - full: everything else (a job's, the tranche, a pass, a layer, a refresh, bootstrap), as before.
+// A pull request into a layer branch (C49; copy PR 1092, a 54-minute full gate on a sync that
+// carried only the pin) is light only as that layer's sync (layerflow.mjs layerSync): its
+// layer-sync/<n>-<hex> branch, its head a merge whose first parent is on the layer, and its diff
+// against the layer only the `.process` gitlink, workflow files and the approvals file, the pin
+// moved; then pinOnly judges it as it judges a tranche pin move. Every other pull request into a
+// layer, a sync carrying anything else (records too), and one whose base is not known: full.
 // Fail-closed: anything this cannot read or does not recognise is full. A ledger entry edit, the
 // config, a requirements file inside another module's paths or tests, a file that is not one
 // module's requirements file: full.
 import { basename, dirname } from 'node:path';
 import { blobAt } from './anchor.mjs';
+import { layerOfBranch, syncOfBranch } from './layerbase.mjs';
 import { CONFIG_FILE, LEDGER_DIR, git, isRecordPath, laneOfPath, underPath } from './util.mjs';
 import { normPath } from './suite.mjs';
 
@@ -33,12 +40,12 @@ const modeAt = (root, rev, f) => git(['ls-tree', rev, '--', f], { cwd: root, all
 const pinOf = (root, rev) => git(['ls-tree', rev, '--', PIN], { cwd: root, allowFail: true }).stdout?.match(/^160000 commit ([0-9a-f]{40,64})\t/)?.[1] || null;
 const textAt = (root, rev, f) => { const r = git(['show', `${rev}:${f}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; };
 
-// The class before anything runs. ctx: { job, branch, changed, entries, rows (generated rows),
-// refresh (a plain refresh of generated files), pass, layer, bootstrap, readers(e, req, log) (the
-// gate's requirementsOnly) }. Returns { class, why, reqs?: [{ module, file, readers }], lanes }.
+// The class before anything runs. ctx: { job, branch, into (the pull request's base branch), base,
+// head, changed, entries, rows (generated rows), refresh (a plain refresh of generated files), pass,
+// layer, bootstrap, readers(e, req, log) (the gate's requirementsOnly) }. Returns { class, why, reqs?: [{ module, file, readers }], lanes }.
 // Pin-only here is a candidate only: pinOnly decides it, with the process clone.
 export function gateClass(root, cfg, ctx) {
-  const { job, branch, changed = [], entries = [], rows = [], refresh, pass, layer, bootstrap, readers } = ctx;
+  const { job, branch, into, base, head, changed = [], entries = [], rows = [], refresh, pass, layer, bootstrap, readers } = ctx;
   const lanes = changed.some((f) => laneOfPath(cfg, f, entries));
   const out = (r) => ({ ...r, lanes });
   if (job) return out(full("a job's pull request"));
@@ -47,15 +54,25 @@ export function gateClass(root, cfg, ctx) {
   if (layer) return out(full("a layer branch's pull request"));
   if (bootstrap) return out(full('bootstrap: the base has no Process3'));
   if (refresh) return out(full('a refresh of generated files'));
+  // Light only where the base is known (fail-closed): a pull request into a layer is light only as its sync.
+  if (typeof into !== 'string' || !into) return out(full("the pull request's base branch is not known"));
   if (changed.includes(CONFIG_FILE)) return out(full(`it changes ${CONFIG_FILE}`));
   const ledger = changed.find((f) => underPath(f, LEDGER_DIR));
   if (ledger) return out(full(`it changes a ledger entry (${ledger})`));
+  const approvals = normPath(cfg.approvals?.file || 'CLAUDE.md');
+  const pinFile = (f) => f === PIN || f === approvals || (f.startsWith(WORKFLOWS) && dirname(f) === WORKFLOWS.slice(0, -1));
+  const into_ = layerOfBranch(into);
+  if (into_ !== null) {
+    const sync = syncLike(root, { n: into_, branch, base, head });
+    if (sync) return out(full(sync));
+    const other = changed.find((f) => !pinFile(f));
+    if (other) return out(full(`layer sync ${into_} carries ${other}, not only the pin`));
+    if (!changed.includes(PIN)) return out(full(`layer sync ${into_} does not move the pin`));
+    return out({ class: 'pin-only', why: 'candidate', candidate: true, sync: into_ });
+  }
   const product = changed.filter((f) => !isRecordPath(cfg, f));
   if (!product.length) return out(full('records only'));
-  const approvals = normPath(cfg.approvals?.file || 'CLAUDE.md');
-  if (product.every((f) => f === PIN || f === approvals || (f.startsWith(WORKFLOWS) && dirname(f) === WORKFLOWS.slice(0, -1)))) {
-    return out({ class: 'pin-only', why: 'candidate', candidate: true });
-  }
+  if (product.every(pinFile)) return out({ class: 'pin-only', why: 'candidate', candidate: true });
   const reqs = [];
   for (const f of product) {
     const owners = entries.filter((e) => typeof e.requirements === 'string' && normPath(e.requirements) === f);
@@ -90,6 +107,21 @@ export function gateClass(root, cfg, ctx) {
     reqs.push({ module: e.id, file: f, readers: files });
   }
   return out({ class: 'record-only', builds: rows.length > 0, why: `only ${reqs.map((r) => r.file).join(', ')} changed, read by ${reqs.reduce((n, r) => n + r.readers.length, 0)} test file(s)`, reqs });
+}
+
+// Why a pull request into layer/<n> is not that layer's sync, or null when it is one: its branch is
+// layer-sync/<n>-<hex>, and its head is a merge (the tool's: layerflow.mjs syncMerge) whose first
+// parent is on the base, so its diff against the layer is what the second parent brought.
+function syncLike(root, { n, branch, base, head }) {
+  const not = `a pull request into layer/${n} that is not its layer sync`;
+  if (syncOfBranch(branch) !== n) return `${not} (from ${branch || 'no branch'})`;
+  if (!head || !base) return `${not}: its head or base is not known`;
+  const obj = git(['cat-file', '-p', head], { cwd: root, allowFail: true });
+  if (obj.code !== 0) return `${not}: its head ${String(head).slice(0, 10)} could not be read`;
+  const ps = obj.stdout.split('\n\n')[0].split('\n').filter((l) => l.startsWith('parent ')).map((l) => l.slice(7));
+  if (ps.length !== 2) return `${not}: its head ${String(head).slice(0, 10)} is not a merge`;
+  if (git(['merge-base', '--is-ancestor', ps[0], base], { cwd: root, allowFail: true }).code !== 0) return `${not}: its head's first parent ${ps[0].slice(0, 10)} is not on layer/${n}`;
+  return null;
 }
 
 // The files at rev that match, every blob read as text (no file is exempt by .gitattributes or
