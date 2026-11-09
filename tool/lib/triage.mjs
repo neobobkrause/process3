@@ -203,10 +203,9 @@ export function noticeTriage(root, key, { log = console.log, io = {} } = {}) {
   // PD-20 for a notice raised before the rule (or whose merge's triage failed): the rule clears
   // here what it would have cleared at the merge, written as the merge writes it, and only the
   // rest is briefed. A notice with no read of its exports recorded has them read now, over its
-  // PR's merged range; one with a requirement id changed, or raised by layer land (which notices a
-  // Provides text change or exports unread too), is left to the workers.
+  // PR's merged range; one with a requirement id changed is left to the workers.
   let whys = new Map();
-  if (Array.isArray(n.ids) && !n.ids.length && !n.layer_flow) {
+  if (Array.isArray(n.ids) && !n.ids.length) {
     const read = n.exports_read || n.exports_unread || !changed.entry ? {} : { exports: undefined, ...readExports(root, cfg, changed.entry, changed.mb, changed.head) };
     const nr = { ...n, ...read };
     if (interfaceRule(nr).rule) {
@@ -294,12 +293,12 @@ export function recordTriage(root, key, { file, worker, cost, as = 'bob', log = 
   return { rows, left };
 }
 
-// PD-20 (coordinator, 9 Nov, at Bob's ask): after the imports check, the interface rule. A notice
-// that changed no requirement id, its exports read over its range, clears an importing user when
-// no export moved or names were only added ('merge: no interface change') and each of its imports
-// reaches a file the read covered by a readable, non-default statement; with names removed or
-// changed, when each of its imports takes only unmoved names ('merge: imported names unchanged').
-// Anything unread, or a requirement id changed, stays owed (ruleClear, importsNamesClear).
+// PD-20 (coordinator, 9 Nov, at Bob's ask): before the imports check, the interface rule. A notice
+// that changed no requirement id, its exports read over its range, clears every user when no
+// export moved or names were only added ('merge: no interface change'); with names removed or
+// changed, a user that imports the provider is cleared when each of its imports of the provider
+// names only unmoved names ('merge: imported names unchanged', its import lines the evidence).
+// Anything unread, a default, namespace or dynamic import, or a requirement id changed stays owed.
 // Triage at the merge (coordinator, 4 Nov: every real ready-to-start wait on the copy since 06:00
 // was a notice waiting 33 to 57 minutes for BOB's batch triage). The merge that raises a notice
 // triages it in the same command by the rule the briefs already use (PR 89): a user module whose
@@ -375,7 +374,7 @@ export function importFree(root, cfg, users, sha, provider, whys = new Map()) {
 // the provider, each with its text and the specifiers that reach the provider (`to`: the file the
 // brief's resolution names, null when only the joined path's owner is the provider). A read that
 // fails ends that user's scan with a why.
-function scanUsers(root, cfg, users, sha, provider, { settle = true } = {}) {
+function scanUsers(root, cfg, users, sha, provider) {
   const per = new Map();
   const none = (why) => { for (const u of users) per.set(u, { why }); return { per }; };
   let modules = [];
@@ -420,7 +419,7 @@ function scanUsers(root, cfg, users, sha, provider, { settle = true } = {}) {
     if (!m) { per.set(u, { why: `no entry in ${cfg.modules_file}` }); continue; }
     if (!paths.length) { per.set(u, { why: `no paths in ${cfg.modules_file}` }); continue; }
     if (i < 0) { per.set(u, { why: `no "id" line for it in ${cfg.modules_file}` }); continue; }
-    if (settle && !settled(u, paths, roots)) { per.set(u, { why: `${branchOf(u)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)` }); continue; }
+    if (!settled(u, paths, roots)) { per.set(u, { why: `${branchOf(u)} on origin changes its paths or its files under them from ${sha.slice(0, 10)}, or its tip could not be fetched (an open attempt may add the import)` }); continue; }
     const g = git(['grep', '-l', '-z', '-E', '-e', 'import|require|from', sha, '--', ...roots], { cwd: root, allowFail: true });
     if (g.code !== 0 && g.code !== 1) { per.set(u, { why: `git grep under its paths failed (exit ${g.code}: ${String(g.stderr || '').trim().split('\n').pop()})` }); continue; }
     const files = (g.code === 0 ? g.stdout.split('\0').filter(Boolean) : []).map((f) => f.slice(sha.length + 1)).filter((f) => CODE_FILE.test(f) && !inProvider(f) && ownerOf(modules, f)?.id === u);
@@ -453,8 +452,8 @@ const braced = (c, kind) => {
   const names = [];
   for (const piece of c.slice(1, -1).split(',').map((x) => x.trim()).filter(Boolean)) {
     const a = piece.replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim();
-    if (a === 'default') return { names: null, kind: 'default', why: `${kind} default by name` };
-    if (!IDENT.test(a)) return { names: null, kind: 'unread', why: `an ${kind} clause that could not be read (${piece.slice(0, 40)})` };
+    if (a === 'default') return { names: null, why: `${kind} default by name` };
+    if (!IDENT.test(a)) return { names: null, why: `an ${kind} clause that could not be read (${piece.slice(0, 40)})` };
     names.push(a);
   }
   return { names };
@@ -466,19 +465,18 @@ export function importedNames(text) {
     const had = out.get(k);
     if (!had) out.set(k, r);
     else if (had.names && r.names) had.names = [...new Set([...had.names, ...r.names])];
-    else { const x = had.names ? r : had; out.set(k, { names: null, kind: [had.kind, r.kind].includes('default') ? 'default' : x.kind, why: x.why }); }
+    else out.set(k, { names: null, why: had.why || r.why });
   };
   for (const m of text.matchAll(IMPORT_FROM)) {
     const c = m[1].trim().replace(/^type\s+/, '');
-    const dflt = /^[A-Za-z_$]/.test(c);
-    put(m.index, m[3], braced(c, 'import') || (dflt ? { names: null, kind: 'default', why: 'a default import' } : c.startsWith('*') ? { names: null, kind: 'namespace', why: 'a namespace import' } : { names: null, kind: 'unread', why: `an import clause that could not be read (${c.slice(0, 40)})` }));
+    put(m.index, m[3], braced(c, 'import') || { names: null, why: c.includes('*') ? 'a namespace import' : 'a default import' });
   }
   for (const m of text.matchAll(IMPORT_BARE)) put(m.index, m[2], { names: [] });
   for (const m of text.matchAll(EXPORT_FROM)) {
     const c = m[1].trim().replace(/^type\s+/, '');
-    put(m.index, m[3], braced(c, 'export') || (/^\*(\s+as\s+[A-Za-z_$][\w$]*)?$/.test(c) ? { names: null, kind: 'star', why: 'an export * of it' } : { names: null, kind: 'unread', why: `an export clause that could not be read (${c.slice(0, 40)})` }));
+    put(m.index, m[3], braced(c, 'export') || { names: null, why: c.includes('*') ? 'an export * of it' : `an export clause that could not be read (${c.slice(0, 40)})` });
   }
-  for (const re of DYNAMIC) for (const m of text.matchAll(re)) put(m.index, m[2], { names: null, kind: 'dynamic', why: `a ${m[0].startsWith('require') ? 'require()' : 'dynamic import()'}` });
+  for (const re of DYNAMIC) for (const m of text.matchAll(re)) put(m.index, m[2], { names: null, why: `a ${m[0].startsWith('require') ? 'require()' : 'dynamic import()'}` });
   return out;
 }
 const lineOfIndex = (text, i) => text.slice(0, i).split('\n').length;
@@ -494,45 +492,37 @@ export function interfaceRule(n) {
   if (n.exports_unread) return { rule: null, why: `its exports could not be read (${n.exports_unread})` };
   const r = n.exports_read;
   if (!r?.base || !r?.head || !Array.isArray(r.files)) return { rule: null, why: 'no read of its exports is recorded on it' };
-  if (!r.files.length) return { rule: null, why: 'its export read found no entry file of the provider' };
   const x = n.exports;
   const range = `${String(r.base).slice(0, 10)}..${String(r.head).slice(0, 10)}`;
-  if (!x) return { rule: 'none', range, files: r.files };
+  if (!x) return { rule: 'none', range };
   if (![x.removed, x.added, x.changed].every(Array.isArray)) return { rule: null, why: 'its export changes are unreadable' };
-  if (!x.removed.length && !x.changed.length) return { rule: x.added.length ? 'added' : 'none', range, added: x.added, files: r.files };
+  if (!x.removed.length && !x.changed.length) return { rule: x.added.length ? 'added' : 'none', range, added: x.added };
   return { rule: 'names', range, names: [...x.removed, ...x.changed.map((c) => c?.name)].filter((s) => typeof s === 'string'), files: r.files };
 }
 
-// Whether a user's imports of the provider can be cleared under the interface rule `ir` (PD-20):
-// { clear, evidence } when every import reaching the provider names an entry file the export read
-// covered, by a statement read, and is not a default import (a default's signature is not on the
-// surface); under 'added', not an `export *` either (an added name can collide in the user's own
-// exports); under 'names', no class member moved (any instance reaches a member whatever its
-// import names: the copy's ai-accounts T53, 4 Nov) and the import takes only names, none moved.
-// Else { why }.
-export function importsNamesClear(files, ir, provider) {
-  const names = ir.names || [];
+// Whether a user's imports of the provider name any of `names` (PD-20, rule 3): { clear, evidence }
+// when no class member moved, and every import reaching the provider names an entry file the
+// export read covered and takes only names none of which moved; else { why }.
+export function importsNamesClear(files, names, readFiles, provider) {
   const moved = (a) => names.some((x) => x === a || x.startsWith(`${a}.`));
+  // A class member moved (`C.m`) is reached through any instance a user holds, by whatever import
+  // gave it (the copy's ai-accounts T53, 4 Nov: users of accountsOf() broke on Accounts' removed
+  // methods), not by its name: no importer is cleared by names then.
   const members = names.filter((x) => x.includes('.'));
-  if (ir.rule === 'names' && members.length && files.length) return { why: `${files[0].file} imports ${provider}, and class member(s) moved (${few(members, 4)}), which any instance reaches whatever its import names` };
+  if (members.length) return { why: `${files[0].file} imports ${provider}, and class member(s) moved (${few(members, 4)}), which any instance reaches whatever its import names` };
   const ev = [];
   for (const f of files) {
     const parsed = importedNames(f.text);
     const lines = f.text.split('\n');
     for (const s of f.specs) {
       const p = parsed.get(`${s.line}\0${s.spec}`);
-      const at = `${f.file}:${s.line}`;
-      if (!p) return { why: `${at} imports ${provider} by a statement that could not be read` };
-      if (!s.to) return { why: `${at} imports '${s.spec}', which names no file of ${provider}` };
-      if (!(ir.files || []).includes(s.to)) return { why: `${at} imports ${s.to}, a file of ${provider} its export read did not cover` };
-      if (p.kind === 'default' || p.kind === 'unread') return { why: `${at} is ${p.why} of ${provider}` };
-      if (ir.rule === 'added' && p.kind === 'star') return { why: `${at} is ${p.why}, where an added name can collide` };
-      if (ir.rule === 'names') {
-        if (!p.names) return { why: `${at} is ${p.why} of ${provider}` };
-        const hit = p.names.filter(moved);
-        if (hit.length) return { why: `${at} imports ${hit.join(', ')}, removed or changed` };
-      }
-      ev.push(`${at} ${lines[s.line - 1].trim().slice(0, 120)}`);
+      if (!p) return { why: `${f.file}:${s.line} imports ${provider} by a statement that could not be read` };
+      if (!s.to) return { why: `${f.file}:${s.line} imports '${s.spec}', which names no file of ${provider}` };
+      if (!readFiles.includes(s.to)) return { why: `${f.file}:${s.line} imports ${s.to}, a file of ${provider} its export read did not cover` };
+      if (!p.names) return { why: `${f.file}:${s.line} is ${p.why} of ${provider}` };
+      const hit = p.names.filter(moved);
+      if (hit.length) return { why: `${f.file}:${s.line} imports ${hit.join(', ')}, removed or changed` };
+      ev.push(`${f.file}:${s.line} ${lines[s.line - 1].trim().slice(0, 120)}`);
     }
   }
   return { clear: true, evidence: ev };
@@ -546,21 +536,20 @@ export function ruleClear(root, cfg, n, owed, sha, { by = 'merge' } = {}) {
   const ir = interfaceRule(n);
   const whys = new Map();
   const what = `PR ${n.pr}: no requirement id changed`;
-  // Under rules 1 and 2 an open job branch does not hold a user back (no name moved for it to use);
-  // under rule 3 and with no rule, it does, as the imports check always held it.
-  const { per } = scanUsers(root, cfg, owed, sha, n.provider, { settle: !(ir.rule === 'none' || ir.rule === 'added') });
+  if (ir.rule === 'none' || ir.rule === 'added') {
+    const evidence = ir.rule === 'none' ? `${what}; exports read unchanged at ${ir.range}` : `${what}; exports read at ${ir.range} only added (${ir.added.join(', ')}), none removed or changed`;
+    return { cleared: owed.map((id) => ({ id, rule: 'none', worker: `${by}: ${RULES.none}`, evidence })), whys, ir };
+  }
+  const { per } = scanUsers(root, cfg, owed, sha, n.provider);
   const cleared = [];
   for (const u of owed) {
     const r = per.get(u);
     if (r.why) { whys.set(u, r.why); continue; }
     if (!r.files.length) { cleared.push({ id: u, rule: 'imports', worker: `${by}: ${RULES.imports}`, evidence: `${cfg.modules_file}:${r.line} ${u} (${r.paths.join(', ')}) holds no file that imports ${n.provider}, every code file under its paths read at ${sha.slice(0, 10)}` }); continue; }
-    if (!ir.rule) { whys.set(u, `${r.files[0].file} imports ${n.provider}; ${ir.why}`); continue; }
-    const c = importsNamesClear(r.files, ir, n.provider);
+    if (ir.rule !== 'names') { whys.set(u, `${r.files[0].file} imports ${n.provider}; ${ir.why}`); continue; }
+    const c = importsNamesClear(r.files, ir.names, ir.files, n.provider);
     if (!c.clear) { whys.set(u, c.why); continue; }
-    const lines = c.evidence.join('; ');
-    if (ir.rule === 'none') cleared.push({ id: u, rule: 'none', worker: `${by}: ${RULES.none}`, evidence: `${what}; exports read unchanged at ${ir.range}: ${lines}` });
-    else if (ir.rule === 'added') cleared.push({ id: u, rule: 'none', worker: `${by}: ${RULES.none}`, evidence: `${what}; exports read at ${ir.range} only added (${few(ir.added)}), none removed or changed: ${lines}` });
-    else cleared.push({ id: u, rule: 'names', worker: `${by}: ${RULES.names}`, evidence: `${what}; its imports of ${n.provider} at ${sha.slice(0, 10)} name none of the export(s) removed or changed at ${ir.range} (${few(ir.names)}): ${lines}` });
+    cleared.push({ id: u, rule: 'names', worker: `${by}: ${RULES.names}`, evidence: `${what}; its imports of ${n.provider} at ${sha.slice(0, 10)} name none of the export(s) removed or changed at ${ir.range} (${few(ir.names)}): ${c.evidence.join('; ')}` });
   }
   return { cleared, whys, ir };
 }
