@@ -19,7 +19,7 @@ import { laneForStart, laneSeatFor } from './lane.mjs';
 import { standingFor } from './register.mjs';
 import { landedFrom } from './landed.mjs';
 import { flowFile, jobCfg, layerMode, layerOfBranch, refuseInLayer, safeName } from './layerbase.mjs';
-import { cutAhead, earlyCut, earlyProviders, writeRows } from './layerflow.mjs';
+import { companionsOf, cutAhead, dependentsOf, earlyCut, earlyProviders, flowRows, writeRows } from './layerflow.mjs';
 import { NO_TOKENS, sessionCall, fail, overCap, fetchBranch, fileBytes, git, isShallow, loadConfig, now, repoSlug, run, underPath, unmetIds } from './util.mjs';
 
 const MINUTE = 60000;
@@ -88,6 +88,17 @@ export function readingSet(root, entry, extra = [], cfg = null) {
   return set;
 }
 
+// PD-19: in a layer, the jobs this module is a companion of, and the companions it waits on; null outside one.
+function companionFor(root, cfg, id) {
+  if (!cfg.layer) return null;
+  try {
+    const rows = flowRows(root, cfg.state_branch, cfg.layer.n);
+    const of = dependentsOf(rows, id);
+    const waits = companionsOf(rows, id);
+    return of.length || waits.length ? { of, waits } : null;
+  } catch { return null; }
+}
+
 const DEFAULT_ACTS = (branch) => [
   'read, search and edit files in this repository, within the paths below',
   `run the module's suite and checks below, and the product's build and test commands for it`,
@@ -97,7 +108,7 @@ const DEFAULT_ACTS = (branch) => [
 
 // The START: tool commands only, the reading set with sizes, the blocked exit, one screen.
 // bob: the coordinator is the addressed BOB (job start's default), not a --coordinator override.
-export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, abandoned = null, takeIn, notices = [], rootId = null, decisionMinutes = 30, lane = null, standing = '' }) {
+export function startText({ entry, slug, branch, tranche, coordinator, bob, attempt, reading, reopen, restart, freshRestart, abandoned = null, takeIn, notices = [], rootId = null, decisionMinutes = 30, lane = null, standing = '', companion = null }) {
   const id = entry.id;
   const L = [];
   L.push(`# START: job ${id}, attempt ${attempt}${restart ? ', replacement session' : ''}`, '');
@@ -117,6 +128,12 @@ export function startText({ entry, slug, branch, tranche, coordinator, bob, atte
   if (entry.prior_work) L.push('', `Prior work: ${entry.prior_work}`);
   if (reopen && abandoned) L.push('', `This attempt starts afresh from the tranche: the attempt on \`${abandoned.branch}\`${abandoned.pr ? ` (#${abandoned.pr}, closed unmerged)` : ''} was abandoned, and none of its work is on your branch. What it must do: ${reopen}`);
   else if (reopen) L.push('', `This attempt reopens the module after an earlier attempt merged. What it must do: ${reopen}`);
+  // PD-19: a companion's dependent jobs and their need; a dependent job's companions.
+  if (companion?.of?.length) {
+    const jobs = [...new Set(companion.of.map((c) => c.job))];
+    L.push('', `## Companion (PD-19)`, '', `You are a companion job: ${companion.of.map((c) => `\`${c.job}\` in this layer needs this module changed: ${c.why}`).join('; ')}. Change only what ${jobs.join(', ')} need${jobs.length > 1 ? '' : 's'}, nothing beyond it; ${jobs.join(', ')} land${jobs.length > 1 ? '' : 's'} only after your land.`);
+  }
+  if (companion?.waits?.length) L.push('', `Your land waits on your companion${companion.waits.length > 1 ? 's' : ''} in this layer (PD-19): ${companion.waits.map((c) => `\`${c.module}\` (${c.why})`).join(', ')}. \`layer land\` refuses yours until each has landed and your branch holds it: once it lands, run \`${P3} layer publish ${id}\` again.`);
   if (freshRestart) L.push('', `This attempt replaces a job session that stopped, on a fresh branch cut from the tranche. BOB saw: ${freshRestart}`);
   // The provider-change route (GAT-3): this module's own tests, not the provider's job, prove it still works.
   if (notices.length) {
@@ -435,7 +452,7 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     // A reopened start keeps its task: it is in the start row it already pushed.
     const task = startRow?.reopen;
     if (reopen && reopen !== task) log(`note: ${branch} is an unfinished start; it resumes with its own task${task ? ` ("${task}")` : ''}, and this --reopen text is not used`);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()) });
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt: startRow?.attempt || 1, reading: readingSet(root, entry, [], cfg), reopen: task, notices: named(owed, startRow, startRow?.notices?.length ? withdrawnFor(root, cfg) : new Set()), companion: companionFor(root, cfg, id) });
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
     log(start);
     // The PR is open, so a job session may already be running (confirming review of PR 11).
@@ -528,9 +545,10 @@ export function jobStart(root, id, { coordinator, model, reopen, restart, stop, 
     const entry = readEntry(root, id);
     const attempt = Math.max(nextAttempt(root, id), (fresh0?.prior ?? 0) + 1);
     const reading = readingSet(root, entry, [], cfg);
-    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed });
+    const companion = companionFor(root, cfg, id);
+    const start = startText({ entry, slug, branch, tranche: cfg.tranche, ...lead, lane: laneForStart(root, cfg, id), standing: standingFor(root, cfg, 'job'), attempt, reading, reopen, abandoned: fresh0?.abandoned, freshRestart: restart !== undefined ? String(restart).trim() : null, notices: owed, companion });
     writeStatus(root, id, { state: 'WORKING', at: now(), ...(reopen ? { reason: `reopened: ${reopen}` } : {}) });
-    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}), ...(cfg.layer ? { layer: cfg.layer.n, early } : {}) });
+    appendRow(root, id, { row: 'attempt', event: 'start', role: 'job', attempt, reading_bytes: reading.bytes, start_bytes: Buffer.byteLength(start), tool: toolPin(), branch, ...(fresh0 ? { fresh: { from: fresh0.from, why: fresh0.why } } : {}), ...(fresh0?.abandoned ? { abandoned: fresh0.abandoned } : {}), ...(reopen ? { reopen } : {}), ...(restart !== undefined ? { restart: String(restart).trim() } : {}), ...(over ? { over_cap: overWhy ?? null, cap: over } : {}), ...(owed.length ? { notices: owed.map((x) => x.key) } : {}), ...(cfg.layer ? { layer: cfg.layer.n, early } : {}), ...(companion?.of?.length ? { companion_of: companion.of.map((c) => ({ job: c.job, why: c.why })) } : {}), ...(companion?.waits?.length ? { companions: companion.waits.map((c) => c.module) } : {}) });
     commitFiles(root, [entryFile(id), metricsFile(id), ...(carried?.req ? [carried.req.file] : [])], `job start ${id} (attempt ${attempt})`);
     committed = true;
     const launch = launchFor(slug, branch, id, start, model, cfg.clone);
