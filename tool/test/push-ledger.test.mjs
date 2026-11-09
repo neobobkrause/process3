@@ -87,7 +87,9 @@ test('a share at the end that fails or leaves a push behind says so on stderr, o
 test('end to end: two `p3 github push` in a clone with no process/config.json; the ledger holds both', (t) => {
   const { root, bare } = clone(t);
   const env = { ...process.env, CLAUDE_CODE_SESSION_ID: 'cse_c47e2e', HOME: mkdtempSync(join(tmpdir(), 'p3-home-')) };
+  // As a session runs it: not under the test runner, nor in a workflow (which shares nothing).
   delete env.NODE_TEST_CONTEXT;
+  delete env.GITHUB_ACTIONS;
   delete env.P3_GITHUB_LOG;
   const push = (b) => {
     commit(root, { [`${b}.md`]: `${b}\n` }, b);
