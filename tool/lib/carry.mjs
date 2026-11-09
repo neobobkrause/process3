@@ -4,7 +4,7 @@
 // single module", for BOB to take in with `job start <id> --take-in <n>` or leave as a plain
 // pull request. Read-only: nothing is closed or rewritten here.
 import { entriesAt, ownPaths } from './gate.mjs';
-import { rowsAt } from './metrics.mjs';
+import { rowsAt, rowsAtEach } from './metrics.mjs';
 import { branchModule } from './ledger.mjs';
 import { gh, git, underPath } from './util.mjs';
 
@@ -22,10 +22,13 @@ export const prFiles = (slug, n) => {
 function takenIn(root, ref, ids, prs) {
   const taken = new Set();
   const all = new Set(ids);
+  // No pull request to judge: nothing to read (C50).
+  if (!prs.length) return taken;
   const heads = git(['for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin/job/'], { cwd: root, allowFail: true }).stdout.split('\n').filter(Boolean);
+  const atRef = rowsAtEach(root, ref);
   for (const id of ids) {
     for (const r of [ref, ...heads.filter((h) => branchModule(h, all) === id).map((h) => `refs/remotes/origin/${h}`)]) {
-      for (const row of rowsAt(root, r, id)) if (row.take_in?.pr) taken.add(Number(row.take_in.pr));
+      for (const row of r === ref ? atRef(id) : rowsAt(root, r, id)) if (row.take_in?.pr) taken.add(Number(row.take_in.pr));
     }
   }
   for (const p of prs) { const m = TAKEN.exec(p.body || ''); if (m && /^job\//.test(p.head?.ref || '')) taken.add(Number(m[1])); }

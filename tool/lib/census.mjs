@@ -22,11 +22,10 @@
 //                      carries it, and the layer's own reads do not see it until then).
 // Each gap names exactly what BOB writes. preflight: for a layer's modules, what `job start` would
 // refuse on (no entry, an invalid one, its state, a live hold, a lane seat, the plan) with the fix.
-import { spawnSync } from 'node:child_process';
 import { entryFile, validate } from './ledger.mjs';
 import { readModules } from './notice.mjs';
 import { layersAt } from './layerbase.mjs';
-import { DEFAULTS, LEDGER_DIR, exists, git, unmetIds } from './util.mjs';
+import { DEFAULTS, LEDGER_DIR, exists, git, treeBlobs, unmetIds } from './util.mjs';
 
 const ls = (root, ref, dir) => {
   const r = git(['ls-tree', '-r', '--name-only', ref, '--', dir], { cwd: root, allowFail: true });
@@ -35,28 +34,8 @@ const ls = (root, ref, dir) => {
 const show = (root, ref, p) => { const r = git(['show', `${ref}:${p}`], { cwd: root, allowFail: true }); return r.code === 0 ? r.stdout : null; };
 
 // Every file under dirs at ref, path to text, read in two git calls (cold review of R15: a census of
-// a 220-module product took about 700 git spawns, once per file).
-function blobs(root, ref, dirs) {
-  const t = git(['ls-tree', '-r', ref, '--', ...dirs], { cwd: root, allowFail: true });
-  if (t.code !== 0) return new Map();
-  const list = t.stdout.split('\n').map((l) => l.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/)).filter(Boolean).map((m) => [m[1], m[2]]);
-  if (!list.length) return new Map();
-  const r = spawnSync('git', ['cat-file', '--batch'], { cwd: root, input: list.map(([sha]) => sha).join('\n') + '\n', maxBuffer: 1 << 30 });
-  const out = new Map();
-  if (r.status !== 0) return out;
-  const buf = r.stdout;
-  let at = 0;
-  for (const [, path] of list) {
-    const nl = buf.indexOf(10, at);
-    if (nl < 0) break;
-    const head = buf.subarray(at, nl).toString('utf8').split(' ');
-    const size = Number(head[2]);
-    if (head[1] !== 'blob' || !Number.isFinite(size)) break;
-    out.set(path, buf.subarray(nl + 1, nl + 1 + size).toString('utf8'));
-    at = nl + 1 + size + 1;
-  }
-  return out;
-}
+// a 220-module product took about 700 git spawns, once per file): util's treeBlobs.
+const blobs = (root, ref, dirs) => treeBlobs(root, ref, dirs) || new Map();
 
 // The suite of a module's neighbours: the one most entries use whose tests share its first test
 // path's top directory; null when none (the suite is then BOB's to name).
@@ -126,6 +105,15 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
   const all = new Set([...row.keys(), ...entries.keys(), ...reqs.keys(), ...mapLayer.keys(), ...lanes]);
   const gaps = [];
   const gap = (id, kind, fix, extra = {}) => gaps.push({ id, kind, layer: layerOf(id), fix, ...extra });
+  // Whether a path is on ref, files and folders, from one ls-tree of the whole tree when first asked
+  // (C50: a rev-parse per path of each module built before the ledger); a path ls-tree cannot
+  // answer for (empty, ./, .., a leading /) is asked of git as before.
+  let tree;
+  const onRef = (p) => {
+    if (!p || /^\.{0,2}\/|(^|\/)\.{1,2}(\/|$)|\/\//.test(p)) return exists(root, ref, p);
+    if (tree === undefined) { const t = git(['ls-tree', '-r', '-t', '--name-only', '-z', ref], { cwd: root, allowFail: true }); tree = t.code === 0 ? new Set(t.stdout.split('\0').filter(Boolean)) : null; }
+    return tree ? tree.has(p) : exists(root, ref, p);
+  };
   const readme = exists(root, ref, `${dir}/README.md`) ? `${dir}/README.md` : null;
   const situation = situationFile(root, cfg, ref);
   for (const id of [...all].sort()) {
@@ -153,7 +141,7 @@ export function census(root, cfg, { ref, open = [], now = new Date().toISOString
       const past = first !== null && n !== null && n < first;
       // Ready only when what it claims is there: every path and test of its row on the ref (cold
       // review: a layer skipped, or a module dropped from a closed one, has a past layer number too).
-      const missing = [...(r.paths || []), ...(r.tests || [])].filter((p) => !exists(root, ref, String(p).replace(/\/$/, '')));
+      const missing = [...(r.paths || []), ...(r.tests || [])].filter((p) => !onRef(String(p).replace(/\/$/, '')));
       const why = !past ? 'no layer is open, so whether it was built is not known'
         : !(r.paths || []).length ? 'its modules row has no paths' : !(r.tests || []).length ? 'its modules row has no tests'
           : missing.length ? `${missing.slice(0, 2).join(', ')} not on ${ref}: whether it was built is BOB's to say`

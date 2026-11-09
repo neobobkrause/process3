@@ -44,7 +44,7 @@ import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor } from './hold.mjs';
-import { Fail, LEDGER_DIR, exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, underPath, unmetIds, withTemp } from './util.mjs';
+import { Fail, LEDGER_DIR, exists, fail, fetchBranch, git, isFound, isRecordOrLane, isRecordPath, jobCap, loadConfig, now, repoSlug, treeBlobs, underPath, unmetIds, withTemp } from './util.mjs';
 
 const MINUTE = 60000;
 export const LAND_TITLE = /^Merge layer PR (\d+)$/;
@@ -277,9 +277,13 @@ export function interfaceText(ic) {
 
 // Every row under layerflow/<n>/ as the fetched state branch holds it.
 export function flowRows(root, sb, n) {
-  const r = git(['ls-tree', '-r', '--name-only', '-z', `refs/remotes/origin/${sb}`, '--', `${FLOW_DIR}/${n}/`], { cwd: root, allowFail: true });
-  const files = r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
-  const rows = files.flatMap((f) => { try { return [JSON.parse(readState(root, sb, f))]; } catch { return []; } });
+  // One ls-tree and one cat-file --batch (C50: the copy's idle check read every row with a git show
+  // of its own, thousands a command); one git show each only when the batch fails.
+  const ref = `refs/remotes/origin/${sb}`;
+  const got = treeBlobs(root, ref, [`${FLOW_DIR}/${n}/`]);
+  const r = got ? null : git(['ls-tree', '-r', '--name-only', '-z', ref, '--', `${FLOW_DIR}/${n}/`], { cwd: root, allowFail: true });
+  const files = got ? [...got.keys()].filter((f) => f.endsWith('.json')) : r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
+  const rows = files.flatMap((f) => { try { return [JSON.parse(got ? got.get(f) : readState(root, sb, f))]; } catch { return []; } });
   const by = (k) => rows.filter((x) => x.row === k).sort((a, b) => String(a.at).localeCompare(String(b.at)));
   // A reschedule cleared for its user by a recorded ruling (layer clear) is outstanding no more.
   const clears = by('clear');

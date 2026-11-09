@@ -436,7 +436,9 @@ export function setupCheck(root, { slug, at = null, anchor = false, conditions =
     const shallow = isShallow(root);
     const history = shallow ? (ref) => fileLog(x, ref, file, root) : undefined;
     const need = shallow ? (rev) => { if (git(['cat-file', '-e', `${rev}^{commit}`], { cwd: root, allowFail: true }).code !== 0) git(['fetch', '-q', '--depth=1', 'origin', rev], { cwd: root }); } : undefined;
-    return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner), { history, need });
+    // The commits the file's log names, fetched in one fetch, not one each (C50).
+    const needAll = shallow ? (revs) => git(['fetch', '-q', '--depth=1', 'origin', ...revs], { cwd: root, allowFail: true }) : undefined;
+    return ownerBlock(root, [`origin/${x.cfg.tranche}`, `origin/${x.main}`], file, heading, (sha) => x.ownerCommit(sha, owner), { history, need, needAll });
   });
   x.onTranche = io.onTranche || (() => startCheck(root, { branch: x.cfg.tranche, anchor, log: () => {} }));
   let pinned;

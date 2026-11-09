@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { checkLedger } from './ledger.mjs';
 import { METRICS_DIR, metricsFile, rowsAt } from './metrics.mjs';
-import { CONFIG_FILE, DEFAULTS, exists, fail, gh, git, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
+import { CONFIG_FILE, DEFAULTS, catBatch, exists, fail, gh, git, haveCommits, loadConfig, parseJSON, repoSlug, underPath } from './util.mjs';
 
 const HEADING = /^#{1,6}\s.*approv/i;
 const APPROVAL_WORDS = /approv/i;
@@ -49,16 +49,32 @@ const GITHUB_COMMITTER = 'noreply@github.com';
 // is asked only about commits GitHub committed (a website commit always is). In a shallow clone
 // the setup check passes history (the file's log, "%H %ct %ce %P" lines, from GitHub) and need
 // (fetches a commit it reads by its id), so no history is deepened.
-export function ownerBlock(root, refs, file, heading, isOwner, { history, need } = {}) {
+// needAll (C50): fetches the commits it is given in one fetch (the copy's shallow pin clone fetched
+// each of the file's commits and their parents by a fetch of its own, a network round trip each);
+// whatever it leaves out is fetched one by one by need, as before.
+export function ownerBlock(root, refs, file, heading, isOwner, { history, need, needAll } = {}) {
   const memo = new Map();
   const blockOf = (rev) => {
     if (!memo.has(rev)) { need?.(rev); memo.set(rev, approvalsBlock(show(root, rev, file), heading)); }
     return memo.get(rev);
   };
+  // Every commit the walk may read, read at once: one batch-check for which the clone holds, one
+  // fetch of the rest (needAll), one cat-file --batch of the file at each. A commit still lacking is
+  // left to blockOf.
+  const prefill = (revs) => {
+    let have = haveCommits(root, revs);
+    const lack = revs.filter((x) => !have.has(x) && /^[0-9a-f]{40}$/.test(x));
+    if (lack.length && needAll) { needAll(lack); have = haveCommits(root, revs); }
+    const held = revs.filter((x) => have.has(x) && !memo.has(x));
+    const texts = catBatch(root, held.map((x) => `${x}:${file}`));
+    if (texts === null) return;
+    for (const x of held) memo.set(x, approvalsBlock(texts.has(`${x}:${file}`) ? texts.get(`${x}:${file}`) : null, heading));
+  };
   let best = null;
   for (const ref of refs) {
     const r = history ? history(ref) : git(['--literal-pathspecs', 'log', '--format=%H %ct %ce %P', ref, '--', file], { cwd: root, allowFail: true });
     if (r.code !== 0) continue;
+    prefill([...new Set(r.stdout.split('\n').filter(Boolean).flatMap((l) => { const [sha, , , ...ps] = l.split(' '); return [sha, ...ps]; }).filter(Boolean))]);
     const tip = blockOf(ref);
     for (const l of r.stdout.split('\n').filter(Boolean)) {
       const [sha, at, ce, ...parents] = l.split(' ');

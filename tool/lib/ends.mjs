@@ -91,11 +91,13 @@ export const LANDED = /^Merge (?:job PR |PR |pull request #)(\d+)\b/;
 export function readFacts(root, cfg, { listed = null, t = Date.now(), landed } = {}) {
   const sb = cfg.state_branch;
   const tr = `origin/${cfg.tranche}`;
-  const hasMain = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
+  // main by its id, so util.git keeps each exact answer for the process (C50).
+  const mainId = git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main^{commit}'], { cwd: root, allowFail: true }).stdout.trim();
+  const hasMain = !!mainId;
   const onMain = (c) => {
     if (!c || !/^[0-9a-f]{7,64}$/.test(String(c))) return null;
     if (!hasMain) return null;
-    const r = git(['merge-base', '--is-ancestor', c, 'refs/remotes/origin/main'], { cwd: root, allowFail: true });
+    const r = git(['merge-base', '--is-ancestor', c, mainId], { cwd: root, allowFail: true });
     return r.code === 0 ? true : r.code === 1 ? false : null;
   };
   // This tranche's row: true, false (another tranche's), or null (cannot tell).
