@@ -53,3 +53,10 @@ Two read-only audits on process3 data (the findings log L<n>, git history, DECIS
 - BLOCKED reasons, 4-8 Nov (129): ruling awaited 33; needs another module's change 29; provider not built 23; requirements over cap 20; tool or process refusal 18.
 - Notices: users cleared at the merge 146/143/65 on 4-6 Nov, then **0 from 7 Nov**. DEFECT: the layer land path never runs triageAtMerge, so every user went to a worker. The fix is in C56. Notice to recorded median: 0.2 h (4-6 Nov), 52.4 h (7 Nov), 18.3 h (8 Nov), 7.0 h (9 Nov).
 - reader-container:1088 raised no notice although its land changed a provides test (a gap, fail-open; noted, not built).
+
+## Layer study (read-only, 14:58Z, tranche a7c0c980)
+- No test suite runs at layer level (INT-4, Bob 5 Nov). The layer-level checks are bookkeeping: open census, sync/syncOwed, merge preconditions, carriedSync, tickLanded, layerChecks (install, build, entry checks, regenerate; already run in every job gate), verifyOwner, and layerCover (evidence that each file is covered by a verified green land).
+- Each one moves to job start or the land, is already done per job, or goes. The cross-module backstop moves to the tranche-into-main gate, which already re-runs a user's suite whose provider changed after it was gated.
+- Plan, "direct" flow (merge_strategy: direct): every job is based on the tranche; a module is startable when it has unmet marks and every upstream module is settled (total order + uses graph); a job lands on the tranche once its gate is green and its providers have landed; a land reschedules open users and notifies COMPLETE ones; a round = all flawed modules at once; the walk starts when the round's modules have landed. About +430/-240 to switch; about -1,500 later, retiring the layer machinery. Uses cycles: land in map order, and the later land reschedules the earlier.
+- Risks: combined state is tested at tranche-into-main rather than at layer close (as today, there is no combined re-test inside a layer); wider reschedules; migrate only after layer 14 merges.
+- Decision (coordinator, at Bob's 9 Nov direction): build it as C59; switch the copy after layer 14 merges.
