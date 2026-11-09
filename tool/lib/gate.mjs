@@ -273,8 +273,10 @@ export function gate(root, opts) {
       runRow.uncovered = c.uncovered.length;
     }
     // The gate's class (gateclass.mjs, C45b): record-only and pin-only plain pull requests run light.
-    // Its base branch as GitHub serves the pull request now, else as the workflow's event names it.
-    const into = live?.base?.ref ?? opts.baseRef ?? null;
+    // Its base branch as GitHub serves the pull request now, else as the workflow's event names it;
+    // the two disagreeing (retargeted since the event), not known: full (cold review of C49).
+    const liveRef = live?.base?.ref ?? null;
+    const into = liveRef && opts.baseRef && liveRef !== opts.baseRef ? null : liveRef ?? opts.baseRef ?? null;
     const cls = classOf(root, cfg, { job, branch, into, base, changed, entries, rows: gen.rows, refresh: !!plain?.length, pass: passPR, layer: layerOfBranch(branch) !== null, bootstrap: !!bootstrap, mb, head, repo: opts.repo });
     runRow.class = cls.class;
     runRow.class_why = cls.why;

@@ -30,7 +30,7 @@ function gateIO(comments = []) {
     state,
     io: {
       comments: () => state.comments,
-      getPR: () => ({ user: { login: 'acmewidget' } }),
+      getPR: () => ({ user: { login: 'acmewidget' }, base: { ref: 'tranche' } }),
       addComment: (s, n, body) => {
         state.comments.push({ id: state.comments.length + 1, body, user: { login: BOT } });
         for (const r of parseBlock(body, GATE)?.runs || []) state.genuine.add(key(r));

@@ -15,8 +15,8 @@
 // - full: everything else (a job's, the tranche, a pass, a layer, a refresh, bootstrap), as before.
 // A pull request into a layer branch (C49; copy PR 1092, a 54-minute full gate on a sync that
 // carried only the pin) is light only as that layer's sync (layerflow.mjs layerSync): its
-// layer-sync/<n>-<hex> branch, its head a merge whose first parent is on the layer, and its diff
-// against the layer only the `.process` gitlink, workflow files and the approvals file, the pin
+// layer-sync/<n>-<hex> branch, its head git's own clean merge whose first parent is on the layer and
+// whose second side brings only pin files, and its diff against the layer only the `.process` gitlink, workflow files and the approvals file, the pin
 // moved; then pinOnly judges it as it judges a tranche pin move. Every other pull request into a
 // layer, a sync carrying anything else (records too), and one whose base is not known: full.
 // Fail-closed: anything this cannot read or does not recognise is full. A ledger entry edit, the
@@ -63,7 +63,7 @@ export function gateClass(root, cfg, ctx) {
   const pinFile = (f) => f === PIN || f === approvals || (f.startsWith(WORKFLOWS) && dirname(f) === WORKFLOWS.slice(0, -1));
   const into_ = layerOfBranch(into);
   if (into_ !== null) {
-    const sync = syncLike(root, { n: into_, branch, base, head });
+    const sync = syncLike(root, { n: into_, branch, base, head, pinFile });
     if (sync) return out(full(sync));
     const other = changed.find((f) => !pinFile(f));
     if (other) return out(full(`layer sync ${into_} carries ${other}, not only the pin`));
@@ -111,8 +111,10 @@ export function gateClass(root, cfg, ctx) {
 
 // Why a pull request into layer/<n> is not that layer's sync, or null when it is one: its branch is
 // layer-sync/<n>-<hex>, and its head is a merge (the tool's: layerflow.mjs syncMerge) whose first
-// parent is on the base, so its diff against the layer is what the second parent brought.
-function syncLike(root, { n, branch, base, head }) {
+// parent is on the base, its tree git's own clean merge of its two parents, and its second parent's
+// side of the merge only pin files: no evil merge keeps a side's code out of the diff while its
+// commits enter the layer (cold review of C49: a resolution reverting a tranche file).
+function syncLike(root, { n, branch, base, head, pinFile }) {
   const not = `a pull request into layer/${n} that is not its layer sync`;
   if (syncOfBranch(branch) !== n) return `${not} (from ${branch || 'no branch'})`;
   if (!head || !base) return `${not}: its head or base is not known`;
@@ -121,6 +123,15 @@ function syncLike(root, { n, branch, base, head }) {
   const ps = obj.stdout.split('\n\n')[0].split('\n').filter((l) => l.startsWith('parent ')).map((l) => l.slice(7));
   if (ps.length !== 2) return `${not}: its head ${String(head).slice(0, 10)} is not a merge`;
   if (git(['merge-base', '--is-ancestor', ps[0], base], { cwd: root, allowFail: true }).code !== 0) return `${not}: its head's first parent ${ps[0].slice(0, 10)} is not on layer/${n}`;
+  const mt = git(['merge-tree', '--write-tree', '--no-messages', ps[0], ps[1]], { cwd: root, allowFail: true });
+  const tree = git(['rev-parse', `${head}^{tree}`], { cwd: root, allowFail: true });
+  if (mt.code !== 0 || tree.code !== 0) return `${not}: its parents do not merge cleanly, or the merge could not be made`;
+  if (mt.stdout.trim().split('\n')[0] !== tree.stdout.trim()) return `${not}: its head ${String(head).slice(0, 10)} is not git's own merge of its parents`;
+  const mb = git(['merge-base', ps[0], ps[1]], { cwd: root, allowFail: true, deepen: true });
+  const side = mb.code === 0 ? git(['diff', '--no-renames', '--name-only', '-z', mb.stdout.trim(), ps[1]], { cwd: root, allowFail: true }) : mb;
+  if (side.code !== 0) return `${not}: what its second parent brings could not be read`;
+  const other = side.stdout.split('\0').filter(Boolean).find((f) => !pinFile(f));
+  if (other) return `${not}: its second parent brings ${other}`;
   return null;
 }
 

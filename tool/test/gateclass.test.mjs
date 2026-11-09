@@ -455,12 +455,12 @@ test('layer sync (C49): a sync with an unreleased or backward pin is red; a shim
 
 test('layer sync (C49): every other route into a layer is full, each with its why: a product file, a ledger entry, the config, a record, no pin moved, a job, another branch, a forged sync, an unknown base', () => {
   const cases = [
-    ['a sync carrying a product file', layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' } }), 'layer/1', /^layer sync 1 carries src\/beta\/index\.mjs, not only the pin$/],
-    ['a sync carrying a test file', layered({ tranche: { 'test/beta/new.test.mjs': whole('beta') } }), 'layer/1', /^layer sync 1 carries test\/beta\/new\.test\.mjs, not only the pin$/],
-    ['a sync carrying a requirements file', layered({ tranche: { 'req/beta.md': '# beta\n\n- **R1** y is one, reworded\n' } }), 'layer/1', /^layer sync 1 carries req\/beta\.md, not only the pin$/],
+    ['a sync carrying a product file', layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings src\/beta\/index\.mjs$/],
+    ['a sync carrying a test file', layered({ tranche: { 'test/beta/new.test.mjs': whole('beta') } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings test\/beta\/new\.test\.mjs$/],
+    ['a sync carrying a requirements file', layered({ tranche: { 'req/beta.md': '# beta\n\n- **R1** y is one, reworded\n' } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings req\/beta\.md$/],
     ['a sync carrying a ledger entry', layered({ tranche: { 'process/ledger/gamma.json': entry('gamma', { paths: ['src/gamma/'] }) } }), 'layer/1', /^it changes a ledger entry \(process\/ledger\/gamma\.json\)$/],
     ['a sync carrying the config', layered({ tranche: { 'process/config.json': { tranche: 'tranche', lockfiles: [] } } }), 'layer/1', /^it changes process\/config\.json$/],
-    ['a sync carrying a record', layered({ tranche: { 'process/metrics/beta.jsonl': '{"row":"note"}\n' } }), 'layer/1', /^layer sync 1 carries process\/metrics\/beta\.jsonl, not only the pin$/],
+    ['a sync carrying a record', layered({ tranche: { 'process/metrics/beta.jsonl': '{"row":"note"}\n' } }), 'layer/1', /^a pull request into layer\/1 that is not its layer sync: its second parent brings process\/metrics\/beta\.jsonl$/],
     ['a sync carrying a workflow not named like a shim', layered({ tranche: { '.github/workflows/build.yml': 'on: push\n' } }), 'layer/1', /\.github\/workflows\/build\.yml is not named like a shim/],
     ['a sync that moves no pin', layered({ pin: null }), 'layer/1', /^layer sync 1 does not move the pin$/],
     ['a sync into another layer', layered({ tranche: {} }), 'layer/2', /^a pull request into layer\/2 that is not its layer sync \(from layer-sync\/1-[0-9a-f]{10}\)$/],
@@ -506,4 +506,27 @@ test('layer sync (C49): a product test on the layer naming the pin sends the syn
   const r = run({ ...s, base }, { io: into('layer/1') });
   assert.equal(r.run.class, 'full');
   assert.match(r.run.class_why, /test\/alpha\/pin\.test\.mjs names \.process \(the merged tree\)/);
+});
+
+test('layer sync (C49, cold review): an evil merge, keeping the layer\'s side of a file the tranche changed, is full; so is a base that disagrees with the event\'s', () => {
+  // The tranche changes beta's code and moves the pin; the "sync" keeps the layer's beta, so its
+  // diff against the layer is the pin's files only, while the tranche's commits enter the layer.
+  const s = layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' }, merge: false, branch: 'layer-sync/1-0123456789' });
+  git(['reset', '-q', '--hard', s.base], { cwd: s.root });
+  git(['merge', '-q', '--no-ff', '--no-commit', 'tranche'], { cwd: s.root });
+  git(['checkout', '-q', s.base, '--', 'src/beta/index.mjs'], { cwd: s.root });
+  git(['commit', '-q', '--no-edit'], { cwd: s.root });
+  const evil = { ...s, head: git(['rev-parse', 'HEAD'], { cwd: s.root }) };
+  assert.deepEqual(git(['diff', '--name-only', evil.base, evil.head], { cwd: s.root }).split('\n'), ['.process'], 'the pin alone, against the layer');
+  const r = run(evil, { io: into('layer/1') });
+  assert.equal(r.run.class, 'full');
+  assert.match(r.run.class_why, /that is not its layer sync: its head [0-9a-f]{10} is not git's own merge of its parents$/);
+  // The tool's own merge of the same, honestly made, brings beta's code from the tranche: full.
+  const honest = layered({ tranche: { 'src/beta/index.mjs': 'export const y = 2;\n' } });
+  assert.match(run(honest, { io: into('layer/1') }).run.class_why, /^a pull request into layer\/1 that is not its layer sync: its second parent brings src\/beta\/index\.mjs$/);
+  // The live PR's base and the event's disagree (retargeted since): full.
+  const ok = layered();
+  const moved = run(ok, { io: into('tranche'), baseRef: 'layer/1' });
+  assert.deepEqual([moved.run.class, moved.run.class_why], ['full', "the pull request's base branch is not known"]);
+  assert.equal(run(ok, { io: into('layer/1'), baseRef: 'layer/1' }).run.class, 'pin-only', 'agreeing, as before');
 });
