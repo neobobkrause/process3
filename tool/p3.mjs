@@ -3,20 +3,23 @@
 // Usage: node <clone>/tool/p3.mjs <command> [args]
 // p3-capability: gate-no-post (products' older shims grep for this line at the pin; keep it until
 // every product carries the shim without the legacy path; review B of PR 32)
+// p3-capability: gate-class (the gate shim runs `gate-class` before the browser install only when
+// the pin has it: C45b)
 import { expireRecords } from './lib/expire.mjs';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gate, postRow } from './lib/gate.mjs';
+import { gate, gateClassAt, postRow } from './lib/gate.mjs';
+import { browserNeeded, gateRepo } from './lib/gateclass.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
 import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
 import { layerMode, layersAt } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
-import { jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
+import { TOOL_ROOT, jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
 import { branchModule, checkLedger, homeRef, ledgerIds } from './lib/ledger.mjs';
 import { appendRow, bobMetricsFile, recordRefusal, recordWake, report as metricsReport, stateRoles } from './lib/metrics.mjs';
 import { statelessWake, survivalReport, wholeHistory } from './lib/measures.mjs';
 import { leadInputs } from './lib/lead.mjs';
-import { merge, mergePlain } from './lib/merge.mjs';
+import { merge, mergePlain, processRepo } from './lib/merge.mjs';
 import { capCheck } from './lib/cap.mjs';
 import { deployDev, deployRelease, walkInternal, walkRound } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
@@ -419,9 +422,28 @@ const commands = {
     const { run: r, findings } = gate(root, {
       base: a.base, head: a.head, branch: a.branch, pr: a.pr ? Number(a.pr) : null,
       draft: a.draft === 'true' || a.draft === true, started: a.started ? Number(a.started) * 1000 : Date.now(),
+      // The process clone this runs from judges a pin-only change (gateclass.mjs); the shim says when
+      // its gate-class step left the browser out (P3_BROWSER=skip), so no product test may run.
+      repo: gateRepo(processRepo, TOOL_ROOT), browserSkipped: process.env.P3_BROWSER === 'skip',
     });
     console.log(`gate: ${r.trigger}; suite ${r.suite}; revert ${r.revert}; receipt ${r.receipt}; ${r.minutes} min`);
     return report(findings, a.out, { run: r });
+  },
+
+  // gate-class --base <sha> --head <sha> --branch <ref> [--out <file>]: the gate shim's step before
+  // the browser install (C45b): the run's class (gateclass.mjs) and whether the product's browser is
+  // needed, as `class=<c>` and `browser=skip|keep` lines appended to --out ($GITHUB_OUTPUT). Any
+  // failure says keep: the browser is then installed as before.
+  'gate-class': (a, root) => {
+    let c;
+    try {
+      if (!a.base || !a.head || a.base === true || a.head === true) fail('gate-class --base <sha> --head <sha> --branch <ref> [--out <file>]');
+      c = gateClassAt(root, { base: a.base, head: a.head, branch: a.branch === true ? '' : a.branch || '', repo: gateRepo(processRepo, TOOL_ROOT) });
+    } catch (e) { c = { class: 'full', why: `unread (${String(e.message).slice(0, 200)})`, lanes: true }; }
+    const browser = browserNeeded(c) ? 'keep' : 'skip';
+    console.log(`gate class: ${c.class} (${c.why}); browser: ${browser}`);
+    if (a.out && a.out !== true) appendFileSync(a.out, `class=${c.class}\nbrowser=${browser}\n`);
+    return 0;
   },
 
   // report tranche [--out <file>]: the tranche report in Markdown, from the record alone (Phase 3,
