@@ -61,15 +61,17 @@ export function report(findings, out, extra = {}) {
 }
 
 const one = (a, what) => a._[0] || fail(`name the ${what}`);
-// A layer named by its number, or a round layer by --round <r> --plan-layer <m> (Bob, 9 Nov: a
-// round layer reads as "round 2 · plan layer 11 (layer 13)"): the number of the round layer that
-// passes over that plan layer in that round, opened already or the round's next to open.
+// A layer named by its number, or a round layer by --round <r> --layer <m> (Bob, 9 Nov: "layers are
+// in rounds which are in tranches"; a round layer reads as "tranche T · round 2 · layer 11 (internal
+// layer 13)"): the internal number of the round layer over the plan's layer m in round r, opened
+// already or the round's next to open. --plan-layer is the same flag.
 export function layerArg(a, root) {
   const r = a.round;
-  const m = a['plan-layer'];
-  if (r === undefined && m === undefined) return one(a, 'layer number (or --round <r> --plan-layer <m>)');
-  if (a._[0] !== undefined) fail('name the layer once: its number, or --round <r> --plan-layer <m>');
-  if (!/^[1-9]\d*$/.test(String(r)) || !/^[1-9]\d*$/.test(String(m))) fail('--round <r> --plan-layer <m>: both, each a whole number from 1');
+  if (a.layer !== undefined && a['plan-layer'] !== undefined) fail('--layer and --plan-layer are the same: give one');
+  const m = a.layer ?? a['plan-layer'];
+  if (r === undefined && m === undefined) return one(a, 'layer number (or --round <r> --layer <m>)');
+  if (a._[0] !== undefined) fail('name the layer once: its internal number, or --round <r> --layer <m>');
+  if (!/^[1-9]\d*$/.test(String(r)) || !/^[1-9]\d*$/.test(String(m))) fail('--round <r> --layer <m>: both, each a whole number from 1');
   const cfg = loadConfig(root);
   const tr = `refs/remotes/origin/${cfg.tranche}`;
   git(['fetch', '-q', 'origin', `+refs/heads/${cfg.tranche}:${tr}`], { cwd: root, allowFail: true });
@@ -81,7 +83,7 @@ export function layerArg(a, root) {
   let rs = null;
   try { rs = nextRound(root, cfg, layers, tr); } catch { rs = null; }
   if (rs?.next && rs.next.round === Number(r) && rs.next.of === Number(m)) return rs.next.n;
-  return fail(`no layer is round ${r} · plan layer ${m} on ${cfg.tranche}${rs?.next ? `; the next to open is round ${rs.next.round} · plan layer ${rs.next.of} (layer ${rs.next.n})` : ''}`);
+  return fail(`no layer is tranche ${cfg.tranche} · round ${r} · layer ${m}${rs?.next ? `; the next to open is round ${rs.next.round} · layer ${rs.next.of} (internal layer ${rs.next.n})` : ''}`);
 }
 const num = (v) => (v === undefined || v === 'unmeasured' ? 'unmeasured' : Number(v));
 
@@ -153,7 +155,7 @@ const commands = {
   'job sync': (a, root) => (jobSync(root, one(a, 'module')).ok ? 0 : 1),
 
   // The shared layer branch (layerflow.mjs), the only flow:
-  // Each of these names its layer by number, or a round layer by --round <r> --plan-layer <m>.
+  // Each of these names its layer by its internal number, or a round layer by --round <r> --layer <m>.
   // layer open <n>: cut layer/<n> from the tranche tip; lists the jobs that can start, which ROOT starts.
   // layer jobs <n>: the jobs that can start now (not started, or reopened by a reschedule).
   // layer status <n>: each module's state, and whether the layer can merge.

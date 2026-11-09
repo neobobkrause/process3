@@ -60,11 +60,13 @@ export function completionLayers(root, cfg, map) {
 // layer are round 1's (Bob, 8 Nov: "Finish, then switch": layer 12 finishes as this round's work).
 export const roundOf = (L) => L?.round?.n ?? 1;
 // How a round layer is named wherever a person or a session reads it (Bob, 9 Nov, on "layer 13":
-// "I thought there is no layer 13 any more"): its round and the plan layer it passes over, the
-// internal number in parentheses, for the commands that take it: "round 2 · plan layer 11 (layer 13)".
-export const roundLayerName = (r, of, n) => `round ${r} · plan layer ${of} (layer ${n})`;
+// "I thought there is no layer 13 any more"; "layers are in rounds which are in tranches"): the
+// hierarchy, outermost first, the layer the plan's, and the tool's running number in parentheses
+// for the commands that take it: "tranche T53 · round 2 · layer 11 (internal layer 13)"; the
+// tranche left off where the reader has it already (status, headed by it).
+export const roundLayerName = (r, of, n, tranche = null) => `${tranche ? `tranche ${tranche} · ` : ''}round ${r} · layer ${of} (internal layer ${n})`;
 // How a layer is named in the flow's lines: a map layer "layer 3"; a round layer as above.
-export const layerName = (L, n = L?.n) => (L?.round ? roundLayerName(L.round.n, L.round.of, n) : `layer ${n}`);
+export const layerName = (L, n = L?.n, tranche = null) => (L?.round ? roundLayerName(L.round.n, L.round.of, n, tranche) : `layer ${n}`);
 export const layerOf = (layers, id) => layers.find((L) => L.mods.includes(id))?.n ?? null;
 // Every layer listing a module, newest first (a completion layer past the map reopens a module of an
 // earlier layer, C33; a map may list a module twice).

@@ -381,13 +381,13 @@ test('rounds: every layer closed is the first round\'s close; the walk\'s findin
   assert.equal(deployDev(root, { io, repo, log: quiet }).ok, false);
   const first = git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10);
   push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: walk p3dev-l1 ${first})* http-500\n` });
-  assert.throws(() => deployDev(root, { io, repo, log: quiet }), new RegExp(`never between layers \\(the walk p3dev-l1 ${first} ended round 1; round 2 opens from its findings: round 2 · plan layer 1 \\(layer 2\\) for a`));
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), new RegExp(`never between layers \\(the walk p3dev-l1 ${first} ended round 1; round 2 opens from its findings: round 2 · layer 1 \\(internal layer 2\\) for a`));
   assert.doesNotMatch(see(root).text, /round-close run is owed/);
   assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /tranche close waits: the walk p3dev-l1 \w+ ended round 1; round 2 opens from its findings/);
   // Round 2's layer opens, and merges with a's fix: round 2 closed, its walk owed.
   const state = (files) => { onState(root, files); git(['push', '-q', 'origin', 'refs/remotes/origin/process-state:refs/heads/process-state'], { cwd: root }); };
   state({ 'layerflow/2/open.json': JSON.stringify({ row: 'open', layer: 2, tranche: 'tranche', at: new Date().toISOString(), round: { n: 2, of: 1, mods: ['a'], items: [] } }) });
-  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /round 2 is open: round 2 · plan layer 1 \(layer 2\) has not merged/);
+  assert.throws(() => deployDev(root, { io, repo, log: quiet }), /round 2 is open: round 2 · layer 1 \(internal layer 2\) has not merged/);
   push(root, { 'build/requirements/a.md': 'all met\n', fixed: 'x\n' });
   state({ 'layerflow/2/merged.json': JSON.stringify({ row: 'merged', layer: 2, at: new Date().toISOString() }) });
   assert.match(see(root).text, /FIRST: the round-close run is owed \(round 2 closed since \w+ was deployed\)/);
@@ -419,7 +419,7 @@ test('tranche close (BD-R1): refused until a clean internal walk, then a release
   assert.equal(r1.row.internal_walk.ok, false);
   assert.equal(r1.row.row, 'round-walk');
   push(root, { 'build/requirements/a.md': `all met\n- **F1** *(not yet met: internal walk ${r1.row.slug} ${r1.row.commit.slice(0, 10)})* step\n` });
-  assert.throws(close, /tranche close waits: the walk internal-\S+ \w{10} ended round 1; round 2 opens from its findings: round 2 · plan layer 1 \(layer 2\) for a/);
+  assert.throws(close, /tranche close waits: the walk internal-\S+ \w{10} ended round 1; round 2 opens from its findings: round 2 · layer 1 \(internal layer 2\) for a/);
   // a fixed and walked again: a clean internal walk. 2. no release yet.
   push(root, { fixed: 'x\n', 'build/requirements/a.md': 'all met\n' });
   const r2 = walkRound(root, { io, repo, log: quiet });
@@ -720,8 +720,8 @@ test('rounds with an internal walk: flaws close the round with no deploy or live
   v = see(root);
   assert.doesNotMatch(v.text, /round-close run is owed|release path is next/);
   assert.equal(v.s.deploy, null);
-  assert.match(v.text, /layer flow: round 2 · plan layer 1 \(layer 2\) \(from the walk internal-l1 \w{10}; a\) is next and not open/);
-  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /tranche close waits: the walk internal-l1 \w{10} ended round 1; round 2 opens from its findings: round 2 · plan layer 1 \(layer 2\) for a/);
+  assert.match(v.text, /layer flow: round 2 · layer 1 \(internal layer 2\) \(from the walk internal-l1 \w{10}; a\) is next and not open/);
+  assert.throws(() => trancheClose(root, { slug: repo, io: closeIO, log: quiet }), /tranche close waits: the walk internal-l1 \w{10} ended round 1; round 2 opens from its findings: round 2 · layer 1 \(internal layer 2\) for a/);
   noLive();
   // Round 2's layer opens and merges with a's fix: its internal walk is owed, and only that.
   state({ 'layerflow/2/open.json': JSON.stringify({ row: 'open', layer: 2, tranche: 'tranche', at: new Date().toISOString(), round: { n: 2, of: 1, mods: ['a'], items: [] } }) });

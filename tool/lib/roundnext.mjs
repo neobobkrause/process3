@@ -222,7 +222,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
   const dry = apply ? '' : ' (dry run: `round next --apply` does it)';
   // A layer of the round is open: its jobs.
   if (rs.state === 'layer') {
-    log(`round ${rs.round}: ${layerName(rs.layer)} is open; its jobs, each started by BOB (create_session, then the command):`);
+    log(`${layerName(rs.layer, rs.layer.n, cfg.tranche)} is open; its jobs, each started by BOB (create_session, then the command):`);
     const j = layerJobs(root, rs.layer.n, { io: lio, log });
     return { ok: true, state: 'layer', layer: rs.layer.n, startable: j.startable };
   }
@@ -231,7 +231,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     return { ok: true, state: 'walk', round: rs.round };
   }
   // The round's next layer (a round layer merged and one past it is owed): opened, its jobs listed.
-  if (rs.state === 'next') return openNext(root, rs.next, { apply, io: lio, log, by, dry, what: `round ${rs.round}'s next layer` });
+  if (rs.state === 'next') return openNext(root, rs.next, { apply, io: lio, log, by, dry, what: `round ${rs.round}'s next layer`, tranche: cfg.tranche });
   // After a walk: its findings, then the next round's first layer; a clean one, the release path.
   const { w, last } = plan;
   const internal = internalRun(last);
@@ -257,7 +257,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
     return { ok: true, state: 'findings', plan };
   }
   const nx = predicted(root, cfg, plan);
-  if (nx) log(`then: ${roundLayerName(nx.round, nx.of, nx.n)} opens for ${nx.mods.join(', ')}, the lowest plan layer with a flawed module; ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
+  if (nx) log(`then: ${roundLayerName(nx.round, nx.of, nx.n, cfg.tranche)} opens for ${nx.mods.join(', ')}, the lowest layer with a flawed module; ${apply ? 'its jobs follow' : 'its `job start` commands are printed once it opens'}`);
   if (loose.length) {
     const why = `${loose.length} finding(s) name no known module (${loose.map((e) => `${e.module ? `${e.module}: ` : ''}${e.text}`).slice(0, 5).join('; ')}): give their modules in a file of \`<module>: <text>\` lines (\`, covers <n>\` at a line's end for one flaw behind n failures), then \`${ROUND_NEXT} --findings <file>\``;
     if (apply) fail(`${why}; nothing was recorded`);
@@ -283,7 +283,7 @@ export function roundNext(root, { apply = false, findingsFile = null, io = {}, l
   if (plan.loose.length) fail(`round ${plan.rs.round} cannot place ${plan.loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), then \`${ROUND_NEXT} --apply\``);
   if (plan.rs.state === 'clean') return releasePath(root, cfg, plan, { log });
   if (plan.rs.state !== 'new') fail(`after recording, the rounds stand at ${plan.rs.state}, not a new round: \`${P3} status --role bob\``);
-  return openNext(root, plan.rs.next, { apply, io: lio, log, by, dry, what: `round ${plan.rs.round}'s first layer` });
+  return openNext(root, plan.rs.next, { apply, io: lio, log, by, dry, what: `round ${plan.rs.round}'s first layer`, tranche: cfg.tranche });
 }
 
 function printEntries(plan, { log }) {
@@ -293,7 +293,7 @@ function printEntries(plan, { log }) {
   log(`the findings by module, one entry per distinct flaw (--from "${plan.from}"):`);
   for (const [id, es] of [...groups].sort((a, b) => (mapLayer(plan, a[0]) ?? 1e9) - (mapLayer(plan, b[0]) ?? 1e9) || String(a[0]).localeCompare(String(b[0])))) {
     const k = id ? mapLayer(plan, id) : null;
-    log(`  ${id || '(no module)'}${k !== null && k !== undefined ? ` (plan layer ${k})` : ''}:`);
+    log(`  ${id || '(no module)'}${k !== null && k !== undefined ? ` (layer ${k})` : ''}:`);
     for (const e of es) {
       const how = e.route === 'owe' ? `owed reopen (${e.pin} pins its ids)` : e.route === 'mark' ? `found mark in ${e.file}` : e.route === 'unknown' ? 'not a module on the tranche' : 'no module';
       const state = e.recorded ? 'recorded' : e.pending ? 'in an open pull request' : 'to record';
@@ -386,9 +386,9 @@ function pendingFound(root, id, tr) {
 }
 
 // The layer opened (apply) or named (dry run), and its jobs' `job start` commands printed.
-function openNext(root, nx, { apply, io, log, by, dry, what }) {
+function openNext(root, nx, { apply, io, log, by, dry, what, tranche = null }) {
   if (!apply) {
-    log(`${what}: ${roundLayerName(nx.round, nx.of, nx.n)} for ${nx.mods.join(', ')}${dry}; then its \`job start\` commands`);
+    log(`${what}: ${roundLayerName(nx.round, nx.of, nx.n, tranche)} for ${nx.mods.join(', ')}${dry}; then its \`job start\` commands`);
     return { ok: true, state: 'dry', next: nx };
   }
   const o = layerOpen(root, nx.n, { io, by, log });
