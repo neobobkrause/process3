@@ -2269,8 +2269,13 @@ export function landJudge(root, cfg, { branch, ids, key, slug, io, green = ['pas
 // land of each provider it uses in the layer. Anything else is a finding: nothing is re-run.
 // Gate rows written before they said `whole` (this change, 7 Nov): taken as written (see layerCover).
 export const LEGACY_GATE_ROWS = '2026-11-07T12:00:00Z';
-export function layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io }) {
+export function layerCover(root, cfg, { head, mb, base, branch, changed: all, entries, slug, io }) {
   const findings = [];
+  // A path whose content at the layer tip is the tranche tip's (the PR's base) is no change the layer
+  // brings and needs no cover: a pin moved in place (PD-23, C56: .process and the workflow shims), or
+  // anything else the layer already shares with the tranche (C61, copy PR 1111).
+  const differs = base ? new Set(diffNames(root, base, head)) : null;
+  const changed = differs ? all.filter((f) => differs.has(f)) : all;
   const covered = [];
   const inMod = (e, f) => ownPaths(e).some((p) => underPath(f, p));
   // Generated paths are the layer checks' at the merge (regenerated there), not a module's land's.

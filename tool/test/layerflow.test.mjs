@@ -1456,6 +1456,32 @@ test('layer pin (PD-23): a pin diff that judges nothing moves into the open laye
   assert.equal((await layerPin(root, 1, { io: pinIOOf(bare, made, []), log: quiet })).action, 'none');
 });
 
+// C61 (copy PR 1111, 9 Nov): a layer whose pin was moved in place by layer pin went to its merge, and
+// the layer gate read .process and the shim as plain changes in no module. A path the layer tip holds
+// as the tranche tip (the PR's base) holds it is no change the layer brings: it needs no cover.
+test('the layer gate: a layer whose .process was moved in place to the tranche\'s pin passes the cover', async () => {
+  const { root, bare } = product({ done: true });
+  setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  layerOpen(root, 1, { io: openIO, log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  commit(root, { '.github/workflows/process-gate.yml': 'name: gate v2\n' }, 'shim 2');
+  newPin(root, 'pin 2');
+  git(['push', '-q', 'origin', 'tranche'], { cwd: root });
+  await layerPinOpen(root, { io: pinIOOf(bare, [], []), log: quiet });
+  git(['fetch', '-q', 'origin'], { cwd: root });
+  const head = git(['rev-parse', 'origin/layer/1'], { cwd: root });
+  const base = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  const mb = git(['merge-base', head, base], { cwd: root });
+  const changed = git(['diff', '--name-only', mb, head], { cwd: root }).split('\n').filter(Boolean);
+  assert.ok(changed.includes('.process') && changed.includes('.github/workflows/process-gate.yml'), changed.join(' '));
+  const entries = ['a', 'b', 'c', 'd'].map((id) => JSON.parse(git(['show', `${head}:process/ledger/${id}.json`], { cwd: root })));
+  const cfg = configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' });
+  const io = { getPR: () => assert.fail('nothing to judge'), comments: () => [], verify: () => false };
+  const r = layerCover(root, cfg, { head, mb, base, branch: 'layer/1', changed, entries, slug: 'o/p', io });
+  assert.deepEqual(r.findings, []);
+});
+
 test('layer pin (PD-23): a pin diff that changes how the layer is judged waits for the coordinator\'s choice; hold keeps the layer\'s pin and the tranche\'s wins at the merge', async () => {
   const { root, bare } = product({ done: true });
   const p1 = newPin(root, 'pin 1');

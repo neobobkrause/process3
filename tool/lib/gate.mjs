@@ -243,7 +243,7 @@ export function gate(root, opts) {
   else if (draft) runRow.trigger = 'draft';
   else if (layerPR) {
     runRow.trigger = 'layer';
-    const lc = layerCover(root, cfg, { head, mb, branch, changed, entries, slug, io });
+    const lc = layerCover(root, cfg, { head, mb, base, branch, changed, entries, slug, io });
     const unreadable = lc.covered.filter((c) => c.pr_unreadable).map((c) => ({ id: c.id, pr: c.pr, why: c.pr_unreadable, ...(c.run_unreadable ? { run: c.run_unreadable } : {}) }));
     runRow.layer = { n: layerOfBranch(branch), covered: lc.covered.map((c) => c.id), findings: lc.findings.length, ...(unreadable.length ? { pr_unreadable: unreadable } : {}) };
     for (const u of unreadable) log(`${u.id}: PR ${u.pr} is not served by GitHub (${u.why}); covered from the state branch's land row and ${u.run ? `its gate row (${u.run})` : 'its gate run\'s artifact'}`);
