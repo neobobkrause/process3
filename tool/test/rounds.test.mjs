@@ -106,11 +106,11 @@ test('BD-R1 on the flow: the walk\'s found marks open round 2 past the map; its 
   walked(root, { min: 30, failures: 2 });
   push(root, mark('d', 1, 'the d door 500s'));
   // PD-16: its internal walk found flaws, so the live arm's 2 hold no round; only the internal walk's 2 count.
-  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /round 2 opens from its walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 2 finding\(s\) \(the internal walk's; the live arm's 2 hold no round: its internal walk found flaws, PD-16\), 1 recorded/);
+  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /round 2 opens from its walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 2 finding\(s\) \(the internal walk's; the live arm's 2 hold no round: its internal walk found flaws, PD-16\), 0 recorded/);
   // Status names the wait, not an open that refuses (cold review of C39).
   const held = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([held.kind, held.round, held.rounds], ['done', 2, 'held']);
-  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: held }).join('\n'), /layer flow: round 2 opens from the walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 2 finding\(s\) \(the internal walk's[^)]*\), 1 recorded/);
+  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: held }).join('\n'), /layer flow: round 2 opens from the walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 2 finding\(s\) \(the internal walk's[^)]*\), 0 recorded/);
   push(root, { ...mark('d', 1, 'the d door 500s'), 'req/c.md': `${req('c')}- **F1** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F2** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F3** *(not yet met: walk p3dev-r 0123456789)* c\n` });
   const v = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([v.kind, v.n, v.round, v.of, v.mods], ['next', 4, 2, 2, ['c']]);
@@ -185,9 +185,11 @@ test('C44: a walk finding for a module with pinned requirement ids is recorded a
   assert.match(said.join('\n'), /next: record the walk's other findings, then open the layer status --role bob names \(`node \.process\/tool\/p3\.mjs layer open <n>`\)/);
   // Once more: the same file, kept.
   assert.equal(found(root, 'c', 'the tip overlaps the shell header', { from: 'internal walk p3dev-r 0123456789', covers: '96', log: quiet }).recorded, false);
+  // Another count for the same finding is the same owe, kept (cold review of C44).
+  assert.equal(found(root, 'c', 'the tip overlaps the shell header', { from: 'internal walk p3dev-r 0123456789', covers: '90', log: quiet }).recorded, false);
   assert.equal(owedReopens(root, loadConfig(root)).length, 1);
   const cfg = loadConfig(root);
-  const w = findingsOf(root, cfg, 'origin/tranche', { row: 'dev-deploy', slug: 'p3dev-r', commit: '0123456789abcdef', ok: false, walk: { failures: 178 }, internal_walk: { ok: false, failures: 96 } });
+  const w = findingsOf(root, cfg, 'origin/tranche', { row: 'dev-deploy', slug: 'p3dev-r', commit: '0123456789abcdef', ok: false, walk: { failures: 178 }, internal_walk: { ok: false, failures: 96 } }, { round: true });
   assert.deepEqual([w.failing, w.recorded, w.set_aside], [96, 96, 178]);
   assert.deepEqual([...flawedModules(root, cfg, 'origin/tranche').keys()], ['c']);
   // layer open: the round opens from it.
@@ -216,10 +218,16 @@ test('C44: a run whose internal walk was clean counts its live arm\'s findings; 
   const cfg = loadConfig(root);
   fetchState(root, SB, { fresh: true });
   const row = (inner, live) => ({ row: 'dev-deploy', slug: 'p3dev-r', commit: '0123456789abcdef', ok: !live && !inner, walk: { failures: live }, internal_walk: { ok: !inner, failures: inner } });
-  assert.deepEqual(['failing', 'set_aside'].map((k) => findingsOf(root, cfg, 'origin/tranche', row(0, 5))[k]), [5, 0]);
-  assert.deepEqual(['failing', 'set_aside'].map((k) => findingsOf(root, cfg, 'origin/tranche', row(3, 5))[k]), [3, 5]);
+  const f = (r) => findingsOf(root, cfg, 'origin/tranche', r, { round: true });
+  assert.deepEqual(['failing', 'set_aside'].map((k) => f(row(0, 5))[k]), [5, 0]);
+  assert.deepEqual(['failing', 'set_aside'].map((k) => f(row(3, 5))[k]), [3, 5]);
+  // Tranche close and release dev (no round option) count every finding of the run, as before.
+  assert.deepEqual(['failing', 'set_aside'].map((k) => findingsOf(root, cfg, 'origin/tranche', row(3, 5))[k]), [8, 0]);
   // Stopped at the internal walk (no live arm ran): its own count only, no extra one for the stop.
-  assert.equal(findingsOf(root, cfg, 'origin/tranche', { ...row(3, 0), ok: false, stopped: 'internal walk' }).failing, 3);
+  assert.equal(f({ ...row(3, 0), ok: false, stopped: 'internal walk' }).failing, 3);
+  // Set aside, a live-arm mark records none of the internal walk's findings.
+  push(root, mark('c', 1, 'a live finding', 'walk p3dev-r 0123456789, covers 3'));
+  assert.equal(f(row(3, 5)).recorded, 0);
   push(root, mark('d', 1, 'one flaw', 'internal walk p3dev-r 0123456789, covers 3'));
-  assert.equal(findingsOf(root, cfg, 'origin/tranche', row(3, 5)).recorded, 3);
+  assert.equal(f(row(3, 5)).recorded, 3);
 });

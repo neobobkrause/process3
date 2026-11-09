@@ -154,6 +154,7 @@ export function found(root, module, finding, { from, covers, write = false, offl
   const ref = git(['rev-parse', '-q', '--verify', t], { cwd: root, allowFail: true }).code === 0 ? t : null;
   const what = clean(finding, 'the finding');
   let source = from === undefined ? DEFAULT_SOURCE : clean(from, '--from');
+  const base = source;
   if (/[()]/.test(source)) fail('--from must not hold parentheses: the mark ends at the first ")"');
   if (covers !== undefined) {
     if (!/^[1-9]\d*$/.test(String(covers))) fail('--covers <n>: how many of the walk\'s findings this one stands for, a whole number from 1');
@@ -189,7 +190,7 @@ export function found(root, module, finding, { from, covers, write = false, offl
       const at = layerMode(cfg) && cfg.state_branch ? openHolding(root, cfg, module, ref) : null;
       if (!at || at.holds) fail(`${pinned}; nothing was written. The route: ${entry?.status?.state === 'COMPLETE' ? `\`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\`` : `its job (${entry?.status?.state || 'no entry'}) takes it: give the finding to its session, or once it is COMPLETE, \`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\``}, the job adding its own F mark and admitting it in that test`);
       if (offline) fail(`${pinned}, and its layer is not open: the finding is recorded on ${cfg.state_branch} as owed to ${module}'s next reopen, which needs origin; nothing was written. Run it again without --offline`);
-      return oweReopen(root, cfg, { module, what, source, pin, by, log, pinned });
+      return oweReopen(root, cfg, { module, what, source, base, pin, by, log, pinned });
     }
     file = m.reqText !== null ? m.req : m.found;
     texts = [m.reqText, m.foundText];
@@ -254,9 +255,10 @@ function openHolding(root, cfg, id, ref) {
 
 // The owed reopen, written once (the same module, finding and source is the same file: kept).
 export const reopenKey = (module, finding, source) => createHash('sha256').update(`${module}\n${finding}\n${source}`).digest('hex').slice(0, 12);
-function oweReopen(root, cfg, { module, what, source, pin, by, log, pinned }) {
+function oweReopen(root, cfg, { module, what, source, base, pin, by, log, pinned }) {
   const sb = cfg.state_branch;
-  const key = reopenKey(module, what, source);
+  // Keyed without --covers: the same finding given again with another count is the same owe (kept).
+  const key = reopenKey(module, what, base);
   const file = `${REOPENS_DIR}/${safeName(module)}-${key}.json`;
   const row = { row: 'reopen', tranche: cfg.tranche, module, finding: what, source, pin, key, at: now(), by };
   const had = readState(root, sb, file) !== null;

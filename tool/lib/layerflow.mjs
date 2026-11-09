@@ -601,7 +601,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
   // A new round waits on its walk's findings, each recorded and none without a module, as layer
   // open refuses before them: status names that wait, never an open that refuses (cold review of C39).
   if (rs?.state === 'new' || rs?.state === 'clean') {
-    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null));
+    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null, { round: true }));
     const loose = unplaced(root, tr);
     if (hold || loose.length) return { kind: 'done', round: rs.state === 'new' ? rs.round : rs.round + 1, rounds: 'held', why: hold || `${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module` };
   }
@@ -932,7 +932,7 @@ export function roundLayer(root, cfg, layers, n, tr, log = () => {}) {
   // A walk with findings not yet recorded is not clean, though no module is flawed yet (C44): the
   // next round waits on them.
   if (rs.state === 'new' || rs.state === 'clean') {
-    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null));
+    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null, { round: true }));
     if (hold) fail(`round ${rs.state === 'new' ? rs.round : rs.round + 1} opens from its walk's findings once each is recorded: ${hold}; nothing was opened`);
   }
   if (rs.state === 'clean') fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${roundLine(rs)}: no round to open (BD-R1); nothing was opened`);

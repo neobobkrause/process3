@@ -89,17 +89,21 @@ export const runSource = (row) => `${row.slug} ${String(row.commit).slice(0, 10)
 // anyway, or stopped, as round 1's on p3dev-l12 was) hold no round; only the internal walk's count
 // toward "each recorded" (set_aside: the live arm's, named in walkHold's message). A found mark or an
 // owed reopen whose source says "covers <n>" counts as n findings (one flaw, many failures).
-export function findingsOf(root, cfg, ref, last) {
+// round: a new round's open (layer open, the layer flow's view) is the only reader that sets the live
+// arm aside; tranche close and release dev count every finding of the run, as before.
+export function findingsOf(root, cfg, ref, last, { round = false } = {}) {
   if (!last) return { last, failing: 0, marks: 0, recorded: 0, set_aside: 0 };
   const iw = last.internal_walk;
   const inner = iw ? Math.max(iw.ok ? 0 : 1, Number(iw.failures) || 0) : 0;
   const live = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0);
-  const setAside = inner > 0 ? live : 0;
+  const setAside = round && inner > 0 ? live : 0;
   const failing = inner + live - setAside;
   const tree = (d) => git(['ls-tree', '-r', '--name-only', ref, '--', d], { cwd: root, allowFail: true }).stdout.split('\n').filter((n) => n.endsWith('.md'));
   const reqs = Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const r = JSON.parse(t).requirements; return typeof r === 'string' ? [r] : []; } catch { return []; } });
   const words = (t) => String(t).split(/[^a-z0-9-]+/);
-  const naming = (t) => { const w = words(t); return w.includes(last.slug) && w.includes(String(last.commit).slice(0, 10)); };
+  // With the live arm set aside, only what names the internal walk records its findings (a live-arm
+  // mark would otherwise stand in for one: cold review of C44).
+  const naming = (t) => { const w = words(t); return w.includes(last.slug) && w.includes(String(last.commit).slice(0, 10)) && (!setAside || /\binternal walk\b/i.test(String(t))); };
   let marks = 0;
   for (const f of new Set([...tree(cfg.requirements_dir.replace(/\/$/, '')), ...tree(FOUND_DIR), ...reqs])) {
     const r = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true });
