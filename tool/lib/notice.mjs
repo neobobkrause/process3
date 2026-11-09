@@ -9,7 +9,7 @@ import { anyExportChange, exportChanges } from './exports.mjs';
 import { entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
-import { compare } from './github.mjs';
+import { compare, prPresence } from './github.mjs';
 import { diffNames } from './gate.mjs';
 import { exists, fail, git, isRecordPath, isShallow, requirementBlocks, underPath } from './util.mjs';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -224,12 +224,39 @@ export function mergedRange(root, m, { slug, n, what = 'what it changed cannot b
 // rule. The tool reads the PR's merge commit (as merge run again on a merged pull request does)
 // and refuses unless the PR changed no file of the provider's own source; then one file on the
 // state branch, added and never edited, and status drops the notice.
-export function withdrawNotice(root, cfg, key, { getPR, slug, as = 'bob', log = console.log, compare: compareRead = compare }) {
+//
+// PD-18: a notice whose pull request GitHub definitively says does not exist in the product
+// repository (prPresence: GitHub's 404 on the pulls endpoint while the repository is served, and the
+// number no PR on the issues endpoint either) is withdrawn too, its row `missing: true`: nothing can
+// ever be read for it, so nothing can ever answer it. The presence is read only when getPR fails, and
+// any answer short of that (a network error, a 5xx, a rate limit, a 403) refuses as before.
+export function readNoticePR(slug, n, { getPR, presence = prPresence }) {
+  try { return { pr: getPR(slug, n) }; } catch (err) {
+    let p;
+    try { p = presence(slug, n); } catch { throw err; }
+    if (p?.missing !== true || typeof p.status !== 'string' || !p.status) throw err;
+    return { missing: { status: p.status, why: `PR ${n} does not exist in ${slug} (GitHub ${p.status})` } };
+  }
+}
+const writeWithdrawn = (root, sb, key, row) => writeState(root, sb, `withdraw provider notice ${key}`, (wt) => {
+  const f = join(wt, withdrawFile(key));
+  if (!resolve(f).startsWith(resolve(wt, NOTICES_DIR) + sep)) throw new Error(`refused: ${withdrawFile(key)} is outside ${NOTICES_DIR}/`);
+  mkdirSync(dirname(f), { recursive: true });
+  if (!existsSync(f)) writeFileSync(f, JSON.stringify(row) + '\n');
+  return {};
+});
+export function withdrawNotice(root, cfg, key, { getPR, presence = prPresence, slug, as = 'bob', log = console.log, compare: compareRead = compare }) {
   const sb = cfg.state_branch;
   if (!fetchState(root, sb, { fresh: true })) fail(`no ${sb} on origin: no provider notice ${key}`);
   const n = notices(root, sb).find((x) => x.key === key);
   if (!n) fail(readState(root, sb, withdrawFile(key)) !== null ? `provider notice ${key} is already withdrawn` : `no provider notice ${key} on ${sb} (${noticeFile(key)})`);
-  const pr = getPR(slug, n.pr);
+  const { pr, missing } = readNoticePR(slug, n.pr, { getPR, presence });
+  if (missing) {
+    const row = { row: 'withdrawn', at: new Date().toISOString(), key, provider: n.provider, pr: n.pr, by: as, why: missing.why, missing: true, users: n.users.length };
+    writeWithdrawn(root, sb, key, row);
+    log(`provider notice ${key} withdrawn: ${row.why}; ${n.open.length} unanswered user(s) no longer owe it`);
+    return row;
+  }
   const m = pr?.merge_commit_sha;
   if (!pr?.merged || !m) fail(`pull request ${n.pr} is not merged: what it changed cannot be read`);
   const { head: h, mb } = mergedRange(root, m, { slug, n: n.pr, read: compareRead });
@@ -239,13 +266,7 @@ export function withdrawNotice(root, cfg, key, { getPR, slug, as = 'bob', log = 
   if (src.length) fail(`refused: pull request ${n.pr} changed ${src.length} file(s) of ${n.provider}'s source (${src.slice(0, 5).join(', ')}); provider notice ${key} stands`);
   const row = { row: 'withdrawn', at: new Date().toISOString(), key, provider: n.provider, pr: n.pr, merge_commit: m, by: as,
     why: `PR ${n.pr} changed no file of ${n.provider}'s source (${sourcePaths(cfg, e).join(', ') || 'no source paths'})`, users: n.users.length };
-  writeState(root, sb, `withdraw provider notice ${key}`, (wt) => {
-    const f = join(wt, withdrawFile(key));
-    if (!resolve(f).startsWith(resolve(wt, NOTICES_DIR) + sep)) throw new Error(`refused: ${withdrawFile(key)} is outside ${NOTICES_DIR}/`);
-    mkdirSync(dirname(f), { recursive: true });
-    if (!existsSync(f)) writeFileSync(f, JSON.stringify(row) + '\n');
-    return {};
-  });
+  writeWithdrawn(root, sb, key, row);
   log(`provider notice ${key} withdrawn: ${row.why}; ${n.open.length} unanswered user(s) no longer owe it`);
   return row;
 }

@@ -158,6 +158,31 @@ export function runState(slug, id, { run = ghRun } = {}) {
   if (!notFound(r)) return null;
   return run(['api', `repos/${slug}`]).code === 0 ? 'gone' : null;
 }
+// Whether GitHub definitively says pull request n does not exist in slug (PD-18, notice withdraw):
+// { missing: true, status } only when the pulls endpoint answers GitHub's own 404 Not Found, the
+// repository itself is served (a wrong slug or a token that cannot see it 404s every PR), and the
+// issues endpoint agrees: a 404 or 410 there (no such number), or an issue with no pull_request
+// (the number is an issue, not a PR). Any other answer, a network error, a 5xx, a rate limit or a
+// 403 included, is { missing: false, unread } and the caller fails closed; a served PR is { pr }.
+export function prPresence(slug, n, { run = ghRun } = {}) {
+  const pulls = run(['api', `repos/${slug}/pulls/${n}`]);
+  if (pulls.code === 0) { try { return { missing: false, pr: JSON.parse(pulls.stdout) }; } catch { return { missing: false, unread: 'the pull request could not be parsed' }; } }
+  const said = (r) => (r.stderr || r.stdout || '').trim().split('\n')[0].slice(0, 200);
+  if (!notFound(pulls)) return { missing: false, unread: said(pulls) || `exit ${pulls.code}` };
+  const repo = run(['api', `repos/${slug}`]);
+  if (repo.code !== 0) return { missing: false, unread: `GitHub did not serve ${slug} itself: ${said(repo)}` };
+  const issue = run(['api', `repos/${slug}/issues/${n}`]);
+  if (issue.code === 0) {
+    let body = null;
+    try { body = JSON.parse(issue.stdout); } catch { return { missing: false, unread: `issue ${n} could not be parsed` }; }
+    if (!body || typeof body !== 'object' || Number(body.number) !== Number(n)) return { missing: false, unread: `issue ${n} read as another number` };
+    if (body.pull_request) return { missing: false, unread: `GitHub serves ${n} as a pull request on its issues endpoint but 404s its pulls endpoint` };
+    return { missing: true, status: `404, ${n} is an issue` };
+  }
+  if (notFound(issue)) return { missing: true, status: '404' };
+  if (/\(HTTP 410\)/.test(issue.stderr || '')) return { missing: true, status: '404, issue 410 Gone' };
+  return { missing: false, unread: said(issue) || `exit ${issue.code}` };
+}
 export function runArtifactRow(slug, id) {
   return withTemp('p3-row-', (dir) => {
     try {
