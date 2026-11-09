@@ -8,7 +8,7 @@ My tasks, bound to me (rebind to yourself, then delete mine): hourly trig_01JaK7
 
 ## Merged in process3 today (all reviewed by me, suite green, merge tool)
 PD-17 (283: rehearse new process paths in process3 first), C47 (284: every tool push reaches the ledger), PD-18 (285) + C48 (286: notice withdraw for PRs that do not exist), C45b (287: light gate classes record-only / pin-only; the first C45 was lost when ROOT's sweep archived its unpushed session), C49 (288: a layer sync carrying only the pin is pin-only; closed C45b's accidental pin-only for non-job PRs into a layer), C51 (290: PD-19 companion join `layer join <m> --companion-of <job> --layer <n> --why`; PD-19 in DECISIONS.md), C52 (291: the hook shares connector writes' rows).
-Copy pins today: b2868be2 (1091), f84714ec (1093), 33afe79c (1096), and c50ce587 (C51+C52) RUNNING now in session_018BhceckZ8UWo9wHZpQLxsN (started 11:53Z).
+Copy pins today: b2868be2 (1091), f84714ec (1093), 33afe79c (1096), c50ce587 (1102, C51+C52, 12:41Z).
 
 ## Measured
 Record-class gate 0.89 min (copy PR 1101) vs 33.9 min before. Pin gates 4-7 min (class full in this product: agent-worker's control test names .process; fail-closed as built). A layer sync on the pin-only gate: minutes. A pin move still ~45 min, ~30 of it the setup checks (BOB's idle check runs inside them): C50 fixes that.
@@ -17,7 +17,7 @@ Record-class gate 0.89 min (copy PR 1101) vs 33.9 min before. Pin gates 4-7 min 
 Layer 1 (internal 13) merged 08:44Z (bundler F2, reader-container F1 landed; file-scanner deferred; bundler F3 deferred to Bob). Layer 2 (internal 14) open ~09:30Z: ai-catalogue 1097 landed; ai-accounts 1098 and credentials 1099 BLOCKED until their PD-19 companion op-declarations lands (store-assembly routing for ai-catalogue is now a normal later-layer join, since 1097 landed). 19 notices triaged; wizard-scripts, answer-envelope, monitoring, provenance and membership users ride later layers. 16 wizard-scripts tests reported red at layer/14 (not yet verified on the tip; may hold layer merge 14): BOB's handoff carries it.
 
 ## Open acts for you
-1. Pin move c50ce587: when it reports, archive it, tell BOB (layer sync 14; companion joins: all of op-declarations' pairings before its job starts; then the starts).
+1. Pin c50ce587 landed (PR 1102, pin-87). BOB nudged 12:42Z to use 18 idle slots: companion join in 14, or merge 14 --defer-done + round next + rejoin. Check BOB started jobs.
 2. C50 (PR 289, builder session_018Bhcec7RTxXm4cBZ1QzewB): I asked for (1) the idle check only for BOB (pin commands not BOB by default; unknown sender skips), (3) the fileLog root-commit trailing-space fix. Review, merge, then pin move it ONLY in a window BOB names (ask first; never hold job starts for a pin move: lesson of 08:44-09:30Z).
 3. Bob's call owed: bundler F3 (a test-only found mark cannot pass the gate's revert check; `revert exempt` was refused by auto mode as CI Bypass). Options put to Bob: a gate rule for test-only found marks (my recommendation), an exemption Bob grants himself, or leave deferred. Re-ask once if unanswered.
 4. Follow-ups noted, not started: C51's own-layer check compares a map layer with the internal layer number (over-strict in a round 1); the round runs plan layers one at a time (~5 h a layer, so 11 layers ~2+ days a round): measure and propose concurrency of independent layers; a job that declares new ops always needs an op-declarations companion: job start could name it up front.
