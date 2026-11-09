@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { hookShareLater, NO_AUTO_GC } from '../lib/ghhook.mjs';
-import { USE_DIR } from '../lib/ghshare.mjs';
+import { hookRefresh, hookShareLater, NO_AUTO_GC, noAutoGc } from '../lib/ghhook.mjs';
+import { LEDGER_CACHE, USE_DIR } from '../lib/ghshare.mjs';
 import { commonDir, useShared } from '../lib/pace.mjs';
 import { FOREGROUND_DIR, SHARE_DEFERRED, foregroundIn, git, markForeground } from '../lib/util.mjs';
 import { main, shareAtEnd } from '../p3.mjs';
@@ -76,17 +76,37 @@ test('the detached share defers while a foreground command runs or cannot be tol
   assert.equal(calls.length, 0);
 });
 
-test('with no foreground command the detached share runs, its git with no automatic gc or maintenance', (t) => {
+test('with no foreground command the detached share runs, its git with no automatic gc or maintenance, the environment\'s own git config kept', (t) => {
   const root = makeRepo({ 'README.md': 'x\n' });
-  const was = Object.fromEntries(Object.keys(NO_AUTO_GC).map((k) => [k, process.env[k]]));
+  const keys = ['GIT_CONFIG_COUNT', ...[0, 1, 2, 3].flatMap((i) => [`GIT_CONFIG_KEY_${i}`, `GIT_CONFIG_VALUE_${i}`])];
+  const was = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
   t.after(() => { for (const [k, v] of Object.entries(was)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } });
+  // As a session's environment gives git its own config (cold review: credential.interactive, url.insteadOf).
+  Object.assign(process.env, { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'credential.interactive', GIT_CONFIG_VALUE_0: 'never', GIT_CONFIG_KEY_1: 'p3.test', GIT_CONFIG_VALUE_1: 'kept' });
   let env = null;
   const ok = hookShareLater(root, { sleep: () => {}, share: () => ({ shareContent: () => { env = { ...process.env }; } }), again: () => {}, foreground: () => 'none' });
   assert.equal(ok, true);
-  for (const [k, v] of Object.entries(NO_AUTO_GC)) assert.equal(env?.[k], v);
-  // What git reads from it.
-  const r = spawnSync('git', ['config', '--get', 'gc.auto'], { cwd: root, env: { ...process.env, ...NO_AUTO_GC }, encoding: 'utf8' });
-  assert.equal(r.stdout.trim(), '0');
+  assert.equal(env.GIT_CONFIG_COUNT, '4');
+  const get = (k) => spawnSync('git', ['config', '--get', k], { cwd: root, env, encoding: 'utf8' }).stdout.trim();
+  assert.deepEqual([get('gc.auto'), get('maintenance.auto'), get('credential.interactive'), get('p3.test')], ['0', 'false', 'never', 'kept']);
+  // From none: just its own two.
+  assert.deepEqual(noAutoGc({}), { GIT_CONFIG_COUNT: '2', GIT_CONFIG_KEY_0: 'gc.auto', GIT_CONFIG_VALUE_0: '0', GIT_CONFIG_KEY_1: 'maintenance.auto', GIT_CONFIG_VALUE_1: 'false' });
+  assert.equal(NO_AUTO_GC.length, 2);
+});
+
+test('the background refresh fetches nothing beside a foreground command, nor when that cannot be told', () => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  for (const fg of ['present', 'unknown']) {
+    hookRefresh(root, { foreground: () => fg });
+    assert.equal(existsSync(join(commonDir(root), LEDGER_CACHE)), false, `${fg}: nothing read or written`);
+  }
+});
+
+test('a share that failed for good leaves the deferral too: the next command\'s end share carries its rows', () => {
+  const root = makeRepo({ 'README.md': 'x\n' });
+  hookShareLater(root, { sleep: () => {}, tries: 1, share: () => ({ shareContent: () => { throw new Error('refused'); } }), again: () => {}, foreground: () => 'none' });
+  assert.match(readFileSync(join(commonDir(root), SHARE_DEFERRED), 'utf8'), / failed\n$/);
+  assert.match(readFileSync(join(commonDir(root), 'p3-gh-share.err'), 'utf8'), /refused/);
 });
 
 test('a command\'s end share carries the rows a deferred share left, and removes the mark once none is unshared', () => {

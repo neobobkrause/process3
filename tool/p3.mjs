@@ -800,7 +800,17 @@ export async function main(argv) {
   let flushed = false;
   // This command's foreground mark (C53), removed once its end share is done.
   let unmark = null;
-  const flush = () => { try { return flushOnce(); } finally { if (unmark) { try { unmark(); } catch { /* stale, read as such */ } unmark = null; } } };
+  // A share that deferred while this command flushed (its end share already past) is carried now,
+  // once unmarked, so no deferral is left behind by the command it deferred to (cold review of C53).
+  const flush = () => {
+    try { return flushOnce(); } finally {
+      if (unmark) {
+        try { unmark(); } catch { /* stale, read as such */ }
+        unmark = null;
+        try { if (ledger && root && name !== 'github hook' && existsSync(join(commonDir(root), SHARE_DEFERRED))) shareAtEnd(ledger, 0, { root }); } catch { /* never the act's failure */ }
+      }
+    }
+  };
   const flushOnce = () => {
     if (flushed) return null;
     flushed = true;
