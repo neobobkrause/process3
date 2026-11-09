@@ -356,8 +356,12 @@ export function surfaceAt(root, ref, opts) {
   };
   const out = new Map();
   for (const f of files) for (const [k, v] of surfaceOf(read, f, opts.isProviderSource)) out.set(k, v);
-  return { files, names: out };
+  // Entry files with TypeScript export forms the surface does not read (interface, type, enum,
+  // namespace, declare, abstract class): a caller counts those exports unread (PD-20).
+  const unread = files.filter((f) => TS_EXPORT.test(blank(read(f) || '')));
+  return { files, names: out, unread };
 }
+const TS_EXPORT = /\bexport\s+(?:default\s+)?(?:declare\b|abstract\s+class\b|interface\b|type\s+[A-Za-z$]|enum\b|const\s+enum\b|namespace\b)/;
 
 // The export names added, removed or changed between base and head.
 export const exportChanges = (root, base, head, opts) => { const { removed, added, changed } = exportRead(root, base, head, opts); return { removed, added, changed }; };
@@ -370,7 +374,7 @@ export function exportRead(root, base, head, opts) {
   const removed = [...a.keys()].filter((k) => !b.has(k)).sort();
   const added = [...b.keys()].filter((k) => !a.has(k)).sort();
   const changed = [...a.keys()].filter((k) => b.has(k) && a.get(k) !== b.get(k)).sort().map((k) => ({ name: k, before: a.get(k), after: b.get(k) }));
-  return { removed, added, changed, files: [...new Set([...sa.files, ...sb.files])].sort() };
+  return { removed, added, changed, files: [...new Set([...sa.files, ...sb.files])].sort(), unread: [...new Set([...sa.unread, ...sb.unread])].sort() };
 }
 // For tests: forget every read kept.
 export function forgetReads() { TEXTS.clear(); SPECS.clear(); WORDS.clear(); JOINS.clear(); textChars = 0; }

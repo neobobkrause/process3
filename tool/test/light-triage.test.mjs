@@ -33,8 +33,8 @@ const USER_FILES = {
   'src/u7/a.mjs': "const p = require('../p/index.mjs');\nmodule.exports = p;\n",
 };
 
-function product() {
-  const ids = ['p', ...USERS];
+function product(users = USERS, extra = {}) {
+  const ids = ['p', ...users];
   const root = makeRepo({
     'process/config.json': { modules_file: 'process/modules.json', requirements_dir: 'req' },
     'process/modules.json': { modules: ids.map((id) => ({ id, paths: [`src/${id}/`], tests: [`test/${id}/`], ...(id === 'p' ? {} : { uses: ['p'] }) })) },
@@ -44,7 +44,8 @@ function product() {
     ])),
     'src/p/index.mjs': P_SRC,
     'test/p/fixture.mjs': 'export const fx = 1;\n',
-    ...USER_FILES,
+    ...Object.fromEntries(Object.entries(USER_FILES).filter(([f]) => users.includes(f.split('/')[1]))),
+    ...extra,
   });
   git(['branch', 'tranche'], { cwd: root });
   const bare = join(mkdtempSync(join(tmpdir(), 'p3-origin-')), 'o.git');
@@ -123,6 +124,7 @@ test('interfaceRule: none, added or names only with no requirement id changed an
   const read = { base: 'a'.repeat(40), head: 'b'.repeat(40), files: ['src/p/index.mjs'] };
   const n = { key: 'p:1', provider: 'p', pr: 1, ids: [], users: ['u1'], source: 1, exports_read: read };
   assert.deepEqual(interfaceRule(n), { rule: 'none', range: 'aaaaaaaaaa..bbbbbbbbbb' });
+  assert.match(interfaceRule({ ...n, exports_read: { ...read, files: [] } }).why, /its export read found no entry file/);
   assert.equal(interfaceRule({ ...n, exports: { removed: [], added: ['z'], changed: [] } }).rule, 'added');
   assert.deepEqual(interfaceRule({ ...n, exports: { removed: ['x'], added: [], changed: [{ name: 'y', before: '(a)', after: '(a, b)' }] } }).names, ['x', 'y']);
   assert.match(interfaceRule({ ...n, ids: ['R2'] }).why, /requirement id\(s\) changed \(R2\)/);
@@ -272,4 +274,14 @@ test('notice triage applies the rule to a notice recorded before it, reading the
   const r2 = noticeTriage(root, 'p:31', { log: quiet, io: { slug: 'o/r', getPR: () => ({ merged: true, merge_commit_sha: m }) } });
   assert.deepEqual(r2.owed, USERS);
   assert.ok(r2.brief);
+});
+
+test('TypeScript export forms the surface does not read leave the notice\'s exports unread, so no interface rule clears its importers', () => {
+  const root = product(['u1'], { 'src/p/index.mjs': P_SRC + 'export interface Account { id: string }\n' });
+  const { r, out } = mergeJob(root, 40, { 'src/p/index.mjs': P_SRC });
+  const [n] = r.notices.rows;
+  assert.match(n.exports_unread, /TypeScript export forms the surface does not read in src\/p\/index\.mjs/);
+  assert.equal(n.exports_read, undefined);
+  assert.deepEqual(r.triage.owed, ['u1']);
+  assert.match(out, /- the interface rule \(PD-20\) does not apply: its exports could not be read \(TypeScript export forms/);
 });

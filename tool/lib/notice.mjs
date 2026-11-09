@@ -115,8 +115,11 @@ export function providerChange(root, cfg, { provider, requirements, base, head, 
 // files read) whenever they were read (PD-20: triage trusts "exports unchanged" only with it).
 export function readExports(root, cfg, e, base, head) {
   try {
-    const { files, ...x } = exportRead(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
-    return { ...(anyExportChange(x) ? { exports: x } : {}), exports_read: { base, head, files } };
+    const { files, unread, ...x } = exportRead(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
+    const moved = anyExportChange(x) ? { exports: x } : {};
+    // The brief's "anything unread stays owed" (coordinator, 9 Nov): export forms the surface does not read.
+    if (unread.length) return { ...moved, exports_unread: `TypeScript export forms the surface does not read in ${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''}` };
+    return { ...moved, exports_read: { base, head, files } };
   } catch (err) { return { exports_unread: String(err.message || err).slice(0, 200) }; }
 }
 export const providerNotice = (root, cfg, opts) => providerChange(root, cfg, opts).notice;

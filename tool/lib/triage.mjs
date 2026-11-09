@@ -492,6 +492,8 @@ export function interfaceRule(n) {
   if (n.exports_unread) return { rule: null, why: `its exports could not be read (${n.exports_unread})` };
   const r = n.exports_read;
   if (!r?.base || !r?.head || !Array.isArray(r.files)) return { rule: null, why: 'no read of its exports is recorded on it' };
+  // An export read that found no entry file read nothing: unread (coordinator, 9 Nov).
+  if (!r.files.length) return { rule: null, why: 'its export read found no entry file of the provider' };
   const x = n.exports;
   const range = `${String(r.base).slice(0, 10)}..${String(r.head).slice(0, 10)}`;
   if (!x) return { rule: 'none', range };
