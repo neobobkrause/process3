@@ -5,7 +5,7 @@
 // Only a job that changed the provider's own source leaves one (coordinator, 4 Nov: on the copy,
 // membership PR 77 notified 108 users and credentials PR 74 39, for changes only to tests and
 // requirement marks, which cannot alter any user's behaviour).
-import { anyExportChange, exportChanges } from './exports.mjs';
+import { anyExportChange, exportRead } from './exports.mjs';
 import { entryFile } from './ledger.mjs';
 import { metricsFile } from './metrics.mjs';
 import { fetchState, readState, writeState } from './state.mjs';
@@ -75,7 +75,7 @@ export function isSource(cfg, e, f) {
 // The entry's source paths, as a line names them: its paths less tests, requirements, docs, records.
 export const sourcePaths = (cfg, e) => (e.paths || []).filter((p) => !(e.tests || []).some((t) => underPath(p, t)) && p !== e.requirements && !isDoc(p) && !isRecordPath(cfg, p));
 export const sourceChanges = (root, cfg, e, base, head) => diffNames(root, base, head).filter((f) => isSource(cfg, e, f));
-const readEntry = (root, ref, id) => {
+export const readEntry = (root, ref, id) => {
   const t = git(['show', `${ref}:${entryFile(id)}`], { cwd: root, allowFail: true });
   try { return t.code === 0 ? JSON.parse(t.stdout) : null; } catch { return null; }
 };
@@ -106,12 +106,21 @@ export function providerChange(root, cfg, { provider, requirements, base, head, 
   const notice = { key: noticeKey(provider, pr), provider, ids, pr, users };
   if (src.length) {
     notice.source = src.length;
-    try {
-      const x = exportChanges(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
-      if (anyExportChange(x)) notice.exports = x;
-    } catch (err) { notice.exports_unread = String(err.message || err).slice(0, 200); }
+    Object.assign(notice, readExports(root, cfg, e, base, head));
   }
   return { notice, why: null, retired, left };
+}
+// A provider's export changes over base..head, as a notice records them: `exports` when any name
+// moved, `exports_unread` when they could not be read, and `exports_read` (the range and the entry
+// files read) whenever they were read (PD-20: triage trusts "exports unchanged" only with it).
+export function readExports(root, cfg, e, base, head) {
+  try {
+    const { files, unread, ...x } = exportRead(root, base, head, { isProviderSource: (f) => isSource(cfg, e, f), inProvider: (f) => [...(e.paths || []), ...(e.tests || [])].some((p) => underPath(f, p)), providerPaths: sourcePaths(cfg, e) });
+    const moved = anyExportChange(x) ? { exports: x } : {};
+    // The brief's "anything unread stays owed" (coordinator, 9 Nov): export forms the surface does not read.
+    if (unread.length) return { ...moved, exports_unread: `TypeScript export forms the surface does not read in ${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''}` };
+    return { ...moved, exports_read: { base, head, files } };
+  } catch (err) { return { exports_unread: String(err.message || err).slice(0, 200) }; }
 }
 export const providerNotice = (root, cfg, opts) => providerChange(root, cfg, opts).notice;
 
