@@ -40,7 +40,7 @@ import { census, censusLines, openLayers } from './census.mjs';
 import { landedFrom } from './landed.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundLayerName, roundOf, safeName } from './layerbase.mjs';
 import { deployRowsOf, findingsOf, flawedModules, roundLine, roundState, unplaced, walkHold } from './rounds.mjs';
-import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readModules, sourcePaths, usersOf } from './notice.mjs';
+import { answerFile, isSource, noticeFile, noticeKey, noticeRecords, readExports, readModules, sourcePaths, usersOf } from './notice.mjs';
 import { fetchState, flushState, pendingWrites, readState, writeState } from './state.mjs';
 import { pollMs } from './pace.mjs';
 import { endLayerHolds, paidFor, readHolds } from './hold.mjs';
@@ -1549,9 +1549,16 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
   if (ic.changed) {
     for (const u of same) files.push([flowFile(n, 'reschedule', `${safeName(u)}-${safeName(id)}-${short(after)}`), { row: 'reschedule', layer: n, user: u, provider: id, provider_pr: n0, provider_land: after, at, key: `${u}<-${id}@${short(after)}`, why: interfaceText(ic), triggers: triggersFor(u), class: classFor(u) }]);
   }
+  let raised = null;
   if (noticed.length) {
     const key = noticeKey(id, n0);
-    files.push([noticeFile(key), { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: noticed, source: 1, ...(ic.exports ? { exports: ic.exports } : {}), layer_flow: { layer: n, provides: !!ic.provides, rescheduled: ic.changed } }]);
+    // The exports read over the land (PD-20: triage trusts "exports unchanged" only with the read);
+    // a read that disagrees with the land's interface check is recorded unread.
+    const rx = readExports(root, cfg, entryAt(root, after, id) || {}, before, after);
+    const read = rx.exports_unread ? { exports_unread: rx.exports_unread } : !!rx.exports === !!ic.exports ? { exports_read: rx.exports_read } : { exports_unread: "the land's export read and its interface check disagree" };
+    const exp = rx.exports || ic.exports;
+    raised = { row: 'notice', at, key, provider: id, ids: [], pr: n0, users: noticed, source: 1, ...(exp ? { exports: exp } : {}), ...read, layer_flow: { layer: n, provides: !!ic.provides, rescheduled: ic.changed } };
+    files.push([noticeFile(key), raised]);
   }
   // The notices this module owed (from earlier layers' providers) are answered by its land.
   try { for (const k of noticeRecords(root, cfg.state_branch).filter((q) => !q.withdrawn && q.open.includes(id))) files.push([answerFile(id, k.key), { row: 'answered', at, key: k.key, user: id, pr: n0, by: 'layer land' }]); } catch { /* none read: none answered */ }
@@ -1583,17 +1590,25 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
     }
   }
   if (noticed.length) log(`provider notice ${noticeKey(id, n0)} for ${noticed.length} user(s)${ic.changed ? ' in later layers' : ', its Public / Provides text changed (no reschedule)'}: ${noticed.join(', ')}`);
-  return { ok: true, land, messages: msgs, retests };
+  // The notice triaged at the land, as the tranche merge triages its own (triageAtMerge, PD-20 rules;
+  // coordinator, 9 Nov: no layer land had cleared a user since 7 Nov). The land stands if it fails.
+  let triage = null;
+  if (raised) {
+    try { const { triageAtMerge } = await import('./triage.mjs'); triage = triageAtMerge(root, cfg, raised, { ref: after, log }); } catch (e) {
+      triage = { rows: [], owed: raised.users, key: raised.key, error: e.message };
+      log(`the land stands; notice triage ${raised.key} at the land failed (${e.message}); next act: ${P3} notice triage ${raised.key}`);
+    }
+  }
+  return { ok: true, land, messages: msgs, retests, triage };
 }
 
 // ---- layer sync (R11) -----------------------------------------------------------------------
 
-// PD-23 (coordinator, 9 Nov; Bob: "Pin moves should be lightweight fixes that improve velocity, not
-// ruin it"): a pin move reaches every open layer itself. The pin-move session runs layer sync --open
-// after its merge (pin.mjs), each layer's sync a pin-only change on the light gate class (C49). No
-// BOB act, no hold on lands or the merge for a pin difference. SLB-12's intent, an open layer runs
-// the current tool (copy, 6 Nov: layer/8 at 4a85f26 refused R4's carried entries after the tranche
-// moved to 0635b64), is kept by the pin move doing the sync.
+// PD-23 (coordinator, 9 Nov, Bob's revision of SLB-12): a pin move reaches every open layer itself,
+// by layer pin --open after its merge (pin.mjs): in place when the pin diff judges nothing, else at
+// the coordinator's choice (apply, hold, or reset: this layer sync). No BOB act, and a pin difference
+// holds no land and no merge. SLB-12's case (copy, 6 Nov: layer/8 at 4a85f26 refused R4's carried
+// entries after the tranche moved to 0635b64) is one the pin move applies or resets.
 const pinOf = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root, allowFail: true }).stdout.match(/^160000 commit ([0-9a-f]{40,64})\t/)?.[1] || null;
 const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
 // The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
@@ -1833,7 +1848,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
         return r;
       } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
     }, { root }));
-    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (PD-23: a pin move reaches every open layer by its sync).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
+    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (a reset: PD-23's --layers reset, or by hand).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
     pr = x.createPR(slug, { head: branch, base: b0, title: `layer sync ${n}: ${cfg.tranche} ${short(ttip)}`, body, draft: false });
     log(`layer sync ${n}: PR ${pr.number} from ${branch} into ${b0}${resolved.length ? `, resolved ${resolved.join(', ')}` : ''}`);
   }
@@ -1849,18 +1864,116 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   return { ok: true, synced: true, pr, row, jobs: jobsOf() };
 }
 
-// p3 layer sync --open (PD-23): each open layer synced in turn, as the pin-move session's last step.
-// Outside the layer flow, or with no layer open, nothing.
-export async function layerSyncOpen(root, { io = {}, log = console.log, wait = true, by = 'pin' } = {}) {
+// ---- the pin moved into open layers (PD-23) -----------------------------------------------------
+
+// Bob, 9 Nov: "An open layer may need to keep the old process version - if the process update would
+// affect the proper completion of the layer. If it wouldn't then ... we should change the process
+// without resetting the layer. If a change would affect the layer, then ... look at whether it's more
+// efficient to hold the process change until after the layer [closes] or put the change in and
+// reset. We need to be smart." The process files whose change alters how a layer's jobs or its
+// merge are judged; a pin diff touching none of them moves into the layer in place by itself.
+export const JUDGING = /^(tool\/lib\/(gate|gateclass|checks|record|merge|layerflow|layerbase)\.mjs|shims\/.+)$/;
+export const PIN_CHOICES = ['apply', 'hold', 'reset'];
+// The judging files the pin diff old..new changes, read in the product's process clone (.process);
+// null when the diff cannot be read (fail-closed: judged as touching them).
+export function judgingChange(root, from, to) {
+  const proc = join(root, '.process');
+  if (!existsSync(join(proc, '.git'))) return null;
+  for (const c of [from, to]) if (git(['cat-file', '-e', `${c}^{commit}`], { cwd: proc, allowFail: true }).code !== 0) git(['fetch', '-q', 'origin', c], { cwd: proc, allowFail: true });
+  const d = git(['diff', '--no-renames', '--name-only', from, to], { cwd: proc, allowFail: true });
+  if (d.code !== 0) return null;
+  return d.stdout.split('\n').filter((f) => f && JUDGING.test(f));
+}
+// The pin commit on the layer: the tranche's .process gitlink, and each workflow file the tranche
+// differs in (the pin's shims), on the layer tip; one commit, not a merge (gateclass pinLike).
+function pinCommit(root, cfg, n, tip, ttip, pin, w) {
+  git(['worktree', 'add', '-q', '--detach', w, tip], { cwd: root });
+  git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w });
+  const wf = git(['diff', '--no-renames', '--name-only', tip, ttip, '--', '.github/workflows/'], { cwd: root }).split('\n').filter((f) => f && dirname(f) === '.github/workflows');
+  for (const f of wf) {
+    if (exists(root, ttip, f)) { git(['checkout', '-q', ttip, '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); } else git(['rm', '-q', '--', f], { cwd: w });
+  }
+  git(['commit', '-q', '-m', `process: pin ${short(pin)} into ${layerBranch(n)} in place (PD-23)`], { cwd: w });
+  return git(['rev-parse', 'HEAD'], { cwd: w });
+}
+// p3 layer pin <n> [--layers apply|hold|reset] [--no-wait]: the tranche's pin into open layer n.
+// A pin diff that changes no judging file moves in place (apply): one pin-only pull request the
+// merge tool lands on a green gate; lands made are not re-gated, open job PRs are not reset, nothing
+// is held. One that does is printed, and waits for the coordinator's choice: apply (in place), hold
+// (the layer keeps its pin until it merges; the tranche's wins at the merge), or reset (layer sync).
+export async function layerPin(root, n, { choice, io = {}, log = console.log, wait = true, by = 'pin' } = {}) {
+  n = layerNum(n);
+  if (choice !== undefined && !PIN_CHOICES.includes(choice)) fail(`--layers ${PIN_CHOICES.join('|')}, not ${JSON.stringify(choice)}`);
   const cfg = loadConfig(root);
-  if (!layerMode(cfg)) { log('not the layer flow: no layer to sync'); return { ok: true, synced: [] }; }
+  needLayerMode(cfg, 'layer pin');
+  const slug = io.slug || repoSlug(root);
+  const x = { findPR, createPR, checkRun, getPR, openPRs, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
+  fetchLayer(root, cfg, n);
+  const rows = flowRows(root, cfg.state_branch, n);
+  if (!rows.open) fail(`layer ${n} was not opened by ${P3} layer open ${n}`);
+  if (rows.merged) fail(`layer ${n} already merged into ${cfg.tranche}`);
+  const b0 = layerBranch(n);
+  const tr = `refs/remotes/origin/${cfg.tranche}`;
+  const [tip, ttip] = [rev(root, layerRef(n)), rev(root, tr)];
+  const [from, to] = [pinOf(root, tip), pinOf(root, ttip)];
+  if (!to) fail(`${cfg.tranche} has no process pin`);
+  if (from === to) { log(`${b0}: its pin is ${cfg.tranche}'s ${short(to)}: nothing to move`); return { ok: true, n, action: 'none' }; }
+  const touched = from ? (x.judging || judgingChange)(root, from, to) : null;
+  const judging = touched === null || touched.length > 0;
+  const what = touched === null ? `the pin diff ${short(from || 'none')}..${short(to)} could not be read` : touched.length ? `the pin diff ${short(from)}..${short(to)} changes how its jobs or merge are judged: ${touched.slice(0, 6).join(', ')}${touched.length > 6 ? ` and ${touched.length - 6} more` : ''}` : `the pin diff ${short(from)}..${short(to)} changes nothing that judges its jobs or merge`;
+  const act = choice || (judging ? null : 'apply');
+  if (!act) {
+    log(`${b0}: ${what}. The coordinator chooses: ${P3} layer pin ${n} --layers apply (in place: lands kept, job PRs not reset), --layers hold (the layer keeps ${short(from || 'its pin')} until it merges; ${cfg.tranche}'s pin wins at the merge), or --layers reset (layer sync ${n})`);
+    return { ok: false, n, action: 'choose', touched, from, to };
+  }
+  log(`${b0}: ${what}; ${act}${choice ? ' (the coordinator\'s choice)' : ''}`);
+  const record = (extra) => writeRows(root, cfg.state_branch, `layer ${n}: pin ${act}`, [[flowFile(n, 'pin', `${short(to)}-${act}`), { row: 'pin', layer: n, action: act, pin_before: from, pin_after: to, touched, at: now(), by, ...extra }]]);
+  if (act === 'hold') { record({}); log(`${b0} keeps its pin ${short(from)} until it merges (PD-23); ${cfg.tranche}'s ${short(to)} wins at the merge`); return { ok: true, n, action: 'hold' }; }
+  if (act === 'reset') { const r = await layerSync(root, n, { io, log, wait, by }); record({ pr: r.pr?.number ?? null }); return { ...r, n, action: 'reset' }; }
+  // apply: an open pull request for this pin is taken up; else a new branch.
+  const into = x.openPRs(slug, b0);
+  if (into === null) fail(`GitHub unreadable: the open pull requests into ${b0} are not known; nothing was opened`);
+  const stem = `layer-pin/${n}-${short(to)}`;
+  let pr = into.find((p) => String(p.head?.ref || '').startsWith(stem)) || null;
+  let head = pr?.head?.sha || null;
+  if (!pr) {
+    let branch = stem;
+    for (let k = 2; git(['ls-remote', '--heads', 'origin', `refs/heads/${branch}`], { cwd: root, allowFail: true }).stdout.trim(); k++) branch = `${stem}-${k}`;
+    head = withTemp('p3-layer-', (tmp) => {
+      const w = join(tmp, 'w');
+      try {
+        const h = pinCommit(root, cfg, n, tip, ttip, to, w);
+        const p = git(['push', '-q', 'origin', `${h}:refs/heads/${branch}`], { cwd: w, allowFail: true });
+        if (p.code !== 0) fail(`the push of ${branch} failed (${p.stderr.trim()}); nothing was opened`);
+        return h;
+      } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
+    }, { root });
+    const body = [`layer pin ${n}: ${cfg.tranche}'s process pin ${short(to)} into ${b0} in place (PD-23), one commit on ${short(tip)}: the pin and the workflow files it carries, nothing else.`, '', `Process pin: ${short(from || 'none')} -> ${short(to)}. ${what}.`, 'Lands already made are not re-gated; open job pull requests are not reset.', '', `The merge tool lands it on a green gate (${P3} layer pin ${n} --layers apply again, if this run stopped).`].join('\n');
+    pr = x.createPR(slug, { head: branch, base: b0, title: `layer pin ${n}: process ${short(to)}`, body, draft: false });
+    log(`layer pin ${n}: PR ${pr.number} from ${branch} into ${b0}`);
+  } else log(`layer pin ${n}: PR ${pr.number} from ${pr.head.ref} is open already`);
+  if (!wait) { log(`the gate decides; run ${P3} layer pin ${n} --layers apply again to land it`); return { ok: true, n, action: 'apply', landed: false, pr }; }
+  const g = await waitGate(x, slug, pr.number, head);
+  if (g?.status !== 'completed' || g.conclusion !== 'success') fail(`the gate on pin PR ${pr.number} ${short(head)} is ${g ? `${g.status} ${g.conclusion || ''}`.trim() : 'not run'}; layer pin lands on a green gate`);
+  const r = await x.merge(slug, pr.number, head, `Merge layer pin PR ${pr.number}`);
+  if (!r?.merged && !r?.sha) fail(`GitHub did not merge pull request ${pr.number}: ${JSON.stringify(r).slice(0, 200)}`);
+  fetchBranch(root, b0);
+  record({ pr: pr.number, head, merge: r.sha || null });
+  log(`layer pin ${n}: ${short(to)} landed into ${b0} in place${r.sha ? ` at ${short(r.sha)}` : ''}`);
+  return { ok: true, n, action: 'apply', landed: true, pr };
+}
+// p3 layer pin --open [--layers apply|hold|reset]: each open layer, the pin-move session's step after
+// its merge. Outside the layer flow, or with no layer open, nothing.
+export async function layerPinOpen(root, { choice, io = {}, log = console.log, wait = true, by = 'pin' } = {}) {
+  const cfg = loadConfig(root);
+  if (!layerMode(cfg)) { log('not the layer flow: no layer to move'); return { ok: true, layers: [] }; }
   fetchBranch(root, cfg.tranche, { allowFail: true });
   fetchState(root, cfg.state_branch, { fresh: true });
   const open = openLayers(root, cfg, (p) => readState(root, cfg.state_branch, p));
-  if (!open.length) { log('no layer is open: nothing to sync'); return { ok: true, synced: [] }; }
+  if (!open.length) { log('no layer is open: nothing to move'); return { ok: true, layers: [] }; }
   const out = [];
-  for (const n of open) out.push({ n, ...(await layerSync(root, n, { io, log, wait, by })) });
-  return { ok: out.every((r) => r.ok), synced: out };
+  for (const n of open) out.push(await layerPin(root, n, { choice, io, log, wait, by }));
+  return { ok: out.every((r) => r.ok), layers: out };
 }
 
 // ---- layer merge ----------------------------------------------------------------------------
@@ -1999,19 +2112,25 @@ export function carriedSync(root, cfg, n, L, log = console.log) {
       if (m.code === 0 || !conflicted.length) return null;
       const mb = git(['merge-base', head, tr], { deepen: true, cwd: root });
       const own = new Set(L.mods.flatMap((id) => [entryFile(id), ...(L.entries.get(id)?.requirements ? [L.entries.get(id).requirements] : [])]));
-      const bad = conflicted.filter((f) => !own.has(f) || exists(root, mb, f));
+      // PD-23: a layer whose pin moved in place, or was held, merges with the tranche's pin and shims.
+      const pinSide = conflicted.filter((f) => syncSide(f) === 'theirs' && f !== cfg.completion_file);
+      const bad = conflicted.filter((f) => !pinSide.includes(f) && (!own.has(f) || exists(root, mb, f)));
       if (bad.length) {
         git(['merge', '--abort'], { cwd: w, allowFail: true });
         fail(`layer ${n} cannot merge: ${layerBranch(n)} and ${cfg.tranche} conflict in ${bad.join(', ')}; only a module's entry or requirements carried from ${cfg.tranche} is resolved by the tool; nothing was opened`);
       }
-      git(['checkout', '-q', '--ours', '--', ...conflicted], { cwd: w });
-      git(['add', '--', ...conflicted], { cwd: w });
-      git(['commit', '-q', '--no-edit', '-m', `Merge ${cfg.tranche} into ${layerBranch(n)}: the layer's ${conflicted.join(', ')} kept (carried from ${cfg.tranche})`], { cwd: w });
+      const kept = conflicted.filter((f) => !pinSide.includes(f));
+      if (kept.length) { git(['checkout', '-q', '--ours', '--', ...kept], { cwd: w }); git(['add', '--', ...kept], { cwd: w }); }
+      for (const f of pinSide) {
+        if (f === '.process') { const pin = pinOf(root, tr); if (pin) git(['update-index', '--cacheinfo', `160000,${pin},.process`], { cwd: w }); else git(['rm', '-q', '--cached', '--', '.process'], { cwd: w }); continue; }
+        if (exists(root, tr, f)) { git(['checkout', '-q', '--theirs', '--', f], { cwd: w }); git(['add', '--', f], { cwd: w }); } else git(['rm', '-q', '--', f], { cwd: w });
+      }
+      git(['commit', '-q', '--no-edit', '-m', `Merge ${cfg.tranche} into ${layerBranch(n)}: ${[kept.length ? `the layer's ${kept.join(', ')} kept (carried from ${cfg.tranche})` : '', pinSide.length ? `${cfg.tranche}'s ${pinSide.join(', ')} taken (PD-23: the tranche's pin wins)` : ''].filter(Boolean).join('; ')}`], { cwd: w });
       const sha = git(['rev-parse', 'HEAD'], { cwd: w });
       const p = git(['push', '-q', 'origin', `${sha}:refs/heads/${layerBranch(n)}`], { cwd: w, allowFail: true });
       if (p.code !== 0) fail(`the push of ${layerBranch(n)} with ${cfg.tranche} merged in failed (${p.stderr.trim()}); nothing was opened; run layer merge ${n} again`);
       fetchBranch(root, layerBranch(n));
-      log(`${layerBranch(n)}: ${cfg.tranche} merged in at ${short(sha)}, the layer's version kept of ${conflicted.join(', ')} (added on both after the layer was cut)`);
+      log(`${layerBranch(n)}: ${cfg.tranche} merged in at ${short(sha)}${kept.length ? `, the layer's version kept of ${kept.join(', ')} (added on both after the layer was cut)` : ''}${pinSide.length ? `, ${cfg.tranche}'s ${pinSide.join(', ')} taken (the tranche's pin wins, PD-23)` : ''}`);
       return sha;
     } finally {
       git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true });

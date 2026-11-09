@@ -5,7 +5,7 @@
 // fetches the pin without --depth, so the merge tool's ancestry check (a forward move, not a
 // downgrade) reads history; it runs setup check --at HEAD on its branch, since the default judges
 // the tranche's old pin; it merges by merge --plain, which prints BOB's wake; then it syncs each
-// open layer to the new pin (layer sync --open, PD-23).
+// open layer to the new pin in place, or names the coordinator's choice (layer pin --open, PD-23).
 // Pin moves are serialized (measured 4 Nov on the copy: two ran at once twice in 20 minutes, and
 // copy PR 108, cut before PR 106 merged, conflicted on the .process gitlink): pin move refuses
 // while a pull request from a p3/pin-* head is open on the product, unless --supersedes names it,
@@ -38,10 +38,10 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   L.push(`9. \`${P3} github push origin ${branch} --set-upstream\``);
   L.push(`10. create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
   L.push(`11. \`${P3} merge <that pull request> --plain --as pin --no-review "a process pin move; the fix was reviewed in process3"\` (a pull request that conflicts with ${tranche} is refused at once: send the refusal and end)`);
-  // PD-23 (Bob, 9 Nov: "Pin moves should be lightweight fixes that improve velocity, not ruin it"): the pin move reaches every open layer itself.
-  L.push(`12. \`${P3} layer sync --open\` (PD-23): each open layer's branch takes the new pin by its sync, a pin-only pull request the merge tool lands on a green gate; with no layer open it says so. If it refuses, send its exact words to \`${report}\` and end.`);
+  // PD-23 (Bob, 9 Nov: "An open layer may need to keep the old process version - if the process update would affect the proper completion of the layer. If it wouldn't then ... we should change the process without resetting the layer."): the pin move reaches every open layer itself.
+  L.push(`12. \`${P3} layer pin --open\` (PD-23): each open layer takes the new pin in place, a pin-only pull request the merge tool lands on a green gate, when the pin diff changes nothing that judges the layer; with no layer open it says so. Where it prints that a layer's choice is the coordinator's (apply, hold or reset), send its exact lines to \`${report}\` and go on to step 13: the coordinator runs \`${P3} layer pin <n> --layers <choice>\`. Any other refusal: send its exact words to \`${report}\` and end.`);
   L.push(`13. The merge printed the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`. If it says no BOB is addressed, there is no wake: send nothing.`);
-  L.push(`14. Send \`${report}\` one message with send_message: the pull request, the merge commit, each layer synced (its sync pull request), and the wake's number (or "no BOB"). Then end.`);
+  L.push(`14. Send \`${report}\` one message with send_message: the pull request, the merge commit, each layer's pin (moved, with its pull request, or the coordinator's choice owed), and the wake's number (or "no BOB"). Then end.`);
   return L.join('\n') + '\n';
 }
 
