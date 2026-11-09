@@ -263,12 +263,16 @@ const commands = {
   // **F<n>** *(not yet met: <source>)* to the module's requirement file, or to its found-work
   // entry (process/found/<module>.md) where it has none; numbered per module. found "<finding>"
   // (no module): process/found/no-module.md, listed by status under `found, no module`.
-  // --write also writes the line into the checkout. Writes nothing else.
+  // --write also writes the line into the checkout. Writes nothing else, but for a module whose test
+  // pins its requirement ids, its layer not open under the layer flow: the finding is then recorded on
+  // the state branch as owed to the module's next reopen (C44). --covers <n>: one flaw behind n of a
+  // walk's findings, counted as n toward "each recorded".
   found: (a, root) => {
     if (a._.length < 1 || a._.length > 2) fail('found <module> "<finding>" [--from <source>], the finding in quotes; or found "<finding>" for one that names no module');
     const [mod, text] = a._.length === 2 ? a._ : [null, a._[0]];
     if (a.from === true) fail('--from <source>, e.g. --from "walk p3dev-l1"');
-    found(root, mod, String(text), { from: a.from, write: !!a.write, offline: !!a.offline });
+    if (a.covers === true) fail('--covers <n>: how many of the walk\'s findings this one stands for');
+    found(root, mod, String(text), { from: a.from, covers: a.covers, write: !!a.write, offline: !!a.offline });
     return 0;
   },
 

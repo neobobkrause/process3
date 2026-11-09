@@ -8,7 +8,8 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { layersAt } from '../lib/layerbase.mjs';
 import { flowRows, layerJobs, layerLines, layerOpen, layerReport, openLayer, writeRows } from '../lib/layerflow.mjs';
-import { flawedModules, roundState } from '../lib/rounds.mjs';
+import { findingsOf, flawedModules, owedReopens, roundState } from '../lib/rounds.mjs';
+import { found } from '../lib/found.mjs';
 import { fetchState, writeState } from '../lib/state.mjs';
 import { configOf, git, loadConfig } from '../lib/util.mjs';
 import { commit, entry, makeRepo } from './helpers.mjs';
@@ -104,11 +105,12 @@ test('BD-R1 on the flow: the walk\'s found marks open round 2 past the map; its 
   // The walk fails; its findings are not recorded yet: round 2 waits on them.
   walked(root, { min: 30, failures: 2 });
   push(root, mark('d', 1, 'the d door 500s'));
-  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /round 2 opens from its walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 4 finding\(s\), 1 recorded/);
+  // PD-16: its internal walk found flaws, so the live arm's 2 hold no round; only the internal walk's 2 count.
+  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /round 2 opens from its walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 2 finding\(s\) \(the internal walk's; the live arm's 2 hold no round: its internal walk found flaws, PD-16\), 1 recorded/);
   // Status names the wait, not an open that refuses (cold review of C39).
   const held = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([held.kind, held.round, held.rounds], ['done', 2, 'held']);
-  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: held }).join('\n'), /layer flow: round 2 opens from the walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 4 finding\(s\), 1 recorded/);
+  assert.match(layerLines(root, loadConfig(root), { slug: 'o/p', io, view: held }).join('\n'), /layer flow: round 2 opens from the walk's findings once each is recorded: the latest deploy and walk \(p3dev-r 0123456789\) stopped at walk with 2 finding\(s\) \(the internal walk's[^)]*\), 1 recorded/);
   push(root, { ...mark('d', 1, 'the d door 500s'), 'req/c.md': `${req('c')}- **F1** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F2** *(not yet met: internal walk p3dev-r 0123456789)* c\n- **F3** *(not yet met: walk p3dev-r 0123456789)* c\n` });
   const v = openLayer(root, loadConfig(root), { slug: 'o/p', io });
   assert.deepEqual([v.kind, v.n, v.round, v.of, v.mods], ['next', 4, 2, 2, ['c']]);
@@ -149,4 +151,75 @@ test('flawedModules: unmet found marks in a module\'s requirement file, not a BL
   const f = flawedModules(root, loadConfig(root), 'origin/tranche');
   assert.deepEqual([...f.keys()], ['a']);
   assert.deepEqual(f.get('a'), [{ id: 'F1', module: 'a', what: 'x (walk p3dev-r 0123456789)' }]);
+});
+
+// C44: round 2 of the first product was blocked by a cycle: `layer open` waited on the internal
+// walk's findings, recorded; `found` refused a module whose test pins its requirement ids (route: a
+// reopen job); `job start --reopen` refused a module whose layer is not open. The finding is now
+// recorded on the state branch as an owed reopen, which counts as recorded and opens the layer, and
+// the round layer gives it to the module's job as its task.
+const pinTest = (id) => `const IDS = ["R1", "R2", "R3"]; // the ids of req/${id}.md\n`;
+const reqIds = (id) => `${req(id)}**R2** b\n**R3** c\n`;
+function closeRun(root, { inner, live, ok = false, min = 30 }) {
+  const row = { row: 'dev-deploy', tranche: 'tranche', slug: 'p3dev-r', commit: '0123456789abcdef', ok, ...(ok ? {} : { stopped: 'walk' }), walk: { failures: live }, internal_walk: { ok: !inner, failures: inner }, at: at(min) };
+  writeState(root, SB, 'deploy row', (w) => { mkdirSync(join(w, 'deploys'), { recursive: true }); appendFileSync(join(w, 'deploys', 'dev.jsonl'), JSON.stringify(row) + '\n'); });
+  fetchState(root, SB, { fresh: true });
+}
+
+test('C44: a walk finding for a module with pinned requirement ids is recorded as an owed reopen; it opens the round, and the round layer gives it to the reopen job', () => {
+  const root = product();
+  push(root, { 'req/c.md': reqIds('c'), 'test/c/ids.test.mjs': pinTest('c') }, 'c pins its ids');
+  // Round 1's close: the internal walk's 96 failures (one flaw in c), the live arm's 178 (stopped).
+  closeRun(root, { inner: 96, live: 178 });
+  assert.throws(() => layerOpen(root, 4, { io, log: quiet }), /stopped at walk with 96 finding\(s\) \(the internal walk's; the live arm's 178 hold no round: its internal walk found flaws, PD-16\), 0 recorded: record each as a found mark \(`node \.process\/tool\/p3\.mjs found <module> "<finding>" --from "internal walk p3dev-r 0123456789"`, adding --covers <n>[^)]*owed reopen[^)]*\)[^;]*; the next round opens from them \(BD-R1\); nothing was opened/);
+  // found: c's layer (map layer 2) is not open, so the finding is owed to its next reopen, on the
+  // state branch; nothing is written in the tree, and no plain pull request is printed.
+  const said = [];
+  const before = git(['rev-parse', 'origin/tranche'], { cwd: root });
+  const r = found(root, 'c', 'the tip overlaps the shell header', { from: 'internal walk p3dev-r 0123456789', covers: '96', log: (l) => said.push(String(l)) });
+  assert.equal(r.owed, true);
+  assert.equal(r.recorded, true);
+  assert.equal(git(['rev-parse', 'origin/tranche'], { cwd: root }), before);
+  assert.equal(git(['status', '--porcelain'], { cwd: root }), '', 'nothing written in the checkout');
+  assert.match(said.join('\n'), /test\/c\/ids\.test\.mjs pins the ids of req\/c\.md, so a found mark added by a plain pull request turns c's suite red, and its layer is not open, so its reopen job cannot start yet: recorded on process-state as owed to c's next reopen \(rounds\/reopens\/c-[0-9a-f]{12}\.json\)/);
+  assert.match(said.join('\n'), /next: record the walk's other findings, then open the layer status --role bob names \(`node \.process\/tool\/p3\.mjs layer open <n>`\)/);
+  // Once more: the same file, kept.
+  assert.equal(found(root, 'c', 'the tip overlaps the shell header', { from: 'internal walk p3dev-r 0123456789', covers: '96', log: quiet }).recorded, false);
+  assert.equal(owedReopens(root, loadConfig(root)).length, 1);
+  const cfg = loadConfig(root);
+  const w = findingsOf(root, cfg, 'origin/tranche', { row: 'dev-deploy', slug: 'p3dev-r', commit: '0123456789abcdef', ok: false, walk: { failures: 178 }, internal_walk: { ok: false, failures: 96 } });
+  assert.deepEqual([w.failing, w.recorded, w.set_aside], [96, 96, 178]);
+  assert.deepEqual([...flawedModules(root, cfg, 'origin/tranche').keys()], ['c']);
+  // layer open: the round opens from it.
+  const out = [];
+  const o = layerOpen(root, 4, { io, log: (l) => out.push(String(l)) });
+  assert.equal(o.round, 2);
+  assert.match(out.join('\n'), /layer 4 is round 2's pass over map layer 2 \(round 2 opens from the walk p3dev-r 0123456789\): 1 flawed module\(s\) \(c O1\)/);
+  const items = flowRows(root, SB, 4).open.round.items;
+  assert.deepEqual(items.map((x) => [x.id, x.module, x.owe]), [['O1', 'c', r.key]]);
+  // layer jobs: c's reopen, the owed finding its task.
+  const j = layerJobs(root, 4, { io, log: quiet });
+  assert.deepEqual(j.startable.map((x) => x.cmd), ['node .process/tool/p3.mjs job start c --sessions <file> --reopen "O1: the tip overlaps the shell header (internal walk p3dev-r 0123456789, covers 96; owed reopen: add it as your own F mark and admit it in test/c/ids.test.mjs)"']);
+  // Held by the open layer: no longer a flaw for a later round, still recorded for its walk.
+  assert.deepEqual([...flawedModules(root, loadConfig(root), 'origin/tranche', { layers: layersAt(root, loadConfig(root), 'origin/tranche') }).keys()], []);
+  assert.deepEqual([...flawedModules(root, loadConfig(root), 'origin/tranche').keys()], []);
+  // With c's layer open, a new finding for c goes to its job now, as before (the job start route).
+  assert.throws(() => found(root, 'c', 'another', { from: 'internal walk p3dev-r 0123456789', log: quiet }), /nothing was written\. The route: `node \.process\/tool\/p3\.mjs job start c --sessions <file> --reopen 'another'`/);
+  // Offline, with no layer open for it: refused, naming the run without --offline.
+  merged(root, 4, 40);
+  assert.throws(() => found(root, 'c', 'a third', { from: 'x', offline: true, log: quiet }), /its layer is not open: the finding is recorded on process-state as owed to c's next reopen, which needs origin; nothing was written\. Run it again without --offline/);
+  assert.throws(() => found(root, 'c', 'a third', { from: 'x', covers: '0', log: quiet }), /--covers <n>/);
+});
+
+test('C44: a run whose internal walk was clean counts its live arm\'s findings; a flawed internal walk sets them aside; covers counts a mark as n', () => {
+  const root = product();
+  const cfg = loadConfig(root);
+  fetchState(root, SB, { fresh: true });
+  const row = (inner, live) => ({ row: 'dev-deploy', slug: 'p3dev-r', commit: '0123456789abcdef', ok: !live && !inner, walk: { failures: live }, internal_walk: { ok: !inner, failures: inner } });
+  assert.deepEqual(['failing', 'set_aside'].map((k) => findingsOf(root, cfg, 'origin/tranche', row(0, 5))[k]), [5, 0]);
+  assert.deepEqual(['failing', 'set_aside'].map((k) => findingsOf(root, cfg, 'origin/tranche', row(3, 5))[k]), [3, 5]);
+  // Stopped at the internal walk (no live arm ran): its own count only, no extra one for the stop.
+  assert.equal(findingsOf(root, cfg, 'origin/tranche', { ...row(3, 0), ok: false, stopped: 'internal walk' }).failing, 3);
+  push(root, mark('d', 1, 'one flaw', 'internal walk p3dev-r 0123456789, covers 3'));
+  assert.equal(findingsOf(root, cfg, 'origin/tranche', row(3, 5)).recorded, 3);
 });

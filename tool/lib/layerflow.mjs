@@ -571,7 +571,7 @@ function layerBehind(root, cfg, L, closed, ref) {
 // { kind: 'none' } (no layer map: jobs keep the tranche, next work is the flow's).
 // The rounds at the tranche (rounds.mjs roundState), read as the flow reads it.
 export function nextRound(root, cfg, layers, tr) {
-  return roundState(root, cfg, tr, { layers, flows: (k) => flowRows(root, cfg.state_branch, k), lastWalk: deployRowsOf(root, cfg).at(-1) || null, flawed: flawedModules(root, cfg, tr) });
+  return roundState(root, cfg, tr, { layers, flows: (k) => flowRows(root, cfg.state_branch, k), lastWalk: deployRowsOf(root, cfg).at(-1) || null, flawed: flawedModules(root, cfg, tr, { layers }) });
 }
 export function openLayer(root, cfg, { slug, io = {} } = {}) {
   const tr = `refs/remotes/origin/${cfg.tranche}`;
@@ -600,10 +600,10 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
   try { rs = nextRound(root, cfg, layers, tr); } catch { rs = null; }
   // A new round waits on its walk's findings, each recorded and none without a module, as layer
   // open refuses before them: status names that wait, never an open that refuses (cold review of C39).
-  if (rs?.state === 'new') {
+  if (rs?.state === 'new' || rs?.state === 'clean') {
     const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null));
     const loose = unplaced(root, tr);
-    if (hold || loose.length) return { kind: 'done', round: rs.round, rounds: 'held', why: hold || `${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module` };
+    if (hold || loose.length) return { kind: 'done', round: rs.state === 'new' ? rs.round : rs.round + 1, rounds: 'held', why: hold || `${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module` };
   }
   if (rs?.next) return { kind: 'next', n: rs.next.n, round: rs.next.round, of: rs.next.of, mods: rs.next.mods, ...(rs.state === 'new' ? { walk: rs.walk } : {}) };
   if (rs) return { kind: 'done', round: rs.round, rounds: rs.state };
@@ -929,10 +929,14 @@ export function roundLayer(root, cfg, layers, n, tr, log = () => {}) {
   const rs = nextRound(root, cfg, layers, tr);
   if (rs.state === 'layer') fail(`${roundLine(rs)}: layer ${n} opens after it (${P3} layer merge ${rs.layer.n})`);
   if (rs.state === 'walk') fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${roundLine(rs)}: no round layer opens before that walk (BD-R1); nothing was opened`);
+  // A walk with findings not yet recorded is not clean, though no module is flawed yet (C44): the
+  // next round waits on them.
+  if (rs.state === 'new' || rs.state === 'clean') {
+    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null));
+    if (hold) fail(`round ${rs.state === 'new' ? rs.round : rs.round + 1} opens from its walk's findings once each is recorded: ${hold}; nothing was opened`);
+  }
   if (rs.state === 'clean') fail(`layer ${n} is not in ${cfg.layers_file} on ${cfg.tranche}, and ${roundLine(rs)}: no round to open (BD-R1); nothing was opened`);
   if (rs.state === 'new') {
-    const hold = walkHold(findingsOf(root, cfg, tr, deployRowsOf(root, cfg).at(-1) || null));
-    if (hold) fail(`round ${rs.round} opens from its walk's findings once each is recorded: ${hold}; nothing was opened`);
     const loose = unplaced(root, tr);
     if (loose.length) fail(`round ${rs.round} cannot place ${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), then the round opens; nothing was opened`);
   }

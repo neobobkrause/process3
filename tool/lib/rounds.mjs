@@ -12,10 +12,10 @@
 // 8 Nov). A map layer with no flawed module is skipped. A round ends at its walk: every layer it
 // opened merged, no flawed module in a map layer after its last one, and a walk recorded after its
 // last merge. A new round opens from that walk once its findings are recorded.
-import { NO_MODULE, foundFile, foundMarks, FOUND_DIR } from './found.mjs';
+import { NO_MODULE, REOPENS_DIR, coversOf, foundFile, foundMarks, FOUND_DIR } from './found.mjs';
 import { completionItems } from './completion.mjs';
 import { entryFile, ledgerIds, readLedgerTexts } from './ledger.mjs';
-import { layerOf, roundOf } from './layerbase.mjs';
+import { layerOf, layersAt, roundOf } from './layerbase.mjs';
 import { internalWalkOf } from './deploycfg.mjs';
 import { jsonl, readState } from './state.mjs';
 import { exists, git } from './util.mjs';
@@ -32,11 +32,28 @@ const hasCommit = (root, c) => git(['cat-file', '-e', `${c}^{commit}`], { cwd: r
 const onMain = (root, c) => !!c && hasCommit(root, c) && git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0
   && git(['merge-base', '--is-ancestor', c, 'refs/remotes/origin/main'], { cwd: root, allowFail: true }).code === 0;
 
+// This tranche's owed reopens (found.mjs REOPENS_DIR, C44): the findings recorded on the state
+// branch for a module whose test pins its requirement ids, each until a round layer holds it.
+export function owedReopens(root, cfg) {
+  if (!root || !cfg?.state_branch) return [];
+  const r = git(['ls-tree', '-r', '--name-only', '-z', `refs/remotes/origin/${cfg.state_branch}`, '--', `${REOPENS_DIR}/`], { cwd: root, allowFail: true });
+  const files = r.code === 0 ? r.stdout.split('\0').filter((f) => f.endsWith('.json')) : [];
+  return files.flatMap((f) => { try { const x = JSON.parse(readState(root, cfg.state_branch, f)); return x?.row === 'reopen' && x.module && x.key && (!x.tranche || !cfg.tranche || x.tranche === cfg.tranche) ? [x] : []; } catch { return []; } })
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)) || String(a.key).localeCompare(String(b.key)));
+}
+// The keys of the owed reopens a round layer holds already (its open row's items): its job's task.
+export const heldReopens = (layers) => new Set((layers || []).flatMap((L) => (L.round?.items || []).map((x) => x.owe).filter(Boolean)));
+
 // The modules identified as having flaws at `ref`: each ledger module, not BLOCKED, with an unmet
-// found mark in its requirement file or its found-work entry. id -> [{ id: 'F<n>', module, what }].
-export function flawedModules(root, cfg, ref) {
+// found mark in its requirement file or its found-work entry, or an owed reopen no round layer
+// holds yet (C44). id -> [{ id: 'F<n>' | 'O<n>', module, what, owe? }].
+export function flawedModules(root, cfg, ref, { layers = null } = {}) {
   const dir = cfg.requirements_dir.replace(/\/$/, '');
   const out = new Map();
+  const reopens = owedReopens(root, cfg);
+  const owedOf = (id) => reopens.filter((x) => x.module === id);
+  let heldSet = null;
+  const held = () => (heldSet ||= heldReopens(layers || (reopens.length ? layersAt(root, cfg, ref) : [])));
   for (const id of [...ledgerIds(root, ref)].sort()) {
     let e = null;
     try { e = JSON.parse(textAt(root, ref, entryFile(id)) || 'null'); } catch { e = null; }
@@ -44,7 +61,12 @@ export function flawedModules(root, cfg, ref) {
     if (e?.status?.state === 'BLOCKED') continue;
     const req = typeof e?.requirements === 'string' ? e.requirements : `${dir}/${id}.md`;
     const marks = [...foundMarks(textAt(root, ref, req)), ...foundMarks(textAt(root, ref, foundFile(id)))];
-    if (marks.length) out.set(id, marks.map((m) => ({ id: m.id, module: id, what: `${m.finding} (${m.source})` })));
+    const items = marks.map((m) => ({ id: m.id, module: id, what: `${m.finding} (${m.source})` }));
+    // Owed reopens, numbered O1.. per module in the order recorded (its held ones counted, so a
+    // number is never reused within the tranche); one a round layer holds is that layer's job's.
+    const owed = owedOf(id);
+    owed.forEach((x, k) => { if (!held().has(x.key)) items.push({ id: `O${k + 1}`, module: id, what: `${x.finding} (${x.source}; owed reopen: add it as your own F mark and admit it in ${x.pin})`, owe: x.key }); });
+    if (items.length) out.set(id, items);
   }
   return out;
 }
@@ -62,10 +84,18 @@ export function deployRowsOf(root, cfg) {
 // the unmet found marks whose source names the run (its slug and commit) and the completion items
 // deferred naming it (known gaps).
 export const runSource = (row) => `${row.slug} ${String(row.commit).slice(0, 10)}`;
+// PD-16 (Bob, 8 Nov: "the live walk only runs once a round closes with no flaws found from the
+// internal walk"): once the run's internal walk found flaws, its live arm's findings (a live arm run
+// anyway, or stopped, as round 1's on p3dev-l12 was) hold no round; only the internal walk's count
+// toward "each recorded" (set_aside: the live arm's, named in walkHold's message). A found mark or an
+// owed reopen whose source says "covers <n>" counts as n findings (one flaw, many failures).
 export function findingsOf(root, cfg, ref, last) {
-  if (!last) return { last, failing: 0, marks: 0, recorded: 0 };
+  if (!last) return { last, failing: 0, marks: 0, recorded: 0, set_aside: 0 };
   const iw = last.internal_walk;
-  const failing = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0) + (iw ? Math.max(iw.ok ? 0 : 1, Number(iw.failures) || 0) : 0);
+  const inner = iw ? Math.max(iw.ok ? 0 : 1, Number(iw.failures) || 0) : 0;
+  const live = Math.max(last.ok ? 0 : 1, Number(last.walk?.failures) || 0);
+  const setAside = inner > 0 ? live : 0;
+  const failing = inner + live - setAside;
   const tree = (d) => git(['ls-tree', '-r', '--name-only', ref, '--', d], { cwd: root, allowFail: true }).stdout.split('\n').filter((n) => n.endsWith('.md'));
   const reqs = Object.values(readLedgerTexts(root, ref)).flatMap((t) => { try { const r = JSON.parse(t).requirements; return typeof r === 'string' ? [r] : []; } catch { return []; } });
   const words = (t) => String(t).split(/[^a-z0-9-]+/);
@@ -73,13 +103,21 @@ export function findingsOf(root, cfg, ref, last) {
   let marks = 0;
   for (const f of new Set([...tree(cfg.requirements_dir.replace(/\/$/, '')), ...tree(FOUND_DIR), ...reqs])) {
     const r = git(['show', `${ref}:${f}`], { cwd: root, allowFail: true });
-    if (r.code === 0) marks += foundMarks(r.stdout).filter((m) => naming(m.source)).length;
+    if (r.code === 0) marks += foundMarks(r.stdout).filter((m) => naming(m.source)).reduce((a, m) => a + coversOf(m.source), 0);
   }
+  // Owed reopens naming the run are recorded found work as marks are, held by a round layer or not.
+  marks += owedReopens(root, cfg).filter((x) => naming(x.source)).reduce((a, x) => a + coversOf(x.source), 0);
   const gaps = (completionItems(root, cfg, ref)?.items || []).filter((x) => x.deferred && naming(x.what)).length;
-  return { last, failing, marks, recorded: marks + gaps };
+  return { last, failing, marks, recorded: marks + gaps, set_aside: setAside };
 }
 // The hold while a run's findings are not all recorded (tranche close, release dev, a new round's open).
-export const walkHold = (w) => (w.last && w.recorded < w.failing ? `the latest deploy and walk (${runSource(w.last)}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s), ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "walk ${runSource(w.last)}"\`, or "internal walk ..." for the internal walk's), or a known gap (a completion item "deferred: <reason>" naming ${runSource(w.last)}); the next round opens from them (BD-R1)` : null);
+export const walkHold = (w) => {
+  if (!w.last || w.recorded >= w.failing) return null;
+  const src = runSource(w.last);
+  const aside = w.set_aside ? ` (the internal walk's; the live arm's ${w.set_aside} hold no round: its internal walk found flaws, PD-16)` : '';
+  const from = w.set_aside || (w.last.internal_walk && !(w.last.internal_walk.ok === true && !(Number(w.last.internal_walk.failures) > 0))) ? `internal walk ${src}` : `walk ${src}`;
+  return `the latest deploy and walk (${src}) ${w.last.ok ? 'walked' : `stopped at ${w.last.stopped}`} with ${w.failing} finding(s)${aside}, ${w.recorded} recorded: record each as a found mark (\`${P3} found <module> "<finding>" --from "${from}"\`, adding --covers <n> for one flaw behind n of them; a module whose test pins its requirement ids takes it as an owed reopen, recorded on the state branch by the same command), or a known gap (a completion item "deferred: <reason>" naming ${src}); the next round opens from them (BD-R1)`;
+};
 
 // Where the rounds stand at `ref` (the tranche), read from the layers (layersAt: the map's and those
 // past it), each layer's flow rows (flows(n), layerflow.mjs flowRows), the flawed modules and the

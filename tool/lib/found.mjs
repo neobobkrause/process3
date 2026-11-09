@@ -6,16 +6,30 @@
 // goes to NO_MODULE, listed by status under `found, no module` with BOB's act to name one.
 // The marks are in the record, so `report tranche` counts found work; status --role bob lists a
 // module with found marks as next work as soon as it is ready by open_by, whatever its layer.
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { LEDGER_DIR } from './ledger.mjs';
 import { readModules } from './notice.mjs';
-import { FOUND_DIR, FOUND_MARK, depth, exists, fail, git, loadConfig, unmetIds } from './util.mjs';
+import { flowFile, layerMode, layersAt, safeName } from './layerbase.mjs';
+import { fetchState, readState, writeState } from './state.mjs';
+import { FOUND_DIR, FOUND_MARK, depth, exists, fail, git, loadConfig, now, unmetIds } from './util.mjs';
 
 export { FOUND_DIR };
 export const NO_MODULE = `${FOUND_DIR}/no-module.md`;
 export const foundFile = (id) => `${FOUND_DIR}/${id}.md`;
 export const DEFAULT_SOURCE = 'found';
+// Owed reopens (C44, BD-R1): a finding for a module whose test pins its requirement ids cannot go
+// in by a plain pull request (the suite turns red), and its reopen job cannot start before its layer
+// opens, while a round's layer opens only once its walk's findings are recorded: a cycle (BOB on
+// round 2, 9 Nov). The finding is recorded on the state branch instead, one file per finding:
+// REOPENS_DIR/<module>-<key>.json { row: 'reopen', tranche, module, finding, source, pin, key, at, by }.
+// rounds.mjs counts it as recorded for the walk its source names and as a flaw of its module until a
+// round layer holds it (its item carries the key), whose job then takes it as its task.
+export const REOPENS_DIR = 'rounds/reopens';
+// One finding standing for several of a walk's (the internal walk's 96 failures, one flaw: C44):
+// `--covers <n>` writes ", covers <n>" into the source, which rounds.mjs findingsOf counts as n.
+export const coversOf = (source) => { const m = String(source || '').match(/(?:^|[\s,;])covers (\d+)\b/); return m ? Math.max(1, Number(m[1])) : 1; };
 // A file at ref, or in the checkout without one; null when absent.
 const readAt = (root, ref) => (f) => (ref ? (exists(root, ref, f) ? git(['show', `${ref}:${f}`], { cwd: root }) : null) : existsSync(join(root, f)) ? readFileSync(join(root, f), 'utf8') : null);
 
@@ -133,14 +147,19 @@ export function pinnedIds(root, { entry, req, reqText, ref }) {
 
 // found [<module>] "<finding>" [--from <source>] [--write]: BOB's plain pull request, printed.
 // --write also adds the line to the checkout's file, for BOB to commit on the branch it names.
-export function found(root, module, finding, { from, write = false, offline = false, log = console.log } = {}) {
+export function found(root, module, finding, { from, covers, write = false, offline = false, by = 'bob', log = console.log } = {}) {
   const cfg = loadConfig(root);
   const t = `origin/${cfg.tranche}`;
   if (!offline) git(['fetch', '-q', ...depth(root), 'origin', `+refs/heads/${cfg.tranche}:refs/remotes/${t}`], { cwd: root, allowFail: true });
   const ref = git(['rev-parse', '-q', '--verify', t], { cwd: root, allowFail: true }).code === 0 ? t : null;
   const what = clean(finding, 'the finding');
-  const source = from === undefined ? DEFAULT_SOURCE : clean(from, '--from');
+  let source = from === undefined ? DEFAULT_SOURCE : clean(from, '--from');
   if (/[()]/.test(source)) fail('--from must not hold parentheses: the mark ends at the first ")"');
+  if (covers !== undefined) {
+    if (!/^[1-9]\d*$/.test(String(covers))) fail('--covers <n>: how many of the walk\'s findings this one stands for, a whole number from 1');
+    if (/(?:^|[\s,;])covers \d/.test(source)) fail('--from already says "covers <n>"; give it once, with --covers');
+    if (Number(covers) > 1) source = `${source}, covers ${Number(covers)}`;
+  }
   let file;
   let texts;
   let current;
@@ -161,7 +180,17 @@ export function found(root, module, finding, { from, write = false, offline = fa
     const pin = pinnedIds(root, { entry, req: m.req, reqText: m.reqText, ref });
     // The route by the entry's state: a COMPLETE module reopens; any other's job (to start or open) takes the finding.
     const q = `'${what.replace(/'/g, `'\\''`)}'`;
-    if (pin) fail(`${pin} pins the ids of ${m.req}, so a found mark added by a plain pull request turns ${module}'s suite red; nothing was written. The route: ${entry?.status?.state === 'COMPLETE' ? `\`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\`` : `its job (${entry?.status?.state || 'no entry'}) takes it: give the finding to its session, or once it is COMPLETE, \`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\``}, the job adding its own F mark and admitting it in that test`);
+    if (pin) {
+      const pinned = `${pin} pins the ids of ${m.req}, so a found mark added by a plain pull request turns ${module}'s suite red`;
+      // Under the layer flow, a module whose layer is not open now cannot start its reopen job: the
+      // finding is owed to its next reopen on the state branch (C44). With no layer map, or its layer
+      // open, its job takes it now, as before.
+      if (!offline && cfg.state_branch) fetchState(root, cfg.state_branch, { fresh: true });
+      const at = layerMode(cfg) && cfg.state_branch ? openHolding(root, cfg, module, ref) : null;
+      if (!at || at.holds) fail(`${pinned}; nothing was written. The route: ${entry?.status?.state === 'COMPLETE' ? `\`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\`` : `its job (${entry?.status?.state || 'no entry'}) takes it: give the finding to its session, or once it is COMPLETE, \`node .process/tool/p3.mjs job start ${module} --sessions <file> --reopen ${q}\``}, the job adding its own F mark and admitting it in that test`);
+      if (offline) fail(`${pinned}, and its layer is not open: the finding is recorded on ${cfg.state_branch} as owed to ${module}'s next reopen, which needs origin; nothing was written. Run it again without --offline`);
+      return oweReopen(root, cfg, { module, what, source, pin, by, log, pinned });
+    }
     file = m.reqText !== null ? m.req : m.found;
     texts = [m.reqText, m.foundText];
     current = m.reqText !== null ? m.reqText : m.foundText;
@@ -205,6 +234,43 @@ export function found(root, module, finding, { from, write = false, offline = fa
     writeFileSync(p, addFound(existsSync(p) ? readFileSync(p, 'utf8') : current, line, title));
   }
   return { module: module || null, file, mark: `F${n}`, line, branch };
+}
+
+// Where the layer flow stands for a module: { open: <n> | null, holds } — the layer open now (an open
+// row, no merged row) and whether it holds the module (its own, or joined); null with no layer map.
+function openHolding(root, cfg, id, ref) {
+  const layers = layersAt(root, cfg, ref);
+  if (!layers.length) return null;
+  const sb = cfg.state_branch;
+  for (const L of layers) {
+    let open = null;
+    try { open = JSON.parse(readState(root, sb, flowFile(L.n, 'open')) || 'null'); } catch { open = null; }
+    if (!open || (open.tranche && cfg.tranche && open.tranche !== cfg.tranche)) continue;
+    if (readState(root, sb, flowFile(L.n, 'merged')) !== null) continue;
+    return { open: L.n, holds: L.mods.includes(id) || readState(root, sb, flowFile(L.n, 'join', safeName(id))) !== null };
+  }
+  return { open: null, holds: false };
+}
+
+// The owed reopen, written once (the same module, finding and source is the same file: kept).
+export const reopenKey = (module, finding, source) => createHash('sha256').update(`${module}\n${finding}\n${source}`).digest('hex').slice(0, 12);
+function oweReopen(root, cfg, { module, what, source, pin, by, log, pinned }) {
+  const sb = cfg.state_branch;
+  const key = reopenKey(module, what, source);
+  const file = `${REOPENS_DIR}/${safeName(module)}-${key}.json`;
+  const row = { row: 'reopen', tranche: cfg.tranche, module, finding: what, source, pin, key, at: now(), by };
+  const had = readState(root, sb, file) !== null;
+  if (!had) {
+    writeState(root, sb, `found: ${module} owes a reopen (${source})`, (w) => {
+      const p = join(w, file);
+      if (!existsSync(p)) { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(row, null, 2) + '\n'); }
+      return {};
+    });
+  }
+  log(`found work for ${module}: ${pinned}, and its layer is not open, so its reopen job cannot start yet: ${had ? 'recorded already' : 'recorded'} on ${sb} as owed to ${module}'s next reopen (${file})`);
+  log(`it counts as recorded for the walk its source names (${source}); the round layer that holds ${module} gives it to its job as its task, the job adding its own F mark and admitting it in ${pin}`);
+  log(`next: record the walk's other findings, then open the layer status --role bob names (\`node .process/tool/p3.mjs layer open <n>\`); its \`layer jobs <n>\` lists ${module}'s reopen`);
+  return { module, owed: true, file, key, recorded: !had };
 }
 
 // The findings that name no module, as the ref holds them: status's `found, no module`.
