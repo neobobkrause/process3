@@ -1,5 +1,5 @@
-# Process3's own required check, "ci", on every pull request: the tool's tests once, on Node 22
-# (the shims' default for a product's runners, cfg .node // "22"; PD-21), then the record check (REC-9, REC-10, approvals). The record check runs the BASE's tool
+# Process3's own required check, "ci", on every pull request: the tool's tests on Node 22 and
+# 26, then the record check (REC-9, REC-10, approvals). The record check runs the BASE's tool
 # against the head, so a change cannot rewrite the check that judges it. Retargeting a pull
 # request (edited) runs it again.
 name: ci
@@ -23,7 +23,12 @@ jobs:
         with:
           node-version: 22
       - name: tool tests, Node 22
-        run: node --test --test-concurrency="$(nproc)" 'tool/test/*.test.mjs'
+        run: node --test 'tool/test/*.test.mjs'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: tool tests, Node 26
+        run: node --test 'tool/test/*.test.mjs'
       - name: record check, by the base's tool
         env:
           GH_TOKEN: ${{ github.token }}
