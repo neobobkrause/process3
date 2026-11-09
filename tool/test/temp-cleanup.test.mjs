@@ -125,9 +125,9 @@ test('every mkdtempSync in tool/lib is withTemp\'s, but the deploy and release s
   for (const f of readdirSync(LIB).filter((n) => n.endsWith('.mjs'))) {
     readFileSync(join(LIB, f), 'utf8').split('\n').forEach((l, i) => { if (/mkdtempSync\(/.test(l)) sites.push(`${f}: ${l.trim()}`); });
   }
-  const allowed = [/^util\.mjs: const dir = mkdtempSync\(join\(tmpdir\(\), prefix\)\);$/, /^deploy\.mjs: .*p3-deploy-/, /^release\.mjs: .*p3-release-/];
+  const allowed = [/^util\.mjs: const dir = mkdtempSync\(join\(tmpdir\(\), prefix\)\);$/, /^deploy\.mjs: .*p3-deploy-/, /^deploy\.mjs: .*p3-walk-/, /^release\.mjs: .*p3-release-/];
   assert.deepEqual(sites.filter((s) => !allowed.some((r) => r.test(s))), []);
-  assert.equal(sites.length, 4, 'the deploy\'s, the internal walk\'s, the release\'s and withTemp\'s');
+  assert.equal(sites.length, 5, 'the deploy\'s, the round walk\'s, the internal walk\'s, the release\'s and withTemp\'s');
 });
 
 test('a scratch directory under a symlinked TMPDIR has its worktree removed by git, not only pruned', () => {
