@@ -739,6 +739,14 @@ export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete',
 // The commands whose state writes push at once (R17): see main.
 let endFlush = () => {};
 let endHooked = false;
+// The share at a command's end (C47): never silent, never the command's failure.
+export function sayUnshared(n, why) {
+  try { console.error(`github: ${n === null ? 'this clone\'s use' : `${n} row(s)`} not shared (${String(why?.message ?? why).split('\n')[0]}); the next p3 command in this clone shares them`); } catch { /* never the act's failure */ }
+}
+export function shareAtEnd(ledger, pending) {
+  try { ledger.shareNow({ pending }); } catch (e) { let n = null; try { n = ledger.unshared?.().rows ?? null; } catch { n = null; } sayUnshared(n, e); return; }
+  try { const u = ledger.unshared?.(); if (u?.pushes) sayUnshared(u.rows, `${u.pushes} push(es) not shared at the command's end`); } catch { /* never the act's failure */ }
+}
 export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay', 'round next']);
 export async function main(argv) {
   const a = parseArgs(argv);
@@ -760,17 +768,21 @@ export async function main(argv) {
   if (batched) stateBatch(true);
   let flushed = false;
   const flush = () => {
-    if (flushed || !batched) return null;
+    if (flushed) return null;
     flushed = true;
+    // An unbatched command pushed its writes as it went; its pushes are shared at its end all the same (C47 cold review).
+    if (!batched) { if (ledger && name !== 'github hook') shareAtEnd(ledger, 0); return null; }
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
     // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
-    if (ledger && name !== 'github hook') { try { ledger.shareNow({ pending: realPendingWrites() }); } catch { /* the budget's record; never the act's failure */ } }
+    // A push others must count is shared now, whatever the 15 minutes (C47); a share that fails or
+    // leaves one behind is said, never the act's failure.
+    if (ledger && name !== 'github hook') shareAtEnd(ledger, realPendingWrites());
     stateBatch(false);
     try { flushState(); return null; } catch (e) { return e; }
   };
   // A command ended early still pushes what it wrote: at exit, and on SIGTERM, SIGHUP or SIGINT
   // (a timeout, or publish halting its run); a SIGKILL's writes stay kept for the next command.
-  if (batched) {
+  {
     endFlush = () => { const e = flush(); if (e) console.error(`p3 ${name}: ${e.message}`); };
     if (!endHooked) {
       endHooked = true;
@@ -788,7 +800,7 @@ export async function main(argv) {
     // The account-wide GitHub budget's shared store: the product's state branch (R17, ghshare.mjs).
     // Not in a workflow: its GITHUB_TOKEN has its own limit, so its refusals pause nobody else. A
     // clone with no product config (process3) writes its own (C40; pacing.ledger names another).
-    if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch { ledger = null; } }
+    if (!process.env.NODE_TEST_CONTEXT && process.env.GITHUB_ACTIONS !== 'true') { try { ledger = stateShare(root, cfg); useShared(ledger); } catch (e) { ledger = null; if (name !== 'github hook') sayUnshared(null, e); } }
     if (cfg && !process.env.NODE_TEST_CONTEXT && name !== 'github hook') beforeAct(root, cfg, name, a);
     const begun = new Date().toISOString();
     const code = (await fn(a, root)) ?? 0;
