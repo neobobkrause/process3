@@ -4,7 +4,8 @@
 // its fix unblocks a product. The session starts from the product's tranche, clone depth 1; it
 // fetches the pin without --depth, so the merge tool's ancestry check (a forward move, not a
 // downgrade) reads history; it runs setup check --at HEAD on its branch, since the default judges
-// the tranche's old pin; and it merges by merge --plain, which prints BOB's wake.
+// the tranche's old pin; it merges by merge --plain, which prints BOB's wake; then it syncs each
+// open layer to the new pin (layer sync --open, PD-23).
 // Pin moves are serialized (measured 4 Nov on the copy: two ran at once twice in 20 minutes, and
 // copy PR 108, cut before PR 106 merged, conflicted on the .process gitlink): pin move refuses
 // while a pull request from a p3/pin-* head is open on the product, unless --supersedes names it,
@@ -37,8 +38,10 @@ export function pinMoveText({ slug, pin, tranche = 'tranche', report, why }) {
   L.push(`9. \`${P3} github push origin ${branch} --set-upstream\``);
   L.push(`10. create_pull_request {"owner":"${owner}","repo":"${repo}","head":"${branch}","base":"${tranche}","title":"process: pin ${short}","body":"Moves the process pin to process3 ${pin}. ${why.replace(/["\\]/g, '')}"}`);
   L.push(`11. \`${P3} merge <that pull request> --plain --as pin --no-review "a process pin move; the fix was reviewed in process3"\` (a pull request that conflicts with ${tranche} is refused at once: send the refusal and end)`);
-  L.push(`12. It prints the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`. If it says no BOB is addressed, there is no wake: send nothing.`);
-  L.push(`13. Send \`${report}\` one message with send_message: the pull request, the merge commit, and the wake's number (or "no BOB"). Then end.`);
+  // PD-23 (Bob, 9 Nov: "Pin moves should be lightweight fixes that improve velocity, not ruin it"): the pin move reaches every open layer itself.
+  L.push(`12. \`${P3} layer sync --open\` (PD-23): each open layer's branch takes the new pin by its sync, a pin-only pull request the merge tool lands on a green gate; with no layer open it says so. If it refuses, send its exact words to \`${report}\` and end.`);
+  L.push(`13. The merge printed the wake of BOB: run that send as printed, then send_message to the address it prints, then \`${P3} send delivered <n> --from pin\`. If it says no BOB is addressed, there is no wake: send nothing.`);
+  L.push(`14. Send \`${report}\` one message with send_message: the pull request, the merge commit, each layer synced (its sync pull request), and the wake's number (or "no BOB"). Then end.`);
   return L.join('\n') + '\n';
 }
 

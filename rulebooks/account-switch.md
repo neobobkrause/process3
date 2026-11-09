@@ -47,7 +47,7 @@ Each step is tested ahead by the canary. The owner of each item is in the invent
    - (c) ROOT, then from ROOT: the handover for BOB and `start watcher --replace`, with the old ids.
    - (d) The tasks, bound to the new sessions: the hourly flow check, the survival reads, BOB's and the builders' check-ins, and each `fresh` task as one again. ROOT's sweep and the watcher's daily task are made by their own starts. A task bound to a lane waits for (h).
    - (e) BOB restarts every recorded job, the release path first.
-   - (f) In the layer flow, `layer jobs <n>` for each open layer, with `layer sync <n>` first if the pin moved (SLB-12). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
+   - (f) In the layer flow, `layer jobs <n>` for each open layer, (the pin move syncs each open layer itself, PD-23). Without it, BOB's `status --role bob`, then each `job start` its `jobs to start` lists.
    - (g) Messages to BOB stay in the record: `status --role bob` lists them by id, and their text is on the state branch. The others are delivered to the new sessions.
    - (h) Each lane with a seat (the triage seat too): `lane start <lane>`, with `--replace <old id>` only if it says the seat is still held (ROOT's sweep usually ends it first); then `--record <new id>`, its open asks, and the tasks bound to it.
 4. Old sessions cannot be messaged or archived from the new account. Bob archives them on the old account once the new ones run, and deletes the switched-off tasks there.

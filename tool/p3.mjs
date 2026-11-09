@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { gate, gateClassAt, postRow } from './lib/gate.mjs';
 import { browserNeeded, gateRepo } from './lib/gateclass.mjs';
 import { pinCheck, pinMove } from './lib/pin.mjs';
-import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync } from './lib/layerflow.mjs';
+import { nextRound, layerJobs, layerJoin, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerClear, layerRetest, layerStatus, layerSync, layerSyncOpen } from './lib/layerflow.mjs';
 import { layerMode, layersAt } from './lib/layerbase.mjs';
 import { laneArtifact, laneAsk, laneEnd, laneStart } from './lib/lane.mjs';
 import { TOOL_ROOT, jobBlock, jobComplete, jobStart, jobSync, jobTest, revertExempt } from './lib/job.mjs';
@@ -168,7 +168,7 @@ const commands = {
   // layer publish <id> [--every <s>] [--rounds <n>] [job complete's flags]: the job's publish onto its layer.
   // layer retest <id>: a rescheduled module with no work on the layer re-tested by CI on a ready PR, no job session.
   // layer land <pr>: the merge tool's land of a publish PR into its layer, on a green gate on its tip.
-  // layer sync <n> [--no-wait]: the tranche into layer/<n> by a tool-made merge PR landed on a green gate (SLB-12: after a pin move).
+  // layer sync <n> | --open [--no-wait]: the tranche into layer/<n> (or each open layer) by a tool-made merge PR landed on a green gate (PD-23: the pin move runs it).
   // layer merge <n> [--no-wait] [--defer-done "<why>"]: the layer into the tranche as one PR, once every module is complete or deferred.
   // layer report <n> [--tool-from <process3 sha>]: the trial's measures.
   'layer open': (a, root) => (layerOpen(root, layerArg(a, root), { by: senderOf(root, a.as) }).ok ? 0 : 1),
@@ -176,7 +176,7 @@ const commands = {
   // layer join <id> --why "<the work>": a module whose layer is behind the open one joins the next
   // layer to open (the coordinator's ruling, 6 Nov): layer open lists it in that layer's jobs.
   // layer join <companion> --companion-of <job> --layer <n> --why "<what the job needs of it>" (PD-19):
-  // a module whose change a job in the open layer needs joins that layer as its companion; the job lands after it.
+  // a module whose change a job in the open layer needs joins that layer as its companion; both land in that layer (PD-19b).
   'layer join': (a, root) => (layerJoin(root, String(one(a, 'module')), { why: a.why, by: senderOf(root, a.as), ...(a['companion-of'] !== undefined ? { companionOf: a['companion-of'], layer: a.layer } : a.layer !== undefined ? { layer: a.layer } : {}) }).ok ? 0 : 1),
   'layer status': (a, root) => (layerStatus(root, layerArg(a, root)).ok ? 0 : 1),
   'layer publish': async (a, root) => {
@@ -191,7 +191,7 @@ const commands = {
   // layer clear <user> --provider <id> [--land <sha>] --why "<the ruling>": a false reschedule cleared for that user only (C11 c).
   'layer clear': (a, root) => (layerClear(root, one(a, 'user module'), { provider: a.provider, land: typeof a.land === 'string' ? a.land : undefined, why: a.why, by: senderOf(root, a.as) }).ok ? 0 : 1),
   'layer land': async (a, root) => ((await layerLand(root, one(a, 'pull request number'), { by: senderOf(root, a.as) })).ok ? 0 : 1),
-  'layer sync': async (a, root) => ((await layerSync(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
+  'layer sync': async (a, root) => ((a.open ? await layerSyncOpen(root, { wait: !a['no-wait'], by: senderOf(root, a.as) }) : await layerSync(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as) })).ok ? 0 : 1),
   'layer merge': async (a, root) => ((await layerMerge(root, layerArg(a, root), { wait: !a['no-wait'], by: senderOf(root, a.as), ...(a['defer-done'] !== undefined ? { deferDone: a['defer-done'] } : {}) })).ok ? 0 : 1),
   'layer report': (a, root) => (layerReport(root, layerArg(a, root), { toolFrom: typeof a['tool-from'] === 'string' ? a['tool-from'] : null }).ok ? 0 : 1),
 

@@ -36,7 +36,7 @@ import { generatedRows, isGenerated, specifiers } from './checks.mjs';
 import { branchModule, entryFile, ledgerIds, originJobs, startBranch } from './ledger.mjs';
 import { completionItems, openItems, parseCompletion } from './completion.mjs';
 import { appendRow, metricsFile, rowsAt } from './metrics.mjs';
-import { census, censusLines } from './census.mjs';
+import { census, censusLines, openLayers } from './census.mjs';
 import { landedFrom } from './landed.mjs';
 import { FLOW_DIR, flowFile, jobCfg, layerBranch, layerMode, layerName, layerOf, layerOfBranch, layersAt, roundLayerName, roundOf, safeName } from './layerbase.mjs';
 import { deployRowsOf, findingsOf, flawedModules, roundLine, roundState, unplaced, walkHold } from './rounds.mjs';
@@ -598,7 +598,7 @@ export function openLayer(root, cfg, { slug, io = {} } = {}) {
     const x = readLayer(root, cfg, n, { io, slug });
     let early = { next: null, list: [], skipped: [] };
     try { early = earlyNext(root, cfg, n, x); } catch (e) { if (!(e instanceof Error)) throw e; early = { next: null, list: [], skipped: [], unread: e.message }; }
-    return { kind: 'open', n, ...(layer.round ? { round: layer.round.n, of: layer.round.of } : {}), states: x.states, prs: x.prs, companions: companionLines(x.rows, x.states), startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, sync: syncOwed(root, cfg, n), early: early.list, early_next: early.next };
+    return { kind: 'open', n, ...(layer.round ? { round: layer.round.n, of: layer.round.of } : {}), states: x.states, prs: x.prs, companions: companionLines(x.rows, x.states), startable: startableOf(x), ready: mergeReady(x.states) && !x.holding.length && !x.joinable?.length, early: early.list, early_next: early.next };
   }
   // Every layer merged (BD-R1, rounds.mjs): the round's next layer for its flawed modules, or the
   // next round's first once a walk ended this one; else the round waits on its walk, or is clean.
@@ -786,7 +786,7 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   if (v.kind === 'none') return [`layer flow: no layer map (${cfg.layers_file}): jobs start on the tranche from next work`];
   if (v.kind === 'done' && v.rounds === 'held') return [`layer flow: round ${v.round} opens from the walk's findings once each is recorded: ${v.why}`, ...(v.findings ? [`the one next act: \`${P3} round next\` (a dry run), then \`${P3} round next --apply\`: each finding recorded, the round's first layer opened, its \`job start\` commands printed (C46)`] : [])];
   if (v.kind === 'done') return [v.rounds === 'walk' ? `layer flow: every layer of round ${v.round} has merged; its walk ends it (the round-close run, BD-R1)` : v.rounds === 'clean' ? `layer flow: every layer has merged; the walk ended round ${v.round}, and no module is flawed; once that walk's findings are recorded and none is a flaw, the release path follows it (BD-R1)` : 'layer flow: every layer has merged'];
-  const L = [...(v.sync ? [v.sync.line] : []), `layer flow: ${v.round ? roundLayerName(v.round, v.of, n) : `layer ${n}`} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
+  const L = [`layer flow: ${v.round ? roundLayerName(v.round, v.of, n) : `layer ${n}`} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);
   for (const c of v.companions || []) L.push(`- ${c}`);
   if (v.startable.length) L.push(`jobs to start (yours to start, BOB; the job cap counts), from \`${P3} layer jobs ${n}\`:`, ...v.startable.map((q) => `- ${q.cmd}${q.after ? afterNote(q.after) : ''}`));
@@ -1055,8 +1055,8 @@ export function roundLayer(root, cfg, layers, n, tr, log = () => {}) {
     if (loose.length) fail(`round ${rs.round} cannot place ${loose.map((f) => f.id).join(', ')} in the found file of no module: BOB names its module (\`${P3} found <module> "<finding>" --from "<source>"\`), then the round opens; nothing was opened`);
   }
   const x = rs.next;
-  const skipped = (layers.filter((L) => !L.completion && !L.round).map((L) => L.n)).filter((k) => k < x.of && k > (rs.state === 'new' ? 0 : Math.max(0, ...layers.filter((L) => L.round && L.round.n === x.round).map((L) => L.round.of))));
-  log(`${roundLayerName(x.round, x.of, n, cfg.tranche)} is round ${x.round}'s pass over layer ${x.of}${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')})${skipped.length ? `; layer${skipped.length > 1 ? 's' : ''} ${skipped.join(', ')} skipped, no flawed module` : ''}`);
+  // PD-24: one layer for the round's flawed modules, whatever their plan layers; all start at once.
+  log(`${roundLayerName(x.round, x.of, n, cfg.tranche)} is round ${x.round}'s one layer over every flawed module (PD-24)${rs.state === 'new' ? ` (round ${x.round} opens from the walk ${rs.walk})` : ''}: ${x.mods.length} flawed module(s) (${x.mods.map((id) => `${id} ${x.items.filter((i) => i.module === id).map((i) => i.id).join(', ')}`).join('; ')}); every job starts at once up to the cap, listed in dependency order`);
   return { n, mods: x.mods, round: { n: x.round, of: x.of, mods: x.mods, items: x.items, ...(x.walk ? { walk: x.walk } : {}) } };
 }
 export function layerOpen(root, n, { io = {}, log = console.log, by = 'bob' } = {}) {
@@ -1151,8 +1151,6 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   const ahead = cutAhead(root, cfg.state_branch, n);
   if (ahead !== null) fail(notOpen(n, ahead));
   const L = readLayer(root, cfg, n, { io, slug: io.slug || repoSlug(root) });
-  const sync = syncOwed(root, cfg, n);
-  if (sync) log(sync.line);
   const s = startableOf(L);
   const name = layerName(L.layers.find((x) => x.n === n), n, cfg.tranche);
   for (const c of companionLines(L.rows, L.states)) log(c);
@@ -1163,7 +1161,7 @@ export function layerJobs(root, n, { io = {}, log = console.log } = {}) {
   try { e = earlyNext(root, cfg, n, L); } catch (err) { if (!(err instanceof Error)) throw err; e = { next: null, list: [], skipped: [] }; log(`note: the early starts were not read (${err.message})`); }
   if (e.list.length) { log(earlyHead(n, e.next)); for (const x of e.list) log(`  ${x.cmd}`); }
   if (e.skipped.length) log(`not early (layer ${e.next}): ${e.skipped.map((x) => `${x.id} (${x.why})`).join('; ')}`);
-  return { ok: true, startable: s, states: L.states, sync, early: e.list, early_next: e.next, round: roundOf(L.layers.find((x) => x.n === n)) };
+  return { ok: true, startable: s, states: L.states, early: e.list, early_next: e.next, round: roundOf(L.layers.find((x) => x.n === n)) };
 }
 
 export function layerStatus(root, n, { io = {}, log = console.log } = {}) {
@@ -1590,24 +1588,13 @@ export async function layerLand(root, prn, { io = {}, log = console.log, by = 'b
 
 // ---- layer sync (R11) -----------------------------------------------------------------------
 
-// Bob, 6 Nov ~16:15 (SLB-12): every pin move made while a layer is open is followed by layer sync <n>
-// before any job in it lands. A pin move reaches no open layer branch by itself: the gate and the
-// record check run the base's own tool, so layer/<n> kept the tool it was cut with (copy, 6 Nov:
-// layer/8 at 4a85f26 refused R4's carried entries after the tranche moved to 0635b64).
+// PD-23 (coordinator, 9 Nov; Bob: "Pin moves should be lightweight fixes that improve velocity, not
+// ruin it"): a pin move reaches every open layer itself. The pin-move session runs layer sync --open
+// after its merge (pin.mjs), each layer's sync a pin-only change on the light gate class (C49). No
+// BOB act, no hold on lands or the merge for a pin difference. SLB-12's intent, an open layer runs
+// the current tool (copy, 6 Nov: layer/8 at 4a85f26 refused R4's carried entries after the tranche
+// moved to 0635b64), is kept by the pin move doing the sync.
 const pinOf = (root, rev) => git(['ls-tree', rev, '--', '.process'], { cwd: root, allowFail: true }).stdout.match(/^160000 commit ([0-9a-f]{40,64})\t/)?.[1] || null;
-// { line, why, afterLastLand, lastLand } when layer/<n>'s pin differs from the tranche's; null in sync.
-export function syncOwed(root, cfg, n) {
-  const tr = `refs/remotes/origin/${cfg.tranche}`;
-  const [lp, tp] = [pinOf(root, layerRef(n)), pinOf(root, tr)];
-  if (!lp || !tp || lp === tp) return null;
-  const why = `${layerBranch(n)}'s process pin ${short(lp)} differs from ${cfg.tranche}'s ${short(tp)}`;
-  // The first pin move the layer lacks, dated when it reached the tranche (its first-parent commit
-  // there), never the pin branch's own commit date (cold review of PR 198).
-  const moved = git(['log', '--first-parent', '--reverse', '--format=%cI', `${layerRef(n)}..${tr}`, '--', '.process'], { cwd: root, allowFail: true }).stdout.trim().split('\n')[0] || '';
-  const lands = flowRows(root, cfg.state_branch, n).lands;
-  const lastLand = lands.map((l) => l.at).sort().at(-1) || null;
-  return { why, lastLand, moved, afterLastLand: !!moved && (!lastLand || Date.parse(moved) > Date.parse(lastLand)), line: `run ${P3} layer sync ${n} first: ${why}; a pin move while a layer is open is followed by layer sync before any job in it lands (SLB-12)` };
-}
 const SHIMS = (() => { try { return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shims'))); } catch { return new Set(); } })();
 // The conflicts layer sync resolves: .process and the process's shims as the tranche has them, a
 // ledger entry as the layer has it (its jobs' states; R4's carried entries). Any other refuses.
@@ -1846,7 +1833,7 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
         return r;
       } finally { git(['worktree', 'remove', '--force', w], { cwd: root, allowFail: true }); }
     }, { root }));
-    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (SLB-12: a pin move while a layer is open is followed by layer sync before any job in it lands).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
+    const body = [`layer sync ${n}: ${cfg.tranche} ${short(ttip)} into ${b0} ${short(tip)}, made by the tool (PD-23: a pin move reaches every open layer by its sync).`, '', `Process pin: ${short(pinOf(root, tip) || 'none')} -> ${short(pinOf(root, ttip) || 'none')}.`, resolved.length ? `Conflicts resolved by the tool: ${resolved.join(', ')}.` : 'No conflicts.', '', `The merge tool lands it on a green gate (${P3} layer sync ${n} again, if this run stopped).`].join('\n');
     pr = x.createPR(slug, { head: branch, base: b0, title: `layer sync ${n}: ${cfg.tranche} ${short(ttip)}`, body, draft: false });
     log(`layer sync ${n}: PR ${pr.number} from ${branch} into ${b0}${resolved.length ? `, resolved ${resolved.join(', ')}` : ''}`);
   }
@@ -1860,6 +1847,20 @@ export async function layerSync(root, n, { io = {}, log = console.log, wait = tr
   writeRows(root, cfg.state_branch, `layer ${n}: sync PR ${pr.number}`, [[flowFile(n, 'sync', `${pr.number}`), row]]);
   log(`layer sync ${n}: ${cfg.tranche} ${short(ttip)} landed into ${b0}${r.sha ? ` at ${short(r.sha)}` : ''}`);
   return { ok: true, synced: true, pr, row, jobs: jobsOf() };
+}
+
+// p3 layer sync --open (PD-23): each open layer synced in turn, as the pin-move session's last step.
+// Outside the layer flow, or with no layer open, nothing.
+export async function layerSyncOpen(root, { io = {}, log = console.log, wait = true, by = 'pin' } = {}) {
+  const cfg = loadConfig(root);
+  if (!layerMode(cfg)) { log('not the layer flow: no layer to sync'); return { ok: true, synced: [] }; }
+  fetchBranch(root, cfg.tranche, { allowFail: true });
+  fetchState(root, cfg.state_branch, { fresh: true });
+  const open = openLayers(root, cfg, (p) => readState(root, cfg.state_branch, p));
+  if (!open.length) { log('no layer is open: nothing to sync'); return { ok: true, synced: [] }; }
+  const out = [];
+  for (const n of open) out.push({ n, ...(await layerSync(root, n, { io, log, wait, by })) });
+  return { ok: out.every((r) => r.ok), synced: out };
 }
 
 // ---- layer merge ----------------------------------------------------------------------------
@@ -1884,11 +1885,6 @@ export async function layerMerge(root, n, { io = {}, log = console.log, wait = t
   if (deferDone === true || (deferDone !== undefined && !String(deferDone).trim())) fail('--defer-done needs why: the reason the finished work waits for a later layer');
   if (done.length && deferDone === undefined) fail(`layer ${n} cannot merge: ${done.map((s) => `${s.id} (PR ${s.done_work})`).join(', ')} ${done.length > 1 ? 'are' : 'is'} deferred with work done (suite green, BLOCKED only on a process finding): restart ${done.length > 1 ? 'them' : 'it'} to publish (${P3} layer status ${n} lists the lines), or merge with --defer-done "<why>"`);
   if (done.length) log(`deferring work done, by --defer-done: ${done.map((s) => s.id).join(', ')}: ${String(deferDone).trim()}`);
-  // A pin move while the layer is open is followed by layer sync before any job lands (Bob, 6 Nov):
-  // out of sync, the merge waits, unless the tranche's pin moved only after the layer's last land.
-  const sync = syncOwed(root, cfg, n);
-  if (sync && !sync.afterLastLand) fail(`layer ${n} cannot merge: ${sync.why}, and a job landed after that pin move (land ${sync.lastLand}); run ${P3} layer sync ${n} first`);
-  if (sync) log(`note: ${sync.why}; the pin moved after the layer's last land, so the merge goes on`);
   const x = { findPR, createPR, checkRun, getPR, merge: (s, k, sha, title) => mergeVia(s, k, sha, title), ...io };
   const b = layerBranch(n);
   carriedSync(root, cfg, n, L, log);

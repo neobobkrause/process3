@@ -12,7 +12,7 @@ import { layerLines } from '../lib/layerflow.mjs';
 import { flowFile, jobCfg, layerMap, layersAt } from '../lib/layerbase.mjs';
 import {
   flowRows, interfaceChange, interfaceText, layerCover, layerJobs, layerLand, layerMerge, layerOpen, layerPublish, layerReport, layerRetest,
-  layerClear, layerJoin, layerStatus, layerSync, itemsOwed, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
+  layerClear, layerJoin, layerStatus, layerSync, layerSyncOpen, itemsOwed, moduleStates, onlyTicks, openLayer, outstanding, providesText, resultChanges, startable, trialMeasures, writeRows, timeBudget, budgetLine,
 } from '../lib/layerflow.mjs';
 import { checkLedger } from '../lib/ledger.mjs';
 import { fetchState, readState } from '../lib/state.mjs';
@@ -1345,7 +1345,8 @@ test('R10 (cold review): a COMPLETE provider with unmet marks has not landed (it
 
 // R11 (copy, 6 Nov): layer/8 was cut at a tranche pinned at 4a85f26; the pin moved to 0635b64 on the
 // tranche, and layer/8's gate, run with the base's own tool, still refused R4's carried entries.
-// SLB-12 (Bob, 6 Nov): a pin move while a layer is open is followed by layer sync before any job lands.
+// PD-23 (coordinator, 9 Nov): the pin move syncs each open layer itself (layer sync --open); a pin
+// difference holds no land and no merge, and no BOB act is printed for it.
 // An empty .process stands for the submodule, so `git add -A` keeps the pointer.
 const setPin = (dir, sha, msg) => { mkdirSync(join(dir, '.process'), { recursive: true }); git(['update-index', '--add', '--cacheinfo', `160000,${sha},.process`], { cwd: dir }); git(['commit', '-q', '-m', msg], { cwd: dir }); return git(['rev-parse', 'HEAD'], { cwd: dir }); };
 const syncIO = (bare, made) => ({
@@ -1356,7 +1357,7 @@ const syncIO = (bare, made) => ({
   waitForGate: () => ({ status: 'completed', conclusion: 'success' }),
   merge: (s, k, sha, title) => ghMerge(bare, 'layer/1', sha, title),
 });
-test('layer sync (R11, SLB-12): a pin moved on the tranche while the layer is open leads layer jobs and status, holds the merge, and layer sync lands the tranche by a gated PR, the pin and shims the tranche\'s, a ledger entry the layer\'s', async () => {
+test('layer sync (R11, PD-23): a pin moved on the tranche while the layer is open prints no BOB act and holds no merge; layer sync --open lands the tranche by a gated PR, the pin and shims the tranche\'s, a ledger entry the layer\'s', async () => {
   const { root, bare } = product({ done: true });
   const p1 = git(['rev-parse', 'HEAD'], { cwd: root });
   setPin(root, p1, 'pin 1');
@@ -1386,16 +1387,17 @@ test('layer sync (R11, SLB-12): a pin moved on the tranche while the layer is op
   git(['push', '-q', '-f', 'origin', 'job/c'], { cwd: d2 });
   await layerLand(root, 7, { io: landIO(bare, { 7: prOf(7, 'c', hc2) }), log: quiet });
   const lines = [];
-  const j = layerJobs(root, 1, { io: openIO, log: (l) => lines.push(l) });
-  assert.match(j.sync.line, /^run node \.process\/tool\/p3\.mjs layer sync 1 first: layer\/1's process pin .* differs from tranche's .*\(SLB-12\)$/);
-  assert.equal(lines[0], j.sync.line, 'layer jobs leads with it');
+  layerJobs(root, 1, { io: openIO, log: (l) => lines.push(l) });
+  assert.ok(!lines.some((l) => /layer sync/.test(l)), `layer jobs prints no sync act: ${lines.join('\n')}`);
   const st = layerLines(root, configOf({ merge_strategy: 'layer', modules_file: 'build/modules.json' }), { slug: 'o/p', io: openIO });
-  assert.equal(st[0], j.sync.line, 'status leads with it');
+  assert.ok(!st.some((l) => /layer sync/.test(l)), 'nor does status');
   const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no layer PR'), checkRun: () => ({ status: 'completed', conclusion: 'success' }) };
-  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /layer 1 cannot merge: layer\/1's process pin .* differs .*a job landed after that pin move .*run .*layer sync 1 first/);
-  // layer sync: one gated PR, landed by the merge tool.
+  await layerMerge(root, 1, { io: mio, wait: false, log: quiet }).then(() => {}, (e) => assert.doesNotMatch(e.message, /process pin|layer sync/, 'a pin difference holds no merge'));
+  // layer sync --open (the pin move's step): one gated PR for the open layer, landed by the merge tool.
   const made = [];
-  const r = await layerSync(root, 1, { io: syncIO(bare, made), log: quiet });
+  const all = await layerSyncOpen(root, { io: syncIO(bare, made), log: quiet });
+  assert.deepEqual(all.synced.map((x) => x.n), [1]);
+  const r = all.synced[0];
   assert.equal(r.synced, true);
   assert.deepEqual([made[0].base, made[0].draft, made[0].head], ['layer/1', false, `layer-sync/1-${git(['rev-parse', 'origin/tranche'], { cwd: root }).slice(0, 10)}`]);
   git(['fetch', '-q', 'origin'], { cwd: root });
@@ -1407,11 +1409,10 @@ test('layer sync (R11, SLB-12): a pin moved on the tranche while the layer is op
   assert.deepEqual(r.row.resolved, ['process/ledger/e.json']);
   fetchState(root, SB, { fresh: true });
   assert.equal(flowRows(root, SB, 1).syncs.length, 1, 'a layer event');
-  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).sync, null, 'in sync now');
   assert.equal((await layerSync(root, 1, { io: syncIO(bare, made), log: quiet })).synced, false, 'nothing to do again');
 });
 
-test('layer sync (R11) refuses a conflict outside .process, the shims and ledger entries, naming it; nothing is opened. layer merge goes on when the pin moved after the last land', async () => {
+test('layer sync (R11) refuses a conflict outside .process, the shims and ledger entries, naming it; nothing is opened. layer merge is not held by the pin', async () => {
   const { root, bare } = product({ done: true });
   setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
@@ -1427,15 +1428,13 @@ test('layer sync (R11) refuses a conflict outside .process, the shims and ledger
   const made = [];
   await assert.rejects(layerSync(root, 1, { io: syncIO(bare, made), log: quiet }), /layer sync 1 refused: layer\/1 and tranche conflict in src\/c\/index\.mjs; only \.process, the process's shims and ledger entries are resolved by the tool; nothing was opened/);
   assert.equal(made.length, 0);
-  // The pin moved after the layer's last land: the merge is not held (a note says so).
-  const lines = [];
+  // PD-23: the pin difference holds no merge.
   const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, q) => ({ number: 99, ...q, base: { ref: q.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title) };
-  await layerMerge(root, 1, { io: mio, wait: false, log: (l) => lines.push(l) }).catch((e) => assert.doesNotMatch(e.message, /layer sync/));
-  assert.ok(lines.some((l) => /note: layer\/1's process pin .* differs .*the pin moved after the layer's last land, so the merge goes on/.test(l)));
+  await layerMerge(root, 1, { io: mio, wait: false, log: quiet }).catch((e) => assert.doesNotMatch(e.message, /layer sync|process pin/));
 });
 
 // Cold review of PR 198 (layer sync).
-test('layer sync (cold review): two pin moves, the first unsynced before a land, hold the merge; a closed attempt takes a new branch; an older sync PR open, or a head that is not the tool\'s merge, refuses; a lost row is recorded', async () => {
+test('layer sync (cold review): a closed attempt takes a new branch; an older sync PR open, or a head that is not the tool\'s merge, refuses; a lost row is recorded', async () => {
   const { root, bare } = product({ done: true });
   setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 1');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
@@ -1449,8 +1448,6 @@ test('layer sync (cold review): two pin moves, the first unsynced before a land,
   git(['fetch', '-q', 'origin'], { cwd: root });
   setPin(root, git(['rev-parse', 'HEAD'], { cwd: root }), 'pin 3');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
-  const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: () => assert.fail('no layer PR'), checkRun: () => ({ status: 'completed', conclusion: 'success' }) };
-  await assert.rejects(layerMerge(root, 1, { io: mio, wait: false, log: quiet }), /a job landed after that pin move/, 'pin 2 came before the land, unsynced');
   // A first attempt, then closed (red, say): the next takes a new branch name.
   const made = [];
   const io = syncIO(bare, made);
@@ -2107,8 +2104,7 @@ test('rehearsal (C49, PD-17): a pin move while a layer is open: layer sync opens
   const p2 = git(['rev-parse', 'HEAD'], { cwd: root });
   setPin(root, p2, 'pin move 2');
   git(['push', '-q', 'origin', 'tranche'], { cwd: root });
-  assert.ok(layerJobs(root, 1, { io: openIO, log: quiet }).sync, 'a sync is owed');
-  // layer sync opens its PR (the gate decides).
+  // layer sync opens its PR (the gate decides): the pin move's own step (PD-23).
   const made = [];
   await layerSync(root, 1, { io: syncIO(bare, made), wait: false, log: quiet });
   assert.equal(made.length, 1);
@@ -2141,7 +2137,6 @@ test('rehearsal (C49, PD-17): a pin move while a layer is open: layer sync opens
   assert.equal(r.synced, true);
   git(['fetch', '-q', 'origin'], { cwd: root });
   assert.equal(git(['ls-tree', 'origin/layer/1', '--', '.process'], { cwd: root }).split(/\s+/)[2], p2);
-  assert.equal(layerJobs(root, 1, { io: openIO, log: quiet }).sync, null, 'in sync');
   const mio = { slug: 'o/p', openPRs: () => [], findPR: () => null, createPR: (s, q) => ({ number: 99, ...q, base: { ref: q.base } }), checkRun: () => ({ status: 'completed', conclusion: 'success' }), merge: (s, k, sha, title) => ghMerge(bare, 'tranche', sha, title), roundClose: () => ({ ran: false, owed: null }) };
   const m = await layerMerge(root, 1, { io: mio, wait: false, log: quiet });
   assert.equal(m.ok, true);
