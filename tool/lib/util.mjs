@@ -833,6 +833,55 @@ export function pidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return null;
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'ESRCH' ? false : e.code === 'EPERM' ? true : null; }
 }
+// The foreground p3 commands of a clone (C53, coordinator, 9 Nov): C52's detached share of a
+// connector write's rows ran git in the clone while a p3 command there fetched, and in a shallow
+// clone two git processes collide on its shallow file ("shallow file has changed since we read
+// it"; CI met it on git 2.56). Each p3 command marks itself here for its life; the detached share
+// runs no git while any mark is live, and never when it cannot tell (fail closed). A command never
+// waits on the share: the share waits, or defers. A file per process, so no two writers meet.
+export const FOREGROUND_DIR = 'p3-foreground';
+// Written by a share that deferred: the next p3 command's end share carries the content rows
+// whatever the 15 minutes (C47, C52: every row reaches the ledger), and removes it once none is left.
+export const SHARE_DEFERRED = 'p3-gh-share.deferred';
+// Marks this process a foreground command of the clone; returns the unmark. A mark left by a killed
+// process is read as stale (its process gone on this host) and removed by the next reader.
+export function markForeground(root, { host = hostname(), pid = process.pid, now = Date.now } = {}) {
+  const dir = join(commonDir(root), FOREGROUND_DIR);
+  mkdirSync(dir, { recursive: true });
+  const f = join(dir, `${String(host).replace(/[^\w.-]/g, '_')}-${pid}.json`);
+  const me = JSON.stringify({ pid, host, at: new Date(now()).toISOString() });
+  writeFileSync(f, me);
+  return () => { try { if (readFileSync(f, 'utf8') === me) unlinkSync(f); } catch { /* gone */ } };
+}
+// Whether a foreground command runs in the clone: 'none', 'present' (a live mark), or 'unknown' (a
+// mark unread, half written, of another host, or a process whose life cannot be told; the
+// directory unreadable). A mark of this host whose process is gone is stale: removed, not counted.
+export function foregroundIn(root, { alive = pidAlive, host = hostname(), unread = STATE_LOCK.unread } = {}) {
+  let dir;
+  let names;
+  try { dir = join(commonDir(root), FOREGROUND_DIR); names = readdirSync(dir); } catch (e) { return e?.code === 'ENOENT' ? 'none' : 'unknown'; }
+  let out = 'none';
+  for (const n of names.filter((x) => x.endsWith('.json'))) {
+    const f = join(dir, n);
+    let text = null;
+    try { text = readFileSync(f, 'utf8'); } catch (e) { if (e?.code === 'ENOENT') continue; return 'unknown'; }
+    let m = null;
+    try { m = JSON.parse(text); } catch { m = null; }
+    if (!m || !Number.isInteger(m.pid)) {
+      // Half written by a command starting now, or left by one killed while writing it.
+      let age = 0;
+      try { age = Date.now() - statSync(f).mtimeMs; } catch { continue; }
+      if (age > unread * 1000) { try { unlinkSync(f); } catch { /* gone */ } continue; }
+      return 'unknown';
+    }
+    if (m.host !== host) return 'unknown';
+    const live = alive(m.pid);
+    if (live === false) { try { if (readFileSync(f, 'utf8') === text) unlinkSync(f); } catch { /* gone */ } continue; }
+    if (live === null) return 'unknown';
+    out = 'present';
+  }
+  return out;
+}
 // Whether this process holds the clone's state lock now (a write is under way).
 export const stateLockHeld = (root) => (lockDepth.get(stateLockPath(root)) || 0) > 0;
 export function stateLockPath(root) {

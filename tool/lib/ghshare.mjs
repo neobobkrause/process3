@@ -267,7 +267,8 @@ export function stateShare(root, cfg, { now = Date.now, url, readOnly = false } 
     // While a command runs (each reserve): riding its pending writes, else by shareUsage's rule; never inside a state write.
     share: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? realPendingWrites() : 0, ledgerRepo })),
     // At a command's end: with its own state push when it has one (pending), else by shareUsage's rule.
-    shareNow: ({ pending = 0 } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true, ledgerRepo })),
+    // content (C53): a detached share deferred to this command, so its content rows go now too.
+    shareNow: ({ pending = 0, content = false } = {}) => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, pending: led.own ? pending : 0, atEnd: true, content, ledgerRepo })),
     // After a content-creating connector call the hook logged (C52): its rows shared now, whatever
     // the 15 minutes; nothing when only reads and state pushes are unshared.
     shareContent: () => (stateLockHeld(root) ? 0 : shareUsage(root, cfg, { now, store, atEnd: true, content: true, ledgerRepo })),
