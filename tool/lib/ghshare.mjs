@@ -291,11 +291,11 @@ onBookkeeping('share', (dir, { path, rows, since }) => {
 export const SHARE_ALONE_S = 900;
 // A push the ledger's history does not count: any push but a state push of the ledger's own repository.
 export const owedPush = (r, ledgerRepo) => r.kind === 'push' && !(r.state && (r.repo || null) === (ledgerRepo || null));
-// This clone's logged rows no share has carried yet: { rows, pushes } (pushes: those owed, owedPush).
+// This clone's logged rows no share has carried yet: { rows, pushes } (pushes: branch pushes, which a command's end shares).
 export function unshared(root, ledgerRepo = null) {
   const after = lastShared(root);
   const log = readLog(root).filter((r) => Date.parse(r.at) > after && ['gh', 'push', 'fetch'].includes(r.kind));
-  return { rows: log.length, pushes: log.filter((r) => owedPush(r, ledgerRepo)).length };
+  return { rows: log.length, pushes: log.filter((r) => owedPush(r, ledgerRepo) && !r.state).length };
 }
 // A share kept by a refused flush and pushed later by `state replay` is settled then (cold review
 // of R17e: left pending, its rows counted from this clone's log and again from the ledger).
@@ -318,7 +318,10 @@ export function shareUsage(root, cfg, { force = false, now = Date.now, pending =
     // 15 minutes (C47: a push left in a notes clone's log waited for a p3 command that never came,
     // and the audit found it unexplained). The share's own push is a state push of the ledger, so
     // this never shares again for its own sake.
-    const pushAtEnd = atEnd && log.some((r) => owedPush(r, ledgerRepo));
+    // A branch push only: a state push (the command's own, made after this, or another
+    // repository's) keeps the 15 minutes, so a ledger elsewhere is not pushed once per command
+    // (C47 cold review).
+    const pushAtEnd = atEnd && log.some((r) => owedPush(r, ledgerRepo) && !r.state);
     if (!pushAtEnd && now() - lastAt < (pending ? (atEnd ? 0 : 60) : Math.max(SHARE_ALONE_S, pacing().share_s)) * 1000) return 0;
     if (!pending && !log.some((r) => (r.kind === 'gh' && Number(r.content === true ? 1 : r.content) > 0) || owedPush(r, ledgerRepo))) return 0;
   }

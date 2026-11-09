@@ -745,7 +745,7 @@ export function sayUnshared(n, why) {
 }
 export function shareAtEnd(ledger, pending) {
   try { ledger.shareNow({ pending }); } catch (e) { let n = null; try { n = ledger.unshared?.().rows ?? null; } catch { n = null; } sayUnshared(n, e); return; }
-  try { const u = ledger.unshared?.(); if (u?.pushes) sayUnshared(u.rows, `${u.pushes} push(es) left by the share`); } catch { /* never the act's failure */ }
+  try { const u = ledger.unshared?.(); if (u?.pushes) sayUnshared(u.rows, `${u.pushes} push(es) not shared at the command's end`); } catch { /* never the act's failure */ }
 }
 export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay', 'round next']);
 export async function main(argv) {
@@ -768,8 +768,10 @@ export async function main(argv) {
   if (batched) stateBatch(true);
   let flushed = false;
   const flush = () => {
-    if (flushed || !batched) return null;
+    if (flushed) return null;
     flushed = true;
+    // An unbatched command pushed its writes as it went; its pushes are shared at its end all the same (C47 cold review).
+    if (!batched) { if (ledger && name !== 'github hook') shareAtEnd(ledger, 0); return null; }
     // This clone's GitHub use, shared with the command's push (R17, ghshare.mjs).
     // Not from the hook: a hook run shares nothing (cold review of R17c: it pushed from plain Bash calls).
     // A push others must count is shared now, whatever the 15 minutes (C47); a share that fails or
@@ -780,7 +782,7 @@ export async function main(argv) {
   };
   // A command ended early still pushes what it wrote: at exit, and on SIGTERM, SIGHUP or SIGINT
   // (a timeout, or publish halting its run); a SIGKILL's writes stay kept for the next command.
-  if (batched) {
+  {
     endFlush = () => { const e = flush(); if (e) console.error(`p3 ${name}: ${e.message}`); };
     if (!endHooked) {
       endHooked = true;

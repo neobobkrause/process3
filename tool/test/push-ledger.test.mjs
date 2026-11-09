@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { shareUsage, stateShare, unshared, USE_DIR } from '../lib/ghshare.mjs';
+import * as pace from '../lib/pace.mjs';
 import { PACING_DEFAULTS, pushTurn, useShared } from '../lib/pace.mjs';
 import { shareAtEnd } from '../p3.mjs';
 import { git } from '../lib/util.mjs';
@@ -57,6 +58,13 @@ test('a second push within 15 minutes of a share is shared at the command\'s end
   assert.equal(unshared(root, 'o/p').pushes, 0);
   assert.ok(unshared(root, 'o/p').rows >= 1, 'the share\'s own push, logged');
   assert.equal(shareUsage(root, null, { now: () => at + 180e3, atEnd: true, ledgerRepo: 'o/p' }), 0, 'no share for the share\'s own push');
+  // A state push of another repository (a product's, its ledger elsewhere) keeps the 15 minutes:
+  // a ledger elsewhere is not pushed once more per command (cold review of C47).
+  const { logEvent } = pace;
+  logEvent('push', 'origin HEAD:process-state', root, { repo: 'o/other', state: true });
+  assert.equal(unshared(root, 'o/p').pushes, 0);
+  assert.equal(shareUsage(root, null, { now: () => at + 240e3, atEnd: true, ledgerRepo: 'o/p' }), 0, 'a state push waits for the 15 minutes');
+  assert.ok(shareUsage(root, null, { now: () => at + 20 * 60e3, atEnd: true, ledgerRepo: 'o/p' }) >= 1, 'and is shared after them');
 });
 
 test('a share at the end that fails or leaves a push behind says so on stderr, one line, and never fails the command', (t) => {
@@ -70,7 +78,7 @@ test('a share at the end that fails or leaves a push behind says so on stderr, o
   shareAtEnd({ shareNow: () => { throw new Error('x'); }, unshared: () => { throw new Error('y'); } }, 0);
   assert.deepEqual(err, [
     'github: 3 row(s) not shared (GitHub budget: paused); the next p3 command in this clone shares them',
-    'github: 2 row(s) not shared (1 push(es) left by the share); the next p3 command in this clone shares them',
+    'github: 2 row(s) not shared (1 push(es) not shared at the command\'s end); the next p3 command in this clone shares them',
     'github: this clone\'s use not shared (x); the next p3 command in this clone shares them',
   ]);
 });
