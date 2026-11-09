@@ -44,3 +44,12 @@ Two read-only audits on process3 data (the findings log L<n>, git history, DECIS
 - B4: CI on one Node version for PRs (two today).
 - B5: GitHub ledger/pacing subsystem cut to counting plus backoff on GitHub's own 403/429/5xx.
 - B6: Close the review-trigger trial (keep the `test` trigger).
+
+## Copy-side data (BOB bob-353, read-only subagent, 14:15-14:20Z)
+- Lands by day, 4-9 Nov: serial job PRs 135/92/34/0/1/0; layer lands 0/0/31/126/74/3. Pin moves 45/18/7/10/12/6 (98 in all); syncs 0/0/2/30/10/3.
+- Layers, open to merged (h): L7 1.5, L8 4.6, L9 8.9 (6.3 of it idle on pending triage), L10 12.5 (9.2 dormant; last land to merge 11.2), L11 14.1 (28 deferred), L12 13.6, L13 5.6 (2.85 on sync and pin).
+- Gates: 43.6 h in total. Code gates median 4.7 min; base-red gates median 24.8, max 81. The layer-sync full gate (1094) took 55 min. 3.6 gate runs per land.
+- Fresh attempt median 12 min (4 Nov) rising to 42-65 min (9 Nov).
+- BLOCKED reasons, 4-8 Nov (129): ruling awaited 33; needs another module's change 29; provider not built 23; requirements over cap 20; tool or process refusal 18.
+- Notices: users cleared at the merge 146/143/65 on 4-6 Nov, then **0 from 7 Nov**. DEFECT: the layer land path never runs triageAtMerge, so every user went to a worker. The fix is in C56. Notice to recorded median: 0.2 h (4-6 Nov), 52.4 h (7 Nov), 18.3 h (8 Nov), 7.0 h (9 Nov).
+- reader-container:1088 raised no notice although its land changed a provides test (a gap, fail-open; noted, not built).
