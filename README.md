@@ -163,6 +163,14 @@ Everything this releases is for development only (Bob's word, 3 Nov): no public 
 | `walk_reports` | the files the walk writes, kept on the state branch under `deploys/<slug>/<UTC time>/`, masked; one over `max_file_bytes` recorded as not stored; report.json's counts in the row |
 | `internal_walk` | required (Bob, 7 Nov: "Required, tool-started"; setup check's `internal-walk` is missing without it), or Bob's recorded exemption `{"none": "<reason>", "by": "Bob, <date>"}` (his word only; setup check reads it `not configured: <reason> (<by>)`); `{"run": argv or argvs, "timeout_minutes": the whole run's, default 30, "reports": [paths]}`: the product's internal walk (offline, for example Miniflare on loopback; Bob, 4 Nov), run at each round close by the round-close run, never a gate. Where it is set, the round-close run is this walk alone (`walk round`), and the deploy, its dry run and its live walk run only as the release deployment, once a round's internal walk is clean (BD-R1, C43); where it is not, the round-close run is `deploy dev` |
 
+`walk` in `process/config.json` (optional; C43, Bob, 8 Nov: "run as many walks as is reasonable to speed up the walking process. (But be careful that there aren't too many external walkers to cause the Cloudflare system to exceed limits of the account."): how many walkers run at once. The tool hands each walk stage its count as `{concurrency}` in its argvs and `P3_WALK_CONCURRENCY` in its environment; the live walk also gets `P3_WALK_BROWSER_STARTS_PER_MINUTE`. How the walkers use them is the product's.
+
+| key | what |
+|---|---|
+| `internal_concurrency` | the internal walk's count; default the runner's CPUs (`os.availableParallelism`) |
+| `live_concurrency` | the live walk's count; default, and never more than, the cap: 85% of Cloudflare's published concurrent browsers per account for the plan (Browser Rendering limits, read 9 Nov 2026: Free 3, Paid 200, so 2 or 170); browser starts at 85% of the new-browser rate (Free 1 every 20 s, Paid 3 a second, so 2 or 153 a minute). Workers and Durable Objects publish no limit a walker count reaches first (`tool/lib/walkcfg.mjs` cites the pages) |
+| `cloudflare_plan` | `"free"` (default, the tighter) or `"paid"`, the product account's Workers plan |
+
 A development deployment is removed with `wrangler delete`. The product binds no Workers KV, so the deploy token carries no KV scope (`setup/conditions.json`, `deploy-token`), and `wrangler delete` may then exit with an error about Workers KV after the delete itself succeeded. Count that follow-up error as success only after confirming the script is gone: a read of `accounts/{account}/workers/scripts/{name}` answers 404 (or the script is absent from the account's list of scripts). Any other error, or a script still there, is a failed removal.
 
 ## Onboarding

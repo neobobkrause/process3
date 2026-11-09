@@ -23,6 +23,7 @@ import { flowRows } from './layerflow.mjs';
 import { layersAt } from './layerbase.mjs';
 import { closedRows, layerState, onMainOf, status } from './status.mjs';
 import { install } from './suite.mjs';
+import { walkConcurrency, walkEnv, walkLine } from './walkcfg.mjs';
 import { Fail, NO_TOKENS, depth, fail, git, keepStep, loadConfig, now, repoSlug, run, withTemp } from './util.mjs';
 
 export { DEPLOYS_FILE, RELEASE_PATH_GAP };
@@ -53,7 +54,7 @@ export function deployConfig(cfg) {
   if (t !== undefined && !(Number.isInteger(t) && t > 0 && t <= 360)) fail('deploy.timeout_minutes must be whole minutes from 1 to 360');
   const wr = reportPaths(d.walk_reports ?? [], 'walk_reports');
   const iw = internalWalkOf(d.internal_walk)?.walk || null;
-  return { internal_walk: iw, walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: stepsOf(d.dry_run, 'dry_run'), deploy: stepsOf(d.deploy, 'deploy'), walk: stepsOf(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
+  return { concurrency: walkConcurrency(cfg), internal_walk: iw, walk_reports: wr, slug_prefix: d.slug_prefix, dry_run: stepsOf(d.dry_run, 'dry_run'), deploy: stepsOf(d.deploy, 'deploy'), walk: stepsOf(d.walk, 'walk'), guard_line: d.guard_line.trim(), timeout_minutes: t || 30 };
 }
 
 // A step marks a value secret with a line `::add-mask::<value>`, as GitHub Actions does. The
@@ -356,7 +357,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   let stopped = b.findings.length ? 'build' : ok ? null : 'dry_run';
   if (ok) { ok = go('deploy', dep.deploy); if (!ok) stopped = 'deploy'; }
   const tWalk = Date.now();
-  if (ok) { ok = go('walk', dep.walk); if (!ok) stopped = 'walk'; }
+  if (ok) { log(walkLine(dep.concurrency, true)); ok = go('walk', dep.walk, { env: walkEnv(dep.concurrency, true) }); if (!ok) stopped = 'walk'; }
   const minutes = Math.round((Date.now() - t0) / 6000) / 10;
   const row = { row: 'dev-deploy', tranche: cfg.tranche, slug: s, commit: tip, layer, ok, stopped, results, minutes, at: now() };
   // The walk's reports, as the walker wrote them (masked values as ***), under deploys/<slug>/<UTC
@@ -407,7 +408,7 @@ export function walkRound(root, { slug, log = console.log, io: given = {}, repo 
   log(`each step's whole output is kept under ${logs}`);
   const go = stepRunner(root, { io, log, logs, masks, results, dep, slug: s });
   const b = prepare(root, cfg, dep, { io, log, ref: tip, results });
-  const inner = b.findings.length ? null : internalWalk(root, cfg, dep.internal_walk, go);
+  const inner = b.findings.length ? null : internalWalk(root, cfg, dep, go, log);
   const minutes = Math.round((Date.now() - t0) / 6000) / 10;
   // ok: the walk ran (its findings are counted in internal_walk, as deploy dev's walk's in walk).
   const row = { row: 'round-walk', tranche: cfg.tranche, slug: s, commit: tip, layer: rc.layer, ok: !!inner, stopped: inner ? null : 'build', results, minutes, at: now() };
@@ -429,13 +430,14 @@ export function walkRound(root, { slug, log = console.log, io: given = {}, repo 
 // whole in its file, masked; returns false at the first failure.
 function stepRunner(root, { io, log, logs, masks, results, dep, slug }) {
   const put = { out: (t) => log(t.replace(/\n$/, '')), err: (t) => log(t.replace(/\n$/, '')), note: log };
-  const go = (stage, argvs, { guard = false, deadline = null, unset = [] } = {}) => {
+  // env: the walk stages' concurrency (walkcfg.mjs), also substituted for {concurrency}.
+  const go = (stage, argvs, { guard = false, deadline = null, unset = [], env = null } = {}) => {
     for (const a of argvs) {
-      const argv = a.map((x) => x.split('{slug}').join(slug));
+      const argv = a.map((x) => x.split('{slug}').join(slug).split('{concurrency}').join(env?.P3_WALK_CONCURRENCY ?? '1'));
       if (deadline && Date.now() >= deadline) { results.push({ stage, name: redact(argv.join(' '), masks), exit: 1, seconds: 0, timed_out: true }); log(`${stage}: out of time, not run: ${redact(argv.join(' '), masks)}`); return false; }
       log(`::group::${redact(`${stage}: ${argv.join(' ')}`, masks)}`);
       const timeout = deadline ? Math.max(1, deadline - Date.now()) : dep.timeout_minutes * MINUTE;
-      const r = io.exec(argv[0], argv.slice(1), { cwd: root, timeout, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT', ...unset] });
+      const r = io.exec(argv[0], argv.slice(1), { cwd: root, timeout, unset: [...NO_TOKENS, 'NODE_TEST_CONTEXT', ...unset], ...(env ? { env } : {}) });
       collectMasks(r.stdout, masks);
       collectMasks(r.stderr, masks);
       keepStep(logs, results.length + 1, stage, redact(r.stdout, masks), redact(r.stderr, masks), put);
@@ -468,11 +470,13 @@ function prepare(root, cfg, dep, { io, log, ref, results }) {
 // The internal walk (K4781: offline, Miniflare on loopback): its steps within its one timeout,
 // without the deploy's secrets (the config's "environment" names, any CLOUDFLARE_ or CF_ variable);
 // its reports read raw as soon as it ends.
-function internalWalk(root, cfg, iw, go) {
+function internalWalk(root, cfg, dep, go, log) {
+  const iw = dep.internal_walk;
   const t0 = Date.now();
+  log(walkLine(dep.concurrency, false));
   const unset = [...(Array.isArray(cfg.environment) ? cfg.environment : []), ...Object.keys(process.env).filter((k) => /^(CLOUDFLARE|CF)_/.test(k))];
   const from = go.results.length;
-  go('internal_walk', iw.run, { deadline: t0 + iw.timeout_minutes * MINUTE, unset });
+  go('internal_walk', iw.run, { deadline: t0 + iw.timeout_minutes * MINUTE, unset, env: walkEnv(dep.concurrency, false) });
   const ran = go.results.slice(from);
   const last = ran.at(-1);
   return { exit: last.exit, timed_out: ran.some((x) => x.timed_out), seconds: Math.round((Date.now() - t0) / 1000), read: iw.reports.map((p) => ({ from: p, ...readReport(root, p, t0, cfg.max_file_bytes) })) };
@@ -517,7 +521,7 @@ export function walkInternal(root, { log = console.log, io: given = {} } = {}) {
   const masks = new Set();
   const go = stepRunner(root, { io, log, logs, masks, results: [], dep, slug: '' });
   if (prepare(root, cfg, dep, { io, log, ref: head, results: go.results }).findings.length) { log('the build failed: no internal walk ran, nothing recorded'); return { ok: false }; }
-  const inner = internalWalk(root, cfg, dep.internal_walk, go);
+  const inner = internalWalk(root, cfg, dep, go, log);
   const dir = `walks/internal/${head.slice(0, 10)}-${now().replace(/[:.]/g, '-')}`;
   const [kept] = keepReports([{ dir, read: inner.read }], masks, cfg.max_file_bytes);
   const r = innerRow(inner, kept, log);

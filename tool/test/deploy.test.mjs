@@ -518,6 +518,32 @@ test('walk round with an internal walk: the walk alone, without the tokens or Cl
   assert.throws(() => walkRound(open, { io, repo, log: quiet }), /no round walk now: a round's walk belongs to its close, never between layers \(the first round is open: layer[s]? .*not closed\)/);
 });
 
+// C43, Bob, 8 Nov: as many walkers as is reasonable, within Cloudflare's limits (walkcfg.mjs).
+test('walk concurrency reaches each walk stage: the internal walk the runner\'s count, the live walk its capped count and browser-start rate, as env and {concurrency}', () => {
+  const seen = [];
+  const exec = (c, a, o) => { seen.push({ a, env: o.env }); return run(c, a, o); };
+  const dep = { ...DEP, internal_walk: { run: ['node', '-e', 'process.exit(0)', '{concurrency}'], reports: [] } };
+  const { root } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', walk: { internal_concurrency: 6 } } });
+  assert.equal(closeLayer(root, '1').ok, true);
+  const out = [];
+  walkRound(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) });
+  const iw = seen.find((x) => x.a.includes('process.exit(0)'));
+  assert.deepEqual(iw.env, { P3_WALK_CONCURRENCY: '6' });
+  assert.equal(iw.a.at(-1), '6', '{concurrency} substituted');
+  assert.match(out.join('\n'), /internal walk: 6 at once/);
+  // No internal walk: deploy dev's live walk, held to Workers Free's cap though the config asks for more.
+  seen.length = 0;
+  const { root: r2 } = withOrigin({ ...product(), 'process/config.json': { deploy: DEP, plan: 'close', walk: { live_concurrency: 9 } } });
+  assert.equal(closeLayer(r2, '1').ok, true);
+  const said = [];
+  deployDev(r2, { io: { ...io, exec }, repo, log: (m) => said.push(m) });
+  const walk = seen.at(-1);
+  assert.deepEqual(walk.env, { P3_WALK_CONCURRENCY: '2', P3_WALK_BROWSER_STARTS_PER_MINUTE: '2' });
+  assert.ok(seen.slice(0, -1).every((x) => x.env === undefined), 'the dry run and the deploy get none');
+  assert.match(said.join('\n'), /live walk: 2 at once .*held to the cap/);
+  assert.throws(() => deployConfig({ ...cfgWith(DEP), walk: { live_concurrency: -1 } }), /walk.live_concurrency must be a whole number/);
+});
+
 test('walk round: an internal walk that times out is recorded as such; a failed build runs no walk and counts one finding', () => {
   const dep = { ...DEP, internal_walk: { ...IW, timeout_minutes: 1 } };
   const { root } = withOrigin(product(dep));
