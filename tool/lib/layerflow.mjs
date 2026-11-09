@@ -762,7 +762,9 @@ export const layerMergeLine = (v) => (v?.kind === 'open' && v.ready ? `layer ${v
 export const layerStartAct = (v) => (v?.kind === 'open' && v.startable.length ? `${P3} layer jobs ${v.n}, then each job start it lists`
   : v?.kind === 'open' && v.ready ? `${P3} layer merge ${v.n}`
     : v?.kind === 'open' && v.early?.length ? `${P3} layer jobs ${v.n}, then each early start it lists (layer ${v.early_next})`
+    : v?.kind === 'next' && v.round ? `${P3} round next --apply (opens layer ${v.n}, round ${v.round}, and prints its job starts)`
     : v?.kind === 'next' ? `${P3} layer open ${v.n}`
+    : v?.kind === 'done' && v.rounds === 'held' ? `${P3} round next, then ${P3} round next --apply (records the walk's findings, opens round ${v.round})`
       : `${P3} status --role bob (the layer flow's next act)`);
 
 // The lines status --role bob prints in the layer flow: the open layer's modules by state and the
@@ -773,9 +775,9 @@ export function layerLines(root, cfg, { slug, io = {}, view, merge = true } = {}
   const v = view || openLayer(root, cfg, { slug, io });
   const { n } = v;
   if (v.kind === 'stale') return [`layer flow: layer ${n}'s flow rows are an earlier tranche's (merged to main): a second tranche under the flow is not built; ask the coordinator`];
-  if (v.kind === 'next') return [`layer flow: layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : v.round ? ` (round ${v.round}, map layer ${v.of}${v.walk ? `, from the walk ${v.walk}` : ''}; ${v.mods.join(', ')})` : ''} is next and not open: \`${P3} layer open ${n}\``];
+  if (v.kind === 'next') return [`layer flow: layer ${n}${v.completion ? ` (the completion round, ${cfg.completion_file})` : v.round ? ` (round ${v.round}, map layer ${v.of}${v.walk ? `, from the walk ${v.walk}` : ''}; ${v.mods.join(', ')})` : ''} is next and not open: \`${P3} layer open ${n}\`${v.round ? `, or \`${P3} round next --apply\`, which opens it and prints its \`job start\` commands (C46)` : ''}`];
   if (v.kind === 'none') return [`layer flow: no layer map (${cfg.layers_file}): jobs start on the tranche from next work`];
-  if (v.kind === 'done' && v.rounds === 'held') return [`layer flow: round ${v.round} opens from the walk's findings once each is recorded: ${v.why}`];
+  if (v.kind === 'done' && v.rounds === 'held') return [`layer flow: round ${v.round} opens from the walk's findings once each is recorded: ${v.why}`, `the one next act: \`${P3} round next\` (a dry run), then \`${P3} round next --apply\`: each finding recorded, the round's first layer opened, its \`job start\` commands printed (C46)`];
   if (v.kind === 'done') return [v.rounds === 'walk' ? `layer flow: every layer of round ${v.round} has merged; its walk ends it (the round-close run, BD-R1)` : v.rounds === 'clean' ? `layer flow: every layer has merged; the walk ended round ${v.round}, and no module is flawed; once that walk's findings are recorded and none is a flaw, the release path follows it (BD-R1)` : 'layer flow: every layer has merged'];
   const L = [...(v.sync ? [v.sync.line] : []), `layer flow: layer ${n}${v.round ? ` (round ${v.round}, map layer ${v.of})` : ''} open on ${layerBranch(n)}; ${stateCounts(v.states)}`];
   for (const s of v.states.filter((q) => q.state === 'rescheduled')) L.push(`- ${s.id} rescheduled: ${s.why}`);

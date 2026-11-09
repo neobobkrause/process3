@@ -20,6 +20,7 @@ import { merge, mergePlain } from './lib/merge.mjs';
 import { capCheck } from './lib/cap.mjs';
 import { deployDev, deployRelease, walkInternal, walkRound } from './lib/deploy.mjs';
 import { found } from './lib/found.mjs';
+import { roundNext } from './lib/roundnext.mjs';
 import { hold, OWED_FILE, owe, owes, paidUpTo, paysOwed } from './lib/hold.mjs';
 import { checkVersion, releaseBody, releaseDev, releaseRun, releaseSign } from './lib/release.mjs';
 import { leadFetch, trancheReport } from './lib/report.mjs';
@@ -274,6 +275,19 @@ const commands = {
     if (a.covers === true) fail('--covers <n>: how many of the walk\'s findings this one stands for');
     found(root, mod, String(text), { from: a.from, covers: a.covers, write: !!a.write, offline: !!a.offline });
     return 0;
+  },
+
+  // round next [--apply] [--findings <file>] (C46): from the latest round walk, in one run: its findings
+  // by module (one entry per distinct flaw, with its --covers count; a file of `<module>: <text>[, covers <n>]`
+  // lines in place of the walk's own texts), each recorded as found records it (an owed reopen, or a
+  // found mark in one plain pull request the merge tool merges), the PD-16 set-aside, the round's
+  // lowest layer opened and its `job start` commands printed (BOB starts them). Also: a round's next
+  // layer opened once one merges; the open layer's jobs; the round's walk owed; the release path
+  // after a clean walk. A dry run unless --apply; run again after a partial run, it goes on.
+  'round next': (a, root) => {
+    if (a.findings === true) fail('--findings <file>: a file of `<module>: <text>` lines');
+    if (a.apply !== undefined && a.apply !== true) fail('--apply takes no value');
+    return roundNext(root, { apply: !!a.apply, findingsFile: a.findings, by: senderOf(root, a.as) }).ok ? 0 : 1;
   },
 
   // hold <module:<id>|layer:<n>|slots:<n>> --why "<reason>" --by <session> [--prs <n>[,<n>...]] [--until <ISO time|<n>m|<n>h>]; hold --end <id> --by <session>:
@@ -696,11 +710,11 @@ export function endsAfter(root, cfg, name, code, { expire = expireRecords, err =
   try { return expire(root, cfg); } catch (e) { err(`records whose condition is met were not ended: ${e.message}`); return null; }
 }
 // The acts after which the tool ends the records whose condition is met (R13).
-export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete', 'block', 'layer open', 'layer land', 'layer merge', 'layer join', 'layer publish', 'tranche open', 'tranche close', 'lane start', 'lane end', 'lane ask', 'notice triage']);
+export const ENDS_AFTER = new Set(['merge', 'hold', 'job start', 'job complete', 'block', 'layer open', 'layer land', 'layer merge', 'layer join', 'layer publish', 'round next', 'tranche open', 'tranche close', 'lane start', 'lane end', 'lane ask', 'notice triage']);
 // The commands whose state writes push at once (R17): see main.
 let endFlush = () => {};
 let endHooked = false;
-export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay']);
+export const UNBATCHED = new Set(['job start', 'lane start', 'start', 'handover', 'state replay', 'round next']);
 export async function main(argv) {
   const a = parseArgs(argv);
   const two = a._.slice(0, 2).join(' ');
