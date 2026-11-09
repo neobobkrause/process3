@@ -10,10 +10,12 @@
 //                   (node .process/tool/p3.mjs, node tool/p3.mjs) pass, and everything else.
 // Exit 2 blocks the call, with the reason on stderr for the session (Claude Code's hook contract).
 // The settings that call it are Bob's (notes/r17c-settings.md).
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { kickRefresh, LEDGER_CACHE, ledgerOf, peekShare, refreshDone, stateShare } from './ghshare.mjs';
+import { fileURLToPath } from 'node:url';
+import { kickRefresh, LEDGER_CACHE, lastShareAt, ledgerOf, peekShare, refreshDone, stateShare, unshared } from './ghshare.mjs';
 import { commonDir, hookPacing, pacing, Paced, primaryState, reserve, TOOL, useShared } from './pace.mjs';
 import { CONFIG_FILE, loadConfig, repoRoot } from './util.mjs';
 
@@ -138,7 +140,7 @@ export function hookLoadedLine(id = process.env.CLAUDE_CODE_SESSION_ID) {
   if (hookSeen(id) !== false) return null;
   return 'GitHub pacing hook: NOT LOADED in this session (no call of this session has gone through it: the project root Claude Code started in has no .claude/settings.json naming tool/hook.mjs or .process/tool/hook.mjs, as a container rooted at /home/user or an older branch\'s checkout has; or the loaded hook is a pin from before C34, which does not record itself). Its GitHub connector calls may not be in the ledger. Until a session starts with it loaded (PD-13): before each GitHub connector call, pipe its JSON to the hook from a process3 checkout at the tranche, `echo \'{"tool_name":"mcp__github__<tool>","tool_input":{...}}\' | node tool/hook.mjs`, and do not make the call if it exits 2.';
 }
-export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick = process.env.NODE_TEST_CONTEXT ? () => false : kickRefresh, opts = {} } = {}) {
+export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick = process.env.NODE_TEST_CONTEXT ? () => false : kickRefresh, later = process.env.NODE_TEST_CONTEXT ? () => false : kickShare, opts = {} } = {}) {
   if (!input) { err('p3 github hook: no hook JSON on stdin'); return 2; }
   stampHook(input);
   const name = String(input.tool_name || '');
@@ -150,14 +152,90 @@ export function hookRun(input, cwd, { err = (m) => console.error(m), share, kick
     try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
     const write = WRITE.test(name.slice(CONNECTOR.length));
     const was = process.env.NODE_TEST_CONTEXT || process.env.GITHUB_ACTIONS === 'true';
-    useShared(share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : peekShare(root, { kick, key: ledgerKey(root, cfg) }));
+    const sh = share !== undefined ? share : write ? (was ? null : stateShare(root, cfg)) : null;
+    useShared(write ? sh : peekShare(root, { kick, key: ledgerKey(root, cfg) }));
     try {
       d = hookDecision(input, root, write ? opts : { p: { ...pacing(), gh_interval_ms: 0 }, rateLimit: () => undefined, ...opts });
     } finally { useShared(null); }
+    // C52: the write's row reaches the ledger without a later p3 command. Never a read's, never from
+    // a workflow, never the call's failure.
+    if (write && !d.block && process.env.GITHUB_ACTIONS !== 'true') hookShare(root, sh, { err, later });
   }
   if (d.block) { err(`GitHub pacing (P27): ${d.block}`); return 2; }
   return 0;
 }
+// C52 (9 Nov: PR 290's opening stayed in its clone's log, unexplained, until a p3 command ran by
+// hand): after a content-creating connector call, its row is shared from the hook. At once when the
+// clone last shared HOOK_SHARE_S or more ago; else one detached share (tool/hook.mjs --share, one
+// at a time per clone) waits until then and carries every row logged meanwhile, so a burst of
+// writes (a review's comments) is one ledger push per HOOK_SHARE_S, not one each. Only a
+// connector write starts it (never a read, a Bash call, or the share's own push, which is no
+// content-creating call), so it cannot loop. A failure is one line on stderr (a detached share's,
+// on the next connector write's), and never the call's: the hook returns 0 regardless.
+// P3_HOOK_SHARE_S: shorter in a fixture only.
+export const HOOK_SHARE_S = Number(process.env.P3_HOOK_SHARE_S) > 0 ? Number(process.env.P3_HOOK_SHARE_S) : 30;
+const SHARING = 'p3-gh-sharing';
+const SHARE_ERR = 'p3-gh-share.err';
+const oneLine = (e) => String(e?.message ?? e).split('\n')[0];
+export function hookShare(root, sh, { err = (m) => console.error(m), later = kickShare, now = Date.now } = {}) {
+  try {
+    const f = join(commonDir(root), SHARE_ERR);
+    if (existsSync(f)) { const m = readFileSync(f, 'utf8').trim(); rmSync(f, { force: true }); if (m) err(m); }
+  } catch { /* a sign, never the call's failure */ }
+  if (!sh) return null;
+  try {
+    // Shared already (the call's own reserve shares by the 15-minute rule): nothing to do.
+    if (!unshared(root).content) return 0;
+    if (now() - lastShareAt(root) >= HOOK_SHARE_S * 1000) return sh.shareContent();
+    later(root, { now });
+    return 0;
+  } catch (e) {
+    try { err(`github: this connector call's row not shared (${oneLine(e)}); the next connector write or p3 command in this clone shares it`); } catch { /* never the call's failure */ }
+    return null;
+  }
+}
+const HOOK_ENTRY = fileURLToPath(new URL('../hook.mjs', import.meta.url));
+// One detached share at a time per clone (the refresh's marker rule): a marker older than
+// 2 * HOOK_SHARE_S (a share killed) is taken over.
+export function kickShare(cwd, { now = Date.now, entry = HOOK_ENTRY } = {}) {
+  const f = join(commonDir(cwd), SHARING);
+  try { writeFileSync(f, String(now()), { flag: 'wx' }); } catch {
+    let at = 0;
+    try { at = Number(readFileSync(f, 'utf8')) || 0; } catch { at = 0; }
+    if (now() - at < 2 * HOOK_SHARE_S * 1000) return false;
+    writeFileSync(f, String(now()));
+  }
+  const child = spawn(process.execPath, [entry, '--share'], { cwd, detached: true, stdio: 'ignore', env: { ...process.env, P3_SHARE_MARK: readFileSync(f, 'utf8') } });
+  child.on('error', () => { /* not started: the next write or p3 command shares */ });
+  child.unref();
+  return true;
+}
+// The detached share (tool/hook.mjs --share): waits until HOOK_SHARE_S after the clone's last
+// share, shares, lets go of the marker, and starts one more only when this one shared and a
+// connector write logged since is still unshared (a write whose kick met the marker). A failure is
+// kept, one line, for the next connector write to say; no retry of its own.
+const sleepMs = (ms) => { if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+export function hookShareLater(cwd, { now = Date.now, sleep = sleepMs, mark = process.env.P3_SHARE_MARK, again = kickShare } = {}) {
+  let root = cwd;
+  let ok = false;
+  let rest = 0;
+  try {
+    root = repoRoot(cwd);
+    let cfg = null;
+    try { cfg = existsSync(join(root, CONFIG_FILE)) ? loadConfig(root) : null; } catch { cfg = null; }
+    sleep(Math.min(HOOK_SHARE_S * 1000, lastShareAt(root) + HOOK_SHARE_S * 1000 - now()));
+    const sh = stateShare(root, cfg);
+    if (sh) { ok = sh.shareContent() > 0; rest = unshared(root).content; }
+  } catch (e) {
+    try { writeFileSync(join(commonDir(root), SHARE_ERR), `github: a connector write's row not shared (${oneLine(e)}); the next connector write or p3 command in this clone shares it\n`); } catch { /* none */ }
+  } finally {
+    const f = join(commonDir(root), SHARING);
+    try { if (mark === undefined || readFileSync(f, 'utf8') === mark) rmSync(f, { force: true }); } catch { /* none */ }
+  }
+  if (ok && rest) { try { again(root, { now }); } catch { /* the next write or p3 command shares */ } }
+  return ok;
+}
+
 // The background refresh the read path starts (tool/hook.mjs --refresh): the ledger's tip asked of
 // GitHub, fetched only when it moved; GitHub's primary count when a minute old. Never fails loudly.
 export function hookRefresh(cwd) {
