@@ -24,7 +24,7 @@ test('walk concurrency: internal defaults to the runner\'s CPUs; live to 85% of 
   assert.equal(d.ai, false);
   assert.equal(walkEnv(walkConcurrency({ walk: { ai: true } }), true).P3_WALK_AI, '1');
   assert.match(walkLine(d, true), /AI off: the AI-assisted journeys are not walked \(BD-R5\)/);
-  assert.deepEqual(walkEnv(c, false), { P3_WALK_CONCURRENCY: '3' });
+  assert.deepEqual(walkEnv(c, false), { P3_WALK_CONCURRENCY: '3', P3_WALK_AI: '0' });
   assert.equal(walkConcurrency({}, { cpus: 0 }).internal, 1);
   for (const [w, re] of [[{ live_concurrency: 0 }, /whole number/], [{ internal_concurrency: 1.5 }, /whole number/], [{ cloudflare_plan: 'pro' }, /"free" or "paid"/], [{ fast: true }, /unknown keys: fast/], [{ ai: 'yes' }, /walk.ai must be true or false/], [[], /must be an object/]]) assert.throws(() => walkConcurrency({ walk: w }), re, JSON.stringify(w));
   assert.ok(CLOUDFLARE_LIMITS.pages.every((u) => u.startsWith('https://developers.cloudflare.com/')));

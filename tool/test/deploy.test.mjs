@@ -320,6 +320,8 @@ test('walkSummary: any shape of report.json gives counts or nothing, never a thr
   // BD-R5: the journeys the walker marks AI-assisted, from steps or journeys.
   assert.deepEqual(walkSummary(JSON.stringify({ steps: [{ journey: 'assist', ai: true, ok: true }, { journey: 'plain', ok: true }], journeys: [{ name: 'draft', ai: true }], failures: [] })).ai_journeys, ['assist', 'draft']);
   assert.equal(walkSummary(JSON.stringify({ steps: [{ journey: 'plain' }] })).ai_journeys, undefined);
+  // journey-check's notes for the assistant steps it did not walk (walk.ai off).
+  assert.deepEqual(walkSummary(JSON.stringify({ steps: [], walk: { notes: ['ask: not walked, the assistant does not work (K3717)', 'other note'] }, notes: ['draft: not walked, x'] })).not_walked, ['ask', 'draft']);
 });
 
 test('deploy dev: a mask declared in a later report, or held JSON-escaped, is *** in every stored report; a failed state write leaves the row and reports beside the step files', () => {
@@ -528,23 +530,24 @@ test('walk round with an internal walk: the walk alone, without the tokens or Cl
 test('walk concurrency reaches each walk stage: the internal walk the runner\'s count, the live walk its capped count and browser-start rate, as env and {concurrency}', () => {
   const seen = [];
   const exec = (c, a, o) => { seen.push({ a, env: o.env }); return run(c, a, o); };
-  const dep = { ...DEP, internal_walk: { run: ['node', '-e', 'process.exit(0)', '{concurrency}'], reports: [] } };
+  const dep = { ...DEP, internal_walk: { run: ['node', '-e', 'process.exit(0)', '{concurrency}', '{assistant}'], reports: [] } };
   const { root } = withOrigin({ ...product(dep), 'process/config.json': { deploy: dep, plan: 'close', walk: { internal_concurrency: 6 } } });
   assert.equal(closeLayer(root, '1').ok, true);
   const out = [];
   walkRound(root, { io: { ...io, exec }, repo, log: (m) => out.push(m) });
   const iw = seen.find((x) => x.a.includes('process.exit(0)'));
-  assert.deepEqual(iw.env, { P3_WALK_CONCURRENCY: '6' });
-  assert.equal(iw.a.at(-1), '6', '{concurrency} substituted');
+  assert.deepEqual(iw.env, { P3_WALK_CONCURRENCY: '6', P3_WALK_AI: '0' });
+  assert.equal(iw.a.at(-1), '6', '{concurrency} substituted; {assistant} dropped with walk.ai off');
   assert.match(out.join('\n'), /internal walk: 6 at once/);
   // No internal walk: deploy dev's live walk, held to Workers Free's cap though the config asks for more.
   seen.length = 0;
-  const { root: r2 } = withOrigin({ ...product(), 'process/config.json': { deploy: DEP, plan: 'close', walk: { live_concurrency: 9 } } });
+  const { root: r2 } = withOrigin({ ...product(), 'process/config.json': { deploy: { ...DEP, walk: [[...DEP.walk[0], '{assistant}']] }, plan: 'close', walk: { live_concurrency: 9, ai: true } } });
   assert.equal(closeLayer(r2, '1').ok, true);
   const said = [];
   deployDev(r2, { io: { ...io, exec }, repo, log: (m) => said.push(m) });
   const walk = seen.at(-1);
-  assert.deepEqual(walk.env, { P3_WALK_CONCURRENCY: '2', P3_WALK_BROWSER_STARTS_PER_MINUTE: '2', P3_WALK_AI: '0' });
+  assert.deepEqual(walk.env, { P3_WALK_CONCURRENCY: '2', P3_WALK_BROWSER_STARTS_PER_MINUTE: '2', P3_WALK_AI: '1' });
+  assert.equal(walk.a.at(-1), '--assistant', 'walk.ai on (BD-R5): {assistant} is --assistant');
   assert.ok(seen.slice(0, -1).every((x) => x.env === undefined), 'the dry run and the deploy get none');
   assert.match(said.join('\n'), /live walk: 2 at once .*held to the cap/);
   assert.throws(() => deployConfig({ ...cfgWith(DEP), walk: { live_concurrency: -1 } }), /walk.live_concurrency must be a whole number/);

@@ -4,6 +4,8 @@
 // product's walkers (deploy.internal_walk.run, deploy.walk) as argvs; how they parallelise is the
 // product's. The tool hands each walk stage its concurrency as `{concurrency}` in its argv and as
 // P3_WALK_CONCURRENCY in its environment; the live walk also gets P3_WALK_BROWSER_STARTS_PER_MINUTE.
+// walk.ai (BD-R5) reaches both walks as P3_WALK_AI, and an argv element `{assistant}` becomes
+// `--assistant` when it is on and is dropped when it is off (the product's journey-check takes it).
 // A leaf: imports node and util only.
 import { availableParallelism } from 'node:os';
 import { fail } from './util.mjs';
@@ -55,7 +57,7 @@ export function walkConcurrency(cfg, { cpus = availableParallelism() } = {}) {
   return { ai: w.ai === true, internal, live: Math.min(asked ?? cap, cap), live_max: cap, starts_per_minute: Math.max(1, Math.floor(lim.browser_starts_per_minute * WALK_TARGET)), plan, clamped: asked !== null && asked > cap };
 }
 // The environment and the argv substitution a walk stage gets.
-export const walkEnv = (c, live) => (live ? { P3_WALK_CONCURRENCY: String(c.live), P3_WALK_BROWSER_STARTS_PER_MINUTE: String(c.starts_per_minute), P3_WALK_AI: c.ai ? '1' : '0' } : { P3_WALK_CONCURRENCY: String(c.internal) });
+export const walkEnv = (c, live) => (live ? { P3_WALK_CONCURRENCY: String(c.live), P3_WALK_BROWSER_STARTS_PER_MINUTE: String(c.starts_per_minute), P3_WALK_AI: c.ai ? '1' : '0' } : { P3_WALK_CONCURRENCY: String(c.internal), P3_WALK_AI: c.ai ? '1' : '0' });
 export const walkLine = (c, live) => (live
   ? `live walk: ${c.live} at once (P3_WALK_CONCURRENCY, {concurrency}), ${c.starts_per_minute} browser starts a minute; the cap is ${c.live_max}, ${WALK_TARGET * 100}% of Cloudflare's ${CLOUDFLARE_LIMITS[c.plan].browsers} concurrent browsers on Workers ${c.plan === 'paid' ? 'Paid' : 'Free'} (read ${CLOUDFLARE_LIMITS.read}); AI ${c.ai ? 'on' : 'off: the AI-assisted journeys are not walked (BD-R5)'}${c.clamped ? '; walk.live_concurrency asked for more and was held to the cap' : ''}`
   : `internal walk: ${c.internal} at once (P3_WALK_CONCURRENCY, {concurrency})`);

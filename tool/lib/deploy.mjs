@@ -100,7 +100,11 @@ export function walkSummary(text) {
   // BD-R5: the journeys the walker marks AI-assisted (a step's or a journey's `ai: true`), by name.
   const name = (x) => String(x.journey ?? x.name ?? '').replace(/[^\x20-\x7e]/g, ' ').slice(0, 80);
   const ai = [...new Set([...steps, ...arr(j.journeys)].filter((x) => x && typeof x === 'object' && x.ai === true).map(name).filter(Boolean))].sort().slice(0, 50);
-  return { steps: steps.length, steps_ok: steps.filter((x) => x && x.ok).length, failures: failures.length, by_kind: Object.fromEntries(by_kind), ...(ai.length ? { ai_journeys: ai } : {}) };
+  // journey-check's own record (walker.mjs, K3717): each assistant step it did not walk is a note
+  // '<name>: not walked, ...' in notes (top level or under walk), never a pass or a fail.
+  const notes = [...arr(j.notes), ...arr(j.walk?.notes)];
+  const skipped = [...new Set(notes.map((n) => String(n).match(/^(.{1,80}?): not walked\b/)?.[1]).filter(Boolean).map((x) => x.replace(/[^\x20-\x7e]/g, ' ')))].sort().slice(0, 50);
+  return { steps: steps.length, steps_ok: steps.filter((x) => x && x.ok).length, failures: failures.length, by_kind: Object.fromEntries(by_kind), ...(ai.length ? { ai_journeys: ai } : {}), ...(skipped.length ? { not_walked: skipped } : {}) };
 }
 
 export function collectMasks(text, masks) {
@@ -378,7 +382,7 @@ export function deployDev(root, { slug, log = console.log, io: given = {}, repo 
   if (results.some((x) => x.stage === 'walk')) row.ai = dep.concurrency.ai;
   if (kept.length) {
     const w = row.walk = summarize(kept);
-    if (!row.ai && w.ai_journeys) w.not_walked = w.ai_journeys;
+    if (!row.ai && w.ai_journeys && !w.not_walked) w.not_walked = w.ai_journeys;
     log(`walk: ${w.steps !== undefined ? `${w.steps} steps, ${w.steps_ok} ok, ${w.failures} failures ${JSON.stringify(w.by_kind)}; ` : ''}${kept.map((k) => `${k.from} ${k.stored}`).join('; ')}`);
   }
   // Kept beside the step files before the push, so a failed state-branch write loses nothing.
@@ -443,7 +447,8 @@ function stepRunner(root, { io, log, logs, masks, results, dep, slug }) {
   // env: the walk stages' concurrency (walkcfg.mjs), also substituted for {concurrency}.
   const go = (stage, argvs, { guard = false, deadline = null, unset = [], env = null } = {}) => {
     for (const a of argvs) {
-      const argv = a.map((x) => x.split('{slug}').join(slug).split('{concurrency}').join(env?.P3_WALK_CONCURRENCY ?? '1'));
+      // `{assistant}`: --assistant with walk.ai on (BD-R5), else no argument at all.
+      const argv = a.flatMap((x) => (x === '{assistant}' ? (env?.P3_WALK_AI === '1' ? ['--assistant'] : []) : [x.split('{slug}').join(slug).split('{concurrency}').join(env?.P3_WALK_CONCURRENCY ?? '1')]));
       if (deadline && Date.now() >= deadline) { results.push({ stage, name: redact(argv.join(' '), masks), exit: 1, seconds: 0, timed_out: true }); log(`${stage}: out of time, not run: ${redact(argv.join(' '), masks)}`); return false; }
       log(`::group::${redact(`${stage}: ${argv.join(' ')}`, masks)}`);
       const timeout = deadline ? Math.max(1, deadline - Date.now()) : dep.timeout_minutes * MINUTE;
